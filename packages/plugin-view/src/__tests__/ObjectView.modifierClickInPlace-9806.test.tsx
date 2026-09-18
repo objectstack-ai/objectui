@@ -36,16 +36,23 @@
  *  - SUBJECT (`ObjectView`, no host `onRowClick`): plain click and ⌘-click are
  *    INDISTINGUISHABLE. Both reach `onNavigate(id, 'view')` — navigation in
  *    place. That equivalence IS the corrected comment's claim.
- *  - CONTROL (`ObjectGrid`, no `onRowClick` at all, same harness, same rows,
- *    same spy): the two clicks DIVERGE — `'view'` and `'new_window'`. So the
- *    harness does deliver `metaKey`, and the hook's modifier branch is live and
- *    reachable. ⛔ Do not "simplify" it away: without it the subject's
- *    equivalence is unfalsifiable, and it is the only thing separating "the
- *    unconditional hop swallows the modifier" from "nothing in this test ever
- *    held down a key".
+ *  - LIVENESS CONTROL (`ObjectGrid`, no `onRowClick` at all): the two clicks
+ *    DIVERGE — `'view'` and `'new_window'`. So the harness does deliver
+ *    `metaKey`, and the hook's modifier branch is live and reachable. ⛔ Do not
+ *    "simplify" it away: without it the subject's equivalence is unfalsifiable,
+ *    and it is the only thing separating "an unconditional hop swallows the
+ *    modifier" from "nothing in this test ever held down a key".
+ *  - ISOLATION CONTROL: the SAME `ObjectGrid` call, plus one added prop — an
+ *    unconditional `onRowClick`. The ⌘-click stops reaching `'new_window'` and
+ *    arrives at the handler instead.
  *
- * The control varies exactly ONE thing against the subject — whether an
- * unconditional `onRowClick` sits between the hook and the outcome.
+ * ⚠️ The liveness control does NOT vary one thing against the subject, and
+ * saying it did would be this card's own defect: it is a different composition
+ * and it carries `onNavigate` on the grid node, which `ObjectView` never relays
+ * into the grid schema it builds. It answers "is the probe alive", nothing
+ * more. The ISOLATION control is the one-variable pair — same component, same
+ * props, same spy, one prop added — and it is what attributes the subject's
+ * equivalence to the early return rather than to the composition.
  *
  * ## ⚠️ The source-text case, and the hazard it is built against
  *
@@ -174,11 +181,12 @@ function renderView(onNavigate: NavigateSpy) {
 }
 
 /**
- * CONTROL — the same grid the subject renders underneath, reached directly so
- * that NO `onRowClick` is supplied to `useNavigationOverlay`. Inline data keeps
- * the control independent of the subject's fetch path.
+ * CONTROL rig — the same grid the subject renders underneath, reached directly.
+ * `onRowClick` is the ONE prop the two control cases differ by, which is what
+ * makes the pair an attribution rather than an observation. Inline data keeps
+ * the controls independent of the subject's fetch path.
  */
-function renderGrid(onNavigate: NavigateSpy) {
+function renderGrid(onNavigate: NavigateSpy, onRowClick?: (...args: any[]) => void) {
   return render(
     <ActionProvider>
       <ObjectGrid
@@ -192,6 +200,7 @@ function renderGrid(onNavigate: NavigateSpy) {
           data: { provider: 'value', items: rows },
           onNavigate,
         } as any}
+        {...(onRowClick ? { onRowClick } : {})}
       />
     </ActionProvider>,
   );
@@ -237,7 +246,7 @@ describe('objectui#9806 — SUBJECT: an ObjectView row answers a modifier click 
   });
 });
 
-describe('objectui#9806 — CONTROL: with no onRowClick in the way, the same harness DOES reach the hook\'s modifier branch', () => {
+describe('objectui#9806 — LIVENESS CONTROL: with no onRowClick in the way, the same harness DOES reach the hook\'s modifier branch', () => {
   it('a plain click on a bare ObjectGrid navigates in place', async () => {
     const onNavigate = vi.fn() as NavigateSpy;
     const { container } = renderGrid(onNavigate);
@@ -259,6 +268,27 @@ describe('objectui#9806 — CONTROL: with no onRowClick in the way, the same har
       navigateActions(onNavigate),
       'the CONTROL is red — `metaKey` is not reaching the hook at all, so every SUBJECT case above measures nothing',
     ).toEqual(['new_window']);
+  });
+});
+
+describe('objectui#9806 — ISOLATION CONTROL: adding ONE prop to that same grid is what swallows the modifier', () => {
+  it('an unconditional onRowClick takes the ⌘-click away from the hook and receives the payload itself', async () => {
+    const onNavigate = vi.fn() as NavigateSpy;
+    // Unconditional, exactly as `ObjectView` hands `handleRowClick` down: the
+    // handler does not consult the event before deciding to exist.
+    const onRowClick = vi.fn();
+    const { container } = renderGrid(onNavigate, onRowClick);
+
+    fireEvent.click(await firstDataRow(container), { metaKey: true });
+
+    await waitFor(() => expect(onRowClick).toHaveBeenCalled());
+    expect(
+      navigateActions(onNavigate),
+      "the hook still reached 'new_window' despite an `onRowClick` being present — its early return is gone, and the comment on `handleRowClick` rests on that return",
+    ).not.toContain('new_window');
+    // The payload still ARRIVES — objectui#9462's repair is untouched. What the
+    // handler does with it is the whole of objectui#9806.
+    expect(onRowClick.mock.calls[0][1], 'the modifier payload stopped arriving — that is objectui#9462, not this card').toMatchObject({ metaKey: true });
   });
 });
 

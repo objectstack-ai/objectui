@@ -210,6 +210,18 @@ const ActionButtonRenderer = forwardRef<
           // (objectstack#6938). Sibling of `bodyExtra` above, same whitelist,
           // same failure mode.
           bodyShape: schema.bodyShape,
+          // The declarative single-record field write, forwarded as a PAIR.
+          // `operation` is authored BESIDE `type`, not inside it — the spec
+          // materializes `type: 'script'` here and `ActionType` gained no member —
+          // so a forward that carries `type` alone tells the runner nothing about
+          // this action, and `patch` (which holds the field values) would be
+          // dropped one hop before the runner. The result is the route POSTed an
+          // empty write and a green toast for having written nothing: the
+          // objectstack#6837 / objectui#2960 shape, on the key whose whole payload
+          // is the thing dropped. `@object-ui/core`'s runner dispatches on
+          // `operation` ahead of `type`; both keys must reach it.
+          operation: schema.operation,
+          patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
           errorMessage: schema.errorMessage,

@@ -613,6 +613,37 @@ export interface UIActionSchema {
   target?: string;
 
   /**
+   * The declarative single-record field write — a parallel key BESIDE
+   * {@link type}, not a member of it.
+   *
+   * `ActionType` did NOT gain a member for this: the spec materializes
+   * `type: 'script'` on an `operation: 'update'` action, because the write is
+   * performed on the platform action route (`POST /api/v1/actions/…`), which is
+   * the script type's own route. So a renderer must forward BOTH keys — reading
+   * `type` alone cannot tell an update action from any other script action, and
+   * `@object-ui/core`'s runner therefore branches on `operation` FIRST.
+   *
+   * Typed off the spec rather than restated, for the same reason as
+   * {@link bodyExtra}: the shape cannot drift from the contract, and the keys
+   * the spec refuses beside it (`target`, `body`, `method`, `bodyExtra`,
+   * `bodyShape`, `recordIdParam`, `recordIdField`, `onSuccess`,
+   * `opensInNewTab`, `newTabUrl`, `list_toolbar` placement, and any explicit
+   * `type` other than `'script'`) stay the spec's to enforce, not this
+   * interface's to restate.
+   */
+  operation?: SpecAction['operation'];
+
+  /**
+   * For `operation: 'update'` — static field values written to the current
+   * record, merged **under** the user-supplied {@link params} so a fixed value
+   * can be declared without exposing it in the dialog.
+   *
+   * Refused by the spec on an action without `operation: 'update'` (it would be
+   * silently dropped), so the two keys travel together or not at all.
+   */
+  patch?: SpecAction['patch'];
+
+  /**
    * For `type: 'url'`: where to open `target`.
    * - `'new-tab'` — open `target` in a new browser tab/window.
    * - `'self'` — navigate the current page (in-app router when available).

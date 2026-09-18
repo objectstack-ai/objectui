@@ -242,7 +242,11 @@ function DatasetFilterField({ label, help, value, onCommit, fields, disabled }: 
   fields: Array<{ value: string; label?: string; type?: string }>;
   disabled?: boolean;
 }) {
-  const { group, representable } = conditionToGroup(value);
+  // `fields` is handed to the READ half as well as to the builder: it is what
+  // lets a stored `$gt` on a date column read back as `after` — the operator
+  // that column's dropdown offers — instead of a `greaterThan` it does not
+  // list, which drew a blank operator trigger (objectui#9382).
+  const { group, representable } = conditionToGroup(value, fields);
   const count = group.conditions.length;
   /**
    * Commit an edit — unless nothing survived serialization while rows are

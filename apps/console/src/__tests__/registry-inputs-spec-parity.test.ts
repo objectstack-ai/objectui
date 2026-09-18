@@ -2390,6 +2390,18 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-grid/src/__tests__/gridPagerSelectionMembers-8071.test.tsx',
     pins: 'ONE member is read — `type` — and the pin is mostly about what that means for the object around it: the read is `schema.selection?.type`, so unlike its neighbour `pagination` the OBJECT\'s presence alone does nothing, and each of the three spec values is asserted at the checkbox column (`multiple` = rows + select-all header, `single` = rows and NO header, `none` = no column). `none` is pinned as an explicit OFF that beats BOTH fallback arms — the deprecated `selectable: true` AND the auto-enable that a declared `bulkActions` would otherwise trigger — each with its own control showing the fallback winning when the member is absent. The consequence an author suffers: a grid declaring bulk actions and `selection: { type: \'none\' }` renders a bar that no selection can ever populate, with nothing thrown and no diagnostic. The DataTable-level vocabulary parity is `data-table`\'s own pin and is not restated (objectui#8071).',
   },
+  'object-grid.aggregations': {
+    file: 'packages/plugin-grid/src/__tests__/gridAggregationMembers-8071.test.tsx',
+    pins: 'The TWO members of one roll-up entry — `field` and `type` — read at the group header the grid paints, and the fact that the six `type` values do not agree about what `field` means. `count` never reads `field` at all (it answers `rows.length`, including the rows that carry no such cell), while `count_distinct` does and skips the empties — the two are asserted on the SAME group, so the pair is a contrast rather than two numbers. The arithmetic rows are the sharp ones and all three are silent: coercion is `Number()`, so an explicit `null` cell is a real ZERO that lowers `avg` and WINS `min`, while an ABSENT cell is `NaN` and is dropped — two spellings an author reads as the same emptiness; `avg` therefore divides by the coerced list, not by the group, which is pinned as `count: 3` beside `avg: 5.50` in one header; and `min`/`max` over NO numeric cell report `0` rather than the `Infinity` a bare spread would put on screen. Two formatting rows complete it (a non-integer is padded to exactly two decimals, an integer is not), plus the key\'s own presence rule: `aggregations` without `grouping` computes and renders NOTHING, and an EMPTY array is indistinguishable from an absent key. ⚠️ The chip prints the `type` member and never the `field` member, so two same-type entries over different fields are told apart only by their values and their authored order — pinned as current behaviour, handed back as a finding rather than frozen. The registration is an `array` arm whose member shape lives only in its description, so the read site is the whole member contract (objectui#8071 slice 14).',
+  },
+  'object-grid.dataSource': {
+    file: 'packages/plugin-grid/src/__tests__/ObjectGrid.elementDataSource.test.tsx',
+    pins: 'The five members of the spec\'s `ElementDataSourceSchema` binding (`{ object, view, filter, sort, limit }`) as this block reads them, and — the half the file was GROWN by — the PRECEDENCE between the three sources one value can arrive from. The rule in one sentence: a `dataSource.*` member beats the block\'s own key, and the block\'s own key beats the view the binding named. Each member is asserted as a PAIR, once written on the binding and once supplied by the view, because either half alone is consistent with a renderer that simply takes the last writer: binding `sort` overrides an authored `schema.sort` while a VIEW\'s sort loses to it, and binding `limit` overrides an authored `pagination.pageSize` while a view\'s page size loses to it. `object` overrides an `objectName` the block authored itself, which is invisible when both objects exist. The limit row carries its own sharp half — the cap is written into a COPY of the authored `pagination` object, so a sibling `pageSizeOptions` survives; assigning `{ pageSize }` would pass every `$top` assertion and silently delete the rows-per-page list. `filter` is "additional" and AND-combines rather than replacing, a lone binding with no view passes its members through verbatim, and an unresolvable `view` renders a configuration error instead of widening the query. ⚠️ The key is INJECTED into this registration by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration says `type: \'object\'` and `binding: \'object\'` and nothing about members at all. Pre-existing file (objectstack#6953), promoted after being read end to end and grown by the precedence rows (objectui#8071 slice 14).',
+  },
+  'object-grid.navigation': {
+    file: 'packages/plugin-grid/src/__tests__/gridNavigationMembers-8071.test.tsx',
+    pins: 'All SIX members the spec\'s strict `NavigationConfigSchema` declares — `mode`, `view`, `preventNavigation`, `openNewTab`, `size`, `width` — driven through a real row click on the real grid, where the registration names only `mode` and elides the five that decide what the click does. The precedence is the content: `preventNavigation` OUTRANKS every mode including the overlay ones (`{ mode: \'drawer\', preventNavigation: true }` draws no drawer and throws nothing, with the same config minus the flag as the live control), and `openNewTab` outranks `mode: \'page\'` AND DISCARDS `view` while doing it — the member written to choose a destination is dropped by the member written to choose a window. `view` is pinned as what it actually is, the second ARGUMENT handed to the host, with the literal `\'view\'` standing in when it is absent — one character apart in the source, entirely different things. `size` and `width` are pinned as ONE decision with three outcomes, read off the `--ov-w` the shell publishes: the deprecated `width` wins over a `size` authored beside it, a bucket name resolves through the size table, and `\'auto\'` resolves to neither and lands on the block\'s own default width. The absent-key control is that a grid with NO `navigation` still navigates, so the key\'s effect cannot be measured by deleting it. Prior art stated rather than credited: `ObjectGrid.overlayShellModes-9299` pins the four OVERLAY values of `mode` across the shell boundary and names no other member (objectui#8071 slice 14).',
+  },
   'object-kanban.cardFields': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are BARE FIELD NAMES, and the pin is explicit about WHICH question it answers (the objectui#8269 trap): `resolveKanbanCardFields` answers which names the AUTHOR chose — authored order preserved, and NOT filtered against the object definition, which is the one behaviour that separates the explicit list from the `highlightFields` fallback it overrides (that fallback IS filtered). Which cells a card ends up carrying is a SECOND and narrower question, measured separately at the render, because the card loop further drops a name duplicating the title and one whose value is empty. An empty array reading as omitted is the control that keeps the fallback rows from being vacuous. The spec side is `z.array(z.string())`, so it constrains the member KIND but says nothing about either read — the sinks are the whole of the member contract (objectui#8313).',
@@ -2658,15 +2670,15 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // next reader who greps for it.
 
   // object-grid — objectui#8071 slice 12 pinned the four per-ROW keys
-  // (`conditionalFormatting`, `operations`, `rowActions`, `rowColor`) and slice
-  // 13 the four TOOLBAR keys (`batchActions`, `pagination`, `searchableFields`,
-  // `selection`); the seven below are what the block's first two bites left.
-  'object-grid.aggregations': AWAITING_A_PIN,
+  // (`conditionalFormatting`, `operations`, `rowActions`, `rowColor`), slice 13
+  // the four TOOLBAR keys (`batchActions`, `pagination`, `searchableFields`,
+  // `selection`), and slice 14 the three SOURCE-AND-DESTINATION keys
+  // (`aggregations`, `dataSource`, `navigation`); the four below are what the
+  // block's first three bites left, and slice 12 measured each of them as one
+  // slice on its own.
   'object-grid.columns': AWAITING_A_PIN,
-  'object-grid.dataSource': AWAITING_A_PIN,
   'object-grid.filter': AWAITING_A_PIN,
   'object-grid.grouping': AWAITING_A_PIN,
-  'object-grid.navigation': AWAITING_A_PIN,
   'object-grid.sort': AWAITING_A_PIN,
 
   // object-master-detail-form
@@ -3278,11 +3290,58 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS = [
  * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
  * reading was not re-measured here either — slice 7's measurement still stands.
  *
+ * ## 16 -> 13, the third bite out of `object-grid`, and its SOURCE-AND-DESTINATION layer
+ *
+ * The fourteenth slice takes three more `object-grid` keys — `aggregations`,
+ * `dataSource` and `navigation` — so the ceiling follows in the same commit.
+ * THREE and not the seven the block had left, on a measurement this seat
+ * inherited rather than took: slice 12's dev refused a batch containing
+ * `columns`, `filter`, `grouping` and `sort` because each is one slice on its
+ * own, and slice 14's dispatch adopted that refusal. The three taken here are
+ * what remains once those four are set aside, and they cluster: each names a
+ * place OUTSIDE the block's own rows — where the rows come from (`dataSource`),
+ * what a roll-up is computed over once they are grouped (`aggregations`), and
+ * where a click goes (`navigation`) — so none of them is read anywhere near the
+ * `dataTableSchema` fold slice 13 worked in.
+ *
+ * ⭐ The finding this slice's shape surfaced is that all three keys are read
+ * through a PRECEDENCE the author cannot see, and each one resolves it
+ * differently. `dataSource`'s members beat the block's own keys and the block's
+ * own keys beat the view the binding named — three sources, one value.
+ * `navigation`'s flags beat its own `mode`, and `openNewTab` discards the
+ * sibling `view` on its way past. `aggregations` has no precedence at all and
+ * instead disagrees with itself: `count` ignores the `field` member that the
+ * other five types are entirely about.
+ *
+ * One of the three files is a PROMOTION AFTER GROWTH and two are NEW — the
+ * distinction slices 1, 10, 11, 12 and 13 turned on. `dataSource` had
+ * `ObjectGrid.elementDataSource.test.tsx`, whose whole subject IS the binding
+ * and which drives the real renderer against a real adapter — a genuine near
+ * miss — but its four cases covered `object`, `view` and `filter` and stated no
+ * precedence for `sort` or `limit`, so it was GROWN by the pair rows before
+ * being registered rather than credited as found. `aggregations` and
+ * `navigation` had no file constraining their members at the grid:
+ * `useGroupedData`'s own suites never name the block, and
+ * `ObjectGrid.overlayShellModes-9299.test.tsx` — which does name it, and would
+ * satisfy a string locator — asserts the four OVERLAY values of `mode` and no
+ * other member, so it answers a narrower question than this key's.
+ *
+ * ⚠️ A member fact handed back rather than frozen into a pin, slice 9's choice
+ * for slice 9's reason: an aggregation chip prints its `type` member and never
+ * its `field` member, so two same-type roll-ups over different fields render as
+ * two chips reading the same word. The pin asserts what renders and says so; an
+ * assertion that the field NEVER appears would have to be deleted before anyone
+ * could make it appear.
+ *
+ * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (no block it names
+ * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
+ * reading was not re-measured here either — slice 7's measurement still stands.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 16;
+const MEMBER_PIN_EXEMPTION_CEILING = 13;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

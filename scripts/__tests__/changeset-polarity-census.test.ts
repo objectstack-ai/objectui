@@ -8,15 +8,19 @@ import { fileURLToPath } from 'node:url';
 
 import {
   ABSENT_CONTROL_KEY,
+  LANGUAGE_WORDS,
   MEMBER_CONTROL_KEY,
   MEMBER_CONTROL_SCHEMA,
+  MEMBER_KEY_SPELLING,
   PRESENT_DECLARATION,
   backtickedKeys,
   buildMemberIndex,
   census,
   clauseTexts,
   cutSentences,
+  declaredNames,
   isQuotedInline,
+  keyHead,
   matchesPopulation,
   readClaim,
   readPolarity,
@@ -61,6 +65,14 @@ import {
  *     verb still does. Without the second leg the repair would have traded
  *     false positives for false negatives, which is the failure this whole
  *     family of cards is about.
+ *  9. A KEY IS A NAME, AND THE SPAN IS THAT NAME (objectui#9766). A call, a
+ *     heritage clause, a statement and an operator use are code, not names; and
+ *     a word of the language the faces are written in is a key only where the
+ *     tree declares a member by that name. Both of that rule's escape legs are
+ *     pinned, because each one alone is a way of buying precision with
+ *     blindness: refuse `type` by its spelling and the most-declared key in the
+ *     tree is gone, refuse every name the tree does not declare and the ROTTED
+ *     claim -- the instrument's entire purpose -- is gone with it.
  *
  * Every pin except 6 and 7 runs against FIXTURES, deliberately. The live
  * `packages/types/src` moves whenever a card declares a member -- which is the
@@ -435,3 +447,125 @@ function fixtureSentence(file: string, match: RegExp) {
   expect(found, `no sentence of ${file} matches ${match} -- the fixture moved`).toBeTruthy();
   return found!;
 }
+
+describe('objectui#9766 pin 9 -- a key is a NAME, and the backticked span is that name', () => {
+  /**
+   * The reader's exclusion rule used to be written on one side only: a
+   * PascalCase token was named a TYPE and refused, and every lowercase token was
+   * waved through -- so TypeScript primitives, keywords and call expressions
+   * came back as member keys. ⚠️ These were invisible while polarity was read
+   * sentence-wide, because a NEGATIVE reading only contradicts when the member
+   * is PRESENT and a pseudo-key is present on no face; objectui#9765 narrowed
+   * polarity and EXPOSED them. ⛔ Not a regression of that card.
+   *
+   * ⭐ The rule these pin is not a keyword blacklist, and the two legs below are
+   * what make that difference observable rather than asserted: a blacklist fails
+   * the `type` leg, and a bare "the tree must declare it" rule fails the
+   * `allowCollapse` leg.
+   */
+  const universe = declaredNames(fixtureIndex);
+
+  it('takes the name bare, and takes it out of its type annotation', () => {
+    // The correct spelling, and the ONE decoration a key mention may carry.
+    expect(keyHead('`columns`')).toBe('columns');
+    expect(keyHead('`columns: KanbanColumn[]`')).toBe('columns');
+    expect(MEMBER_KEY_SPELLING.test('size')).toBe(true);
+    expect(MEMBER_KEY_SPELLING.test('ObjectGridComponentProps')).toBe(false);
+  });
+
+  it('refuses every span that is code rather than a name', () => {
+    // Each of these came back as a key before the repair, because the reader
+    // CUT the span at its first separator and kept the head.
+    expect(keyHead('`retirementTombstone()`')).toBeNull();
+    expect(keyHead("`handlerKeyRefusal(..., 'runtime-slot', ...)`")).toBeNull();
+    expect(keyHead('`extends Omit<Partial<SpecDashboardWidget>, "type">`')).toBeNull();
+    expect(keyHead('`export { NavigationSchema as BreadcrumbSchema }`')).toBeNull();
+    expect(keyHead('`as any`')).toBeNull();
+    expect(keyHead("`case 'map'`")).toBeNull();
+    expect(keyHead('`conditions[].operator`')).toBeNull();
+  });
+
+  it('refuses a word of the language even though it is spelled like a key', () => {
+    // ⭐ The half no character class can decide: `string` and `size` are the same
+    // shape. This leg is NOT lexical, and the pin says so by asserting both.
+    expect(MEMBER_KEY_SPELLING.test('string')).toBe(true);
+    expect(keyHead('`string`', universe)).toBeNull();
+    expect(keyHead('`any`', universe)).toBeNull();
+    expect(keyHead('`boolean`', universe)).toBeNull();
+    expect(keyHead('`number`', universe)).toBeNull();
+    expect(keyHead('`size`', universe)).toBe('size');
+  });
+
+  it('LEG 1 -- a language word the tree DOES declare stays a key', () => {
+    // A keyword blacklist fails here, and fails on the protocol's recursion
+    // point: `type` is a member of `BaseSchema` and of this instrument's own
+    // member control, so losing it would void every run.
+    expect(LANGUAGE_WORDS.has(MEMBER_CONTROL_KEY)).toBe(true);
+    expect(universe.has(MEMBER_CONTROL_KEY)).toBe(true);
+    expect(keyHead('`type`', universe)).toBe(MEMBER_CONTROL_KEY);
+    // DARK LEG: without the tree's own names the same word is refused, so the
+    // pin above is testing the rescue and not a reader that never gated at all.
+    expect(keyHead('`type`')).toBeNull();
+  });
+
+  it('LEG 2 -- an ordinary name the tree declares NOWHERE is still a key', () => {
+    // ⛔ The gate is on language words only. Applied to every name it would
+    // suppress the ROTTED claim, which is the one thing the census exists for:
+    // objectui#9713 ruled `allowCollapse` BORN FALSE on a face that does not
+    // declare it, and a reader that required corroboration would report nothing.
+    expect(LANGUAGE_WORDS.has('onCardAdd')).toBe(false);
+    expect(declaredNames(buildMemberIndex(FIXTURE_TYPES)).has('onCardAdd')).toBe(false);
+    expect(keyHead('`onCardAdd`', universe)).toBe('onCardAdd');
+    expect(backtickedKeys('`SpinnerSchema` declares `onCardAdd`.', universe)).toEqual(['onCardAdd']);
+  });
+
+  it('the language words are DERIVED from the compiler, not hand-listed', () => {
+    // ⭐ A hand-maintained list is a written-down population that stops being
+    // re-derived the moment it is written (commandment #9). These three are the
+    // evidence the set came from `ts` rather than from someone's memory of which
+    // words look like types -- and `type` is the evidence it is not a blacklist.
+    for (const word of ['intrinsic', 'satisfies', 'accessor', 'asserts', 'type']) {
+      expect(LANGUAGE_WORDS.has(word), `${word} is missing -- the set is hand-listed again`).toBe(
+        true,
+      );
+    }
+  });
+
+  it('`declaredNames` is a vocabulary, and deliberately NOT membership', () => {
+    // The verdict's question is (interface, name); this one is only "is this
+    // word ever a key here at all". Reading it as membership would re-create the
+    // over-approximation pin 4 exists to refuse.
+    expect(universe.has('cards')).toBe(true);
+    expect(fixtureIndex.get('ObjectKanbanSchema')?.members.has('cards')).toBe(false);
+  });
+
+  it('reads the whole rule end to end, over a fixture that carries every shape', () => {
+    const flags = flagsFor('08-key-extraction');
+    // `type` NEGATIVE + present, `onCardAdd` POSITIVE + absent: one flag per leg.
+    expect(flags.map((f) => `${f.key}:${f.polarity}`).sort()).toEqual([
+      'onCardAdd:positive',
+      'type:negative',
+    ]);
+    // And nothing the repair removed comes back through the census path.
+    const keys = fixtureRun.matched
+      .filter((m) => m.entry.startsWith('08-key-extraction'))
+      .flatMap((m) => m.claim.keys);
+    expect(keys.sort()).toEqual(['onCardAdd', 'size', 'type']);
+  });
+
+  it('⛔ did NOT buy precision with blindness: the pinned blind spot still reads', () => {
+    // The criterion this repair is judged against. objectui#9727's motivating
+    // site returns the four keys objectui#9713 adjudicated, every one reached
+    // across a sentence boundary -- three would mean the instrument was broken,
+    // not sharpened. Pin 1 asserts this too; it is restated here because it is
+    // THIS card's acceptance condition, not a side effect.
+    const flags = flagsFor('01-pronoun-pre-repair');
+    expect(flags.map((f) => f.key).sort()).toEqual([
+      'allowCollapse',
+      'cardTitle',
+      'columns',
+      'titleField',
+    ]);
+    expect(flags.every((f) => f.viaPronoun)).toBe(true);
+  });
+});

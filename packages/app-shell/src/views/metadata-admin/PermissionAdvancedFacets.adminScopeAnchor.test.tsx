@@ -41,7 +41,11 @@ let latest: Draft = {};
 
 function Harness({ initial, sets }: { initial: Draft; sets: string[] }) {
   const [draft, setDraft] = React.useState<Draft>(initial);
-  latest = draft;
+  // In an effect, not during render: `react-hooks/globals` bans the latter, and
+  // `userEvent` flushes effects before the assertion reads this back.
+  React.useEffect(() => {
+    latest = draft;
+  }, [draft]);
   return (
     <PermissionAdvancedFacets
       draft={draft}

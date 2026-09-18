@@ -14,6 +14,11 @@
  *
  * ## Scope, stated so the pin is not over-read
  *
+ * ⭐ This file is the registered member pin for `object-form.dataSource`
+ * (objectui#8071 slice 11). It was promoted after being READ rather than
+ * credited on its strings, and GROWN by one row — the precedence of the one
+ * member the block maps; see that row's own comment below.
+ *
  * `object` is the only key of the binding this block can honour, and the second
  * test says so as a property rather than a comment: a form edits ONE record, so
  * there is no collection query for `filter` / `sort` / `limit` to narrow, and a
@@ -109,5 +114,38 @@ describe('object-form — dataSource: { object } (objectstack#6953)', () => {
     const adapter = makeAdapter();
     renderBlock({ type: 'object-form', objectName: 'account', mode: 'create' }, adapter);
     await waitFor(() => expect(adapter.getObjectSchema).toHaveBeenCalledWith('account'));
+  });
+
+  // ── the MEMBER-PIN row (objectui#8071) ──────────────────────────────────
+  //
+  // Registered as the member pin for `object-form.dataSource` after the four
+  // tests above were read end to end: they already constrain WHICH members this
+  // block honours (`object`) and which it deliberately does not (`filter` /
+  // `sort` / `limit`, with a resolving `view` contributing nothing and an
+  // unresolvable one reporting). What they never stated is the precedence of
+  // the one member that IS mapped, and that is the half a plausible
+  // "improvement" takes away.
+  //
+  // `ElementDataSourceGate` spells it `next[objectKey] = composed.object` —
+  // unconditional. So the binding's `object` OUTRANKS a flat `objectName`
+  // authored on the same node. The friendly-looking spelling is `??=`
+  // ("don't clobber what the author wrote explicitly"), and under it a page
+  // that rebinds a form to another object through the spec's own binding would
+  // silently keep editing the old one: same fields, same labels, same Save
+  // button, wrong table. Nothing declared distinguishes the two — the spec's
+  // `ElementDataSourceSchema` describes the binding, never its precedence
+  // against the block's flat keys.
+  it('the `object` member OUTRANKS a flat `objectName` on the same node', async () => {
+    const adapter = makeAdapter();
+    renderBlock(
+      { type: 'object-form', objectName: 'contact', mode: 'create', dataSource: { object: 'account' } },
+      adapter,
+    );
+
+    await waitFor(() => expect(adapter.getObjectSchema).toHaveBeenCalledWith('account'));
+    expect(
+      adapter.getObjectSchema.mock.calls.map((call: unknown[]) => call[0]),
+      'a `??=` read would fetch `contact` and render the wrong object with no diagnostic',
+    ).not.toContain('contact');
   });
 });

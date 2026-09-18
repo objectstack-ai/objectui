@@ -915,6 +915,97 @@ function useListFieldLabel() {
 }
 
 /**
+ * The page size this view falls back to when no usable one is declared.
+ *
+ * ⚠️ Named rather than spelled inline because it is a FIFTH different default
+ * in this family: `ObjectGrid` carries three (a page of rows, a page of
+ * groups, a fetch window) and this view carries its own — the single `$top`
+ * window it asks the server for, which then doubles as the child grid's page
+ * size. ⛔ Whether 100 belongs next to the grid's numbers is NOT settled here:
+ * changing it changes what every list with no authored `pagination` fetches,
+ * which is a product decision rather than an execution seat's. It is handed
+ * back as a question on objectui#9897.
+ */
+const DEFAULT_LIST_PAGE_SIZE = 100;
+
+/**
+ * What the contract admits as a page size. The spec's view pagination config
+ * declares the member a POSITIVE INTEGER with a default, and the spec's own
+ * suite pins the refusals under the names `should reject zero pageSize` and
+ * `should reject negative pageSize`; the `limit` that this package's
+ * `ElementDataSourceMapping` lowers `pagination.pageSize` into is declared
+ * positive as well. So `0` is not a spelling whose meaning this renderer may
+ * choose — it is a value the contract already refuses.
+ */
+function isUsablePageSize(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The ONE resolver for this view's page size, for the reason objectui#9853
+ * gave when it landed the same shape on `ObjectGrid`: one resolver at every
+ * entry is what keeps the answer single.
+ *
+ * Before objectui#9897 this was a bare `??` chain, and `??` rejects only
+ * `null` and `undefined` — so an authored `pageSize: 0` was not nullish and
+ * survived as a real page size, reaching every consumer of the resolved value.
+ * Measured in this renderer over a twelve-row fixture rather than inferred:
+ * `$top: 0` went out on the wire, the data source was asked for nothing,
+ * nothing came back, and the view drew its EMPTY STATE — the child grid never
+ * rendered at all, so there was no table, no record-count bar and no pager,
+ * and nothing on screen named the cause. A negative goes out the same way
+ * (`$top: -10`). A non-integer is worse than silent: `25.5` reached the wire,
+ * became the child grid's page size, and turning the page asked for a
+ * fractional `$skip`.
+ *
+ * Picks by PRECEDENCE first — a size chosen at runtime through the
+ * rows-per-page control outranks the authored one — and validates the winner
+ * once. The `??` here is deliberate and is not the defect: it picks by
+ * PRESENCE, so an explicit `0` is SEEN by the guard instead of being skipped
+ * by falsiness. Skipping it is what a `||` would do, and quietly substituting
+ * a number the author never wrote is the quieter half of this same defect.
+ *
+ * ⚠️ The refusal is FAIL-SOFT on purpose. Throwing would take out the whole
+ * list over one declaration, which is a worse outcome than the defect. The
+ * value is dropped, this view's own default is used, and
+ * `describeRefusedPageSize` states it once through the channel this component
+ * already uses for "you declared it, the renderer dropped it". ⛔ Not a silent
+ * clamp: without the loud half this is a substitution the author cannot see.
+ */
+function resolvePageSize(chosen: unknown, authored: unknown, fallback: number): number {
+  const candidate = chosen ?? authored;
+  return isUsablePageSize(candidate) ? candidate : fallback;
+}
+
+/**
+ * The diagnostic half. `null` means "nothing to say" — an absent key is not a
+ * mistake, and a usable page size is not either, so the message is CONDITIONAL
+ * and the silence controls in the pin are what keep it from being an always-on
+ * marker that states nothing.
+ *
+ * ⛔ NOT a second guard: the predicate lives once, in `isUsablePageSize`, and
+ * this reads it. Two predicates would be free to drift, and the drift would be
+ * invisible — a value refused by one and admitted by the other.
+ */
+function describeRefusedPageSize(
+  chosen: unknown,
+  authored: unknown,
+  objectName: unknown,
+): string | null {
+  const candidate = chosen ?? authored;
+  if (candidate === undefined || candidate === null) return null;
+  if (isUsablePageSize(candidate)) return null;
+  const where =
+    typeof objectName === 'string' && objectName ? `list-view on ${objectName}` : 'list-view';
+  return (
+    `[ObjectUI] ListView pagination: ${where} declared pageSize: ${String(candidate)}, `
+    + 'which is not a positive integer. A page size must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and this '
+    + `list fell back to its default page size (${DEFAULT_LIST_PAGE_SIZE}).`
+  );
+}
+
+/**
  * Imperative handle exposed by ListView via React.forwardRef.
  * Allows parent components to trigger a data refresh programmatically.
  *
@@ -1173,7 +1264,27 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
   // Dynamic page size state (wired from pageSizeOptions selector)
   const [dynamicPageSize, setDynamicPageSize] = React.useState<number | undefined>(undefined);
-  const effectivePageSize = dynamicPageSize ?? schema.pagination?.pageSize ?? 100;
+  // [objectui#9897] Through the resolver rather than a bare `??` chain. This
+  // value is resolved ONCE and then feeds six consumers — the `$top` window,
+  // the `$skip` step that turns the page, the has-more gate behind the
+  // "showing first N" cap, the page size handed down to the child grid, the
+  // record cap printed in that banner, and the rows-per-page control's own
+  // displayed value. `??` rejects only null/undefined, so one refused
+  // declaration used to reach all six.
+  const authoredPageSize = schema.pagination?.pageSize;
+  const effectivePageSize = resolvePageSize(
+    dynamicPageSize,
+    authoredPageSize,
+    DEFAULT_LIST_PAGE_SIZE,
+  );
+
+  // [objectui#9897] The loud half, on the channel this component already uses
+  // for "you declared it, the renderer dropped it". Keyed on the declaration,
+  // so it is one warning per declaration rather than one per render.
+  React.useEffect(() => {
+    const message = describeRefusedPageSize(dynamicPageSize, authoredPageSize, schema.objectName);
+    if (message) console.warn(message);
+  }, [dynamicPageSize, authoredPageSize, schema.objectName]);
 
   // --- Server-side pagination (#2212) ---
   // ListView owns the fetch, so it owns paging too: it requests one window at a

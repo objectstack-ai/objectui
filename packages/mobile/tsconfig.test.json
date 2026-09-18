@@ -13,6 +13,13 @@
     // floor for `Array.prototype.at` — the root config's ES2020 is what the
     // SOURCE targets, and a test is free to need more than the shipped bundle.
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    // `spec-gesture-fallback-type-order.test.tsx` reads the hook's own source
+    // with `node:fs` to pin the payload WRITING ORDER, which no runtime
+    // assertion can see at an arm nobody wrote a case for. Naming `types` at
+    // all switches off automatic `@types/*` inclusion, so this is the whole
+    // list: these suites use no ambient matcher package — `@testing-library`'s
+    // `jest-dom` is not among their imports.
+    "types": ["node"],
     // Drop the root tsconfig's source-tree `paths` so `@object-ui/*` and
     // `@objectstack/spec` resolve through the workspace dependency's built
     // `.d.ts` instead of pulling sibling sources in as program inputs (TS6059).

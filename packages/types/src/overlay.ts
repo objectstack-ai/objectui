@@ -717,38 +717,41 @@ export interface TooltipSchema extends BaseSchema {
    * Tooltip content/text — the FIRST half of the content read.
    *
    * READ SITE: `packages/components/src/renderers/overlay/tooltip.tsx` —
-   * `schema.content || renderChildren(schema.body)`. Optional because
-   * {@link TooltipSchema.body} is the other half of that same read.
+   * `schema.content || renderChildren(schema.children)`. Optional because
+   * {@link TooltipSchema.children} is the other half of that same read.
    */
   content?: string | SchemaNode;
   /**
-   * Rich tooltip content — the FALLBACK half of the same read at
-   * `packages/components/src/renderers/overlay/tooltip.tsx`, listed by the
-   * registration as the "Rich Content" slot.
+   * RETIRED (objectui#6771, maintainer ruling 2026-09-01) — the `body`
+   * child-list spelling. Author {@link TooltipSchema.children}.
+   *
+   * ⭐ `tooltip` was the ONE registration in the whole tree that ADVERTISED
+   * this spelling in its `inputs` (a `slot`, labelled "Rich Content"), which
+   * made it the most discoverable instance of the dialect on the authoring
+   * surface — and the ruled step-2 population never listed it. Leaving it out
+   * would have kept the dialect alive precisely where an author was most
+   * likely to meet it, so it converged with the rest.
+   *
+   * @deprecated Retired spelling of `children` — author `children`.
    */
-  body?: SchemaNode | SchemaNode[];
+  body?: never;
   /**
-   * REFUSED BY NAME (objectui#8284, ADR-0049) — `tooltip` reads `content` and,
-   * as the fallback for that same slot, `body`. No renderer read consumes
-   * `children`.
+   * Rich tooltip content — the FALLBACK half of the same read at
+   * `packages/components/src/renderers/overlay/tooltip.tsx`, and the slot the
+   * registration publishes as "Rich Content".
    *
-   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; the `BoxSchema` docblock in
-   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
-   * it): the `schema.body` read in
-   * `packages/components/src/renderers/overlay/tooltip.tsx`. The same sweep finds zero `children` reads
-   * for this node type.
-   *
-   * `children` is inherited-and-optional from {@link BaseSchema}, whose own
-   * docblock admits "some components use `children` instead of `body`" without
-   * saying which — so authoring it here type-checked, parsed green through
-   * `.passthrough()`, and rendered an EMPTY element with no error and no
-   * warning. Per component, the channel a renderer does not read is now
-   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
-   *
-   * @deprecated Not a channel `tooltip` reads — author `body`.
+   * ⚠️ THIS DECLARATION IS AN INVERSION, not a widening. objectui#8284 (ADR-0049,
+   * maintainer ruling summon #17 decision batch #2, 2026-09-07) tombstoned
+   * `children` on this node with the measured ground that the renderer read
+   * `schema.content || renderChildren(schema.body)` and no read consumed
+   * `children`. objectui#6771 changed the READ, not the principle: the same
+   * renderer now reads `schema.content || renderChildren(schema.children)`, so
+   * the channel this node does not read is `body`, and that is where the
+   * tombstone moved. The per-component rule — tombstone the channel the
+   * renderer does not read, on both published faces — is unchanged and is
+   * still what both of these members express.
    */
-  children?: never;
+  children?: SchemaNode | SchemaNode[];
   /**
    * Tooltip side
    * @default 'top'

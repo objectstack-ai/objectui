@@ -94,7 +94,8 @@ describe('objectui#7926 — the `page` node refuses `actions` (contract half)', 
     // sentence: pinning prose byte-for-byte turns every wording fix red for no
     // gain (AGENTS.md — assert the named subject, not the copy).
     expect(message).toContain('actions');
-    expect(message).toContain('body');
+    // The remedy key, which objectui#6771 moved from `body` to `children`.
+    expect(message).toContain('children');
     expect(message).toContain('page:header');
     // Zod's own default for a `never` arm says none of this.
     expect(message).not.toBe('Invalid input: expected never, received array');
@@ -108,11 +109,11 @@ describe('objectui#7926 — the `page` node refuses `actions` (contract half)', 
     expect(PageNodeSchema.safeParse(withoutActions).success).toBe(true);
   });
 
-  it('the remedy the message names actually parses — buttons as nodes in `body`', () => {
+  it('the remedy the message names actually parses — buttons as nodes in `children`', () => {
     const r = PageNodeSchema.safeParse({
       type: 'page',
       title: 'Products',
-      body: [
+      children: [
         {
           type: 'flex',
           justify: 'end',
@@ -233,13 +234,13 @@ describe('objectui#7926 — the guide no longer authors `actions` on a `page` no
     }
   });
 
-  it('every `page` node the guide teaches declares its content under `body`', () => {
+  it('every `page` node the guide teaches declares its content under `children`', () => {
     // The positive form of the same fact: the passages were not merely stripped
     // of `actions`, they were REWRITTEN onto the key that renders.
     const pages = fences.filter((f) => isPageNode(f.doc));
     for (const f of pages) {
       const doc = f.doc as Record<string, unknown>;
-      expect({ line: f.line, hasBody: 'body' in doc }).toEqual({ line: f.line, hasBody: true });
+      expect({ line: f.line, hasContent: 'children' in doc }).toEqual({ line: f.line, hasContent: true });
     }
   });
 });

@@ -145,7 +145,7 @@ The `Page` component provides a consistent wrapper for individual pages with opt
 
 ### With Action Buttons
 
-A `page` node has no action row of its own. Buttons are NODES, and they go in `body`:
+A `page` node has no action row of its own. Buttons are NODES, and they go in `children`:
 
 ```json
 {
@@ -189,7 +189,7 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
 > rather than refusing it — so the author got a green validation and an empty page (before
 > objectui#7933 it also reached the DOM as `actions="[object Object]"`). `PageNodeSchema`
 > now declares the key as a refusal, so the same document fails with the remedy in the
-> message instead of rendering silently short. Buttons in `body`, as above; on a record page,
+> message instead of rendering silently short. Buttons in `children`, as above; on a record page,
 > the `page:header` block's own `actions` — which are **action ids**, not nodes
 > (see the [PageHeader reference](/docs/layout/page-header)).
 
@@ -198,7 +198,7 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
 > **nothing**: no renderer has ever read the key, and `BaseSchema`'s `.passthrough()` kept
 > the array rather than refusing it — the same silent-accept shape as `actions`, retired
 > under the same ADR-0049 enforce-or-remove gate. The trail is a **node**, not a key: put
-> a `breadcrumb` node in `body`, as [Breadcrumbs for Deep Navigation](#2-breadcrumbs-for-deep-navigation)
+> a `breadcrumb` node in `children`, as [Breadcrumbs for Deep Navigation](#2-breadcrumbs-for-deep-navigation)
 > shows. ⛔ Not the `page:header` block's `breadcrumb` either — that one is singular and a
 > **boolean** display toggle, not a list of links.
 
@@ -213,8 +213,8 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
   title?: string,               // Page title
   description?: string,         // Page description/subtitle
   icon?: string,               // Optional icon
-  // NO `actions` — refused by name (objectui#7926); put the buttons in `body`
-  // NO `breadcrumbs` — refused by name (objectui#8871); put a `breadcrumb` node in `body`
+  // NO `actions` — refused by name (objectui#7926); put the buttons in `children`
+  // NO `breadcrumbs` — refused by name (objectui#8871); put a `breadcrumb` node in `children`
 
   // Content
   children: SchemaNode,            // Main page content
@@ -535,7 +535,7 @@ Omit `sidebar` and the content fills the width under the top bar.
 ### Detail Page with Actions
 
 Same rule as above, and it governs the trail too: the breadcrumb and the buttons are both
-**nodes in `body`** — never a `breadcrumbs` or an `actions` key on the page.
+**nodes in `children`** — never a `breadcrumbs` or an `actions` key on the page.
 
 ```json
 {
@@ -685,7 +685,7 @@ Compose the shell once and let the page JSON change per route:
 
 ### 2. Breadcrumbs for Deep Navigation
 
-Add a breadcrumb trail to help users navigate. It is a **node in `body`**, not a key on the
+Add a breadcrumb trail to help users navigate. It is a **node in `children`**, not a key on the
 page — `breadcrumb`, singular, is the registered renderer:
 
 ```json
@@ -712,7 +712,7 @@ which is a **boolean** display toggle rather than a list of links.
 
 ### 3. Action Buttons at the Top of the Body
 
-Place primary actions in the first `body` node, so they sit above the content:
+Place primary actions in the first `children` node, so they sit above the content:
 
 ```json
 {

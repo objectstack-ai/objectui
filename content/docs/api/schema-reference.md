@@ -25,7 +25,7 @@ prop, a type annotation in an example.
 
 Reach for `SchemaNode` only where the wider union is genuinely correct. `SchemaNode` is
 `BaseSchema` **plus** the primitive members that render as text, so it is the right word
-for a slot that also accepts a bare string (`body`, `children`) and the wrong word for a
+for a slot that also accepts a bare string (`children`) and the wrong word for a
 position that must be an object: a renderer that narrows a slot with
 `typeof node === 'object'` before reading its keys drops those primitive members on the
 floor. Naming the union where only the object half is accepted is the mismatch
@@ -78,8 +78,8 @@ One row per declared member, in declaration order, so the list can be checked ag
 | `style` | `Record<string, string \| number>` | Inline CSS styles. Use sparingly — prefer `className`. |
 | `data` | `any` | Arbitrary data attached to the node. `any` because the shape is defined by the consuming component rather than by `BaseSchema`. |
 | `bind` | `string` | Data-scope path this node draws its rows or value from, resolved by `useDataScope()`. Honoured only by components that call it. |
-| `body` | `SchemaNode \| SchemaNode[]` | Child components rendered inside this component — **as `BaseSchema` declares it**. Which of the two channels a given node type actually renders is per component; see the note below. |
-| `children` | `SchemaNode \| SchemaNode[]` | A second content channel `BaseSchema` declares beside `body`. ⚠️ **Not an alias** — nothing folds one into the other at runtime, and this row used to say it was. See the note below. |
+| `body` | *retired* | ⛔ Refused by name (objectui#6771). `body` was a second child-list spelling `BaseSchema` declared beside `children`; it is now `never` on the TypeScript face and an alias refusal on the Zod mirror, and the refusal names `children`. |
+| `children` | `SchemaNode \| SchemaNode[]` | Child components rendered inside this component — the child-list key, and since objectui#6771 the only one. Whether a given node type renders a child list at all is still per component; see the note below. |
 | `visible` | `boolean \| string \| { dialect?: string; source: string }` | Visibility control. Accepts a boolean, a predicate expression string, **or** the CEL envelope object (`{ dialect: 'cel', source }` — what `objectstack build` emits for every authored predicate) — the renderer evaluates this key rather than reading it as a boolean. The string-or-envelope half is `ExpressionWire`, the one wire type `visibleWhen` on form fields already carries. |
 | `visibleWhen` | `string` | Canonical conditional-visibility predicate (ADR-0089); the element is shown when it evaluates truthy. Evaluated **before** `visible` and `visibleOn`, and outranks both. |
 | `visibleOn` | `string` | Expression for conditional visibility. **Deprecated** (ADR-0089) — use `visibleWhen`. |
@@ -93,7 +93,7 @@ One row per declared member, in declaration order, so the list can be checked ag
 Two things the table cannot show in a cell:
 
 - **A concrete schema may narrow an inherited member, and its own declaration wins.** Many component schemas restate `label`, `description` or `disabled` more narrowly than `BaseSchema` declares them, so the unions above are what a node gets when its own schema does not restate the key. Check the component's own property table before writing a predicate string or a locale map into an inherited slot.
-- **⚠️ `body` and `children` are TWO channels, not one key with two spellings, and which one a node type renders is decided PER COMPONENT.** Each renderer reads one, the other, both, or neither, and `SchemaRenderer` strips both out of the props bag it spreads — so writing the channel a renderer does not read rendered an EMPTY element, with no error at authoring time, none at validation time and none at render time. That is the defect objectui#8284 named after seven cards had repaired one page of it each. It is being closed per component, by measurement: each schema narrows to the channel its renderer actually reads and **tombstones the other as `never`**, refused by name on both published faces (objectui#9254 for the components that read exactly one channel, objectui#9256 for the ones that read neither). ⇒ check the component's own section before writing either key; the types in this row are `BaseSchema`'s, and a concrete schema's own declaration wins.
+- **⚠️ `body` and `children` WERE two channels, not one key with two spellings — and the second one is retired (objectui#6771).** Each renderer read one, the other, both, or neither, and `SchemaRenderer` strips both out of the props bag it spreads — so writing the channel a renderer did not read rendered an EMPTY element, with no error at authoring time, none at validation time and none at render time. That is the defect objectui#8284 named after seven cards had repaired one page of it each, and it was closed per component by measurement: each schema narrows to the channel its renderer actually reads and **tombstones the other as `never`**, refused by name on both published faces (objectui#9254 for the components that read exactly one channel, objectui#9256 for the ones that read neither). objectui#6771 then closed the class at its source: `children` is the one child-list spelling and `body` is refused on `BaseSchema` itself. ⇒ **whether a node type accepts a child list at all is still per component** — check the component's own section, where a node that renders no children tombstones `children` too.
 - **This list is exhaustive for *declared* members, not for *accepted* keys.** `BaseSchema` carries an index signature (`[key: string]: any`) and its Zod mirror is `.passthrough()`, so an undeclared key — a misspelling included — is still accepted by both halves. Absence from this table does not mean a key is rejected.
 
 ---
@@ -136,7 +136,7 @@ Top-level page container. Defines a full page with optional regions (header, sid
 | `template` | `string` | Template name for page layout. |
 | `variables` | `PageVariable[]` | Page-level variables with types and defaults. |
 | `regions` | `PageRegion[]` | Named layout regions (header, sidebar, footer). |
-| `body` | `SchemaNode \| SchemaNode[]` | Main page content — one node, or a list of them. |
+| `children` | `SchemaNode \| SchemaNode[]` | Main page content when the page declares no regions — one node, or a list of them. Spelled `body` until objectui#6771 retired that spelling. |
 | `isDefault` | `boolean` | Whether this is the default page for the object. |
 | `assignedProfiles` | `string[]` | Security profiles that can access this page. |
 
@@ -198,7 +198,7 @@ A styled container with optional header, body, and footer regions.
 | `hoverable` | `boolean` | Add hover elevation effect. |
 | `clickable` | `boolean` | Make the entire card a click target. |
 | `header` | `SchemaNode \| SchemaNode[]` | Content rendered in the card header. |
-| `body` | `SchemaNode \| SchemaNode[]` | Main card content. |
+| `children` | `SchemaNode \| SchemaNode[]` | Main card content. Spelled `body` until objectui#6771 retired that spelling. |
 | `footer` | `SchemaNode \| SchemaNode[]` | Content rendered in the card footer. |
 
 **Related:** [DivSchema](#divschema), [GridSchema](#gridschema)

@@ -334,20 +334,25 @@ export const TooltipSchema = BaseSchema.extend({
   trigger: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
     .describe('Element the tooltip attaches to (objectui#6939)'),
   content: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
-    .describe('Tooltip content, checked before `body` — optional because `body` is the fallback for the same slot (objectui#6939)'),
-  body: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
-    .describe('Rich tooltip content — the fallback for `content`, listed by the registration as the "Rich Content" slot (objectui#6939)'),
+    .describe('Tooltip content, checked before `children` — optional because `children` is the fallback for the same slot (objectui#6939)'),
+  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
+    .describe('Rich tooltip content — the fallback for `content`, published by the registration as the "Rich Content" slot (objectui#6939, objectui#6771)'),
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Tooltip side'),
   align: z.enum(['start', 'center', 'end']).optional().describe('Tooltip alignment'),
   delayDuration: z.number().optional().describe('Delay before showing (ms)'),
-  children: aliasKeyRefusal(
-    'children',
+  // AN INVERSION, not a widening. objectui#8284 tombstoned `children` here on
+  // the measured ground that the renderer read `content || body` and never
+  // `children`. objectui#6771 changed the READ, not the principle: the renderer
+  // now reads `content || children`, so the channel this node does not read is
+  // `body`, and that is where the tombstone moved.
+  body: aliasKeyRefusal(
     'body',
+    'children',
     'this tooltip node',
-    '`tooltip` reads `content` first and `body` as the fallback for that same slot, and never `children` '
+    '`tooltip` reads `content` first and `children` as the fallback for that same slot, and never `body` '
     + '(READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/overlay/tooltip.tsx`). '
-    + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + 'This registration was the one place in the tree that ADVERTISED `body` in its `inputs`, which is why '
+    + 'objectui#6771 brought it into the retirement rather than leaving it as the dialect\'s last discoverable home. objectui#8284.',
   ),
 });
 

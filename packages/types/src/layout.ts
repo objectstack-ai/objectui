@@ -785,11 +785,27 @@ export interface CardSchema extends BaseSchema {
    */
   header?: SchemaNode | SchemaNode[];
   /**
-   * Card body/content (Legacy, use children)
+   * RETIRED (objectui#6771, maintainer ruling 2026-09-01) — the `body`
+   * child-list spelling. Author {@link CardSchema.children}.
+   *
+   * This key was already labelled "Legacy, use children" and the renderer
+   * read `renderNodeSlot(schema.children || schema.body, …)`, so `card` was
+   * one of the fallback readers whose `body` arm the ruling drops in the
+   * same change as the `body`-only registrations converge.
+   *
+   * Refused by name rather than deleted: `BaseSchema` carries
+   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a
+   * deleted member is ACCEPTED silently and rendered by nothing. The
+   * `?: never` is what makes `tsc` answer at the authoring site, and the
+   * mirror's `aliasKeyRefusal` names `children` at parse time.
+   *
+   * @deprecated Retired spelling of `children` — author `children`.
    */
-  body?: SchemaNode | SchemaNode[];
+  body?: never;
   /**
-   * Child components
+   * Card content — the card's child list, and since objectui#6771 its only
+   * spelling. READ SITE: `renderNodeSlot(schema.children, …)` in
+   * `packages/components/src/renderers/layout/card.tsx`.
    */
   children?: SchemaNode | SchemaNode[];
   /**
@@ -1135,11 +1151,25 @@ export interface AspectRatioSchema extends BaseSchema {
    */
   alt?: string;
   /**
-   * Child components (alternative to image)
+   * RETIRED (objectui#6771, maintainer ruling 2026-09-01) — the `body`
+   * child-list spelling. Author {@link AspectRatioSchema.children}.
+   *
+   * `aspect-ratio` read `renderChildren(schema.children || schema.body)`
+   * whenever no `image` was set, so it is one of the fallback readers whose
+   * `body` arm drops in the same change.
+   *
+   * Refused by name rather than deleted: `BaseSchema` carries
+   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a
+   * deleted member is ACCEPTED silently and rendered by nothing. The
+   * `?: never` is what makes `tsc` answer at the authoring site, and the
+   * mirror's `aliasKeyRefusal` names `children` at parse time.
+   *
+   * @deprecated Retired spelling of `children` — author `children`.
    */
-  body?: SchemaNode | SchemaNode[];
+  body?: never;
   /**
-   * Child components (alternative syntax)
+   * Child components rendered inside the ratio box when no `image` is set —
+   * the one child-list spelling (objectui#6771).
    */
   children?: SchemaNode | SchemaNode[];
 }
@@ -1257,13 +1287,13 @@ export interface PageNodeSchema extends BaseSchema {
    *
    * `PageRenderer` has no read point for it: a `page` node carrying
    * `actions: [{type:'button',label:'Add Product'}, …]` drew 0 buttons through
-   * the real `SchemaRenderer`, while the SAME two buttons in {@link body} drew
+   * the real `SchemaRenderer`, while the SAME two buttons in {@link PageNodeSchema.children} drew
    * 2. `BaseSchema` is `.passthrough()`, so the array was not dropped — it was
    * kept, and before objectui#7933 it reached the DOM as
    * `actions="[object Object],[object Object]"`.
    *
    * The remedy is a NODE, not a key: put a `button` (or an `action:button` with
-   * a declared `actionType`) in {@link body}; on a record page declare them on a
+   * a declared `actionType`) in {@link PageNodeSchema.children}; on a record page declare them on a
    * `page:header` block, whose own `actions` are ACTION IDS resolved from the
    * object's metadata (objectui#7182) rather than nodes.
    *
@@ -1300,7 +1330,7 @@ export interface PageNodeSchema extends BaseSchema {
    *
    * The remedy is a NODE that already ships: put
    * `{ "type": "breadcrumb", "items": [{ "label": "Home", "href": "/" }] }` in
-   * {@link body}. `breadcrumb` is a registered renderer taking that exact item
+   * {@link PageNodeSchema.children}. `breadcrumb` is a registered renderer taking that exact item
    * shape, plus `separator`, `maxItems` and a per-item `icon`.
    * ⛔ Not the `page:header` block's `breadcrumb`: that one is SINGULAR and a
    * BOOLEAN display toggle, not a list of links.
@@ -1358,21 +1388,41 @@ export interface PageNodeSchema extends BaseSchema {
   // blankLayout removed — the `blank` page type has no renderer and was dropped
   // from @objectstack/spec PageTypeSchema (framework#2265, enforce-or-remove).
   /**
-   * Main content (Legacy/Simple mode) — ONE node, or a list of them.
+   * RETIRED (objectui#6771, maintainer ruling 2026-09-01) — the `body`
+   * child-list spelling. Author {@link PageNodeSchema.children}.
+   *
+   * `PageRenderer`'s `FlatContent` read `schema.body || schema.children`, and
+   * the registration published `body` as the flat content list on all five
+   * page kinds. Both moved to `children` in the retirement; the ARITY ruling
+   * this key carried (objectui#8310 — one node OR a list) moved with it and
+   * is restated on `children` below, because that is now the key it governs.
+   *
+   * Refused by name rather than deleted: `BaseSchema` carries
+   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a deleted
+   * member is ACCEPTED silently and rendered by nothing.
+   *
+   * @deprecated Retired spelling of `children` — author `children`.
+   */
+  body?: never;
+  /**
+   * Main content when a page declares no regions — ONE node, or a list of
+   * them.
    *
    * The union is the declaration catching up to its reader, not a widening for
-   * convenience (objectui#8310, maintainer ruling 2026-09-07). This key read
-   * `SchemaNode[]` and was the OUTLIER in this file: `CardSchema.body` and
-   * `AspectRatioSchema.body` already spell the union, and so does
-   * `BaseSchema.body` — the channel this interface inherits and then narrowed.
+   * convenience (objectui#8310, maintainer ruling 2026-09-07). The ruling was
+   * made about the `body` spelling this interface used to declare; objectui#6771
+   * retired that spelling, so the union lives here, on the key the same reader
+   * now takes. `CardSchema.children` and `AspectRatioSchema.children` spell the
+   * same union, and so does `BaseSchema.children`.
    * `PageRenderer`'s `FlatContent` fallback
    * (`packages/components/src/renderers/layout/page.tsx`) has always accepted a
    * bare node, normalizing it into a one-element list; under the narrowing that
    * branch was unreachable through the renderer's own declared props and stood
    * only behind a `content as SchemaNode` cast, which the same ruling deletes.
    *
-   * The refused value is authored on this project's own landing page: the root
-   * `README.md` "Basic Usage" example gives `body` a single `grid` node. It
+   * The refused value was authored on this project's own landing page: the root
+   * `README.md` "Basic Usage" example gives this key a single `grid` node (it
+   * spelled the key `body` until objectui#6771 moved the corpus). It
    * type-checked only because that snippet is annotated `BaseSchema` — the
    * WIDER parent — so nothing on the authoring path ever asked this key about
    * its arity. Pinned by `__tests__/page-body-arity-8310.test.ts`.
@@ -1382,10 +1432,6 @@ export interface PageNodeSchema extends BaseSchema {
    * WRONG TYPE (TS2322) and never a MISSPELLED key (an undeclared key is
    * absorbed by the index signature, zero diagnostics). This union repairs the
    * first case only.
-   */
-  body?: SchemaNode | SchemaNode[];
-  /**
-   * Alternative content prop
    */
   children?: SchemaNode | SchemaNode[];
   /**

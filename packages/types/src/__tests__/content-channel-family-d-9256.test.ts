@@ -394,27 +394,39 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
     // objectui#8572. This control was aimed at `ChatbotSchema`, whose own `body`
     // the parity ledger recorded as "two different meanings of one key — a naming
     // collision to rule on"; that ruling has since been made and belongs to its
-    // own card, ⛔ which is why this line does not restate its verdict here. The
-    // hold-out this card recorded still stands on the two TWIN faces: they
-    // inherit `body` as the content channel and only their `children` is
-    // narrowed above — so the control keeps doing its job, which is to keep the
-    // chatbot rows a reading about `children` rather than about the whole mirror.
+    // own card, ⛔ which is why this line does not restate its verdict here.
+    //
+    // ⚠️ THE HOLD-OUT ENDED, and not by a decision on this card. It read: the
+    // two TWIN faces inherit `body` as the content channel, only their
+    // `children` is narrowed here. objectui#6771 retired `body` on `BaseSchema`
+    // itself, so there is no content channel left to inherit — and an inherited
+    // refusal would have named `children` as the remedy, which is refused on
+    // these two as well. Each twin therefore declares the same NEITHER-channel
+    // tombstone its `children` already carried, pointing at `requestBody`.
+    // ⛔ This is not a narrowing this card chose: the sentence was already
+    // asserted here, only the declaration was missing.
     const r = (ChatbotEnhancedMirror as unknown as Mirror)
       .safeParse({ type: 'chatbot-enhanced', messages: [], body: CONTENT });
-    expect(r.success).toBe(true);
+    expect(r.success).toBe(false);
+    const bodyIssue = (r.success ? [] : r.error!.issues).find((i) => i.path.join('.') === 'body');
+    expect(bodyIssue?.message).toContain('requestBody');
+    // CONTROL — the key an author should write instead still parses.
+    expect((ChatbotEnhancedMirror as unknown as Mirror)
+      .safeParse({ type: 'chatbot-enhanced', messages: [], requestBody: { model: 'gpt-4' } }).success).toBe(true);
   });
 
-  it('LIVE CONTROL — `button` still accepts BOTH channels: it is family C, not family D', () => {
-    // Re-derived at this branch point, and it contradicts the table this slice
-    // was dispatched from: `ui:button` owns the bare `button` key, and that
-    // renderer reads `schema.label || renderChildren(schema.body || schema.children)`
-    // — a LIVE fallback. Narrowing it would REMOVE A LIVE READ, which is a
-    // behaviour change and the maintainer's call (objectui#8284), so `button`
-    // is untouched and this line is what keeps the rows above a reading about
-    // the six that moved rather than about the whole mirror.
+  it('`button` is family C with ONE channel left — the `body` arm was retired, not narrowed away', () => {
+    // This line used to read `button` accepts BOTH channels, on the ground that
+    // `ui:button` renders `schema.label || renderChildren(schema.body || schema.children)`
+    // — a LIVE fallback whose removal was a behaviour change and the
+    // maintainer's call. That call was made: objectui#6771's ruling puts the
+    // `body` arm of every fallback reader in scope ("single-spelling applies to
+    // fallback readers too") and names this expression explicitly. `button` is
+    // still family C — it reads a content channel, unlike family D — and the
+    // channel it reads is `children`.
     const mirror = ButtonFamilyCControl as unknown as Mirror;
-    expect(issues(mirror, { type: 'button', body: CONTENT })).toBeNull();
     expect(issues(mirror, { type: 'button', children: CONTENT })).toBeNull();
+    expect(issues(mirror, { type: 'button', body: CONTENT })).not.toBeNull();
   });
 
   it('LIVE CONTROL — the ITEM-level channel is untouched: a `tabs` item still parses `content`', () => {
@@ -441,13 +453,15 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
     })).toBeNull();
   });
 
-  it('LIVE CONTROL — family C is NOT narrowed: a `div` still accepts both channels', () => {
-    // `div` reads `children || body` (a live fallback). Removing a live read is
-    // a behaviour change and is with the maintainer, so this line must stay
-    // green for this card to be a declaration repair rather than a behaviour
-    // change.
+  it('family C still reads a content channel — `div` takes `children`, and only `children`', () => {
+    // `div` read `children || body`, a live fallback, and this line used to pin
+    // BOTH as accepted so that this card stayed a declaration repair rather than
+    // a behaviour change. objectui#6771 made the behaviour change deliberately,
+    // under a maintainer ruling, and the distinction this control exists to
+    // guard survives it: family C reads a content channel and family D reads
+    // none. What changed is how many spellings family C answers to.
     expect(AnyComponentSchema.safeParse({ type: 'div', children: CONTENT }).success).toBe(true);
-    expect(AnyComponentSchema.safeParse({ type: 'div', body: CONTENT }).success).toBe(true);
+    expect(AnyComponentSchema.safeParse({ type: 'div', body: CONTENT }).success).toBe(false);
   });
 });
 

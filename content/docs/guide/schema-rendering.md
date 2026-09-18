@@ -528,7 +528,7 @@ Always type your schemas for better IDE support and fewer runtime errors.
 `visibleOn` is a condition key and is evaluated on every node type. The message text is a
 nested `text` node because `alert` carries no expression rows — and `message` is not an
 `AlertSchema` key at all: the alert's own text keys are `title` and `description`, and the
-renderer falls back from `description` to `body`. `destructive` is the variant this state
+renderer falls back from `description` to `children`. `destructive` is the variant this state
 wants; `error` is not in the closed set.
 
 ## Next Steps

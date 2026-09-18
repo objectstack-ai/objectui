@@ -9,13 +9,19 @@
 /**
  * Agreement pin — the retire-vs-remove discriminator (objectui#9684).
  *
- * The rule this file guards is the one the precedent changesets state
- * (objectui#5941, #7526) in the form objectui#7678 amended it to: a `?: never`
- * tombstone is available only on a SURVIVING CARRIER, and on such a carrier it
- * is used when either prong holds. ⛔ This file does not restate the rule
- * either — `../complex.ts` states it, at FOUR sites, and the statement
- * `../mobile.ts` cites is the one on `ChatbotSchema`; the `describe` blocks
- * below fail if that one moves, and if the four stop agreeing.
+ * The rule this file guards is the retire-vs-remove discriminator the precedent
+ * changesets state (objectui#5941, #7526) in the form objectui#7678 amended it
+ * to. ⛔ It is NOT quoted here — it is stated in `../complex.ts`, at FOUR sites,
+ * and the one `../mobile.ts` cites is on `ChatbotSchema`; read it there. The
+ * `describe` blocks below fail if that one moves and if the four stop agreeing.
+ *
+ * ⭐ This file used to quote the rule and claim in the same sentence that it did
+ * not restate it — and the quotation matched this file's own
+ * `STATES_THE_RULE`, so the tree carried five statements while the pin guarded
+ * four and the fifth denied being one (measured at the third in-seat review;
+ * `sourceFiles` skips `__tests__`, so deleting the precondition from that
+ * header passed). The claim is now enforced on this file rather than asserted
+ * about it: see the `describe` that reads this very source.
  *
  * ## Why a pin and not a comment
  *
@@ -59,17 +65,27 @@
  * of them is invisible here exactly as it was to the grep on the card. The
  * vacuity control is what keeps that honest in one direction: the population in
  * `../complex.ts` is asserted to be exactly the roster, so markers that stop
- * matching fail loudly instead of passing on a short set. ⛔ What remains
- * silent, measured rather than guessed, on objectui#9684: a clause added at one
- * site that numbers nothing and matches no `CLAUSES` pattern, and a whole
- * statement worded past every `STATES_THE_RULE` marker. ⇒ when you amend the
- * rule, add the clause here; when you add a site, add the marker.
+ * matching fail loudly instead of passing on a short set.
+ *
+ * ⛔ What remains silent, stated as the PATTERNS and ⛔ no longer as a summary
+ * of them. A third prong is caught when it is written `prong 3`, `third prong`,
+ * `(3)`, or as `or` followed by `3`, `iii`, `third` or `thirdly` — and it is
+ * SILENT in any other numbering, `or (c)` and `or (four)` among them, and
+ * silent when it numbers nothing at all. A whole statement worded past every
+ * `STATES_THE_RULE` marker is silent too. ⚠️ The summary this replaces said the
+ * silent case was "a clause that numbers nothing": measured at the third
+ * in-seat review, `(iii)`, `3.` and `thirdly` each number something and each
+ * passed, so a reader amending the rule in that style believed the roster held
+ * the other three sites. ⇒ when you amend the rule, add the clause here; when
+ * you add a site, add the marker; and when you widen a pattern, rewrite this
+ * paragraph rather than the sentence that summarises it.
  *
  * ⚠️ Markers are matched against the block with its comment punctuation and
  * line wrapping flattened. Matching raw lines is what makes a phrase probe miss
- * a hit that happens to wrap — measured on this card: `a ?: never tombstone is
- * available only on a SURVIVING` / `CARRIER` wraps mid-phrase at two of the
- * four published sites, and `grep -inE` over that file reports them as misses.
+ * a hit that happens to wrap — measured on this card: the precondition clause
+ * breaks across two lines at two of the four published sites, with the line end
+ * falling inside the two-word name of the carrier condition, and `grep -inE`
+ * over that file reports both as misses.
  * Which spans are comment at all is answered by `scripts/js-comment-mask.mjs`,
  * the one scanner in this tree that knows a string literal from a comment, and
  * ⛔ never by a private regex over the source.
@@ -228,12 +244,16 @@ const label = (block: Block): string => `${block.file} (block opening on line ${
  * clause a future amendment could add": a clause worded past all six is
  * invisible, exactly as `MobileComponentConfig`'s paraphrase was to the probe
  * on objectui#9684. `a-prong-beyond-the-two` exists because the measured
- * escape was a THIRD prong added at one site and nowhere else. It catches any
- * `(3)` inside a statement block, plus `prong 3` and `third prong` — ⛔ it did
- * NOT, and the comment here claimed it did: the pattern required `(3) it`, so
- * a numbered prong continuing with any other word was silent (measured at the
- * second in-seat review). A clause that numbers NOTHING is still silent, and
- * nothing here changes that.
+ * escape was a THIRD prong added at one site and nowhere else. It catches
+ * `prong 3`, `third prong`, any `(3)`, and `or` followed by `3`, `iii`,
+ * `third` or `thirdly`.
+ *
+ * ⛔ Read that list as the reach, ⛔ never a paraphrase of it. Twice now the
+ * pattern was widened and the sentence beside it described a boundary one step
+ * short of the real one: it required `(3) it`, so `(3) the` was silent; then it
+ * covered `(3)` while the prose said the silent case "numbers nothing", so
+ * `(iii)`, `3.` and `thirdly` were silent. Everything outside the list above is
+ * still silent — a different numbering, and a clause that numbers nothing.
  */
 const CLAUSES: Readonly<Record<string, RegExp>> = {
   'available-only-on-a-surviving-carrier': /tombstone is available only on a surviving[- ]carrier/i,
@@ -241,7 +261,7 @@ const CLAUSES: Readonly<Record<string, RegExp>> = {
   'used-when-either-prong-holds': /when either prong/i,
   'prong-1-a-named-live-replacement': /authors to a named live replacement/i,
   'prong-2-keeps-loud-a-taught-key': /keeps? loud a key the docs taught as working/i,
-  'a-prong-beyond-the-two': /\bprong 3\b|\bthird prong\b|\(3\)/i,
+  'a-prong-beyond-the-two': /\bprong 3\b|\bthird prong\b|\(3\)|\bor,?\s*\(?(?:3|iii|third(?:ly)?)\b/i,
 };
 
 const clausesOf = (block: Block): string[] =>
@@ -302,7 +322,7 @@ const SURVIVING_STATEMENTS: ReadonlyArray<{ name: string; anchor: string; carrie
   {
     name: 'triggerIcon',
     anchor: 'ADR-0049 RETIREMENT TOMBSTONE — `triggerIcon`',
-    // ⚠️ Same: this one abbreviates the prongs to "either prong holds" and names
+    // ⚠️ Same: this one abbreviates the prongs into the either-prong clause and names
     // only the one that applies, so it carries neither prong clause.
     carries: [
       'a-whole-type-name-has-no-carrier',
@@ -407,8 +427,8 @@ describe('objectui#9684 — `mobile.ts` cites the rule instead of restating it',
   it('no block in this file states the rule AT ALL — not a prong, not a clause', () => {
     // ⛔ Not "writes the prongs out", which is what this asserted and what the
     // second in-seat review walked through: a note restating the precondition
-    // and "either prong holds", with the prongs left unwritten, satisfied the
-    // prong check and put this file back on the amendment surface for that
+    // and the either-prong clause, with the prongs left unwritten, satisfied
+    // the prong check and put this file back on the amendment surface for that
     // clause with nothing red. The claim was "never restates it"; the
     // assertion is now the claim.
     const restating = mobileBlocks.filter((block) => STATES_THE_RULE.test(block.flat));
@@ -454,6 +474,26 @@ describe('objectui#9684 — the citation target is where the citations say it is
     expect(doc!.kind).toBe('jsdoc');
     expect(STATES_THE_RULE.test(doc!.flat)).toBe(true);
     expect(CARRIES_PRECONDITION.test(doc!.flat)).toBe(true);
+  });
+});
+
+describe('objectui#9684 — this file does not state the rule either, and that is enforced here', () => {
+  it('no comment block in this pin matches its own `STATES_THE_RULE`', () => {
+    // ⭐ The claim used to sit in the header as prose while the header itself
+    // matched this marker — five statements in the tree, four guarded, and the
+    // fifth denying it was one. `sourceFiles` skips `__tests__` by design (a
+    // pin quoting a fixture is not a site to amend), so nothing else reaches
+    // this file: it holds itself to its own rule or the claim comes out.
+    const self = fileURLToPath(import.meta.url);
+    const own = blocksOf('the pin itself', readFileSync(self, 'utf8')).filter((block) =>
+      STATES_THE_RULE.test(block.flat),
+    );
+    expect(
+      own.map((block) => `line ${block.line}`),
+      'this file quotes the rule it guards. Cite it instead — `../complex.ts` holds the ' +
+        'statements, and a quotation here is one more copy to amend, invisible to the ' +
+        'population because tests are outside it.',
+    ).toEqual([]);
   });
 });
 

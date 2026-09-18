@@ -61,7 +61,19 @@ surviving object" was caught — the same defect deciding on the author's choice
 words. `mobile.ts` was held only to "does not write the prongs out", so a note
 restating the precondition passed. The site count was `>= 4`, so a fifth
 statement passed and the "four sites" this changeset states was re-derived by
-nothing. ⚠️ What is still silent, measured and ⛔ not guessed: a clause added at
-one site that numbers nothing, and a statement worded past every marker. The test
-header names both; the failure direction of every widening above is a red that
+nothing.
+
+⚠️ What is still silent, given as the patterns and ⛔ not as a summary of them: a
+third prong is caught when it is written `prong 3`, `third prong`, `(3)`, or as
+`or` followed by `3`, `iii`, `third` or `thirdly`; it is silent in any other
+numbering and when it numbers nothing, and a whole statement worded past every
+statement marker is silent too. ⛔ Two earlier versions of this paragraph
+summarised that boundary and were wrong both times — first "`(3) it`" excluded
+`(3) the`, then "numbers nothing" excluded `(iii)`, `3.` and `thirdly`, each
+measured passing. The failure direction of every widening above is a red that
 sends a human to read four blocks, never a green.
+
+The pin also holds itself to the rule it guards: it cites the statement instead
+of quoting it, and asserts that it contains no quotation — because the header
+did quote it, and said in the same sentence that it did not, while tests sit
+outside the population the pin enumerates.

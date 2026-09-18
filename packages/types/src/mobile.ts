@@ -65,9 +65,14 @@
 // any block in THIS file states the rule at all, prongs written out or not;
 // when a citation's target has moved; when `complex.ts` states the rule at any
 // number of sites other than the recorded four; and when a clause appears at
-// one of those four and not at its peers. ⚠️ For the clauses that test names —
-// a clause added at one site that numbers nothing is still silent, and it says
-// so rather than leaving the reach to be assumed.
+// one of those four and not at its peers. ⚠️ For the clauses that test names,
+// in the spellings it names: a third prong is caught written `prong 3`,
+// `third prong`, `(3)`, or as `or` followed by `3`, `iii`, `third` or
+// `thirdly`, and is SILENT in any other numbering and when it numbers nothing.
+// ⛔ Read that list from the test, ⛔ never a summary of it — this sentence
+// twice described a boundary one step short of the real one, and each time a
+// reader amending the rule in the uncaught style would have believed the other
+// three sites were held.
 
 // ============================================================================
 // Responsive Configuration

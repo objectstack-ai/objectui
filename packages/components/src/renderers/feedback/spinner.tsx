@@ -16,7 +16,15 @@ import { cn } from '../../lib/utils';
  * the bare `toDomProps` — objectui#5632, the `BARE_SPREAD_ON_SVG` slice of
  * objectui#5574. `SpinnerSchema` declares exactly one key beyond the SDUI base,
  * `size`, and this renderer already CONSUMES it by name through `sizeClasses`;
- * nothing it declares needs to reach the element through a spread.
+ * nothing it declares needs to reach the element through a spread. That count
+ * is over the keys an author can WRITE and this renderer can RECEIVE — which
+ * is what "beyond the SDUI base" already says — so a `?: never`
+ * refuse-by-name is not in it but the tombstone of an adjudicated-retired
+ * key, its own `@deprecated` line in `packages/types/src/feedback.ts`
+ * carrying the verdict under the maintainer ruling recorded with the
+ * objectui#9256 family-D pin
+ * (`packages/types/src/__tests__/content-channel-family-d-9256.test.ts`);
+ * adding or retiring one moves nothing this sentence counts.
  *
  * ⚠️ The bare spread was not merely noisy here, and the defect it carried is one
  * the sweep gate could never report: `size` is an ENUM (`sm`/`md`/`lg`/`xl`),

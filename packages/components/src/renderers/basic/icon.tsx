@@ -71,7 +71,13 @@ import { describeIconLookup, resolveIcon } from '../action/resolve-icon';
  * already CONSUMES all three by name (the glyph lookup, `sizeStyle`, and the
  * `cn()` class list). Not one of them needs to reach the element through a
  * spread, so nothing legitimate is withheld and no third declaration is
- * warranted.
+ * warranted. That count is over the keys an author can WRITE and this
+ * renderer can RECEIVE — it never counted the `type` discriminant either,
+ * and it does not count a `?: never` refuse-by-name, which is the tombstone
+ * of an adjudicated-retired key: that key's own `@deprecated` line in
+ * `packages/types/src/layout.ts` carries the verdict, under the maintainer
+ * ruling recorded with the objectui#9256 family-D pin
+ * (`packages/types/src/__tests__/content-channel-family-d-9256.test.ts`).
  *
  * ## What stops arriving, which is the half a leak gate cannot see
  *

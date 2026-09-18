@@ -864,6 +864,16 @@ async function validateObjectFieldRules(draft: unknown): Promise<SchemaFormIssue
  * `ObjectValidationEngine.scopeFor` — that engine is deprecated and pinned
  * unwired by `validation-engine-stays-unwired.test.ts`, and it binds the bare
  * field names as well, which is the spelling that fail-closes here.
+ *
+ * ⚠️ `conditionScope.ts`'s ruled table agrees and is NOT read from here, both
+ * halves deliberate. Its `validation` row is `record`, on the same server
+ * reading — so this gate and the schema-driven editor reach one verdict from
+ * one authority rather than from each other. ⛔ Its `object` row (`none`) is
+ * not the row that governs this check and must not be read as overruling it:
+ * that table answers which scope a condition WIDGET may claim for the metadata
+ * type on screen, and its `ConditionScope` has a third value, `none`, that a
+ * gate cannot act on. The rules linted here are validation rules, whichever
+ * door opened the object draft.
  */
 const VALIDATION_RULE_PREDICATE_KEYS = ['condition', 'when'] as const;
 

@@ -36,7 +36,14 @@ const objectDef = {
     owner: { type: 'lookup', label: 'Owner', reference_to: 'sys_user' },
     account: { type: 'master_detail', label: 'Account', reference_to: 'accounts' },
     assignee: { type: 'user', label: 'Assignee', reference_to: 'sys_user' },
-    parent: { type: 'tree', label: 'Parent', reference_to: 'contacts' },
+    // No target key. It carried the retired snake_case spelling, which
+    // `FieldSchema` refuses BY NAME, and the sort picker's object-def branch
+    // reads only the declared `reference` (objectui#6837 half 2) — so the
+    // line annotated nothing and was read by nothing. On a `tree` the target
+    // is optional; this object is `contacts` and the value named it, so
+    // renaming would turn a refused key into an accepted self-annotation this
+    // fixture never made (objectui#8031).
+    parent: { type: 'tree', label: 'Parent' },
     // The picker's SECOND withholding rule (#4243, and the shared judgement as
     // of objectui#3950): computed on read, no column to order by. Present in
     // this fixture so the exact option lists below pin its absence rather than

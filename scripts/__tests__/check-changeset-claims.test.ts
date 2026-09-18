@@ -950,7 +950,30 @@ describe('the corpus is the prose this change publishes about itself', () => {
     // objectui#9140 measured the job-log channel at zero answers out of four.
     // The comment step decides whether to post from the finding COUNT, so a run
     // whose only finding is born-false has to be counted there too.
-    expect(workflowYaml).toContain('measured.findings.length + (measured.bornFalse ?? []).length');
+    expect(workflowYaml).toContain('(measured.bornFalse ?? []).length');
+  });
+
+  it('⭐ delivers a self-contradiction-only finding too (objectui#9841)', () => {
+    // ⚠️ ASSERTED AS ITS OWN TERM, ⛔ never as the whole sum. A pin that matched
+    // the sum verbatim would redden on a harmless rewording and — worse — would
+    // be repaired by pasting whatever the file now says, which is how a dropped
+    // term gets blessed. This one goes red for exactly one reason: this reading
+    // stopped being counted, and its findings stopped creating the comment.
+    expect(workflowYaml).toContain('(measured.selfContradiction ?? []).length');
+  });
+
+  it('counts EVERY reading the gate carries — one term per reading, none left out', () => {
+    // The standing obligation, stated where the next reading's author will read
+    // it: a reading that is measured, rendered and then not counted here is
+    // delivered to a job log nobody opens. That is objectui#9842's shape, and it
+    // is the reason this surface was extended rather than left for later.
+    for (const term of [
+      'measured.findings.length',
+      '(measured.bornFalse ?? []).length',
+      '(measured.selfContradiction ?? []).length',
+    ]) {
+      expect(workflowYaml).toContain(term);
+    }
   });
 });
 

@@ -163,11 +163,15 @@ describe('objectui#7206 — `useCascadingOptions` reads no record off `SchemaRen
     expect(screen.queryByRole('radio', { name: 'California' })).not.toBeInTheDocument();
   });
 
-  it('does not let the context NARROW a list either, once the host has ungated it', () => {
-    // The second fact, separable from gating: with the gate satisfied by the
-    // host, a DIFFERENT record on the context must not reach the per-option
-    // predicates. `cn` on the prop, `us` on the retired members — the offered
-    // option follows the prop.
+  it('PRECEDENCE, not retirement: the host record decides which option is offered', () => {
+    // ⚠️ Measured under ablation and recorded rather than implied: restoring the
+    // retired tail does NOT turn this case red, because a supplied
+    // `dependentValues` won that chain outright anyway. So this is the
+    // precedence fact, not the retirement fact — the two cases above are the
+    // ones that fail when the tail comes back, and this one holds either way.
+    // It stays because precedence is what a host reasons about when it decides
+    // WHICH record to pass: `cn` on the prop, `us` on the retired members, and
+    // the offered option follows the prop.
     renderRadio({ dependentValues: { country: 'cn' } }, { country: 'us' });
     expect(screen.getByRole('radio', { name: 'Zhejiang' })).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: 'California' })).not.toBeInTheDocument();

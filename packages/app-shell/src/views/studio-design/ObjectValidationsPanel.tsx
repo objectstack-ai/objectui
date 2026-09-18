@@ -57,6 +57,14 @@ interface ValidationRuleDraft {
    * here (#3218).
    */
   condition?: ExpressionInput;
+  /**
+   * The `conditional` rule type's guard — a SECOND live spelling, not an alias.
+   * `ConditionalValidationSchema` spells it `when` and refuses `condition` BY
+   * NAME on that shape (an `unrecognized_keys` issue whose message suggests the
+   * rename); symmetrically `ScriptValidationSchema` refuses `when`. So neither
+   * key may be assumed — read and write the guard through `guardKey(rule.type)`.
+   */
+  when?: ExpressionInput;
   severity?: 'error' | 'warning' | 'info';
   active?: boolean;
   events?: string[];
@@ -106,10 +114,35 @@ function nextRuleName(existing: string[]): string {
 }
 
 /**
+ * Which key carries a rule's CEL guard, per rule type.
+ *
+ * The spec does NOT use one spelling: `script` and `cross_field` carry
+ * `condition`, while `conditional` carries `when` — and each shape refuses the
+ * other's key by name rather than accepting it as an alias. Measured against
+ * the resolved `@objectstack/spec`: a `conditional` bearing `condition` fails
+ * `ConditionalValidationSchema` with `unrecognized_keys`, and a `script`
+ * bearing `when` fails `ScriptValidationSchema` the same way. `whenKeyPin` in
+ * this directory re-derives both directions through the spec's own parser.
+ *
+ * ⇒ every read and write of the guard goes through here. Assuming either
+ * spelling silently produces metadata the object-draft save refuses.
+ */
+function guardKey(type: unknown): 'when' | 'condition' {
+  return type === 'conditional' ? 'when' : 'condition';
+}
+
+/**
  * A VALID minimal skeleton for a rule of `type` — every required field is
- * present with a save-safe value. An empty `condition` is rejected by the
- * spec's ExpressionInputSchema, so CEL-bearing types default to `false` (a
+ * present with a save-safe value. An empty guard is rejected by the spec's
+ * ExpressionInputSchema, so CEL-bearing types default to `false` (a
  * never-firing no-op); required `field`/`fields` seed from the first field.
+ * The guard's KEY is per-type (`guardKey`) — `conditional` spells it `when`.
+ *
+ * "Valid" here is a claim about a foreign schema, so it is pinned against that
+ * schema rather than asserted in prose: `whenKeyPin` parses every skeleton this
+ * function emits through the spec's own `ValidationRuleSchema` and
+ * `ObjectSchema`. Before that pin, this docblock's promise was re-derived by
+ * nothing, and the `conditional` skeleton contradicted it for its whole life.
  */
 function makeSkeleton(type: RuleType, name: string, firstField?: string): ValidationRuleDraft {
   const base = { name, message: '', severity: 'error' as const, active: true };
@@ -128,7 +161,8 @@ function makeSkeleton(type: RuleType, name: string, firstField?: string): Valida
       return {
         ...base,
         type,
-        condition: 'false',
+        when: 'false',
+        // The nested branch is a `script` rule, so ITS guard stays `condition`.
         then: { type: 'script', name: `${name}_then`, message: '', condition: 'false', severity: 'error' },
       };
   }
@@ -301,6 +335,12 @@ function RuleTypeFields({
     </label>
   );
 
+  // ONE element serves `script`, `cross_field` and `conditional`, and the spec
+  // does not spell their guard alike — so the key is resolved per rule, not
+  // baked in. It was baked in as `condition`, which made every conditional
+  // rule this panel wrote refused by the very save the docblock above promises.
+  const guard = guardKey(rule.type);
+
   const conditionField = (
     <div>
       <span className="mb-1 block text-[11px] text-muted-foreground">
@@ -335,8 +375,8 @@ function RuleTypeFields({
           reddens if a production module imports it — so it is not an
           authority on what an author should type. */}
       <ConditionBuilder
-        value={expressionSource(rule.condition)}
-        onCommit={(cel) => patch({ condition: writeExpressionSource(rule.condition, cel) })}
+        value={expressionSource(rule[guard])}
+        onCommit={(cel) => patch({ [guard]: writeExpressionSource(rule[guard], cel) })}
         fields={fields}
         disabled={disabled}
         scope="record"
@@ -563,11 +603,15 @@ export function ObjectValidationsPanel({
     // INCLUDED. A `typeof === 'string'` test here dropped a persisted guard on
     // the floor and left the skeleton's never-firing `'false'` in its place
     // (#3218). Carried verbatim: no `source` was edited, so `ast` stays valid.
+    // Each side uses ITS OWN spelling: converting script → conditional moves the
+    // guard from `condition` to `when`, and back again the other way.
+    const from = guardKey(cur.type);
+    const to = guardKey(nextType);
     if (
       (nextType === 'script' || nextType === 'cross_field' || nextType === 'conditional') &&
-      expressionSource(cur.condition)
+      expressionSource(cur[from])
     ) {
-      next.condition = cur.condition;
+      next[to] = cur[from];
     }
     for (const k of ['label', 'description', 'message', 'severity', 'active', 'events', 'priority'] as const) {
       if (cur[k] !== undefined) (next as Record<string, unknown>)[k] = cur[k];

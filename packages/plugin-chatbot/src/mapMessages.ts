@@ -39,6 +39,19 @@ interface AnyPart {
    * output checked; this stays open.
    */
   state?: string;
+  /**
+   * The chat runtime's approval envelope, as it arrives on a tool part. Typed
+   * loosely like the rest of this interface — `id` is REQUIRED by the output
+   * contract but optional here, so a producer that omits it is refused by
+   * {@link liftApproval} rather than by the shape of the input interface.
+   */
+  approval?: {
+    id?: string;
+    approved?: boolean;
+    reason?: string;
+    isAutomatic?: boolean;
+    signature?: string;
+  };
   url?: string;
   href?: string;
   title?: string;
@@ -642,6 +655,39 @@ export function buildProgressFromDraftReview(
   };
 }
 
+/**
+ * Lift the chat runtime's approval envelope off a tool part.
+ *
+ * The envelope is what makes the three approval states ACTIONABLE rather than
+ * merely displayable: the runtime's own tool-part union makes it required
+ * alongside `approval-requested`, `approval-responded` and `output-denied`, so
+ * a producer that rebuilds a part from an invocation without it cannot
+ * reconstruct those states at all. This is the live half of objectui#8426 —
+ * `hydratedMessagesToChatMessages` already lifts it on the HYDRATED half
+ * (objectui#8442), and until this landed the two paths disagreed about the
+ * same conversation.
+ *
+ * ⚠️ NOT a replacement for `pendingActionId`, which rides alongside it: that is
+ * the ObjectStack `pending_actions` row the approve/reject endpoints take,
+ * while this is the runtime's own request id.
+ *
+ * A missing or empty `id` means there is no envelope to lift — an envelope
+ * whose id cannot be replied on is not one.
+ */
+function liftApproval(part: AnyPart): ChatToolInvocation['approval'] {
+  const approval = part.approval;
+  if (!approval) return undefined;
+  const { id } = approval;
+  if (typeof id !== 'string' || id.length === 0) return undefined;
+  return {
+    id,
+    approved: approval.approved,
+    reason: approval.reason,
+    isAutomatic: approval.isAutomatic,
+    signature: approval.signature,
+  };
+}
+
 function extractToolInvocations(
   parts: AnyPart[],
   opts: { liveTail?: boolean } = {},
@@ -702,6 +748,7 @@ function extractToolInvocations(
         result,
         errorText: p.errorText,
         state,
+        approval: liftApproval(p),
         pendingActionId: pending?.pendingActionId,
         draftReview,
         proposedPlan,

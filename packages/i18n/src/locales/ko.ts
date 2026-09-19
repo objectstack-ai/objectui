@@ -2483,6 +2483,7 @@ const ko = {
     resultsCount: "\"{{query}}\"에 대한 {{count}}개 결과",
     resultsCountPlural: "\"{{query}}\"에 대한 {{count}}개 결과",
     itemsAvailable: "{{count}}개 항목 사용 가능",
+    itemsAvailableOne: "{{count}}개 항목 사용 가능",
     noResults: "결과를 찾을 수 없습니다",
     noResultsHint: "검색어를 조정해 보세요",
     typeObjects: "오브젝트",

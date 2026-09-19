@@ -2497,6 +2497,7 @@ const ru = {
     resultsCount: "{{count}} результат для \"{{query}}\"",
     resultsCountPlural: "{{count}} результатов для \"{{query}}\"",
     itemsAvailable: "{{count}} доступно",
+    itemsAvailableOne: "{{count}} доступно",
     noResults: "Результатов не найдено",
     noResultsHint: "Попробуйте изменить поисковые запросы",
     typeObjects: "Объекты",

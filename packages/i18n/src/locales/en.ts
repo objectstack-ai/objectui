@@ -2835,6 +2835,7 @@ const en = {
     resultsCount: '{{count}} result for "{{query}}"',
     resultsCountPlural: '{{count}} results for "{{query}}"',
     itemsAvailable: '{{count}} items available',
+    itemsAvailableOne: '{{count}} item available',
     noResults: 'No results found',
     noResultsHint: 'Try adjusting your search terms',
     typeObjects: 'Objects',

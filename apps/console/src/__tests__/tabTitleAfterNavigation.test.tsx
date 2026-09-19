@@ -48,9 +48,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import React from 'react';
-import { render, cleanup, act } from '@testing-library/react';
-import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { render, cleanup, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Routes, Route, Link } from 'react-router-dom';
 import { AppShell } from '@object-ui/layout';
 import { FaviconSync } from '../components/FaviconSync';
 
@@ -59,12 +58,13 @@ const PRODUCT = 'ObjectOS';
 /** What `ConsoleLayout` composes and hands to `AppShell.branding.title`. */
 const COMPOSED = 'Sales CRM — ObjectOS';
 
-let navigate: (to: string) => void;
-
-function NavigateHandle() {
-  const go = useNavigate();
-  navigate = (to: string) => go(to);
-  return null;
+/**
+ * Navigation is driven by clicking a real `<Link>`, the way the console's own
+ * sidebar and breadcrumbs move between pages of an app — not by calling the
+ * router imperatively from outside a component.
+ */
+function goTo(label: string) {
+  fireEvent.click(screen.getByText(label));
 }
 
 /** Mirrors `App.tsx`: the route-keyed sync is a sibling rendered BEFORE the shell. */
@@ -72,7 +72,10 @@ function ConsoleTree({ inApp }: { inApp: boolean }) {
   return (
     <>
       <FaviconSync />
-      <NavigateHandle />
+      <nav>
+        <Link to="/apps/crm/a">go to page a</Link>
+        <Link to="/apps/crm/b">go to page b</Link>
+      </nav>
       {inApp ? (
         <AppShell branding={{ title: COMPOSED }}>
           <Routes>
@@ -124,7 +127,7 @@ describe('the tab title after an in-app navigation (objectui#8637)', () => {
     );
     expect(document.title).toBe(COMPOSED);
 
-    act(() => navigate('/apps/crm/b'));
+    goTo('go to page b');
 
     expect(
       document.title,
@@ -144,8 +147,8 @@ describe('the tab title after an in-app navigation (objectui#8637)', () => {
         <ConsoleTree inApp />
       </MemoryRouter>,
     );
-    act(() => navigate('/apps/crm/b'));
-    act(() => navigate('/apps/crm/a'));
+    goTo('go to page b');
+    goTo('go to page a');
     expect(document.title).toBe(COMPOSED);
   });
 });

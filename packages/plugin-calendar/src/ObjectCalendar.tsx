@@ -201,10 +201,13 @@ export interface ObjectCalendarComponentProps {
  *   reached the retired arm.
  * - A schema whose only configuration lived under the retired spelling now
  *   returns null from here, and the early return answers null with the
- *   existing "Calendar configuration required. Please specify startDateField
- *   and titleField." refusal screen. The map fell back to DEFAULT field names,
- *   which looks like bad data and is why it had to warn; the calendar names
- *   what is missing on screen. Nothing is dropped without a trace.
+ *   existing "Calendar configuration required" refusal screen. The map fell
+ *   back to DEFAULT field names, which looks like bad data and is why it had
+ *   to warn; the calendar names what is missing on screen. Nothing is dropped
+ *   without a trace. (That screen's SECOND clause was reworded by
+ *   objectui#8170 — it names `startDateField` and the view's `calendar` block
+ *   now, and no longer demands the optional `titleField`. This citation is
+ *   deliberately clipped to the clause that did not move.)
  *
  * ⛔ No compatibility rung and no deprecation window, per AGENTS.md #0.1: a
  * tolerant fallback fossilizes the wrong convention into a second de-facto
@@ -1119,12 +1122,79 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     );
   }
 
+  /**
+   * THE REFUSAL SCREEN — honest about the binding, and now honest about the
+   * REMEDY too (objectui#8170).
+   *
+   * It used to read "Calendar configuration required. Please specify
+   * startDateField and titleField." Two independent halves of that were wrong,
+   * and the measurements are recorded here because the sentence is quoted in
+   * several other files and a future reader has to be able to tell a
+   * deliberate wording from a drifted one.
+   *
+   * ## ① `titleField` is not required, and this file is why
+   *
+   * `@objectstack/spec`'s `CalendarConfigSchema` is a `strictObject` whose ONE
+   * required key is `startDateField`; `titleField` is optional. Re-measured on
+   * the installed 17.4.0, three legs: `{}` and `{ titleField: 't' }` both fail
+   * `invalid_type` at `startDateField`, and `{ startDateField: 'd' }` parses
+   * CLEAN. The spec's own note on that schema names THIS renderer as the
+   * reason — `resolveTitle` above takes an explicit `titleField` when present
+   * and otherwise resolves through the ADR-0079 record display-name chain, so
+   * demanding the key here asked the author for something the component does
+   * not need and already handles.
+   *
+   * ## ② The remedy has to hold on BOTH doors, because this screen cannot see
+   * which one it was reached through
+   *
+   * Measured, and it is the reason this is a WORDING change rather than a
+   * door-aware one. Two producers emit an `object-calendar` node — the
+   * calendar branch of `plugin-list`'s `ListView` and the one in
+   * `plugin-view`'s `ObjectView` — and app-shell reaches the first from two
+   * faces, `ObjectView` (the object-view door) and `InterfaceListPage` (the
+   * interface-page door). Every one of them hands this component the same
+   * shape: the shared `baseProps` bag plus whichever of `startDateField` /
+   * `endDateField` / `titleField` the author declared. NOTHING on the node
+   * names the door, so there is nothing to infer from, and a door PROP would
+   * have to be declared on the node's published schema and threaded through
+   * four packages.
+   *
+   * ⛔ And it must not be guessed from the object either. The temptation is to
+   * ask whether `objectSchema` carries a date field, since
+   * `InterfaceListPage.defaultCalendarFromObject` derives a binding from the
+   * first one it finds and this screen is therefore only reachable on that
+   * door when the derivation came back empty. That correlation is not an
+   * identity — the deriver only runs when `calendar` is whitelisted in
+   * `appearance.allowedVisualizations` — and pinning the copy to a predicate
+   * living in another package is the "the gate and the seam must answer one
+   * question" hazard this repo has now recorded on `map`, `chart` and `kanban`.
+   *
+   * ⇒ so the screen names the one place BOTH doors read the binding from — the
+   * view's `calendar` block — and then states the page door's indirection
+   * plainly, because that door genuinely has no slot of its own:
+   * `InterfaceListPage` reads `columns`, `sort`, `filterBy`, `userFilters`,
+   * `appearance`, `addRecord`, `userActions`, `showRecordCount`, `source`,
+   * `sourceView`, `buttons` and `recordAction` off `interfaceConfig`, and NO
+   * calendar key at all.
+   *
+   * ⛔ The first clause is unchanged ON PURPOSE. Five suites pin this screen
+   * with `/Calendar configuration required/i` and `@object-ui/types`' alias
+   * tombstones assert on the same phrase; the clause that was wrong is the
+   * second one, and only the second one moves.
+   */
   if (!calendarConfig) {
     return (
       <div className={className}>
         <div className="flex items-center justify-center h-96">
-          <div className="text-muted-foreground">
-            Calendar configuration required. Please specify startDateField and titleField.
+          <div className="text-muted-foreground max-w-md text-center space-y-2">
+            <p>
+              Calendar configuration required. Please specify startDateField, the calendar's one
+              required key; the event title resolves without titleField.
+            </p>
+            <p className="text-sm">
+              It belongs on the view's calendar block. An interface page has no calendar slot of
+              its own: point its sourceView at a view that declares one.
+            </p>
           </div>
         </div>
       </div>

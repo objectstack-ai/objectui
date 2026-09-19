@@ -2085,7 +2085,7 @@ describe('objectui#7896 — every package README is inside the scan surface', ()
       // entry that does.
       const ticked = [...reason.matchAll(/`[^`]+`/g)].map((m) => m[0]);
       expect(ticked.length, `this exemption cites nothing a reader can open: ${reason}`).toBeGreaterThanOrEqual(2);
-      const declares = /`[A-Z][A-Za-z]*(?:Schema|Type|TypeName|Action|Config|Name)[`.\[]/.test(reason);
+      const declares = /`[A-Z][A-Za-z]*(?:Schema|Type|TypeName|Action|Config|Name)[`.[]/.test(reason);
       const defers = /Same vocabulary as/.test(reason);
       expect(
         declares || defers,

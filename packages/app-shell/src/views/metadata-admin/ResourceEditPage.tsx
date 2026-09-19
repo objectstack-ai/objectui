@@ -104,7 +104,10 @@ import {
   type ObjectFieldOption,
   type WidgetContext,
 } from './widgets.js';
-import { conditionScopeForMetadataType } from './conditionScope.js';
+import {
+  conditionScopeForMetadataType,
+  conditionSubjectsForMetadataType,
+} from './conditionScope.js';
 import { mapLoaded, usePickerLoad } from './loadState.js';
 import {
   useMetadataClient,
@@ -973,6 +976,13 @@ function MetadataResourceEditPageImpl({
       // would put one tier's scope in front of every other tier's authors,
       // which is the shape the ruling refused by name.
       conditionScope: conditionScopeForMetadataType(type),
+      // objectui#9953 — the scope above and this vocabulary answer two
+      // DIFFERENT questions, and this page is where both have to be answered
+      // per type: `action`, `hook` and `validation` all rule `record`, but only
+      // the first is evaluated where `user` is bound. Deriving it here is the
+      // same move as the line above, applied to the fact that line cannot
+      // carry.
+      conditionSubjects: conditionSubjectsForMetadataType(type),
       objectNames: objectsState,
       objectFields: mapLoaded(objectCatalogState, (catalog) => catalog.fields),
       objectActions: mapLoaded(objectCatalogState, (catalog) => catalog.actions),

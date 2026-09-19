@@ -154,6 +154,31 @@ export interface WidgetContext {
    * carries the per-tier rulings and the reading behind each one.
    */
   conditionScope: ConditionScope;
+  /**
+   * The context subjects a condition editor at this host may offer
+   * (objectui#9953) — `undefined` to declare no narrowing.
+   *
+   * ## Why this is a SECOND member and not a widening of `conditionScope`
+   *
+   * `conditionScope` is a claim about how the CEL is LINTED; it is not a claim
+   * about what the host BINDS, and the two come apart on exactly the tiers this
+   * widget serves. `action`, `hook` and `validation` all rule `'record'`, yet a
+   * hook's condition is evaluated by a server host binding `record` and
+   * `previous` alone while an action's `visible` is evaluated in the browser,
+   * where `user` really is bound. One value could not have carried both
+   * answers, which is why `RECORD_CONDITION_SUBJECTS` refuses to derive itself
+   * from `scope === 'record'`.
+   *
+   * ⛔ Not this widget's own knob, for the same reason `conditionScope` is not:
+   * a host editing one fixed surface states its verdict, and a host editing
+   * many derives it with `conditionSubjectsForMetadataType`.
+   *
+   * `undefined` changes nothing — `ConditionBuilder` keeps `CONTEXT_SUBJECTS`,
+   * so a host that declares no narrowing offers what it always offered. That is
+   * why this member is optional where `conditionScope` is required: a missing
+   * scope silently claimed `flattened`, a missing vocabulary claims nothing.
+   */
+  conditionSubjects?: ReadonlyArray<{ value: string; label?: string }>;
   /** Names of all object metadata records (for `ref:object`, `object-selector`). */
   objectNames?: LoadState<string[]>;
   /**
@@ -2620,6 +2645,12 @@ function ConditionWidget({ value, onChange, readOnly, context, ariaLabelledBy }:
   // and swapping the editor under a host that never asked for it would be this
   // change reaching mounts nobody ruled on.
   const conditionScope = context?.conditionScope;
+  // objectui#9953 — the OTHER half of the host's verdict, and a separate one:
+  // the scope above says how this predicate is linted, this says which subjects
+  // its evaluator actually binds. `undefined` is the unchanged case by
+  // construction — an omitted `subjects` leaves `ConditionBuilder` on
+  // `CONTEXT_SUBJECTS`, exactly what every mount here offered before.
+  const conditionSubjects = context?.conditionSubjects;
   return (
     // `ConditionBuilder` is a multi-control composite (field / operator / value
     // rows plus add-condition buttons) shared with the curated inspectors, so
@@ -2647,6 +2678,7 @@ function ConditionWidget({ value, onChange, readOnly, context, ariaLabelledBy }:
           fields={conditionFields}
           disabled={readOnly}
           scope={conditionScope}
+          subjects={conditionSubjects ? { context: conditionSubjects } : undefined}
         />
       )}
     </div>

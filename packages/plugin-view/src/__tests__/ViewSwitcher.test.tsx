@@ -42,11 +42,23 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 // eleven long and compiled green; only the runtime `toEqual` below went red.
 //
 // That is the same failure the card records at six other sites, one level down:
-// a structure promising exhaustiveness while providing none. `satisfies
-// Record<ViewType, true>` is the spelling that actually delivers it — a member
-// added to the union now fails to compile HERE, which is what the old comment
-// said and could not do.
-const ALL_VIEW_TYPES = Object.keys({
+// a structure promising exhaustiveness while providing none. A table plus a
+// TOTALITY ASSERT is the spelling that actually delivers it — a member added to
+// the union now fails to compile HERE, which is what the old comment said and
+// could not do.
+//
+// ⚠️ objectui#9943 — the assert is separate from the table ON PURPOSE, and
+// `satisfies Record<ViewType, true>` (this file's own previous spelling) is NOT
+// an acceptable substitute. `satisfies` runs the excess-property check just as
+// an annotation does, so the `page:` row below became TS2353 the moment
+// objectstack#17063 retired that list-view kind from the spec — measured, same
+// diagnostic as the three `Record<ViewType, …>` tables in `ViewSwitcher.tsx`
+// and `ObjectView.tsx` that card repaired. `satisfies Record<string, true>`
+// keeps the value constraint and drops the exactness; `_UncoveredViewType`
+// keeps the ADDED-member half this comment is about.
+type _AssertNever<T extends never> = T;
+
+const ALL_VIEW_TYPES_TABLE = {
   list: true,
   detail: true,
   grid: true,
@@ -59,7 +71,11 @@ const ALL_VIEW_TYPES = Object.keys({
   chart: true,
   tree: true,
   page: true,
-} satisfies Record<ViewType, true>) as ViewType[];
+} satisfies Record<string, true>;
+
+type _UncoveredViewType = _AssertNever<Exclude<ViewType, keyof typeof ALL_VIEW_TYPES_TABLE>>;
+
+const ALL_VIEW_TYPES = Object.keys(ALL_VIEW_TYPES_TABLE) as ViewType[];
 
 function schemaFor(types: ViewType[]): ViewSwitcherSchema {
   return {
@@ -116,9 +132,17 @@ function parseMapEntries(source: string, declaration: string): Array<[string, st
   const start = source.indexOf(declaration);
   if (start === -1) return [];
   const open = start + declaration.length;
-  const close = source.indexOf('};', open);
+  const rest = source.slice(open);
+  // The close is the first line that ENDS the literal. objectui#9943 moved
+  // these maps off the exact `Record<ViewType, …>` annotation onto
+  // `} satisfies Record<string, …>;`, and an `indexOf('};')` reader ran STRAIGHT
+  // PAST that line into whatever literal closed next — a reader that silently
+  // reads the wrong map, which is worse than one that reads none. Matching the
+  // closing brace and whatever follows it covers `};`, `} satisfies …;` and
+  // `} as …;` alike.
+  const close = rest.search(/^\s*\}\s*(?:satisfies\b|as\b|;)/m);
   if (close === -1) return [];
-  return [...source.slice(open, close).matchAll(/^\s*(\w+)\s*:\s*(?:'([\w-]+)'|(\w+))\s*,\s*$/gm)]
+  return [...rest.slice(0, close).matchAll(/^\s*(\w+)\s*:\s*(?:'([\w-]+)'|(\w+))\s*,\s*$/gm)]
     .map(m => [m[1], (m[2] ?? m[3]) as string] as [string, string]);
 }
 
@@ -194,16 +218,17 @@ describe('ViewSwitcher default view labels and icons', () => {
 /** `ObjectView`'s producer map: view type → icon NAME, resolved at render time. */
 const HOST_ICON_NAMES = parseMapEntries(
   readSibling('ObjectView.tsx'),
-  'const iconMap: Record<ViewType, string> = {',
+  'const iconMap = {',
 );
 
 describe('every icon name plugin-view supplies still resolves (objectui#5586)', () => {
   it('the source read found a real, TOTAL map — the precondition for "every"', () => {
     // A parse that quietly found nothing would leave every assertion below
     // vacuously green, which is the failure mode a widened pin invites. The
-    // key-set comparison carries the totality claim too: `iconMap` is annotated
-    // `Record<ViewType, string>`, so the compiler will not let a view type land
-    // without an entry. Re-annotated to `Record<string, …>`, "every name"
+    // key-set comparison carries the totality claim too: `iconMap` is asserted
+    // total over `ViewType` at its declaration (objectui#9943), so the compiler
+    // will not let a view type land without an entry. Left on a bare
+    // `satisfies Record<string, …>` with that assert DELETED, "every name"
     // would quietly shrink to "every name someone remembered".
     expect(
       HOST_ICON_NAMES.map(([type]) => type).sort(),

@@ -1,0 +1,11 @@
+---
+"@object-ui/plugin-view": patch
+---
+
+`plugin-view`: the three totals over the whole `ViewType` survive the spec retiring a member
+
+`ViewSwitcher`'s `DEFAULT_VIEW_LABELS` and `DEFAULT_VIEW_ICONS` and `ObjectView`'s `iconMap` were annotated `Record<ViewType, …>`. An annotated object literal is EXACT IN BOTH DIRECTIONS, and only one of those directions was wanted. It catches a member the spec ADDS — the guard objectui#5321 and objectui#8127 installed, and the reason a host `tree` view stopped rendering with the grid icon. It also makes a member the spec RETIRES an excess property (TS2353), whose only repair is deleting the row. objectstack#17063 retired the list-view kind `page`, so all three tables go red against a spec built from objectstack `main` while the `@objectstack/spec` this repository RESOLVES still publishes `page` and an author can still write one.
+
+Each table now carries `satisfies Record<string, …>` — value constraint kept, exactness dropped — plus a separate totality assert, `Exclude<ViewType, keyof typeof TABLE> extends never`. The retired row goes inert at type level and stays live at runtime; a member the spec adds still fails to compile. ⛔ This is deliberately NOT objectui#9880's repair: that card's tables PARTITION the drawable half, so it could derive the other half with `Extract` and let a retired row drop out on its own. These are total over the whole union, so there is no second half to derive from and the exhaustiveness has to be asserted separately — and dropping the assert while making `page` inert would trade one guard for the other.
+
+Both directions are pinned, with the failing spellings kept as firing controls. The pins also cover the fourth site of the same defect, this package's own `ALL_VIEW_TYPES`: it carried `satisfies Record<ViewType, true>`, which fails identically because `satisfies` runs the same excess-property check.

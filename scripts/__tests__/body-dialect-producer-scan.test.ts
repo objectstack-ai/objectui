@@ -346,8 +346,10 @@ export const ListSchema = z.object({}).describe(
     expect(verdict.refusal?.join(' ')).toContain('Zero readers derived');
 
     // Lit control, and the point of the whole card: a real ZERO over a real
-    // corpus with a real reader is a LEGITIMATE reading and is NOT refused —
-    // it is the day objectui#6771 step 4 becomes landable.
+    // corpus with a real reader is a LEGITIMATE reading and is NOT refused.
+    // ⚠️ It is NOT "the day objectui#6771 step 4 becomes landable", as first
+    // written — step 4 landed with the live table non-empty and item-carried.
+    // A zero is objectui#9590's finish line; see the LIVE-tree block below.
     const clean = scan(plant({}));
     expect(producersOf(clean.hits, clean.readers)).toEqual([]);
     expect(finalVerdict({ filesScanned: clean.filesScanned, readers: clean.readers }).exit).toBe(0);

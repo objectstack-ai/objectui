@@ -18,11 +18,24 @@
  * published TypeScript accept set, narrowing the mirror SHRINKS the published
  * validator's, and both move a face `@object-ui/types` already ships.
  *
- * ⛔ This file does not pick either direction, and it is ⛔ not a repair. It is
+ * ⛔ This file did not pick either direction, and it is ⛔ not a repair. It is
  * the per-key CONSEQUENCE the ledger's one-line entries cannot carry, recorded
  * so the at-tier contract review can read it instead of re-deriving it. Every
  * assertion below is a statement about `origin/main` as it stands; whichever
  * direction the review rules, the entries here move with it.
+ *
+ * ⭐ ONE OF THE TWO HAS SINCE BEEN RULED, and this file moved with it exactly as
+ * the paragraph above promised. objectui#9739 (maintainer, 2026-09-18) took
+ * letter C on `operators`: removed from the published mirror, a tombstone left
+ * in its place that refuses the key by name and names the spelling the upstream
+ * protocol declares. So the `operators` section below no longer pins a SILENT
+ * ACCEPTANCE — it pins the LOUD REFUSAL that replaced it, and the lit control
+ * beside it is what keeps the assertion honest in its new direction. The full
+ * per-half measurement, including the upstream re-derivation of the spelling the
+ * message names, lives in `object-grid-operators-tombstone-9739.test.ts`; what
+ * stays here is the BEFORE/AFTER continuity, so the defect this card measured
+ * cannot quietly return under the same name. `dueLike` is ⛔ untouched and still
+ * awaits its own ruling.
  *
  * ## The two keys do NOT behave the same way, and the difference is the ruling
  *
@@ -34,8 +47,12 @@
  *     it, the compiler refuses the same document.
  *   - `ObjectGridSchema` extends `BaseSchema`, whose `[key: string]: any` index
  *     signature absorbs any unstated key. TypeScript neither declares nor
- *     refuses `operators`; it types it `any`. The faces do not contradict — one
- *     is simply silent, which is a weaker defect and a different decision.
+ *     refuses `operators`; it types it `any`. The faces did not contradict —
+ *     one was simply silent, which is a weaker defect and was a different
+ *     decision. ⭐ It was decided (objectui#9739, letter C): the MIRROR now
+ *     refuses the key by name and prints the upstream spelling, while the twin
+ *     is deliberately left alone — so the two faces still do not contradict,
+ *     but the silent one is no longer the only one an author hears from.
  *
  * ## ⚠️ The third key the ledger groups with these two is NOT this defect
  *
@@ -86,18 +103,36 @@ describe('views.zod.ts#DetailViewFieldSchema — `dueLike`', () => {
   });
 });
 
-describe('objectql.zod.ts#ObjectGridSchema — `operators`', () => {
-  it('the mirror JUDGES the key, while an unknown key is kept unexamined', () => {
+describe('objectql.zod.ts#ObjectGridSchema — `operators`, after the objectui#9739 ruling', () => {
+  /**
+   * ⭐ THE DIRECTION OF THIS ASSERTION IS INVERTED FROM WHAT THIS CARD MEASURED,
+   * deliberately and by ruling — ⛔ not relaxed to keep a suite green.
+   *
+   * What #9729 recorded here was a document that parsed GREEN and was then
+   * ignored by every renderer: the worst shape a contract can have, because
+   * both published faces report success. Letter C replaced it, so the pin
+   * that recorded the silence would now be recording a defect that is gone.
+   * Pinning the refusal in the same place, on the same document, is what keeps
+   * the regression visible: if `operators` ever parses green on this node
+   * again, this line is what goes red.
+   */
+  it('REFUSES the authored key that used to parse green, and the issue names it', () => {
     const judged = ObjectGridSchema.safeParse({
       type: 'object-grid',
       objectName: 'probe',
       operators: { name: ['equals'] },
     });
-    expect(judged.success).toBe(true);
+    expect(judged.success).toBe(false);
+    expect(!judged.success && judged.error.issues.map((i) => i.path.join('.'))).toContain('operators');
+  });
 
-    // LIT CONTROL: this mirror's base passes unknown keys THROUGH, so an
-    // unstated key is kept as-is and is never type-checked. The distinguishing
-    // evidence for a mirrored key is therefore the refusal below, not the pass.
+  it('the refusal is BY NAME — an unknown key on the same document is still kept unexamined', () => {
+    // LIT CONTROL, unchanged from what this card measured: this mirror's base
+    // passes unknown keys THROUGH. It is doing more work now than it did then.
+    // Before, it separated "the mirror judges this key" from "the mirror keeps
+    // anything"; now it separates "this KEY is refused" from "this OBJECT turned
+    // strict" — which is a contract change nobody ruled and this control would
+    // be the first thing to catch.
     const control = ObjectGridSchema.safeParse({
       type: 'object-grid',
       objectName: 'probe',
@@ -106,7 +141,11 @@ describe('objectql.zod.ts#ObjectGridSchema — `operators`', () => {
     expect(control.success).toBe(true);
   });
 
-  it('the mirror refuses a wrong-typed `operators` BY NAME, and ignores the control', () => {
+  it('a wrong-TYPED `operators` is refused too — the tombstone admits no value at all', () => {
+    // The pre-ruling shape of this case asserted that the mirror type-checked
+    // the key (42 was refused, an object was accepted). A tombstone collapses
+    // that distinction: no value satisfies it. Kept as a case rather than
+    // deleted, because the assertion it makes is no longer the same one.
     const judged = ObjectGridSchema.safeParse({
       type: 'object-grid',
       objectName: 'probe',
@@ -114,13 +153,6 @@ describe('objectql.zod.ts#ObjectGridSchema — `operators`', () => {
     });
     expect(judged.success).toBe(false);
     expect(!judged.success && judged.error.issues.map((i) => i.path.join('.'))).toContain('operators');
-
-    const control = ObjectGridSchema.safeParse({
-      type: 'object-grid',
-      objectName: 'probe',
-      [UNKNOWN_KEY]: 42,
-    });
-    expect(control.success).toBe(true);
   });
 });
 
@@ -162,10 +194,17 @@ export const authoredDueLike: DetailViewField = { name: 'end_date', dueLike: tru
 export const authoredCurrency: DetailViewField = { name: 'end_date', currency: 'USD' };
 
 /**
- * `ObjectGridSchema` does NOT refuse `operators` — and the absence of a
+ * The TWIN still does NOT refuse `operators` — and the absence of a
  * `@ts-expect-error` here is the measurement, not an omission: adding one
  * reddens the same type-check leg as unused, which is how this claim fails if
  * the twin ever loses `BaseSchema`'s index signature.
+ *
+ * ⭐ Unchanged by objectui#9739 ON PURPOSE. Letter C rules the key "not declared
+ * on the TypeScript twin" — declaring it was letter A, refused, on the ground
+ * that it writes a misspelling into the published interface beside the correct
+ * spelling. So this binding compiling is still the true reading of the twin;
+ * what changed is that the MIRROR beside it no longer agrees, and that asymmetry
+ * is the ruled outcome rather than an unrepaired gap.
  */
 export const authoredOperators: ObjectGridSchemaType = {
   type: 'object-grid',

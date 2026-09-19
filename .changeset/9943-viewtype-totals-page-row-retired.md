@@ -1,8 +1,7 @@
 ---
-"@object-ui/plugin-view": patch
 ---
 
-`plugin-view`: the three totals over the whole `ViewType` survive the spec retiring a member
+`plugin-view`: the three totals over the whole `ViewType` survive the spec retiring a member (objectui#9943). Type-level and tooling only — `packages/plugin-view/dist/` is BYTE-IDENTICAL across this change, measured by building the package from these sources and from this branch's base and comparing sha256 over all 13 emitted files. No package is released by it.
 
 `ViewSwitcher`'s `DEFAULT_VIEW_LABELS` and `DEFAULT_VIEW_ICONS` and `ObjectView`'s `iconMap` were annotated `Record<ViewType, …>`. An annotated object literal is EXACT IN BOTH DIRECTIONS, and only one of those directions was wanted. It catches a member the spec ADDS — the guard objectui#5321 and objectui#8127 installed, and the reason a host `tree` view stopped rendering with the grid icon. It also makes a member the spec RETIRES an excess property (TS2353), whose only repair is deleting the row. objectstack#17063 retired the list-view kind `page`, so all three tables go red against a spec built from objectstack `main` while the `@objectstack/spec` this repository RESOLVES still publishes `page` and an author can still write one.
 

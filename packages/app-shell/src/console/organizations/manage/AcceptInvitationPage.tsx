@@ -19,6 +19,7 @@ import { Loader2, Building2, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { resolveOrgRoleLabel } from '../orgRoleLabel.js';
 import { resolveOrgErrorMessage } from '../orgErrorMessage.js';
+import { resolveRootUrl } from '../resolveHomeUrl.js';
 
 type InvitationWithOrg = AuthInvitation & {
   organizationName?: string;
@@ -89,20 +90,37 @@ export function AcceptInvitationPage() {
       await acceptInvitation(invitationId);
       await switchOrganization(invitation.organizationId).catch(() => null);
       toast.success(t('organization.accept.accepted', { defaultValue: 'Invitation accepted' }));
-      // ⛔ objectui#7373 retargeted this file's SIBLING recovery redirects onto
-      // the declared landing (`useHomePath()`) and deliberately did NOT touch
-      // this one. The reading, recorded on that card: the app list in hand here
-      // belongs to the organization the user is LEAVING. `switchOrganization`
-      // above has just resolved, `MetadataProvider` drops its cache on an org
-      // change (objectui#4486) and refetches, and this line runs before any of
-      // that can land — so a declared-landing answer read here would name the
-      // PREVIOUS org's app. The two other org-switch paths
-      // (`layout/WorkspaceSwitcher.tsx`, `console/organizations/
-      // OrganizationsPage.tsx`) full-page-navigate to the console ROOT for
-      // exactly this reason and let `RootLandingRedirect` resolve the landing
-      // afterwards. Which of those two shapes this page should take is a
-      // decision, not an implementation detail.
-      navigate('/home');
+      // The console ROOT, as a full-page navigation — NOT a router `navigate()`
+      // and NOT `useHomePath()` (objectui#7373).
+      //
+      // ⭐ WHY THE HOOK IS WRONG *HERE*, while it is right at this card's nine
+      // other sites: the app list this component can read belongs to the
+      // organization the user is LEAVING. `switchOrganization` one line up only
+      // updates auth state; `MetadataProvider` drops its whole cache when the
+      // active org changes (objectui#4486) and refetches, and this line runs
+      // before any of that can land. A declared-landing answer read here would
+      // therefore name the PREVIOUS org's app — an app the new organization may
+      // not even carry — which is worse than the launcher this replaced.
+      //
+      // Landing on the ROOT resolves the declaration AFTER the switch instead
+      // of before it: the full page load re-seats every data scope on the new
+      // org, then `RootLandingRedirect` reads the new org's list and applies
+      // `resolveLandingPath` — the declared landing, a single-app workspace's
+      // one app, or the launcher. So this page honours `app.isDefault` for the
+      // organization the user just joined, which is what objectui#7373 asked
+      // for, by the only route that can read it.
+      //
+      // This is the shape both other org-switch paths already take, for this
+      // same reason, and their comments say so: `layout/WorkspaceSwitcher.tsx`
+      // (`handleSwitch`) and `console/organizations/OrganizationsPage.tsx`
+      // (`handleSelect`). Accepting an invitation is the third site of one
+      // transition; it was the only one not taking it.
+      //
+      // `resolveRootUrl()` and not a bare `'/'`: a full-page navigation leaves
+      // React Router, so nothing applies the host's `basename`, and a console
+      // served under `<base href="/_console/">` would drop the user at the
+      // origin root, outside the SPA.
+      window.location.href = resolveRootUrl();
     } catch (err) {
       // objectui#4474 — the card's site 5: a wrong recipient produced better-auth's
       // English sentence under the translated title. Mapped by `code` now.

@@ -25,12 +25,20 @@ Retargeted onto the existing policy — no new one was written:
   and the header's Home button;
 - `apps/console`'s `/studio` entry gate and the Studio front door's wordmark.
 
+Accepting an organization invitation follows the declaration too, by a different
+route and for a measured reason: it runs immediately after `switchOrganization`,
+so the app list in hand there still belongs to the organization being LEFT
+(`MetadataProvider` drops its cache on an org change and refetches after that line
+has run). Reading the declaration in place would name the previous organization's
+app. It now reloads onto the console ROOT — the shape `WorkspaceSwitcher` and
+`OrganizationsPage` already use for this same transition — so
+`RootLandingRedirect` resolves the landing for the organization the user has just
+joined.
+
 Every ordinary environment is unchanged: where nothing declares a landing, and
 wherever the app list is not (yet) an answer, the resolved path IS `/home`.
 
 Two sites deliberately keep the launcher: `HOME_LAUNCHER_PATH` itself (it is the
 launcher, and the fallback all of the above resolve through — ADR-0075), and
 `RootRedirect`, which is `/`'s landing rather than a recovery exit and has its own
-resolver. `AcceptInvitationPage` is unchanged pending a decision recorded on the
-card: it navigates immediately after an organization switch, where the app list in
-hand still belongs to the organization being left.
+resolver.

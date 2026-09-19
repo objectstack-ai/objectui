@@ -39,11 +39,27 @@
  *   - `views/studio-design/StudioDesignSurface.packageDeletionInference.test.tsx`
  *     — eviction when the edited package is deleted;
  *   - `apps/console/src/components/StudioRoute.test.tsx` — the `/studio` entry
- *     gate and the front door's wordmark.
+ *     gate and the front door's wordmark;
+ *   - `apps/console/src/pages/auth/__tests__/AcceptInvitationRoute.test.tsx` —
+ *     accepting an invitation, which lands on the console ROOT rather than
+ *     reading the hook (see below).
  *
  * That the hook ANSWERS correctly is `hooks/__tests__/useHomePath.test.tsx`, and
  * that the declaration is read correctly is `utils/__tests__/homePath.test.ts`.
  * None of these replaces another.
+ *
+ * ## ⭐ One site follows the declaration WITHOUT the hook, on purpose
+ *
+ * `console/organizations/manage/AcceptInvitationPage.tsx` runs immediately
+ * after `switchOrganization`, so the app list it could read still belongs to
+ * the organization the user is LEAVING (`MetadataProvider` drops its cache on
+ * an org change, objectui#4486, and refetches after that line has run). Reading
+ * the hook there would name the PREVIOUS org's app. It lands on the console
+ * root instead and lets `RootLandingRedirect` resolve the declaration for the
+ * NEW org — the shape `layout/WorkspaceSwitcher.tsx` and
+ * `console/organizations/OrganizationsPage.tsx` already take for this same
+ * transition. Its row below is keyed on THAT expression, so a later edit that
+ * folds it onto `useHomePath()` fails here rather than passing quietly.
  *
  * ## ⛔ Two sites in this file's own subject matter deliberately still name the
  * launcher, and this file must not grow a case for either
@@ -130,6 +146,17 @@ const RECOVERY_SITES: ReadonlyArray<{
     file: 'apps/console/src/components/StudioRoute.tsx',
     site: 'the /studio entry gate + the front door wordmark',
     expression: /const homePath = useHomePath\(\)/,
+  },
+  {
+    file: 'packages/app-shell/src/console/organizations/manage/AcceptInvitationPage.tsx',
+    site: 'accepting an invitation — the org-switch landing',
+    // ⭐ The ONE site here that may not read `useHomePath()`, and the expression
+    // says which policy it reads instead. Its app list belongs to the org being
+    // LEFT, so it resolves the declaration by landing on the console root and
+    // letting `RootLandingRedirect` read the new org's list — the shape both
+    // other org-switch paths take. A future edit that "unified" this onto the
+    // hook would pass a scan keyed on the hook; this one refuses it.
+    expression: /window\.location\.href = resolveRootUrl\(\)/,
   },
 ];
 

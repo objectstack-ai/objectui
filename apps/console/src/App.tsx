@@ -12,8 +12,8 @@
  * with extra `<Route>` children.
  */
 
-import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@object-ui/auth';
 import { DevMasterDetail } from './dev/DevMasterDetail';
 import { DevLists } from './dev/DevLists';
@@ -36,12 +36,11 @@ import {
   DefaultSettingsPage,
   DefaultAcceptInvitationPage,
   DefaultAiChatPage,
-  getProductName,
-  getFaviconUrl,
   RedirectWithSplash,
 } from '@object-ui/app-shell';
 
 import { AppContent } from './AppContent';
+import { FaviconSync } from './components/FaviconSync';
 import { RootLandingRedirect } from './components/RootLandingRedirect';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { studioRoutes } from './components/StudioRoute';
@@ -128,23 +127,6 @@ function HomeRoute() {
   );
 }
 
-/** Syncs document title + favicon with runtime branding on every route change. */
-function BrandingSync() {
-  const location = useLocation();
-  useEffect(() => {
-    document.title = getProductName();
-    const faviconUrl = getFaviconUrl();
-    if (faviconUrl) {
-      const link = document.getElementById('favicon') as HTMLLinkElement | null;
-      if (link) {
-        link.href = faviconUrl;
-        link.type = faviconUrl.endsWith('.svg') ? 'image/svg+xml' : 'image/png';
-      }
-    }
-  }, [location]);
-  return null;
-}
-
 export function App() {
   return (
     <AuthProvider authUrl={AUTH_URL}>
@@ -163,7 +145,7 @@ export function App() {
       <ConsoleToaster />
       <MetadataHmrReloader />
       <BrowserRouter basename={BASENAME}>
-        <BrandingSync />
+        <FaviconSync />
         <ConsoleShell>
           <Routes>
             {/*

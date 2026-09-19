@@ -2456,9 +2456,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // (`items`), which is not discard-immune. Key on the nearest
     // discard-immune thing — props/state where they are the memo's inputs, a
     // value key where they are not.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     //
-    // objectui#7394 — `currentView` is NOT named here, and `fetchSkip` is.
+    // objectui#7394 — `currentView` is NOT named below, and `fetchSkip` is.
     // The query this effect builds never reads the visualization; it reads the
     // WINDOW, and `fetchSkip` is where the visualization reaches that window.
     // Naming `currentView` therefore re-issued an identical `find` on every
@@ -2467,6 +2466,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // board. `ganttOwnsData` and `groupingConfig` stay named: the first flips
     // this effect between fetching and standing down, and the second changes
     // the projection it asks for, so both move the request itself.
+    //
+    // ⚠️ The directive below governs the NEXT LINE. Anything written between it
+    // and the dependency array detaches it from the array and turns it into an
+    // unused directive — which `eslint .` reports as an ERROR, and which also
+    // silently un-suppresses nothing, because the finding it was suppressing
+    // simply moves elsewhere. Add prose ABOVE this point, never below it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, currentFilters, userFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,

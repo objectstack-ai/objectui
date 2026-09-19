@@ -27,7 +27,7 @@ import {
 } from './submitRedirectNavigation';
 import { usePermissions } from '@object-ui/permissions';
 import { sectionPredicateUnsupportedWarning } from './sectionPredicateDiagnostic';
-import { warnUnresolvedTopLevelField } from './sectionFields';
+import { warnUnresolvedTopLevelField, warnSectionMemberExcludedByFields } from './sectionFields';
 import { TabbedForm } from './TabbedForm';
 import { WizardForm, NAVIGATE_ON_SUCCESS_REFUSED_NOTE } from './WizardForm';
 import { SplitForm } from './SplitForm';
@@ -1470,6 +1470,50 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         (section.fields ?? []).map(f => [typeof f === 'string' ? f : ((f as any).field ?? f.name), f]),
       );
       const sectionFieldNames = Array.from(sectionDefByName.keys());
+
+      // objectui#9884 — make the INTERSECTION audible.
+      //
+      // The filter below resolves a section's members against the parent field
+      // POOL, and that pool was built from `schema.fields` (`fieldsToShow`
+      // above). So top-level `fields` and `sections` intersect: a member this
+      // section names, that the object really declares, is dropped for the one
+      // reason that `fields` does not list it — and when it was the section's
+      // last surviving member, `sectionFields.length === 0` below drops the
+      // section whole, heading included.
+      //
+      // ⛔ The intersection itself is NOT the defect and is deliberately left
+      // standing: `fields` is the parent field pool for values, create
+      // defaults and the submitted set as well as for layout, so resolving
+      // these members here would change what a landed schema writes. What WAS
+      // the defect is that the loss was silent, plus this block's registration
+      // claiming `fields` is "Ignored when `sections` is given" — a claim its
+      // three sibling `fields` registrations never made and the one shared
+      // renderer never honoured. objectui#9884 corrected the sentence and
+      // added this warning; see `warnSectionMemberExcludedByFields`.
+      //
+      // Measured BEFORE `applyFieldPerms`, on purpose: a field the pool holds
+      // and per-caller permissions then remove is not an authoring mistake and
+      // must not be reported as one.
+      if (schema.fields != null && schema.sections?.length) {
+        const pooled = new Set(sourceFields.map(f => f.name));
+        sectionFieldNames.forEach(memberName => {
+          if (typeof memberName !== 'string' || pooled.has(memberName)) return;
+          // Only when the member WOULD have resolved without the `fields`
+          // narrowing. A member naming nothing the form could ever draw is the
+          // sibling silence pinned by row 2 of both `sections` member pins, and
+          // it has a different remedy.
+          const declared =
+            objectSchema?.fields?.[memberName] != null ||
+            (schema.customFields ?? []).some((f: any) => f?.name === memberName);
+          if (!declared) return;
+          warnSectionMemberExcludedByFields(
+            memberName,
+            schema.objectName,
+            section.name || section.label,
+          );
+        });
+      }
+
       const sectionFields = applyFieldPerms(sourceFields.filter(f => sectionFieldNames.includes(f.name)))
         .map(f => {
           const def = sectionDefByName.get(f.name);

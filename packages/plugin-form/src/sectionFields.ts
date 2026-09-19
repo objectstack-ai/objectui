@@ -24,12 +24,18 @@
  * `name`, merging object-schema metadata (type/options/validation) with the
  * spec-level overrides.
  *
- * Also hosts `warnUnresolvedTopLevelField` (objectui#8738 route 1) — the
- * top-level `fields` counterpart of this file's own `warnOnMixedVocabulary`,
- * shared by `ObjectForm.tsx`'s `SimpleObjectForm` and `flatFields.ts`'s
- * `buildFlatFields`, neither of which is a sectioned variant. It lives here
- * rather than in a third module because the vocabulary it warns about IS the
- * one shape (2) documents, and the two warnings should not drift in voice.
+ * Also hosts the two top-level counterparts of this file's own
+ * `warnOnMixedVocabulary`, both about the SAME vocabulary shape (2) documents,
+ * and all three kept here so they do not drift in voice:
+ *
+ *   - `warnUnresolvedTopLevelField` (objectui#8738 route 1) — a top-level
+ *     `fields` member that resolves to no field name, shared by
+ *     `ObjectForm.tsx`'s `SimpleObjectForm` and `flatFields.ts`'s
+ *     `buildFlatFields`, neither of which is a sectioned variant.
+ *   - `warnSectionMemberExcludedByFields` (objectui#9884) — a `sections[].fields`
+ *     member the object really declares, dropped because the form's top-level
+ *     `fields` does not list it. The two keys INTERSECT; this is the warning
+ *     that makes the loser audible.
  */
 
 import type { FormField } from '@object-ui/types';
@@ -141,6 +147,57 @@ export function warnUnresolvedTopLevelField(entry: unknown, objectName: string):
       `(identity key \`field\`, e.g. \`{ field: 'note', colSpan: 2 }\`). That shape has no \`name\` here ` +
       `and is silently dropped; use a bare field-name string, or move the entry into a ` +
       `\`sections[].fields\` entry instead.`,
+  );
+}
+
+/**
+ * The THIRD member of this file's warning family (objectui#9884), and the one
+ * about an interaction rather than about a single member's shape.
+ *
+ * Top-level `fields` and `sections` are NOT layers — they INTERSECT.
+ * `SimpleObjectForm` builds the parent field pool from `schema.fields` first
+ * (`fieldsToShow` in `ObjectForm.tsx`), and each section then resolves its own
+ * members against THAT pool. So a member a section names, that the object
+ * really declares, is dropped for the single reason that the form's top-level
+ * `fields` does not list it — and when it is that section's last surviving
+ * member the section is dropped whole, heading and all.
+ *
+ * ⛔ This function only WARNS, for the same reason `warnUnresolvedTopLevelField`
+ * above only warns: resolving the member here — widening the pool to the union
+ * of `fields` and every section's members — would change what a landed schema
+ * renders, submits and prefills, because that pool is also what feeds create
+ * defaults, the `initialValues` merge and the submitted value set. The
+ * intersection is the behaviour three of this package's four `fields`
+ * registrations declare and `objectFormFieldsMembers-8071` pins; what was
+ * wrong was `object-master-detail-form`'s registration claiming `fields` is
+ * "Ignored when `sections` is given", and that sentence is what objectui#9884
+ * corrected. The remaining defect was the SILENCE, and this is it.
+ *
+ * ⚠️ Deliberately NOT fired for a member the object never declares at all —
+ * a typo, or a detail-collection column borrowed into the parent's vocabulary.
+ * That member resolves to nothing whether or not `fields` is authored, so it
+ * is a different silence with a different remedy; it is pinned as behaviour by
+ * `objectFormSectionMembers-8071` row 2 and `masterDetailSectionMembers-8071`
+ * row 2, and widening this warning to cover it would make those two rows fire
+ * it on every run while saying nothing this card measured.
+ */
+const warnedSectionMemberExcluded = new Set<string>();
+export function warnSectionMemberExcludedByFields(
+  memberName: string,
+  objectName: string,
+  sectionLabel?: string,
+): void {
+  const where = sectionLabel ? `section '${sectionLabel}'` : 'an untitled section';
+  const key = `${objectName}:${where}:${memberName}`;
+  if (warnedSectionMemberExcluded.has(key)) return;
+  warnedSectionMemberExcluded.add(key);
+  console.warn(
+    `[object-ui] ${where} names '${memberName}', which object '${objectName}' declares, but the ` +
+      `form's top-level \`fields\` does not list it — so it was dropped from the rendered form. ` +
+      `Top-level \`fields\` and \`sections\` INTERSECT (the parent field pool is built from ` +
+      `\`fields\` first, and every section resolves its members against that pool); they are ` +
+      `alternatives, not layers. Author one or the other, or list every section member in ` +
+      `\`fields\` too. A section that loses EVERY member this way disappears with its heading.`,
   );
 }
 

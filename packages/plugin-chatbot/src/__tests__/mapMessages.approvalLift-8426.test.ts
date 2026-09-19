@@ -83,7 +83,7 @@ describe('extractToolInvocations lifts the approval envelope', () => {
     // `id` is required by the output contract. An envelope without a usable one
     // is not an envelope — lifting it would hand a chat surface an approval it
     // can never answer.
-    for (const approval of [{}, { id: '' }, { id: 42 }, { approved: true }]) {
+    for (const approval of [{}, { id: '' }, { id: 42 }, { approved: true }, 'apr_1', null]) {
       const out = uiMessageToChatMessage({
         id: 'm3',
         role: 'assistant',
@@ -93,6 +93,34 @@ describe('extractToolInvocations lifts the approval envelope', () => {
       } as never);
       expect(out.toolInvocations?.[0]?.approval).toBeUndefined();
     }
+  });
+
+  it('drops a member a producer got wrong, and keeps the rest', () => {
+    // `AnyPart.approval` is `unknown` — the input interface absorbs whatever
+    // arrives, and this lift is the thing that keeps the OUTPUT checked. The
+    // `id` is what makes an approval answerable, so a bad sibling member costs
+    // that member and not the envelope.
+    const out = uiMessageToChatMessage({
+      id: 'm3b',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'tool-x',
+          toolCallId: 'c3b',
+          state: 'approval-responded',
+          input: {},
+          approval: { id: 'apr_x', approved: 'yes', reason: 7, isAutomatic: true },
+        },
+      ],
+    } as never);
+
+    expect(out.toolInvocations?.[0]?.approval).toEqual({
+      id: 'apr_x',
+      approved: undefined,
+      reason: undefined,
+      isAutomatic: true,
+      signature: undefined,
+    });
   });
 
   it('rides ALONGSIDE pendingActionId rather than replacing it', () => {

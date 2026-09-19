@@ -40,18 +40,16 @@ interface AnyPart {
    */
   state?: string;
   /**
-   * The chat runtime's approval envelope, as it arrives on a tool part. Typed
-   * loosely like the rest of this interface — `id` is REQUIRED by the output
-   * contract but optional here, so a producer that omits it is refused by
-   * {@link liftApproval} rather than by the shape of the input interface.
+   * The chat runtime's approval envelope, as it arrives on a tool part.
+   *
+   * `unknown`, like every other absorbing member here, and deliberately NOT
+   * the envelope's declared shape: this interface exists to take whatever a
+   * producer hands the mapper, and the one time a member was typed against the
+   * OUTPUT contract it made the permissive input interface stricter than the
+   * union it absorbs (objectui#8214, the `state` member). {@link liftApproval}
+   * is what keeps the OUTPUT checked; this stays open.
    */
-  approval?: {
-    id?: string;
-    approved?: boolean;
-    reason?: string;
-    isAutomatic?: boolean;
-    signature?: string;
-  };
+  approval?: unknown;
   url?: string;
   href?: string;
   title?: string;
@@ -675,16 +673,26 @@ export function buildProgressFromDraftReview(
  * whose id cannot be replied on is not one.
  */
 function liftApproval(part: AnyPart): ChatToolInvocation['approval'] {
-  const approval = part.approval;
-  if (!approval) return undefined;
-  const { id } = approval;
+  const { approval } = part;
+  if (typeof approval !== 'object' || approval === null) return undefined;
+  const envelope = approval as {
+    id?: unknown;
+    approved?: unknown;
+    reason?: unknown;
+    isAutomatic?: unknown;
+    signature?: unknown;
+  };
+  const { id } = envelope;
   if (typeof id !== 'string' || id.length === 0) return undefined;
+  // Each member is checked on its own: a producer that gets one of them wrong
+  // should lose that member, not the whole envelope — the `id` is what makes
+  // the approval answerable, and it has already been established.
   return {
     id,
-    approved: approval.approved,
-    reason: approval.reason,
-    isAutomatic: approval.isAutomatic,
-    signature: approval.signature,
+    approved: typeof envelope.approved === 'boolean' ? envelope.approved : undefined,
+    reason: typeof envelope.reason === 'string' ? envelope.reason : undefined,
+    isAutomatic: typeof envelope.isAutomatic === 'boolean' ? envelope.isAutomatic : undefined,
+    signature: typeof envelope.signature === 'string' ? envelope.signature : undefined,
   };
 }
 

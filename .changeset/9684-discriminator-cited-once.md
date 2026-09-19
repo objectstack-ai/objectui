@@ -54,7 +54,9 @@ file in the package outside `complex.ts` states the rule at all, when the cited
 statement stops being where the citations say it is, when `complex.ts` states the
 rule at any number of sites other than the recorded four, or when one of those
 four carries a clause its peers do not. Its population is every comment in the
-package, a `//` riding on a code line included.
+package, a `//` riding on a code line included — and a comment run ends at a
+blank line, at a `*/` and at a change of comment kind, so two abutting comments
+are two blocks rather than one.
 
 ⭐ Each of those is narrower or wider than it was, and each because a wording was
 measured through the earlier version rather than reasoned about. The precondition
@@ -68,23 +70,41 @@ nothing. The scope was `mobile.ts` alone and the population was runs of
 comment-only lines, so a fully amended statement prepended to `data-display.ts`
 passed and so did one appended to an `export interface` line — a fifth statement
 off the roster, held to its precondition alone and free to drift at the next
-amendment, which is this card's mechanism one file over.
+amendment, which is this card's mechanism one file over. And a blank line was
+the only boundary between comment blocks, so an un-amended note glued directly
+under a compliant JSDoc — or stacked directly above it — was read as part of
+that JSDoc, inherited its precondition and its roster slot, and passed while a
+human reading the file counted five statements. The control that makes that a
+reading rather than a blind spot: the same note with a blank line between it and
+its neighbour reds four assertions. The boundary now ends a run at a `*/` and at
+a change of kind too, which re-cuts 29 abutting pairs across the package
+(4696 blocks → 4725) and moves no count this changeset or that test states — the
+four statements keep the same four line spans and the trailing count stays 9.
 
 ⚠️ What is still silent, given as the patterns and ⛔ not as a summary of them: a
 third prong is caught when it is written `prong 3`, `third prong`, `(3)`, or as
 `or` followed by `3`, `iii`, `third` or `thirdly`. The `or` in that last item is
 an **anchor** — `3`, `iii`, `third` and `thirdly` are caught only directly behind
-`or`, with nothing but a comma, whitespace and an opening parenthesis allowed in
-between, so `, and (iii) …`, `, or else (iii) …`, `; and, third, …` and
-`, or: (iii) …` are each silent. The other three spellings carry no anchor:
-`prong 3`, `third prong` and a parenthesised `(3)` are caught however the clause
-is joined, `, and (3) …` included. Silent as well: a clause that numbers nothing,
-and a whole statement worded past every statement marker. ⛔ Three earlier
-versions of this paragraph summarised that boundary and were wrong every time —
-first "`(3) it`" excluded `(3) the`; then "numbers nothing" excluded `(iii)`,
-`3.` and `thirdly`; then "any other numbering **and** when it numbers nothing"
-put a listed numbering joined by anything but `or` in neither category. Each was
-measured passing. The failure direction of every widening above is a red that
+`or`, with nothing in between but commas, whitespace and opening parentheses,
+any number of them in any order. So `, or ( 3 ) …`, `, or ,3 …`, `, or, (iii) …`
+and `, or (( 3 )) …` are each caught, while `, and (iii) …`, `, or else (iii) …`,
+`; and, third, …` and `, or: (iii) …` are each silent. The other three spellings
+carry no anchor: `prong 3`, `third prong` and a parenthesised `(3)` are caught
+however the clause is joined, `, and (3) …` included. Silent as well: a clause
+that numbers nothing, and a whole statement worded past every statement marker.
+
+⛔ Four earlier versions of this paragraph summarised that boundary and were
+wrong every time — first "`(3) it`" excluded `(3) the`; then "numbers nothing"
+excluded `(iii)`, `3.` and `thirdly`; then "any other numbering **and** when it
+numbers nothing" put a listed numbering joined by anything but `or` in neither
+category; then the permitted characters were named as a **set** while the
+pattern spelled them `,?\s*\(?` and required them in one **order**, so
+`, or ( 3 ) …` and `, or ,3 …` broke no sentence anyone had published and were
+silent anyway. Each was measured passing. ⭐ The fourth is the only one closed
+by moving the **pattern** instead of the sentence: the separator is now the set
+`[\s,(]*`, a strict superset of the old one, so no wording that was caught
+became silent and the caught-list above is re-derived from the widened pattern
+rather than patched. The failure direction of every widening above is a red that
 sends a human to read four blocks, never a green.
 
 The pin also holds itself to the rule it guards: it cites the statement instead

@@ -63,33 +63,48 @@
 // OWN phrasing (⛔ not merely having the words "no carrier" somewhere in the
 // block — that wording let an un-amended statement through, measured); when
 // ANY comment in this package outside `complex.ts` states the rule at all,
-// prongs written out or not — this file has no special standing there, and a
-// `//` riding on a code line is in the population too; when a citation's
+// prongs written out or not — this file has no special standing there, a
+// `//` riding on a code line is in the population too, and two ABUTTING
+// comments are two blocks rather than one, so a drifted copy glued to a
+// compliant neighbour cannot borrow its precondition; when a citation's
 // target has moved; when `complex.ts` states the rule at any number of sites
 // other than the recorded four; and when a clause appears at one of those four
 // and not at its peers.
 //
-// ⚠️ Both of those widenings are the fourth in-seat review's: with the old
-// `mobile.ts`-only scope, a fully amended statement prepended to
+// ⚠️ The first two of those widenings are the fourth in-seat review's: with
+// the old `mobile.ts`-only scope, a fully amended statement prepended to
 // `data-display.ts` passed — a fifth statement, off the roster, free to drift
 // at the next amendment with nothing red, which is the mechanism this card is
 // about reopened one file over. With the old comment-only-lines population, a
 // statement appended to an `export interface` line passed for the same reason.
+// The third is the fifth review's: a blank line was the only thing that ended
+// a comment run, so an un-amended note wedged between the `ChatbotSchema`
+// JSDoc's closing delimiter and the declaration — or stacked directly above
+// that JSDoc — read as ONE block with it, inherited its precondition and its
+// roster slot, and passed. A human read five statements where the test counted
+// four. Control that says the test was not merely blind: the same note with a
+// blank line between reds 4.
 //
 // ⚠️ For the clauses that test names, in the spellings it names: a third prong
 // is caught written `prong 3`, `third prong`, `(3)`, or as `or` followed by
 // `3`, `iii`, `third` or `thirdly`. The `or` in that last item is an ANCHOR —
 // `3`, `iii`, `third` and `thirdly` are caught ONLY directly behind `or`, with
-// nothing but a comma, whitespace and an opening parenthesis allowed in
-// between, so `, and (iii) …`, `, or else (iii) …`, `; and, third, …` and
-// `, or: (iii) …` are each SILENT. The other three spellings carry no anchor:
-// `prong 3`, `third prong` and a parenthesised `(3)` are caught however the
-// clause is joined, `, and (3) …` included. Silent as well: a clause that
-// numbers nothing, and a whole statement worded past every marker.
+// nothing in between but commas, whitespace and opening parentheses, ANY
+// NUMBER of them in ANY ORDER. So `, or ( 3 ) …`, `, or ,3 …`, `, or, (iii) …`
+// and `, or (( 3 )) …` are each CAUGHT, while `, and (iii) …`,
+// `, or else (iii) …`, `; and, third, …` and `, or: (iii) …` are each SILENT.
+// The other three spellings carry no anchor: `prong 3`, `third prong` and a
+// parenthesised `(3)` are caught however the clause is joined, `, and (3) …`
+// included. Silent as well: a clause that numbers nothing, and a whole
+// statement worded past every marker.
 // ⛔ Read that list from the test, ⛔ never a summary of it — this sentence
-// three times described a boundary one step off the real one, and each time a
+// FOUR times described a boundary one step off the real one, and each time a
 // reader amending the rule in the uncaught style would have believed the other
-// three sites were held.
+// three sites were held. ⭐ The fourth time is why "in any order" is written
+// out: the sentence named the three permitted characters as a SET while the
+// pattern required them in one SEQUENCE, so `, or ( 3 ) …` and `, or ,3 …`
+// broke no published sentence and were silent anyway. That one was closed by
+// widening the PATTERN to the set, ⛔ not by describing the sequence.
 
 // ============================================================================
 // Responsive Configuration

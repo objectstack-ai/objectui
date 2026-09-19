@@ -85,24 +85,33 @@
  * `(3)`, or as `or` followed by `3`, `iii`, `third` or `thirdly`.
  * ⚠️ The `or` in that last item is an ANCHOR, which no earlier version of this
  * paragraph said: `3`, `iii`, `third` and `thirdly` are caught ONLY directly
- * behind `or`, with nothing but a comma, whitespace and an opening parenthesis
- * allowed in between, so `, and (iii) …`, `, or else (iii) …`, `; and, third,
- * …` and `, or: (iii) …` are each SILENT — each measured through this pin. The
+ * behind `or`, with nothing in between but commas, whitespace and opening
+ * parentheses — ANY NUMBER of them, in ANY ORDER. So `, or ( 3 ) …`,
+ * `, or ,3 …`, `, or, (iii) …` and `, or (( 3 )) …` are each CAUGHT, while
+ * `, and (iii) …`, `, or else (iii) …`, `; and, third, …` and `, or: (iii) …`
+ * are each SILENT — every one of those eight measured through this pin. The
  * first three items carry no such anchor: `prong 3`, `third prong` and a
  * parenthesised `(3)` are caught however the clause is joined, `, and (3) …`
  * included — measured too, and the reason this paragraph does ⛔ NOT say "a
  * listed numbering behind any word other than `or`", which is one step WIDE.
  * Silent as well: a clause that numbers nothing at all, and a whole statement
- * worded past every `STATES_THE_RULE` marker. ⚠️ Three earlier versions of
- * this paragraph named a boundary one step off the real one — it required
- * `(3) it`, so `(3) the` was silent; then it called the silent case "a clause
- * that numbers nothing", so `(iii)`, `3.` and `thirdly` were silent; then it
- * split the silent set into "any other numbering" and "numbers nothing", so a
- * LISTED numbering joined by anything but `or` was in neither and a reader
- * amending the rule in that style believed the roster held the other three
- * sites. ⇒ when you amend the rule, add the clause here; when you add a site,
- * add the marker; and when you widen a pattern, RE-DERIVE this paragraph from
- * the pattern rather than editing the sentence that summarises it.
+ * worded past every `STATES_THE_RULE` marker.
+ * ⚠️ FOUR earlier versions of this paragraph named a boundary one step off the
+ * real one — it required `(3) it`, so `(3) the` was silent; then it called the
+ * silent case "a clause that numbers nothing", so `(iii)`, `3.` and `thirdly`
+ * were silent; then it split the silent set into "any other numbering" and
+ * "numbers nothing", so a LISTED numbering joined by anything but `or` was in
+ * neither and a reader amending the rule in that style believed the roster held
+ * the other three sites. ⭐ The fourth is why the sentence above reads "in any
+ * order": it named the three permitted characters as a SET while the pattern
+ * required them in one SEQUENCE, so `, or ( 3 ) …` and `, or ,3 …` were silent
+ * and no published sentence forbade either. ⛔ That one was not fixed by
+ * describing the sequence — the PATTERN was widened to the set its sentence
+ * always claimed, and this paragraph re-derived from the widened pattern.
+ * ⇒ when you amend the rule, add the clause here; when you add a site, add the
+ * marker; and when you widen a pattern, RE-DERIVE this paragraph from the
+ * pattern rather than editing the sentence that summarises it — which is the
+ * instruction this paragraph already carried, now followed rather than quoted.
  *
  * ⚠️ Markers are matched against the block with its comment punctuation and
  * line wrapping flattened. Matching raw lines is what makes a phrase probe miss
@@ -148,7 +157,8 @@ interface Block {
   /** 1-based line the block's last line sits on. */
   endLine: number;
   /**
-   * `jsdoc` and `line` are runs of comment-only lines; `trailing` is a comment
+   * `jsdoc` and `line` are runs of comment-only lines of ONE kind — ended by a
+   * blank line, by a `*\/`, and by a change of kind; `trailing` is a comment
    * riding on a code line, which is its own one-line block.
    */
   kind: 'jsdoc' | 'line' | 'trailing';
@@ -217,6 +227,29 @@ const sourceFiles = (dir: string, out: string[] = []): string[] => {
  * joining across one would let a drifted note inherit a compliant neighbour's
  * precondition and pass.
  *
+ * ⭐ A `*\/` ends a run too, and a change of kind starts a new one — and that is
+ * the SAME sentence, applied where the fifth in-seat review found it was not.
+ * A blank line was the only boundary here, so two ABUTTING comments were one
+ * block: an un-amended `//` statement wedged between the `../complex.ts`
+ * `ChatbotSchema` JSDoc's `*\/` and the declaration passed the whole pin, and so
+ * did an un-amended JSDoc stacked directly above that JSDoc — each inheriting
+ * its compliant neighbour's precondition and its roster slot, so a human read
+ * five statements where this file counted four. The control that says the
+ * instrument was not simply blind: the same stacked JSDoc WITH a blank line
+ * reds 4. ⛔ The prose was already right — it is the code that now says it.
+ *
+ * ⚠️ This is a boundary rule, ⛔ not a rule about statements, so it re-cuts
+ * every abutting pair in the package and ⛔ not only the two shapes that
+ * escaped. Re-derived here rather than remembered, by this same oracle: at this
+ * head `packages/types/src` holds 3 `*\/`→`//` pairs, 13 `*\/`→`/**`, 1
+ * `*\/`→`/*`, 11 `//`→`/**` and 1 `//`→`/*`, 29 in all, and the block count
+ * over the package goes 4696 → 4725 — one new cut per pair, exactly.
+ * ⚠️ None of the 29 states the rule: `statements` is the same 4 blocks at the
+ * same four line spans before and after, and `trailing` is 9 both ways ⇒ no
+ * count anything here asserts moves. The `//`→`/**` shape was already caught
+ * before this change and still is; ⛔ that is measured in both directions, not
+ * inferred from the zero.
+ *
  * ⭐ A comment RIDING ON a code line is its own one-line block, kind
  * `trailing`. It was outside every population this file enumerates until the
  * fourth in-seat review appended a `//` statement of the rule to an `export
@@ -231,7 +264,7 @@ const sourceFiles = (dir: string, out: string[] = []): string[] => {
 const blocksOf = (file: string, text: string): Block[] => {
   const { comment } = scanSource(text);
   const out: Block[] = [];
-  let run: { line: number; text: string } | null = null;
+  let run: Run | null = null;
   let offset = 0;
   let lineNumber = 0;
 
@@ -250,8 +283,17 @@ const blocksOf = (file: string, text: string): Block[] => {
     const commentOnly = flagged > 0 && bare === 0;
 
     if (commentOnly) {
-      if (!run) run = { line: lineNumber, text: '' };
+      const kind = kindOf(line);
+      // A `*/` closed the previous line's run, or this line opens a different
+      // kind ⇒ the run ends here and a new one starts, exactly as a blank line
+      // would have ended it.
+      if (run && (run.closed || run.kind !== kind)) {
+        out.push(close(file, run, lineNumber - 1));
+        run = null;
+      }
+      if (!run) run = { line: lineNumber, text: '', kind, closed: false };
       run.text += `${line}\n`;
+      if (kind === 'jsdoc' && /\*\/$/.test(line.trimEnd())) run.closed = true;
     } else {
       if (run) {
         out.push(close(file, run, lineNumber - 1));
@@ -268,15 +310,30 @@ const blocksOf = (file: string, text: string): Block[] => {
   return out;
 };
 
-const close = (file: string, run: { line: number; text: string }, endLine: number): Block => ({
+/** A run being accumulated: its kind is fixed by its first line, and `closed` marks a `*\/` already seen. */
+interface Run {
+  line: number;
+  text: string;
+  kind: 'jsdoc' | 'line';
+  closed: boolean;
+}
+
+const close = (file: string, run: Run, endLine: number): Block => ({
   file,
   line: run.line,
   endLine,
-  kind: kindOf(run.text),
+  kind: run.kind,
   flat: flatten(run.text),
 });
 
-const kindOf = (blockText: string): Block['kind'] => (blockText.trimStart().startsWith('//') ? 'line' : 'jsdoc');
+/**
+ * The kind one comment-only LINE belongs to. `//` opens a `line` run;
+ * everything else — `/**`, a bare `/*`, and a `*` continuation — is `jsdoc`.
+ * ⛔ Read per LINE and ⛔ not per block: that is what makes a change of kind a
+ * run boundary rather than something the first line silently decides for every
+ * line glued behind it.
+ */
+const kindOf = (line: string): 'jsdoc' | 'line' => (line.trimStart().startsWith('//') ? 'line' : 'jsdoc');
 
 const allBlocks: Block[] = sourceFiles(SRC).flatMap((file) =>
   blocksOf(file.slice(SRC.length + 1), readFileSync(file, 'utf8')),
@@ -296,17 +353,31 @@ const label = (block: Block): string => `${block.file} (block opening on line ${
  * `third` or `thirdly`.
  *
  * ⛔ Read that list as the reach, ⛔ never a paraphrase of it. Stated exactly,
- * because three summaries of it have now been falsified: `prong 3`, `third
+ * because FOUR summaries of it have now been falsified: `prong 3`, `third
  * prong` and a parenthesised `(3)` are caught wherever they fall in the block,
  * HOWEVER the clause is joined; `3`, `iii`, `third` and `thirdly` are caught
- * ONLY directly behind `or`, with nothing but a comma, whitespace and an
- * opening parenthesis allowed in between. Everything else is silent — every
- * other numbering, every clause that numbers nothing, and those four
- * numberings behind any other word. ⚠️ The three falsified summaries, in
- * order: it required `(3) it`, so `(3) the` was silent; then it called the
- * silent case "a clause that numbers nothing", so `(iii)`, `3.` and `thirdly`
- * were silent; then it split the silent set into "a different numbering" and
- * "a clause that numbers nothing", so `, and (iii) …` was in neither.
+ * ONLY directly behind `or`, with nothing in between but commas, whitespace
+ * and opening parentheses — ANY NUMBER of them, in ANY ORDER. Everything else
+ * is silent — every other numbering, every clause that numbers nothing, and
+ * those four numberings behind any other word.
+ *
+ * ⚠️ The four falsified summaries, in order: it required `(3) it`, so `(3) the`
+ * was silent; then it called the silent case "a clause that numbers nothing",
+ * so `(iii)`, `3.` and `thirdly` were silent; then it split the silent set into
+ * "a different numbering" and "a clause that numbers nothing", so
+ * `, and (iii) …` was in neither. ⭐ The fourth is the one that moved the
+ * PATTERN rather than the sentence: the separator was written `,?\s*\(?`, which
+ * admits a comma, then whitespace, then a parenthesis IN THAT ORDER ONLY, while
+ * every sentence above it named a SET of permitted characters. So `, or ( 3 ) …`
+ * (whitespace after the parenthesis) and `, or ,3 …` (a comma after whitespace)
+ * contained nothing any published sentence forbade and passed — found at the
+ * fifth in-seat review. ⛔ The sentence was not patched to describe the order:
+ * an order nobody can restate from memory is the defect, ⛔ not the wording of
+ * it, and this paragraph had already been rewritten three times around it. The
+ * separator is now the set its sentence always claimed, `[\s,(]*`, which is a
+ * strict SUPERSET of the old one ⇒ ⛔ no wording that was caught became silent,
+ * and the four silent examples named in the header are silent still — each
+ * re-measured through this pin rather than re-reasoned.
  */
 const CLAUSES: Readonly<Record<string, RegExp>> = {
   'available-only-on-a-surviving-carrier': /tombstone is available only on a surviving[- ]carrier/i,
@@ -314,7 +385,7 @@ const CLAUSES: Readonly<Record<string, RegExp>> = {
   'used-when-either-prong-holds': /when either prong/i,
   'prong-1-a-named-live-replacement': /authors to a named live replacement/i,
   'prong-2-keeps-loud-a-taught-key': /keeps? loud a key the docs taught as working/i,
-  'a-prong-beyond-the-two': /\bprong 3\b|\bthird prong\b|\(3\)|\bor,?\s*\(?(?:3|iii|third(?:ly)?)\b/i,
+  'a-prong-beyond-the-two': /\bprong 3\b|\bthird prong\b|\(3\)|\bor[\s,(]*(?:3|iii|third(?:ly)?)\b/i,
 };
 
 const clausesOf = (block: Block): string[] =>

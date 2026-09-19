@@ -124,25 +124,39 @@ describe('objectui#6939 — `children` is no longer required on either member', 
     expect(ContextMenuSchema.safeParse({ type: 'context-menu', items: [] }).success).toBe(true);
   });
 
-  it('objectui#8284 and objectui#9256 SUPERSEDE the widen-only half: `children` is REFUSED by name on BOTH members', () => {
+  it('objectui#8284 and objectui#9256 SUPERSEDE the widen-only half — and objectui#6771 moved WHICH key it refuses', () => {
     // This case used to assert "the accept set only WIDENED — the `children`
     // spelling still parses", on objectui#6939's reasoning that `children`
-    // survives as `BaseSchema`'s optional key. That half is now overruled for
+    // survives as `BaseSchema`'s optional key. That half was overruled for
     // `tooltip` by the objectui#8284 ruling (summon #17, decision batch #2,
     // 2026-09-07): the channel a renderer does not read is tombstoned per
     // component, so authoring it is refused at validation instead of drawing
-    // an empty tooltip. #6939's own declaration already said "nothing reads
-    // `children` here" — this is that sentence made enforceable.
+    // an empty tooltip.
+    //
+    // ⚠️ AND THE CHANNEL SWAPPED. objectui#6771 retired the `body` spelling and
+    // `tooltip` converged on `children`, so the channel this renderer does not
+    // read is `body` and that is what the tombstone names now. ⛔ The rule is
+    // unchanged — only the key it points at moved, which is why this assertion
+    // is inverted rather than dropped, and why it still demands objectui#8284
+    // in the message.
     const refused = TooltipSchema.safeParse({
       type: 'tooltip',
       content: 'Helpful information',
-      children: [{ type: 'button', label: 'Hover me' }],
+      body: [{ type: 'button', label: 'Hover me' }],
     });
     expect(refused.success).toBe(false);
     if (!refused.success) {
-      expect(refused.error.issues.map((i) => i.path.join('.'))).toEqual(['children']);
+      expect(refused.error.issues.map((i) => i.path.join('.'))).toEqual(['body']);
       expect(refused.error.issues[0]!.message).toContain('objectui#8284');
     }
+
+    // CONTROL — the key it DOES read parses, so the refusal above is about the
+    // retired spelling rather than about the whole content slot.
+    expect(TooltipSchema.safeParse({
+      type: 'tooltip',
+      content: 'Helpful information',
+      children: [{ type: 'button', label: 'Hover me' }],
+    }).success).toBe(true);
 
     // ⚠️ THE CONTROL THAT STOOD HERE IS SPENT, on its own terms. PR
     // objectui#9254 left `context-menu` parsing `children` deliberately, and
@@ -191,9 +205,11 @@ describe('objectui#6939 — the keys the renderers read are DECLARED, not passth
 
   it('tooltip declares BOTH halves of its content read', () => {
     const shape = (TooltipSchema as unknown as { shape: Record<string, unknown> }).shape;
-    expect(Object.keys(shape)).toEqual(expect.arrayContaining(['trigger', 'content', 'body']));
+    // `body` until objectui#6771 retired the spelling; the declaration is still
+    // TWO halves, and the second half is now spelled `children`.
+    expect(Object.keys(shape)).toEqual(expect.arrayContaining(['trigger', 'content', 'children']));
     expect(TooltipSchema.safeParse({ type: 'tooltip', content: 'text only' }).success).toBe(true);
-    expect(TooltipSchema.safeParse({ type: 'tooltip', body: { type: 'text', content: 'rich only' } }).success).toBe(true);
+    expect(TooltipSchema.safeParse({ type: 'tooltip', children: { type: 'text', content: 'rich only' } }).success).toBe(true);
   });
 
   it('context-menu declares triggerClassName / contentClassName / modal', () => {

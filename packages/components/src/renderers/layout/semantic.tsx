@@ -37,7 +37,7 @@ tags.forEach(tag => {
           {...restProps}
           {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
       >
-        {renderChildren(schema.children || schema.body)}
+        {renderChildren(schema.children)}
       </Tag>
     );
   });
@@ -48,7 +48,7 @@ tags.forEach(tag => {
       label: tag.charAt(0).toUpperCase() + tag.slice(1),
       category: 'layout',
       // Declared because the factory above RENDERS a child list
-      // (`renderChildren(schema.children || schema.body)`), which is the whole
+      // (`renderChildren(schema.children)`), which is the whole
       // question this flag answers -- `children` is a BASE property of every
       // node in the JSON protocol (`BASE_PROPS` in `sdui-parser/src/validate.ts`),
       // not a per-component authoring key, so declaring it widens no spec

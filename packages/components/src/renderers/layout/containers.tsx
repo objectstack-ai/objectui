@@ -438,6 +438,17 @@ const collectRelatedLists = (nodes: any, acc: any[] = []): any[] => {
       acc.push(n);
       continue; // Don't descend into a related_list's own subtree.
     }
+    // ⚠️ `body` STAYS, and an earlier pass of this change wrongly removed it.
+    // This walker does not RENDER anything — it descends a tab's subtree to
+    // count `record:related_list` nodes for a badge. `page:card` still reads
+    // `body` for stored documents, so a stored subtree under that key is still
+    // drawn; dropping it here made the renderer draw content this count could
+    // not see, which is a wrong badge rather than a retirement. The rule for
+    // every NON-RENDERING reader in this tree: while any renderer still reaches
+    // stored `body` content, the readers that must see the same content keep
+    // their arm (objectui#6771, escalation objectui#9916).
+    // `items` stays for its own reason — the `list` registration's item channel,
+    // objectui#9590's card, not this spelling.
     const candidates = [
       n.children,
       n.properties?.children,
@@ -479,6 +490,7 @@ const containsAttachmentsNode = (nodes: any): boolean => {
   for (const n of list) {
     if (!n || typeof n !== 'object') continue;
     if (n.type === 'record:attachments') return true;
+    // `body` stays — same ground as `collectRelatedLists` above.
     const candidates = [n.children, n.properties?.children, n.properties?.items, n.body, n.items];
     for (const c of candidates) {
       if (c && containsAttachmentsNode(c)) return true;
@@ -932,6 +944,19 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // carrying both, which the conversion is what resolves; deleting the read
   // before the conversion is live would blank an existing card's content
   // silently — the `page-header-subtitle-alias` sequencing precedent, verbatim.
+  // ⚠️ ONE OF FOUR SURVIVING FALLBACKS, all in this file: this one and the
+  // three thin `page:section` / `page:footer` / `page:sidebar` containers
+  // below. ⛔ Do not delete any of them on the authority of this comment —
+  // objectui#6771 retired the spelling on every RENDERER outside the `page:*`
+  // namespace, and what holds these four is stored documents, not the
+  // authoring face.
+  //
+  // What separates THIS one from the three below is a CONVERSION, not a
+  // ground: `@objectstack/spec`'s conversions registry carries
+  // `page-card-body-to-children` (`toMajor: 17`, surface
+  // `page.component.page:card.body`) and carries nothing for the other three.
+  // ⇒ a stored row under this key has a migration path; a stored row under
+  // theirs has none. Escalated as objectui#9916.
   const body = schema?.body ?? schema?.children;
   const footer = schema?.footer;
 
@@ -1105,6 +1130,40 @@ const PageSectionRenderer: React.FC<any> = ({ schema, className, ...props }) => 
       className={cn('space-y-4', className)}
       {...designer}
     >
+      {/*
+        ⚠️ `body` KEPT on all three thin containers, and the ground is the
+        SPEC'S OWN — ⛔ not the "they never published it" argument an earlier
+        pass of this comment made, which was false in both directions.
+
+        `@objectstack/spec`'s `PageContainerProps` names these three and says
+        it outright: `children` is the canonical spelling and `body` is
+        deliberately not declared, but 「The renderers keep reading `body` as a
+        back-compat fallback for stored documents; that fallback is objectui's
+        to retire on its own schedule, and it is not a second authorable
+        spelling.」 ⇒ they share `page:card`'s ground exactly. What they lack is
+        a CONVERSION: the spec's registry carries `page-card-body-to-children`
+        and NOTHING for these three, so dropping this arm leaves a stored row
+        with no migration path at all.
+
+        The authoring corpus IS answerable, and was answered by the committed
+        instrument rather than an ad-hoc scan:
+          pnpm census:body-dialect --keys page:section,page:footer,page:sidebar,page:card,card
+        CONTROL (fires): `card` + `body` 40 on the pre-retirement tree -> 2 on
+        this one. SUBJECT: `page:section` resolves 6 nodes on both trees, 0
+        with `body`, 4 with `children` — a LIT zero. ⚠️ `page:footer` and
+        `page:sidebar` resolve 0 nodes at all, so their zero is a key-population
+        zero and says nothing.
+
+        ⇒ nothing in this repository authors it; whether a stored ROW does is a
+        database question this tree cannot ask. Escalated as objectui#9916, and
+        the two facts that belong to it are POSTED there (comment 5733844778),
+        not merely asserted to be: the designer canvas already honours `children`
+        ONLY for `page:section` (`PageBlockCanvas.tsx`), so runtime and canvas
+        already disagree about a stored `body` here; and `page:card`'s "until the
+        conversion lands" precondition is STALE — `pageCardBodyToChildren` carries
+        `toMajor: 17` and `retiredFromLoadPath: true` and this repo installs spec
+        17.4.0, so the live ground there is unreplayed stored rows.
+      */}
       {renderChildren(schema?.children || schema?.body)}
     </section>
   );
@@ -2211,6 +2270,7 @@ const PageFooterRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         className={cn('flex items-center justify-between text-sm text-muted-foreground', className)}
         {...designer}
       >
+        {/* `body` kept — escalation recorded at `page:section` above (objectui#6771). */}
         {renderChildren(schema?.children || schema?.body)}
       </footer>
     </>
@@ -2237,6 +2297,7 @@ const PageSidebarRenderer: React.FC<any> = ({ schema, className, ...props }) => 
       className={cn('flex flex-col gap-4 w-full md:w-80 shrink-0', className)}
       {...designer}
     >
+      {/* `body` kept — escalation recorded at `page:section` above (objectui#6771). */}
       {renderChildren(schema?.children || schema?.body)}
     </aside>
   );

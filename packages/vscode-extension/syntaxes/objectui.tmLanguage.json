@@ -5,7 +5,7 @@
       "include": "source.json"
     },
     {
-      "match": "\"(type|className|body|label|placeholder|content|title|description)\"",
+      "match": "\"(type|className|children|label|placeholder|content|title|description)\"",
       "name": "keyword.other.objectui"
     }
   ]

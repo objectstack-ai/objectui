@@ -55,6 +55,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
 import { render, cleanup } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 // Registered at module scope, NOT in a `beforeAll`: there the cold transform is
@@ -90,9 +91,17 @@ interface Site {
  * The eleven leaking sites objectui#9162 measured, plus the three the same
  * instrument reaches once the class is being closed rather than the instances:
  * `ui:card` `children` (clean on `main` only by the accident of `||` operand
- * order — see `cardChildrenWasCleanOnlyByAccident`), and `page:card`'s `body` /
- * `footer`, which the card's TypeScript census could not see because that
- * renderer's `schema` is `any`.
+ * order — see `uiCardChildrenNoLongerDependsOnOperandOrder`), and `page:card`'s
+ * `body` / `footer`, which the card's TypeScript census could not see because
+ * that renderer's `schema` is `any`.
+ *
+ * ⚠️ `ui:card body` LEFT this table, and that is a slot that ceased to exist,
+ * not a leak that was fixed: objectui#6771 retired the `body` child-list
+ * spelling, so `ui:card` reads `renderNodeSlot(schema.children, …)` and there is
+ * no `body` slot left for a numeric-falsy value to leak through. `page:card`'s
+ * `body` STAYS — that key is `PageCardProps.body`, a read-only back-compat path
+ * for stored documents under a different retirement (objectstack#5775, ADR-0087
+ * D2), and it is still a live node slot.
  */
 const SITES: readonly Site[] = [
   { name: 'container children', type: 'container', namespace: 'ui', slot: 'children' },
@@ -100,7 +109,6 @@ const SITES: readonly Site[] = [
   { name: 'grid children', type: 'grid', namespace: 'ui', slot: 'children' },
   { name: 'stack children', type: 'stack', namespace: 'ui', slot: 'children' },
   { name: 'ui:card header', type: 'card', namespace: 'ui', slot: 'header' },
-  { name: 'ui:card body', type: 'card', namespace: 'ui', slot: 'body' },
   { name: 'ui:card children', type: 'card', namespace: 'ui', slot: 'children' },
   { name: 'ui:card footer', type: 'card', namespace: 'ui', slot: 'footer' },
   { name: 'page:card body', type: 'card', namespace: 'page', slot: 'body' },
@@ -146,7 +154,7 @@ describe('SchemaNode slots refuse numeric-falsy authored values (objectui#9162)'
       expect(ContainerSchemaZod.safeParse({ type: 'container', children: 0 }).success).toBe(true);
       expect(CardSchemaZod.safeParse({ type: 'card', footer: 0 }).success).toBe(true);
       expect(CardSchemaZod.safeParse({ type: 'card', header: 0 }).success).toBe(true);
-      expect(CardSchemaZod.safeParse({ type: 'card', body: 0 }).success).toBe(true);
+      expect(CardSchemaZod.safeParse({ type: 'card', children: 0 }).success).toBe(true);
       expect(DialogSchemaZod.safeParse({ type: 'dialog', footer: 0 }).success).toBe(true);
     });
   });
@@ -212,15 +220,36 @@ describe('SchemaNode slots refuse numeric-falsy authored values (objectui#9162)'
   });
 
   describe('the one row that was clean on `main`, and why that was not protection', () => {
-    it('cardChildrenWasCleanOnlyByAccident — `body: 0` leaked through the SAME `||` chain', () => {
+    it('uiCardChildrenNoLongerDependsOnOperandOrder — the `||` chain that made it accidental is gone', () => {
       // `ui:card` read `(schema.children || schema.body)`, and `0 || undefined`
       // is `undefined` — so `children: 0` was converted away by accident of
-      // OPERAND ORDER, not by any guard. The proof is the sibling key: with
-      // `children` absent, `undefined || 0` is `0`, and that row leaked. Both
-      // are asserted clean above; this row states WHY the pair had to be tested
-      // together, so a later reader does not re-derive "children is protected"
-      // from the `||`.
-      const site = SITES.find((s) => s.name === 'ui:card body')!;
+      // OPERAND ORDER, not by any guard. The proof used to be the sibling key:
+      // with `children` absent, `undefined || 0` is `0`, and THAT row leaked.
+      //
+      // objectui#6771 retired the `body` spelling, so the chain is one operand
+      // long: `renderNodeSlot(schema.children, …)`. The accident cannot recur,
+      // and `children: 0` is clean because the guard says so. ⛔ The assertion
+      // is on the SOURCE, not on the render: a render reading is green under
+      // both spellings of the reader and would not see the chain come back.
+      // Rooted at THIS FILE, the spelling `check-test-path-roots.mjs` teaches:
+      // the cwd is the package directory under one invocation and the repo root
+      // under the form CI runs, so a cwd-relative literal reaches two verdicts
+      // (objectui#7799). ⛔ And ⛔ not `readFileSync(new URL(…))` either — in the
+      // `dom` project `import.meta.url` is not a `file:` URL and that throws;
+      // reading its `pathname` is scheme-independent.
+      const SELF_DEPTH_BELOW_REPO_ROOT = 6; // packages/components/src/renderers/__tests__/<this file>
+      const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname)
+        .split('/')
+        .slice(0, -SELF_DEPTH_BELOW_REPO_ROOT)
+        .join('/');
+      const CARD_SRC = `${REPO_ROOT}/packages/components/src/renderers/layout/card.tsx`;
+      expect(existsSync(CARD_SRC), `depth is wrong — ${CARD_SRC} not found`).toBe(true);
+      const src = readFileSync(CARD_SRC, 'utf8');
+      expect(src).toContain('renderNodeSlot(schema.children,');
+      expect(src).not.toContain('schema.children || schema.body');
+
+      // And the row it used to lean on is still clean, through the guard.
+      const site = SITES.find((s) => s.name === 'ui:card children')!;
       const baseline = renderSite(site, OMIT);
       cleanup();
       expect(renderSite(site, 0)).toBe(baseline);

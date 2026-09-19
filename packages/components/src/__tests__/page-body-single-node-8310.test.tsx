@@ -7,13 +7,15 @@
  */
 
 /**
- * `PageRenderer` draws a `body` given as ONE node and a `body` given as a list
+ * `PageRenderer` draws a flat content list given as ONE node and as a list
  * (objectui#8310, maintainer ruling 2026-09-07, director decision batch #2),
  * and the root README's flagship example draws its CHILDREN (objectui#8912).
  *
  * ## Two cards share this file, and they are not the same question
  *
- * objectui#8310 asked the ARITY of `PageNodeSchema.body` — one node, or a list.
+ * objectui#8310 asked the ARITY of the page node's flat content list — one node,
+ * or a list. ⚠️ It was decided about the `body` spelling; objectui#6771 retired
+ * that spelling, so the ruling governs `children` and this file reads it there.
  * objectui#8912 asked whether the child key the flagship example AUTHORS has
  * any reader at all. This file now pins both, because both are properties of
  * the same transcribed snippet, and the second was originally left visible here
@@ -101,36 +103,36 @@ const flagshipGridPreRepair = {
   items: flagshipGrid.children,
 };
 
-function renderPage(body: unknown) {
-  return render(<SchemaRenderer schema={{ type: 'page', title: 'Dashboard', body } as any} />);
+function renderPage(children: unknown) {
+  return render(<SchemaRenderer schema={{ type: 'page', title: 'Dashboard', children } as any} />);
 }
 
 const gridsIn = (container: HTMLElement) => container.querySelectorAll('[data-obj-type="grid"]');
 
-describe('PageRenderer — both `body` arities reach the renderer (objectui#8310, CONTROL)', () => {
-  it('draws the node when `body` is ONE node — the README flagship shape', () => {
+describe('PageRenderer — both flat-content arities reach the renderer (objectui#8310, CONTROL)', () => {
+  it('draws the node when `children` is ONE node — the README flagship shape', () => {
     const { container } = renderPage(flagshipGrid);
     expect(gridsIn(container)).toHaveLength(1);
   });
 
-  it('draws the node when `body` is a LIST of nodes', () => {
+  it('draws the node when `children` is a LIST of nodes', () => {
     const { container } = renderPage([flagshipGrid]);
     expect(gridsIn(container)).toHaveLength(1);
   });
 
-  it('draws nothing when `body` is absent — the negative control', () => {
+  it('draws nothing when `children` is absent — the negative control', () => {
     const { container } = renderPage(undefined);
     expect(gridsIn(container)).toHaveLength(0);
   });
 });
 
 describe('PageRenderer — the flagship example draws its CHILDREN (objectui#8912)', () => {
-  it('renders every child of a single-node `body`', () => {
+  it('renders every child of a single-node `children`', () => {
     const { container } = renderPage(flagshipGrid);
     for (const label of LABELS) expect(container.textContent).toContain(label);
   });
 
-  it('renders every child of a list `body`', () => {
+  it('renders every child of a list `children`', () => {
     const { container } = renderPage([flagshipGrid]);
     for (const label of LABELS) expect(container.textContent).toContain(label);
   });

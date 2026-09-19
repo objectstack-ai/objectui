@@ -1,24 +1,24 @@
 {
   "type": "sidebar-provider",
-  "body": [
+  "children": [
     {
       "type": "sidebar",
-      "body": [
+      "children": [
         {
           "type": "sidebar-content",
-          "body": [
+          "children": [
             {
               "type": "sidebar-group",
-              "body": [
+              "children": [
                 {
                   "type": "sidebar-menu",
-                  "body": [
+                  "children": [
                     {
                       "type": "sidebar-menu-item",
-                      "body": [
+                      "children": [
                         {
                           "type": "sidebar-menu-button",
-                          "body": [
+                          "children": [
                             {
                               "type": "text",
                               "content": "Inbox"
@@ -34,10 +34,10 @@
                     },
                     {
                       "type": "sidebar-menu-item",
-                      "body": [
+                      "children": [
                         {
                           "type": "sidebar-menu-button",
-                          "body": [
+                          "children": [
                             {
                               "type": "text",
                               "content": "Drafts"
@@ -53,10 +53,10 @@
                     },
                     {
                       "type": "sidebar-menu-item",
-                      "body": [
+                      "children": [
                         {
                           "type": "sidebar-menu-button",
-                          "body": [
+                          "children": [
                             {
                               "type": "text",
                               "content": "Sent"
@@ -67,10 +67,10 @@
                     },
                     {
                       "type": "sidebar-menu-item",
-                      "body": [
+                      "children": [
                         {
                           "type": "sidebar-menu-button",
-                          "body": [
+                          "children": [
                             {
                               "type": "text",
                               "content": "Trash"
@@ -89,7 +89,7 @@
     },
     {
       "type": "sidebar-inset",
-      "body": [
+      "children": [
         {
           "type": "box",
           "className": "p-4",

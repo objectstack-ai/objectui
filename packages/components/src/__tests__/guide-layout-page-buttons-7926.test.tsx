@@ -29,7 +29,7 @@
  *     page node with actions: [{type:'button',label:'Add Product'}, {…}]
  *       -> buttons found in the DOM: 0
  *       -> "Add Product" appears anywhere in the DOM: false
- *     the SAME two buttons moved into page.body
+ *     the SAME two buttons moved into the page's child list
  *       -> buttons found in the DOM: 2   texts: ["Add Product","Export"]
  *
  * `renders nothing when authored as page.actions` below is that first reading
@@ -168,14 +168,14 @@ describe('objectui#7926 — the guide’s action passages draw buttons (render h
     cleanup();
   });
 
-  it('LIVE CONTROL — the same two buttons moved into `body` draw both', () => {
+  it('LIVE CONTROL — the same two buttons moved into `children` draw both', () => {
     // The other half of the original measurement: the remedy the refusal message
     // names is the one that works, so "0 buttons" above is about the KEY and not
     // about this test being unable to draw anything.
     const texts = buttonsDrawnBy({
       type: 'page',
       title: 'Products',
-      body: [
+      children: [
         {
           type: 'flex',
           justify: 'end',

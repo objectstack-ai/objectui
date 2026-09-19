@@ -299,14 +299,46 @@ export interface BaseSchema {
   bind?: string;
 
   /**
-   * Child components or content.
-   * Can be a single component, array of components, or primitive values.
+   * RETIRED (objectui#6771, maintainer ruling 2026-09-01, ADR-0049) — the
+   * second spelling of {@link BaseSchema.children}. Author `children`.
+   *
+   * ## Why it is refused by name rather than merely deleted
+   *
+   * `BaseSchema` carries an index signature on the TS side and
+   * `BaseSchemaCore` ends `.passthrough()` on the zod side, so DELETING a
+   * member does not refuse it — it makes it silently acceptable and
+   * silently inert, which is the state this retirement exists to leave. The
+   * `?: never` twin of the mirror's `aliasKeyRefusal` is what turns the
+   * removal into an answer: `tsc` refuses the key at the authoring site and
+   * the parse names `children` as the remedy.
+   *
+   * ## What it used to be
+   *
+   * A declared twin of `children`, and for a dozen registrations — `badge`,
+   * `alert`, the `sidebar-*` family, `tooltip` — the ONLY child-list key
+   * their renderer read, while `div` / `card` / `page` / `button` /
+   * `aspect-ratio` / the sectioning tags read `children || body` and took
+   * either. One concept with two spellings is the lenient-fallback shape
+   * AGENTS.md #0.1 names, and the parser tier only ever knew `children`, so
+   * the one spelling that resolved drew the warning a typo draws. The
+   * ruling retired the spelling rather than blessing it: the registrations
+   * converged on `children` and this repository's own corpus and teaching
+   * moved in the same change.
+   *
+   * @deprecated Retired spelling of `children` — author `children`.
    */
-  body?: SchemaNode | SchemaNode[];
+  body?: never;
 
   /**
-   * Alternative name for children (React-style).
-   * Some components use 'children' instead of 'body'.
+   * Child components or content — THE child-list key, and since
+   * objectui#6771 the only one. Can be a single component, an array of
+   * components, or primitive values.
+   *
+   * This docblock used to read "alternative name for children" and admit
+   * that "some components use 'children' instead of 'body'" without saying
+   * which — a sentence that was itself load-bearing evidence on three
+   * separate cards, because it told an author both spellings were live and
+   * left them to guess per component.
    */
   children?: SchemaNode | SchemaNode[];
 

@@ -814,9 +814,14 @@ export const EXIT_UNREADABLE = 2;
 /**
  * Whether a run may report a table at all.
  *
- * ⭐ A zero PRODUCER count is a legitimate reading and is NOT refused — it is
- * the day objectui#6771 step 4 becomes landable, and refusing it would delete
- * the one answer this scan exists to be able to give. What IS refused is a run
+ * ⭐ A zero PRODUCER count is a legitimate reading and is NOT refused —
+ * refusing it would delete the one answer this scan exists to be able to give.
+ * ⚠️ It is NOT, as first written here, "the day objectui#6771 step 4 becomes
+ * landable": step 4 landed with this table non-empty, because every row left in
+ * it is `unruled:item-carrier` and the tier refuses `body` only on a node whose
+ * `type` resolves to a registration — a `tabs` item is the value of a declared
+ * `items` input and is never walked as one. A zero here is objectui#9590's
+ * finish line instead. What IS refused is a run
  * that could not have found anything: a blind walk, or a C2 instrument that
  * derived no readers, in which case every `body` fails C2 for a reason that has
  * nothing to do with the corpus.

@@ -147,7 +147,7 @@ const DivRenderer = forwardRef<HTMLDivElement, { schema: DivSchema; className?: 
         // Apply designer props
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
     >
-      {renderChildren(schema.children || schema.body)}
+      {renderChildren(schema.children)}
     </div>
   );
   }

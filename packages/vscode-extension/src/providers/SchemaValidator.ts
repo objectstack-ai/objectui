@@ -9,6 +9,41 @@
 import * as vscode from 'vscode';
 
 /**
+ * The child-list spelling objectui#6771 retired. Spelled here rather than
+ * imported: this package ships to the extension host with no `@object-ui/*`
+ * runtime dependency, which is the same reason it has no zod tier to lean on.
+ * `sdui-parser` exports the same constant as `RETIRED_CHILD_LIST_KEY`, and
+ * `__tests__/body-dialect-children-arm-7181.test.ts` pins the two together by
+ * reading both literals off disk — see its `the two spellings cannot drift`
+ * case. ⛔ Do not change this string without that test going red.
+ */
+const RETIRED_CHILD_LIST_KEY = 'body';
+
+/**
+ * Node types that declare `body` as their OWN input, where the key is not the
+ * retired child-list spelling and a retirement warning would be a FALSE
+ * POSITIVE.
+ *
+ * Measured, not guessed — grep the registrations under every package `src`
+ * directory for a declared input named `body`, excluding tests. ⛔ The glob is
+ * spelled in words on purpose: written literally it contains the two characters
+ * that END a block comment, which silently truncates this docblock and leaves the
+ * rest of the file as stray tokens — caught here by the pin that evaluates this
+ * very source. The only survivor after objectui#6771 moved
+ * `tooltip` and `page` to `children` is `record:alert`, whose `body` is a text
+ * field taking an inline translation map (`plugin-detail`, registered under the
+ * `record` namespace). This is the same carve-out the parser tier gets for free
+ * by asking inside its `!input` branch; this host has no manifest, so the set is
+ * spelled out.
+ *
+ * ⚠️ A SNAPSHOT WITH NO GATE BEHIND IT. Nothing re-derives this set, so a
+ * registration that starts declaring `body` will draw a false warning here until
+ * someone adds it. That is stated rather than left to be discovered, and it is
+ * the reason the set is kept to what was measured rather than widened on a guess.
+ */
+const TYPES_DECLARING_OWN_BODY: ReadonlySet<string> = new Set(['record:alert']);
+
+/**
  * Validates Object UI schemas
  */
 export class SchemaValidator {
@@ -98,34 +133,59 @@ export class SchemaValidator {
       this.validateTypeSpecificProps(schema, diagnostics, document, path);
     }
 
+    // The retired `body` child-list spelling, answered BY NAME.
+    //
+    // ⚠️ THIS DIAGNOSTIC EXISTS BECAUSE THIS HOST HAS NO OTHER TIER. Everywhere
+    // else, dropping the `body` arm moves the answer UP a level and makes it
+    // louder: `@object-ui/types`' zod mirror refuses the key by name, so
+    // `objectui validate` exits 1 naming `children`. The extension host imports
+    // no zod, builds no manifest, and its JSON schema sets
+    // `additionalProperties: true` — so without the push below, retiring the arm
+    // would take a document that USED to draw a diagnostic here down to ZERO,
+    // which is a refusal going quiet in the one tool whose job is teaching the
+    // format. ⛔ That is the opposite of what objectui#6771 is for.
+    const retired = schema[RETIRED_CHILD_LIST_KEY];
+    if (retired !== undefined && !TYPES_DECLARING_OWN_BODY.has(schema.type)) {
+      // The message does not over-describe the value, the same discipline
+      // `sdui-parser/src/body-dialect.ts` keeps: calling a scalar `body` a
+      // "child-list spelling" names a shape the author did not write.
+      const isChildList = typeof retired === 'object' && retired !== null;
+      diagnostics.push(
+        new vscode.Diagnostic(
+          this.findPropertyRange(document, path, RETIRED_CHILD_LIST_KEY),
+          isChildList
+            ? `"${RETIRED_CHILD_LIST_KEY}" is a retired child-list spelling — author "children" instead (objectui#6771)`
+            : `"${RETIRED_CHILD_LIST_KEY}" is a retired key — the child-list key is "children" (objectui#6771)`,
+          vscode.DiagnosticSeverity.Warning
+        )
+      );
+    }
+
+    // The push above is GATED on `TYPES_DECLARING_OWN_BODY` rather than firing
+    // on every node: a `record:alert` authored with its declared translation-map
+    // `body` is not writing the retired spelling, and warning about it would be
+    // the false diagnostic objectui#6771 exists to remove, reintroduced one host
+    // over. ⚠️ The set is a measured snapshot with nothing re-deriving it — see
+    // its own docblock.
+
     // Recursively validate children.
     //
-    // `children` is read FIRST and `body` is kept as a second arm, matching
-    // `schema.children || schema.body` in `@object-ui/core`'s `validateSchema`
-    // and in the `div` / `card` renderers (objectui#7181).
-    //
-    // This guard used to name `schema.body` alone, which made the extension a
-    // `body`-ONLY reader while the TypeScript declaration, the zod mirror,
-    // core's validator and the manifest tier all declare `children`. An author
-    // who wrote the declared spelling therefore had every child silently
-    // skipped by this recursion — no diagnostic, no refusal, just an unvisited
-    // subtree — while the preview rendered the same document blank.
-    //
-    // The `body` arm is deliberately KEPT: dropping it is objectui#6771 step 2,
-    // not this change, and every `body`-spelled document must keep working.
-    const childList = schema.children || schema.body;
+    // `children` is the one child-list spelling. This guard once named
+    // `schema.body` ALONE, so an author writing the declared spelling had
+    // every child silently skipped by this recursion — no diagnostic, no
+    // refusal, just an unvisited subtree (objectui#7181 added the `children`
+    // arm). objectui#6771 then retired `body` itself, so the second arm went
+    // with it: a `body`-spelled document has no child list for this recursion
+    // to walk, and the push above is what keeps that from being silent.
+    const childList = schema.children;
     if (childList) {
-      // The diagnostic path has to name the key this document actually used,
-      // or a `children`-spelled node reports its problems at a `.body[...]`
-      // address that does not occur anywhere in the file being validated.
-      const childKey = schema.children ? 'children' : 'body';
       const children = Array.isArray(childList) ? childList : [childList];
       children.forEach((child: any, index: number) => {
         this.validateSchema(
           child,
           diagnostics,
           document,
-          `${path}.${childKey}[${index}]`
+          `${path}.children[${index}]`
         );
       });
     }

@@ -80,7 +80,7 @@ import '@object-ui/components'
 const schema = {
   type: "page",
   title: "Dashboard",
-  body: {
+  children: {
     type: "grid",
     columns: 3,
     children: [

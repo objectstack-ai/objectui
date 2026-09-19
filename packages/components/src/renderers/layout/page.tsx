@@ -8,8 +8,8 @@
  * The Page renderer interprets PageSchema into structured layouts.
  * It supports four page types (record, home, app, utility) and
  * renders named regions (header, sidebar, main, footer, aside) with
- * configurable widths. When no regions are defined, it falls back to
- * body/children for backward compatibility.
+ * configurable widths. When no regions are defined, it falls back to the
+ * node's `children` list (objectui#6771 retired the `body` spelling).
  */
 
 import React, { useMemo } from 'react';
@@ -123,9 +123,9 @@ function isTitledPageHeader(node: any): boolean {
 /**
  * Depth-bounded walk over the component shapes a page can nest.
  *
- * Takes ONE node or a LIST of them, and judges both by the same rule. `body`
- * and `children` are declared `SchemaNode | SchemaNode[]` on `PageNodeSchema`
- * and on `BaseSchema`, and `FlatContent` below has always rendered the bare-node
+ * Takes ONE node or a LIST of them, and judges both by the same rule.
+ * `children` is declared `SchemaNode | SchemaNode[]` on `PageNodeSchema` and on
+ * `BaseSchema`, and `FlatContent` below has always rendered the bare-node
  * form, so a single node is a first-class authored shape — at the top level and
  * at every nested level the recursion re-enters (objectui#8923). This used to
  * open with `if (!Array.isArray(nodes)) return false`, so every bare-node
@@ -148,8 +148,7 @@ function containsTitledPageHeader(nodes: unknown, depth = 0): boolean {
       typeof n === 'object' &&
       (isTitledPageHeader(n) ||
         containsTitledPageHeader(n.components, depth + 1) ||
-        containsTitledPageHeader(n.children, depth + 1) ||
-        containsTitledPageHeader(n.body, depth + 1)),
+        containsTitledPageHeader(n.children, depth + 1)),
   );
 }
 
@@ -176,7 +175,6 @@ function pageHeaderOwnsTitle(schema: PageNodeSchema): boolean {
   const regionNodes = (schema.regions ?? []).flatMap((r: any) => r?.components ?? []);
   return (
     containsTitledPageHeader(regionNodes) ||
-    containsTitledPageHeader(schema.body) ||
     containsTitledPageHeader(schema.children)
   );
 }
@@ -278,11 +276,11 @@ const RegionLayout: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
-// FlatContent — legacy body/children fallback
+// FlatContent — the `children` fallback when a page declares no regions
 // ---------------------------------------------------------------------------
 
 const FlatContent: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
-  const content = schema.body || schema.children;
+  const content = schema.children;
   const nodes: SchemaNode[] = Array.isArray(content)
     ? content
     : content
@@ -701,7 +699,11 @@ const pageMeta: any = {
       itemType: 'object',
     },
     {
-      name: 'body',
+      // The flat content list `FlatContent` renders when a page declares no
+      // regions. Published as `body` until objectui#6771 retired that
+      // spelling; `pageMeta` backs five registrations, so this one line is
+      // the authoring face of `page` / `app` / `utility` / `home` / `record`.
+      name: 'children',
       type: 'array',
       itemType: 'component',
     },

@@ -793,6 +793,25 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
   surface: z.enum(['card', 'plain']).optional()
     .describe("Visual chrome for the chat surface: 'card' bordered panel (default) or 'plain' frameless full-page workspace (objectui#6687)"),
   onClear: chatbotOnClearArm(),
+  // Declared HERE rather than inherited, because objectui#6771's retirement
+  // of `BaseSchema.body` refuses the key with a message naming `children` —
+  // which is the right remedy on every node except this family, where
+  // `children` is refused too and the key an author actually wants is
+  // `requestBody`. The sentence below is the one this node's `children`
+  // tombstone already asserts about BOTH channels; only the declaration was
+  // missing, and inheriting a wrong remedy is worse than inheriting none.
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot-enhanced` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`headers`, `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
+    + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
+  ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `chatbot-enhanced` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
@@ -838,6 +857,25 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
   enableMarkdown: chatbotEnableMarkdownArm(),
   enableFileUpload: chatbotEnableFileUploadArm(),
   onClear: chatbotOnClearArm(),
+  // Declared HERE rather than inherited, because objectui#6771's retirement
+  // of `BaseSchema.body` refuses the key with a message naming `children` —
+  // which is the right remedy on every node except this family, where
+  // `children` is refused too and the key an author actually wants is
+  // `requestBody`. The sentence below is the one this node's `children`
+  // tombstone already asserts about BOTH channels; only the declaration was
+  // missing, and inheriting a wrong remedy is worse than inheriting none.
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot-floating` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`floatingConfig`, `headers`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
+    + '`userAvatarFallback`, `userAvatarUrl`.',
+  ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `chatbot-floating` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '

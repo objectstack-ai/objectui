@@ -65,13 +65,16 @@ export const AlertSchema = BaseSchema.extend({
   icon: z.string().optional().describe('Alert icon'),
   dismissible: z.boolean().optional().describe('Whether alert can be dismissed'),
   onDismiss: handlerKeyRefusal('onDismiss', 'retired', 'Dismiss handler'),
-  children: aliasKeyRefusal(
-    'children',
+  // INVERTED by objectui#6771, which retired `body`: the refusal follows the
+  // read, and this renderer now reads `children`. objectui#8284's rule — the
+  // channel a renderer does not read is refused by name — is unchanged.
+  body: aliasKeyRefusal(
     'body',
+    'children',
     'this alert node',
-    '`alert` reads `body`, never `children` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/alert.tsx`). '
-    + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    '`alert` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/alert.tsx`). '
+    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling; an authored `body` now parses green through '
+    + '`.passthrough()` and renders an EMPTY element — no error, no warning. objectui#8284.',
   ),
 });
 
@@ -109,13 +112,16 @@ export const BadgeSchema = BaseSchema.extend({
   label: z.string().optional().describe('Badge label'),
   variant: z.enum(['default', 'secondary', 'destructive', 'outline']).optional().describe('Badge variant'),
   icon: z.string().optional().describe('Badge icon'),
-  children: aliasKeyRefusal(
-    'children',
+  // INVERTED by objectui#6771, which retired `body`: the refusal follows the
+  // read, and this renderer now reads `children`. objectui#8284's rule — the
+  // channel a renderer does not read is refused by name — is unchanged.
+  body: aliasKeyRefusal(
     'body',
+    'children',
     'this badge node',
-    '`badge` reads `body`, never `children` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/badge.tsx`). '
-    + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    '`badge` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/badge.tsx`). '
+    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling; an authored `body` now parses green through '
+    + '`.passthrough()` and renders an EMPTY element — no error, no warning. objectui#8284.',
   ),
 });
 

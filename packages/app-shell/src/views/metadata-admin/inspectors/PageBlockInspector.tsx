@@ -243,7 +243,14 @@ function ColorPropField({ label, value, onChange, disabled, options }: {
 
 /** Block `properties` keys whose values are nested block trees — these are
  *  edited visually on the canvas, so they are excluded from the generic
- *  property editor to avoid two conflicting editors for the same data. */
+ *  property editor to avoid two conflicting editors for the same data.
+ *
+ *  ⚠️ `body` STAYS through objectui#6771's retirement: this is the inspector
+ *  half of a stored `properties.body`, whose canvas half is in
+ *  `previews/PageBlockCanvas.tsx`. Dropping it would hand a stored card's
+ *  child tree to the generic property editor as raw JSON, beside the canvas
+ *  editing the same data — the two conflicting editors this set exists to
+ *  prevent. ⛔ Not an authorable key on either face; escalation objectui#9916. */
 const STRUCTURAL_PROP_KEYS = new Set(['children', 'body']);
 
 interface Block {

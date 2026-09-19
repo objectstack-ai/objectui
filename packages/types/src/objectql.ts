@@ -3713,12 +3713,13 @@ export interface ObjectKanbanSchema extends BaseSchema {
       }>;
   /**
    * Row cap — the most records the board fetches, sent as a real `$top` on
-   * the query (`packages/plugin-kanban/src/ObjectKanban.tsx:264`,
-   * `$top: schema.limit ?? DEFAULT_KANBAN_LIMIT`; objectui#4025). The board
-   * renders every fetched record into a lane and offers no pagination, so
-   * this is the author's window on the object rather than a page size. A
-   * bound `dataSource` (its own `limit`, or the named view's
-   * `pagination.pageSize`) sets it too. Undeclared until objectui#7322.
+   * the query (`packages/plugin-kanban/src/ObjectKanban.tsx`,
+   * `$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`; objectui#4025,
+   * re-spelled by objectui#9925, which refuses a non-positive cap rather than
+   * forwarding it). The board renders every fetched record into a lane and
+   * offers no pagination, so this is the author's window on the object rather
+   * than a page size. A bound `dataSource` (its own `limit`, or the named
+   * view's `pagination.pageSize`) sets it too. Undeclared until objectui#7322.
    *
    * @default 100 — `DEFAULT_KANBAN_LIMIT`
    */

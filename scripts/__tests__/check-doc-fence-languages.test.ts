@@ -28,6 +28,8 @@ import {
 } from '../check-doc-snippet-types.mjs';
 import {
   APP_DOCS as COMPONENT_APP_DOCS,
+  PACKAGE_READMES as COMPONENT_PACKAGE_READMES,
+  packageReadmePages as componentPackageReadmes,
   ROOT_PAGES as COMPONENT_ROOT_PAGES,
 } from '../check-doc-component-types.mjs';
 
@@ -313,8 +315,14 @@ describe('check-doc-fence-languages: the scan surface is check-doc-snippet-types
    * `README.md` — the two gates its ruling named — and this file went red,
    * because a third gate is coupled to that surface by construction. The lists
    * are equal again, but list equality alone would not have said WHERE they
-   * diverged, and `check-doc-component-types`'s surface is deliberately narrower
-   * (it does not walk the package READMEs), so it cannot join that comparison.
+   * diverged.
+   *
+   * ⚠️ This comment used to add that `check-doc-component-types`'s surface is
+   * "deliberately narrower (it does not walk the package READMEs), so it cannot
+   * join that comparison". That stopped being true when objectui#7896's fourth
+   * leg landed (objectui#8115): all three gates now walk
+   * `packages/NAME/README.md`, and the leg gets its own cross-gate pin below
+   * rather than being left as a sentence.
    *
    * This is the piece all three DO share. Each carries its own copy for its own
    * install-free reason; comparing the copies is what keeps "copy freely" honest.
@@ -328,6 +336,38 @@ describe('check-doc-fence-languages: the scan surface is check-doc-snippet-types
   it('the root README is really in this gate’s walk — the widening, pinned', () => {
     // Not implied by the equality above: both lists could lose it together.
     expect(fenceDocuments(ROOT)).toContain('README.md');
+  });
+
+  /**
+   * objectui#7896 / objectui#8115 — the `packages/NAME/README.md` half, the leg
+   * that made the third gate joinable here at all.
+   *
+   * This gate and the snippet gate had walked those READMEs all along;
+   * `check-doc-component-types` — the one that asks whether a `type` literal
+   * names a component that EXISTS — walked past them, so their type literals
+   * were read twice and judged never. The pin is written as an equality against
+   * the population THIS gate already collects, because the two enumerations come
+   * from different files and neither is the other read twice.
+   *
+   * ⛔ Not folded into the whole-document equality above: that comparison is
+   * between this gate and the snippet gate, whose surface still carries four legs
+   * this one does not. A named leg is what says WHERE two walks agree.
+   */
+  it('all three doc gates now walk packages/NAME/README.md — objectui#7896’s fourth leg', () => {
+    expect(COMPONENT_PACKAGE_READMES).toEqual({ dir: 'packages', name: 'README.md' });
+    const componentLeg = componentPackageReadmes(ROOT)
+      .map((abs: string) => path.relative(ROOT, abs).split(path.sep).join('/'))
+      .sort();
+    // Non-vacuous: an empty leg would make every comparison below pass.
+    expect(componentLeg.length, 'the component gate collected no package README').toBeGreaterThan(10);
+    const fenceLeg = fenceDocuments(ROOT)
+      .filter((f: string) => /^packages\/[^/]+\/README\.md$/.test(f))
+      .sort();
+    expect(componentLeg).toEqual(fenceLeg);
+    const snippetLeg = snippetDocuments(ROOT)
+      .filter((f: string) => /^packages\/[^/]+\/README\.md$/.test(f))
+      .sort();
+    expect(componentLeg).toEqual(snippetLeg);
   });
 
   /**

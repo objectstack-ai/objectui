@@ -16,6 +16,8 @@ import {
   JSON_FENCE_LANGUAGES,
   listDocuments,
   loadCarriage,
+  PACKAGE_READMES,
+  packageReadmePages,
   parseFence,
   parseFenceDialect,
   RENDERER_SOURCE,
@@ -29,6 +31,8 @@ import {
 import {
   APP_DOCS as TYPES_APP_DOCS,
   appDocsDirs as typesAppDocsDirs,
+  PACKAGE_READMES as TYPES_PACKAGE_READMES,
+  packageReadmePages as typesPackageReadmePages,
   ROOT_PAGES as TYPES_ROOT_PAGES,
 } from '../check-doc-component-types.mjs';
 
@@ -318,6 +322,9 @@ describe('check-doc-expression-carriage: the scan surface is check:doc-types’,
     expect(APP_DOCS).toBe(TYPES_APP_DOCS);
     expect(ROOT_PAGES).toBe(TYPES_ROOT_PAGES);
     expect(appDocsDirs).toBe(typesAppDocsDirs);
+    // objectui#7896's fourth leg, landed by objectui#8115.
+    expect(PACKAGE_READMES).toBe(TYPES_PACKAGE_READMES);
+    expect(packageReadmePages).toBe(typesPackageReadmePages);
   });
 
   /**
@@ -351,6 +358,14 @@ describe('check-doc-expression-carriage: the scan surface is check:doc-types’,
     };
     const expected = walk(path.join(ROOT, DOCS_ROOT));
     for (const dir of typesAppDocsDirs(ROOT)) expected.push(...walk(dir));
+    // ⚠️ Rebuilt from the leg's own enumerator, in the slot the gate appends it
+    // in. This is the comparison objectui#7896's leg had to reach BOTH sides of:
+    // the pin is CONSTANTS versus this census's walk, so a leg added to
+    // `check-doc-component-types.mjs` alone would move neither and stay green
+    // while the two surfaces diverged.
+    expected.push(
+      ...typesPackageReadmePages(ROOT).map((abs: string) => path.relative(ROOT, abs).split(path.sep).join('/')),
+    );
     expected.push(...TYPES_ROOT_PAGES.filter((name) => fs.existsSync(path.join(ROOT, name))));
 
     expect([...census.documents].sort()).toEqual([...expected].sort());
@@ -361,7 +376,7 @@ describe('check-doc-expression-carriage: the scan surface is check:doc-types’,
    * resolved to the same empty set. A leg that reaches nothing is a surface that
    * shrank silently, which is objectui#7115's defect exactly.
    */
-  it('reaches every leg of the walk: the guide tree, the app docs trees, the root pages', async () => {
+  it('reaches every leg of the walk: the guide tree, the app docs trees, the package READMEs, the root pages', async () => {
     const census = analyze(ROOT, { channels: deriveChannels(ROOT), carriage: await loadCarriage() });
     const documents: string[] = census.documents;
 
@@ -373,12 +388,19 @@ describe('check-doc-expression-carriage: the scan surface is check:doc-types’,
       expect(documents.some((f) => f.startsWith(`${dir}/`)), `${dir} contributed no document`).toBe(true);
     }
 
+    const packageReadmes = documents.filter((f) => /^packages\/[^/]+\/README\.md$/.test(f));
+    expect(
+      packageReadmes.length,
+      'no package README reached this census — objectui#7896’s leg stopped being walked',
+    ).toBeGreaterThan(10);
+
     for (const name of ROOT_PAGES) expect(documents).toContain(name);
   });
 
   it('names the surface it walked in the summary it prints', () => {
     expect(SURFACE_LABEL).toContain(DOCS_ROOT);
     expect(SURFACE_LABEL).toContain(`${APP_DOCS.dir}/*/${APP_DOCS.subdir}`);
+    expect(SURFACE_LABEL).toContain(`${PACKAGE_READMES.dir}/*/${PACKAGE_READMES.name}`);
     for (const name of ROOT_PAGES) expect(SURFACE_LABEL).toContain(name);
     // ⛔ No angle-bracket placeholder: this line is quoted into pull-request bodies
     // and issue comments, and GitHub's body sanitizer eats tag-shaped fragments.

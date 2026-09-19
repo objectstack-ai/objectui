@@ -8,7 +8,13 @@ import { fileURLToPath } from 'node:url';
 // Plain-JS CI helper. Its types are INFERRED from the .mjs source by
 // `tsconfig.scripts.json` (`allowJs`), so no `@ts-expect-error` here —
 // re-adding one is now itself an error (TS2578). See objectui#3494.
-import { analyze, deriveRegistryKeys, scanDocs } from '../check-doc-component-types.mjs';
+import {
+  analyze,
+  deriveRegistryKeys,
+  PACKAGE_READMES,
+  packageReadmePages,
+  scanDocs,
+} from '../check-doc-component-types.mjs';
 import { blank, scanSource } from '../js-comment-mask.mjs';
 
 /**
@@ -1728,13 +1734,24 @@ describe('objectui#5106 — plugin key tables are judged, on both halves', () =>
     expect((findings as Finding[]).filter((f) => f.reason.includes('key-table'))).toEqual([]);
   });
 
-  it('really reads the four plugin pages, not just some table somewhere', () => {
+  /**
+   * ⚠️ This pin named FOUR pages until objectui#8115 widened the walk onto
+   * `packages/NAME/README.md`, which brought a FIFTH key table with it —
+   * `packages/plugin-dashboard/README.md` had been carrying one, under the same
+   * header, outside every gate's reach. That is the widening working rather than
+   * a pin to relax: the new table's rows are judged on both halves like all the
+   * others, and the repo-level assertion above still reads
+   * `keyTableKeys === keyTableRegistered` with nothing exempted, because
+   * `DOC_TYPE_EXEMPTIONS` deliberately does not apply to table rows.
+   */
+  it('really reads the plugin pages that carry a key table, not just some table somewhere', () => {
     const { tableRows } = scanDocs(repoRoot) as { tableRows: { file: string; namespaced: string }[] };
     expect([...new Set(tableRows.map((r) => r.file))].sort()).toEqual([
       'content/docs/plugins/plugin-dashboard.mdx',
       'content/docs/plugins/plugin-form.mdx',
       'content/docs/plugins/plugin-grid.mdx',
       'content/docs/plugins/plugin-view.mdx',
+      'packages/plugin-dashboard/README.md',
     ]);
     expect(tableRows.map((r) => r.namespaced)).toContain('`plugin-dashboard:dashboard`');
   });
@@ -1913,6 +1930,167 @@ describe('objectui#7115 — the root README is inside the scan surface', () => {
       expect(run.stderr).toContain('README.md');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+/**
+ * objectui#7896 / objectui#8115 — the package READMEs are inside the scan surface.
+ *
+ * The same geometry objectui#7115 closed one directory up, and the same four ways
+ * it can quietly stop being real. A package README ships to npm inside that
+ * package's `files` list, and its `type` literals were read TWICE — by
+ * `check-doc-snippet-types` (it compiles their `ts` fences) and by
+ * `check-doc-fence-languages` (it labels every fence in them) — and judged by
+ * NOTHING, because the gate that asks whether a `type` names a component that
+ * exists walked past the whole tree.
+ *
+ * ⚠️ The measurement that made it a defect rather than a preference is the one
+ * pinned first: before the leg, a mutated component `type` in one of those files
+ * left this gate at `EXIT=0` with counters BYTE-IDENTICAL to the unmutated run,
+ * while the same mutation in the root `README.md` gave `EXIT=1`. Identical
+ * counters are the proof a file is outside the scan population altogether rather
+ * than judged and forgiven — which is why "the walk reaches it" and "the
+ * judgement applies to it" are two separate pins here, as they are for the root
+ * page above.
+ */
+describe('objectui#7896 — every package README is inside the scan surface', () => {
+  it('the leg is spelled as a stopping place, and it does not descend', () => {
+    // `recursive` is not a member here, and that is the claim: this leg stops at
+    // each package's own root. The sibling gate that DOES walk below a package
+    // root spells that as its own separate leg, for the reason its docblock
+    // states — under pnpm a recursive walk follows `node_modules` symlinks back
+    // into sibling packages and does not terminate.
+    expect(PACKAGE_READMES).toEqual({ dir: 'packages', name: 'README.md' });
+    const collected = packageReadmePages(repoRoot).map((abs: string) =>
+      path.relative(repoRoot, abs).split(path.sep).join('/'),
+    );
+    expect(collected.length, 'the leg collected nothing, so every pin below is vacuous').toBeGreaterThan(10);
+    for (const rel of collected) expect(rel).toMatch(/^packages\/[^/]+\/README\.md$/);
+  });
+
+  it('the walk really reaches them — the widening, pinned', () => {
+    const { sites } = scanDocs(repoRoot);
+    const files = new Set(sites.map((s: { file: string }) => s.file));
+    const reached = [...files].filter((f) => /^packages\/[^/]+\/README\.md$/.test(f));
+    expect(
+      reached.length,
+      'no `type` literal was scanned in any package README — the collector narrowed back',
+    ).toBeGreaterThan(5);
+  });
+
+  it('judges a package README by the same rule, so an unregistered type there is a finding', () => {
+    // Reaching the file and JUDGING it are two different things, and a widening
+    // that only did the first would pass the assertion above. Over a throwaway
+    // tree, with a clean sibling page so a leg that stops being walked costs a
+    // finding rather than nothing.
+    const findings = withTree((write) => {
+      write('packages/demo/src/index.tsx', "ComponentRegistry.register('statistic', S, { namespace: 'ui' });\n");
+      write('packages/demo/README.md', ['```json', '{ "type": "stat-card" }', '```'].join('\n'));
+      write('packages/clean/README.md', ['```json', '{ "type": "statistic" }', '```'].join('\n'));
+    }, (dir) => analyze(dir, BARE).findings as Finding[]);
+    expect(findings.map((f) => `${f.reason} :: ${f.site} :: ${f.value ?? ''}`)).toEqual([
+      'unregistered-doc-type :: packages/demo/README.md:2 :: stat-card',
+    ]);
+  });
+
+  it('the counters MOVE for a package README — the byte-identical reading is what the leg removes', () => {
+    // The shape of the pre-leg defect, stated as an assertion rather than as
+    // prose: a page on this leg contributes to the population, so a tree that
+    // holds one and a tree that does not cannot print the same numbers. Before
+    // the leg they did, which is what proved the file was never in the scan.
+    const counted = (extra: boolean) =>
+      withTree((write) => {
+        write('packages/demo/src/index.tsx', "ComponentRegistry.register('statistic', S, { namespace: 'ui' });\n");
+        if (extra) write('packages/demo/README.md', ['```json', '{ "type": "statistic" }', '```'].join('\n'));
+      }, (dir) => analyze(dir, BARE).counters as Record<string, number>);
+    const without = counted(false);
+    const with_ = counted(true);
+    expect(with_.files).toBe(without.files + 1);
+    expect(with_.codeBlocks).toBe(without.codeBlocks + 1);
+    expect(with_.typeSites).toBe(without.typeSites + 1);
+    expect(with_.registered).toBe(without.registered + 1);
+  });
+
+  it('refuses to run when the package-README leg collects nothing — the silent shrink', () => {
+    // The fourth way, and the one that looks healthiest: the leg is collected by
+    // WALK rather than by name, so it cannot dangle the way a ROOT_PAGES entry
+    // does. It just returns fewer files, and every count stays plausible.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-doc-component-types-pkgleg-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'README.md'), '# Root\n');
+      const run = spawnSync(process.execPath, [path.join(repoRoot, SCRIPT), '--root', dir], {
+        encoding: 'utf8',
+      });
+      expect(run.status, 'an empty package-README leg must fail the run, not shrink the surface').toBe(1);
+      expect(run.stderr).toContain('packages/*/README.md');
+      expect(run.stderr).toContain('objectui#7896');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  /**
+   * ⛔ The exemption table is not a switch for turning this first run green
+   * (objectui#8115, ruling `5556586208`). Every entry it carries for this leg is
+   * therefore held to the shape the table's own docblock demands: a reason that
+   * names the vocabulary AND where that vocabulary is declared.
+   *
+   * The pin is a floor on substance rather than an equality on wording — an
+   * equality would freeze the prose and say nothing about whether it teaches.
+   * What it can say mechanically is that no entry on this leg is the "not a
+   * component" one-liner the ruling rejected by name, and that each cites
+   * something a reader can go and read.
+   */
+  it('every package-README exemption names a vocabulary and a declaration site', () => {
+    const source = fs.readFileSync(path.join(repoRoot, SCRIPT), 'utf8');
+    // Bounded at BOTH ends. Read to end-of-file and this pin walks out of the
+    // table and into unrelated prose, which is how its first draft failed on a
+    // diagnostic string from the registry derivation.
+    const tableStart = source.indexOf('const DOC_TYPE_EXEMPTIONS = {');
+    expect(tableStart, 'DOC_TYPE_EXEMPTIONS moved or was renamed').toBeGreaterThan(-1);
+    const table = source.slice(tableStart, source.indexOf('\n};\n', tableStart));
+    const marker = table.indexOf("\n  // ── `packages/NAME/README.md` (objectui#8115)");
+    expect(marker, 'the packages group marker moved — re-point this pin').toBeGreaterThan(-1);
+
+    const { sites } = scanDocs(repoRoot);
+    const { findings, counters } = analyze(repoRoot);
+    // Non-vacuity, the way this card's brief framed it: the sites are IN the
+    // scan, and the exempted counter accounts for every one of them that the
+    // registry does not.
+    const onLeg = sites.filter((s: { file: string }) => /^packages\/[^/]+\/README\.md$/.test(s.file));
+    expect(onLeg.length).toBeGreaterThan(100);
+    expect(
+      findings.filter((f: Finding) => f.reason === 'stale-exemption'),
+      'an exemption on this leg outlived its site',
+    ).toEqual([]);
+    expect(counters.exempted).toBeGreaterThan(0);
+
+    // And the entries themselves teach. `not a component` alone is the failed
+    // form the ruling names; every reason must also point at source.
+    const group = table.slice(marker);
+    const reasons = [...group.matchAll(/^\s{4}'?[\w-]+'?:\n?((?:\s+'[\s\S]*?',)|(?:\s*'[^\n]*',))$/gm)].map(
+      (m) => m[1],
+    );
+    expect(reasons.length, 'no exemption reasons were read — re-point this pin').toBeGreaterThan(20);
+    for (const reason of reasons) {
+      // ⛔ Not a length floor. A character count is a proxy for teaching, and the
+      // first draft of this pin failed a perfectly good sibling entry
+      // (`GanttLinkType`'s `ss`) for being 119 characters while passing any
+      // padded stub of 121. What the ruling actually rejects is a reason that
+      // names nothing a reader can go and read, so that is what is asserted:
+      // every reason cites at least two backticked things — the carrier the
+      // value hangs off and the vocabulary it belongs to — and every reason
+      // either names a DECLARING symbol or defers explicitly to the sibling
+      // entry that does.
+      const ticked = [...reason.matchAll(/`[^`]+`/g)].map((m) => m[0]);
+      expect(ticked.length, `this exemption cites nothing a reader can open: ${reason}`).toBeGreaterThanOrEqual(2);
+      const declares = /`[A-Z][A-Za-z]*(?:Schema|Type|TypeName|Action|Config|Name)[`.\[]/.test(reason);
+      const defers = /Same vocabulary as/.test(reason);
+      expect(
+        declares || defers,
+        `this exemption names no declaring symbol and defers to no sibling entry: ${reason}`,
+      ).toBe(true);
     }
   });
 });

@@ -6,8 +6,9 @@
  *
  * The scan surface is EXACTLY the one `check:doc-types`
  * (`check-doc-component-types.mjs`) walks — `content/docs`, every
- * `apps/<app>/docs` tree and the root pages it names — and it is that surface by
- * IMPORT rather than by copy; see "The scan surface" below.
+ * `apps/<app>/docs` tree, each package's own `README.md` and the root pages it
+ * names — and it is that surface by IMPORT rather than by copy; see "The scan
+ * surface" below.
  *
  * Run:  node scripts/check-doc-expression-carriage.mjs
  *       node scripts/check-doc-expression-carriage.mjs --list       every fence, parsed or not
@@ -169,9 +170,19 @@
  * four times for as long as the example existed, for exactly one reason —
  * nothing read the file.
  *
- * So the surface is not re-declared here. `APP_DOCS`, `appDocsDirs` and
- * `ROOT_PAGES` are IMPORTED from `check-doc-component-types.mjs`, which makes the
- * two walks the same object rather than two arrays a test hopes are equal. The
+ * So the surface is not re-declared here. `APP_DOCS`, `appDocsDirs`,
+ * `PACKAGE_READMES`, `packageReadmePages` and `ROOT_PAGES` are IMPORTED from
+ * `check-doc-component-types.mjs`, which makes the two walks the same object
+ * rather than arrays a test hopes are equal.
+ *
+ * ⚠️ objectui#7896's fourth leg (`packages/NAME/README.md`, landed by
+ * objectui#8115) is why the import alone is not the whole coupling. The surface
+ * pin below rebuilds its expected document list FROM THESE CONSTANTS and compares
+ * it against this census's own walk — so a leg added to that gate and NOT taken
+ * here moves neither side, and the pin stays GREEN while the two surfaces
+ * diverge. That is objectui#7115's geometry a third time, rebuilt inside the pin
+ * written to prevent it. ⇒ A leg added there is owed a leg here, in the same
+ * change, and `SURFACE_LABEL` is owed its name. The
  * three gates that carry copies of these constants do so for a stated reason that
  * does not apply here — importing `check-doc-snippet-types.mjs` pulls in its
  * `import ts from 'typescript'` at load, and `check-doc-fence-languages`' whole
@@ -214,7 +225,13 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { APP_DOCS, appDocsDirs, ROOT_PAGES } from './check-doc-component-types.mjs';
+import {
+  APP_DOCS,
+  appDocsDirs,
+  PACKAGE_READMES,
+  packageReadmePages,
+  ROOT_PAGES,
+} from './check-doc-component-types.mjs';
 import { isEntrypoint } from './invoked-as.mjs';
 import { closesFence, openFence } from './markdown-fence-scan.mjs';
 
@@ -230,11 +247,20 @@ const repoRoot = resolve(scriptDir, '..');
 export const DOCS_ROOT = 'content/docs';
 
 /**
- * The other two legs of `check:doc-types`' surface, re-exported so this file's
+ * The other three legs of `check:doc-types`' surface, re-exported so this file's
  * scan surface is readable from one place and pinnable as ONE object rather than
- * as two arrays that agree today.
+ * as arrays that agree today.
+ *
+ * `PACKAGE_READMES` / `packageReadmePages` joined with objectui#7896's fourth leg
+ * (landed by objectui#8115). ⚠️ That leg is the reason the import form matters
+ * rather than being a style preference: the surface pin in this file's test
+ * rebuilds the expected document list FROM THESE CONSTANTS, so a leg added to
+ * `check-doc-component-types.mjs` alone moves neither side of that comparison and
+ * the pin stays GREEN while the two walks diverge — objectui#7115's defect, in
+ * the instrument built to prevent it. Importing the constants is what makes the
+ * two walks one object; taking the leg here is what makes them one SURFACE.
  */
-export { APP_DOCS, appDocsDirs, ROOT_PAGES };
+export { APP_DOCS, appDocsDirs, PACKAGE_READMES, packageReadmePages, ROOT_PAGES };
 
 /**
  * The surface in one phrase, so the printed summary and this file's prose cannot
@@ -243,7 +269,9 @@ export { APP_DOCS, appDocsDirs, ROOT_PAGES };
  * bodies and issue comments, and GitHub's body sanitizer eats tag-shaped
  * fragments (AGENTS.md, "GitHub 会改写你写进 issue/PR 正文的字节").
  */
-export const SURFACE_LABEL = `${DOCS_ROOT}, ${APP_DOCS.dir}/*/${APP_DOCS.subdir} and ${ROOT_PAGES.join(', ')}`;
+export const SURFACE_LABEL =
+  `${DOCS_ROOT}, ${APP_DOCS.dir}/*/${APP_DOCS.subdir}, ` +
+  `${PACKAGE_READMES.dir}/*/${PACKAGE_READMES.name} and ${ROOT_PAGES.join(', ')}`;
 
 /** The renderer whose evaluation legs define "carried". */
 export const RENDERER_SOURCE = 'packages/react/src/SchemaRenderer.tsx';
@@ -356,7 +384,13 @@ function walkFiles(dir, out = []) {
 
 /**
  * Every document on the scan surface, absolute, in a stable order: the guide
- * tree, then each `apps/<app>/docs` tree, then the root pages by name.
+ * tree, then each `apps/<app>/docs` tree, then each package's own README, then
+ * the root pages by name.
+ *
+ * ⚠️ The order is not cosmetic. The package-README leg sits BEFORE the root pages
+ * because that is the slot `check-doc-component-types.scanDocs` and the fence
+ * guard's walk both append it in, and element-by-element comparability across the
+ * three lists is what their coupling pins compare.
  *
  * A root page that does not resolve is DROPPED rather than fatal, which is the
  * same bargain `check-doc-component-types.scanDocs` strikes and for the same
@@ -370,6 +404,7 @@ function walkFiles(dir, out = []) {
 export function listDocuments(root) {
   const files = walkFiles(join(root, DOCS_ROOT));
   for (const dir of appDocsDirs(root)) files.push(...walkFiles(dir));
+  files.push(...packageReadmePages(root));
   files.push(...ROOT_PAGES.map((name) => join(root, name)).filter((abs) => existsSync(abs)));
   return files;
 }

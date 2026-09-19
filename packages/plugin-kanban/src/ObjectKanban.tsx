@@ -84,6 +84,75 @@ const KANBAN_DEFAULT_TRANSLATIONS: Record<string, string> = {
 export const DEFAULT_KANBAN_LIMIT = 100;
 
 /**
+ * What the contract admits as a row cap for this board.
+ *
+ * `@objectstack/spec` has already answered what `limit: 0` means. The
+ * `object-kanban` props declare the member a POSITIVE INTEGER
+ * (`z.number().int().positive().optional()`, described there as the row cap
+ * "lowered to the query's top-level `$top`"), and the element data source
+ * `limit` that a `dataSource` binding lowers into this SAME key is declared
+ * positive as well. So `0` is not a spelling whose meaning this renderer may
+ * choose; it is a value the contract refuses, and a renderer that forwards it
+ * to the wire is the only party not saying so.
+ */
+function isUsableRowLimit(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The ONE resolver for this board's row cap, for the reason objectui#9853 gave
+ * when it landed the same shape on `ObjectGrid` and objectui#9897 repeated on
+ * `ListView`: one resolver at every entry is what keeps the answer single.
+ *
+ * Before objectui#9925 this read was a bare `schema.limit ?? DEFAULT_KANBAN_LIMIT`,
+ * and `??` rejects only `null` and `undefined` — so an authored `limit: 0` was
+ * not nullish and survived as a real window. It reached the wire as `$top: 0`,
+ * the board asked the server for nothing, and the empty board named no cause.
+ * A negative goes out the same way. Both ENTRANCES converge on this key: a
+ * `dataSource` binding lowers a view's `pagination.pageSize` into `schema.limit`
+ * before this component sees it, and a board with no binding at all reads the
+ * authored `limit` from the same place — so resolving HERE covers both, which a
+ * repair at the lowering layer could not.
+ *
+ * ⚠️ The refusal is FAIL-SOFT on purpose. Throwing would take out the whole
+ * board over one declaration, which is a worse outcome than the defect. The
+ * value is dropped, this board's own default is used, and
+ * `describeRefusedRowLimit` states it once through the channel this component
+ * already uses for "you declared it, the renderer dropped it". ⛔ Not a silent
+ * clamp: without the loud half this is a substitution the author cannot see,
+ * and ⛔ not a clamp to 1 either — the author's number is not repaired, it is
+ * refused, and the board falls back to the window it documents.
+ */
+function resolveRowLimit(authored: unknown, fallback: number): number {
+  return isUsableRowLimit(authored) ? authored : fallback;
+}
+
+/**
+ * The diagnostic half. `null` means "nothing to say" — an absent `limit` is not
+ * a mistake, and a usable one is not either, so the message is CONDITIONAL and
+ * the silence controls in the pin are what keep it from being an always-on
+ * marker that states nothing.
+ *
+ * ⛔ NOT a second guard: the predicate lives once, in `isUsableRowLimit`, and
+ * this reads it. Two predicates would be free to drift, and the drift would be
+ * invisible — a value refused by one and admitted by the other.
+ */
+function describeRefusedRowLimit(authored: unknown, objectName: unknown): string | null {
+  if (authored === undefined || authored === null) return null;
+  if (isUsableRowLimit(authored)) return null;
+  const where =
+    typeof objectName === 'string' && objectName
+      ? `object-kanban on ${objectName}`
+      : 'object-kanban';
+  return (
+    `[ObjectUI] ObjectKanban row cap: ${where} declared limit: ${String(authored)}, `
+    + 'which is not a positive integer. A row cap must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and this '
+    + `board fell back to its default row cap (${DEFAULT_KANBAN_LIMIT}).`
+  );
+}
+
+/**
  * Safe wrapper for useObjectTranslation that falls back to the English defaults
  * above when no `I18nProvider` is mounted (standalone board, tests).
  * Delegates to `@object-ui/i18n`'s `createSafeTranslation`.
@@ -475,6 +544,16 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     }
   }, [externalLoading, hasExternalData]);
 
+  // [objectui#9925] The loud half of the row-cap refusal, on the channel this
+  // component already uses for "you declared it, the renderer dropped it".
+  // Keyed on the DECLARATION, so it is one warning per declaration rather than
+  // one per render — and it fires from an effect, never from render, so a
+  // re-render with the same authored value says nothing a second time.
+  useEffect(() => {
+    const message = describeRefusedRowLimit(schema.limit, schema.objectName);
+    if (message) console.warn(message);
+  }, [schema.limit, schema.objectName]);
+
   useEffect(() => {
     // Skip internal fetch when data is managed by a parent component
     if (hasExternalData) return;
@@ -578,15 +657,18 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             // the saturation reading below (objectui#8307) compares the row
             // count against `query.$top` — the very number this request
             // carried. One spelling of the window, read back from the request
-            // itself: a second `schema.limit ?? DEFAULT_KANBAN_LIMIT` kept in a
+            // itself: a second `resolveRowLimit(schema.limit, …)` kept in a
             // local for the comparison could drift from the one on the wire,
             // and a marker computed against a window the server was never asked
-            // for is exactly the silent wrongness objectui#8307 is about.
+            // for is exactly the silent wrongness objectui#8307 is about. That
+            // reasoning is why objectui#9925's refusal was put INSIDE this
+            // named object rather than beside it: the resolver runs once, and
+            // the saturation reading keeps reading the number that left.
             // Keeping it inline here also keeps the spelling objectui#7322
             // pins off disk (`object-kanban-group-by-limit-7322.test.ts`).
             const query = {
                 $filter: schema.filter,
-                $top: schema.limit ?? DEFAULT_KANBAN_LIMIT,
+                $top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT),
                 ...(expand.length > 0 ? { $expand: expand } : {}),
             };
             const results = await dataSource.find(schema.objectName, query);

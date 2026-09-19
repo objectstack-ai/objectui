@@ -33,7 +33,9 @@
  * redirects in `console/AppContent.tsx` / `console/ConsoleShell.tsx`. Those are
  * error-recovery paths, not Home affordances, and retargeting them moves a
  * `/home` expectation that a dozen existing tests pin — a separate change with
- * its own measurement.
+ * its own measurement. That change is objectui#7373, and its scan is the
+ * sibling file `homeRecoveryRedirectsFollowDeclaration-7373.test.ts`: the
+ * affordances stay this file's subject, the recovery exits are that one's.
  *
  * And it does not cover `apps/console`'s `/` resolver, which keeps its own
  * reading of the declaration — `landingHomeParity-7256.test.ts` compares the two

@@ -89,6 +89,19 @@ export function AcceptInvitationPage() {
       await acceptInvitation(invitationId);
       await switchOrganization(invitation.organizationId).catch(() => null);
       toast.success(t('organization.accept.accepted', { defaultValue: 'Invitation accepted' }));
+      // ⛔ objectui#7373 retargeted this file's SIBLING recovery redirects onto
+      // the declared landing (`useHomePath()`) and deliberately did NOT touch
+      // this one. The reading, recorded on that card: the app list in hand here
+      // belongs to the organization the user is LEAVING. `switchOrganization`
+      // above has just resolved, `MetadataProvider` drops its cache on an org
+      // change (objectui#4486) and refetches, and this line runs before any of
+      // that can land — so a declared-landing answer read here would name the
+      // PREVIOUS org's app. The two other org-switch paths
+      // (`layout/WorkspaceSwitcher.tsx`, `console/organizations/
+      // OrganizationsPage.tsx`) full-page-navigate to the console ROOT for
+      // exactly this reason and let `RootLandingRedirect` resolve the landing
+      // afterwards. Which of those two shapes this page should take is a
+      // decision, not an implementation detail.
       navigate('/home');
     } catch (err) {
       // objectui#4474 — the card's site 5: a wrong recipient produced better-auth's

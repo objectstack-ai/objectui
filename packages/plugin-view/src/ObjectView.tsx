@@ -1285,9 +1285,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `tree` view was labelled with the GRID icon. objectui#2916 fixed
         // exactly that for `chart` by adding one key, and nothing recorded
         // that the set has to be COMPLETE, so `tree` stayed missing. The
-        // annotation is the guard for the whole class: `ViewSwitcher`'s own
-        // `DEFAULT_VIEW_ICONS` — the consumer of these strings — is already
-        // `Record<ViewType, LucideIcon>`, and only this producer was partial.
+        // TOTALITY is the guard for the whole class: `ViewSwitcher`'s own
+        // `DEFAULT_VIEW_ICONS` — the consumer of these strings — is asserted
+        // total the same way, and only this producer was partial.
         //
         // The values are the spellings `ViewSwitcher.resolveIcon` PascalCases
         // back into lucide icons, so `tree: 'list-tree'` resolves to the same
@@ -1311,7 +1311,22 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `ViewSwitcher.DEFAULT_VIEW_ICONS` — draws for the same view type, and
         // `resolveIcon` looks these strings up in lucide's runtime `icons`
         // record, where a deprecated alias resolves to no icon at all.
-        const iconMap: Record<ViewType, string> = {
+        //
+        // objectui#9943 — the ANNOTATION is gone and the exhaustiveness is
+        // asserted instead. An annotated literal is exact in BOTH directions:
+        // it catches the added member (what #5321 wanted) and it also makes a
+        // RETIRED member an excess property (TS2353), whose only repair is
+        // deleting the row. objectstack#17063 retired the list-view kind
+        // `page`, so this table went red against a spec built from objectstack
+        // `main` while the `@objectstack/spec` this repository RESOLVES still
+        // publishes `page` and an author can still write one. `satisfies
+        // Record<string, string>` keeps the value constraint and drops the
+        // exactness; `_UncoveredHostViewIcon` below puts the added-member half
+        // back, so #5321's "no member can land without an icon" still holds.
+        // ⛔ Deleting that assert is the regression this shape exists to
+        // prevent — both directions are pinned in
+        // `__tests__/ViewSwitcher.viewTypeTotalsBothLegs-9943.test.ts`.
+        const iconMap = {
           kanban: 'kanban',
           calendar: 'calendar',
           map: 'map',
@@ -1324,7 +1339,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           chart: 'chart-column',
           tree: 'list-tree',
           page: 'layout-template',
-        };
+        } satisfies Record<string, string>;
+
+        /** `never` only while every {@link ViewType} has an icon name. */
+        type _AssertNever<T extends never> = T;
+        type _UncoveredHostViewIcon = _AssertNever<Exclude<ViewType, keyof typeof iconMap>>;
         return {
           type: v.type as ViewType,
           label: v.label,

@@ -106,6 +106,7 @@ import {
 } from './widgets.js';
 import {
   conditionScopeForMetadataType,
+  conditionRootsForMetadataType,
   conditionSubjectsForMetadataType,
 } from './conditionScope.js';
 import { mapLoaded, usePickerLoad } from './loadState.js';
@@ -983,6 +984,13 @@ function MetadataResourceEditPageImpl({
       // same move as the line above, applied to the fact that line cannot
       // carry.
       conditionSubjects: conditionSubjectsForMetadataType(type),
+      // objectui#9856 — the same move once more, on the question the two lines
+      // above cannot answer between them: what the raw editor's autocomplete
+      // may OFFER. The builder's own default narrows a record-scoped mount to
+      // what every host binds, so the `action` tier — evaluated in the browser
+      // — is the one that has to declare that it binds more. Derived per type
+      // here for the reason the scope is: this page edits every metadata type.
+      conditionRoots: conditionRootsForMetadataType(type),
       objectNames: objectsState,
       objectFields: mapLoaded(objectCatalogState, (catalog) => catalog.fields),
       objectActions: mapLoaded(objectCatalogState, (catalog) => catalog.actions),

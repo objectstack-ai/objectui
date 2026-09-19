@@ -2402,6 +2402,22 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-grid/src/__tests__/gridNavigationMembers-8071.test.tsx',
     pins: 'All SIX members the spec\'s strict `NavigationConfigSchema` declares — `mode`, `view`, `preventNavigation`, `openNewTab`, `size`, `width` — driven through a real row click on the real grid, where the registration names only `mode` and elides the five that decide what the click does. The precedence is the content: `preventNavigation` OUTRANKS every mode including the overlay ones (`{ mode: \'drawer\', preventNavigation: true }` draws no drawer and throws nothing, with the same config minus the flag as the live control), and `openNewTab` outranks `mode: \'page\'` AND DISCARDS `view` while doing it — the member written to choose a destination is dropped by the member written to choose a window. `view` is pinned as what it actually is, the second ARGUMENT handed to the host, with the literal `\'view\'` standing in when it is absent — one character apart in the source, entirely different things. `size` and `width` are pinned as ONE decision with three outcomes, read off the `--ov-w` the shell publishes: the deprecated `width` wins over a `size` authored beside it, a bucket name resolves through the size table, and `\'auto\'` resolves to neither and lands on the block\'s own default width. The absent-key control is that a grid with NO `navigation` still navigates, so the key\'s effect cannot be measured by deleting it. Prior art stated rather than credited: `ObjectGrid.overlayShellModes-9299` pins the four OVERLAY values of `mode` across the shell boundary and names no other member (objectui#8071 slice 14).',
   },
+  'object-grid.columns': {
+    file: 'packages/plugin-grid/src/__tests__/gridColumnMembers-8071.test.tsx',
+    pins: 'The members of one authored column, read through the real grid at the DOM each one moves. The registration names two of them in prose (`field`, `label`, plus `width` inside an example) while `ListColumnSchema` is strict over fourteen, so the content is the eleven the description elides and the precedence between them: `label` OUTRANKS the machine-name prettifier and its absence is what prettifies; `align` is INFERRED from a numeric `type` and an authored `align` beats the inference, which is the only way to get a left-read number column; `type` OUTRANKS the name-shaped heuristic this block runs (`active` reads boolean by its SPELLING, so a column is typed by its name until the member says otherwise); `wrap` is read as a decision rather than truthiness, with `false` forwarded as authored and an absent key falling to the same clamp by a different road; `prefix` puts ANOTHER field\'s value inside this column\'s cell; `width` is pinned against the AUTO-SIZED width rather than against emptiness, because a column with no authored width still carries one. ⭐ The two ways a column VANISHES are pinned as different events: `hidden: true` is authored intent and is silent, while an unresolvable column is dropped AND reported on the console (objectui#5349) — the same empty grid, two different bugs. `field` is pinned where it decides the QUERY, as the name that reaches `$select` while the label beside it does not. Prior art stated rather than credited: `columnDeclaredSpellingOnly` (identity spelling), `column-features` (`pinned`/`summary`/`link`/`action`), `ObjectGrid.columnWrapForward`, `columnWidthInbound-6457`, `columnSortabilitySignal`, and `columnReadBoundary-6458`, which bounds this producer\'s UNDECLARED reads to the empty set by source scan. New file (objectui#8071 slice 17).',
+  },
+  'object-grid.filter': {
+    file: 'packages/plugin-grid/src/__tests__/gridFilterInputSpelling.test.tsx',
+    pins: 'The three members of one `ViewFilterRule` — `field`, `operator`, `value` — at the `$filter` the grid actually sends, plus the key-level pins the file already carried (the declared singular name, lowering to AST rather than bare rule objects, AST passthrough, and an empty array folding to no `$filter` at all). The member half is the growth: `operator` is FOLDED through the spec\'s own alias map so `eq` and `equals` are one operator and not two dialects, while an operator the spec does not know passes through VERBATIM on purpose — the wire names the author\'s typo instead of this hop guessing a repair; an omitted `value` is a SHAPE CHANGE, lowering to the 2-tuple the valueless operators need rather than a 3-tuple with a hole; and `value` decides whether the view renders AT ALL — an ARRAY comparand on a single-valued operator throws (objectui#8557) inside a render-time `useMemo`, so `SchemaErrorBoundary` replaces the whole block with an alert naming the field, with an `in` rule carrying the same array as the live control. ⚠️ WHERE that refusal lands is objectui#9050\'s open question for all thirteen such sites; this pins what ships today and endorses nothing. Pre-existing file (objectui#4041), promoted after being read end to end and grown by the member section (objectui#8071 slice 17).',
+  },
+  'object-grid.grouping': {
+    file: 'packages/plugin-grid/src/__tests__/gridGroupingMembers-8071.test.tsx',
+    pins: 'The one member `GroupingConfigSchema` declares (`fields`) and the three its strict entries declare (`field`, `order`, `collapsed`), at the group headers the grid paints AND at the projection it asks the server for. `order` sorts the headers by their RENDERED LABEL rather than by the stored value, `collapsed` is a DEFAULT that the first click inverts rather than a state, `fields` is ORDERED so the second entry nests inside the first and each level sorts on its own entry, and an unusable entry (a `null` hole, the bare-string shorthand the strict schema refuses, a blank name) is DROPPED — never coerced, never fatal — with the usable one still grouping. The query half is what keeps the screen honest: a grouped field the columns never mention is UNIONED into `$select`, because without it the server never returns it and ONE `(empty)` group holds every record (objectui#7179); the entries it groups by and the entries it projects are asserted as the same set. ⭐ THE SHARED MEMO with `columns` is pinned here, and it is what makes these two keys non-disjoint: `groupValueFormatter` derives the header labels from `schema.grouping` AND `schema.columns`, so `columns[].type: \'boolean\'` respells a grouped `"true"`/`"false"` as Yes/No, and because `order` sorts the rendered labels a column override MOVES the groups. ⚠️ That memo also reads `columns[].options`, which `ListColumnSchema` does not declare and, being strict, REFUSES at publish — the `declared != enforced` split, same family objectui#6458 retired from the cell branch, outside the region `columnReadBoundary-6458` bounds. Pinned as behaviour with its own absent-member control and handed back as a finding, ⛔ not repaired here. New file (objectui#8071 slice 17).',
+  },
+  'object-grid.sort': {
+    file: 'packages/plugin-grid/src/__tests__/gridArrayArmOrderby-8973.test.tsx',
+    pins: 'The two members of one sort entry — `field` and `order` — across ALL THREE readers this block has for them, which is the half a declaration saying `[{ field, order }]` cannot publish. The file\'s own six-row probe table pins the fetch path: an entry missing `order` lowers to `asc` rather than the literal text `undefined` (a `400 INVALID_QUERY` at the server), an entry missing `field` is skipped rather than ordering by a column named `undefined`, an empty array carries NO `$orderby` rather than `""`, and a mixed array keeps its usable member — each with a live `"name desc"` control so the absences are readings. The growth is the other two readers: the server-side EXPORT projection spells the same member `{ field, direction }` and the header-arrow reader `parseSchemaSort` spells it `{ field, order }`. ⚠️⚠️ They do NOT agree, and the disagreement is pinned rather than repaired: `normalizeSortEntries` folds any non-`desc` order to `asc` for the wire and `parseSchemaSort` does the same for the arrow, while the export projection reads `?? \'asc\'` and passes an UNRECOGNISED direction through verbatim — one authored `{ field: \'name\', order: \'descending\' }` orders the screen ascending, draws an ascending arrow, and asks the export door for `direction: \'descending\'`. Reported as a finding; changing what that door receives is a change to a shipped request shape, not a member pin. Pre-existing file (objectui#8973), promoted after being read end to end and grown by the three-reader section (objectui#8071 slice 17).',
+  },
   'object-kanban.cardFields': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are BARE FIELD NAMES, and the pin is explicit about WHICH question it answers (the objectui#8269 trap): `resolveKanbanCardFields` answers which names the AUTHOR chose — authored order preserved, and NOT filtered against the object definition, which is the one behaviour that separates the explicit list from the `highlightFields` fallback it overrides (that fallback IS filtered). Which cells a card ends up carrying is a SECOND and narrower question, measured separately at the render, because the card loop further drops a name duplicating the title and one whose value is empty. An empty array reading as omitted is the control that keeps the fallback rows from being vacuous. The spec side is `z.array(z.string())`, so it constrains the member KIND but says nothing about either read — the sinks are the whole of the member contract (objectui#8313).',
@@ -2692,14 +2708,11 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // object-grid — objectui#8071 slice 12 pinned the four per-ROW keys
   // (`conditionalFormatting`, `operations`, `rowActions`, `rowColor`), slice 13
   // the four TOOLBAR keys (`batchActions`, `pagination`, `searchableFields`,
-  // `selection`), and slice 14 the three SOURCE-AND-DESTINATION keys
-  // (`aggregations`, `dataSource`, `navigation`); the four below are what the
-  // block's first three bites left, and slice 12 measured each of them as one
-  // slice on its own.
-  'object-grid.columns': AWAITING_A_PIN,
-  'object-grid.filter': AWAITING_A_PIN,
-  'object-grid.grouping': AWAITING_A_PIN,
-  'object-grid.sort': AWAITING_A_PIN,
+  // `selection`), slice 14 the three SOURCE-AND-DESTINATION keys
+  // (`aggregations`, `dataSource`, `navigation`) and slice 17 the four QUERY
+  // SHAPE keys (`columns`, `filter`, `grouping`, `sort`); the block is now
+  // fully pinned in four bites, and this header stays only as a note for the
+  // next reader who greps for it.
 
   // object-master-detail-form — objectui#8071 slice 15 pinned the two PARENT
   // SEED keys (`initialData`, `initialValues`, an alternate-spelling pair the
@@ -3440,11 +3453,45 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * `NO_READ_SITE_TO_PIN` reading was not re-measured here either — slice 7's
  * measurement still stands.
  *
+ * ## 8 -> 4 (objectui#8071 slice 17) — the `object-grid` block CLOSES
+ *
+ * `columns`, `filter`, `grouping` and `sort` are pinned, which takes the
+ * largest block on this card to zero in its fourth bite. Set arithmetic:
+ * -4 exemptions, -4 ceiling, +4 pins, and the remaining count equals this
+ * constant, so the enumeration below it is the whole population rather than a
+ * sample.
+ *
+ * ⚠️ Two of the four are PROMOTED pre-existing files rather than new ones, each
+ * read end to end first and then grown by the member dispositions it never
+ * stated — `gridFilterInputSpelling` by the three members of one rule,
+ * `gridArrayArmOrderby-8973` by the two readers of `sort` that its own card
+ * deliberately left alone. The other two are new, because nothing existing
+ * stated the member SET for either.
+ *
+ * ⚠️ `columns` and `grouping` are separable but NOT disjoint — slice 16
+ * measured that and this slice is where it shows: one memo derives the group
+ * header labels from both keys, so `grouping`'s pin necessarily reads
+ * `columns`. Both pins carry their own absent-member controls so a failure
+ * still names one key.
+ *
+ * ⚠️ Two member facts are pinned as BEHAVIOUR and handed back as findings
+ * rather than repaired here, the same choice slice 9 made and for the same
+ * reason — an assertion that either can never change would have to be deleted
+ * before anyone could change it. (a) The export door receives an
+ * UNNORMALIZED `sort[].order`, so one authored value produces three answers
+ * across this block's three readers. (b) The group-label memo reads
+ * `columns[].options`, a member `ListColumnSchema` refuses at publish.
+ *
+ * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (already empty,
+ * and no block it named was touched) and `record:related_list.actions`, whose
+ * `NO_READ_SITE_TO_PIN` reading was not re-measured here either — slice 7's
+ * measurement still stands.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 8;
+const MEMBER_PIN_EXEMPTION_CEILING = 4;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

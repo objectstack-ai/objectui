@@ -3464,10 +3464,16 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  * Exact MIRRORED-BUT-UNDECLARED key set per pair — the seed of the direction
  * objectui#9711 opened, measured on the tree this ledger landed on.
  *
- * `this ledger seeds **8 entries** carrying **102 keys**` — and ⛔ read that off the
+ * `this ledger seeds **7 entries** carrying **101 keys**` — and ⛔ read that off the
  * census at the bottom of this file, not off this sentence: both figures are pinned
  * to this ledger's own AST by 'the fourth direction is enumerated and sized at test
  * time', so an entry or an arm added here moves them or the file reddens.
+ *
+ * ⭐ Both figures moved DOWN by one when objectui#9738 retired the
+ * `views.zod.ts#DetailViewFieldSchema` row — the ratchet's only permitted
+ * direction, and the first time this seed has shrunk. The comment left where that
+ * row stood says which ruling took it and why the neighbouring `operators` row
+ * stayed after a ruling of its own.
  *
  * ## ⛔ What this ledger is NOT
  *
@@ -3699,28 +3705,23 @@ interface MirroredUndeclared {
   "objectql.zod.ts#ObjectGridSchema":
     | "operators";
 
-  /**
-   * LOCAL, one key. An author writing `dueLike` on a detail-view field gets a green
-   * `safeParse` from a published validator for a key the published `DetailViewField`
-   * never invited — and, because that twin carries no index signature, the SAME
-   * document is refused by the compiler (`TS2353`). The two published faces
-   * contradict each other rather than one of them being merely quiet.
-   *
-   * ⛔ This entry once justified itself with "a `git grep` finds it in the mirror and
-   * nowhere in this package's TypeScript declarations", which is FALSE as written and
-   * is corrected here rather than repeated: `field-types.ts` declares `dueLike` on
-   * `DateFieldMetadata` and on `DateTimeFieldMetadata`, both in this package. ⭐ A
-   * NAME is not a KEY — a key is (interface, name) — and a package-wide grep for the
-   * name answers a question this ledger is not asking. What the operator measures,
-   * and what stays true, is that the key is absent from THIS PAIR'S twin.
-   *
-   * The per-key consequences — that the mirror judges the key rather than merely
-   * passing it, and that objectui's own detail-view path READS it at runtime — are
-   * measured by `mirror-only-published-keys-9729.test.ts` and by the two probes
-   * objectui#9729 landed beside the renderers that read it. ⛔ No remedy is implied.
-   */
-  "views.zod.ts#DetailViewFieldSchema":
-    | "dueLike";
+  // `views.zod.ts#DetailViewFieldSchema` HAD a row here, for `dueLike`, and its
+  // DELETION is the ratchet moving in the only direction this seed may move in
+  // — ⛔ not an entry lost in an edit. objectui#9738 (maintainer, 2026-09-18,
+  // letter A) declared `dueLike?: boolean` on the `DetailViewField` twin, so the
+  // mirror no longer states a key the twin does not and the pair measures
+  // `never`. Re-adding the row without re-adding the defect reddens the
+  // reconciliation below, which is the guard against exactly that.
+  //
+  // ⚠️ Read this beside the `objectql.zod.ts#ObjectGridSchema` row above, which
+  // STAYED after its own ruling: a retirement tombstone is still a stated
+  // member, a declaration on the twin is not. The two rulings landed the same
+  // day and moved this ledger in opposite directions.
+  //
+  // The per-key consequences — that the mirror judges the key rather than merely
+  // passing it, and that objectui's own detail-view path READS it at runtime —
+  // are measured by `mirror-only-published-keys-9729.test.ts` and by the two
+  // probes objectui#9729 landed beside the renderers that read it.
 }
 
 /**

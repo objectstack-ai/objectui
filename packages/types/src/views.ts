@@ -207,6 +207,60 @@ export interface DetailViewField {
    * Currency code for currency fields (e.g. 'USD', 'EUR')
    */
   currency?: string;
+  /**
+   * Marks a `date` / `datetime` field as due/deadline-semantic (vs. a plain
+   * start/end/created date). It is the same key, with the same meaning, as
+   * `DateFieldMetadata.dueLike` and `DateTimeFieldMetadata.dueLike` in
+   * `./field-types.ts` — those two are OBJECT metadata; this one is the
+   * AUTHORED detail-view field, which is a different key of the same name.
+   *
+   * ## What it does to the rendered cell
+   *
+   * Both halves of the overdue affordance, on the `date` and the `datetime`
+   * cell alike:
+   *
+   *   - **wording** — inside the relative face, a past due date reads
+   *     `Overdue Nd` instead of the neutral `N days ago`. `formatRelativeDate`
+   *     (`@object-ui/core`) gates that phrase on this key; the phrase has no
+   *     `Intl` equivalent, so it is also the only route by which that function
+   *     reaches the translate fn.
+   *   - **styling** — the cell's span gains `text-red-600` once the deadline
+   *     day has passed, whichever display face it is painting
+   *     (`isOverdueInstant` in `@object-ui/fields`).
+   *
+   * ⚠️ The two halves have different thresholds, inherited from the shared
+   * relative-time path and ⛔ not re-decided here: the red styling starts the
+   * day after the deadline, while the `Overdue Nd` wording starts the day after
+   * that (`formatRelativeDate` gates its phrase on a difference of more than
+   * one calendar day, so `Overdue 2d` is the shortest phrase this codebase
+   * produces). Beyond a week the relative face falls back to an absolute date
+   * and the wording stops; the styling does not.
+   *
+   * ## Why it is declared HERE, on the detail-view field
+   *
+   * Because the renderer already honours it here, on the AUTHORED field of a
+   * detail view — not only on object metadata. `DetailSection`
+   * (`@object-ui/plugin-detail`) spreads the authored field into the bag
+   * `enrichDetailField` returns and hands that bag to the resolved cell
+   * renderer, whose `resolveDueLike` reads this key first and falls back to the
+   * due/deadline field-NAME convention only when it is not `true`. That read is
+   * measured by rendering rather than by grep, in that package's
+   * `DetailSection.dueLikeReachesTheCell-9729.test.tsx`, which draws the same
+   * `end_date` field with and without the key and watches the drawn wording
+   * change.
+   *
+   * Until objectui#9738 this interface was the one published face that refused
+   * the key (`TS2353` — it carries no index signature) while
+   * `DetailViewFieldSchema` in `./zod/views.zod.ts` validated it and the
+   * renderer honoured it. The declaration is that contradiction's remedy
+   * (maintainer ruling, letter A), ⛔ not a new capability: the obligation was
+   * already on the books, with a reader and two documentation pages.
+   *
+   * ⚠️ Omitting the key is NOT the same as writing `false`. Absent, the
+   * field-NAME convention can still turn the affordance on; `false` does not
+   * suppress that fallback either — only a neutral field name does.
+   */
+  dueLike?: boolean;
 }
 
 /**

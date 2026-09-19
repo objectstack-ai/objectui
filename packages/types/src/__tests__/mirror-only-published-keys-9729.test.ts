@@ -24,27 +24,42 @@
  * assertion below is a statement about `origin/main` as it stands; whichever
  * direction the review rules, the entries here move with it.
  *
- * ⭐ ONE OF THE TWO HAS SINCE BEEN RULED, and this file moved with it exactly as
- * the paragraph above promised. objectui#9739 (maintainer, 2026-09-18) took
- * letter C on `operators`: removed from the published mirror, a tombstone left
- * in its place that refuses the key by name and names the spelling the upstream
- * protocol declares. So the `operators` section below no longer pins a SILENT
- * ACCEPTANCE — it pins the LOUD REFUSAL that replaced it, and the lit control
- * beside it is what keeps the assertion honest in its new direction. The full
- * per-half measurement, including the upstream re-derivation of the spelling the
- * message names, lives in `object-grid-operators-tombstone-9739.test.ts`; what
- * stays here is the BEFORE/AFTER continuity, so the defect this card measured
- * cannot quietly return under the same name. `dueLike` is ⛔ untouched and still
- * awaits its own ruling.
+ * ⭐ BOTH KEYS HAVE NOW BEEN RULED, and this file moved with each of them exactly
+ * as the paragraph above promised — in OPPOSITE directions, which is the thing to
+ * read here before assuming one ruling generalises to the other.
+ *
+ *   - `operators` — objectui#9739 (maintainer, 2026-09-18) took letter C:
+ *     removed from the published mirror, a tombstone left in its place that
+ *     refuses the key by name and names the spelling the upstream protocol
+ *     declares. So the `operators` section below no longer pins a SILENT
+ *     ACCEPTANCE — it pins the LOUD REFUSAL that replaced it, and the lit
+ *     control beside it is what keeps the assertion honest in its new
+ *     direction. The full per-half measurement, including the upstream
+ *     re-derivation of the spelling the message names, lives in
+ *     `object-grid-operators-tombstone-9739.test.ts`.
+ *   - `dueLike` — objectui#9738 (maintainer, 2026-09-18) took letter A: the
+ *     key is DECLARED on the published TypeScript twin, so the validator, the
+ *     type checker, the renderer and the docs now say the same thing. The
+ *     mirror is ⛔ untouched — it already stated the key — so the section below
+ *     that measures the mirror is unchanged, and it is the TypeScript half at
+ *     the bottom of this file that inverted.
+ *
+ * What stays, in both cases, is the BEFORE/AFTER continuity, so neither defect
+ * this card measured can quietly return under the same name.
  *
  * ## The two keys do NOT behave the same way, and the difference is the ruling
  *
  * Both twins are hand-written interfaces, but only one of them can REFUSE:
  *
- *   - `DetailViewField` carries no index signature, so TypeScript rejects an
+ *   - `DetailViewField` carried no index signature, so TypeScript rejected an
  *     authored `dueLike` outright (`TS2353`). The two published faces therefore
- *     actively CONTRADICT each other: the validator judges the key and keeps
- *     it, the compiler refuses the same document.
+ *     actively CONTRADICTED each other: the validator judged the key and kept
+ *     it, the compiler refused the same document. ⭐ That was the loud defect,
+ *     and it was ruled letter A (objectui#9738): the twin DECLARES the key now,
+ *     so the accept set of the published TypeScript face widened by exactly one
+ *     key and the contradiction is closed in the direction that keeps the
+ *     renderer's behaviour. It still carries no index signature — which is what
+ *     keeps the assignment at the bottom of this file a real assertion.
  *   - `ObjectGridSchema` extends `BaseSchema`, whose `[key: string]: any` index
  *     signature absorbs any unstated key. TypeScript neither declares nor
  *     refuses `operators`; it types it `any`. The faces did not contradict —
@@ -181,17 +196,54 @@ describe('complex.zod.ts#DashboardConfigSchema — `aria` is the CONTRAST, not t
 /* ── The TypeScript side, where the two keys stop behaving alike ───────────── */
 
 /**
- * `DetailViewField` REFUSES `dueLike`. The `@ts-expect-error` below IS the
- * assertion: it fails the package's `tsc -p tsconfig.test.json` leg in both
- * directions — if the key stops being refused (someone declares it on the twin,
- * which is one of the two remedies under review) the directive becomes unused
- * and TypeScript reports it.
+ * `DetailViewField` ACCEPTS `dueLike`. This binding IS the assertion, and it is
+ * read by the package's `tsc -p tsconfig.test.json` leg.
+ *
+ * ⭐ THE DIRECTION OF THIS ASSERTION IS INVERTED FROM WHAT THIS CARD MEASURED,
+ * deliberately and by ruling — ⛔ not relaxed, and ⛔ not deleted, to keep a leg
+ * green. What stood here was a `@ts-expect-error` recording the REFUSAL, written
+ * so that it would fail in BOTH directions; objectui#9738 letter A declared the
+ * key on the twin, which is precisely the direction that turns such a directive
+ * unused (`TS2578`, measured on this file). So the measurement moves WITH the
+ * declaration, onto the same literal, and stays discriminating in its new
+ * direction: the twin losing the member again makes this line `TS2353` on the
+ * same leg.
+ *
+ * ⚠️ The assignment alone would not be enough, and the second assertion below is
+ * why. An index signature added to `DetailViewField` would let this literal
+ * compile while `dueLike` is undeclared — exactly the shape `ObjectGridSchema`
+ * has further up this file, where an authored key is absorbed as `any` and
+ * nothing contradicts it. The exact `Equal` separates DECLARED from ABSORBED.
  */
-// @ts-expect-error objectui#9729 — `dueLike` is not a member of `DetailViewField`.
 export const authoredDueLike: DetailViewField = { name: 'end_date', dueLike: true };
 
 /** LIT CONTROL: a key the twin DOES declare is accepted on the same literal. */
 export const authoredCurrency: DetailViewField = { name: 'end_date', currency: 'USD' };
+
+/**
+ * Invariant equality — `extends` both ways would accept a narrowing. Spelled
+ * here rather than imported from `zod-mirror-parity.test.ts`, which exports the
+ * same two lines: no test file in this package imports another, and a two-line
+ * helper beside its single use is cheaper than establishing that it may.
+ */
+type Equal< A, B > =
+  (< T >() => T extends A ? 1 : 2) extends (< T >() => T extends B ? 1 : 2) ? true : false;
+type Expect< T extends true > = T;
+
+/**
+ * The member is DECLARED with a real type, not absorbed by an index signature
+ * and not widened to `any` — `boolean | undefined`, exactly.
+ *
+ * ⛔ `extends` is not an acceptable weakening here: `any` and a `boolean`-typed
+ * index signature both satisfy an `extends` written in either direction, and
+ * those are the two ways this declaration could be present in a listing while
+ * being absent as a contract. The mirror's own judgement of the same key — that
+ * `dueLike: 'yes'` is refused BY NAME — is pinned at the top of this file, so
+ * the two published faces are asserted to agree on the TYPE as well as on the
+ * name.
+ */
+export type assertionDueLikeIsDeclaredOnTheTwin =
+  Expect< Equal< DetailViewField['dueLike'], boolean | undefined > >;
 
 /**
  * The TWIN still does NOT refuse `operators` — and the absence of a

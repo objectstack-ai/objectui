@@ -44,6 +44,7 @@ import {
   RULED_BUT_NOT_A_READER,
   BODY_ONLY_UNRULED,
 } from '../body-dialect-census.mjs';
+import { scan, producersOf } from '../body-dialect-producer-scan.mjs';
 
 const REPO_ROOT = join(__dirname, '..', '..');
 const read = (p: string) => readFileSync(join(REPO_ROOT, p), 'utf8');
@@ -250,30 +251,26 @@ describe('the `body` consumers the ruling does not enumerate', () => {
   });
 
   it('the platform SHIPS the dialect it is being asked to refuse', () => {
-    // The sharpest census finding, and the claim is UNCHANGED: ruling step 5's
-    // principle is that "the platform never refuses a spelling it still ships",
-    // so step 4 (tier teaches `children` only) cannot land while any PRODUCER
-    // still emits `body` into metadata a user then owns.
+    // The sharpest census finding, and the claim is UNCHANGED for the second
+    // time: ruling step 5's principle is that "the platform never refuses a
+    // spelling it still ships", so step 4 (tier teaches `children` only) cannot
+    // land while any PRODUCER still emits `body` into metadata a user then owns.
     //
-    // What moved is the subject, not the claim. objectui#7181 migrated the six
-    // producers its table named — `objectui init`, the VS Code extension's
-    // new-file templates, the three `defaultProps` registrations and the
-    // runner's fallback page. ⛔ It did NOT finish the population: the census
-    // that found those six also reaches a SEVENTH the table never listed, and
-    // `generatePage` in `packages/cli/src/commands/generate.ts` still writes a
-    // `pages/NAME.json` whose child list is spelled `body` (objectui#9847).
-    //
-    // ⇒ the statement above is still TRUE today, for exactly one file. Both
-    // halves are asserted, so a regression in EITHER direction reds: a migrated
-    // producer drifting back to `body`, or objectui#9847 landing without this
-    // block being re-pointed at whatever still ships the dialect — or at
-    // nothing, once nothing does, which is the day step 4 becomes landable.
+    // What moves each round is the SUBJECT, never the claim. objectui#7181
+    // migrated the six producers its table named — `objectui init`, the VS Code
+    // extension's new-file templates, the three `defaultProps` registrations
+    // and the runner's fallback page. objectui#9847 migrated the SEVENTH that
+    // table never listed: `generatePage` in
+    // `packages/cli/src/commands/generate.ts`, which scaffolded a
+    // `pages/NAME.json` whose child list was spelled `body`.
     //
     // ⛔ Deliberately NOT inverted into "the producers now carry `children`".
-    // That would assert objectui#7181's own diff back at itself and discard the
-    // ordering rationale this block exists to carry.
+    // That would assert the migrating branch's own diff back at itself and
+    // discard the ordering rationale this block exists to carry — refused by
+    // objectui#7181's repair round, and refused again by objectui#9847's.
     const migrated = [
       'packages/cli/src/commands/init.ts',
+      'packages/cli/src/commands/generate.ts',
       'packages/vscode-extension/src/extension.ts',
       'packages/components/src/renderers/complex/carousel.tsx',
       'packages/components/src/renderers/complex/resizable.tsx',
@@ -289,9 +286,93 @@ describe('the `body` consumers the ruling does not enumerate', () => {
       expect(text, producer).not.toContain('body:');
     }
 
-    // The half that keeps the claim true — and keeps step 4 blocked.
-    expect(readCode('packages/cli/src/commands/generate.ts')).toMatch(/^\s*body:/m);
-  });
+    // ⭐ What objectui#9847 established, taken from the instrument rather than
+    // from its own diff: across the whole tree the census now reaches NO
+    // `body`-spelled child list in its `app-metadata` bucket — the bucket that
+    // holds shipped source. Asserted as a population, so a producer arriving in
+    // a file nobody listed reds this without anyone extending the list above.
+    const { filesScanned, hits } = census(REPO_ROOT);
+    const carryingBody = hits.filter((hit: { body: boolean }) => hit.body);
+
+    // Two lit controls, because a blind walk satisfies the zero below on its
+    // own — this file's first block exists for that exact failure.
+    expect(filesScanned, 'the census walked nothing').toBeGreaterThan(0);
+    expect(
+      carryingBody.length,
+      'the census reaches no `body` node ANYWHERE — it has gone blind, or the ' +
+        'teaching corpus and example apps that ruling step 5 migrates are gone'
+    ).toBeGreaterThan(0);
+
+    expect(
+      carryingBody
+        .filter((hit: { bucket: string }) => hit.bucket === 'app-metadata')
+        .map((hit: { file: string; line: number }) => `${hit.file.split('\\').join('/')}:${hit.line}`)
+    ).toEqual([]);
+
+    // ⛔ That zero is NOT the answer to "is step 4 landable", and reading it as
+    // one is the trap this half exists to close. The census states its own
+    // limits and TWO of them hide a producer: it scores a child list only on an
+    // object that also carries a string-LITERAL `type` (a `tabs` ITEM carries
+    // `label`/`value`/`body` and no `type`), and it never reads inside a string
+    // or a template literal (a VS Code completion snippet is a string).
+    //
+    // ⭐ objectui#9871 REPLACED the enumeration that used to stand here. Two
+    // named sites were an enumeration with the census's blind spots written
+    // into it by hand — the next producer in a third blind direction would have
+    // needed somebody to notice it and add a line. The subject is now DERIVED:
+    // `scripts/body-dialect-producer-scan.mjs` states a CRITERION (C1 emission
+    // · C2 resolution · C3 carrier) and this block reads its table.
+    //
+    // ⭐ When the table empties, THAT is the handoff, and the message on the
+    // assertion says so in these terms — it is the day step 4 becomes landable.
+    // ⛔ Do not delete the claim to make the block green.
+    const producerScan = scan(REPO_ROOT);
+
+    // Two lit controls, because an empty table is the assertion's own shape: a
+    // scan that walked nothing, or derived no reader, would satisfy a bare
+    // "non-empty" check by accident in neither direction — so both are checked
+    // before the table is read at all.
+    expect(producerScan.filesScanned, 'the producer scan walked nothing').toBeGreaterThan(0);
+    expect(
+      producerScan.readers.reads.length,
+      'the producer scan derived NO reader, so C2 would fail for every site'
+    ).toBeGreaterThan(0);
+
+    const producers = producersOf(producerScan.hits, producerScan.readers);
+    expect(
+      producers.length,
+      'the producer table is EMPTY — under objectui#9871\'s criterion nothing in shipped source ' +
+        'emits the dialect any more, which is the day objectui#6771 step 4 becomes landable. ' +
+        'Re-point this block and say so in those terms; ⛔ do not delete the claim.'
+    ).toBeGreaterThan(0);
+
+    // ⭐ The two SHAPES the census structurally cannot reach, asserted as
+    // shapes rather than as paths: a producer arriving in a file nobody has
+    // named joins `producers` with no list to extend.
+    expect(
+      producers.filter((hit: { carrier: string }) => hit.carrier === 'item').length,
+      'no item-carried producer — the B1 shape (a `body` on an object with no `type`)'
+    ).toBeGreaterThan(0);
+    expect(
+      producers.filter((hit: { source: string }) => hit.source !== 'code-key').length,
+      'no string-carried producer — the B2 shape (the key spelled inside a literal)'
+    ).toBeGreaterThan(0);
+
+    // ⚠️ And the family question stays OPEN in the instrument rather than being
+    // settled by it: an item-carried `body` is filed `unruled` and is never
+    // folded into objectui#6771's ruled total. objectui#9871 handed that
+    // question back rather than extending a ruled family from a dev seat.
+    for (const hit of producers.filter((h: { carrier: string }) => h.carrier === 'item')) {
+      expect(hit.disposition).toBe('unruled:item-carrier');
+    }
+    // ⏱ Explicit, because this block runs TWO tree-wide instruments (the census
+    // over 7,855 files and the producer scan over 5,136) and the default 15s is
+    // not enough on a loaded shard: measured 7.9s here after objectui#9871 made
+    // the scan single-pass, and the CI runner took the SAME block past 15s when
+    // it measured 10.1s locally — so that runner is at least 1.9x slower. 60s is
+    // ~3x the observed CI-scale cost: ordinary contention cannot flake it, and a
+    // scan that stops terminating still fails. ⛔ Not a global `testTimeout` bump.
+  }, 60_000);
 });
 
 /**

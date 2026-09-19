@@ -183,11 +183,12 @@ export type FieldWidgetComponentProps<T = any> = {
    * in-progress record.
    *
    * ⚠️ This used to add "widgets fall back to `SchemaRendererContext`". They
-   * spell such a fallback (`?? ctx.formValues ?? ctx.data`), but
-   * `SchemaRendererContextType` declares exactly `dataSource` / `debug` /
-   * `debugFlags` / `apiFetch`, so neither member can be supplied by any host and
-   * the fallback is unconditionally empty. This prop is today the only channel
-   * that can carry a record (objectui#7206).
+   * never could: they spelled such a fallback (`?? ctx.formValues ?? ctx.data`)
+   * while `SchemaRendererContextType` declares exactly `dataSource` / `debug` /
+   * `debugFlags` / `apiFetch`, so neither member could be supplied by any host
+   * and the fallback was unconditionally empty. Those reads were retired under
+   * ADR-0049 enforce-or-remove (objectui#7206) — this prop is the one channel
+   * that carries a record, and a widget reached without it gates.
    */
   dependentValues?: Record<string, unknown>;
   /**

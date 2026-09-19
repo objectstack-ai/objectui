@@ -69,10 +69,11 @@
  * halves: the FORM renderer injects its live watched record as
  * `dependentValues`, and every picker surface takes the `dependsOn` chain as a
  * hard `baseFilter`. Only the second half is host-independent, and the grid
- * never got the first: `LookupField` resolves
- * `dependentValues ?? ctx.formValues ?? ctx.data ?? {}` and this grid's inline
- * editor supplied none of the three, so the resolved record was `{}` for every
- * row and the gate never lifted — a field that could never be filled.
+ * never got the first: `LookupField` resolves `dependentValues ?? {}` and this
+ * grid's inline editor did not supply that prop, so the resolved record was
+ * `{}` for every row and the gate never lifted — a field that could never be
+ * filled. (The resolution then also carried a `?? ctx.formValues ?? ctx.data`
+ * tail no host could set; objectui#7206 retired it.)
  *
  * objectui#7165 supplied the missing input: `renderCellEditor` passes the row as
  * `dependentValues`. The cascade itself is unchanged (half 2 was always live

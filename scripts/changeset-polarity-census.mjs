@@ -57,8 +57,10 @@
  *    columns, so a line-anchored probe is structurally blind to any claim that
  *    wraps -- and a claim naming a schema and a key is long enough that most of
  *    them do. Lines are joined per paragraph, continuation prefixes (blockquote
- *    markers, list bullets, table pipes) are stripped first, and all runs of
- *    whitespace collapse before a sentence is cut.
+ *    markers, list bullets) are stripped first, and all runs of whitespace
+ *    collapse before a sentence is cut. A TABLE is the exception and is read as
+ *    structure, not as wrapped prose (objectui#9870): its cells are separate
+ *    units of text and its header is what tells a column apart from a sentence.
  *
  * 2. ASSERTION POSITION vs QUOTED POSITION. A count over prose is NOT
  *    invariant under quotation, and treating it as invariant is how a repaired
@@ -66,7 +68,10 @@
  *    retires, inside the note that retires it. A sentence reached through a
  *    fence, a blockquote, guillemets or quotation marks is in QUOTED position --
  *    it is counted, reported, and never flagged. Only an ASSERTION is a
- *    candidate.
+ *    candidate. A third position joins them (objectui#9870): a cell in a column
+ *    the table's own header declares SUPERSEDED stands where a quotation
+ *    stands, and for a reason quotation cannot express -- the retired reading is
+ *    not quoted, it is tabulated.
  *
  * 3. A NAME IS NOT A KEY -- A KEY IS (interface, name). Membership is resolved
  *    against the member set of the SCHEMA THE SENTENCE NAMES, built with the
@@ -126,10 +131,65 @@
  * fully (objectui#9727, the readings are on that card's pull request, not copied
  * here per #9):
  *
- *   WINDOW PAIRING. A sentence may name schema S and key K and predicate K of
- *   something else entirely -- a registry-local type, another node, a spec
- *   schema. V pairs them because they share a sentence. This is the limit the
- *   card's own author stated first, and it is still the largest source.
+ *   WINDOW PAIRING, REPAIRED AND ITS RESIDUE NAMED (objectui#9754). A sentence
+ *   may name schema S and key K and predicate K of something else entirely -- a
+ *   registry-local type, another node, a spec schema, a zod method, a CLI
+ *   subcommand, a DOM tag. V paired them because they shared a SENTENCE, which
+ *   is a window nothing chose: it is the cartesian product of every schema the
+ *   sentence names with every key it names. This was the limit the card's own
+ *   author stated first and the largest source, and it is also where the KEY
+ *   EXTRACTION residue below was handed -- a lowerCamelCase word that is a
+ *   function name is told apart from a member key only by the POSITION it sits
+ *   in. The window is now the DECLARATION CLAUSE: a key pairs with the schemas
+ *   named in the clause whose verb governs it, one pair per OCCURRENCE, and the
+ *   whole rule (its four cases, and the fifth for a relative clause, which has
+ *   no subject of its own and takes its antecedent's) is on `readWindow`.
+ *   ⇒ A clause whose subject is not a schema symbol at all -- a registry node
+ *   name, "the interface", "the type" -- now pairs its keys with NOTHING, which
+ *   is the honest reading: this instrument resolves membership against a named
+ *   symbol, and there is no named symbol there to resolve against.
+ *   ⚠️ RESIDUE, named rather than hidden, and it is the same shape one level
+ *   down: the window got smaller, it did not become a parser. A clause that
+ *   BOTH declares AND names two schemas still pairs its keys with both; a schema
+ *   named in a clause only as the owner of some OTHER member (`S.className`) is
+ *   still that clause's schema; and a subject separated from its verb by
+ *   anything but a relative or parenthetical break -- an em-dash apposition,
+ *   "`k` is declared on both faces -- the interface `A` and the mirror `B`" --
+ *   is now out of reach, so that pairing is DROPPED rather than made wrongly.
+ *   ⛔ That last one is a false negative this repair introduces, and it is
+ *   written here rather than discovered later.
+ *
+ *   A TABLE OF SUPERSEDED READINGS, REPAIRED AND ITS RESIDUE NAMED
+ *   (objectui#9754, repaired by objectui#9870). An entry may carry a table whose
+ *   first column is a reading it is RETIRING and whose later columns are what
+ *   falsified it and when. The retired claim read as a present-tense assertion
+ *   in ASSERTION position with its correction beside it, unread -- and
+ *   quotation position does not reach it, because the retired reading is not
+ *   quoted, it is TABULATED.
+ *   ⛔ The entry this replaces also MISDESCRIBED the mechanism, in the direction
+ *   that makes a defect look smaller than it is, and the correction is the
+ *   reason the repair is where it is: it said every cell of one ROW was joined
+ *   into one sentence and called that join deliberate. The join was neither
+ *   bounded by a row nor deliberate -- the code doing it carried the opposite
+ *   intent in its own comment (`the cells are independent fragments`). `. ` cuts
+ *   a sentence only before a character that is not lower-case, and a row's last
+ *   cell got no terminator at all, so an ENTIRE table collapsed into ONE
+ *   sentence: header, delimiter row and every data row, with every key in it
+ *   offered to every schema named anywhere in it.
+ *   ⇒ The repair reads the table instead of flattening it (`segmentSentences`):
+ *   a cell is its own unit of text, and a cell in a column the table's OWN
+ *   HEADER retires -- the column a later one declares it was `falsified by` --
+ *   takes the third POSITION, `superseded`. Counted, reported, never flagged.
+ *   ⛔ Deliberately NOT done: excluding table rows from assertion position as a
+ *   class, or widening quotation to cover every tabulated reading. Both are
+ *   cheap against this corpus and both buy a false negative in the shape this
+ *   family has already paid for once -- a table that ASSERTS is the ordinary
+ *   case here, and a claim silently never judged is the failure that does not
+ *   ring. ⚠️ RESIDUE: a `before | after` table retires its first column by
+ *   MEANING and not by a word in its header, and is not read here; and a claim
+ *   split across two columns is now two sentences and pairs with nothing --
+ *   it was only ever reachable through the cross-row collapse that also paired
+ *   it with every other row.
  *
  *   POLARITY BY CLAUSE (was: POLARITY BY KEYWORD -- objectui#9754 narrowed it).
  *   Polarity is a property of the clause that carries the declaration verb, not
@@ -147,11 +207,14 @@
  *   case) has no clause of its own and takes the sentence's first declaration
  *   clause, which is the clause its verb is in.
  *
- *   ⛔ What this does NOT fix, and the residue is named rather than hidden: a
- *   sentence whose SAME key sits in two declaration clauses of opposite
- *   polarity resolves to the first one, because choosing between them is the
- *   WINDOW PAIRING question below and not a polarity question. `without` and
- *   `fails to` are still read as clause-wide negators.
+ *   ⭐ The residue this left was handed to WINDOW PAIRING above and is now
+ *   closed there (objectui#9754): a sentence whose SAME key sits in two
+ *   declaration clauses of opposite polarity used to resolve to the first one,
+ *   because the sentence held ONE reading per key. It holds one per OCCURRENCE
+ *   now, so the two claims stop overwriting each other and each is judged
+ *   against the schema ITS OWN clause names -- which is what "choosing between
+ *   them is the window question" meant. ⛔ Still unrepaired here: `without` and
+ *   `fails to` are read as clause-wide negators.
  *
  *   THE ANNOTATION READ AS PROSE -- A POLARITY INVERSION, REPAIRED
  *   (objectui#9832). objectui#9794 made a mention written the way a face
@@ -584,12 +647,94 @@ const FENCE = /^\s*(```|~~~)/;
 const MASK_OPEN = '@@CS';
 const MASK_CLOSE = '@@';
 
+/** A table's delimiter row -- `| --- | :--: |` -- is syntax, and is not text. */
+const TABLE_DELIMITER_CELL = /^:?-{3,}:?$/;
+
+/**
+ * The header cell by which a table DECLARES that an earlier column holds a
+ * reading it has retired (objectui#9870).
+ *
+ * The declaration is the AUTHOR'S, not this reader's guess: a column headed
+ * `falsified by` says in so many words that the column it points back at is no
+ * longer a claim about today's tree. That is why the rule is written on the
+ * HEADER and not on the shape of a row -- a row cannot say what it is, and
+ * every heuristic that tried to read it from the row's own words would be
+ * guessing at English again.
+ *
+ * ⚠️ It is a WORD LIST, with this file's usual cost: it is the idiom `NEGATIVE`
+ * and `CLAUSE_BREAK` already use, because English has no derivable source to
+ * read the way `LANGUAGE_WORDS` reads the compiler. A table that declares the
+ * same thing in words not listed here keeps the defect. ⛔ Add a spelling when
+ * the corpus shows one; do not read length as coverage (#9).
+ */
+export const SUPERSEDING_HEADER =
+  /\b(?:falsifie[sd]|supersede[sd]?|refute[sd]?|overturn(?:s|ed)?|retract(?:s|ed)?)\b/i;
+
+/**
+ * The columns a table's own header declares RETIRED: every column before the
+ * first one that declares itself the falsifier.
+ *
+ * Column 0 alone would be the narrow reading of the one table that motivated
+ * objectui#9870; `< falsifier` is the same answer there and stays right for a
+ * table that carries an id or a date column ahead of the reading. A header that
+ * declares NOTHING retires nothing -- the empty set is the default, so an
+ * ordinary table keeps every column in ASSERTION position.
+ */
+export function supersededColumns(headerCells) {
+  const retired = new Set();
+  if (!headerCells) return retired;
+  const falsifier = headerCells.findIndex((cell) => SUPERSEDING_HEADER.test(cell));
+  if (falsifier <= 0) return retired;
+  for (let column = 0; column < falsifier; column += 1) retired.add(column);
+  return retired;
+}
+
 /**
  * Cut a changeset body into paragraphs, then into sentences, recording the
  * POSITION each sentence was reached through. Frontmatter and fenced code are
- * dropped; blockquote prefixes, list bullets and table pipes are stripped as
- * CONTINUATION PREFIXES before the lines of a paragraph are joined, so a claim
- * that wraps at eighty columns reads as ONE sentence.
+ * dropped; blockquote prefixes and list bullets are stripped as CONTINUATION
+ * PREFIXES before the lines of a paragraph are joined, so a claim that wraps at
+ * eighty columns reads as ONE sentence.
+ *
+ * ## A TABLE IS NOT WRAPPED PROSE (objectui#9870)
+ *
+ * A table row used to be stripped of its pipes and then joined into the
+ * paragraph like any other continuation line, with `. ` standing in for the
+ * cell boundary. That spelling MEANT what the rule above still means -- the
+ * cells are independent fragments -- and it did not achieve it in either
+ * direction, which is why it is gone:
+ *
+ *   - `. ` only cuts a sentence where the next cell opens with a character that
+ *     is not lower-case (`cutSentences`), and this corpus's later columns open
+ *     with `objectui#...` more often than not. So the cells of one row stayed
+ *     ONE sentence.
+ *   - a row's LAST cell got no terminator at all, so nothing separated one row
+ *     from the next. An entire table -- header, delimiter row and every row --
+ *     collapsed into a single sentence, and every key in it was offered to every
+ *     schema named anywhere in the table. That is the cartesian window
+ *     objectui#9754 closed at the sentence level, rebuilt one level up.
+ *
+ * Table structure is therefore READ rather than flattened: a cell is a unit of
+ * text and is cut into sentences on its own, the delimiter row is dropped as
+ * syntax, and the header row is kept -- it is what lets a column be read as a
+ * position rather than as prose.
+ *
+ * ⇒ POSITION gains its third value, `superseded`: a cell in a column the
+ * table's own header retires (`supersededColumns`) is a reading this entry is
+ * RETIRING, not a claim about today's tree. It is counted, reported, and never
+ * flagged -- the same standing `quoted` has, under its own name because the
+ * reason is different. Quotation does not reach these: the retired reading is
+ * not quoted, it is tabulated.
+ *
+ * ⛔ What this does NOT do: judge a table by its shape. A table that asserts is
+ * still read and still flagged, which is the false negative directions that
+ * excluded table rows wholesale would have bought. ⚠️ RESIDUE, named rather
+ * than discovered later: a `before | after` table is the same defect wearing a
+ * different header and is NOT read here -- its first column is retired by the
+ * table's meaning and not by its header's words. And a claim whose subject sits
+ * in one column and whose verb sits in another is now two sentences and pairs
+ * with nothing; it was reachable only by the cross-row collapse above, which
+ * paired it with every other row as well.
  */
 export function segmentSentences(markdown) {
   const lines = markdown.split(/\r?\n/);
@@ -606,9 +751,19 @@ export function segmentSentences(markdown) {
     if (end >= 0) i = end + 1;
   }
 
+  // A paragraph is a list of PARTS in the order they were written: prose lines,
+  // which join and wrap, and tables, which do neither. One paragraph still, so
+  // the cross-sentence pronoun keeps reaching back across the whole of it.
   const paragraphs = [];
   let current = null;
   let inFence = false;
+  const partOfKind = (kind) => {
+    const last = current.parts[current.parts.length - 1];
+    if (last && last.kind === kind) return last;
+    const part = kind === 'prose' ? { kind, lines: [] } : { kind, rows: [], header: null };
+    current.parts.push(part);
+    return part;
+  };
   for (; i < lines.length; i += 1) {
     const line = lines[i];
     if (FENCE.test(line)) {
@@ -624,35 +779,60 @@ export function segmentSentences(markdown) {
     const quoted = /^\s*>/.test(line);
     let stripped = line.replace(/^\s*>+\s?/, '');
     stripped = stripped.replace(/^\s*([-*+]|\d+[.)])\s+/, '');
+    if (!current) {
+      current = { parts: [], quoted: false };
+      paragraphs.push(current);
+    }
+    current.quoted = current.quoted || quoted;
     if (/^\s*\|/.test(stripped)) {
-      // A table row: the cells are independent fragments, never one sentence.
-      stripped = stripped
+      // A table row: its cells are independent units of text, and this reads
+      // them as such (objectui#9870).
+      const cells = stripped
         .replace(/^\s*\|/, '')
         .replace(/\|\s*$/, '')
         .split('|')
-        .join('. ');
+        .map((cell) => cell.replace(/\s+/g, ' ').trim());
+      const table = partOfKind('table');
+      if (cells.length > 0 && cells.every((cell) => TABLE_DELIMITER_CELL.test(cell))) {
+        // The delimiter row is syntax. What it carries is WHICH row was the
+        // header, and that is the only thing kept from it.
+        table.header = table.rows.length > 0 ? table.rows[table.rows.length - 1] : null;
+        continue;
+      }
+      table.rows.push(cells);
+      continue;
     }
     stripped = stripped.replace(/^\s*#+\s+/, '');
-    if (!current) {
-      current = { lines: [], quoted: false };
-      paragraphs.push(current);
-    }
-    current.lines.push(stripped);
-    current.quoted = current.quoted || quoted;
+    partOfKind('prose').lines.push(stripped);
   }
 
   const out = [];
   paragraphs.forEach((para, paragraphIndex) => {
-    const joined = para.lines.join(' ').replace(/\s+/g, ' ').trim();
-    if (!joined) return;
-    cutSentences(joined).forEach((text, sentenceIndex) => {
-      out.push({
-        text,
-        paragraphIndex,
-        sentenceIndex,
-        position: para.quoted || isQuotedInline(text) ? 'quoted' : 'assertion',
-      });
-    });
+    let sentenceIndex = 0;
+    const emit = (text, position) => {
+      out.push({ text, paragraphIndex, sentenceIndex, position });
+      sentenceIndex += 1;
+    };
+    const positionOf = (text, retired) => {
+      if (para.quoted) return 'quoted';
+      if (retired) return 'superseded';
+      return isQuotedInline(text) ? 'quoted' : 'assertion';
+    };
+    for (const part of para.parts) {
+      if (part.kind === 'prose') {
+        const joined = part.lines.join(' ').replace(/\s+/g, ' ').trim();
+        if (!joined) continue;
+        for (const text of cutSentences(joined)) emit(text, positionOf(text, false));
+        continue;
+      }
+      const retired = supersededColumns(part.header);
+      for (const row of part.rows) {
+        row.forEach((cell, column) => {
+          if (!cell) return;
+          for (const text of cutSentences(cell)) emit(text, positionOf(text, retired.has(column)));
+        });
+      }
+    }
   });
   return out;
 }
@@ -735,24 +915,39 @@ const MASK_TOKEN = new RegExp(`${MASK_OPEN}(\\d+)${MASK_CLOSE}`, 'g');
  * `text` is the clause as written, spans restored, and it is what a pin or a
  * report shows a human; `prose` is the clause with every backticked span still
  * masked, and it is the only text a WORD-LEVEL criterion may be read over. See
- * `readPolarity` for why that distinction is load bearing (objectui#9832).
+ * `readWindow` for why that distinction is load bearing (objectui#9832).
+ *
+ * `opener` is the break text this clause was cut off by, and it is what tells a
+ * relative or parenthetical clause -- one with no subject of its own -- from a
+ * clause that opens a new predication (objectui#9754).
  */
 export function segmentClauses(text) {
   const { masked, spans } = maskSpans(text);
   const restore = (s) => s.replace(new RegExp(MASK_TOKEN.source, 'g'), (_, n) => spans[Number(n)]);
   const cuts = [];
   let last = 0;
+  let opener = '';
   CLAUSE_BREAK.lastIndex = 0;
   for (const m of masked.matchAll(CLAUSE_BREAK)) {
-    cuts.push({ start: last, end: m.index });
+    cuts.push({ start: last, end: m.index, opener });
+    opener = m[0];
     last = m.index + m[0].length;
   }
-  cuts.push({ start: last, end: masked.length });
+  cuts.push({ start: last, end: masked.length, opener });
   const clauses = cuts
     .map((c) => ({ ...c, prose: masked.slice(c.start, c.end), text: restore(masked.slice(c.start, c.end)) }))
     .filter((c) => c.text.trim() !== '');
   return { clauses, masked, spans };
 }
+
+/**
+ * The breaks that open a clause with NO SUBJECT OF ITS OWN -- a relative clause
+ * or a parenthetical, which predicate of whatever they are attached to. `S`,
+ * whose face declares `k`; `S` (which declares `k`). They are the one case where
+ * the window may reach back past the cut for the schema, and the reach is ONE
+ * clause: the antecedent, never the sentence.
+ */
+const RELATIVE_OPENER = /^\(|^\s*(?:which|whose|where)\s*$/i;
 
 /** The clause texts, for a pin that wants to name the cut rather than the count. */
 export function clauseTexts(text) {
@@ -760,11 +955,54 @@ export function clauseTexts(text) {
 }
 
 /**
- * Read polarity in the scope that owns it.
+ * Read one sentence in the scope that owns each reading: the CLAUSE.
+ *
+ * Two different questions are answered here and they are answered off ONE
+ * clause walk, because answering them separately is how a key ends up taking
+ * its polarity from one clause and its schema from another:
+ *
+ *   `byKey`        -- the polarity of the clause each key is written in
+ *                     (objectui#9754 slice 1).
+ *   `schemasByKey` -- THE WINDOW A PAIRING MAY BE MADE ACROSS, below.
  *
  * `polarity` is the sentence-level reading (the first declaration clause), kept
- * because a key resolved across a sentence boundary has no clause here.
- * `byKey` is the per-key reading, and it is the one the verdict uses.
+ * because a key resolved across a sentence boundary has no clause here; the
+ * same fallback gives those keys their schemas, in `crossSentenceSchemas`.
+ *
+ * ## THE WINDOW (objectui#9754). The sentence is the wrong one.
+ *
+ * V used to pair every schema the SENTENCE names with every key the sentence
+ * names -- a cartesian product over a window nothing chose. The instrument
+ * named the cost on itself: a sentence may name schema S and key K and
+ * predicate K of something else entirely, and V pairs them because they share a
+ * sentence. The pairing a declaration actually makes is between the SUBJECT of
+ * the declaration verb and the keys THAT VERB governs, and both of those live
+ * in one clause -- the same scope slice 1 already established for polarity.
+ *
+ * So the window is the DECLARATION CLAUSE, and a key's governing clause is:
+ *
+ *   1. the clause the key is written in, when that clause declares;
+ *   2. else the clause IMMEDIATELY before it, when that one declares -- which is
+ *      the coordinated object list, "`S` declares `a` and no `b`";
+ *   3. else, when NO declaration clause precedes the key anywhere in the
+ *      sentence, the sentence's first declaration clause -- a key written ahead
+ *      of the verb has no earlier clause to inherit from, and this is the same
+ *      fallback the cross-sentence pronoun already takes;
+ *   4. else NONE. A declaration clause does precede the key, but another
+ *      predication was opened between them, and reaching back across it is
+ *      exactly the pairing this repair refuses.
+ *
+ * The key then pairs with the schemas named IN THAT CLAUSE, and with no others.
+ * ⇒ A clause whose subject is not a schema symbol at all -- a registry node
+ * name, "the interface", "the type" -- pairs its keys with NOTHING rather than
+ * with whatever schema the rest of the sentence happens to mention.
+ *
+ * ⚠️ What this is NOT, and the limit is the honest half: it does not read
+ * English. A clause that both declares and names two schemas still pairs its
+ * keys with both, and a schema named in a clause only as the owner of some
+ * OTHER member (`S.className`) is still that clause's schema. The window got
+ * smaller; it did not become a parser. Residues are named under "The limits
+ * that produce this instrument's false positives".
  *
  * ⭐ THE NEGATORS ARE READ OVER `prose`, NEVER OVER `text` (objectui#9832). A
  * backticked span is CODE, and a word inside it is not a word of the sentence:
@@ -786,9 +1024,10 @@ export function clauseTexts(text) {
  *
  * @param {string} text
  * @param {Set<string> | null} [declared] the set `keyHead` reads; see its docblock
- * @returns {{ polarity: "positive" | "negative", byKey: Record<string, "positive" | "negative"> }}
+ * @typedef {{ schema: string, polarity: "positive" | "negative" }} WindowPair
+ * @returns {{ polarity: "positive" | "negative", byKey: Record<string, "positive" | "negative">, pairsByKey: Record<string, WindowPair[]>, schemasByKey: Record<string, string[]>, crossSentenceSchemas: string[] }}
  */
-export function readPolarity(text, declared = null) {
+export function readWindow(text, declared = null) {
   const { clauses, masked, spans } = segmentClauses(text);
   const isDeclaration = (c) => PRESENT_DECLARATION.test(c.text);
   const polarityOf = (c) => (NEGATIVE.test(c.prose) ? 'negative' : 'positive');
@@ -809,8 +1048,48 @@ export function readPolarity(text, declared = null) {
     occurrences.get(head).push(m.index);
   }
 
-  const clauseAt = (pos) => clauses.find((c) => pos >= c.start && pos < c.end) ?? null;
+  const indexAt = (pos) => clauses.findIndex((c) => pos >= c.start && pos < c.end);
+  const clauseAt = (pos) => clauses[indexAt(pos)] ?? null;
+
+  /** The clause whose declaration governs a key written at `pos` -- rules 1-4. */
+  const governingClause = (pos) => {
+    const i = indexAt(pos);
+    if (i < 0) return null;
+    if (isDeclaration(clauses[i])) return clauses[i];
+    if (i > 0 && isDeclaration(clauses[i - 1])) return clauses[i - 1];
+    // Rule 3, and it is the FIRST clause only: a key written ahead of every
+    // clause of the sentence has none to inherit from, so it takes the verb's
+    // own clause -- the same fallback the cross-sentence pronoun takes. A key
+    // at any later position DOES have earlier clauses; that they do not declare
+    // is rule 4's case, not this one, and reaching past them to a declaration
+    // further on is the reach this repair refuses.
+    if (i === 0) return declarations[0] ?? null;
+    return null;
+  };
+
+  /**
+   * The schemas a clause predicates of -- its own, or, for a relative clause or
+   * a parenthetical, its antecedent's. Rule 5.
+   */
+  const schemasOf = (clause) => {
+    const own = namesSchema(clause.text);
+    if (own.length > 0) return own;
+    const i = clauses.indexOf(clause);
+    if (i > 0 && RELATIVE_OPENER.test(clause.opener)) return namesSchema(clauses[i - 1].text);
+    return [];
+  };
+
+  /** The polarity of ONE occurrence, in the clause that occurrence sits in. */
+  const polarityAt = (pos) => {
+    const own = clauseAt(pos);
+    if (own && isDeclaration(own)) return polarityOf(own);
+    if (own && LEADING_NEGATOR.test(own.prose)) return 'negative';
+    const gov = governingClause(pos);
+    return gov ? polarityOf(gov) : polarity;
+  };
+
   const byKey = {};
+  const pairsByKey = {};
   for (const [head, positions] of occurrences) {
     let reading = null;
     for (const pos of positions) {
@@ -831,7 +1110,47 @@ export function readPolarity(text, declared = null) {
       }
     }
     byKey[head] = reading;
+    // ⭐ ONE PAIR PER OCCURRENCE (objectui#9754). The residue slice 1 named and
+    // handed here: a key written in two declaration clauses of OPPOSITE
+    // polarity used to resolve to the first one, because the sentence held one
+    // reading per key. Each occurrence now carries its own clause's schemas AND
+    // its own clause's polarity, so the two readings stop overwriting each
+    // other -- which is what "choosing between them is the window question"
+    // meant.
+    const pairs = [];
+    for (const pos of positions) {
+      const gov = governingClause(pos);
+      if (!gov) continue;
+      const occurrencePolarity = polarityAt(pos);
+      for (const schema of schemasOf(gov)) {
+        if (!pairs.some((p) => p.schema === schema && p.polarity === occurrencePolarity)) {
+          pairs.push({ schema, polarity: occurrencePolarity });
+        }
+      }
+    }
+    pairsByKey[head] = pairs;
   }
+  return {
+    polarity,
+    byKey,
+    pairsByKey,
+    schemasByKey: Object.fromEntries(
+      Object.entries(pairsByKey).map(([k, v]) => [k, [...new Set(v.map((p) => p.schema))]]),
+    ),
+    crossSentenceSchemas: declarations.length > 0 ? schemasOf(declarations[0]) : [],
+  };
+}
+
+/**
+ * The polarity half of `readWindow`, kept under its own name because it is the
+ * reading slice 1's pins name and the one a report shows.
+ *
+ * @param {string} text
+ * @param {Set<string> | null} [declared] the set `keyHead` reads; see its docblock
+ * @returns {{ polarity: "positive" | "negative", byKey: Record<string, "positive" | "negative"> }}
+ */
+export function readPolarity(text, declared = null) {
+  const { polarity, byKey } = readWindow(text, declared);
   return { polarity, byKey };
 }
 
@@ -948,7 +1267,19 @@ export function readClaim(sentence, precedingInParagraph, declared = null) {
       }
     }
   }
-  const { polarity, byKey } = readPolarity(sentence.text, declared);
+  const { polarity, byKey, pairsByKey, crossSentenceSchemas } = readWindow(
+    sentence.text,
+    declared,
+  );
+  // The window each key may be paired across (objectui#9754). A key resolved
+  // across a sentence boundary has no clause HERE, so it takes the clause its
+  // verb is in -- the same fallback that gives it its polarity.
+  const keyPairs = {};
+  for (const key of keys) {
+    keyPairs[key] = viaPronoun
+      ? crossSentenceSchemas.map((schema) => ({ schema, polarity: byKey[key] ?? polarity }))
+      : (pairsByKey[key] ?? []);
+  }
   return {
     schemas,
     keys,
@@ -956,6 +1287,7 @@ export function readClaim(sentence, precedingInParagraph, declared = null) {
     antecedent,
     polarity,
     keyPolarity: byKey,
+    keyPairs,
   };
 }
 
@@ -1137,6 +1469,11 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
   const declared = declaredNames(memberIndex);
   const matched = [];
   const quoted = [];
+  // objectui#9870: a reading its own table declares RETIRED. It is neither an
+  // assertion nor a quotation, so it is counted under its own name -- a bucket
+  // that disappeared into either of the other two would be a rule nobody can
+  // read the cost of.
+  const superseded = [];
   let sentencesScanned = 0;
   let verbSeenEntries = 0;
   let pastOnlySentences = 0;
@@ -1156,6 +1493,7 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
       if (!matchesPopulation(s.text)) continue;
       const record = { entry: entry.name, ...s, claim: readClaim(s, preceding, declared) };
       if (s.position === 'quoted') quoted.push(record);
+      else if (s.position === 'superseded') superseded.push(record);
       else matched.push(record);
     }
     if (verbSeen) verbSeenEntries += 1;
@@ -1165,6 +1503,9 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
   const unresolvedSchemas = [];
   for (const record of matched) {
     const { schemas, keys, polarity, viaPronoun } = record.claim;
+    // The unresolved bucket is a property of the SENTENCE naming a symbol with
+    // no face here (objectui#9767) and is deliberately read over every schema
+    // the sentence names -- narrowing the KEY pairing below must not narrow it.
     for (const schema of schemas) {
       const face = memberIndex.get(schema);
       if (!face) {
@@ -1181,13 +1522,26 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
           sentence: record.text,
           resolvedIn: resolution,
         });
-        continue;
       }
-      for (const key of keys) {
+    }
+    for (const key of keys) {
+      // ⭐ THE WINDOW (objectui#9754): the schemas the key's own DECLARATION
+      // CLAUSE names, never every schema the sentence happens to mention, and
+      // ONE PAIR PER OCCURRENCE. The reading is `readWindow`'s and the rule is
+      // stated there.
+      const fallback = schemas.map((schema) => ({
+        schema,
+        polarity: record.claim.keyPolarity?.[key] ?? polarity,
+      }));
+      for (const pair of record.claim.keyPairs?.[key] ?? fallback) {
+        const schema = pair.schema;
+        const face = memberIndex.get(schema);
+        // No face here is already recorded in the unresolved bucket above.
+        if (!face) continue;
         const present = face.members.has(key);
         // The clause the key is written in owns its polarity; the sentence's
         // reading is the fallback for a key resolved across a sentence boundary.
-        const keyPolarity = record.claim.keyPolarity?.[key] ?? polarity;
+        const keyPolarity = pair.polarity;
         const contradicted = keyPolarity === 'positive' ? !present : present;
         if (!contradicted) continue;
         contradictions.push({
@@ -1214,6 +1568,7 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
     pastOnlySentences,
     matchedAssertions: matched.length,
     matchedQuoted: quoted.length,
+    matchedSuperseded: superseded.length,
     matchedEntries: new Set(matched.map((m) => m.entry)).size,
     pronounResolved: matched.filter((m) => m.claim.viaPronoun).length,
     litControlEntries: verbSeenEntries,
@@ -1231,6 +1586,7 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
       : null,
     resolutionRoots: resolutionIndex ? resolutionIndex.roots : null,
     quoted,
+    superseded,
     matched,
   };
 }
@@ -1342,6 +1698,10 @@ function report(result, controls) {
   );
   L.push(`| matched, QUOTED position (reported, never flagged) | ${result.matchedQuoted} |`);
   L.push(
+    `| matched, SUPERSEDED position -- a reading the table's own header retires` +
+      ` (reported, never flagged) | ${result.matchedSuperseded} |`,
+  );
+  L.push(
     `| of those assertions, object resolved across a sentence boundary | ${result.pronounResolved} |`,
   );
   L.push(`| entries carrying the verb at all (lit control) | ${result.litControlEntries} |`);
@@ -1443,7 +1803,10 @@ export function main(argv) {
   const result = census({ corpusDir, memberIndex, resolutionIndex });
 
   if (args.includes('--json')) {
-    const payload = { controls, result: { ...result, matched: undefined, quoted: undefined } };
+    const payload = {
+      controls,
+      result: { ...result, matched: undefined, quoted: undefined, superseded: undefined },
+    };
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   } else {
     process.stdout.write(`${report(result, controls)}\n`);

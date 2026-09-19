@@ -106,13 +106,27 @@ const resolveColor = (color: string) => TW_COLORS[color] || color;
  * and scatter, neither of which this renderer strokes — are now spelled
  * `undefined` rather than reaching the Bar and Scatter marks that gained
  * `strokeOpacity` / `strokeDasharray` in the same change.
+ *
+ * `radar` joined the `kind` union later (objectui#8157): the radar arm was the
+ * one mark that never called this helper at all, so all three declarations died
+ * there. It takes the AREA defaults — see `areaLike` below — because it is the
+ * other mark this renderer both strokes and fills. ⚠️ Its call site keeps its
+ * own `?? 0.6` fill fallback: unlike a cartesian mark, a radar polygon with no
+ * fill opacity at all is an unreadable overlay, so the literal that used to be
+ * the whole story became the floor under it.
  */
-const seriesStyle = (s: any, kind: 'line' | 'area' | 'bar' | 'scatter') => {
+const seriesStyle = (s: any, kind: 'line' | 'area' | 'bar' | 'scatter' | 'radar') => {
   const muted = s?.variant === 'comparison';
+  // `radar` shares the AREA defaults rather than getting numbers of its own:
+  // it is the other mark this renderer both strokes and fills, so the muted
+  // treatment area already defines is the one that fits it. For every
+  // cartesian kind `areaLike` is exactly `kind === 'area'`, so no cartesian
+  // arm's result moves (objectui#8157).
+  const areaLike = kind === 'area' || kind === 'radar';
   const authoredOpacity = typeof s?.opacity === 'number' ? s.opacity : undefined;
-  const strokeOpacity = authoredOpacity ?? (muted ? (kind === 'line' ? 0.5 : kind === 'area' ? 0.6 : undefined) : undefined);
-  const fillOpacity = authoredOpacity ?? (muted ? (kind === 'bar' ? 0.4 : kind === 'area' ? 0.2 : 0.5) : undefined);
-  const strokeDasharray = s?.dashArray ?? (muted && (kind === 'line' || kind === 'area') ? '4 4' : undefined);
+  const strokeOpacity = authoredOpacity ?? (muted ? (kind === 'line' ? 0.5 : areaLike ? 0.6 : undefined) : undefined);
+  const fillOpacity = authoredOpacity ?? (muted ? (kind === 'bar' ? 0.4 : areaLike ? 0.2 : 0.5) : undefined);
+  const strokeDasharray = s?.dashArray ?? (muted && (kind === 'line' || areaLike) ? '4 4' : undefined);
   return { strokeOpacity, fillOpacity, strokeDasharray };
 };
 
@@ -1889,13 +1903,23 @@ function AdvancedChartImplInner({
           />
           {series.map((s: any) => {
             const color = resolveColor(config[s.dataKey]?.color || DEFAULT_CHART_COLOR);
+            // objectui#8157 — this arm used to render a bare `fillOpacity={0.6}`
+            // and read nothing off the series, so an authored `opacity` /
+            // `dashArray` and the whole `variant: 'comparison'` treatment were
+            // inert on `chartType: 'radar'` while every cartesian arm honoured
+            // them. The `0.6` is a DEFAULT, not merely a bug — a radar fill
+            // needs some opacity or an overlay is unreadable — so it stays, as
+            // the fallback a series that declares nothing still lands on.
+            const pres = seriesStyle(s, 'radar');
             return (
               <Radar
                 key={s.dataKey}
                 dataKey={s.dataKey}
                 stroke={color}
                 fill={color}
-                fillOpacity={0.6}
+                fillOpacity={pres.fillOpacity ?? 0.6}
+                strokeOpacity={pres.strokeOpacity}
+                strokeDasharray={pres.strokeDasharray}
                 {...animProps}
               />
             );

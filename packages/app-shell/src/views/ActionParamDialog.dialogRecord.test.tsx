@@ -13,10 +13,13 @@
  * objectui#3559 delivered the keys (a field's per-option `visibleWhen` survives
  * inheritance and reaches the control) and `resolveActionParams.optionVisibleWhen`
  * pins that half at the widget level. What was missing was the SUPPLY: the dialog
- * passed no `dependentValues`, so `useCascadingOptions` fell through its chain
- * (`dependentValues ?? ctx.formValues ?? ctx.data ?? {}`) to the host page's
+ * passed no `dependentValues`, so `useCascadingOptions` resolved the EMPTY
  * record — and the values the user was typing INTO THIS DIALOG could never
- * narrow a sibling param's list, however the author wrote the predicate.
+ * narrow a sibling param's list, however the author wrote the predicate. (The
+ * hook then also spelled a `?? ctx.formValues ?? ctx.data` tail, read at the
+ * time as reaching "the host page's record". It reached nothing: those members
+ * are not declared on `SchemaRendererContextType`, and objectui#7206 retired
+ * the reads.)
  *
  * **Maintainer ruling, 2026-08-11 — Option B**: the dialog is a small form, so
  * its own in-progress values are that record; the shared evaluator is not
@@ -66,9 +69,12 @@ function openDialog(params: ActionParamDef[], hostFormValues?: Record<string, un
   );
   render(
     hostFormValues
-      // The host page's record, expressed the way the evaluator reads it: the
-      // context type declares `dataSource` only, and `formValues` is the key
-      // `useCascadingOptions` picks off it through an `any` cast.
+      // A host page TRYING to publish its record, expressed the way the
+      // evaluator once read it: the context type declares `dataSource` only,
+      // and `formValues` was the key `useCascadingOptions` picked off it
+      // through an `any` cast until objectui#7206 retired that read. The cast
+      // is kept because the case below is about a record the dialog must NOT
+      // pick up, and it is now doubly unable to.
       ? <SchemaRendererContext.Provider value={{ dataSource: null, formValues: hostFormValues } as never}>
           {dialog}
         </SchemaRendererContext.Provider>
@@ -150,10 +156,12 @@ describe('ActionParamDialog — the dialog IS the record for its option predicat
 
   it('does not merge the page record: the dialog record WINS, and an empty one falls open', async () => {
     // Option B's ruled cost, asserted rather than left for a reader to discover.
-    // The host page says `country: 'us'`; the dialog says nothing yet. Because a
-    // supplied `dependentValues` wins `useCascadingOptions`' chain outright, the
-    // page's value does NOT reach the predicate — the list falls open instead of
-    // narrowing to Texas.
+    // The host page says `country: 'us'`; the dialog says nothing yet. The
+    // page's value does NOT reach the predicate — the list falls open instead
+    // of narrowing to Texas. Two independent reasons now, and they were not
+    // both true when this was written: the dialog always supplies its own
+    // `dependentValues`, which wins outright; and since objectui#7206 there is
+    // no context leg for a page record to arrive on at all.
     //
     // Under the unruled option C (`{ ...pageRecord, ...dialogValues }`) this
     // first assertion would read the other way: `tx` only. So this case is the

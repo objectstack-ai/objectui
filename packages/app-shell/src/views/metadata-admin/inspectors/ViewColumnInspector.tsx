@@ -33,6 +33,7 @@ import {
   InspectorSelectField,
   InspectorRemoveButton,
   InspectorEmptyState,
+  rosterFrom,
   spliceArray,
   moveArray,
 } from './_shared.js';
@@ -146,9 +147,11 @@ export function ViewColumnInspector({
   // Load the bound object's field catalog so the column's field key is a
   // proper picker (dropdown of real fields) instead of a free-text box.
   const objectName = readVariantObject(variantSchema);
-  const { fields: objectFields, loading: fieldsLoading } = useObjectFields(
-    objectName || undefined,
-  );
+  const {
+    fields: objectFields,
+    loading: fieldsLoading,
+    error: fieldsError,
+  } = useObjectFields(objectName || undefined);
   const currentFieldKey = col ? colFieldKey(col) : '';
   const fieldOptions = React.useMemo(
     () =>
@@ -285,7 +288,14 @@ export function ViewColumnInspector({
             // column bound to a REAL field of this object is not on it. The
             // hook already publishes the signal; the flag is withheld until the
             // roster can actually testify.
-            loading={fieldsLoading}
+            //
+            // objectui#9651 — the hook publishes a THIRD fact, `error`, and
+            // dropping it on the floor is what made the same false marker
+            // PERMANENT after a failed fetch instead of transient. It is passed
+            // as one state rather than a second flag, so the two can never be
+            // read in the wrong order or in an impossible combination.
+            roster={rosterFrom({ loading: fieldsLoading, error: fieldsError })}
+            rosterFailureLabel={t('engine.form.optionsLoadFailedTitle', locale)}
             onCommit={(v) => patchIdentity({ field: v })}
             disabled={readOnly}
           />

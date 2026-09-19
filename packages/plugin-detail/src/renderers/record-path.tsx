@@ -57,6 +57,7 @@ import { useRecordContext, useSafeFieldLabel } from '@object-ui/react';
 import type { RecordPathComponentProps } from '@object-ui/types';
 import { cn } from '@object-ui/components';
 import { useDetailTranslation } from '../useDetailTranslation';
+import { useRecordAriaProps } from './recordComponentAria';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -80,6 +81,33 @@ export const RecordPathRenderer: React.FC<RecordPathRendererProps> = ({
   const { translateOptions } = useSafeFieldLabel();
   const { t } = useDetailTranslation();
   const { designer } = splitDesigner(props);
+  /**
+   * The two rails' ARIA, through the family's ONE read point (objectui#9556).
+   *
+   * This site used to read `(schema.aria as any)?.label` and nothing else — the
+   * ONE spelling the shared ARIA shape refuses, while `RecordPathProps.aria`
+   * itself parses green. So a spec-valid `aria: { ariaLabel: 'Deal stages' }`
+   * was accepted at publish and discarded here, and the spelling that did win
+   * is one no author can write without the contract rejecting the document:
+   * the same dead-read-point pair objectui#4663 repaired on
+   * `record:quick_actions`, still open on this block. The cast is what hid it —
+   * `schema.aria` is declared, `.label` is not, and `as any` silenced the
+   * member check that would have said so.
+   *
+   * `defaultRole: 'list'` is the role both rails already carry, so the stages'
+   * `listitem` children keep their owner; an author's `aria.role` overrides it,
+   * which is the precedence `ListView` ships. `defaultLabel` is the localized
+   * pack entry this block has fallen back to since objectui#5956.
+   */
+  const railAria = useRecordAriaProps(schema.aria, {
+    defaultRole: 'list',
+    defaultLabel: t('detail.pathLabel'),
+    // ⛔ One of only TWO callers that opt in: this block read `aria.label` and
+    // nothing else before objectui#9556, so a stored document can carry it
+    // here. The five container blocks do NOT pass this — giving a
+    // contract-refused spelling new readers is the defect, not the fix.
+    legacyLabelFold: true,
+  });
 
   const rawStages: Array<{ value: any; label: string; terminal?: 'won' | 'lost' }> = Array.isArray(schema.stages)
     ? (schema.stages as any)
@@ -283,8 +311,7 @@ export const RecordPathRenderer: React.FC<RecordPathRendererProps> = ({
       {/* Desktop: forward rail → optional lost-alt group */}
       <div
         className="hidden sm:flex w-full items-start gap-2"
-        role="list"
-        aria-label={(schema.aria as any)?.label || t('detail.pathLabel')}
+        {...railAria}
       >
         <div className="flex flex-1 items-start gap-1.5">
           {forwardStages.map((stage, idx) => {
@@ -349,8 +376,7 @@ export const RecordPathRenderer: React.FC<RecordPathRendererProps> = ({
       {/* Mobile: horizontally scrollable rail row — same treatment, no chips */}
       <div
         className="flex sm:hidden w-full items-start gap-2 overflow-x-auto pb-1 -mx-1 px-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        role="list"
-        aria-label={(schema.aria as any)?.label || t('detail.pathLabel')}
+        {...railAria}
       >
         {stages.map((stage, idx) => {
           const terminal = stageTerminals[idx];

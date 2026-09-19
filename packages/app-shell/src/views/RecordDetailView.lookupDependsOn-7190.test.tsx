@@ -12,19 +12,22 @@
  * ## Why this file mounts the whole record page and not the widget
  *
  * `@object-ui/fields`' `LookupField` resolves the record it gates on as
- * `dependentValues ?? ctx.formValues ?? ctx.data ?? {}`, and
- * `plugin-detail`'s `InlineFieldInput` supplies none of the three — it renders
- * `LookupField` directly with `field` / `value` / `onChange` / `dataSource` /
- * `error` and nothing else. #7190 filed that as a supply-side census and
- * deliberately graded it a `finding`, NOT a bug, on an explicit boundary: a
- * detail page renders ONE record, which is exactly the "record scope" `ctx.data`
- * exists to carry, so a host that populates `ctx.data` would make the cascade
- * resolve and there would be no defect at all. That was never measured.
+ * `dependentValues ?? {}`, and `plugin-detail`'s `InlineFieldInput` does not
+ * supply that prop — it renders `LookupField` directly with `field` / `value` /
+ * `onChange` / `dataSource` / `error` and nothing else. #7190 filed that as a
+ * supply-side census and deliberately graded it a `finding`, NOT a bug, on an
+ * explicit boundary: the resolution then ended `?? ctx.formValues ?? ctx.data`,
+ * and a detail page renders ONE record, so IF a host could populate that
+ * "record scope" the cascade would resolve and there would be no defect at all.
+ * That was never measured, and it was never possible — those members are not
+ * declared on `SchemaRendererContextType`, and objectui#7206 has since retired
+ * the reads. `dependentValues` is the only channel, which is what makes #7190 a
+ * real supply-side defect rather than a boundary question.
  *
- * ⚠️ It cannot be measured by mounting `InlineFieldInput` bare. A bare mount has
- * no provider setting `ctx.data`, so it reports a gated trigger TRIVIALLY and
- * ALWAYS — an answer about the harness, not about the product, and the single
- * most likely way to reach a confident false "bug" verdict here. So this file
+ * ⚠️ It still cannot be measured by mounting `InlineFieldInput` bare: a bare
+ * mount reports a gated trigger TRIVIALLY and ALWAYS — an answer about the
+ * harness, not about the product, and the single most likely way to reach a
+ * confident false "bug" verdict here. So this file
  * mounts `RecordDetailView`, the app-shell record page, which is the host the
  * detail page actually runs in, and drives it the way a user does: the record
  * loads, a field is double-clicked to enter inline edit (#2401), and the

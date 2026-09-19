@@ -25,6 +25,7 @@ import { humanizeLabel } from '@object-ui/fields';
 import { columnIdentity, elementDataSourceBlock } from '@object-ui/core';
 import type { RecordRelatedListComponentProps } from '@object-ui/types';
 import { RelatedList } from '../RelatedList';
+import { useRecordAriaProps } from './recordComponentAria';
 
 /**
  * Normalize a column entry (string | {field} | {name} | {key}) to its name.
@@ -88,6 +89,18 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
 }) => {
   const ctx = useRecordContext();
   const { designer } = splitDesigner(props);
+  /**
+   * The block's authored `aria` bag, honoured through the family's ONE read
+   * point (objectui#9556). Called here, with the other hooks, because every
+   * renderer below it has early returns.
+   *
+   * ⛔ No `defaultRole`: with nothing authored this container stays the bare
+   * `div` it has always been, so a page that never wrote `aria` renders
+   * byte-identical DOM. An author who does write one gets a `region` to carry
+   * it — see `recordComponentAria.ts` for why the attribute alone would reach
+   * nobody.
+   */
+  const ariaProps = useRecordAriaProps(schema.aria);
   const i18n = useSafeFieldLabel();
   const { language } = useObjectTranslation();
 
@@ -122,7 +135,17 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   // the pre-filled create form, so all three stay consistent. While the parent
   // record is still loading a non-id value resolves to null, which RelatedList
   // treats as "don't fetch yet".
-  const relationshipValueField: string = (schema as any).relationshipValueField || 'id';
+  //
+  // Read UN-CAST (objectui#9475). The mirror declares the key
+  // (`RecordRelatedListComponentProps.relationshipValueField`, aligned to the
+  // contract by objectui#9469/#8649), and a cast here unwrapped that
+  // declaration at the one site it was added for: the read carried `any`, so
+  // the annotation bought nothing HERE — the same declaration-defeated-by-a-cast
+  // shape that card's contract review recorded as D1 on `record-reference-rail.tsx`.
+  // What the un-cast read carries, and what it still does NOT refuse, is
+  // re-derived every run by `record-related-list.relationshipValueFieldUncast-9475.test.tsx`
+  // rather than written down here (AGENTS.md #9).
+  const relationshipValueField: string = schema.relationshipValueField || 'id';
   const parentLinkValue: string | number | null =
     relationshipValueField === 'id'
       ? ((ctx?.recordId ?? null) as string | number | null)
@@ -234,7 +257,7 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   }
 
   return (
-    <div className={className} {...designer}>
+    <div className={className} {...designer} {...ariaProps}>
       <RelatedList
         title={title}
         type="table"

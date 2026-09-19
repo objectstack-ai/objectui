@@ -24,14 +24,23 @@
  *
  * ⛔ What a declaration can never publish:
  *
- *   - **`view` is not a route — it is the second ARGUMENT `onNavigate`
- *     receives**, and the literal `'view'` is what stands in when the member is
- *     absent. The two are one character apart in the source and mean entirely
- *     different things.
- *   - **`openNewTab` OUTRANKS `mode` and DISCARDS `view` while doing it.** An
- *     authored `{ mode: 'page', view: 'summary', openNewTab: true }` dispatches
- *     `'new_window'`, not `'summary'`: the member the author wrote to choose a
- *     destination is dropped by the member they wrote to choose a window.
+ *   - **`view` was not a route — it landed in the second ARGUMENT `onNavigate`
+ *     receives**, which carries the navigation MODE token, and the literal
+ *     `'view'` is what stands there. The two are one character apart in the
+ *     source and mean entirely different things. ⭐ **objectui#9874 REVERSED
+ *     the row that pinned this**: `@objectstack/spec` 17.5.0 retired
+ *     `view.list.navigation.view` under ADR-0049 precisely because an authored
+ *     name SUBSTITUTED for the mode and matched no branch, so the member no
+ *     longer reaches `onNavigate` at all and every config dispatches `'view'`.
+ *     The row below is kept, inverted, rather than deleted: the authored member
+ *     is the input the two implementations disagree about, so it is the only
+ *     input that can witness the change.
+ *   - **`openNewTab` OUTRANKS `mode`.** An authored
+ *     `{ mode: 'page', openNewTab: true }` dispatches `'new_window'`. Before
+ *     objectui#9874 this row also read as "and DISCARDS `view` while doing it",
+ *     because a sibling `view: 'summary'` was dropped here while riding through
+ *     the `page` branch; now nothing rides through either branch and the
+ *     precedence is the whole of what this row pins.
  *   - **`preventNavigation` OUTRANKS every mode, including the overlay ones.**
  *     `{ mode: 'drawer', preventNavigation: true }` draws no drawer and throws
  *     nothing — a grid that looks clickable and is not.
@@ -146,18 +155,27 @@ describe('object-grid `navigation` members decide the row click (objectui#8071)'
     expect(onNavigate).toHaveBeenCalledWith('7', 'view');
   });
 
-  it('`mode` defaults to `page`, and `view` is the action it dispatches', async () => {
+  it('`mode` defaults to `page`, and a RETIRED `view` member does not become the action (objectui#9874)', async () => {
     // No `mode` member at all — legal authored metadata, because the spec
-    // defaults it. `view` rides through as the second argument.
+    // defaults it. This row used to assert `('7', 'summary_view')` under the
+    // comment "`view` rides through as the second argument"; it did, into the
+    // slot that carries the navigation MODE token, where a host reading it
+    // against `edit`/`view` matched no branch and the row click went quiet.
+    // `@objectstack/spec` 17.5.0 retired the key for that (ADR-0049), so the
+    // authored name is now inert here and the dispatched action is the literal.
     const { onNavigate } = await clickRow({ view: 'summary_view' });
     await waitFor(() => expect(onNavigate).toHaveBeenCalledTimes(1));
-    expect(onNavigate).toHaveBeenCalledWith('7', 'summary_view');
+    expect(onNavigate).toHaveBeenCalledWith('7', 'view');
+    expect(onNavigate).not.toHaveBeenCalledWith('7', 'summary_view');
   });
 
-  it('an omitted `view` falls back to the literal `view`, not to undefined', async () => {
-    // The pair for the row above: same mode, member removed. A renderer passing
-    // `navigation.view` straight through would send `undefined` here and the
-    // host would open its default form — which looks identical until it is not.
+  it('an omitted `view` dispatches the literal `view`, not undefined', async () => {
+    // The pair for the row above: same mode, member removed. Since objectui#9874
+    // the two rows agree by construction — which is the POINT of the retirement
+    // and not a reason to drop either. ⛔ Keeping both is what makes "the member
+    // is inert" a measurement rather than an assertion about one input: a
+    // renderer that resumed forwarding the member would turn the row above red
+    // and leave this one green.
     const { onNavigate } = await clickRow({ mode: 'page' });
     await waitFor(() => expect(onNavigate).toHaveBeenCalledTimes(1));
     expect(onNavigate).toHaveBeenCalledWith('7', 'view');
@@ -186,10 +204,11 @@ describe('object-grid `navigation` members decide the row click (objectui#8071)'
     await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
   });
 
-  it('`openNewTab` OUTRANKS `mode: "page"` and DISCARDS `view`', async () => {
-    // The author wrote a destination and a window preference. Only the window
-    // preference survives: the dispatched action is `new_window`, and
-    // `summary_view` is nowhere in the call.
+  it('`openNewTab` OUTRANKS `mode: "page"`, with a retired `view` still inert', async () => {
+    // The window preference decides: the dispatched action is `new_window`, and
+    // `summary_view` is nowhere in the call. Before objectui#9874 this row was
+    // the ONLY place the authored member was dropped; it is now dropped on
+    // every path, and the row survives as the precedence pin it also always was.
     const { onNavigate } = await clickRow({
       mode: 'page',
       view: 'summary_view',

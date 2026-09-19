@@ -328,6 +328,43 @@ export function countOccurrences(haystack, needle) {
 }
 
 /**
+ * How many LINES a declared divergence snippet is. `split('\n').length` is NOT
+ * that, and the difference is exactly one line on every snippet that ends in a
+ * newline: the split yields a trailing empty element that is the TERMINATOR of
+ * the last line, not a line of its own, so the array reads one longer than
+ * `wc -l` says the snippet is. `--list` printed that array length as
+ * `(N line(s))`, so a one-line snippet read as two -- a 100% relative error on
+ * the shortest entries, which are also the commonest kind of adaptation
+ * (objectui#9922). ⛔ How many of the pinned snippets are terminated is NOT
+ * written down here: `--list` re-derives it on every run, and this gate's
+ * self-test pins the RELATION rather than any count.
+ *
+ * ⚠️ The repair is a single trailing-terminator pop and ⛔ never a blanket
+ * `length - 1`: a snippet that does NOT end in a newline has no such element,
+ * and its real last line is the one a blanket subtraction would delete. The
+ * pinned population cannot supply that case today, which is exactly why the
+ * self-test carries it as a fixture -- the shape a later rewrite would get
+ * wrong is the shape no tree-derived assertion can see.
+ *
+ * Exactly one element is popped, which is also right for a snippet ending in a
+ * blank line: `"a\n\n"` has a genuinely empty last line PLUS the terminator,
+ * and only the terminator goes.
+ *
+ * ⚠️ Deliberately not imported from `fileLines` in
+ * `scripts/cross-file-line-citation-census.mjs`, which is the same repair over a
+ * different population (tracked files, not declared snippets). That instrument
+ * is report-only by design and this one is a blocking lint gate, so importing it
+ * would give this gate a red it cannot be responsible for. The REASONING is
+ * stated in both places on purpose; what may never be copied between them is an
+ * answer, and neither writes one down.
+ */
+export function snippetLineCount(text) {
+  const parts = text.split('\n');
+  if (parts[parts.length - 1] === '') parts.pop();
+  return parts.length;
+}
+
+/**
  * The verdict for one pinned file, computed from text alone so the self-test
  * drives the real logic over fixtures rather than over the tree.
  *
@@ -526,7 +563,7 @@ function list(root = ROOT) {
     console.log(`  pinned upstream digest: ${entry.upstreamSha256}`);
     console.log(`  declared divergences  : ${entry.divergences.length}`);
     for (const d of entry.divergences) {
-      const lines = d.ported.split('\n').length;
+      const lines = snippetLineCount(d.ported);
       console.log(
         `    - ${d.id} (${lines} line(s), ${countOccurrencesSafe(portedText, d.ported)} match(es) in the ported copy)`,
       );
@@ -805,6 +842,28 @@ function selfTest() {
     t(`malformed pin refused: ${name}`, validatePin(pin).length > 0);
   }
 
+  // ── row 7: the SIZE `--list` publishes for a declared snippet ──────────────
+  // `--list` reports each divergence as `(N line(s))`, and N was the length of
+  // `split('\n')` -- one too many for every snippet that ends in a newline,
+  // because the trailing empty element is that line's TERMINATOR (objectui#9922).
+  // Driven through `snippetLineCount`, the function `list()` itself calls, so a
+  // green row means the printer has the property rather than that a restatement
+  // of it does. Every row below is RED against `split('\n').length`.
+  t('a one-line terminated snippet is ONE line, not two', snippetLineCount('const A = 1;\n') === 1);
+  t('…and a two-line one is two', snippetLineCount('function f() {\n  if (OFF) return 0;\n') === 2);
+  t('…matching `wc -l`, which counts terminators and not the text after the last one',
+    snippetLineCount(UP) === (UP.match(/\n/g) ?? []).length);
+  // The direction a blanket `length - 1` gets wrong, and the reason the repair
+  // is a single pop. ⛔ No pinned snippet can supply this case -- a fixture is
+  // the only thing that can hold the line a subtraction would delete.
+  t('an UNTERMINATED snippet keeps its real last line', snippetLineCount('const A = 1;') === 1);
+  t('…and an unterminated multi-line one keeps it too', snippetLineCount('a\nb') === 2);
+  // Exactly one element goes: a snippet whose last line is genuinely blank has
+  // that blank line AND a terminator, and only the terminator is the phantom.
+  t('a snippet ending in a BLANK line keeps that blank line', snippetLineCount('a\n\n') === 2);
+  t('a bare terminator is one (empty) line', snippetLineCount('\n') === 1);
+  t('an empty snippet is zero lines', snippetLineCount('') === 0);
+
   // ── the shipped pin, and the tree it pins ─────────────────────────────────
   // Fixtures cannot show that the REAL pin parses, and a pin that does not
   // parse is the one state in which this gate has nothing to say.
@@ -836,7 +895,7 @@ function selfTest() {
       'an ambiguous anchor is refused rather than applied, the pin-bump procedure round-trips (and a vanished ' +
       'anchor fails it loudly), a re-sync writes ONLY the re-synced entry\'s ref and digest and leaves every ' +
       'other entry byte-identical, `--resync` refuses to rewrite governed surface unless the named flag is passed ' +
-      'while the CHECK path stays ungated, and every malformed-pin shape is refused instead of read as clean.',
+      'while the CHECK path stays ungated, every malformed-pin shape is refused instead of read as clean, and the size `--list` publishes for a snippet counts its lines rather than its terminators.',
   );
   return 0;
 }

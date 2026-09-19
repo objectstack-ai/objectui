@@ -52,6 +52,7 @@
   "check:esm-specifiers": "node scripts/check-node-esm-load.mjs --specifiers-only",
   "check:node-esm-load": "node scripts/check-node-esm-load.mjs",
     "census:body-dialect": "node scripts/body-dialect-census.mjs",
+    "census:body-dialect-producers": "node scripts/body-dialect-producer-scan.mjs",
     "census:tsconfig-test-parity": "node scripts/tsconfig-test-parity-census.mjs",
     "census:cross-file-line-citations": "node scripts/cross-file-line-citation-census.mjs",
     "census:page-key-reads": "node scripts/page-key-read-census.mjs",

@@ -25,6 +25,14 @@
  * makes a missing `mode` mean something other than `'page'`, this suite goes
  * red and the parity file stays green — which is exactly the split of duties
  * the two files are for.
+ *
+ * ⚠️ objectui#9874 rewrote one row here and added one. `AS_ALIAS` authors
+ * `view: 'summary_view'`, which used to ride through into `onNavigate`'s
+ * navigation-MODE argument; `@objectstack/spec` 17.5.0 retired that key under
+ * ADR-0049 and the read is gone, so the row now pins that the authored name
+ * does NOT reach the mode slot. ⛔ The fixture keeps its `view` member on
+ * purpose — it is the one input the old and new implementations disagree
+ * about, and it is also still what objectui#4550 reported the alias rejecting.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -96,7 +104,7 @@ describe('useNavigationOverlay: a config without `mode` defaults to `page` (obje
     expect(result.current.isOpen).toBe(false);
   });
 
-  it('routes a click through the `page` branch, carrying the declared view', () => {
+  it('routes a click through the `page` branch WITHOUT the authored `view` reaching the mode slot (objectui#9874)', () => {
     const onNavigate = vi.fn();
     const { result } = renderHook(() =>
       useNavigationOverlay({ navigation: AS_ALIAS, objectName: 'contacts', onNavigate }),
@@ -106,9 +114,33 @@ describe('useNavigationOverlay: a config without `mode` defaults to `page` (obje
       result.current.handleClick(RECORD);
     });
 
-    // `view ?? 'view'` — the authored `view` survives the default-mode path.
-    expect(onNavigate).toHaveBeenCalledWith('r1', 'summary_view');
+    // ⭐ THE DISAGREEMENT ROW. `AS_ALIAS` authors `view: 'summary_view'`, and
+    // this line used to read `toHaveBeenCalledWith('r1', 'summary_view')` under
+    // the comment "`view ?? 'view'` — the authored `view` survives the
+    // default-mode path". It did survive, into the wrong slot: the second
+    // argument is the navigation MODE token, so the authored name SUBSTITUTED
+    // for the mode and matched no branch in a host reading it against
+    // `edit`/`view` — the silence `@objectstack/spec` 17.5.0 retired the key to
+    // end (ADR-0049). The old implementation and this one disagree on exactly
+    // this input, which is why the fixture keeps its `view` member.
+    expect(onNavigate).toHaveBeenCalledWith('r1', 'view');
+    expect(onNavigate).not.toHaveBeenCalledWith('r1', 'summary_view');
     expect(result.current.isOpen).toBe(false);
+  });
+
+  it('publishes no `view` member on its state — the key it mirrored is retired (objectui#9874)', () => {
+    const { result } = renderHook(() =>
+      useNavigationOverlay({ navigation: AS_ALIAS, objectName: 'contacts' }),
+    );
+
+    // Asserted on the KEY, not on the value: `toBeUndefined()` passes just as
+    // happily against a member that is present and empty, which is the state
+    // this card removed. The lit control is the sibling members in the same
+    // expectation — without them an empty `state` object would pass row one.
+    expect(Object.keys(result.current)).not.toContain('view');
+    expect(Object.keys(result.current)).toEqual(
+      expect.arrayContaining(['mode', 'isOverlay', 'width', 'handleClick']),
+    );
   });
 
   it('falls back to the `view` action when the config declares neither key', () => {

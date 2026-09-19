@@ -44,6 +44,14 @@
  * Ablating the read — restoring `label: unknownValueLabel(current)`
  * unconditionally, i.e. the pre-fix source — turns the pending-arm rows red and
  * leaves the answered-arm rows green. Run recorded on the PR.
+ *
+ * ## ⚠️ Spelling migrated by objectui#9651
+ *
+ * These cases used to hand the primitive a bare `loading` boolean. objectui#9651
+ * replaced that prop with one `roster` state, because a second boolean for the
+ * FAILURE arm would have put four facts into three flags. The frames asserted
+ * below are unchanged — `roster={{ status: 'loading' }}` is the same fact this
+ * suite always pinned, said in the spelling that can also say "it failed".
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -73,7 +81,7 @@ describe('InspectorSelectField — a roster that has not answered yet (objectui#
         label="Group"
         value="profile"
         options={[]}
-        loading
+        roster={{ status: 'loading' }}
         onCommit={vi.fn()}
       />,
     );
@@ -94,7 +102,7 @@ describe('InspectorSelectField — a roster that has not answered yet (objectui#
         label="Group"
         value="profile"
         options={[]}
-        loading
+        roster={{ status: 'loading' }}
         placeholder="Pick one"
         onCommit={vi.fn()}
       />,
@@ -141,7 +149,7 @@ describe('InspectorSelectField — a roster that has not answered yet (objectui#
         label="Group"
         value="retired_group"
         options={[]}
-        loading
+        roster={{ status: 'loading' }}
         onCommit={vi.fn()}
       />,
     );
@@ -165,7 +173,7 @@ describe('InspectorSelectField — a roster that has not answered yet (objectui#
     // showed `name (not in object)` and then flipped to the field's own label.
     // After the fix the first frame already makes no false claim.
     const { rerender } = render(
-      <InspectorSelectField label="Group" value="profile" options={[]} loading onCommit={vi.fn()} />,
+      <InspectorSelectField label="Group" value="profile" options={[]} roster={{ status: 'loading' }} onCommit={vi.fn()} />,
     );
     expect(trigger().textContent).toBe('profile');
 
@@ -184,7 +192,7 @@ describe('InspectorSelectField — a roster that has not answered yet (objectui#
         label="Group"
         value="meta"
         options={OPTIONS}
-        loading
+        roster={{ status: 'loading' }}
         onCommit={vi.fn()}
       />,
     );
@@ -200,7 +208,7 @@ describe('InspectorSelectField — a roster that has not answered yet (objectui#
         label="Group"
         value=""
         options={[]}
-        loading
+        roster={{ status: 'loading' }}
         placeholder="Pick one"
         onCommit={vi.fn()}
       />,
@@ -217,7 +225,7 @@ describe('InspectorSelectField — a roster that has not answered yet (objectui#
         label="Group"
         value="sms"
         options={[]}
-        loading
+        roster={{ status: 'loading' }}
         unknownValueLabel={(v) => `${v} (deprecated)`}
         onCommit={vi.fn()}
       />,

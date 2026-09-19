@@ -284,6 +284,10 @@ const ja = {
       refusedResidue:
         "保存されていません: {{name}}「{{text}}」と{{otherName}}「{{otherText}}」は数値ではありません。通常の小数で入力してください（例: 30.2741, 120.1551）。",
     },
+    number: {
+      badInput:
+        "保存されていません: このボックスのテキストは数値ではありません。通常の小数で入力してください（例: {{example}}）。",
+    },
     tags: {
       placeholder: "入力してEnterキーで追加…",
     },

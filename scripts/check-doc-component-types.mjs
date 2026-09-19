@@ -253,12 +253,21 @@
  * Both halves of the row are judged, and judging the namespaced half is the point
  * objectui#5106 was filed for: this gate never judged a namespace at all. It
  * compared bare keys against a universe that happens to contain namespaced keys
- * too, so `view:dashboard` documented as `plugin-dashboard:dashboard` produced no
- * signal from any static check — the bare `dashboard` matched and the row passed.
- * Flip `namespace: 'view'` to `'dash'` in `plugin-dashboard/src/index.tsx` and
- * `deriveRegistryKeys` follows it live to `dash:dashboard`, while every doc that
- * teaches `view:dashboard` stays green. That is the hole; the namespaced cell
- * closes it.
+ * too, so the dashboard's namespaced spelling documented as any OTHER namespace
+ * over the same bare name produced no signal from any static check — the bare
+ * `dashboard` matched and the row passed. Flip `namespace: 'plugin-dashboard'`
+ * to `'dash'` on the dashboard registration in `plugin-dashboard/src/index.tsx`
+ * and `deriveRegistryKeys` follows it live to `dash:dashboard`, while every doc
+ * that teaches the old spelling stays green. That is the hole; the namespaced
+ * cell closes it.
+ *
+ * ⚠️ This paragraph used to run the same example over the literal pair
+ * `view:dashboard` / `plugin-dashboard:dashboard`, which was a live reading when
+ * it was written and is not one now: objectui#9533 converged that bare key onto
+ * `plugin-dashboard` and retired `view:dashboard`, so a reader following the old
+ * wording would look for a `namespace: 'view'` on that registration and not find
+ * it. Re-pointed with the example kept, because the example is the mechanism and
+ * the spelling was only ever an illustration of it.
  *
  * What is deliberately NOT checked, and why: when the fallback cell reads
  * "none — `skipFallback: true`", this gate does not assert that the bare name is
@@ -590,6 +599,40 @@ export const INDIRECT_REGISTRATIONS = [
       'RETIRED_FIELD_TYPES is IMPORTED into this file from `@object-ui/core`, so nothing here could ' +
       'read it anyway. What re-checks this entry is the registration call itself: delete the tombstone ' +
       'loop and this entry reports `stale-indirect-registration`.',
+  },
+  {
+    site: 'packages/plugin-dashboard/src/index.tsx',
+    collection: 'RETIRED_DASHBOARD_NODE_TYPES',
+    kind: 'object-keys',
+    namespace: 'view',
+    excluded:
+      'WITHHELD, the same disposition and the same open question as the RETIRED_FIELD_TYPES entry ' +
+      'above (objectui#9717): does a RETIRED TOMBSTONE SPELLING belong in a universe whose job is ' +
+      '"does this string name a component that exists"? Held the same way here so the two answers ' +
+      'cannot drift apart. ⭐ For this collection the exclusion also carries the point of the ' +
+      'retirement: objectui#8760 graded a key that passes every authoring check and fails only in ' +
+      "front of a user as the WRONG side of the line, so a spelling this package has retired must be " +
+      'named by `objectui check` rather than blessed by the generated whitelist. ⚠️ DROPPING this ' +
+      '`excluded` line does NOT re-admit `view:dashboard` — measured on this tree it makes THIS entry ' +
+      'report `stale-indirect-registration`, and `check:doc-types` and ' +
+      '`regenerate-known-schema-types.mjs --check` both exit non-zero and write nothing. Without the ' +
+      'exclusion the derivation has to read the collection literal in the site file, and ' +
+      'RETIRED_DASHBOARD_NODE_TYPES is IMPORTED there from `./retired-node-types` (the `reason` below ' +
+      'says so for its own purposes), so it resolves to no literal keys at all: the universe does not ' +
+      'regain the spelling, `KNOWN_SCHEMA_TYPES` is not rewritten, and a document teaching ' +
+      '`view:dashboard` stays RED — it just stays red for a DIFFERENT reason, with the gate now ' +
+      'refusing the whole entry. ⇒ admitting the spelling is NOT a one-line change here; the keys ' +
+      'would first have to be readable from this file. Re-derive both halves by deleting the line and ' +
+      'running those two commands.',
+    reason:
+      '`packages/plugin-dashboard` registers every key of RETIRED_DASHBOARD_NODE_TYPES last, under the ' +
+      '`view` namespace with `skipFallback: true` — a tombstone widget that renders a visible refusal ' +
+      'naming the migration to `plugin-dashboard:dashboard` (objectui#9533, director summon #24 / ' +
+      'batch #152 item 5, letter 1). ⚠️ Two things this entry is deliberately NOT: it does not name ' +
+      'the keys, and it does not read the collection literal — RETIRED_DASHBOARD_NODE_TYPES is ' +
+      'IMPORTED into the site file from `./retired-node-types`, so nothing here could read it anyway. ' +
+      'What re-checks this entry is the registration call itself: delete the tombstone loop and this ' +
+      'entry reports `stale-indirect-registration`.',
   },
 ];
 

@@ -25,6 +25,7 @@ import {
 } from '@object-ui/core';
 import { DetailView } from '../DetailView';
 import { deriveFieldGroupDetailSections } from '../synth/buildDefaultPageSchema';
+import { useRecordAriaProps } from './recordComponentAria';
 
 /** Normalize a field entry (string | {field} | {name}) to its machine name. */
 const fieldName = (entry: any): string | null => columnIdentity(entry) ?? null;
@@ -148,6 +149,18 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // Keep all hooks here; move all conditional returns below them.
   const ctx = useRecordContext();
   const { designer } = splitDesigner(props);
+  /**
+   * The block's authored `aria` bag, honoured through the family's ONE read
+   * point (objectui#9556). Called here, with the other hooks, because every
+   * renderer below it has early returns.
+   *
+   * ⛔ No `defaultRole`: with nothing authored this container stays the bare
+   * `div` it has always been, so a page that never wrote `aria` renders
+   * byte-identical DOM. An author who does write one gets a `region` to carry
+   * it — see `recordComponentAria.ts` for why the attribute alone would reach
+   * nobody.
+   */
+  const ariaProps = useRecordAriaProps(schema.aria);
 
   const objectName = ctx?.objectName || '';
   const perms = usePermissions();
@@ -712,7 +725,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // consumes that shared context; `inlineEdit` gates the affordance to this
   // object's lifecycle/permission.
   return (
-    <div className={className} {...designer}>
+    <div className={className} {...designer} {...ariaProps}>
       <DetailView
         schema={synthesized}
         dataSource={ctx.dataSource}

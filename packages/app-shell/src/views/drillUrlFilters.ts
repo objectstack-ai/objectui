@@ -16,65 +16,136 @@
  * Contract:
  *   - equality      `filter[field]=value`              → `[field, '=', value]`
  *   - range / cmp   `filter[field][gte|lte|gt|lt]=v`   → `[field, '>=' | … , v]`
- *   - is-null FLAG  `filter[field][null]=true`         → `[field, 'is_null', true]`
+ *   - emptiness     `filter[field][null]=true|false`   → `[field, 'is_null', true]`
+ *                                                     / `[field, 'is_not_null', true]`
  * A date-bucket drill emits `gte` + `lt` to scope a list to a time bucket; an
- * EMPTY-bucket drill emits the is-null flag (objectui#9159).
+ * EMPTY-bucket drill emits `[null]=true` (objectui#9159), and a widget filter
+ * asking for "this field is set" emits `[null]=false` (objectui#9508).
  */
 
 /** Filter triple shape shared with view metadata: [field, operator, value]. */
 export type FilterTriple = [string, string, unknown];
 
-/** URL range/comparison operator suffix → ObjectQL operator (READ side). */
-export const URL_FILTER_OPS: Record<string, string> = { gte: '>=', lte: '<=', gt: '>', lt: '<' };
+/**
+ * URL range/comparison operator suffix → ObjectQL operator (READ side).
+ *
+ * ## No prototype, because the URL chooses the key (objectui#9507)
+ *
+ * `parseUrlFilterTriples` decides "is this suffix an operator" by looking the
+ * suffix up here and testing the result for truthiness — and the suffix comes
+ * from the address bar. While this was a plain object literal that question was
+ * also answered by `Object.prototype`: `filter[amount][constructor]` resolved to
+ * `Object.prototype.constructor`, passed the guard, and emitted a triple whose
+ * OPERATOR WAS A JS FUNCTION — neither ignored nor downgraded, the two outcomes
+ * `parseUrlFilterTriples` promises are the only ones. `__proto__` was the same
+ * defect in a second shape: its inherited accessor yielded `Object.prototype`
+ * itself, so that suffix produced an operator that was an OBJECT.
+ *
+ * ⛔ The repair is deliberately NOT a list of member names to refuse. A denylist
+ * is a spelling-level patch that the next member of `Object.prototype` walks
+ * straight past, and it would have to be kept in step with a prototype this
+ * module does not own. Removing the prototype removes the construction that
+ * permitted the answer at all, so an own entry is the only thing a lookup here
+ * can ever find. The sweep in `drillUrlFilters.test.ts` enumerates
+ * `Object.prototype` at run time rather than naming members, for the same
+ * reason.
+ *
+ * ⚠️ The exported face is unchanged and must stay unchanged: same name, same
+ * four entries, same `Record<string, string>` type, same behaviour under
+ * spread, `Object.entries` and `Object.keys` — `ObjectDataPage` inverts this
+ * map to bridge a triple's operator to the spec's alias spelling, and
+ * `drillEmptyBucketNavHost-9085.test.ts` pins its key list. ⛔ Do not "simplify"
+ * it back to an object literal.
+ */
+export const URL_FILTER_OPS: Record<string, string> = Object.assign(Object.create(null), {
+  gte: '>=',
+  lte: '<=',
+  gt: '>',
+  lt: '<',
+});
 
 /** ObjectQL range operator key → URL param suffix (WRITE side). Inverse of the
  *  relevant `URL_FILTER_OPS` entries. */
 export const RANGE_OP_PARAM: Record<string, string> = { $gte: 'gte', $lte: 'lte', $gt: 'gt', $lt: 'lt' };
 
 /**
- * The is-null operator (objectui#9159), in the ONE place both sides read it
- * from, so the write and read halves cannot drift apart on its spelling.
+ * The EMPTINESS operator pair (objectui#9159, completed by objectui#9508), in
+ * the ONE place both sides read it from, so the write and read halves cannot
+ * drift apart on its spelling.
  *
- * ## Its URL value is a FLAG, not a comparand — and that is the whole design
+ * ## One param, whose VALUE is the direction — not a comparand
  *
- * Every other member of this vocabulary carries a value the user is filtering
- * BY. This one carries no value at all: the condition is "this dimension is
- * empty". So the param exists to be present, and `true` is the only spelling
- * that means it. Two consequences, both deliberate and both pinned:
+ * Every range and equality member of this vocabulary carries a value the user
+ * is filtering BY. This one carries none: the condition is "this dimension is
+ * empty" or "this dimension is set", and the param's boolean says WHICH. Three
+ * consequences, all deliberate and all pinned:
  *
- *   - `filter[field][null]=false` is NOT a second operator. This dialect cannot
- *     WRITE "is not null" (nothing here emits it, and inventing a read-side-only
- *     operator would be a second contract with no producer), so the read side
- *     drops that param exactly as it drops an unknown suffix — never downgraded
- *     to `is_null false`, never to an equality against the string `"false"`.
+ *   - `filter[field][null]=false` IS the is-not-null operator (objectui#9508).
+ *     objectui#9159 ruled it deliberately not an operator, on a premise it
+ *     stated outright — this dialect could not WRITE "is not null", so a
+ *     read-side-only operator would have been a second contract with no
+ *     producer. objectui#9508 supplies that producer in the write arm below, in
+ *     the same commit, so the premise is DISCHARGED rather than overridden and
+ *     the read side is never alone with an operator nothing emits.
+ *   - anything else in that slot is still dropped like an unknown suffix —
+ *     never downgraded to `is_null false`, never to an equality against the
+ *     string the param happens to hold.
  *   - equality-to-empty-string is not a substitute: `parseUrlFilterTriples`
  *     skips a param whose value is `''`, so `filter[owner]=` round-trips to no
- *     condition at all. The flag's value is a non-empty literal for that reason.
+ *     condition at all. Both spellings are non-empty literals for that reason.
+ *
+ * ## Why TWO producer keys are read, not one
+ *
+ * `convertFiltersToAST` lowers four producer spellings onto these two
+ * operators: `$null` carries the direction verbatim and `$exists` carries its
+ * inverse. Both are read here, because the two drill routes deliver different
+ * ones — measured, not assumed:
+ *
+ *   - a COMPOSED drill filter only ever arrives spelled `$null`.
+ *     `composeDrillFilter` lowers through the spec's `parseFilterAST`, which
+ *     canonicalises `is_not_null` back to `{ $null: false }`, so an authored
+ *     `$exists` is already gone by the time it reaches this function.
+ *   - an UNCOMPOSED one arrives spelled however the author wrote it. A widget
+ *     that hands its own resolved filter straight to the escape hatch
+ *     (`ObjectMetricWidget`, whose drawer renders `OpenInListButton`) passes
+ *     through no canonicaliser at all, so `$exists` reaches this function
+ *     verbatim — and the dataset filter inspector's "is not empty" row writes
+ *     exactly that pair.
+ *
+ * ⚠️ A NON-boolean under either key says nothing about emptiness and writes
+ * nothing, which is what it did before this pair existed.
+ *
+ * ⚠️ When both keys are present and DISAGREE, one param key cannot carry two
+ * directions. `$null` wins, deterministically and pinned, and the drill
+ * degrades to a superset — the same posture this module already takes for two
+ * conditions on one field and operator. It is a superset whichever way it goes:
+ * such an object asks for `is_null` AND `is_not_null`, which selects no rows at
+ * all, and no single param is narrower than that.
  *
  * ⚠️ `param` is deliberately NOT an entry in {@link URL_FILTER_OPS}. That map is
  * the RANGE vocabulary, and `ObjectDataPage` inverts it to bridge a triple's
- * operator to the spec's own alias spelling. `op` here is already a canonical
- * `ViewFilterRule` operator word, so bridging it would map it to the alias
- * `'null'`, which `normalizeFilterOperator` passes through verbatim and the rule
- * schema then rejects — a saved view that silently loses this condition. Keeping
- * the flag out of the range map is what keeps "Save as view" correct.
- *
- * ⚠️ Known unspelled synonyms, recorded rather than closed: `convertFiltersToAST`
- * also lowers `{ $exists: false }` to is-null and `{ $null: false }` /
- * `{ $exists: true }` to `is_not_null`. This dialect spells none of those, so a
- * drill carrying one still degrades to a superset here — the same boundary this
- * card closed for `{ $null: true }`, for producers nothing on this path emits
- * today.
+ * operator to the spec's own alias spelling. Both `op` and `notOp` here are
+ * already canonical `ViewFilterRule` operator words, so bridging them would map
+ * them to the aliases `'null'` / `'not_null'`, which `normalizeFilterOperator`
+ * passes through verbatim and the rule schema then rejects — a saved view that
+ * silently loses this condition. Keeping this pair out of the range map is what
+ * keeps "Save as view" correct.
  */
 export const NULL_FILTER = {
-  /** URL param suffix: `filter[<field>][null]`. */
+  /** URL param suffix, shared by both directions: `filter[<field>][null]`. */
   param: 'null',
-  /** The ONLY param value that spells the condition. */
+  /** The ONLY param value that spells IS NULL. */
   flag: 'true',
-  /** ObjectQL operator it reads back as — what `convertFiltersToAST` emits for `{ $null: true }`. */
+  /** The ONLY param value that spells IS NOT NULL (objectui#9508). */
+  notFlag: 'false',
+  /** ObjectQL operator `flag` reads back as — what `convertFiltersToAST` emits for `{ $null: true }`. */
   op: 'is_null',
-  /** ObjectQL operator-object key the WRITE side recognizes. */
+  /** ObjectQL operator `notFlag` reads back as — what it emits for `{ $null: false }` (objectui#9508). */
+  notOp: 'is_not_null',
+  /** ObjectQL operator-object key whose BOOLEAN is the direction verbatim. */
   key: '$null',
+  /** The synonym key the WRITE side also recognizes, whose boolean is the INVERSE direction. */
+  existsKey: '$exists',
   /**
    * i18n key for this operator's user-visible label, reused from the filter
    * builder's operator family rather than forked: all ten packs already define
@@ -82,6 +153,12 @@ export const NULL_FILTER = {
    * arm below hands this OUT; resolving it is the render site's job.
    */
   labelKey: 'filterBuilder.operators.isNull',
+  /**
+   * Same family, same pin, for the inverse direction (objectui#9508) — the
+   * builder offers `isNotNull` as its own row, so this key is already in that
+   * parity pin's denominator and no eleventh translation is introduced here.
+   */
+  notLabelKey: 'filterBuilder.operators.isNotNull',
 } as const;
 
 /**
@@ -96,9 +173,10 @@ const FILTER_KEY = /^filter\[([^[\]]+)\](?:\[([^[\]]+)\])?$/;
 
 /**
  * Parse `filter[<field>]=<value>` (equality), `filter[<field>][<op>]=<value>`
- * (range/comparison) and `filter[<field>][null]=true` ({@link NULL_FILTER}, the
- * is-null flag) search params into ObjectQL triples. An unknown operator suffix
- * is ignored (never silently downgraded to equality).
+ * (range/comparison) and `filter[<field>][null]=true|false` ({@link
+ * NULL_FILTER}, the emptiness pair) search params into ObjectQL triples. An
+ * unknown operator suffix is ignored (never silently downgraded to equality),
+ * and so is an unknown value in the emptiness slot.
  */
 export function parseUrlFilterTriples(searchParams: URLSearchParams): FilterTriple[] {
   const out: FilterTriple[] = [];
@@ -112,10 +190,13 @@ export function parseUrlFilterTriples(searchParams: URLSearchParams): FilterTrip
       return;
     }
     if (suffix === NULL_FILTER.param) {
-      // A flag, so only its one spelling is the condition; anything else here
-      // (`false` included) is dropped like an unknown suffix rather than
-      // answered at an operator this dialect cannot write.
+      // The param's VALUE is the direction, and only its two exact spellings
+      // are conditions (objectui#9508). Anything else here is dropped like an
+      // unknown suffix rather than answered at an operator nobody asked for.
+      // The comparand stays the literal `true` in BOTH triples: these operators
+      // take no comparand, and their direction is in the operator WORD.
       if (value === NULL_FILTER.flag) out.push([field, NULL_FILTER.op, true]);
+      else if (value === NULL_FILTER.notFlag) out.push([field, NULL_FILTER.notOp, true]);
       return;
     }
     const op = URL_FILTER_OPS[suffix];
@@ -160,11 +241,13 @@ export function parseUrlEqualityFilterTriples(searchParams: URLSearchParams): Fi
 
 /**
  * Serialize a drill filter object into `filter[...]` search params. An ObjectQL
- * range operator object (`{ $gte, $lt }`) becomes `filter[field][gte|lt]`;
- * `{ $null: true }` — what an EMPTY-bucket drill carries — becomes the
- * `filter[field][null]` flag ({@link NULL_FILTER}); a plain value becomes
- * `filter[field]`. `null`/`undefined` values and objects with no recognized
- * operator are skipped (drill degrades to a superset) rather than stringified to
+ * range operator object (`{ $gte, $lt }`) becomes `filter[field][gte|lt]`; the
+ * emptiness pair ({@link NULL_FILTER}) — `{ $null: true }`, what an EMPTY-bucket
+ * drill carries, and its three synonyms `{ $exists: false }`, `{ $null: false }`
+ * and `{ $exists: true }` (objectui#9508) — becomes `filter[field][null]` with
+ * the direction as its value; a plain value becomes `filter[field]`.
+ * `null`/`undefined` values and objects with no recognized operator are skipped
+ * (drill degrades to a superset) rather than stringified to
  * `"[object Object]"`.
  *
  * ⚠️ A JS `null` VALUE stays "no condition", and is not the is-null spelling: it
@@ -203,6 +286,24 @@ export function serializeDrillFilterParams(
   return params;
 }
 
+/**
+ * Which way an operator object asks about emptiness: `true` = is-null, `false` =
+ * is-not-null, `undefined` = it says nothing about emptiness at all.
+ *
+ * The two keys are read in the order {@link NULL_FILTER} documents — `$null`
+ * carries the direction verbatim, `$exists` carries its inverse, and `$null`
+ * wins when both are present and disagree. `typeof` gates both reads because a
+ * non-boolean under either key is not a direction; it wrote nothing before this
+ * pair existed and it writes nothing now.
+ */
+function nullDirection(ops: Record<string, unknown>): boolean | undefined {
+  const asNull = ops[NULL_FILTER.key];
+  if (typeof asNull === 'boolean') return asNull;
+  const asExists = ops[NULL_FILTER.existsKey];
+  if (typeof asExists === 'boolean') return !asExists;
+  return undefined;
+}
+
 /** One source's conditions, written into the shared param set. Recurses on `$and`. */
 function collectFilterParams(filter: Record<string, unknown>, params: URLSearchParams): void {
   for (const [field, value] of Object.entries(filter)) {
@@ -219,15 +320,16 @@ function collectFilterParams(filter: Record<string, unknown>, params: URLSearchP
     }
     if (typeof value === 'object' && !Array.isArray(value)) {
       const ops = value as Record<string, unknown>;
-      // The is-null FLAG (objectui#9159). Emitted BESIDE any range bound on the
-      // same object rather than instead of it, because `convertFiltersToAST`
-      // emits both conditions for that input and the two drill sinks agreeing is
-      // the point. Only `true` writes it: `{ $null: false }` is "is not null",
-      // an operator this dialect cannot spell, so it falls through and the drill
-      // degrades to a superset exactly as it does for any other operator absent
-      // from the maps above.
-      if (ops[NULL_FILTER.key] === true) {
-        params.set(`filter[${field}][${NULL_FILTER.param}]`, NULL_FILTER.flag);
+      // The emptiness pair (objectui#9159, both directions since objectui#9508).
+      // Emitted BESIDE any range bound on the same object rather than instead of
+      // it, because `convertFiltersToAST` emits both conditions for that input
+      // and the two drill sinks agreeing is the point.
+      const direction = nullDirection(ops);
+      if (direction !== undefined) {
+        params.set(
+          `filter[${field}][${NULL_FILTER.param}]`,
+          direction ? NULL_FILTER.flag : NULL_FILTER.notFlag,
+        );
       }
       for (const [op, suffix] of Object.entries(RANGE_OP_PARAM)) {
         const bound = ops[op];
@@ -244,9 +346,9 @@ function collectFilterParams(filter: Record<string, unknown>, params: URLSearchP
 
 /**
  * Delete the equality param AND every operator param (both range bounds, and the
- * is-null flag) for a field, so removing a date-range chip drops the whole range
- * together (#1752) and removing an empty-bucket chip drops its flag
- * (objectui#9159). Prefix-based, so it covers a suffix by construction rather
+ * emptiness param in either direction) for a field, so removing a date-range
+ * chip drops the whole range together (#1752) and removing an emptiness chip
+ * drops its param (objectui#9159, objectui#9508). Prefix-based, so it covers a suffix by construction rather
  * than by listing one — a new operator is removable the day it is writable.
  * Mutates and returns `params`.
  */
@@ -283,18 +385,23 @@ export interface FilterChip {
  * order. A date-bucket drill contributes two triples for the same field
  * (`>= start`, `< end`); they collapse into a single `start → end` range chip.
  *
- * The is-null flag gets its own arm (objectui#9159). Without it the flag fell
- * to the `= <value>` default and the chip read `= true` — a condition the user
- * never wrote, against a value the object does not hold, on the one drill whose
- * whole point is that the field is EMPTY. It is checked first so a field
- * carrying the flag can never render as that bare `true`.
+ * The emptiness pair gets its own arms (objectui#9159, both directions since
+ * objectui#9508). Without them the param fell to the `= <value>` default and the
+ * chip read `= true` — a condition the user never wrote, against a value the
+ * object does not hold, on the one drill whose whole point is that the field is
+ * EMPTY. They are checked first so a field carrying the param can never render
+ * as that bare `true`.
  *
- * That arm is the only one that yields `textKey` rather than `text`, for the
- * reason on {@link FilterChip}. The key is the filter builder's existing
- * operator key, already present and already translated in all ten packs, and
- * already policed by that family's locale-parity pin — ⛔ not a second string
- * forked for this chip, which would put two spellings of one operator label at
- * rest in one product.
+ * `is_null` is tested before `is_not_null` so a caller that hands in both keeps
+ * the answer objectui#9159 shipped; the URL cannot produce that pair (one param
+ * key, one direction), so this only fixes the order for a hand-built list.
+ *
+ * These arms are the only ones that yield `textKey` rather than `text`, for the
+ * reason on {@link FilterChip}. The keys are the filter builder's existing
+ * operator keys, already present and already translated in all ten packs, and
+ * already policed by that family's locale-parity pin — ⛔ not strings forked for
+ * these chips, which would put two spellings of one operator label at rest in
+ * one product.
  */
 export function groupFilterChips(triples: FilterTriple[]): FilterChip[] {
   const order: string[] = [];
@@ -310,6 +417,9 @@ export function groupFilterChips(triples: FilterTriple[]): FilterChip[] {
     const list = byField.get(field)!;
     if (list.some(([, op]) => op === NULL_FILTER.op)) {
       return { field, textKey: NULL_FILTER.labelKey };
+    }
+    if (list.some(([, op]) => op === NULL_FILTER.notOp)) {
+      return { field, textKey: NULL_FILTER.notLabelKey };
     }
     const gte = list.find(([, op]) => op === '>=' || op === '>');
     const lt = list.find(([, op]) => op === '<' || op === '<=');

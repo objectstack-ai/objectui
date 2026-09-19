@@ -284,6 +284,10 @@ const ko = {
       refusedResidue:
         "저장되지 않았습니다: {{name}} “{{text}}”과(와) {{otherName}} “{{otherText}}”은(는) 숫자가 아닙니다. 일반 소수로 입력하세요(예: 30.2741, 120.1551).",
     },
+    number: {
+      badInput:
+        "저장되지 않았습니다: 이 입력란의 텍스트는 숫자가 아닙니다. 일반 소수로 입력하세요(예: {{example}}).",
+    },
     tags: {
       placeholder: "입력 후 Enter 키로 추가…",
     },

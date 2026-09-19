@@ -102,6 +102,25 @@ describe('ObjectStackAdapter.searchAll', () => {
     await expect(adapter.searchAll('Wayne')).rejects.toThrow(/index unavailable/);
   });
 
+  // objectui#9594 -- this ladder shares `readErrorEnvelope` with
+  // `exportDownload`, so the flat `{ code, error: <string> }` dialect that used
+  // to collapse into `res.statusText` reaches the caller here too. Wiring pin
+  // for the second of the four hoisted sites; the dialect logic itself is
+  // exhausted in `error-envelope.test.ts`.
+  it('reads the flat `{ code, error: <string> }` dialect instead of the status word', async () => {
+    const { fetchImpl } = makeFetch({
+      ok: false,
+      status: 403,
+      body: { code: 'PERMISSION_DENIED', error: 'Search is not permitted for this user' },
+    });
+    const adapter = new ObjectStackAdapter({ baseUrl: 'http://localhost:3000', autoReconnect: false, fetch: fetchImpl as any });
+    await expect(adapter.searchAll('Wayne')).rejects.toMatchObject({
+      message: 'Search is not permitted for this user',
+      code: 'PERMISSION_DENIED',
+      status: 403,
+    });
+  });
+
   it('drops malformed hits (missing object or id)', async () => {
     const { fetchImpl } = makeFetch({
       ok: true,

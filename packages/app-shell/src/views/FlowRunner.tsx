@@ -55,6 +55,29 @@
  *    uses: everything mounted refetches in place over the #2269 bus, with no
  *    remount, so tab / scroll / inline-edit state all survive (AGENTS.md §5 #8).
  *
+ * ## A REFUSED end is a notice, not a completion (objectui#7707)
+ *
+ * A flow can now end by saying no: an `end` node declaring `outcome: 'refused'`
+ * carries a `message` template the engine interpolates per-record, and the run
+ * records `refused` — terminal like `completed`, distinct from `failed` because
+ * nothing went wrong (the maintainer ruling on objectstack#14945, whose contract
+ * half is on the installed `@objectstack/spec` surface).
+ *
+ * Before that outcome existed the only channel that could interpolate
+ * per-record text was a message-only `screen` node, which is an INPUT step
+ * wearing a notice's clothes: it renders Submit, and submitting resumes the run
+ * to `end`, where the terminal-success branch below toasted `Flow "…"
+ * completed` at a user who had just been told the run was refused.
+ *
+ * So on `refused` this component renders the engine's sentence as a plain
+ * (non-destructive) notice and takes the terminal disposition it already had a
+ * route to: Submit withdrawn, a single Close. What it does NOT do is as ruled
+ * as what it does — no toast of either colour, no `onComplete`, no
+ * invalidation. The invoking action stays quiet on its own account, exactly as
+ * today: a paused run returns `{ success: true, silent: true }` and `silent`
+ * suppresses the action's `successMessage` at the ActionRunner's toast sink.
+ * ⛔ That last part is a thing that WORKS — it is pinned, not touched.
+ *
  * Copy goes through `@object-ui/i18n` (via the `@object-ui/react` re-export)
  * like its neighbours; the only English left in this file is the inline
  * `defaultValue` each key carries, which `check:i18n-keys` pins to its `en`
@@ -97,6 +120,24 @@ interface ResumeError {
   retryable: boolean;
 }
 
+/**
+ * A run that ended with `outcome: 'refused'`, held so the dialog can render it
+ * as a notice (objectui#7707). Kept SEPARATE from {@link ResumeError} rather
+ * than reusing it with `retryable: false`, because the two are different events
+ * that happen to share a disposition: a failure is something that went wrong
+ * and reads as `destructive` with an error toast, while a refusal is the flow
+ * working — a successful evaluation that said no. Collapsing them would make
+ * the renderer unable to tell them apart again.
+ *
+ * `message` is the sentence the ENGINE rendered (the `end` node's `{token}`
+ * template interpolated against the run's variables, so it names the record);
+ * it is passed through untranslated for the same reason the server's refusal
+ * sentence above is — it is data, not copy with a key.
+ */
+interface RefusedOutcome {
+  message: string;
+}
+
 export interface FlowRunnerProps {
   /** The paused screen-flow to drive, or `null` when closed. */
   state: ScreenFlowState | null;
@@ -129,6 +170,7 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [submitting, setSubmitting] = useState(false);
   const [resumeError, setResumeError] = useState<ResumeError | null>(null);
+  const [refused, setRefused] = useState<RefusedOutcome | null>(null);
 
   useEffect(() => {
     if (state) {
@@ -138,6 +180,7 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
       setValues(initialScreenValues(state.screen));
       // A fresh run must not open under the previous run's refusal.
       setResumeError(null);
+      setRefused(null);
     }
   }, [state]);
 
@@ -177,6 +220,22 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
       return;
     }
     setResumeError(null);
+    // The run reached an `end` node declaring `outcome: 'refused'` — a
+    // successful evaluation that said no (objectstack#14945, ruling of
+    // 2026-09-05). Checked BEFORE the terminal-success tail below, which is
+    // where it used to land: the refusal was swallowed and the user who had
+    // just been told "this is refused" got `Flow "…" completed`.
+    //
+    // Three things deliberately do NOT happen here, and each is the ruling:
+    // no toast (neither the completion one this replaces nor an error one —
+    // nothing failed), no `notifyDataChanged` / `onComplete` (the run did not
+    // complete; the host is not told to treat its data as stale), and no
+    // close (the notice is the whole point, so it stays up until the user
+    // dismisses it).
+    if (outcome.kind === 'refused') {
+      setRefused({ message: outcome.message });
+      return;
+    }
     if (outcome.kind === 'paused') {
       setScreen(outcome.screen);
       setRunId(outcome.runId || runId);
@@ -252,8 +311,12 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
 
   const isObjectForm = isObjectFormScreen(screen);
   // The run is gone: this dialog can still be read and copied from, but nothing
-  // in it may offer to resubmit. See the header note.
-  const terminal = resumeError !== null && !resumeError.retryable;
+  // in it may offer to resubmit. See the header note. A refusal reaches the same
+  // disposition by the other route — the run ended, deliberately, and a refused
+  // end is never resumed — so it shares this flag rather than a parallel one:
+  // withdrawing the submit affordance is one behaviour with two causes, and
+  // splitting it is how the `object-form` arm of it gets forgotten.
+  const terminal = refused !== null || (resumeError !== null && !resumeError.retryable);
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o && !submitting) onClose(); }}>
@@ -262,6 +325,16 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
           <DialogTitle>{screen.title || t('flowRunner.title', { defaultValue: 'Input' })}</DialogTitle>
           {screen.description && <DialogDescription>{screen.description}</DialogDescription>}
         </DialogHeader>
+
+        {refused && refused.message && (
+          // `default`, not `destructive`: a refusal is the flow working. The
+          // sentence is the engine's, rendered per-record from the `end` node's
+          // template, and is passed through verbatim and untranslated — data,
+          // not copy with a key, exactly like the server sentence below.
+          <Alert>
+            <AlertDescription>{refused.message}</AlertDescription>
+          </Alert>
+        )}
 
         {resumeError && (
           <Alert variant="destructive">

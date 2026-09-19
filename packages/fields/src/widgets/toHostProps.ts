@@ -66,13 +66,15 @@ import type { FieldWidgetComponentProps } from './types.js';
  *    SchemaRendererContext > none". Hosts that pass nothing keep reading the
  *    context, so the grid's inline editor is unaffected.
  *  - `dependentValues`: the explicit prop is the ONLY channel that can carry a
- *    record. Both readers (`useCascadingOptions`, and `LookupField`'s own
- *    resolver) spell a `?? ctx.formValues ?? ctx.data` tail after it, but
+ *    record — the host supplies it, and there is NO context fallback. Both
+ *    readers (`useCascadingOptions`, and `LookupField`'s own resolver) used to
+ *    spell a `?? ctx.formValues ?? ctx.data` tail after it, but
  *    `SchemaRendererContextType` declares exactly `dataSource` / `debug` /
- *    `debugFlags` / `apiFetch` — neither member exists, so that tail is
- *    unconditionally `{}` and no host can change that (objectui#7206). Unlike
- *    `dataSource` above, DELIVERING this key cannot displace a context value,
- *    because there has never been one to displace.
+ *    `debugFlags` / `apiFetch` — neither member exists, so that tail was
+ *    unconditionally `{}` and no host could change it. It was retired under
+ *    ADR-0049 enforce-or-remove (objectui#7206). Unlike `dataSource` above,
+ *    DELIVERING this key cannot displace a context value, because there has
+ *    never been one to displace.
  *  - `dependsOn`: the FIELD METADATA wins over the prop — the one documented
  *    inversion, stated on the key's own doc comment and implemented as
  *    `field?.dependsOn ?? dependsOnProp` in all four option widgets.

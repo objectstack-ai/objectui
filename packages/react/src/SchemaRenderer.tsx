@@ -743,6 +743,40 @@ function reportRefusedDataPropSpread(type: string, id: string | undefined): void
 }
 
 /**
+ * One outgoing bag, minus an authored `data` key, on the object arm
+ * (objectui#9571, extended to the legacy alias by objectui#9758).
+ *
+ * ## Why a shared helper and not two copies of four lines
+ *
+ * `createElement` below spreads the node's own non-metadata keys and the legacy
+ * `props` alias bag as two separate spreads, in that order. objectui#9571
+ * stripped the first; the alias spread ran AFTER it, so the identical authored
+ * key spelled `props: { data }` walked straight back into the seat the ruling
+ * had just taken away — the same defect, one alias over (objectui#9758,
+ * decision batch #167 item 2, letter 剥, maintainer 「其他同意」). Two call
+ * sites answering the same question is exactly how the first carrier survived
+ * the first ruling, so the question is asked once, here.
+ *
+ * ## Identity is the signal, and that is load-bearing
+ *
+ * The `in` test comes FIRST, so a bag that declares no `data` — the
+ * overwhelmingly common one — is handed back ITSELF, with no copy allocated and
+ * no key moved. Callers read that same identity (`result !== bag`) to decide
+ * whether to warn, so the decision is never computed twice and cannot disagree
+ * with what was actually spread.
+ *
+ * ⛔ The HOST path is NOT routed through here. `...props` — this component's own
+ * React props, spread LAST — is how `plugin-list`'s `ListView` and `ObjectView`
+ * hand down rows they already fetched; gating that was Option B, and it was
+ * REFUSED on objectui#9571. Only the AUTHORED key loses its seat.
+ */
+function withoutAuthoredDataKey<T extends object>(bag: T, refuse: boolean): T {
+  if (!refuse || !('data' in bag)) return bag;
+  const { data: _refusedAuthoredData, ...rest } = bag as Record<string, unknown>;
+  return rest as T;
+}
+
+/**
  * The props `SchemaRenderer` DECLARES and reads itself (objectui#4548).
  *
  * ## Why `schema` is spelled as this union and not as a `SchemaNode`
@@ -1861,13 +1895,16 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // in the repo. The strip list is therefore the diagnostic's exclusion list,
   // for free and without a second copy of it to drift.
   //
-  // ⚠️ It scans `componentProps`, NOT the narrower bag the objectui#9571 strip
-  // builds below. Deliberate, and the objectui#8268 `testId` precedent applied a
-  // second time: `data` loses its PROPS seat on the object arm, but it is still
-  // authored, still evaluated, and still read off the schema by the block — so
-  // an unevaluated expression inside it is still in front of a user, and
-  // excluding it here would narrow objectui#4795's coverage by one key for
-  // exactly the blocks the ruling touches.
+  // ⚠️ It scans `componentProps` and the raw `props` / `properties` bags, NOT
+  // the narrowed bags the objectui#9571 / objectui#9758 strips build below.
+  // Deliberate, and the objectui#8268 `testId` precedent applied a second time:
+  // `data` loses its PROPS seat on the object arm, but it is still authored,
+  // still evaluated, and still read off the schema by the block — so an
+  // unevaluated expression inside it is still in front of a user, and excluding
+  // it here would narrow objectui#4795's coverage by one key for exactly the
+  // blocks the ruling touches. That holds for BOTH carriers: an authored
+  // `props: { data: '${…}' }` is still reported after objectui#9758 refused it
+  // a prop seat.
   //
   // Read-only: it reports what evaluation already produced and changes nothing
   // about what is rendered — no DOM attribute either, so no snapshot moves.
@@ -1898,10 +1935,21 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // nothing about what any renderer receives moves — but it removes the one way
   // this diagnostic could go wrong: reporting a set of keys that is not the set
   // actually handed to the component.
-  const outgoingPropsBag = propsWithoutCanonicalKeys(
+  //
+  // objectui#9758 narrows it once more, for the same key and on the same arm as
+  // the strip below — see {@link withoutAuthoredDataKey}. The arm is read ONCE,
+  // here, and handed to both call sites: two independent lookups of the same
+  // question is the shape that let the alias keep the seat in the first place.
+  const refusesAuthoredDataProp =
+    recordSourceDataArmForType(evaluatedSchema.type) === 'view-data';
+  const aliasBagAsAuthored = propsWithoutCanonicalKeys(
     evaluatedSchema.props,
     evaluatedSchema.properties
   );
+  const outgoingPropsBag = withoutAuthoredDataKey(aliasBagAsAuthored, refusesAuthoredDataProp);
+  if (__DEV__ && outgoingPropsBag !== aliasBagAsAuthored) {
+    reportRefusedDataPropSpread(evaluatedSchema.type, evaluatedSchema.id);
+  }
 
   // Dev-build diagnostic (objectui#6708, maintainer ruling 2026-08-29, option
   // 2): those keys are spread as React props and never hoisted onto the node,
@@ -1917,6 +1965,17 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // memo rebuilds `props` with an object spread, which turns a degenerate
   // `props: 'text'` into `{ '0': 't', … }` long before this line. See
   // `collectDroppedPropsKeys`.
+  //
+  // ⚠️ It reads the POST-strip bag (objectui#9758), and that direction is the
+  // opposite of its objectui#4795 neighbour above ON PURPOSE. This message
+  // states that the key "is spread as React props on the created element" and
+  // tells the author to "write them under `properties` instead" — after the
+  // strip BOTH sentences are false for `data` on this arm: it is not spread,
+  // and the canonical spelling loses the seat as well. Its subject stops being
+  // true, so it stops naming the key, and `reportRefusedDataPropSpread` is what
+  // tells the author instead. The objectui#4795 scan reads the WIDER bag for
+  // the mirror-image reason: an unevaluated `${…}` is still in front of a user
+  // after the strip, so its subject survives.
   if (__DEV__) {
     reportDroppedPropsBag(
       evaluatedSchema.type,
@@ -1964,16 +2023,24 @@ export const SchemaRenderer: ForwardRefExoticComponent<
    * `componentProps` itself — the same object, in the same spread position, with
    * no copy allocated. Same discipline as the conditional `data-testid` below,
    * and for the same measured reason.
+   *
+   * ## ⚠️ TWO bags reach the spread, and this one is only the first
+   *
+   * objectui#9758: the legacy `props` alias bag is spread AFTER this one, so for
+   * the first ruling's whole life an author who spelled the identical key
+   * `props: { data: [...] }` kept the seat this block takes away — the arm
+   * predicate was right and the corpus was one bag short. Both bags now go
+   * through {@link withoutAuthoredDataKey} with the ONE arm reading computed
+   * above (decision batch #167 item 2, letter 剥, maintainer 「其他同意」).
+   * ⛔ Still no validator refusal: whether the alias exists at all is
+   * objectui#4795's pending question ②, and nothing else it carries moves.
    */
-  let outgoingComponentProps = componentProps;
-  if (
-    'data' in componentProps &&
-    recordSourceDataArmForType(evaluatedSchema.type) === 'view-data'
-  ) {
-    const { data: _refusedAuthoredData, ...withoutAuthoredData } =
-      componentProps as Record<string, unknown>;
-    outgoingComponentProps = withoutAuthoredData as typeof componentProps;
-    if (__DEV__) reportRefusedDataPropSpread(evaluatedSchema.type, evaluatedSchema.id);
+  const outgoingComponentProps = withoutAuthoredDataKey(
+    componentProps,
+    refusesAuthoredDataProp
+  );
+  if (__DEV__ && outgoingComponentProps !== componentProps) {
+    reportRefusedDataPropSpread(evaluatedSchema.type, evaluatedSchema.id);
   }
 
   // SDUI scoped styling (ADR-0065) — computed in the memo hoisted above the
@@ -2010,8 +2077,10 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         ...outgoingComponentProps,
         // The legacy `props` alias still overrides plain top-level keys, but no
         // longer overrides the canonical `properties` bag (objectui#5123,
-        // maintainer ruling 2026-08-18). Computed above rather than inline, so
-        // the objectui#6708 diagnostic names this exact bag — see there.
+        // maintainer ruling 2026-08-18) — and, since objectui#9758, no longer
+        // re-seats an authored `data` on the object arm that the spread above
+        // just refused. Computed above rather than inline, so the objectui#6708
+        // diagnostic names this exact bag — see there.
         ...outgoingPropsBag,
         ...ariaProps,  // Inject ARIA attributes from AriaPropsSchema
         ...debugAttrs, // Debug-mode data attributes

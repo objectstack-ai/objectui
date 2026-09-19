@@ -3367,11 +3367,23 @@ export const assertionDriftMatchesLedger: never = 0 as unknown as LedgerMismatch
  *
  * ⚠️ And it is a COMPILE-TIME assertion. The `describe` block at the bottom of this
  * file is a population census — it checks that the registry is closed and that
- * `SPEC_DERIVED_PAIRS` re-derives, and it never compares keys at all. Its
- * `Tests 12 passed (12)` line does not move when this half reddens, correctly, and
+ * `SPEC_DERIVED_PAIRS` re-derives, and it never compares keys at all. Its passing
+ * test count does not move when this half reddens, correctly, and
  * it did not move under the ablation either. (It read `5 passed (5)` until
  * objectui#6705 added the seven-fixture suite pinning the re-check's scanner.) Reading the runtime half for evidence
  * about drift measures the wrong instrument and concludes the guard does nothing.
+ *
+ * ⛔ The count this clause used to RESTATE is GONE, not refreshed (objectui#9603 —
+ * a GUIDANCE clause, so the header's LIVE / HISTORICAL split obliges a later card to
+ * amend it and to name itself doing so; the two RECORD clauses beside it are left
+ * byte-identical). It said 12, true when objectui#6705 wrote it; the card measured
+ * 32 on `origin/main` when it was filed; `vitest run` printed `37 passed (37)` at
+ * `4b577229` two days later when it was worked. ⭐ Refreshing it would have bought
+ * about one merge, and the reason generalises: this suite grows whenever a pin is
+ * added, which is this file WORKING, so a restated case count rots ON GOOD NEWS and
+ * nothing short of deleting it makes the sentence durable. ⛔ Do not put a number
+ * back — the figure-free spelling is already here, in `WiderLedgerMismatch` below
+ * ("their passing test counts do not move when this reddens"), which never rotted.
  *
  * When it fires, fix it by MEASURING (the compiler-API recipe and the
  * error-printing trap are in the ledger's header above):

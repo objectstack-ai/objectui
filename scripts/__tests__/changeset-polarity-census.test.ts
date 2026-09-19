@@ -26,10 +26,12 @@ import {
   matchesPopulation,
   readClaim,
   readPolarity,
+  readWindow,
   resolutionRootsFor,
   runControls,
   segmentClauses,
   segmentSentences,
+  supersededColumns,
 } from '../changeset-polarity-census.mjs';
 
 /**
@@ -69,7 +71,13 @@ import {
  *     verb still does. Without the second leg the repair would have traded
  *     false positives for false negatives, which is the failure this whole
  *     family of cards is about.
- *  9. A KEY IS A NAME, AND THE SPAN IS THAT NAME (objectui#9766). A call, a
+ *  9. THE WINDOW IS THE DECLARATION CLAUSE (objectui#9754). A key predicated
+ *     of something OTHER than the schema the sentence names is no longer paired
+ *     with it -- and the two legs that keep that from being blindness: a key the
+ *     clause really does predicate of the named schema is still flagged, and the
+ *     relative clause, which has no subject of its own, still reaches its
+ *     antecedent.
+ * 10. A KEY IS A NAME, AND THE SPAN IS THAT NAME (objectui#9766). A call, a
  *     heritage clause, a statement and an operator use are code, not names; and
  *     a word of the language the faces are written in is a key only where the
  *     tree declares a member by that name. Both of that rule's escape legs are
@@ -987,5 +995,279 @@ describe('objectui#9767 pin 11 -- the corpus boundary is not a schema that is go
     expect(outcome.stdout).not.toContain('SPLIT NOT MEASURED');
     // ⛔ The one line this card removed: both facts under one heading.
     expect(outcome.stdout).not.toContain('claims naming a schema this tree does not declare');
+  });
+});
+
+describe('objectui#9754 pin 12 -- the window is the declaration clause, not the sentence', () => {
+  /**
+   * The largest false-positive source the instrument names on itself, in its own
+   * words: "A sentence may name schema S and key K and predicate K of something
+   * else entirely -- a registry-local type, another node, a spec schema. V pairs
+   * them because they share a sentence."
+   *
+   * ⭐ The SUBSTANCE this pin is here for is the pairing, not the existence of a
+   * reader: a key predicated of something else must stop being paired with the
+   * schema the sentence happens to also name. `11-window-pairing.md` carries the
+   * shape and its three counter-shapes in one entry, so the repair and the three
+   * ways it could have been bought with blindness are read off ONE run.
+   *
+   * ⭐ Which leg each row actually holds, MEASURED by ablating the three parts of
+   * the rule separately rather than assumed from the row's name -- one of these
+   * was predicted wrong before it was run:
+   *   the clause window   -> "stops pairing", "did NOT buy it", "two clauses"
+   *   the coordinated list -> "coordinated object list", "relative clause"
+   *   the relative opener  -> "relative clause"
+   * The last two rows are acceptance conditions and are GREEN under all three by
+   * design: they say what must NOT move, so an ablation of the repair leaves
+   * them alone and only a regression elsewhere reaches them.
+   */
+  const flags = flagsFor('11-window-pairing');
+
+  it('stops pairing a key with a schema the key is NOT predicated of', () => {
+    // "`LaneSchema` declares `cards`, and `ObjectKanbanSchema` is the node that
+    // references it." `cards` is LANE's. `ObjectKanbanSchema` does not declare
+    // it and the sentence never said it did -- read sentence-wide, that absence
+    // was a flag.
+    expect(flags.map((f) => f.key)).not.toContain('cards');
+    // DARK LEG: the sentence really does name both symbols and really does
+    // carry the key, or this pin is vacuous and passes against the instrument
+    // it exists to distinguish.
+    const sentence = fixtureSentence('11-window-pairing.md', /references it/);
+    expect(namesSchemaIn(sentence.text).sort()).toEqual(['LaneSchema', 'ObjectKanbanSchema']);
+    expect(backtickedKeys(sentence.text)).toContain('cards');
+    // And the mechanism, named rather than inferred from the verdict: the key
+    // is paired with the schema of the clause it is DECLARED in, and with no
+    // other schema the sentence mentions.
+    expect(readWindow(sentence.text).schemasByKey.cards).toEqual(['LaneSchema']);
+  });
+
+  it('⛔ did NOT buy it with blindness -- a key the clause DOES predicate still flags', () => {
+    // Without this leg the repair would trade false positives for false
+    // negatives, which is the failure this whole family of cards is about.
+    // "`ObjectKanbanSchema` declares `swimlaneWidth`" is an assertion about the
+    // named schema, and the fixture face does not declare that key.
+    const flagged = flags.filter((f) => f.key === 'swimlaneWidth');
+    expect(flagged.map((f) => f.schema)).toEqual(['ObjectKanbanSchema']);
+    expect(flagged[0].polarity).toBe('positive');
+  });
+
+  it('the coordinated object list survives the cut', () => {
+    // "`ObjectKanbanSchema` declares `cardTitle` and `cardSubtitle`" puts the
+    // second key past a clause boundary with no verb of its own. Narrowing the
+    // window to the clause the key SITS in would have dropped it; the window is
+    // the clause it is DECLARED by. ⚠️ This row is green under the sentence-window
+    // ablation and that is correct, not weak: its sentence names ONE schema, so
+    // the two windows coincide there and only the coordination leg moves it.
+    const flagged = flags.filter((f) => f.key === 'cardSubtitle');
+    expect(flagged.map((f) => f.schema)).toEqual(['ObjectKanbanSchema']);
+  });
+
+  it('a relative clause reaches its antecedent, and reaches nothing further', () => {
+    // "`SpinnerSchema` (which declares `type` and no `size`)" -- the declaring
+    // clause names no schema at all, because the subject was cut off with the
+    // parenthesis. A relative or parenthetical clause predicates of what it is
+    // attached to, so the window reaches back ONE clause for the subject.
+    const flagged = flags.filter((f) => f.key === 'size');
+    expect(flagged.map((f) => f.schema)).toEqual(['SpinnerSchema']);
+    expect(flagged[0].polarity).toBe('negative');
+    expect(flagged[0].memberPresent).toBe(true);
+    // The reach is the antecedent and NOT the sentence: the other schema this
+    // entry names is never pulled in.
+    expect(
+      readWindow('`SpinnerSchema` (which declares `type` and no `size`) is the other node.')
+        .schemasByKey.size,
+    ).toEqual(['SpinnerSchema']);
+  });
+
+  it('one key in two declaration clauses of OPPOSITE polarity reads as two claims', () => {
+    // The residue objectui#9754 slice 1 named and handed here, verbatim: "a
+    // sentence whose SAME key sits in two declaration clauses of opposite
+    // polarity resolves to the first one, because choosing between them is the
+    // WINDOW PAIRING question below". It is not resolved by choosing -- each
+    // occurrence carries its own clause's schema AND its own clause's polarity.
+    const sentence = fixtureSentence('11-window-pairing.md', /while /);
+    const pairs = readWindow(sentence.text).pairsByKey.cardTitle;
+    expect(pairs).toEqual([
+      { schema: 'SpinnerSchema', polarity: 'negative' },
+      { schema: 'ObjectKanbanSchema', polarity: 'positive' },
+    ]);
+    // Both claims are TRUE of the fixture faces, so a correct reading flags
+    // neither. Resolving to the first one read the second claim as negative and
+    // flagged the schema that HAS the member -- exactly backwards.
+    expect(flags.map((f) => f.key)).not.toContain('cardTitle');
+  });
+
+  it('⛔ the pinned blind spot still reads -- the acceptance condition every repair here meets', () => {
+    const pinned = flagsFor('01-pronoun-pre-repair');
+    expect(pinned.map((f) => f.key).sort()).toEqual([
+      'allowCollapse',
+      'cardTitle',
+      'columns',
+      'titleField',
+    ]);
+    expect(pinned.every((f) => f.schema === 'ObjectKanbanSchema')).toBe(true);
+    expect(pinned.every((f) => f.viaPronoun)).toBe(true);
+  });
+
+  it('the population is untouched -- this repair narrows the VERDICT, not what is read', () => {
+    // A narrowing that reached the population would hide sentences instead of
+    // pairing them correctly, and the report would stop being able to say how
+    // many assertions it examined.
+    const matched = fixtureRun.matched.filter((m) => m.entry.startsWith('11-window-pairing'));
+    expect(matched.length).toBeGreaterThanOrEqual(5);
+    expect(matched.every((m) => m.claim.schemas.length > 0)).toBe(true);
+  });
+});
+
+/** The schema symbols a sentence names, for a pin that asserts the dark leg. */
+function namesSchemaIn(text: string) {
+  return [...new Set([...text.matchAll(/\b([A-Z][A-Za-z0-9_]*Schema)\b/g)].map((m) => m[1]))];
+}
+
+
+describe('objectui#9870 pin 13 -- a table is read as structure, and a retired reading is not a claim', () => {
+  /**
+   * The last entry on the instrument's own limits list that still said
+   * `⛔ unrepaired` about a false-positive SOURCE: an entry may carry a table
+   * whose first column is a reading it is RETIRING and whose later columns are
+   * what falsified it. Quotation cannot reach that reading -- it is not quoted,
+   * it is TABULATED -- so it stood in ASSERTION position with its own correction
+   * one cell to the right, unread.
+   *
+   * ⭐ Measuring it first moved the repair. The entry said the cells of one ROW
+   * were joined into one sentence and called that join deliberate; the code
+   * doing the joining carried the OPPOSITE intent in its own comment, and
+   * achieved neither. `. ` cuts only before a character that is not lower-case,
+   * and a row's last cell got no terminator at all -- so an entire table,
+   * header and delimiter row included, collapsed into ONE sentence, and every
+   * key in it was offered to every schema named anywhere in it. That is
+   * objectui#9754's cartesian window rebuilt one level up.
+   *
+   * `12-superseded-readings-table.md` carries the shape and the three ways the
+   * repair could have been bought with blindness, so one run reads them all.
+   * The readings this pin is judged against, taken on the fixture corpus with
+   * the instrument as it stood at the parent commit and again after:
+   *
+   *   BEFORE  ObjectKanbanSchema.swimlaneWidth   FLAG  (retired reading)
+   *           SpinnerSchema.size                 FLAG  (retired reading)
+   *           LaneSchema.titleField              FLAG  (cross-ROW pairing)
+   *           ObjectKanbanSchema.cards           FLAG  (cross-ROW pairing)
+   *           LaneSchema.laneWidth               FLAG  (an ordinary table asserts)
+   *           ObjectKanbanSchema.dragHandle      --    (missed: the collapse hid it)
+   *   AFTER   LaneSchema.laneWidth               FLAG
+   *           ObjectKanbanSchema.dragHandle      FLAG
+   *
+   * ⭐ Four false positives dropped and a true positive FOUND: the falsifier
+   * column is a claim about today, and the collapse had swallowed it.
+   */
+  const flags = flagsFor('12-superseded-readings-table');
+  const superseded = fixtureRun.superseded.filter((s: { entry: string }) =>
+    s.entry.startsWith('12-superseded-readings-table'),
+  );
+
+  it('a reading in a column the table retires is not an assertion', () => {
+    // Both retired readings contradict the fixture faces, which is what a
+    // retired reading DOES -- that is why it was retired. Read as assertions
+    // they were two candidates whose adjudication was already written beside
+    // them.
+    expect(flags.map((f) => f.key)).not.toContain('swimlaneWidth');
+    expect(flags.map((f) => f.key)).not.toContain('size');
+  });
+
+  it('⛔ they are SET ASIDE, not dropped -- the count is reported under its own name', () => {
+    // DARK LEG. A rule whose cost nobody can read is how a false negative hides:
+    // these are still read, still resolved to schema and key, and still counted.
+    // If this pin passed while the sentences went missing, the repair would be
+    // deleting evidence instead of positioning it.
+    expect(superseded.map((s: { claim: { keys: string[] } }) => s.claim.keys).flat().sort()).toEqual([
+      'size',
+      'swimlaneWidth',
+    ]);
+    expect(fixtureRun.matchedSuperseded).toBe(superseded.length);
+    expect(fixtureRun.matchedSuperseded).toBeGreaterThan(0);
+    // And they are not in the quoted bucket either: the reason differs, so the
+    // name differs, or the report cannot say which rule set a reading aside.
+    expect(
+      fixtureRun.quoted.some((q: { entry: string }) =>
+        q.entry.startsWith('12-superseded-readings-table'),
+      ),
+    ).toBe(false);
+  });
+
+  it('⛔ did NOT buy it with blindness -- a table that ASSERTS is still read and still flagged', () => {
+    // The false negative that excluding table rows as a class, or widening
+    // quotation to cover every tabulated reading, would have bought. An
+    // ordinary table -- one whose header retires nothing -- is the common case
+    // in this corpus, and its rows are claims about today.
+    const laneWidth = flags.filter((f) => f.key === 'laneWidth');
+    expect(laneWidth.map((f) => f.schema)).toEqual(['LaneSchema']);
+    expect(laneWidth[0].polarity).toBe('positive');
+  });
+
+  it('only the retired COLUMN is set aside -- the falsifier column is a claim about today', () => {
+    // `objectui#0001 -- ... `ObjectKanbanSchema` declares `dragHandle` for that
+    // job today` sits in the `falsified by` column of the SAME row as a retired
+    // reading. It is the live half of that row and it is flagged: the fixture
+    // face declares no such member. Before this repair the collapse had folded
+    // it into the row-wide sentence and it was never judged at all.
+    const dragHandle = flags.filter((f) => f.key === 'dragHandle');
+    expect(dragHandle.map((f) => f.schema)).toEqual(['ObjectKanbanSchema']);
+    expect(dragHandle[0].polarity).toBe('positive');
+    expect(dragHandle[0].memberPresent).toBe(false);
+  });
+
+  it('the rows of a table are not one sentence, and neither are the cells of a row', () => {
+    // The cartesian window one level up. `ObjectKanbanSchema declares titleField`
+    // and `on LaneSchema, cards is declared` are rows 1 and 2 of one table, and
+    // the second opens with a lower-case word -- which is exactly where `. `
+    // failed to cut. Joined, each key was offered to BOTH schemas and both
+    // claims were flagged against the schema they were never made about.
+    expect(flags.map((f) => `${f.schema}.${f.key}`)).not.toContain('LaneSchema.titleField');
+    expect(flags.map((f) => `${f.schema}.${f.key}`)).not.toContain('ObjectKanbanSchema.cards');
+    // The mechanism, asserted rather than inferred from the verdict: no emitted
+    // sentence carries the text of two different cells.
+    const sentences = segmentSentences(
+      fs.readFileSync(path.join(FIXTURE_CORPUS, '12-superseded-readings-table.md'), 'utf8'),
+    );
+    expect(sentences.some((s) => /titleField/.test(s.text) && /cards/.test(s.text))).toBe(false);
+    expect(sentences.some((s) => /swimlaneWidth/.test(s.text) && /dragHandle/.test(s.text))).toBe(
+      false,
+    );
+  });
+
+  it('the delimiter row is syntax and the header row is text', () => {
+    const sentences = segmentSentences(
+      ['| reading below | falsified by | landed |', '| --- | :---: | ---: |', '| `S` declares `k` | objectui#1 -- it does not | 2026-09-11 |'].join('\n'),
+    );
+    // What the delimiter row carries is WHICH row was the header. Its dashes are
+    // not a sentence, and they used to be three.
+    expect(sentences.map((s) => s.text)).toEqual([
+      'reading below',
+      'falsified by',
+      'landed',
+      '`S` declares `k`',
+      'objectui#1 -- it does not',
+      '2026-09-11',
+    ]);
+    expect(sentences.map((s) => s.position)).toEqual([
+      'superseded',
+      'assertion',
+      'assertion',
+      'superseded',
+      'assertion',
+      'assertion',
+    ]);
+  });
+
+  it('the rule is the header the table WROTE, not a shape this reader guesses at', () => {
+    // A header that declares nothing retires nothing -- the default is the empty
+    // set, so every ordinary table keeps every column in assertion position.
+    expect([...supersededColumns(['face', 'what it declares today'])]).toEqual([]);
+    expect([...supersededColumns(null)]).toEqual([]);
+    // The falsifier declares the columns BEFORE it retired, and it has to point
+    // BACK at something: a first column that falsifies has nothing behind it.
+    expect([...supersededColumns(['reading below', 'falsified by', 'landed'])]).toEqual([0]);
+    expect([...supersededColumns(['id', 'reading', 'superseded by'])]).toEqual([0, 1]);
+    expect([...supersededColumns(['falsified by', 'reading'])]).toEqual([]);
   });
 });

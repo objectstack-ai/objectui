@@ -21,29 +21,34 @@
  * seed `initialData` state, the inline-fields effect and the create branch of
  * `fetchInitialData`, both spelled:
  *
- *     setInitialData(schema.initialData || schema.initialValues || {});
+ *     setInitialData(resolveInitialRecord(schema));
  *
  *   1. a MEMBER is a FIELD NAME, and its value is that control's opening value;
- *   2. the two keys are chosen between as WHOLE OBJECTS — `||`, never a merge.
+ *   2. the two keys are MERGED PER MEMBER, `initialData` winning member by
+ *      member — which is what the registration's "alternate spelling …
+ *      read FIRST" states, read as the precedence claim it is.
  *
- * ⛔ Row 3 is the one that makes this a pin rather than a restatement, and it is
- * the row a plausible "improvement" breaks. Nothing declared distinguishes
- * `schema.initialData || schema.initialValues` from
- * `{ ...schema.initialValues, ...schema.initialData }`; the second reads like
- * the friendlier spelling of "alternate spelling … read FIRST" and is what a
- * per-member precedence would mean. It is NOT what the renderer does: with both
- * authored, every member of `initialValues` is dropped, including the ones
- * `initialData` says nothing about. An author who prefills three fields through
- * `initialValues` and adds a one-member `initialData` loses the other two, with
- * no warning and no empty state — the form simply opens blank where it used to
- * open seeded.
+ * ⭐ ROWS 3 AND 4 WERE FLIPPED BY objectui#9760, ⛔ not deleted, and the reason
+ * is worth keeping in view because the rows read as the OPPOSITE fact now.
+ * They were written by objectui#8071 to record the whole-object `||` the
+ * renderer then spelled — `schema.initialData || schema.initialValues` — and
+ * that card was pins-only, so it recorded the behaviour and handed the defect
+ * back rather than repairing it. Maintainer ruling on objectui#9760 (batch #166
+ * item 3, letter 甲) chose the merge, so what these two rows assert changed and
+ * what they are FOR did not: row 3 is still the row a plausible edit breaks
+ * (collapsing the helper back to either key alone, or to a `||`, turns it red),
+ * and row 4 is still the same read at its sharp edge.
  *
- * Row 4 is the same read at its sharp edge: `||` tests the OBJECT's
- * truthiness, and `{}` is truthy, so an EMPTY `initialData` shadows a populated
- * `initialValues` completely. Pinned as the renderer's behaviour, ⛔ not
- * endorsed as the right one — see the report on objectui#8071 for the finding
- * handed back rather than fixed here, because changing it is a renderer change
- * and this card writes pins only.
+ * Row 3: with both authored, an `initialValues` member that `initialData` says
+ * nothing about SURVIVES. The pre-ruling behaviour dropped it — an author who
+ * prefilled three fields through `initialValues` and added a one-member
+ * `initialData` lost the other two, with no warning and no empty state.
+ *
+ * Row 4: an EMPTY `initialData` no longer shadows anything. `||` tested the
+ * OBJECT's truthiness and `{}` is truthy, so the empty object a producer hands
+ * over when it has nothing to contribute blanked a populated `initialValues`
+ * completely; the merge contributes nothing instead, which is the whole of
+ * objectui#9760.
  *
  * Row 5 is the non-vacuity control: with neither key authored the same controls
  * render EMPTY, so rows 1-4 cannot be passing on a form that ignores both keys.
@@ -106,20 +111,21 @@ describe('`object-form` — the member shape of `initialValues` / `initialData`'
     });
   });
 
-  it('3. with BOTH authored the choice is whole-object — every `initialValues` member is dropped, ⛔ not merged', async () => {
+  it('3. with BOTH authored the merge is PER MEMBER — `initialData` wins where it speaks, `initialValues` supplies the rest', async () => {
     expect(
       await openingValues({
         initialData: { customer: 'Beta' },
         initialValues: { customer: 'Alpha', note: 'from initialValues' },
       }),
-      'a per-member merge would leave `note` seeded; the renderer picks one object and discards the other',
-    ).toEqual({ customer: 'Beta', note: '' });
+      'a whole-object choice would blank `note`; the merge leaves the member `initialData` says nothing about seeded',
+    ).toEqual({ customer: 'Beta', note: 'from initialValues' });
   });
 
-  it('4. an EMPTY `initialData` still shadows a populated `initialValues` — `||` tests the object, not its size', async () => {
+  it('4. an EMPTY `initialData` contributes NOTHING — it no longer shadows a populated `initialValues`', async () => {
     expect(
       await openingValues({ initialData: {}, initialValues: { customer: 'Alpha', note: 'from initialValues' } }),
-    ).toEqual({ customer: '', note: '' });
+      'the empty object a `?? {}` producer hands over must not blank the form beside it',
+    ).toEqual({ customer: 'Alpha', note: 'from initialValues' });
   });
 
   it('5. control: with neither key authored the same controls open EMPTY', async () => {

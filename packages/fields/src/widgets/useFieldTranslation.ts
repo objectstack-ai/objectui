@@ -129,6 +129,21 @@ const FIELD_DEFAULTS: Record<string, string> = {
     'Not saved: {{name}} "{{text}}" is not a number. Enter plain decimals (example: 30.2741, 120.1551).',
   'fields.location.refusedResidue':
     'Not saved: {{name}} "{{text}}" and {{otherName}} "{{otherText}}" are not numbers. Enter plain decimals (example: 30.2741, 120.1551).',
+  // objectui#8148 — the FIFTH refusal sentence of objectui#6755's class, and
+  // the only SHARED one: `numberBadInput.tsx` produces it for `NumberField`,
+  // `CurrencyField`, `PercentField` and both of `GeolocationField`'s boxes.
+  // `GeolocationField` sits beside `LocationField`, whose refusals are all
+  // keyed above, so two adjacent coordinate widgets refused in two languages.
+  //
+  // `{{example}}` is a HOLE, not five per-widget keys: five different decimals
+  // reach this one sentence, and a pack that spelled one of them could
+  // legitimately write `1234,56`, which reads as the `latitude, longitude` pair
+  // the widget above asks for. The widget fills the hole in ASCII instead.
+  //
+  // Byte-identical to the literal it replaces, so English and provider-less
+  // rendering are unchanged.
+  'fields.number.badInput':
+    'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
   // objectui#3342 — the tags widget's input hint. Used only when the field
   // author declared no `placeholder` of their own (author declaration wins).
   'fields.tags.placeholder': 'Type and press Enter to add…',

@@ -1171,12 +1171,29 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // Handle row click - respects NavigationConfig
   //
   // objectui#9462 — `event` is forwarded, not consumed. This callback is what
-  // `ObjectGrid` feeds to `useNavigationOverlay`, and `handleClick` invokes it
-  // with the modifier payload; truncating to `onRowClick(record)` here meant a
-  // host wired to this component's own prop never saw it. The branches below
-  // deliberately do NOT read it: what Cmd/Ctrl/middle-click should do when no
-  // host handler is present is the hook's own decision, taken before this
-  // callback runs.
+  // `ObjectGrid` feeds to `useNavigationOverlay` (and what a host's
+  // `renderListView` receives verbatim), and `handleClick` invokes it with the
+  // modifier payload; truncating to `onRowClick(record)` here meant a host
+  // wired to this component's own prop never saw it.
+  //
+  // objectui#9806 — the branches below do NOT read it, and that is a GAP
+  // rather than a delegation. This paragraph used to close by saying what
+  // Cmd/Ctrl/middle-click does with no host handler "is the hook's own
+  // decision, taken before this callback runs". It is not, on this path:
+  // `handleClick` returns EARLY on the `onRowClick` it is handed, ahead of its
+  // own `event.metaKey` / `event.ctrlKey` / middle-button branch, and this
+  // component hands `handleRowClick` down UNCONDITIONALLY — so that branch is
+  // unreachable from here. ⇒ with no host `onRowClick`, a modifier click on an
+  // ObjectView row does exactly what a plain click does and opens no browser
+  // tab of its own. Whether it SHOULD is a behaviour change on a published
+  // component, owed its own card; objectui#9806 amended the sentence only.
+  //
+  // ⚠️ Nothing above is remembered — it is re-derived (AGENTS.md #9) by
+  // ObjectView.modifierClickInPlace-9806.test.tsx, which drives a plain click
+  // and a modifier click through the REAL hook, carries a control that reaches
+  // the hook's modifier branch, and pins this file's citation of it. Change
+  // what a modifier click does here and that pin reds together with this
+  // comment.
   const handleRowClick = useCallback((record: Record<string, unknown>, event?: any) => {
     if (onRowClick) {
       onRowClick(record, event);

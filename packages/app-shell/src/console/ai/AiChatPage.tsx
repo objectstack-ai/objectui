@@ -108,6 +108,7 @@ import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
 import { getRuntimeConfig, isAiStudioEnabled } from '../../runtime-config.js';
 import { makerConvergedOnBuild, makerVisibleAgents } from '../../hooks/surfaceAgent.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
+import { useHomePath } from '../../hooks/useHomePath.js';
 import { cloudConsoleUrl } from '../marketplace/marketplaceApi.js';
 import { useNavigationContext } from '../../context/NavigationContext.js';
 import {
@@ -682,7 +683,13 @@ export function matchAiChatShortcut(e: {
  *  2. History back, when react-router has an in-app entry to return to
  *     (`window.history.state.idx > 0` — the router stamps a monotonically
  *     increasing `idx` on entries it creates).
- *  3. `/home` — the page was the entry point (deep link, fresh tab).
+ *  3. `homePath` — the page was the entry point (deep link, fresh tab).
+ *
+ * `homePath` is a PARAMETER, not a literal, since objectui#7373: home is
+ * whatever the deployment declared (`useHomePath()` at the call site), and on a
+ * control plane the environment launcher is the wrong screen to land a customer
+ * on. Required rather than defaulted, so a new call site cannot silently
+ * reintroduce the literal this card removed.
  *
  * The dock itself is armed to open expanded separately
  * ({@link armChatDockExpanded}); this only picks the landing. Pure + exported
@@ -690,10 +697,11 @@ export function matchAiChatShortcut(e: {
  */
 export function resolveCollapseToDockTarget(
   historyIdx: unknown,
-  storedPath?: string,
+  storedPath: string | undefined,
+  homePath: string,
 ): string | -1 {
   if (storedPath) return storedPath;
-  return typeof historyIdx === 'number' && historyIdx > 0 ? -1 : '/home';
+  return typeof historyIdx === 'number' && historyIdx > 0 ? -1 : homePath;
 }
 
 /** A composer submission held until the conversation id that will carry it exists. */
@@ -833,6 +841,10 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
   const handoffParentConversationId =
     searchParams.get('parentConversationId')?.trim() || undefined;
   const navigate = useNavigate();
+  // objectui#7373 — both exits out of this page (the "no agent here" screen's
+  // Home button, and the collapse-to-dock landing on a cold deep link) follow
+  // the DECLARED landing. Undeclared deployments get the launcher, unchanged.
+  const homePath = useHomePath();
   const { setContext } = useNavigationContext();
 
   useEffect(() => {
@@ -1258,7 +1270,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
             surface back into the dock. Arms the dock to mount expanded, then
             returns to the exact page the user maximized from (remembered by
             the dock's own maximize handlers; falls back to history-back, then
-            /home on a cold deep link) — the dock resolves the same
+            the declared home on a cold deep link) — the dock resolves the same
             (user, product) conversation scope, so it shows THE SAME THREAD.
             Visible on mobile too: under `md` the dock presents as a bottom
             sheet. */}
@@ -1275,6 +1287,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
               const target = resolveCollapseToDockTarget(
                 (window.history.state as { idx?: unknown } | null)?.idx,
                 readDockReturnLocation(),
+                homePath,
               );
               if (target === -1) navigate(-1);
               else navigate(target);
@@ -1288,7 +1301,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
         <AiUnavailable
           hasError={Boolean(agentsError)}
           onRetry={refetchAgents}
-          onHome={() => navigate('/home')}
+          onHome={() => navigate(homePath)}
           t={t}
         />
       ) : (

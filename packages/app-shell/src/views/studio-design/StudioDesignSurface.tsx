@@ -108,6 +108,7 @@ import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/a
 import { formatMetadataError, formatPublishFailures, type PublishFailure } from './metadataError.js';
 import { loadPackageSurfaces } from './packageSurfaces.js';
 import { useMetadataRefreshNonce } from './useMetadataRefreshNonce.js';
+import { useHomePath } from '../../hooks/useHomePath.js';
 import { resolveSurface, findSurfaceInTree, type NavNode, type Surface } from './navSurface.js';
 import { useSurfaceDeepLink, resolveSurfaceDeepLink, type SurfaceTarget } from './useSurfaceDeepLink.js';
 import { SurfaceDeepLinkProvider, useRequestedSurface } from './surfaceDeepLinkChannel.js';
@@ -278,6 +279,10 @@ function PackageSwitcher({
 }): React.ReactElement {
   const navigate = useNavigate();
   const locale = useMetadataLocale();
+  // objectui#7373 — where the deleted-package eviction below lands when no
+  // other package is left to open: the DECLARED landing, the launcher only when
+  // the deployment declares none.
+  const homePath = useHomePath();
   const [open, setOpen] = React.useState(false);
   const [pkgs, setPkgs] = React.useState<PkgEntry[] | null>(null);
   /**
@@ -549,7 +554,7 @@ function PackageSwitcher({
       // Deleted — only navigate away if it was the package we're editing.
       if (managedId === packageId) {
         const next = list[0];
-        navigate(next ? `/studio/${encodeURIComponent(next.id)}/${tab}` : '/home');
+        navigate(next ? `/studio/${encodeURIComponent(next.id)}/${tab}` : homePath);
       }
       return;
     }
@@ -628,7 +633,7 @@ function PackageSwitcher({
       );
       setManageOpen(false);
     }
-  }, [manage, packageId, tab, navigate, fetchFullPackage, locale]);
+  }, [manage, packageId, tab, navigate, fetchFullPackage, locale, homePath]);
 
   return (
     // Radix Popover (portaled to <body>) — the top bar is `overflow-x-auto`,
@@ -917,6 +922,9 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // ships an app, offer 打开应用 — opened in a new tab so the builder context
   // survives. (App → builder is the reverse bridge, tracked separately.)
   const shellNavigate = useNavigate();
+  // objectui#7373 — the header's Home button walks back to the DECLARED
+  // landing; the environment launcher only where nothing is declared.
+  const shellHomePath = useHomePath();
   const shellClient = useMetadataClient();
   const [packageApp, setPackageApp] = React.useState<{ name: string; label: string } | null>(null);
   // 创建应用 (package has no app yet): create a draft `app` item — the published
@@ -1062,7 +1070,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
               type="button"
               onClick={() => {
                 if (!confirmLeavePillar()) return;
-                shellNavigate('/home');
+                shellNavigate(shellHomePath);
               }}
               title={t('engine.studio.home', locale)}
               className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"

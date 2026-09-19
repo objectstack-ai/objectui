@@ -21,6 +21,7 @@ import {
   MAX_EAGER_CLOSURE_GZIP_BYTES,
   PER_CHUNK_BASELINE,
   PER_CHUNK_GZIP_CEILINGS,
+  PER_CHUNK_MEMBERSHIP,
   REGRESSION_THIS_GATE_MUST_CATCH_BYTES,
   SUPPORTED_REPORT_VERSION,
   VERDICT_CEILING_CONSTANTS,
@@ -28,6 +29,7 @@ import {
   evaluateClosureBudget,
   evaluateHeadroomSensitivity,
   evaluatePerChunkBudgets,
+  evaluatePerChunkMembership,
   extractCeilingDeclarations,
   RECOGNISED_HALF_STATUSES,
   foldHalfStatuses,
@@ -435,7 +437,20 @@ describe('per-chunk ceilings', () => {
  */
 describe('chunk attribution (objectui#7399)', () => {
   /** A group as `advancedChunks.groups` declares it. */
-  type Group = { name: string; priority: number; test: RegExp | null };
+  type Group = {
+    name: string;
+    priority: number;
+    test: RegExp | null;
+    /**
+     * Whatever the group declares AFTER `priority`, verbatim — `''` when it
+     * declares nothing. objectui#9345 put an option there
+     * (`includeDependenciesRecursively`), and the parse that could not see one
+     * did not degrade gracefully: it stopped matching the group ENTIRELY, so
+     * every case below quietly lost a subject. Keeping the tail is what lets a
+     * pin be written about an option instead of only about a regex.
+     */
+    options: string;
+  };
 
   /**
    * Parse the groups out of the console's vite config.
@@ -448,13 +463,14 @@ describe('chunk attribution (objectui#7399)', () => {
   function parseGroups(): Group[] {
     const source = fs.readFileSync(viteConfigPath, 'utf8');
     const entry =
-      /\{\s*name:\s*'([^']+)',\s*test:\s*(\/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+\/[a-z]*|[A-Za-z_$][\w$]*)\s*,\s*priority:\s*(\d+)\s*\}/g;
-    return [...source.matchAll(entry)].map(([, name, test, priority]) => {
+      /\{\s*name:\s*'([^']+)',\s*test:\s*(\/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+\/[a-z]*|[A-Za-z_$][\w$]*)\s*,\s*priority:\s*(\d+)\s*((?:,\s*[A-Za-z_$][\w$]*:\s*[^,{}]+)*)\s*,?\s*\}/g;
+    return [...source.matchAll(entry)].map(([, name, test, priority, options]) => {
       const literal = /^\/(.*)\/([a-z]*)$/s.exec(test);
       return {
         name,
         priority: Number(priority),
         test: literal ? new RegExp(literal[1], literal[2]) : null,
+        options: (options ?? '').trim(),
       };
     });
   }
@@ -535,6 +551,35 @@ describe('chunk attribution (objectui#7399)', () => {
       // The pin. A TIE is what put the catalogue in `framework`, so equality
       // here is a failure exactly like inversion is.
       expect(claiming[0].priority).toBeGreaterThan(framework!.priority);
+    });
+
+    /**
+     * objectui#9345 — the half the priority cases above cannot see.
+     *
+     * Every case in this block asks which group's `test` CLAIMS a module id.
+     * That question was answered correctly the whole time `packages/core` was
+     * being written into `data-adapter`: rolldown's
+     * `includeDependenciesRecursively` (default `true`) also gives a group the
+     * modules its captured modules IMPORT, and the priority doc for the same
+     * option says those are then removed from the lower-priority groups whose
+     * regex does match them. `data-adapter` outranks `framework` and
+     * `packages/data-objectstack` imports `@object-ui/core`, so all 92 modules
+     * of `packages/core` went to a chunk with no ceiling — while a static read
+     * of the group table, and every case above, stayed green.
+     *
+     * ⇒ the repair is this flag, and this is the pin that stops it being
+     * dropped in a reformat. The bundle-level half — the modules actually
+     * landed where the config says — is `evaluatePerChunkMembership`, which
+     * needs a build; this one reds in a unit run.
+     */
+    it('narrows `data-adapter` to its own regex, so it cannot absorb `framework`s members', () => {
+      const dataAdapter = groups.find((g) => g.name === 'data-adapter');
+      expect(dataAdapter).toBeDefined();
+      expect(dataAdapter!.options).toContain('includeDependenciesRecursively: false');
+      // The control: the parse can see an options tail at all, and does not
+      // report one where none is written. A tail-blind parse would satisfy the
+      // line above by reading `''` from every group.
+      expect(groups.find((g) => g.name === 'framework')!.options).toBe('');
     });
 
     it('leaves no second claimant at the winner`s priority', () => {
@@ -1056,6 +1101,192 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
   });
 });
 
+/**
+ * A membership artifact shaped exactly like `emitChunkMembershipReport`'s
+ * output, with every declared package landing wholly in its declared chunk.
+ *
+ * Built FROM {@link PER_CHUNK_MEMBERSHIP} rather than written out, so a package
+ * added to the declaration cannot be left silently unrepresented here — which
+ * would make the pass case pass for a package nobody checked.
+ */
+function passingMembership(overrides: Record<string, unknown> = {}) {
+  const packages: Record<string, Record<string, number>> = {};
+  for (const [chunk, pkgs] of Object.entries(PER_CHUNK_MEMBERSHIP)) {
+    for (const pkg of pkgs) packages[pkg] = { [chunk]: 12 };
+  }
+  // A package nothing budgets, present in every real build, so the evaluator is
+  // never handed a map containing only its own subjects.
+  packages['app-shell'] = { index: 40, 'some-lazy-view': 3 };
+  return { membershipReportVersion: 1, totalChunkCount: 2_000, packages, ...overrides };
+}
+
+/**
+ * Chunk membership — the half that asks WHERE, not HOW BIG (objectui#9345).
+ *
+ * ⚠️ Read the error cases as the substance of this block, not as its edges.
+ * This half's green state is an ABSENCE — "no declared package was found in a
+ * chunk it is not declared for" — and that sentence is equally true of an
+ * artifact that attributed nothing, a package that vanished from the bundle,
+ * and a declaration pointed at a chunk no ceiling governs. Each of those is
+ * pinned below as an ERROR, because each of them would otherwise be a pass
+ * bought by measuring less.
+ */
+describe('chunk membership (objectui#9345)', () => {
+  it('passes when every declared package landed wholly in its declared chunk', () => {
+    const result = evaluatePerChunkMembership({ membership: passingMembership() });
+    expect(result.status).toBe('pass');
+    // The population, named in the verdict: a green line that does not say what
+    // it weighed is indistinguishable from a green line that weighed nothing.
+    for (const pkgs of Object.values(PER_CHUNK_MEMBERSHIP)) {
+      for (const pkg of pkgs) expect(result.message).toContain(`\`packages/${pkg}\``);
+    }
+  });
+
+  it('FAILS, naming the package and the chunk that took it, on one stray module', () => {
+    // The incident, reduced to its smallest form: `packages/core` split between
+    // `framework` and a group whose regex never mentioned it.
+    const membership = passingMembership();
+    (membership.packages as Record<string, Record<string, number>>).core = {
+      framework: 11,
+      'data-adapter': 1,
+    };
+    const result = evaluatePerChunkMembership({ membership });
+    expect(result.status).toBe('fail');
+    expect(result.message).toContain('`packages/core`');
+    expect(result.message).toContain('`data-adapter`');
+    expect(result.message).toContain('`framework`');
+    // ⛔ The remedy this verdict may never suggest.
+    expect(result.message).toContain('Do NOT move a ceiling');
+  });
+
+  it('FAILS when the whole package moved, not only when it split', () => {
+    const membership = passingMembership();
+    (membership.packages as Record<string, Record<string, number>>).core = { 'data-adapter': 92 };
+    const result = evaluatePerChunkMembership({ membership });
+    expect(result.status).toBe('fail');
+    expect(result.message).toContain('0 of its 92 modules landed in `framework`');
+  });
+
+  it('is EXACT, not a ratchet — a majority in the right chunk is still a fail', () => {
+    // The shape a headroom-bearing pin would wave through, and the one the
+    // ruling on objectui#9345 forbids: 99 of 100 modules in place.
+    const membership = passingMembership();
+    (membership.packages as Record<string, Record<string, number>>).core = {
+      framework: 99,
+      'plugin-grid': 1,
+    };
+    expect(evaluatePerChunkMembership({ membership }).status).toBe('fail');
+  });
+
+  describe('refuses a verdict rather than passing by measuring nothing', () => {
+    it('errors when the artifact is absent', () => {
+      const result = evaluatePerChunkMembership({ membership: null });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('PREREQUISITE NOT MET');
+    });
+
+    it('errors on a version it does not understand', () => {
+      const result = evaluatePerChunkMembership({
+        membership: passingMembership({ membershipReportVersion: 99 }),
+      });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('membershipReportVersion');
+    });
+
+    it('errors when the artifact attributes no package at all', () => {
+      const result = evaluatePerChunkMembership({
+        membership: passingMembership({ packages: {} }),
+      });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('vacuously true');
+    });
+
+    it('errors when the bundle it describes has no chunk in it', () => {
+      const result = evaluatePerChunkMembership({
+        membership: passingMembership({ totalChunkCount: 0 }),
+      });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('totalChunkCount');
+    });
+
+    it('errors when a declared package contributed no module anywhere', () => {
+      // ⭐ The case that separates this half from a vacuous one. A package
+      // absent from the bundle cannot be in a chunk it should not be in, so the
+      // stray scan agrees with everything about it.
+      const membership = passingMembership();
+      delete (membership.packages as Record<string, unknown>).core;
+      const result = evaluatePerChunkMembership({ membership });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('contributed no module');
+      expect(result.message).toContain('`packages/core`');
+    });
+
+    it('errors when a declared package is present but attributed to nothing', () => {
+      const membership = passingMembership();
+      (membership.packages as Record<string, Record<string, number>>).core = {};
+      expect(evaluatePerChunkMembership({ membership }).status).toBe('error');
+    });
+
+    it('errors when the declaration names a chunk no ceiling governs', () => {
+      const result = evaluatePerChunkMembership({
+        membership: passingMembership(),
+        declaration: { 'data-adapter': ['data-objectstack'] },
+      });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('PER_CHUNK_GZIP_CEILINGS');
+    });
+  });
+
+  describe('the declaration itself', () => {
+    it('names only chunks that carry a per-chunk ceiling', () => {
+      for (const chunk of Object.keys(PER_CHUNK_MEMBERSHIP)) {
+        expect(PER_CHUNK_GZIP_CEILINGS).toHaveProperty(chunk);
+      }
+      // Non-vacuity: the live table is not empty, and an invented key is still
+      // not a budgeted chunk.
+      expect(Object.keys(PER_CHUNK_MEMBERSHIP).length).toBeGreaterThan(0);
+      expect(PER_CHUNK_GZIP_CEILINGS).not.toHaveProperty('a-chunk-nothing-budgets');
+    });
+
+    /**
+     * ⭐ The cross-check that keeps this declaration from becoming a second
+     * opinion about the console config. Each package name below must be matched
+     * by the `test` of the group it is declared under — the same regex rolldown
+     * itself matches — so a group whose regex is narrowed without updating this
+     * table reds here rather than going quietly out of date.
+     */
+    it('declares only packages the group`s own regex claims', () => {
+      const source = fs.readFileSync(viteConfigPath, 'utf8');
+      for (const [chunk, pkgs] of Object.entries(PER_CHUNK_MEMBERSHIP)) {
+        // ⚠️ Anchored on `priority:` deliberately. Without a terminator the
+        // alternation inside the test literal stops at the first `/` of a
+        // `[\\/]` class and hands back a truncated, INVALID regex — a parse
+        // that throws rather than one that lies, but a parse that reads
+        // nothing all the same.
+        const declaration = new RegExp(
+          String.raw`\{\s*name:\s*'${chunk}',\s*test:\s*(/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+/[a-z]*)\s*,\s*priority:`,
+        ).exec(source);
+        // Fails closed: a group this parse cannot find is an error, not a pass.
+        expect(declaration, `no regex-tested group named \`${chunk}\` in the console config`)
+          .not.toBeNull();
+        const literal = /^\/(.*)\/([a-z]*)$/s.exec(declaration![1])!;
+        const test = new RegExp(literal[1], literal[2]);
+        for (const pkg of pkgs) {
+          expect(
+            test.test(path.join(repoRoot, `packages/${pkg}/src/index.ts`)),
+            `\`${chunk}\` is declared to hold packages/${pkg}, but its own test does not match it`,
+          ).toBe(true);
+        }
+        // The must-miss control, so a regex that matched everything could not
+        // satisfy the loop above.
+        expect(test.test(path.join(repoRoot, 'packages/not-a-real-package/src/index.ts'))).toBe(
+          false,
+        );
+      }
+    });
+  });
+});
+
 describe('renderTopChunks', () => {
   it('names the biggest eager chunks so a failure has suspects', () => {
     const lines = renderTopChunks(report(), 2).split('\n');
@@ -1088,11 +1319,25 @@ describe('main', () => {
    * what makes these cases exercise the non-pull_request path deterministically
    * instead of by luck. Pass it through `env` to opt a case in.
    */
-  function run(reportBody: unknown, env: Record<string, string> = {}) {
+  function run(
+    reportBody: unknown,
+    env: Record<string, string> = {},
+    membershipBody: unknown = passingMembership(),
+  ) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'closure-budget-'));
     const reportPath = path.join(dir, 'eager-closure.json');
     const outputPath = path.join(dir, 'github-output');
     if (reportBody !== undefined) fs.writeFileSync(reportPath, JSON.stringify(reportBody));
+    // Written into the SAME directory on purpose — that is the production
+    // relationship between the two artifacts, and `main` derives one path from
+    // the other. `undefined` opts a case out, which is the absent-artifact
+    // case rather than a shortcut.
+    if (membershipBody !== undefined) {
+      fs.writeFileSync(
+        path.join(dir, 'chunk-membership.json'),
+        JSON.stringify(membershipBody),
+      );
+    }
     try {
       const code = main(['--report', reportPath], { GITHUB_OUTPUT: outputPath, ...env });
       const outputs = Object.fromEntries(
@@ -1478,6 +1723,89 @@ describe('main', () => {
  * `BUDGET_CLOSURE_BUDGET_KB: 3990.2` — 4,086,000 bytes — with conclusion
  * `success`. `theRealIncident` below replays exactly that pair of numbers.
  */
+/**
+ * The membership half, folded — objectui#9345.
+ *
+ * Local to this block rather than merged into `describe('main')` above for the
+ * reason that block's own freshness sibling gives: these cases need the second
+ * artifact under their control, and a shared helper that always wrote a healthy
+ * one could not express the absent case at all.
+ */
+describe('main folds chunk membership into the exit code (objectui#9345)', () => {
+  /**
+   * Local runner, like the freshness block's: `describe('main')`'s helper is
+   * scoped to that block, and these cases need the SECOND artifact under their
+   * own control — including the case where it is absent, which a helper that
+   * always wrote a healthy one could not express.
+   */
+  function runPair(reportBody: unknown, membershipBody: unknown) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'closure-membership-'));
+    const reportPath = path.join(dir, 'eager-closure.json');
+    const outputPath = path.join(dir, 'github-output');
+    fs.writeFileSync(reportPath, JSON.stringify(reportBody));
+    if (membershipBody !== undefined) {
+      fs.writeFileSync(path.join(dir, 'chunk-membership.json'), JSON.stringify(membershipBody));
+    }
+    try {
+      const code = main(['--report', reportPath], { GITHUB_OUTPUT: outputPath });
+      const outputs = Object.fromEntries(
+        fs
+          .readFileSync(outputPath, 'utf8')
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => {
+            const at = line.indexOf('=');
+            return [line.slice(0, at), line.slice(at + 1)] as [string, string];
+          }),
+      );
+      return { code, outputs };
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  /** The report every case here starts from: nothing is over any line. */
+  function healthyBudget() {
+    return report({
+      eagerGzipBytes: BASELINE.gzipBytes,
+      files: [
+        { fileName: 'assets/index-A.js', name: 'index', bytes: 90_000, gzipBytes: BASELINE.gzipBytes - PER_CHUNK_BASELINE['vendor-objectstack'] - PER_CHUNK_BASELINE.framework - PER_CHUNK_BASELINE['ui-components'] - PER_CHUNK_BASELINE['i18n-locale-en'] },
+        { fileName: 'assets/vendor-objectstack-B.js', name: 'vendor-objectstack', bytes: 5_000_000, gzipBytes: PER_CHUNK_BASELINE['vendor-objectstack'] },
+        { fileName: 'assets/framework-C.js', name: 'framework', bytes: 300_000, gzipBytes: PER_CHUNK_BASELINE.framework },
+        { fileName: 'assets/ui-components-D.js', name: 'ui-components', bytes: 900_000, gzipBytes: PER_CHUNK_BASELINE['ui-components'] },
+        { fileName: 'assets/i18n-locale-en-E.js', name: 'i18n-locale-en', bytes: 120_000, gzipBytes: PER_CHUNK_BASELINE['i18n-locale-en'] },
+      ],
+      eagerChunkCount: 5,
+    });
+  }
+
+  it('exits 0 and publishes `pass` when every declared package is in place', () => {
+    const { code, outputs } = runPair(healthyBudget(), passingMembership());
+    expect(outputs.closure_membership_status).toBe('pass');
+    expect(code).toBe(0);
+  });
+
+  it('exits 1 — a size verdict`s code — when a budgeted package landed elsewhere', () => {
+    const membership = passingMembership();
+    (membership.packages as Record<string, Record<string, number>>).core = {
+      framework: 60,
+      'data-adapter': 32,
+    };
+    const { code, outputs } = runPair(healthyBudget(), membership);
+    expect(outputs.closure_membership_status).toBe('fail');
+    // ⭐ 1, not 2. A package in the wrong chunk is a real verdict about the
+    // bundle, in the same class as a chunk over its ceiling — not a gauge that
+    // produced nothing.
+    expect(code).toBe(1);
+  });
+
+  it('exits 2 when the artifact is absent — an unbuilt tree is not a pass', () => {
+    const { code, outputs } = runPair(healthyBudget(), undefined);
+    expect(outputs.closure_membership_status).toBe('error');
+    expect(code).toBe(2);
+  });
+});
+
 describe('ceiling freshness (objectui#6245)', () => {
   const checkerSource = fs.readFileSync(checkerPath, 'utf8');
 
@@ -1721,6 +2049,13 @@ describe('ceiling freshness (objectui#6245)', () => {
       const reportPath = path.join(dir, 'eager-closure.json');
       const outputPath = path.join(dir, 'github-output');
       fs.writeFileSync(reportPath, JSON.stringify(healthyReport()));
+      // The membership half resolves its artifact beside the report. These
+      // cases are about FRESHNESS, so it is written healthy here — an absent
+      // one would exit 2 for a reason none of them is asking about.
+      fs.writeFileSync(
+        path.join(dir, 'chunk-membership.json'),
+        JSON.stringify(passingMembership()),
+      );
       const write = (name: string, body: string) => {
         const at = path.join(dir, name);
         fs.writeFileSync(at, body);

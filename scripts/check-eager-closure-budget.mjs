@@ -1308,6 +1308,251 @@ export const PER_CHUNK_BASELINE = Object.freeze({
 });
 
 /**
+ * The membership artifact's file name, and its default path.
+ *
+ * ⚠️ The NAME is the load-bearing half. `main` resolves this artifact next to
+ * whatever `--report` names, because the two files are written by the same
+ * build into the same `dist` — deriving one from the other is what keeps a run
+ * pointed at some other build's report from silently weighing THIS tree's
+ * membership, which is a mismatch no assertion below could detect.
+ */
+const MEMBERSHIP_REPORT_FILE_NAME = 'chunk-membership.json';
+const MEMBERSHIP_REPORT_PATH = `apps/console/dist/${MEMBERSHIP_REPORT_FILE_NAME}`;
+
+/**
+ * The membership artifact's own version, independent of
+ * {@link SUPPORTED_REPORT_VERSION}.
+ *
+ * ⛔ Not a duplicate of that constant and ⛔ not to be merged into it:
+ * `eager-closure.json`'s version is a contract with a SECOND reader,
+ * `scripts/check-eager-locale-catalogues.mjs`, whose own tests pin that a later
+ * version is REFUSED. Two artifacts, two versions, each bumped by the reader
+ * that has to understand it.
+ */
+const SUPPORTED_MEMBERSHIP_REPORT_VERSION = 1;
+
+/**
+ * WHERE each budgeted group's declared packages must land — an EXACT claim,
+ * ⛔ not a ratchet with headroom (objectui#9345).
+ *
+ * ## The hole this closes
+ *
+ * Every other verdict in this file weighs BYTES against a line drawn per chunk
+ * NAME. That arrangement has an exit nobody was watching: move the bytes to a
+ * chunk with no line, and every line goes green while the browser downloads
+ * exactly what it downloaded before. It was not hypothetical. All 92 modules of
+ * `packages/core` left the budgeted `framework` chunk for `data-adapter` —
+ * which has no ceiling and no baseline and is in the eager closure — on one
+ * commit that edited no chunking config at all (objectui#9185, measured on
+ * objectui#9205). `framework` fell far enough below its own baseline to raise a
+ * DIFFERENT question, and the answer to that question was three cards away.
+ *
+ * ⇒ this half asks the question a byte count structurally cannot: did the
+ * budgeted groups' declared packages land where the config says they land?
+ *
+ * ## Why the keys are exactly the budgeted groups
+ *
+ * The subject of the claim is a BUDGET that can be bypassed, so its population
+ * is the chunks that carry a budget — the keys of
+ * {@link PER_CHUNK_GZIP_CEILINGS}, cross-checked below rather than trusted.
+ * Two of those four keys name no workspace package and are absent here for
+ * reasons, not by oversight:
+ *
+ *   - `vendor-objectstack` holds `node_modules` only, so no `packages/<name>`
+ *     claim can be made about it.
+ *   - `i18n-locale-en` is ONE FILE inside `packages/i18n`, whose other modules
+ *     belong to `i18n-runtime` by design — package granularity cannot express
+ *     that, and `scripts/check-eager-locale-catalogues.mjs` already pins the
+ *     catalogues' membership by chunk name.
+ *
+ * ## Why the values are package names and not regexes
+ *
+ * A regex here would be a SECOND opinion about the group tests in
+ * `apps/console/vite.config.ts` — one that goes on reading plausibly while it
+ * matches something else. `scripts/__tests__/check-eager-closure-budget.test.ts`
+ * instead requires each name below to be matched by that group's own declared
+ * test, so the two cannot drift apart without a red test.
+ */
+export const PER_CHUNK_MEMBERSHIP = Object.freeze({
+  framework: Object.freeze(['core', 'react', 'types']),
+  'ui-components': Object.freeze(['components', 'fields']),
+});
+
+/**
+ * Read the membership artifact, or `null` when it is not there / not JSON.
+ *
+ * @param {string} [reportPath]
+ * @returns {unknown}
+ */
+export function readMembershipReport(reportPath = MEMBERSHIP_REPORT_PATH) {
+  try {
+    return JSON.parse(fs.readFileSync(path.resolve(reportPath), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The membership verdict.
+ *
+ * ⚠️ Read the ERROR branches before the fail branch. Every one of them exists
+ * because this half's green state is "no declared package was found anywhere it
+ * should not be" — a sentence that is also true of a report that attributed
+ * nothing, of a package that vanished from the bundle, and of a declaration
+ * that names a chunk no ceiling governs. A check whose pass condition is an
+ * ABSENCE has to prove it looked.
+ *
+ * @param {object} input
+ * @param {unknown} input.membership  parsed `chunk-membership.json`, or null
+ * @param {Record<string, readonly string[]>} [input.declaration]
+ * @param {Record<string, number>} [input.budgetedChunks]
+ * @param {string} [input.reportPath]
+ * @returns {{ status: 'pass' | 'fail' | 'error', message: string }}
+ */
+export function evaluatePerChunkMembership({
+  membership,
+  declaration = PER_CHUNK_MEMBERSHIP,
+  budgetedChunks = PER_CHUNK_GZIP_CEILINGS,
+  reportPath = MEMBERSHIP_REPORT_PATH,
+} = {}) {
+  if (membership === null || membership === undefined || typeof membership !== 'object') {
+    return {
+      status: 'error',
+      message:
+        `PREREQUISITE NOT MET: \`${reportPath}\` is missing or is not JSON, so no chunk ` +
+        `membership was weighed. This half reads a BUILT bundle — run ` +
+        `\`pnpm --filter @object-ui/console build\` first. ⛔ This is NOT a pass: a gate that ` +
+        `could not run is not a gate that ran clean.`,
+    };
+  }
+
+  const r = /** @type {Record<string, unknown>} */ (membership);
+  if (r.membershipReportVersion !== SUPPORTED_MEMBERSHIP_REPORT_VERSION) {
+    return {
+      status: 'error',
+      message:
+        `\`${reportPath}\` declares membershipReportVersion ` +
+        `${JSON.stringify(r.membershipReportVersion)}, expected ` +
+        `${SUPPORTED_MEMBERSHIP_REPORT_VERSION} — the emitter in ` +
+        `\`apps/console/vite.config.ts\` and this half have drifted apart, and a shape this ` +
+        `half does not understand is refused rather than read for fields it may not carry.`,
+    };
+  }
+
+  if (typeof r.totalChunkCount !== 'number' || !Number.isFinite(r.totalChunkCount) || r.totalChunkCount < 1) {
+    return {
+      status: 'error',
+      message:
+        `\`${reportPath}\` reports totalChunkCount ${JSON.stringify(r.totalChunkCount)} — a ` +
+        `bundle with no chunk in it attributed nothing, and "nothing was attributed" reads to ` +
+        `the check below exactly like "no module is out of place".`,
+    };
+  }
+
+  const packages = r.packages;
+  if (packages === null || typeof packages !== 'object' || Object.keys(packages).length === 0) {
+    return {
+      status: 'error',
+      message:
+        `\`${reportPath}\` attributes no workspace package at all, so every membership claim ` +
+        `below would be vacuously true. The emitter refuses to publish such a report; one ` +
+        `reaching this half means it was edited, truncated or hand-written.`,
+    };
+  }
+  const attribution = /** @type {Record<string, Record<string, number>>} */ (packages);
+
+  // The declaration is about BUDGETED chunks. A key here that carries no
+  // ceiling would be pinning membership for a line nothing weighs — harmless
+  // to assert and misleading to read, since this half's whole argument is that
+  // it guards the byte budget's flank.
+  const unbudgeted = Object.keys(declaration).filter((chunk) => !(chunk in budgetedChunks));
+  if (unbudgeted.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `PER_CHUNK_MEMBERSHIP declares ${unbudgeted.map((c) => `\`${c}\``).join(', ')}, which ` +
+        `${unbudgeted.length === 1 ? 'is' : 'are'} not among the budgeted chunks in ` +
+        `PER_CHUNK_GZIP_CEILINGS. This half exists to guard a byte budget's flank; a membership ` +
+        `pin on a chunk with no budget guards nothing and reads as though it did.`,
+    };
+  }
+
+  /** @type {string[]} */
+  const missing = [];
+  /** @type {string[]} */
+  const strays = [];
+  /** @type {string[]} */
+  const held = [];
+
+  for (const [chunk, pkgs] of Object.entries(declaration)) {
+    for (const pkg of pkgs) {
+      const landed = attribution[pkg];
+      if (landed === undefined || typeof landed !== 'object' || Object.keys(landed).length === 0) {
+        missing.push(pkg);
+        continue;
+      }
+      const total = Object.values(landed).reduce((n, count) => n + count, 0);
+      const elsewhere = Object.entries(landed).filter(([name]) => name !== chunk);
+      if (elsewhere.length > 0) {
+        const where = elsewhere
+          .sort((a, b) => b[1] - a[1])
+          .map(([name, count]) => `${count} in \`${name}\``)
+          .join(', ');
+        strays.push(
+          `\`packages/${pkg}\` is declared in \`${chunk}\` but ${where} ` +
+            `(${landed[chunk] ?? 0} of its ${total} modules landed in \`${chunk}\`)`,
+        );
+      } else {
+        held.push(`\`packages/${pkg}\` ${total} modules in \`${chunk}\``);
+      }
+    }
+  }
+
+  // Ahead of the stray verdict on purpose. A declared package that contributed
+  // NO module to the bundle cannot be out of place, so the stray scan would
+  // pass on it — by measuring nothing, which is the one direction every probe
+  // in this file refuses.
+  if (missing.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `${missing.length} declared package(s) contributed no module to any chunk: ` +
+        `${missing.map((p) => `\`packages/${p}\``).join(', ')}. ⛔ Not a pass: a package that ` +
+        `is not in the bundle is not "in its declared chunk", and the membership scan would ` +
+        `agree with everything about it. Either the package was renamed or removed — update ` +
+        `PER_CHUNK_MEMBERSHIP deliberately — or the emitter has stopped recognising its module ` +
+        `ids, in which case this gate is matching nothing.`,
+    };
+  }
+
+  if (strays.length > 0) {
+    return {
+      status: 'fail',
+      message:
+        `${strays.length} budgeted package(s) did not land in the chunk the console config ` +
+        `declares for them:\n` +
+        strays.map((line) => `  ❌ ${line}`).join('\n') +
+        `\nChunk membership is decided by the grouping rules in ` +
+        `\`apps/console/vite.config.ts\`, ⛔ not by the side effect of an import edge: ` +
+        `rolldown's \`includeDependenciesRecursively\` lets a higher-priority group take a ` +
+        `lower-priority group's declared members along an import, and the group that receives ` +
+        `them may carry no ceiling at all — in which case the bytes go on being downloaded ` +
+        `while every per-chunk line above turns green (objectui#9345). ⛔ Do NOT move a ceiling ` +
+        `or a baseline to absorb this. Repair the grouping rule, or change this declaration ` +
+        `deliberately and say in the PR which chunk now owns the package and why.`,
+    };
+  }
+
+  return {
+    status: 'pass',
+    message:
+      `Chunk membership: ${held.length} budgeted package(s) each landed wholly in their ` +
+      `declared chunk — ${held.join('; ')}. (Counted over every emitted chunk, lazy ones ` +
+      `included, from \`${reportPath}\`.)`,
+  };
+}
+
+/**
  * The LOWER bound on a ceiling's headroom, as a fraction of
  * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES} (objectui#8554).
  *
@@ -2542,14 +2787,14 @@ export function readReport(reportPath) {
 }
 
 /**
- * Every status the four halves are declared to produce, and the only ones
+ * Every status the halves are declared to produce, and the only ones
  * {@link foldHalfStatuses} knows how to weigh.
  *
- * DERIVED, not invented: it is the union of the four `@returns` unions above —
- * {@link evaluateClosureBudget} and {@link evaluatePerChunkBudgets}
- * (`pass | fail | error`), {@link evaluateHeadroomSensitivity}
- * (`pass | error`), and {@link evaluateCeilingFreshness}
- * (`pass | error | not-applicable`). `scripts/__tests__/` re-derives that union
+ * DERIVED, not invented: it is the union of the `@returns` unions above —
+ * {@link evaluateClosureBudget}, {@link evaluatePerChunkBudgets} and
+ * {@link evaluatePerChunkMembership} (`pass | fail | error`),
+ * {@link evaluateHeadroomSensitivity} (`pass | error`), and
+ * {@link evaluateCeilingFreshness} (`pass | error | not-applicable`). `scripts/__tests__/` re-derives that union
  * from this file's own text and reds when the two disagree, so a half that
  * gains a FIFTH status cannot gain it without also being given a code here.
  * That test is the reason this list may be written down at all (AGENTS.md #9):
@@ -2627,8 +2872,10 @@ function writeGithubOutput(entries, outputPath = process.env.GITHUB_OUTPUT) {
 }
 
 /**
- * Exit codes: `0` within budget, `1` over budget — the aggregate ceiling or any
- * per-chunk ceiling — and `2` no trustworthy verdict (report missing,
+ * Exit codes: `0` within budget and in place, `1` over budget — the aggregate
+ * ceiling or any per-chunk ceiling — or a budgeted package that landed outside
+ * the chunk the console config declares for it (objectui#9345), and `2` no
+ * trustworthy verdict (report missing,
  * stale-shaped, internally inconsistent, missing a budgeted chunk, governed by
  * a ceiling that has drifted out of range of the regression it must catch,
  * governed by a ceiling with no headroom left to measure with — objectui#8554,
@@ -2643,10 +2890,11 @@ function writeGithubOutput(entries, outputPath = process.env.GITHUB_OUTPUT) {
  * the workflow fails the step. It never prints a verdict about a bundle nobody
  * weighed, and it never exits 0 having measured nothing.
  *
- * All FOUR halves are evaluated and printed before any of them decides the
- * code: a run that reports the total and hides which chunk moved (or hides
- * whether either line still means anything, or whether the line it used is the
- * line in force) teaches readers to ignore the half they cannot see.
+ * EVERY half is evaluated and printed before any of them decides the code: a
+ * run that reports the total and hides which chunk moved (or hides whether
+ * either line still means anything, or whether the line it used is the line in
+ * force, or whether the budgeted chunks still hold what they are named for)
+ * teaches readers to ignore the half they cannot see.
  */
 export function main(argv = process.argv.slice(2), env = process.env) {
   const flagIndex = argv.indexOf('--report');
@@ -2655,6 +2903,15 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const report = readReport(resolved);
   const result = evaluateClosureBudget({ report, reportPath });
   const perChunk = evaluatePerChunkBudgets({ report, reportPath });
+  // The fifth half reads a DIFFERENT artifact — `chunk-membership.json`, from
+  // the same build — because it asks a question `eager-closure.json` carries no
+  // field for: WHERE a budgeted group's declared packages landed, counted over
+  // every emitted chunk rather than the eager closure alone (objectui#9345).
+  const membershipPath = path.join(path.dirname(resolved), MEMBERSHIP_REPORT_FILE_NAME);
+  const membership = evaluatePerChunkMembership({
+    membership: readMembershipReport(membershipPath),
+    reportPath: membershipPath,
+  });
   const sensitivity = evaluateHeadroomSensitivity({ report, reportPath });
   // The fourth half asks about the CEILING rather than the payload, so its
   // inputs are source texts and not the report: this file as checked out,
@@ -2679,6 +2936,11 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     console.log(`✅ ${perChunk.message}`);
   } else {
     console.error(`❌ ${perChunk.message}`);
+  }
+  if (membership.status === 'pass') {
+    console.log(`✅ ${membership.message}`);
+  } else {
+    console.error(`❌ ${membership.message}`);
   }
   if (sensitivity.status === 'pass') {
     console.log(`✅ ${sensitivity.message}`);
@@ -2707,6 +2969,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     closure_budget_kb: kb(result.budgetBytes),
     closure_chunks: result.chunkCount === null ? '' : String(result.chunkCount),
     closure_chunk_status: perChunk.status,
+    closure_membership_status: membership.status,
     closure_headroom_status: sensitivity.status,
     // Empty on a run this half does not apply to, so the PR comment's half
     // table filters it out instead of rendering a blank verdict as a row.
@@ -2738,6 +3001,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const { code, unrecognised } = foldHalfStatuses({
     closure: result.status,
     'per-chunk': perChunk.status,
+    membership: membership.status,
     sensitivity: sensitivity.status,
     freshness: freshness.status,
   });

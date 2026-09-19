@@ -51,6 +51,7 @@ const text = (value) => (typeof value === 'string' ? value.trim() : '');
  * @param {string} [input.closureBudgetKb] the closure ceiling it was compared against
  * @param {string} [input.closureChunks]  how many chunks the eager closure spans
  * @param {string} [input.closureChunkStatus]    `closure_chunk_status` — the per-chunk half
+ * @param {string} [input.closureMembershipStatus] `closure_membership_status` — the membership half
  * @param {string} [input.closureHeadroomStatus] `closure_headroom_status` — the sensitivity half
  * @param {string} [input.closureFreshnessStatus] `closure_freshness_status` — the freshness half
  * @param {string} [input.message]       human-readable reason when `status` is `error`
@@ -72,6 +73,7 @@ export function renderBudgetComment(input = {}) {
     budgetKb: text(input.closureBudgetKb),
     chunks: text(input.closureChunks),
     chunkStatus: text(input.closureChunkStatus),
+    membershipStatus: text(input.closureMembershipStatus),
     headroomStatus: text(input.closureHeadroomStatus),
     freshnessStatus: text(input.closureFreshnessStatus),
   };
@@ -97,10 +99,11 @@ export function renderBudgetComment(input = {}) {
 }
 
 /**
- * The eager-closure checker evaluates four halves and publishes a verdict for
- * each. The step's exit code folds all four into ONE `budget_status`, so a
+ * The eager-closure checker evaluates several halves and publishes a verdict
+ * for each. The step's exit code folds them all into ONE `budget_status`, so a
  * comment that renders only that says "something objected" and sends the reader
- * to the job log to learn which — the aggregate total, one chunk, a ceiling that
+ * to the job log to learn which — the aggregate total, one chunk, a budgeted
+ * package that landed outside its declared chunk (objectui#9345), a ceiling that
  * has stopped measuring anything (objectui#6230), or a ceiling the base branch
  * replaced after this checkout (objectui#6245). These labels name the halves the
  * way the step log names them.
@@ -115,6 +118,7 @@ const FRESHNESS_HALF = 'freshnessStatus';
 const CLOSURE_HALVES = [
   ['status', 'Aggregate closure ceiling'],
   ['chunkStatus', 'Per-chunk ceilings'],
+  ['membershipStatus', 'Per-chunk membership (declared packages)'],
   ['headroomStatus', 'Ceiling sensitivity (headroom)'],
   [
     FRESHNESS_HALF,
@@ -318,6 +322,7 @@ export function renderFromEnv(env = process.env, sizeReportPath = 'size-report.m
     closureBudgetKb: env.BUDGET_CLOSURE_BUDGET_KB,
     closureChunks: env.BUDGET_CLOSURE_CHUNKS,
     closureChunkStatus: env.BUDGET_CLOSURE_CHUNK_STATUS,
+    closureMembershipStatus: env.BUDGET_CLOSURE_MEMBERSHIP_STATUS,
     closureHeadroomStatus: env.BUDGET_CLOSURE_HEADROOM_STATUS,
     closureFreshnessStatus: env.BUDGET_CLOSURE_FRESHNESS_STATUS,
     budgetOutcome: env.BUDGET_STEP_OUTCOME,

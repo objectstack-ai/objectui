@@ -135,11 +135,18 @@ function parseMapEntries(source: string, declaration: string): Array<[string, st
   const rest = source.slice(open);
   // The close is the first line that ENDS the literal. objectui#9943 moved
   // these maps off the exact `Record<ViewType, …>` annotation onto
-  // `} satisfies Record<string, …>;`, and an `indexOf('};')` reader ran STRAIGHT
-  // PAST that line into whatever literal closed next — a reader that silently
-  // reads the wrong map, which is worse than one that reads none. Matching the
-  // closing brace and whatever follows it covers `};`, `} satisfies …;` and
-  // `} as …;` alike.
+  // `} satisfies Record<string, …>;`, which no longer contains the two-character
+  // `};` the previous reader searched for.
+  //
+  // ⚠️ The hazard is LATENT, not live, and the distinction was measured rather
+  // than assumed: reverting this line to `indexOf('};')` leaves this suite GREEN
+  // today. It over-reads 392 characters past the literal — the totality assert
+  // and the head of the `return { type, label, icon }` beside it — and none of
+  // those lines happens to match the `key: value,` shape below, so the parse is
+  // unchanged. One `label: something,` added to that block would make it a 13th
+  // entry and redden the precondition test for a reason that has nothing to do
+  // with `iconMap`. Matching the closing brace and whatever follows it covers
+  // `};`, `} satisfies …;` and `} as …;` alike, and stops depending on luck.
   const close = rest.search(/^\s*\}\s*(?:satisfies\b|as\b|;)/m);
   if (close === -1) return [];
   return [...rest.slice(0, close).matchAll(/^\s*(\w+)\s*:\s*(?:'([\w-]+)'|(\w+))\s*,\s*$/gm)]

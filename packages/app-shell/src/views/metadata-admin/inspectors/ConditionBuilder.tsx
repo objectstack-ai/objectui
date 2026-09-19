@@ -242,6 +242,103 @@ const REFERENCE_RE = new RegExp(
 export const RECORD_CONDITION_ROOTS = ['record', 'previous'];
 
 /**
+ * CEL's own word-shaped literals. Spelled like identifiers, bound by nobody, so
+ * {@link celRootsMentioned} must not read one as a root.
+ */
+const CEL_WORD_LITERALS = new Set(['true', 'false', 'null', 'in']);
+
+/** A quoted string, removed before roots are read — see {@link celRootsMentioned}. */
+const CEL_STRING_LITERAL_RE = /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"/g;
+
+/** A dotted identifier path, matched whole so a member never reads as a root. */
+const CEL_IDENT_PATH_RE = /[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*/g;
+
+/**
+ * The scope roots a CEL fragment plainly MENTIONS — the head of every dotted
+ * identifier path in it.
+ *
+ * String literals are removed first, for the reason {@link fmtValue} states one
+ * control over: a quoted `'record.status'` is TEXT, and reading it as a
+ * reference is the silently-false predicate objectui#6293 fixed. Word-shaped
+ * CEL literals are excluded by {@link CEL_WORD_LITERALS}; everything else that
+ * heads a dotted path is a root this fragment teaches.
+ *
+ * Exported because the placeholder pin asserts a RELATION rather than a string
+ * — it reads whatever the editor shows and requires every root in it to be
+ * offered at that mount. A pin that asserted the literal could not fail on the
+ * day someone re-hard-codes one, which is the defect this function exists to
+ * make unrepeatable.
+ */
+export function celRootsMentioned(expr: string): string[] {
+  const code = expr.replace(CEL_STRING_LITERAL_RE, ' ');
+  const roots = new Set<string>();
+  for (const path of code.match(CEL_IDENT_PATH_RE) ?? []) {
+    const root = path.split('.')[0];
+    if (!CEL_WORD_LITERALS.has(root)) roots.add(root);
+  }
+  return [...roots];
+}
+
+/**
+ * The worked CEL example the raw editor teaches, one clause per idea — the
+ * source the placeholder is DERIVED from (objectui#9952).
+ *
+ * ⛔ Not a per-scope table and ⛔ not tagged with the roots each clause uses.
+ * Each clause carries its own roots in its own text, and {@link
+ * celExampleForRoots} reads them back out with {@link celRootsMentioned}, so a
+ * clause cannot claim a root it does not spell.
+ */
+const CEL_EXAMPLE_CLAUSES = ["record.status != 'done'", 'user.isAdmin'] as const;
+
+/**
+ * The placeholder example for a mount that offers `offered` — every clause
+ * whose roots that mount actually binds, and no other (objectui#9952).
+ *
+ * ## The defect this replaces
+ *
+ * The placeholder was a string literal, `record.status != 'done' &&
+ * user.isAdmin`, handed to `CelPredicateField` at EVERY mount, `scope` or no
+ * `scope`. So the same component that narrowed a record-scoped mount's
+ * autocomplete to {@link RECORD_CONDITION_ROOTS} — withdrawing `user`, because
+ * the hosts of a server-evaluated condition bind `record` and `previous` alone
+ * — went on teaching `user.isAdmin` there, in the one line an author reads
+ * BEFORE typing anything. `conditionScope.ts` carries that binding in its own
+ * words for both such hosts (hook and validation rule), and the hook wrapper's
+ * own docblock in objectstack (`wrapDeclarativeHook`) says the condition
+ * formula is evaluated against two bindings, `record` and `previous`. An
+ * unevaluable predicate is fail-LOUD at the hook host and fail-CLOSED at the
+ * validation one, so the copied root costs the author the write either way.
+ *
+ * ## Why a derivation, and not a second literal per scope
+ *
+ * A second hand-maintained list is exactly how the autocomplete
+ * (objectui#9645), the subject dropdown (objectui#9855) and this placeholder
+ * got out of step: three controls, three literals, edited one at a time. This
+ * has no list to keep in step. A clause survives only when every root it
+ * SPELLS is in the offered set, so a clause that references an unoffered root
+ * disappears rather than mis-teaching it — and the offered set handed here is
+ * the very value forwarded to the autocomplete, read once at the mount.
+ *
+ * ## `undefined` is the unchanged case, deliberately
+ *
+ * `undefined` means the mount forwards no narrowing and inherits the engine's
+ * own advertisement, which carries `user` — so every clause survives and such a
+ * mount's placeholder is what it always was, byte for byte. `roots` narrows
+ * SUGGESTIONS only, so this narrows TEACHING only: no accept set moves, and no
+ * mount loses a subject it could build a row with.
+ *
+ * An offered set that leaves no clause standing yields the empty string — no
+ * example rather than a false one. `ConditionBuilder.placeholderRoots.test.tsx`
+ * re-derives all of this from the offered set instead of restating it.
+ */
+export function celExampleForRoots(offered: readonly string[] | undefined): string {
+  const clauses = offered
+    ? CEL_EXAMPLE_CLAUSES.filter((c) => celRootsMentioned(c).every((r) => offered.includes(r)))
+    : [...CEL_EXAMPLE_CLAUSES];
+  return clauses.join(' && ');
+}
+
+/**
  * Context subjects for a mount whose condition is evaluated by a SERVER host
  * that binds `record` and `previous` alone (objectui#9855).
  *
@@ -454,6 +551,15 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
   const fieldPrefix = subjects?.fieldPrefix ?? 'record.';
   const includePrevious = subjects?.includePrevious ?? false;
   const contextSubjects = subjects?.context ?? CONTEXT_SUBJECTS;
+  /**
+   * The scope roots THIS mount offers — read once, because two controls answer
+   * to it (objectui#9952).
+   *
+   * `undefined` is a real value here and not a missing one: it means the mount
+   * declared no narrowing, so the autocomplete inherits the engine's own
+   * advertisement and the placeholder teaches its whole example, both unchanged.
+   */
+  const offeredRoots = roots ?? (scope === 'record' ? RECORD_CONDITION_ROOTS : undefined);
   const subjectOptions = React.useMemo(() => {
     const visible = fields.filter((f) => !f.hidden);
     const fieldOpts = visible.map((f) => ({
@@ -563,7 +669,12 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
           onChange={(v) => { lastEmitted.current = v; onCommit(v); }}
           onLintChange={reportCel}
           disabled={disabled}
-          placeholder="record.status != 'done' && user.isAdmin"
+          /* objectui#9952 — DERIVED from the same offered set the autocomplete
+             gets, so the example cannot teach a root this mount does not offer.
+             It was a literal, and taught `user.isAdmin` at a record-scoped
+             mount where objectui#9645 had already stopped offering `user` and
+             the server host never binds it. See `celExampleForRoots`. */
+          placeholder={celExampleForRoots(offeredRoots)}
           objectName={objectName}
           fieldNames={fieldNames}
           /* Forwarded verbatim, `undefined` included — see the `scope` prop's
@@ -575,7 +686,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
              that binds more declares it; see `RECORD_CONDITION_ROOTS`. A mount
              with no `scope` still forwards `undefined` here, so its offered
              roots are the engine's own, unchanged. */
-          roots={roots ?? (scope === 'record' ? RECORD_CONDITION_ROOTS : undefined)}
+          roots={offeredRoots}
           t={tLocal}
         />
         {value && !parse(value) && (

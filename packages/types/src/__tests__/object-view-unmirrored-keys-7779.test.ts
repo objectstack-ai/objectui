@@ -381,9 +381,23 @@ const RECORD_ROLES = [
 /** The documented node; every assertion below is a delta on it. */
 const NODE = { type: 'object-view', objectName: 'accounts' } as const;
 
-/** One value per mirrored key that the declaration admits — the accept leg. */
+/**
+ * One value per mirrored key that the declaration admits — the accept leg.
+ *
+ * ⛔ `navigation` carries no `view` member: objectstack#18619 retired
+ * `navigation.view` as an ADR-0049 tombstone (objectui#9667). `size` replaces
+ * it as the second authored member, so the round-trip legs below still measure
+ * "more than one authored member survives the parse".
+ *
+ * ⭐ Note for anyone tracing why this site was NOT among the diagnostics the
+ * `Spec Main Shape Gate` printed: this annotation's VALUE type is `unknown`, so
+ * no excess/incompatible-property check ever fires on the object literal — and
+ * the one place it reaches a typed literal re-casts it (`as Record<Mirrored,
+ * never>`). Two independent erasures; the site was invisible to `tsc`, ⛔ not
+ * cleared by it.
+ */
 const ACCEPTED: Record<Mirrored, unknown> = {
-  navigation: { mode: 'drawer', view: 'summary_view' },
+  navigation: { mode: 'drawer', size: 'lg' },
   searchableFields: ['name', 'email'],
   filterableFields: ['status'],
   allowCreateView: true,
@@ -817,14 +831,22 @@ describe('objectui#7779 — the three spec-modelled keys are the spec\'s own slo
     // the hand copy of objectui#4588 refused. ⭐ It is STILL accepted, and since
     // objectui#8317 (decision batch #90) the parsed document no longer carries a
     // `mode` the author did not write: acceptance unchanged, substitution gone.
-    const defaulted = slot.safeParse({ view: 'summary_view' });
+    //
+    // ⛔ The carrier is `preventNavigation`, ⛔ not the `view` these legs used to
+    // author: objectstack#18619 retired `navigation.view` (objectui#9667). These
+    // are `safeParse` legs, so `view` was invisible to `tsc` here and the
+    // `Spec Main Shape Gate` never printed them — but a tombstoned key REFUSES
+    // at the parse, so on the spec that carries the retirement these three
+    // assertions go red at RUNTIME. That is the break this repair removes, and
+    // it is a different instrument from the type-level sites.
+    const defaulted = slot.safeParse({ preventNavigation: true });
     expect(defaulted.success).toBe(true);
     expect((defaulted.data as { mode?: string }).mode).toBeUndefined();
-    expect(defaulted.data).toEqual({ view: 'summary_view' });
+    expect(defaulted.data).toEqual({ preventNavigation: true });
     // …and a document that DOES write it round-trips unchanged, which is what
     // separates "stopped substituting" from "stopped declaring".
-    expect(slot.safeParse({ view: 'summary_view', mode: 'page' }).data)
-      .toEqual({ view: 'summary_view', mode: 'page' });
+    expect(slot.safeParse({ preventNavigation: true, mode: 'page' }).data)
+      .toEqual({ preventNavigation: true, mode: 'page' });
     // ⚠️ Two comparisons, deliberately. The first is against the spec slot AS IT
     // ENTERS THIS PACKAGE — the object actually under test. The second is
     // against the RAW spec slot, and it is the measurement that says the strip

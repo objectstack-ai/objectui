@@ -4526,8 +4526,33 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * Row click handler — a RUNTIME SLOT a React host supplies through this
    * interface, never through authored JSON (objectui#6124; the zod mirror
    * refuses the key by name). When present it overrides drill-to-record.
+   *
+   * TWO parameters since objectui#9799, catching up to the `DataTableSchema`
+   * twin objectui#9462 widened one hop further in. `ObjectDataTable`
+   * (`packages/plugin-dashboard/src/ObjectDataTable.tsx`) forwards this slot
+   * onto the `data-table` node it renders, and the forwarding line reads, in
+   * full:
+   * `onRowClick: schema.onRowClick ?? (recordDrillEnabled ? handleRowClick : undefined)`
+   * ⚠️ Quoted whole because the gate is load-bearing for how it is read, not for
+   * whether it applies: a host's handler is the FIRST operand of that `??` and
+   * reaches the node whatever `recordDrillEnabled` says — the gate only chooses
+   * the FALLBACK. That node's renderer calls the slot as
+   * `schema.onRowClick(row, e)`, so the payload `useNavigationOverlay`'s
+   * `handleClick` reads (`metaKey` / `ctrlKey` / `button`) has been arriving
+   * here ever since objectui#9462 repaired that call; until this card the
+   * declaration denied a second argument the runtime was already passing.
+   * ⛔ Nothing about the runtime call moved with this widening — it is a
+   * declaration catching up to a call, in one direction only.
+   *
+   * OPTIONAL, and spelled `any`, for the two reasons objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: optional so an existing one-parameter
+   * host handler is still accepted (source compatibility holds in BOTH
+   * directions, pinned by `object-data-table-row-click-arity-9799.test.ts`),
+   * and `any` rather than `HandleClickModifiers` because that interface lives
+   * in `@object-ui/react`, which depends on THIS package — naming it here is a
+   * phantom dependency that closes a cycle.
    */
-  onRowClick?: (row: any) => void;
+  onRowClick?: (row: any, event?: any) => void;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-data-table` reads
    * NEITHER content channel: no renderer read consumes `body` or `children` for

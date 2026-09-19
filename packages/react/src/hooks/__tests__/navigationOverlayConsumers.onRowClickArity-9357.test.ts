@@ -40,8 +40,17 @@
  * now read `schema.onRowClick(row, e)` and the view forwards
  * `onRowClick(record, event)` — which made the same declarations understated
  * instead of accurate, so they moved into `IN_SITES` below rather than being
- * edited in place. The one control still spelled with one parameter in that
- * family (`ObjectDataTableSchema.onRowClick`) states its own, different reason.
+ * edited in place.
+ *
+ * ⭐ AND IT MOVED A SECOND TIME, THE SAME WAY (objectui#9799). The one control
+ * that family left behind — `ObjectDataTableSchema.onRowClick`, the object-arm
+ * face one hop further out — was OUT on an explicitly TEMPORARY claim: its
+ * entry recorded a KNOWN GAP under measurement, not a declaration anyone
+ * argued was accurate, because objectui#9462 was scope-pinned to three hops.
+ * objectui#9799 widened that declaration on its own card, so it is IN below.
+ * ⭐ What this file bought is visible in that sequence: the gap was named here
+ * while it stood, the card that closed it turned this file RED first, and the
+ * entry moved rather than the control being quietly edited to agree.
  *
  * ## Why the instrument is bytes and not assignability
  *
@@ -243,8 +252,10 @@ const IN_SITES: Array<{ rel: string; member: string; why: string; hop: RegExp; a
   // writing the node learned nothing about the second parameter. That is this
   // card's own defect ("Declaring one parameter hid the second on the ONE line a
   // host reads") one hop further out. Both are anchored to their interface: the
-  // same file's `ObjectDataTableSchema.onRowClick` is a CONTROL below, with a
-  // different arity and a different contract.
+  // same file's `ObjectDataTableSchema.onRowClick` was a CONTROL below until
+  // objectui#9799 closed it, and is now the last entry in this block — the
+  // anchors are what keep the three `onRowClick` declarations that file now
+  // carries from answering for one another.
   { rel: 'packages/types/src/objectql.ts', member: 'onRowClick',
     why: 'the object-gallery node face ListView and RelatedList write onto; SchemaRenderer spreads it into the props fed to useNavigationOverlay',
     hop: /type: 'object-gallery'/, after: 'export interface ObjectGallerySchema' },
@@ -270,6 +281,23 @@ const IN_SITES: Array<{ rel: string; member: string; why: string; hop: RegExp; a
   { rel: 'packages/plugin-view/src/ObjectView.tsx', member: 'onRowClick',
     why: "the same `handleRowClick`, handed verbatim to a host's custom list view through `renderListView`",
     hop: /onRowClick: handleRowClick/, after: '  renderListView?: (props: {' },
+  // ⭐ objectui#9799 — the object-arm twin of the `data-display.ts` entry above,
+  // and the last member of the family this file has been tracking. It was the
+  // remaining CONTROL until that card; its OUT entry stated a known gap rather
+  // than an accurate declaration, which is why closing it MOVED the entry here
+  // instead of rewriting a justification in place.
+  //
+  // ⚠️ The `hop` is quoted from `ObjectDataTable`'s forwarding line IN FULL,
+  // gate included. An earlier report of this site paraphrased it as
+  // `schema.onRowClick ?? handleRowClick`; the fallback is gated on
+  // `recordDrillEnabled`, and a hop written from that paraphrase would match
+  // nothing while still reading like a reading of the tree. The gate does not
+  // change the criterion — a host's handler is the FIRST operand and reaches
+  // the node whatever the gate says — but the quote is the quote.
+  { rel: 'packages/types/src/objectql.ts', member: 'onRowClick',
+    why: 'the object-data-table node face; ObjectDataTable forwards it onto the `data-table` node whose renderer now calls it with the payload',
+    hop: /`onRowClick: schema\.onRowClick \?\? \(recordDrillEnabled \? handleRowClick : undefined\)`/,
+    after: 'export interface ObjectDataTableSchema' },
 ];
 
 /**
@@ -283,24 +311,6 @@ const OUT_SITES: Array<{ rel: string; member: string; arity: number; param: RegE
     param: /^index: number$/, why: 'its second parameter is `index: number` — a DIFFERENT contract, not this one' },
   { rel: 'packages/plugin-view/src/ManageViewsDialog.tsx', member: 'onRowClick', arity: 1,
     param: /^id: string$/, why: 'invoked as `onRowClick?.(view.id)` — a view id, not a record callback at all' },
-  { rel: 'packages/types/src/objectql.ts', member: 'onRowClick', arity: 1,
-    param: /^row: any$/,
-    // ⚠️ RE-JUSTIFIED, not left standing, by objectui#9462. This entry used to
-    // read "ObjectDataTable forwards it into the same `data-table` channel
-    // above" — an appeal to the `data-display.ts` control, which that card
-    // moved into IN_SITES. The channel now hands over two arguments, so this
-    // declaration DOES understate a real call and is a live instance of
-    // objectui#9357's own class, one hop further out. It stays OUT only
-    // because objectui#9462 was scope-pinned to three hops and the widening
-    // here is a separate published-face change; it is reported on that card
-    // rather than smuggled in. ⇒ this is a KNOWN GAP under measurement, not a
-    // declaration anyone has argued is accurate.
-    why: 'ObjectDataTable forwards it into the `data-table` channel, which now delivers the payload — an understated declaration deliberately left to its own card, not an accurate one',
-    // Anchored since objectui#7804: `ObjectGallerySchema.onRowClick` now stands
-    // EARLIER in this same file with the opposite contract, so a file-scoped
-    // read would answer about the IN site and score this control green for the
-    // wrong declaration.
-    after: 'export interface ObjectDataTableSchema' },
 ];
 
 describe('objectui#9357 — the arity counter, before it is pointed at the tree', () => {

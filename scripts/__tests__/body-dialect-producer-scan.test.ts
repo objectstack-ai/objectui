@@ -552,17 +552,61 @@ describe('the LIVE tree, read through the criterion', () => {
     // producer arriving in a file nobody named appears in `producers` without
     // anyone extending anything, which is the whole point of this card.
     expect(producers.filter((p: { carrier: string }) => p.carrier === 'item').length).toBeGreaterThan(0);
-    expect(producers.filter((p: { source: string }) => p.source !== 'code-key').length).toBeGreaterThan(0);
     expect(files.size).toBeGreaterThan(0);
 
-    // ⭐ And the claim that outlives every one of them: while the table is
-    // non-empty, objectui#6771 step 4 is not landable. ⛔ When this reds
-    // because the table emptied, that is the HANDOFF — say so here in those
-    // terms rather than deleting the assertion.
+    // ⚠️ B2 INVERTED BY objectui#6771, and this is the SECOND copy of the claim
+    // — the census block carries the first. ⭐ Neither file was in the merge's
+    // text intersection with this branch, which is the lesson: a one-file
+    // overlap said the text merged, and the two scans still met HERE.
+    // objectui#9871 asserted a string-carried producer EXISTED; its only
+    // subjects were the three `CompletionProvider` snippets, which step 5
+    // migrated. ⛔ Not deleted, per this file's own instruction: re-pointed.
+    //
+    // ⭐ The zero carries the same two lit controls as the census copy, because
+    // `source !== 'code-key'` is a conjunction and one control would leave half
+    // of it untested: B2 still reads inside literals AT ALL, and a
+    // literal-carried hit still PASSES C2. Without both, `toBe(0)` would hold
+    // over a scan gone blind to literals — the failure B2 exists to end.
+    expect(
+      run.hits.filter((h: { source: string }) => h.source !== 'code-key').length,
+      'lit control — no literal-carried `body` resolved anywhere, so B2 has gone blind',
+    ).toBeGreaterThan(0);
+    expect(
+      unchannelledOf(run.hits, run.readers).filter(
+        (h: { source: string }) => h.source !== 'code-key',
+      ).length,
+      'lit control — no literal-carried hit passes C2, so the zero below would measure C2 ' +
+        'rather than the emission channel it claims to measure',
+    ).toBeGreaterThan(0);
+    expect(
+      producers.filter((p: { source: string }) => p.source !== 'code-key').length,
+      'a string-carried producer is BACK — objectui#6771 step 5 migrated the last of them. ' +
+        'A new one means a tool started writing the retired spelling into an author document ' +
+        'again; ⛔ do not relax this to a range.',
+    ).toBe(0);
+
+    // ⭐ And the claim that outlives every one of them — ⚠️ CORRECTED, because
+    // objectui#9871 wrote it as "while the table is non-empty, objectui#6771
+    // step 4 is not landable" and that blanket does not survive measurement.
+    // This file files every surviving producer `unruled:item-carrier` and says
+    // in as many words that whether an item-carried `body` belongs to
+    // objectui#6771 is UNRULED — so using the same rows to block that card's
+    // step 4 reads the question back as an answer.
+    //
+    // Probed rather than reasoned, both legs, against the built parser: the
+    // tier refuses `body` inside `Object.entries(node)` on a node whose `type`
+    // resolves to a registration, so a `card` NODE carrying `body` draws
+    // `unknown-prop: <card> has no prop "body" — the child-list key is
+    // "children"`, and a `tabs` ITEM carrying the same key draws ZERO
+    // diagnostics. ⇒ step 4 refuses nothing the platform still ships.
+    // An empty table is objectui#9590's finish line, ⛔ not step 4's gate.
+    // ⛔ When this reds because the table emptied, that is still the HANDOFF —
+    // say so here in those terms rather than deleting the assertion.
     expect(
       producers.length,
-      'the producer table is EMPTY — under this criterion nothing ships the dialect, which is ' +
-        'the day objectui#6771 step 4 becomes landable. Re-point this block, do not delete it.',
+      'the producer table is EMPTY — under this criterion nothing ships the dialect. That is ' +
+        'objectui#9590\'s finish line, ⛔ NOT objectui#6771 step 4\'s gate: step 4 landed with ' +
+        'this table non-empty and item-carried. Re-point this block, do not delete it.',
     ).toBeGreaterThan(0);
     // ⏱ Explicit — one tree-wide scan over 5,136 files, measured 4.0s here; the
     // CI shard is at least 1.9x slower (objectui#9871's timeout reading), and

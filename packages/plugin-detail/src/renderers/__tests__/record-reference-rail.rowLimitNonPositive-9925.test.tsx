@@ -229,6 +229,38 @@ describe('record:reference_rail — a row cap the contract refuses never reaches
     expect(rowCapWarnings()).toHaveLength(1);
   });
 
+  it('stays silent about an entry it has already named when a NEIGHBOUR is added', async () => {
+    // The dedupe is not the effect's dependency key: adding a second entry
+    // genuinely changes the declaration, so the effect re-runs and walks the
+    // list again. Without a per-(object, value) memory the untouched first
+    // entry would be named a second time — one authoring change, two warnings
+    // about a value that did not move.
+    const ds = makeDataSource();
+    const { rerender } = renderRail(railWith(0), ds);
+    await waitFor(() => expect(rowCapWarnings().length).toBe(1));
+
+    rerender(
+      <MemoryRouter>
+        <RecordContextProvider objectName="account" recordId="A1" dataSource={ds as any}>
+          <RecordReferenceRailRenderer
+            schema={{
+              hideEmpty: false,
+              entries: [
+                { objectName: 'contact', relationshipField: 'account_id', limit: 0 },
+                { objectName: 'task', relationshipField: 'account_id', limit: 7 },
+              ],
+            } as any}
+          />
+        </RecordContextProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(ds.find).toHaveBeenCalledTimes(3));
+    expect(
+      rowCapWarnings(),
+      'the untouched first entry was named again when its neighbour arrived',
+    ).toHaveLength(1);
+  });
+
   it('CONTROL — a legitimate limit produces no such diagnostic', async () => {
     const ds = makeDataSource();
     renderRail(railWith(7), ds);

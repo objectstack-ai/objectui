@@ -16,6 +16,13 @@
  * L3 runtime probes; findings surface as a loud warning toast instead of a
  * blind "Published!". Package-less drafts fall back to by-reference publish
  * (structure first, seeds last) so they never dead-end.
+ *
+ * Both halves of that call now run through `MetadataClient` (objectui#6965):
+ * the batch one so the runtime authoring gate's per-draft advisories reach the
+ * console's advisory toast, the by-reference one because it always did. The
+ * asymmetry this closes was inside this very function — its own client-side
+ * capability lint raised a toast while the server's findings, on the same
+ * button, were dropped for want of a seam to report through.
  */
 
 import { useCallback, useState } from 'react';
@@ -74,15 +81,20 @@ export function usePublishAllDrafts(t: TranslateFn) {
       };
 
       for (const packageId of packageIds) {
-        const res = await fetch(`/api/v1/packages/${encodeURIComponent(packageId)}/publish-drafts`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: '{}',
-        });
-        const payload = await res.json().catch(() => null);
-        if (!res.ok || (payload as any)?.success === false) {
-          throw new Error((payload as any)?.error?.message || `HTTP ${res.status}`);
+        // objectui#6965 — through `MetadataClient`, not a bare `fetch`. The
+        // route now answers the runtime authoring gate's per-draft advisories
+        // on each `published[]` element (objectstack#9343), and the client is
+        // the seam that reports them: it emits one advisory event per advised
+        // item into the same sink, renderer and wording the save and
+        // single-item publish doors use. A bare fetch had nothing to report
+        // THROUGH — which is why this door stayed silent while the L3 probe
+        // findings a few lines below were already shouting.
+        const payload = await client.publishPackageDrafts(packageId);
+        // A non-2xx now throws inside the client, with the server's own
+        // message. What is left to check here is the batch verdict, unchanged.
+        if ((payload as { success?: boolean }).success === false) {
+          const error = (payload as { error?: { message?: string } }).error;
+          throw new Error(error?.message || 'publish-drafts did not publish this package');
         }
         recordHealth(publishHealthFromResponse(payload));
       }

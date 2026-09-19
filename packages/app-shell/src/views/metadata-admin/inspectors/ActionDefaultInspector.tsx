@@ -56,7 +56,7 @@ import {
 import { useObjectOptions } from '../previews/useObjectOptions.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
 import { useMetaOptions } from '../previews/useMetaOptions.js';
-import { ConditionBuilder } from './ConditionBuilder.js';
+import { ConditionBuilder, CLIENT_CONDITION_ROOTS } from './ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from './expression-envelope.js';
 import { IconPickerWidget } from '../widgets.js';
 
@@ -898,8 +898,20 @@ export function ActionDefaultInspector({
             and wrong here. It also ends a disagreement inside this very
             control — the row builder was already emitting `record.<field>`
             while its own raw editor accepted the retired bare spelling. */}
-        <ConditionBuilder label="Visible when" value={expressionSource(draft.visible)} onCommit={(v) => onPatch({ visible: writeExpressionSource(draft.visible, v) })} objectName={objectName} disabled={readOnly} scope="record" onBlockingIssuesChange={(n) => reportCel('visible', n)} />
-        <ConditionBuilder label="Disabled when" value={expressionSource(draft.disabled)} onCommit={(v) => onPatch({ disabled: writeExpressionSource(draft.disabled, v) })} objectName={objectName} disabled={readOnly} scope="record" onBlockingIssuesChange={(n) => reportCel('disabled', n)} />
+        {/* `roots` is the second declaration this pair owes, and it answers a
+            different question than `scope` does (objectui#9856). `scope` says
+            how the CEL is LINTED; `roots` says what the HOST binds, and
+            objectui#9645 could not derive the second from the first — so a
+            `scope="record"` mount that declares nothing inherits
+            `RECORD_CONDITION_ROOTS`, the set every host of a record-scoped
+            condition binds. These two are evaluated in the BROWSER, where
+            `buildExpressionScope` binds more than that, and
+            `CONDITION_HOST_BY_METADATA_TYPE` rules the `action` tier `client`
+            from a reading taken at that evaluator. Declared here rather than
+            defaulted, for the reason `RECORD_CONDITION_ROOTS` gives: the
+            component cannot see which host is on the other end. */}
+        <ConditionBuilder label="Visible when" value={expressionSource(draft.visible)} onCommit={(v) => onPatch({ visible: writeExpressionSource(draft.visible, v) })} objectName={objectName} disabled={readOnly} scope="record" roots={CLIENT_CONDITION_ROOTS} onBlockingIssuesChange={(n) => reportCel('visible', n)} />
+        <ConditionBuilder label="Disabled when" value={expressionSource(draft.disabled)} onCommit={(v) => onPatch({ disabled: writeExpressionSource(draft.disabled, v) })} objectName={objectName} disabled={readOnly} scope="record" roots={CLIENT_CONDITION_ROOTS} onBlockingIssuesChange={(n) => reportCel('disabled', n)} />
       </div>
 
       {/* 7 ─ AI exposure */}

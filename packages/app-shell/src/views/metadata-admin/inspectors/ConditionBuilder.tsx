@@ -242,6 +242,57 @@ const REFERENCE_RE = new RegExp(
 export const RECORD_CONDITION_ROOTS = ['record', 'previous'];
 
 /**
+ * Scope roots a mount ADVERTISES when its predicate is evaluated in the
+ * BROWSER — the client half of the ruling {@link RECORD_CONDITION_ROOTS}
+ * states for the server (objectui#9856).
+ *
+ * ## Why the record-scoped default is wrong at these mounts, and only these
+ *
+ * {@link RECORD_CONDITION_ROOTS} is the set EVERY host of a record-scoped
+ * condition binds, which is the only safe answer for a mount whose host this
+ * component cannot see. It is not the RIGHT answer for a mount whose host is
+ * KNOWN to bind more. An action's `visible` / `disabled` is evaluated in the
+ * browser: `buildExpressionScope` (`ExpressionProvider`) publishes the identity
+ * roots and the deployment feature flags, and the row arrives separately
+ * through `usePredicateRecordContext`. Such a mount forwarding no `roots` loses
+ * the offers its own host really answers — the cost objectui#9645 declared on
+ * its face and left for this card to pay.
+ *
+ * Which tier evaluates which metadata type is NOT re-derived here:
+ * `CONDITION_HOST_BY_METADATA_TYPE` (`conditionScope.ts`) rules it per type
+ * from readings taken at each evaluator, and this list is what its `client`
+ * verdict declares.
+ *
+ * ## Every member, and the producer it is read back from
+ *
+ * `record` is the one binding `usePredicateRecordContext` makes — it returns
+ * `{ record }` and nothing else. The rest are exactly the keys
+ * `buildExpressionScope` returns. ⛔ Neither half is retyped from a docblock:
+ * `ConditionBuilder.clientMountRoots.test.tsx` rebuilds the list from both
+ * producers, so the reading fails when either side moves rather than leaving
+ * this paragraph to rot.
+ *
+ * ## `previous` is deliberately NOT here — this list narrows as well as widens
+ *
+ * It is the one root this list DROPS relative to the record-scoped default, and
+ * the drop is the same ruling as the additions rather than an exception to it.
+ * No browser host binds it: `usePredicateRecordContext` binds the row alone and
+ * `buildExpressionScope` publishes no `previous`. Offering it here would be the
+ * `app` shape objectui#8155 ruled on — an editor advertising a root nothing
+ * answers — and the predicate an author built from it could only fault. The
+ * pin derives its absence from the two producers rather than asserting it.
+ *
+ * ## Every member must also LINT clean — the objectui#8167 direction
+ *
+ * A root advertised here that the `record` scope REFUSES would re-create that
+ * defect at the other door: the engine refuses `org` and `app` at this scope
+ * today, and an editor that offers what its own linter rejects costs the author
+ * the write. So the pin lints each member through the same path the editor
+ * uses, rather than snapshotting a list.
+ */
+export const CLIENT_CONDITION_ROOTS = ['record', 'current_user', 'user', 'ctx', 'os', 'features'];
+
+/**
  * CEL's own word-shaped literals. Spelled like identifiers, bound by nobody, so
  * {@link celRootsMentioned} must not read one as a root.
  */

@@ -179,6 +179,29 @@ export interface WidgetContext {
    * scope silently claimed `flattened`, a missing vocabulary claims nothing.
    */
   conditionSubjects?: ReadonlyArray<{ value: string; label?: string }>;
+  /**
+   * The scope roots a condition editor at this host may OFFER (objectui#9856) —
+   * `undefined` to declare no narrowing.
+   *
+   * ## Why a THIRD member, and not a widening of either of the two above
+   *
+   * `conditionScope` is how the predicate is LINTED and `conditionSubjects` is
+   * what the row builder's dropdown may offer. This is what the RAW editor's
+   * autocomplete may offer, and it is the only one of the three whose default
+   * is already a narrowing: `ConditionBuilder` answers a `scope="record"` mount
+   * with `RECORD_CONDITION_ROOTS` — the set every host of a record-scoped
+   * condition binds — so the tier that needs a declaration here is the CLIENT
+   * one, the mirror of the tier `conditionSubjects` narrows. One member could
+   * not have carried both directions.
+   *
+   * ⛔ Not this widget's own knob, for the reason the two above give: a host
+   * editing one fixed surface states its verdict, and a host editing many
+   * derives it with `conditionRootsForMetadataType`.
+   *
+   * `undefined` changes nothing — the builder keeps the default its `scope`
+   * implies, which is what every mount here offered before this member existed.
+   */
+  conditionRoots?: string[];
   /** Names of all object metadata records (for `ref:object`, `object-selector`). */
   objectNames?: LoadState<string[]>;
   /**
@@ -2651,6 +2674,12 @@ function ConditionWidget({ value, onChange, readOnly, context, ariaLabelledBy }:
   // construction — an omitted `subjects` leaves `ConditionBuilder` on
   // `CONTEXT_SUBJECTS`, exactly what every mount here offered before.
   const conditionSubjects = context?.conditionSubjects;
+  // objectui#9856 — the THIRD half, and the one that widens rather than
+  // narrows: the builder already answers `scope="record"` with the roots every
+  // host of a record-scoped condition binds, so a client-evaluated tier is the
+  // one that has to say it binds more. `undefined` is the unchanged case by
+  // construction — it leaves that default exactly where objectui#9645 put it.
+  const conditionRoots = context?.conditionRoots;
   return (
     // `ConditionBuilder` is a multi-control composite (field / operator / value
     // rows plus add-condition buttons) shared with the curated inspectors, so
@@ -2679,6 +2708,7 @@ function ConditionWidget({ value, onChange, readOnly, context, ariaLabelledBy }:
           disabled={readOnly}
           scope={conditionScope}
           subjects={conditionSubjects ? { context: conditionSubjects } : undefined}
+          roots={conditionRoots}
         />
       )}
     </div>

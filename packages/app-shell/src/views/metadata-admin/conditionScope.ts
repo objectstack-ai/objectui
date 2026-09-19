@@ -1,6 +1,9 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
-import { RECORD_CONDITION_SUBJECTS } from './inspectors/ConditionBuilder.js';
+import {
+  CLIENT_CONDITION_ROOTS,
+  RECORD_CONDITION_SUBJECTS,
+} from './inspectors/ConditionBuilder.js';
 
 /**
  * Which lint scope a SCHEMA-DRIVEN condition editor claims, decided by the
@@ -271,4 +274,31 @@ export function conditionSubjectsForMetadataType(
   return conditionHostForMetadataType(type) === 'server'
     ? RECORD_CONDITION_SUBJECTS
     : undefined;
+}
+
+/**
+ * The scope roots a condition editor at a host editing `type` may OFFER, or
+ * `undefined` to declare no narrowing (objectui#9856).
+ *
+ * The third derivation off {@link CONDITION_HOST_BY_METADATA_TYPE}, and the one
+ * that reads it the other way round from
+ * {@link conditionSubjectsForMetadataType}. That one narrows the SERVER tier,
+ * because the row builder's subject dropdown offers `user.*` by default and a
+ * server host binds no `user`. This one widens the CLIENT tier, because
+ * `ConditionBuilder` narrows a `scope="record"` mount to
+ * `RECORD_CONDITION_ROOTS` by default and a browser host binds more than that.
+ * Same table, opposite defaults, one ruling — which is why neither can be
+ * derived from `scope === 'record'`, and why the answer has to come from the
+ * host that knows which metadata type is on screen.
+ *
+ * `undefined` is a decision here too, and it covers both remaining arms:
+ *
+ *  - a `server` tier keeps the builder's own record-scoped narrowing, byte for
+ *    byte what objectui#9645 landed;
+ *  - an UNMEASURED tier keeps whatever it had, because a root list is a reading
+ *    taken at an evaluator and there is none to hand back for a tier nobody has
+ *    put to one.
+ */
+export function conditionRootsForMetadataType(type: string): string[] | undefined {
+  return conditionHostForMetadataType(type) === 'client' ? CLIENT_CONDITION_ROOTS : undefined;
 }

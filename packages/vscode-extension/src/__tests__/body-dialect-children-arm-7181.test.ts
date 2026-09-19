@@ -44,9 +44,12 @@
  * evidence about another, however true it is — that is the whole of the lesson
  * here, and it is why the leg names the message it expects.
  *
- * ⛔ Every inverted leg keeps its ABSOLUTE numbers and sits beside its live twin,
- * so a reader that broke ENTIRELY satisfies neither half. That symmetry is what
- * makes "draws nothing" a reading instead of a tautology.
+ * ⛔ Every inverted leg keeps its ABSOLUTE numbers rather than comparing the two
+ * spellings to each other. ⚠️ That is NOT the same as "a reader that broke
+ * ENTIRELY satisfies neither half", which this header claimed until ablation
+ * falsified it. What the legs do and do not catch is set out under "What these
+ * pins actually catch" below, measured in both directions — and that reading,
+ * not the symmetry, is why the numbers are spelled out.
  *
  * ## The defect these pins were built for
  *
@@ -102,13 +105,62 @@
  * `body`-spelled document that renders or validates as it did before is now the
  * regression, and these pins are what catch it.
  *
- * Each pin still asserts BOTH spellings, which is what makes the second half a
- * reading: the `children` leg carries the ABSOLUTE count the reader produces and
- * the `body` leg carries zero beside it, so a reader that broke entirely
- * satisfies neither half. ⭐ For the validator the `body` leg is POSITIVE rather
- * than silent — it asserts the diagnostic that NAMES `children` — because
- * dropping the arm without that assertion took this host from one diagnostic to
- * zero, which is the correction recorded at the top of this header.
+ * ## ⭐ What these pins actually catch — MEASURED, in both directions
+ *
+ * ⚠️ This section replaces three sentences that were WRONG. They said that each
+ * pin still asserts BOTH spellings, that the `body` leg carries zero beside its
+ * twin, and that a reader which broke entirely satisfies neither half. The first
+ * two are contradicted by this file's own contents; the third by ablation. ⛔ The
+ * pins were NOT widened to rescue the prose — the prose was re-derived from what
+ * the pins already do.
+ *
+ * ⭐ Not every pin is two-sided. Of the EIGHT behavioural pins, THREE assert both
+ * spellings — `card`, the generic container (`div`) and the bare-node arity.
+ * THREE assert `children` alone: nested descent, the validator's `children`
+ * recursion, and the well-formed-tree pin, whose `body` half objectui#6771
+ * DELETED as non-discriminating (its own comment says so). TWO assert `body`
+ * alone: the diagnostic-by-name pin and the `record:alert` carve-out.
+ *
+ * ⭐ Nor do the `body` legs carry the same number. `card`'s asserts ONE, not
+ * zero, because the title element survives when the child list does not. `div`'s
+ * and the bare node's assert zero. That difference turns out to be the whole of
+ * what follows.
+ *
+ * Two ablations on `PreviewProvider.ts`, each mutated ON DISK and restored to the
+ * HEAD blob:
+ *
+ *   COLLAPSE — an early `return element;` after `document.createElement`, so
+ *   nothing is appended under EITHER spelling. Every `children` leg reds, and so
+ *   does `card`'s `body` leg, because 0 is not the 1 it asserts. ⚠️ But `div`'s
+ *   and the bare node's `body` legs are SATISFIED: a reader that renders nothing
+ *   produces exactly the zero they demand.
+ *
+ *   RESURRECTION — `schema.children || schema.body` restored in both branches.
+ *   Every `children` leg holds, and EXACTLY the three `body` legs red.
+ *
+ * ⇒ THE READING: a zero-valued `body` leg catches the retired arm COMING BACK,
+ * ⛔ not the reader falling over. What catches a collapse is the `children` leg
+ * beside it — which is why the pair is kept together even though the two halves
+ * answer different questions. ⭐ And `card`'s `body` leg, alone among the three,
+ * reds in BOTH directions, because it asserts a NON-ZERO absolute. Where the
+ * shape affords a non-zero number, that is the leg worth having.
+ *
+ * ⭐ For the validator the `body` leg is POSITIVE rather than silent — it asserts
+ * the diagnostic that NAMES `children` — because dropping the arm without that
+ * assertion took this host from one diagnostic to zero, the correction recorded
+ * at the top of this header. That too is measured, on `SchemaValidator.ts`:
+ *
+ *   SILENCE — the retirement push gated off. The diagnostic-by-name pin reds,
+ *   AND so does the carve-out pin's twin leg, which exists to prove the carve-out
+ *   is a carve-out rather than a validator that stopped working.
+ *
+ *   RESURRECTION — the recursion given its `body` arm back. The "does not descend
+ *   it" leg reds, on the skipped child's own diagnostic surfacing.
+ *
+ * ⇒ the validator's two `body` legs DO catch the refusal going quiet, which the
+ * preview's zero-valued legs cannot do for the preview. ⛔ Do not carry either
+ * reading over to the other reader: they were measured separately and they
+ * differ.
  *
  * ⛔ One exception, and it has its own leg: a node type that declares its own
  * `body` input is not writing the retired spelling. `record:alert` is the single
@@ -223,6 +275,13 @@ describe('the VS Code preview renders `children` — and, since objectui#6771, o
     // plus the one rendered child under the live spelling, and the title ALONE
     // under the retired one. A renderer that dropped both could satisfy neither,
     // which is why the numbers are spelled out rather than compared.
+    //
+    // ⭐ AND THIS PIN IS THE EXCEPTION — measured, see "What these pins actually
+    // catch". Because the title survives, this `body` leg asserts ONE rather than
+    // zero, so it reds under BOTH ablations: the collapse (0, not 1) and the
+    // resurrection (2, not 1). ⛔ The sibling `div` and bare-node `body` legs do
+    // NOT share that reach — their zero is satisfied by a reader that renders
+    // nothing — so this sentence is about THIS pin and ⛔ does not generalise.
     expect(viaChildren).toBe(2);
     expect(viaBody).toBe(1);
   });
@@ -233,6 +292,12 @@ describe('the VS Code preview renders `children` — and, since objectui#6771, o
       render({ type: 'div', children: [child] })
     );
 
+    // ⚠️ The reach of these two legs is NOT the same, and the difference is
+    // measured. `viaChildren` is what catches a renderer that stopped appending:
+    // under the collapse ablation it reds. `viaBody` does NOT — a renderer that
+    // renders nothing produces the 0 asserted here and the leg passes. What it
+    // catches is the retired arm being RESURRECTED, which reds it at 1. ⛔ Read
+    // it as a collapse guard and you are reading a guard that is not there.
     expect(viaChildren).toBe(1);
     expect(viaBody).toBe(0);
   });
@@ -249,6 +314,10 @@ describe('the VS Code preview renders `children` — and, since objectui#6771, o
   it('still honours a single non-array child node — under the one spelling left', () => {
     // The bare-node ARITY is what this case is about and it is untouched by the
     // retirement; only which key carries it moved.
+    //
+    // ⚠️ Same asymmetry as the `div` pin above, same measurement: the `children`
+    // leg catches a collapse, the `body` leg catches a resurrection and ⛔ not a
+    // collapse — its 0 is satisfied by a reader that renders nothing at all.
     expect(countDescendants(render({ type: 'div', children: child }))).toBe(1);
     expect(countDescendants(render({ type: 'div', body: child }))).toBe(0);
   });

@@ -36,11 +36,22 @@ import { usePermissions } from '@object-ui/permissions';
 
 /**
  * The `case 'map'` branch below builds an `object-map` schema by flattening
- * `schema.options.map`'s CONTENTS to the top level. Whitelisted to these keys —
- * `ObjectMapConfigSchema`'s shape minus `style` — rather than the whole bag:
- * `style` is ALSO `BaseSchema.style` (inline CSS, legal on every node), and
- * spreading the raw `map` block collapsed the two namespaces onto one key
- * (objectui#5177).
+ * `schema.options.map`'s CONTENTS to the top level — one entry per key
+ * `ObjectMapConfigSchema` declares, written under the name the FLAT form uses
+ * for that key. Whitelisted rather than a whole-bag spread: `style` is ALSO
+ * `BaseSchema.style` (inline CSS, legal on every node), and spreading the raw
+ * `map` block collapsed the two namespaces onto one key (objectui#5177). That
+ * reason is unchanged, and so is its consequence: a key the declaration does
+ * NOT carry never reaches the product.
+ *
+ * `style` IS delivered (objectui#9950) — under its flat spelling `mapStyle`,
+ * NOT by widening the whitelist to let `style` through unrenamed.
+ * `getMapConfig` in `ObjectMap.tsx` reads `schema.mapStyle || schema.map?.style`
+ * and deliberately does NOT read a top-level `style`, because that key is the
+ * base face's inline CSS (objectui#5017). `mapStyle` is itself a declared
+ * member of `ObjectMapSchema`, so the flat product stays inside the declaration
+ * at both ends. Before this, a view authoring `map: { style: '<url>' }` parsed
+ * green, was dropped here, and the map painted the PUBLIC DEMO TILES.
  *
  * HAND-LISTED, not derived at runtime — deliberately, and only here (`plugin-
  * map`'s own `FLAT_MAP_CONFIG_KEYS` in `ObjectMap.tsx` DOES derive from
@@ -57,28 +68,50 @@ import { usePermissions } from '@object-ui/permissions';
  * gets away with the runtime import only because nothing in
  * console-starter's graph reaches `@object-ui/plugin-map` today.
  *
- * Anti-drift is a TEST, not this comment: `ListView.mapFlatten.test.tsx` pins
- * this exact list against `ObjectMapConfigSchema.shape` — imported only from
- * that TEST file, which the alias-closure walker explicitly excludes from
- * traversal — so a key added to or removed from the declaration still fails
- * here, loudly and by name, without reintroducing the runtime edge that
- * breaks the walker.
+ * Anti-drift is TWO mechanisms, neither of them this comment:
+ * - the type below is TOTAL — a `Record` over EVERY `keyof ObjectMapConfig`,
+ *   not a list of some of them — so a key added to the declaration fails
+ *   `tsc` here until it is given a flat spelling. A key can no longer be
+ *   left out by simply not being written down, which is how `style` was.
+ * - `ListView.mapFlatten.test.tsx` pins this object's key set against
+ *   `ObjectMapConfigSchema.shape` — imported only from that TEST file, which
+ *   the alias-closure walker explicitly excludes from traversal — and asserts
+ *   the RELATION (every declared key is delivered under its flat spelling).
+ *   The pre-#9950 pin could not see the omission because it compared the hand
+ *   list against `shape` MINUS `style`: the set it measured against was
+ *   narrowed by the same subtraction the defect was made of, so it stayed
+ *   green while an authored style was being discarded.
  */
-export const FLAT_MAP_CONFIG_KEYS = [
-  'latitudeField',
-  'longitudeField',
-  'locationField',
-  'titleField',
-  'descriptionField',
-  'zoom',
-  'center',
-] as const satisfies readonly (keyof Omit<ObjectMapConfig, 'style'>)[];
+export const FLAT_MAP_CONFIG_SPELLING = {
+  latitudeField: 'latitudeField',
+  longitudeField: 'longitudeField',
+  locationField: 'locationField',
+  titleField: 'titleField',
+  descriptionField: 'descriptionField',
+  zoom: 'zoom',
+  center: 'center',
+  // The one key whose flat spelling differs from its declared name — see the
+  // objectui#9950 paragraph above for why it is `mapStyle` and not `style`.
+  style: 'mapStyle',
+} as const satisfies Record<keyof ObjectMapConfig, string>;
 
-/** Pick only the declared flat map keys present on an authored `map` block. */
+/**
+ * Copy the declared map keys an author actually wrote onto the flat product,
+ * each under its flat spelling.
+ *
+ * Values travel AS WRITTEN: this is transport, not a second validation of the
+ * declared block — that reading belongs to `getMapConfig` in `ObjectMap.tsx`
+ * and stays there (objectui#5018). Discarding an ill-typed value here would
+ * reintroduce exactly the silent drop objectui#9950 closed.
+ */
 function pickFlatMapConfig(mapConfig: unknown): Record<string, unknown> {
   if (!mapConfig || typeof mapConfig !== 'object') return {};
   const source = mapConfig as Record<string, unknown>;
-  return Object.fromEntries(FLAT_MAP_CONFIG_KEYS.filter((key) => key in source).map((key) => [key, source[key]]));
+  return Object.fromEntries(
+    Object.entries(FLAT_MAP_CONFIG_SPELLING)
+      .filter(([declared]) => declared in source)
+      .map(([declared, flat]) => [flat, source[declared]]),
+  );
 }
 
 /**
@@ -3108,7 +3141,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         };
       }
       case 'map': {
-        // Whitelisted flatten (objectui#5177) — see `FLAT_MAP_CONFIG_KEYS`.
+        // Whitelisted flatten (objectui#5177) — see `FLAT_MAP_CONFIG_SPELLING`,
+        // which also carries `style` out as `mapStyle` (objectui#9950).
         // `schema.options.map` is an untyped bag; a raw spread here forwarded
         // every key the author wrote, including `style`, which `ObjectMap`'s
         // `FlatMapConfigKeys` declares OUT of this flat form.

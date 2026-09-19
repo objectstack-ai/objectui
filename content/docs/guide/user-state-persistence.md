@@ -94,38 +94,54 @@ function UserStateBridge({ dataSource }: { dataSource?: DataSource }) {
 
 ### Required backend object
 
-The official adapter stores **one row per (user_id, kind) pair** holding the full list as a JSON blob.
+The official adapter defines no object of its own. It stores **one row per `(user_id, key)` pair**, holding the full list as a JSON value, in `sys_user_preference` — the unified per-user KV store shipped by every `@objectstack/plugin-auth` environment, the same place a user's `theme` and `locale` live.
 
 ```yaml
-object: user_app_state
+object: sys_user_preference
 fields:
   - name: user_id
+    type: lookup(sys_user)
+    indexed: true
+  - name: key
     type: string
     indexed: true
-  - name: kind
-    type: string
-    indexed: true
-  - name: payload
+  - name: value
     type: json
   - name: updated_at
     type: datetime
-unique: [user_id, kind]
+unique: [user_id, key]
 ```
 
-If this object doesn't exist on your backend, every call simply 404s — the UI keeps running from localStorage. There is no migration to roll out.
+⚠️ **`key` is not `kind`.** `key` is the *storage* key you hand the adapter — a dotted, namespaced string (`ui.favorites`, `ui.recent`, `ui.grid.account.state`). `kind` is the *registry slot* you hand `attach()` / `useUserStateAdapter()` (`'favorites' | 'recent' | 'flowPaletteRecents'`). One adapter instance binds one slot to one storage key, and you choose the key: namespace machine-written UI traces under `ui.*` so they stay easy to tell apart from the preferences a user set on purpose.
+
+Writing somewhere else is a one-option change, not a fork: pass `resource` to point the adapter at another object — it defaults to `"sys_user_preference"`.
+
+If your backend doesn't expose `sys_user_preference` yet, every call simply 404s — the UI keeps running from localStorage. There is no migration to roll out.
 
 ### What the adapter does
 
 1. **load()**
-   - `find('user_app_state', { filter: { user_id, kind }, limit: 1 })`
-   - Parses `payload` (tolerates already-parsed JSON or string-encoded JSON).
+   - `find(resource, { $filter: { user_id, key }, $top: 1 })`.
+     ⚠️ Write the `$`-prefixed OData spellings. `filter` and `limit` are not members of
+     `QueryParams`; they used to compile and then get dropped at the conversion layer, which
+     answered with *any* row in the table — that is how the Favorites adapter once loaded the
+     Recents row and clicked items leaked into Starred.
+   - Parses `value` (tolerates an already-parsed array or a string-encoded JSON array; anything
+     else reads as an empty list).
    - Caches the returned row id for fast subsequent saves.
-   - Any error → returns `[]`.
+   - Any error → returns `[]`, and is handed to the optional `onError` hook (a noop by default).
 
 2. **save(items)**
-   - If we have a cached row id → `update('user_app_state', id, { payload, updated_at })`.
-   - Otherwise → `find` then `create`.
-   - If update fails (e.g. row was deleted server-side) → falls back to create.
+   - If we have a cached row id → `update(resource, id, { value: items })`.
+   - Otherwise → `find` then `create(resource, { user_id, key, value })`.
+   - If the update fails (e.g. the row was deleted server-side) → falls back to find-then-create.
+   - If the create loses the `unique [user_id, key]` race — a concurrent writer got there first —
+     it re-finds and updates in place, so this is a real upsert rather than a surfaced insert
+     failure. Overlapping saves are chained for the same reason: two debounced flushes never race
+     into two inserts.
+   - ⚠️ The adapter never sends `updated_at`. That column is server-managed, and a non-system
+     caller's write to it is stripped and reported back as a dropped field — which the console
+     surfaces as a "Some fields were not saved" toast about a field the user never touched.
    - Any error → resolves silently.
 
 ## Writing a custom adapter
@@ -184,12 +200,12 @@ Each provider keeps a monotonic `hydrationToken`. If the user switches accounts 
 | `useNavPins()` | `@object-ui/app-shell` | Thin shim over `useFavorites` for sidebar pinning — `{ pinnedIds, togglePin, isPinned, applyPins, clearPins }`. |
 | `useRecentItems()` | `@object-ui/app-shell` | `{ recentItems, addRecentItem, clearRecentItems }` |
 | `useFlowPaletteRecents()` | `@object-ui/app-shell` | `{ recents, recordRecent }` — flow-designer add-node MRU; falls back to localStorage outside a provider. |
-| `createObjectStackUserStateAdapter(opts)` | `@object-ui/data-objectstack` | Official adapter against the `user_app_state` object. |
+| `createObjectStackUserStateAdapter(opts)` | `@object-ui/data-objectstack` | Official adapter over the platform's `sys_user_preference` store. `{ dataSource, userId, key, resource?, onError? }` — one instance per `(user, key)` pair. |
 
 ## Limits
 
 - **20** favorites and **20** nav-pins per user (independent buckets), **8** recent items, **5** flow-palette recents. Enforced by the providers; older entries roll off within their own bucket without evicting the other.
-- One JSON blob per (user, kind). Not designed for high-frequency / large payloads — this is UI state, not data.
+- One JSON blob per `(user_id, key)` row. Not designed for high-frequency / large payloads — this is UI state, not data.
 - No automatic cross-tab sync today (see the roadmap).
 
 ## Unified Favorites + Nav Pins

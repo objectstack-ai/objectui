@@ -2573,6 +2573,7 @@ const zh = {
     resultsCount: '找到 {{count}} 条与“{{query}}”相关的结果',
     resultsCountPlural: '找到 {{count}} 条与“{{query}}”相关的结果',
     itemsAvailable: '共 {{count}} 项可搜索',
+    itemsAvailableOne: '共 {{count}} 项可搜索',
     noResults: '未找到结果',
     noResultsHint: '请尝试调整搜索关键字',
     typeObjects: '对象',

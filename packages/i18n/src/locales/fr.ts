@@ -2486,6 +2486,7 @@ const fr = {
     resultsCount: "{{count}} résultat pour \"{{query}}\"",
     resultsCountPlural: "{{count}} résultats pour \"{{query}}\"",
     itemsAvailable: "{{count}} éléments disponibles",
+    itemsAvailableOne: "{{count}} élément disponible",
     noResults: "Aucun résultat trouvé",
     noResultsHint: "Essayez d'ajuster vos termes de recherche",
     typeObjects: "Objets",

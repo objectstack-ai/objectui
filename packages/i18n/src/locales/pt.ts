@@ -2483,6 +2483,7 @@ const pt = {
     resultsCount: "{{count}} resultado para \"{{query}}\"",
     resultsCountPlural: "{{count}} resultados para \"{{query}}\"",
     itemsAvailable: "{{count}} itens disponíveis",
+    itemsAvailableOne: "{{count}} item disponível",
     noResults: "Nenhum resultado encontrado",
     noResultsHint: "Tente ajustar seus termos de pesquisa",
     typeObjects: "Objetos",

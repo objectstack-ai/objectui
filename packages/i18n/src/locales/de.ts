@@ -2484,6 +2484,7 @@ const de = {
     resultsCount: "{{count}} Ergebnis für „{{query}}“",
     resultsCountPlural: "{{count}} Ergebnisse für „{{query}}“",
     itemsAvailable: "{{count}} Elemente verfügbar",
+    itemsAvailableOne: "{{count}} Element verfügbar",
     noResults: "Keine Ergebnisse gefunden",
     noResultsHint: "Versuchen Sie, Ihre Suchbegriffe anzupassen",
     typeObjects: "Objekte",

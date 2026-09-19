@@ -2486,6 +2486,7 @@ const ja = {
     resultsCount: "\"{{query}}\" の結果 {{count}} 件",
     resultsCountPlural: "\"{{query}}\" の結果 {{count}} 件",
     itemsAvailable: "{{count}} 件利用可能",
+    itemsAvailableOne: "{{count}} 件利用可能",
     noResults: "結果が見つかりません",
     noResultsHint: "検索語句を調整してみてください",
     typeObjects: "オブジェクト",

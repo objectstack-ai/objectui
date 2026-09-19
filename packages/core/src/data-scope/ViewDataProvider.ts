@@ -23,6 +23,7 @@
 import {
   collectSavedViews,
   composeElementDataSource,
+  elementDataSourceRefusedLimitMessage,
   elementDataSourceViewNotFoundMessage,
   resolveSavedView,
   type ElementDataSourceConfig,
@@ -351,6 +352,19 @@ export class ViewDataProvider {
     }
 
     const composed = composeElementDataSource(config, view);
+
+    // The loud half of the row-cap refusal. This method is the consumer that
+    // has NO guard of its own — it forwards `limit` straight to
+    // `DataFetcher.fetchRecords` — so before the guard a view's `0` / `-10` /
+    // `25.5` reached the fetcher verbatim, and nothing anywhere said so. A
+    // renderer that receives the same key reports it through its own channel;
+    // this path has no renderer, so it reports here, on the same `console.warn`
+    // channel those sites use. ⛔ Not an `error`: the refusal is FAIL-SOFT and
+    // the records still load, so blanking the result would be a worse outcome
+    // than the defect.
+    const refusedLimit = elementDataSourceRefusedLimitMessage(view, config.view, config.object);
+    if (refusedLimit) console.warn(refusedLimit);
+
     const fields = Array.isArray(composed.columns)
       ? composed.columns.filter((c): c is string => typeof c === 'string' && !!c)
       : undefined;

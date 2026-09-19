@@ -40,7 +40,7 @@ import {
 } from '@object-ui/app-shell';
 
 import { AppContent } from './AppContent';
-import { BrandingSync } from './components/BrandingSync';
+import { FaviconSync } from './components/FaviconSync';
 import { RootLandingRedirect } from './components/RootLandingRedirect';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { studioRoutes } from './components/StudioRoute';
@@ -145,7 +145,7 @@ export function App() {
       <ConsoleToaster />
       <MetadataHmrReloader />
       <BrowserRouter basename={BASENAME}>
-        <BrandingSync />
+        <FaviconSync />
         <ConsoleShell>
           <Routes>
             {/*

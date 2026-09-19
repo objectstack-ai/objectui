@@ -374,8 +374,23 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     // rather than reasoned, both legs, against the built parser: a `card` node
     // carrying `body` draws `unknown-prop: <card> has no prop "body" — the
     // child-list key is "children"`, and a `tabs` item carrying the same key
-    // draws ZERO diagnostics. ⇒ an empty table is objectui#9590's finish line,
-    // ⛔ not step 4's gate. ⛔ Do not delete the claim to make the block green.
+    // draws ZERO diagnostics.
+    //
+    // ⭐ RE-POINTED at objectui#9941, ⛔ not deleted — the assertion below
+    // carried its own instruction to do exactly that, in these terms. The table
+    // emptied when the three `tabs.tsx` `defaultProps` items were respelled to
+    // `content`, the key `TabItemSchema` declares required while declaring no
+    // `body`: ⛔ a CONFORMANCE fix, ⛔ not a dialect migration.
+    //
+    // ⭐ And the re-pointed claim is SCOPED: the table is empty **under
+    // objectui#9871's EMISSION criterion**. ⛔ It is NOT a claim that the
+    // dialect has left the tree, and ⛔ NOT objectui#9590's finish line.
+    // Measured across the same change: `failedC2` held at 313 and
+    // `unclassified` at 5, so 318 rows outside what that criterion scores as
+    // emission did not move — and objectui#9989 is a published doc still
+    // TEACHING the spelling. ⭐ Emitted and taught are different verbs, and this
+    // scan reads only the first. Whether the finish line is reached is
+    // objectui#9590's to judge on its own record.
     const producerScan = scan(REPO_ROOT);
 
     // Two lit controls, because an empty table is the assertion's own shape: a
@@ -391,20 +406,30 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     const producers = producersOf(producerScan.hits, producerScan.readers);
     expect(
       producers.length,
-      'the producer table is EMPTY — under objectui#9871\'s criterion nothing in shipped source ' +
-        'emits the dialect any more. ⚠️ That is objectui#9590\'s finish line, ⛔ NOT step 4\'s gate: ' +
-        'step 4 landed in objectui#6771 with this table non-empty, because everything left in it ' +
-        'is item-carried and outside the ruled family. ' +
-        'Re-point this block and say so in those terms; ⛔ do not delete the claim.'
-    ).toBeGreaterThan(0);
+      'a producer is BACK — shipped source emits the dialect again under objectui#9871\'s ' +
+        'EMISSION criterion, and it has not since objectui#9941. ⛔ Do not relax this to a ' +
+        'range: name the site and its carrier, and re-read the criterion before deciding ' +
+        'what a non-zero means here.'
+    ).toBe(0);
 
     // ⭐ The two SHAPES the census structurally cannot reach, asserted as
     // shapes rather than as paths: a producer arriving in a file nobody has
-    // named joins `producers` with no list to extend.
+    // named joins `producers` with no list to extend — that property is what
+    // this block holds, and it is unaffected by the occupancy being zero.
+    //
+    // ⚠️ B1's LIVE occupancy went to zero at objectui#9941; the three `tabs.tsx`
+    // `defaultProps` items were its last subjects. ⭐ The SHAPE is ⛔ not
+    // unreachable and this block is ⛔ not blind:
+    // `scripts/__tests__/body-dialect-producer-scan.test.ts`'s DIFFERENTIAL test
+    // plants `ITEM_PRODUCER` in a synthetic root and still asserts carrier
+    // ['item'], line 6, channel 'default-props' — it passed in the same run that
+    // first reported this red. That fixture is what makes standing down the
+    // live-tree control here safe rather than blind.
     expect(
       producers.filter((hit: { carrier: string }) => hit.carrier === 'item').length,
-      'no item-carried producer — the B1 shape (a `body` on an object with no `type`)'
-    ).toBeGreaterThan(0);
+      'an item-carried producer is BACK — the B1 shape (a `body` on an object with no `type`) ' +
+        'is live in shipped source again. ⛔ Not a licence to relax this; name the site.'
+    ).toBe(0);
     // ⚠️ B2 IS INVERTED BY THIS CARD, and the inversion is what the merge with
     // `main` actually found rather than a tidy-up. objectui#9871 asserted a
     // string-carried producer EXISTED, and its only subjects were the three VS
@@ -484,6 +509,9 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     // `list`'s `items[].body`; `tabs` items and the `dashboard` widget key are
     // recorded on it by comment 5733850974, so this pointer resolves to a record
     // that actually carries the two shapes named here.
+    // ⚠️ VACUOUS SINCE objectui#9941 — the item-carried set is EMPTY, so this
+    // loop body never runs and asserts nothing. Kept, ⛔ not deleted: it is the
+    // disposition claim that fires the moment an item-carried producer returns.
     for (const hit of producers.filter((h: { carrier: string }) => h.carrier === 'item')) {
       expect(hit.disposition).toBe('unruled:item-carrier');
     }

@@ -36,4 +36,12 @@ rather than after it: its sharp row keeps the two DOM assertions objectui#8071
 slice 15 wrote, and gains the warning legs plus a firing control and a leg
 keeping the warning off the other silence. Nothing in it was relaxed.
 
+The member-pin ledger moves with it. `apps/console`'s registry-inputs parity
+suite carried the old reading in two prose passages — the
+`object-master-detail-form.sections` entry quoting the retired sentence and
+recording the drop as having no diagnostic and the finding as not acted on, and
+the slice-15 narrative repeating the quote. Both now state the ruling. That file
+is a test and releases nothing: `@object-ui/console` ships no source from it, so
+this declaration covers `@object-ui/plugin-form` alone.
+
 Refs objectui#9884, objectui#8071.

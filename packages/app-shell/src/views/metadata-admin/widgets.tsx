@@ -616,6 +616,23 @@ function ObjectSelectorWidget({
     onChange(multiple ? newSelection : '');
   };
 
+  /* The freeform entry the FAILURE arm below renders in place of the picker
+     (objectui#9931). Declared with the other hooks so it is unconditional —
+     the arms below return early. It writes the SAME value shape the picker
+     writes (an array when `multiple`, a bare name otherwise), so a name typed
+     while the catalog is unknown round-trips exactly like a picked one. */
+  const [draft, setDraft] = React.useState('');
+  const commitDraft = (raw: string) => {
+    const name = raw.trim();
+    setDraft('');
+    if (readOnly || !name) return;
+    if (!multiple) {
+      onChange(name);
+      return;
+    }
+    if (!selectedValues.includes(name)) onChange([...selectedValues, name]);
+  };
+
   if (isLoading(objectsState)) {
     return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.loadingObjects', locale)} readOnly disabled />;
   }
@@ -649,11 +666,33 @@ function ObjectSelectorWidget({
     </div>
   );
 
+  // objectui#9931 — until this card the arm rendered chips plus the banner and
+  // NOTHING labelable, so the host's `<label for>` dangled and the field had no
+  // accessible name (in the card layout too, where the visible label is right
+  // there). The chips answer "see and remove"; the freeform box is the arm's
+  // primary control — the only way left to ADD a value — and it carries the
+  // host naming. The in-file shape is `string-tags`: chips beside one entry box
+  // that takes {@link controlNaming}. ⛔ Never the picker itself, disabled: see
+  // the comment above.
   if (objectsState.status === 'error') {
     return (
       <div className="space-y-2">
         {selectedChips}
         <PickerLoadFailure message={objectsState.message} testId="object-selector-load-failed" />
+        <Input
+          {...controlNaming({ id, ariaLabelledBy })}
+          data-testid="object-selector-freeform"
+          value={draft}
+          disabled={readOnly}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitDraft(draft);
+            }
+          }}
+          onBlur={() => commitDraft(draft)}
+        />
       </div>
     );
   }
@@ -806,6 +845,22 @@ function FieldSelectorWidget({
     onChange(multiple ? newSelection : '');
   };
 
+  /* The freeform entry the FAILURE arm below renders in place of the picker
+     (objectui#9931), in the same shape {@link ObjectSelectorWidget} uses.
+     Declared with the other hooks so it is unconditional — the arms below
+     return early. */
+  const [draft, setDraft] = React.useState('');
+  const commitDraft = (raw: string) => {
+    const name = raw.trim();
+    setDraft('');
+    if (readOnly || !name) return;
+    if (!multiple) {
+      onChange(name);
+      return;
+    }
+    if (!selectedValues.includes(name)) onChange([...selectedValues, name]);
+  };
+
   if (!objectName) {
     return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.selectObjectFirst', locale)} readOnly disabled />;
   }
@@ -847,11 +902,33 @@ function FieldSelectorWidget({
   // `field-ref` uses): with no options it could only render as a dead,
   // disabled dropdown next to a banner saying the options are unknown, which
   // is the very conflation this arm exists to end.
+  //
+  // objectui#9931 — replacing the picker left this arm with no labelable
+  // element at all, so the host's `<label for>` dangled and the field lost its
+  // accessible name. The replacement stands; what is added is the one control
+  // the `'control'` declaration requires in EVERY branch — a freeform entry
+  // that carries {@link controlNaming} and is the arm's only way to add a
+  // field name while the catalog is unknown. ⛔ Still not the dropdown: the
+  // paragraph above is why.
   if (loadError) {
     return (
       <div className="space-y-2">
         {selectedChips}
         <PickerLoadFailure message={loadError} testId="field-selector-load-failed" />
+        <Input
+          {...controlNaming({ id, ariaLabelledBy })}
+          data-testid="field-selector-freeform"
+          value={draft}
+          disabled={readOnly}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitDraft(draft);
+            }
+          }}
+          onBlur={() => commitDraft(draft)}
+        />
       </div>
     );
   }
@@ -1376,8 +1453,31 @@ function FieldRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context
   // that sentence names a cause that is not the real one, which is why the
   // failure arm replaces the picker rather than decorating it (the shape #5110
   // landed for the References panel).
+  //
+  // objectui#9931 — the failure arm is a branch this widget can render, so the
+  // `'control'` declaration in {@link WIDGET_LABELLING} governs it like every
+  // other: the host's `<label for>` must land on a labelable element here too.
+  // `PickerLoadFailure` is a `div[role="status"]`, which no `for` can address,
+  // so the banner is rendered BESIDE a freeform box that carries the naming and
+  // keeps the stored field name visible and editable. That is the shape
+  // `ref:object` already uses on this same arm, and the one
+  // {@link PickerLoadFailure}'s own contract states for every picker — "keeps
+  // whatever control lets the author see and edit the value already stored,
+  // because a failed catalog must not also block authoring". ⛔ NOT the picker
+  // itself: rendering a dead, option-less dropdown is the conflation this arm
+  // exists to end.
   if (fieldsState.status === 'error') {
-    return <PickerLoadFailure message={fieldsState.message} testId="field-ref-load-failed" />;
+    return (
+      <div className="space-y-1.5">
+        <PickerLoadFailure message={fieldsState.message} testId="field-ref-load-failed" />
+        <Input
+          {...controlNaming({ id, ariaLabelledBy })}
+          value={current}
+          disabled={readOnly}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </div>
+    );
   }
   // Same in-file precedent as `ref:object` / `object-selector`: an unanswered
   // question renders as "asking", never as an answer of none.
@@ -1453,8 +1553,23 @@ function ViewRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context 
   // objectui#5170 — same four arms as {@link FieldRefWidget}. The empty
   // placeholder says "No object bound", which is false when the object IS bound
   // and only its view catalog could not be fetched.
+  //
+  // objectui#9931 — same reading as {@link FieldRefWidget}'s failure arm: a
+  // branch this widget can render is a branch the `'control'` declaration
+  // covers, so the freeform box beside the banner carries the host naming and
+  // keeps the stored view name editable while the catalog is unknown.
   if (viewsState.status === 'error') {
-    return <PickerLoadFailure message={viewsState.message} testId="view-ref-load-failed" />;
+    return (
+      <div className="space-y-1.5">
+        <PickerLoadFailure message={viewsState.message} testId="view-ref-load-failed" />
+        <Input
+          {...controlNaming({ id, ariaLabelledBy })}
+          value={current}
+          disabled={readOnly}
+          onChange={(e) => onChange(e.target.value || undefined)}
+        />
+      </div>
+    );
   }
   if (isLoading(viewsState)) {
     return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.loadingOptions', locale)} readOnly disabled />;
@@ -2790,7 +2905,8 @@ export type WidgetLabelling = Exclude<NonNullable<ComponentMeta['labelling']>, '
  * ## `'control'` — the host's `<label for>` reaches a real labelable element
  *
  * The widget puts `id` on the ONE labelable element that is the field's primary
- * control, in EVERY branch it can render (loading, empty-catalog, read-only) —
+ * control, in EVERY branch it can render (loading, FAILED-catalog,
+ * empty-catalog, read-only) —
  * and, on that SAME element, any `ariaLabelledBy` the host hands down
  * ({@link controlNaming}, objectui#9889). The id is the `<label for>` channel
  * and the IDREF is the channel a host with NO label uses; a grid/table cell is
@@ -2803,6 +2919,20 @@ export type WidgetLabelling = Exclude<NonNullable<ComponentMeta['labelling']>, '
  * branch" is the load-bearing half: `field-multi` and `action-multi` look like
  * this in the editable state and were measured DANGLING in the read-only one,
  * which is why they are NOT here.
+ *
+ * ⭐ The parenthetical is EXAMPLES, and the quantifier before it is the rule —
+ * settled on the record by objectui#9931, which read the two apart because the
+ * catalog-FAILURE arm was not in the list. Read as exhaustive, the list would
+ * make this table's own declaration false about widgets it names, and it would
+ * contradict the membership test the paragraph above applies: `field-multi` and
+ * `action-multi` are excluded for dangling in ONE arm — whichever arm that
+ * happens to be, not one of three enumerated ones. The failure branch is named
+ * in the list now so no later reader has to re-derive that; the rule it glosses
+ * is unchanged, and no widget's declaration moved. ⛔ The list is still not the
+ * scope — the instrument that re-derives which branches every `'control'`
+ * widget actually names is
+ * `SchemaForm.controlWidgetFailureArmNaming-9931.test.tsx`, which takes its
+ * population from this table rather than from any list in prose.
  *
  * ## `'group'` — no `<label for>` can reach it; the WIDGET answers by IDREF
  *

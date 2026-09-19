@@ -2467,6 +2467,26 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // this effect between fetching and standing down, and the second changes
     // the projection it asks for, so both move the request itself.
     //
+    // ⭐ TWO names left this list, not one: `serverPage` went with
+    // `currentView`, and that is the SAME removal rather than a second,
+    // undescribed change. `fetchSkip` is defined above as the exact expression
+    // this effect used to compute inline — `paginate ? (serverPage - 1) *
+    // effectivePageSize : 0` — so the page, the page size and whether this
+    // surface pages at all are folded into the one number the query carries,
+    // and the effect names that number instead of its three operands.
+    // `serverPage` is untouched everywhere else; the pager still reads it, and
+    // `__tests__/ListView.serverPagination.test.tsx` is what re-derives that
+    // turning the page still refetches with the `$skip` it moved to.
+    //
+    // ⚠️ One consequence follows from the DEFINITION and is deliberate, and
+    // nothing in the suite re-derives it, which is why it is spelled out here
+    // rather than left to be inferred from a green run: on a surface where
+    // `paginate` is false, `fetchSkip` is pinned at 0, so a `serverPage` change
+    // under it moves nothing and no longer re-runs this effect. The reachable
+    // instance is the page-reset effect below snapping a grid back to page 1 as
+    // the user leaves it for a board — a second identical request under the old
+    // list. Read it as a claim about this definition, ⛔ not as a measured one.
+    //
     // ⚠️ The directive below governs the NEXT LINE. Anything written between it
     // and the dependency array detaches it from the array and turns it into an
     // unused directive — which `eslint .` reports as an ERROR, and which also

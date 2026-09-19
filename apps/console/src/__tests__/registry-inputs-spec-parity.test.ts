@@ -2440,7 +2440,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-master-detail-form.sections': {
     file: 'packages/plugin-form/src/__tests__/masterDetailSectionMembers-8071.test.tsx',
-    pins: 'Members are section OBJECTS shaping the PARENT half only \u2014 a member\'s `fields` are parent field names read as a SET, so the OBJECT\'s field order wins over the authored member order, and the block\'s `details` collections keep their own columns through every row. A member that resolves to NO parent field is dropped WHOLE, heading included, measured with a DETAIL column name as the member because that is the mistake this composition invites: one node declares two field vocabularies and only one of them is this key\'s. \u2b50 The sharp row is a DIVERGENCE from the block\'s own registration: `fields` is declared "Ignored when `sections` is given \u2014 sections carry their own field lists", and it is not ignored. `ObjectForm` builds the parent pool from `schema.fields` FIRST and a section filters against that pool, so authoring both INTERSECTS them \u2014 a section member outside `fields` is dropped with no diagnostic and a section whose every member is outside it disappears heading and all. Pinned as behaviour and handed back as a finding, not fixed, because fixing it changes either the renderer or the declaration. The key has no read site in this block: `MasterDetailForm`\'s `parentSchema` memo copies it onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>`, the same hand-written carrier whose dropped keys `object-form.sections` records twice (objectui#9779 / objectui#9834) \u2014 which is why the pin is taken here rather than delegated. \u26d4 Deliberately NOT re-asserted, because they are owned next door by `objectFormSectionMembers-8071.test.tsx` and duplicating them buys nothing: `collapsed` vs `collapsible`, the `name`-alone heading, the untitled trailing bucket and the `description` blurb; the `simple` / `tabbed` presentation routing is owned by `masterDetailFormTypeVocabulary.test.tsx`. A no-sections row is the non-vacuity control. Both declared sides are unconstrained (bare `type: \'array\'` with no `of`; `sections?: any[]`), so the read site is the whole member contract. New file (objectui#8071 slice 15).',
+    pins: 'Members are section OBJECTS shaping the PARENT half only \u2014 a member\'s `fields` are parent field names read as a SET, so the OBJECT\'s field order wins over the authored member order, and the block\'s `details` collections keep their own columns through every row. A member that resolves to NO parent field is dropped WHOLE, heading included, measured with a DETAIL column name as the member because that is the mistake this composition invites: one node declares two field vocabularies and only one of them is this key\'s. \u2b50 The sharp row, and it now AGREES with the block\'s own registration. `ObjectForm` builds the parent pool from `schema.fields` FIRST and a section filters against that pool, so authoring both INTERSECTS them \u2014 a section member outside `fields` does not render, and a section whose every member is outside it disappears heading and all. \u26a0 It used to record this as a DIVERGENCE, because the registration declared `fields` "Ignored when `sections` is given \u2014 sections carry their own field lists", and to record the loss as having NO DIAGNOSTIC; objectui#8071 slice 15 handed both back as a finding rather than acting on them, because acting changes either the renderer or the declaration and that card wrote pins only. objectui#9884 ruled it, and the DECLARATION was the wrong half: one `SimpleObjectForm` renders this block\'s parent half and `object-form` alike, and the three sibling `fields` registrations (`object-form`, `form`, `embeddable-form`) declare the key as the field selection with no such exemption, so honouring it would have falsified three declarations to satisfy one \u2014 on a pool that also feeds create defaults, the seed merge and the values a submit carries. The sentence was corrected and the SILENCE closed instead: `warnSectionMemberExcludedByFields` names every such drop, once per section-and-member pair, and is measured BEFORE `applyFieldPerms` so a perms-gated field is never reported as an authoring mistake. \u26d4 So the diagnostic is part of what this row pins now, and slice 15\'s two DOM assertions stand unchanged beside it \u2014 the rendered outcome did not move. Rows 3b, 3c and 3d carry the last-member case (with a counterfactual beside it), the firing control, and the leg keeping the warning off the DIFFERENT silence row 2 owns. The key has no read site in this block: `MasterDetailForm`\'s `parentSchema` memo copies it onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>`, the same hand-written carrier whose dropped keys `object-form.sections` records twice (objectui#9779 / objectui#9834) \u2014 which is why the pin is taken here rather than delegated. \u26d4 Deliberately NOT re-asserted, because they are owned next door by `objectFormSectionMembers-8071.test.tsx` and duplicating them buys nothing: `collapsed` vs `collapsible`, the `name`-alone heading, the untitled trailing bucket and the `description` blurb; the `simple` / `tabbed` presentation routing is owned by `masterDetailFormTypeVocabulary.test.tsx`. A no-sections row is the non-vacuity control. Both declared sides are unconstrained (bare `type: \'array\'` with no `of`; `sections?: any[]`), so the read site is the whole member contract. New file (objectui#8071 slice 15).',
   },
   'object-metric.aggregate': {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricQueryMembers-8071.test.tsx',
@@ -3402,12 +3402,26 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * ⚠️ Two member facts handed back as findings rather than frozen into a pin,
  * slice 9's choice for slice 9's reason. (a) An EMPTY `initialData` shadows a
  * populated `initialValues` completely, because the resolution is `||` on the
- * OBJECT. (b) `fields` is declared "Ignored when `sections` is given" and is
- * not ignored: the parent field pool is built from `fields` first and a section
- * resolves against that pool, so the two INTERSECT and a section member outside
- * `fields` is dropped silently. Both are pinned as behaviour and stated as
- * limits; an assertion that either can never change would have to be deleted
- * before anyone could change it.
+ * OBJECT. (b) `fields` WAS declared "Ignored when `sections` is given" and
+ * was not ignored: the parent field pool is built from `fields` first and a
+ * section resolves against that pool, so the two INTERSECT and a section member
+ * outside `fields` was dropped silently. Both were pinned as behaviour and
+ * stated as limits; an assertion that either can never change would have to be
+ * deleted before anyone could change it.
+ *
+ * ⭐ (b) has since been RULED, and is no longer a limit: objectui#9884 took
+ * the DECLARATION as the wrong half. This block’s parent form is rendered by
+ * the same `SimpleObjectForm` as `object-form` — the `parentSchema` memo named
+ * above builds an `object-form`-shaped node — and `object-form`’s own `fields`
+ * registration, like `form`’s and `embeddable-form`’s, declares the key as the
+ * field selection with no such exemption, so honouring the exemption would have
+ * falsified three declarations to satisfy one. The sentence was corrected, and
+ * the SILENCE — the half that was a defect under either reading — was closed
+ * with `warnSectionMemberExcludedByFields`, which names every drop the
+ * intersection causes. The intersection itself stands and no rendered outcome
+ * moved, so slice 15’s two DOM assertions are untouched; the
+ * `object-master-detail-form.sections` entry above carries the current reading.
+ * (a) is untouched and remains a limit.
  *
  * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (no block it names
  * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`

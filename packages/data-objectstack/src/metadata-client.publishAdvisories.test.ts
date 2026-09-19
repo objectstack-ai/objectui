@@ -601,7 +601,7 @@ describe('MetadataClient.publishPackageDrafts — the BATCH door reports (object
   });
 
   it('refuses an empty packageId instead of firing a malformed request', async () => {
-    const fetchSpy = vi.fn(async () => response(batchBody()));
+    const fetchSpy = vi.fn(async (_url: string, _init?: RequestInit) => response(batchBody()));
     const client = new MetadataClient({
       baseUrl: 'http://test.local',
       fetch: fetchSpy as unknown as typeof fetch,
@@ -612,7 +612,13 @@ describe('MetadataClient.publishPackageDrafts — the BATCH door reports (object
   });
 
   it('posts to the package route, unscoped by environment, like the call sites it replaces', async () => {
-    const fetchSpy = vi.fn(async () => response(batchBody()));
+    // Typed like `fetch` so `fetchSpy.mock.calls[0]` is `[url, init]` rather
+    // than an empty tuple (the zero-arg impl would otherwise infer `[]`, and
+    // indexing it is a compile error) — the spelling `exportDownload.test.ts`
+    // already uses, for the same reason it states there. `_url: string` rather
+    // than `RequestInfo | URL` because this client builds its URL as a string
+    // and the assertion below is meant to keep checking that.
+    const fetchSpy = vi.fn(async (_url: string, _init?: RequestInit) => response(batchBody()));
     const client = new MetadataClient({
       baseUrl: 'http://test.local',
       environmentId: 'env_1',
@@ -625,8 +631,7 @@ describe('MetadataClient.publishPackageDrafts — the BATCH door reports (object
     // carried here: an `/environments/:id/packages` mirror is a route nothing
     // in this repo has shown exists, and scoping to it would trade a working
     // call for a 404.
-    expect(fetchSpy.mock.calls[0]![0]).toBe(
-      'http://test.local/api/v1/packages/app.k9qk/publish-drafts',
-    );
+    const [url] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe('http://test.local/api/v1/packages/app.k9qk/publish-drafts');
   });
 });

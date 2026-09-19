@@ -38,7 +38,9 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import React from 'react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { MetadataCtx, type MetadataContextValue } from '@object-ui/react';
 
 /** Auth facts, swapped per test. `AuthGuard` itself stays real. */
 let auth = { isAuthenticated: true, isLoading: false, user: { id: 'u1' } as unknown };
@@ -138,18 +140,52 @@ const pathname = () => screen.getByTestId('pathname').textContent;
  * `/studio` subtree, the home a non-holder is sent to, and the login surface an
  * unauthenticated visitor bounces to.
  */
-function renderStudioDeepLink(url: string) {
+/**
+ * The app list the gate's home target resolves against (objectui#7373).
+ * `undefined` mounts the subtree with no metadata context at all — what every
+ * case written before that card saw, and what `useHomePath()` answers the
+ * launcher for.
+ */
+function withMetadata(
+  apps: MetadataContextValue['apps'] | undefined,
+  children: React.ReactNode,
+) {
+  if (!apps) return <>{children}</>;
+  const value: MetadataContextValue = {
+    apps,
+    objects: [], dashboards: [], reports: [], pages: [],
+    loading: false, error: null,
+    refresh: async () => {}, invalidate: () => {}, ensureType: async () => [],
+    getItem: async () => null, getItemsByType: () => [], getTypeStatus: () => 'ready',
+  };
+  return <MetadataCtx.Provider value={value}>{children}</MetadataCtx.Provider>;
+}
+
+function renderStudioDeepLink(url: string, apps?: MetadataContextValue['apps']) {
   return render(
     <MemoryRouter initialEntries={[url]}>
       <LocationProbe />
-      <Routes>
-        {studioRoutes}
-        <Route path="/home" element={<div data-testid="home-launcher">home</div>} />
-        <Route path="/login" element={<div data-testid="login-page">login</div>} />
-      </Routes>
+      {withMetadata(
+        apps,
+        <Routes>
+          {studioRoutes}
+          <Route path="/home" element={<div data-testid="home-launcher">home</div>} />
+          <Route
+            path="/apps/cloud_control"
+            element={<div data-testid="declared-landing">declared landing</div>}
+          />
+          <Route path="/login" element={<div data-testid="login-page">login</div>} />
+        </Routes>,
+      )}
     </MemoryRouter>,
   );
 }
+
+/** A control plane: the landing is declared, and it is not the launcher. */
+const CONTROL_PLANE_APPS = [
+  { name: 'cloud_control', label: 'Cloud', isDefault: true },
+  { name: 'account', label: 'Account' },
+];
 
 /** A plain tenant org owner's real set on the measured shape — no `studio.access`. */
 const TENANT_OWNER_CAPS = ['manage_org_users', 'setup.access', 'setup.write'];
@@ -238,6 +274,35 @@ describe('/studio/* — the entry decision, both ways', () => {
     expect(designSurface).not.toHaveBeenCalled();
   });
 
+  it('a non-holder lands on the DECLARED landing where there is one (objectui#7373)', async () => {
+    // The card's case on this gate: a control-plane customer who follows a
+    // `/studio` link they may not enter. Pre-#7373 `redirectTo` defaulted to the
+    // `/home` literal, which on that deployment is the environment launcher —
+    // "Build an app" / "Start from a template" cards acting on an environment
+    // the control plane does not have. This pin fails on that implementation.
+    renderStudioDeepLink('/studio/hotcrm/data', CONTROL_PLANE_APPS);
+
+    await waitFor(() => expect(pathname()).toBe('/apps/cloud_control'));
+    expect(screen.getByTestId('declared-landing')).toBeInTheDocument();
+    expect(screen.queryByTestId('home-launcher')).not.toBeInTheDocument();
+    // The load-bearing half is unchanged by the retarget: refusing is still
+    // refusing, and the builder is still never mounted.
+    expect(designSurface).not.toHaveBeenCalled();
+  });
+
+  it('keeps the launcher for an environment that declares no landing', async () => {
+    // The status quo, as its own case: a real app list WITHOUT a declaration
+    // resolves to the launcher, exactly like the no-context cases above.
+    renderStudioDeepLink('/studio/hotcrm/data', [
+      { name: 'crm', label: 'CRM' },
+      { name: 'setup', label: 'Setup' },
+    ]);
+
+    await waitFor(() => expect(pathname()).toBe('/home'));
+    expect(screen.getByTestId('home-launcher')).toBeInTheDocument();
+    expect(designSurface).not.toHaveBeenCalled();
+  });
+
   it('NEGATIVE CONTROL: a holder still gets the front door, unchanged', async () => {
     // A gate that refused everyone would pass every assertion above.
     answerWith(OPERATOR_CAPS);
@@ -255,6 +320,20 @@ describe('/studio/* — the entry decision, both ways', () => {
     await waitFor(() => expect(screen.getByTestId('studio-pillar-builder')).toBeInTheDocument());
     expect(designSurface).toHaveBeenCalled();
     expect(pathname()).toBe('/studio/hotcrm/data');
+  });
+
+  it("the front door's wordmark walks back to the same home the gate bounces to", async () => {
+    // Two affordances one route apart — this wordmark and the pillar builder's
+    // header Home button — must not name two different homes; that asymmetry is
+    // the defect objectui#7256 measured and objectui#7373 finished removing.
+    answerWith(OPERATOR_CAPS);
+    renderStudioDeepLink('/studio/', CONTROL_PLANE_APPS);
+
+    await waitFor(() => expect(screen.getByTestId('studio-front-door')).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: 'ObjectOS' })).toHaveAttribute(
+      'href',
+      '/apps/cloud_control',
+    );
   });
 
   it('NEGATIVE CONTROL: the holder is answered ONCE for the whole subtree', async () => {

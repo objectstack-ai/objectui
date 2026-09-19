@@ -19,8 +19,17 @@ import type {
 import { inputTypeArms } from './input-type.js';
 import { checkDashboardWidgetOptions } from './dashboard-widget-options.js';
 import { checkKanbanQuickAdd } from './kanban-quick-add.js';
+import { checkRetiredBodyDialect } from './body-dialect.js';
 
-/** Base props every node may carry (mirrors BaseSchema) — never "unknown prop". */
+/**
+ * Base props every node may carry (mirrors BaseSchema) — never "unknown prop".
+ *
+ * ⛔ `body` is NOT here and must not be added. It was `BaseSchema`'s second
+ * child-list spelling until objectui#6771 retired it; teaching this set the key
+ * was the option that ruling refused, because it would have blessed a second
+ * permanent spelling of one concept. `./body-dialect.ts` answers it by name
+ * instead.
+ */
 const BASE_PROPS = new Set([
   'type',
   'id',
@@ -88,12 +97,20 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
         }
         const input = byName.get(key);
         if (!input) {
-          diagnostics.push({
-            severity: 'warning',
-            code: 'unknown-prop',
-            message: `<${node.type}> has no prop "${key}"`,
-            tag: node.type,
-          });
+          // The retired `body` child-list dialect gets its replacement named
+          // rather than the bare "has no prop" every typo gets
+          // (objectui#6771). Asked INSIDE this branch, so a component that
+          // declares its own `body` input keeps its declared type check —
+          // mechanism in `./body-dialect.ts`.
+          const retiredBody = checkRetiredBodyDialect(node.type, key, value, comp.isContainer);
+          diagnostics.push(
+            retiredBody ?? {
+              severity: 'warning',
+              code: 'unknown-prop',
+              message: `<${node.type}> has no prop "${key}"`,
+              tag: node.type,
+            },
+          );
           continue;
         }
         if (input.binding) {

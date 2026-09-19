@@ -31,14 +31,16 @@
  *   element must carry no class attribute at all. An injected default (like
  *   `div`'s designer `defaultProps`) would surface here first.
  *
- * - `box` reads `children` ONLY — never `schema.body`. That is deliberate and
- *   load-bearing, not an omission: `div`'s `children || body` fallback is what
+ * - `box` reads `children` ONLY — never `schema.body`. This clause was minted
+ *   when `box` was the EXCEPTION: `div`'s `children || body` fallback is what
  *   made a mechanical `div`→X swap silently DROP content on `body`-authoring
  *   nodes while the element count stayed unchanged (the failure both
- *   superseded rulings on objectui#3965 died on). Content moves into
- *   `children` at migration time — the objectui#6771 B-ruling direction. The
- *   `div` control render beside it proves the fixture is renderable and the
- *   difference is this renderer's read, not a broken fixture.
+ *   superseded rulings on objectui#3965 died on). objectui#6771 retired the
+ *   `body` spelling across the protocol, so `box` is no longer the exception
+ *   and the clause now measures something stronger: a `body`-authored node
+ *   draws NOTHING on EITHER tag, while the identical content under `children`
+ *   draws on both. The `children` control render is what keeps the two empty
+ *   readings a measurement of the retired key rather than of a broken fixture.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -96,19 +98,34 @@ describe('box — the class-transparent neutral container (objectui#3965)', () =
     expect(boxEl.getAttribute('class'), 'zero injected classes').toBeNull();
   });
 
-  it('reads `children` only — `body` is deliberately not a content channel', () => {
-    // The div control FIRST: proves this exact fixture shape renders content
-    // through the `children || body` reader, so the empty box below is a
-    // measurement of box's deliberate read, not of a broken fixture.
+  it('reads `children` only — and since objectui#6771 so does `div`, which used to take `body` too', () => {
     const bodyFixture = (type: string) => ({
       type,
       body: [{ type: 'text', content: 'body-authored-content' }],
     });
-    const divControl = renderNode(bodyFixture('div'));
-    expect(divControl.container.textContent).toContain('body-authored-content');
-    divControl.unmount();
+    const childrenFixture = (type: string) => ({
+      type,
+      children: [{ type: 'text', content: 'children-authored-content' }],
+    });
 
-    const { container } = renderNode(bodyFixture('box'));
-    expect(container.textContent).not.toContain('body-authored-content');
+    // The CONTROLS first: the identical content under `children` draws on both
+    // tags, so the two empty readings below are a measurement of the retired
+    // key and not of a fixture that never rendered.
+    for (const type of ['div', 'box']) {
+      const live = renderNode(childrenFixture(type));
+      expect(live.container.textContent, `\`${type}\` lost its \`children\``)
+        .toContain('children-authored-content');
+      live.unmount();
+    }
+
+    // `div` used to answer this fixture — `renderChildren(schema.children || schema.body)`
+    // — which is exactly what made a mechanical `div`→`box` swap unsafe. The
+    // arm is retired, so the swap is safe and this reading is the reason why.
+    for (const type of ['div', 'box']) {
+      const dead = renderNode(bodyFixture(type));
+      expect(dead.container.textContent, `\`${type}\` still reads the retired \`body\``)
+        .not.toContain('body-authored-content');
+      dead.unmount();
+    }
   });
 });

@@ -18,7 +18,7 @@
 
 import { z } from 'zod';
 import { I18nLabelSchema } from '@objectstack/spec/ui';
-import { retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import { ExpressionWireSchema } from './expression.zod.js';
 import type { SchemaNode } from '../base.js';
 import { stripImportedDefaults } from './imported-defaults.js';
@@ -369,12 +369,24 @@ const BaseSchemaCore = z.object({
   bind: z.string().optional().describe('Data-scope binding path (resolved by useDataScope)'),
 
   /**
-   * Child components or content
+   * RETIRED (objectui#6771) — mirrors `BaseSchema.body: never` (`../base.ts`).
+   *
+   * A bare deletion would be a silent accept, not a refusal: this object ends
+   * `.passthrough()`, so an undeclared `body` parses green and reaches a
+   * renderer that no longer reads it. The alias refusal keeps the key
+   * declared and unwritable, and names `children` in the issue message —
+   * the remedy, not just the rejection.
    */
-  body: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Child components'),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this node',
+    'The `body` child-list spelling was retired by objectui#6771 — one concept, '
+    + 'one spelling. Every registration that read it now reads `children`.',
+  ),
 
   /**
-   * Alternative children property
+   * Child components or content — the one child-list spelling (objectui#6771)
    */
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Child components (React-style)'),
 

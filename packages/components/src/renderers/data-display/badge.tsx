@@ -29,7 +29,7 @@ ComponentRegistry.register('badge',
         // Apply designer props
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
     >
-      {schema.label || renderChildren(schema.body)}
+      {schema.label || renderChildren(schema.children)}
     </Badge>
   );
   },

@@ -2,7 +2,7 @@
   "type": "page",
   "title": "Dashboard",
   "description": "Welcome to your dashboard",
-  "body": [
+  "children": [
     {
       "type": "text",
       "content": "Page content goes here"

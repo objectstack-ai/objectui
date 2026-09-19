@@ -92,7 +92,7 @@ initializeComponents()
 const schema = {
   type: 'card',
   title: 'Welcome',
-  body: {
+  children: {
     type: 'text',
     content: 'Hello from Object UI!'
   }

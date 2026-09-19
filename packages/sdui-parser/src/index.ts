@@ -25,6 +25,7 @@ export {
 export { generateDts, propsName, generateBlockList } from './codegen.js';
 export type { CodegenOptions } from './codegen.js';
 export { inputTypeArms, canonicalizeInputType, MANIFEST_INPUT_TYPES } from './input-type.js';
+export { checkRetiredBodyDialect, RETIRED_CHILD_LIST_KEY } from './body-dialect.js';
 
 import { parseJsx } from './parse.js';
 import { validateTree } from './validate.js';

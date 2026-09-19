@@ -68,7 +68,7 @@ const OFF_SPEC_ICON = { type: 'icon', icon: 'check', size: 'huge' } as const;
 const LEGAL_ICON = { type: 'icon', icon: 'check', size: 24 } as const;
 
 /** The same node one slot down — the depth #7869 measured as the shielded one. */
-const nested = (child: unknown) => ({ type: 'card', title: 'Parent', body: [child] });
+const nested = (child: unknown) => ({ type: 'card', title: 'Parent', children: [child] });
 
 describe('objectui#7869 — the off-spec node gets the same verdict at both depths', () => {
   it('is refused STANDING ALONE (unchanged — this half was never the defect)', () => {
@@ -142,8 +142,11 @@ describe('the late-binding wiring, read by IDENTITY on the exported wrapper', ()
   });
 
   it('that identity survives through a declared child slot', () => {
-    const body = (CardSchema.shape.body as unknown as { _zod: { def: { innerType: { _zod: { def: { options: unknown[] } } } } } });
-    expect(body._zod.def.innerType._zod.def.options).toContain(SchemaNodeSchema);
+    // Read off `children`: objectui#6771 retired `card`'s `body` spelling, so
+    // the declared child slot whose union must hold the recursion point is
+    // this one. `body` on this mirror is now an alias refusal with no union.
+    const slot = (CardSchema.shape.children as unknown as { _zod: { def: { innerType: { _zod: { def: { options: unknown[] } } } } } });
+    expect(slot._zod.def.innerType._zod.def.options).toContain(SchemaNodeSchema);
   });
 
   it('the holder is FILLED by importing the barrel — the module-cycle break works', () => {
@@ -282,17 +285,22 @@ describe('objectui#8572 — the `chatbot` record `body` is refused at the ROOT a
 
   it('names `body` AT ITS OWN PATH one slot down, and carries the remedy there too', () => {
     // ⭐ RE-POINTED by objectui#9659, carrying a contract-review residual on objectui#9639.
-    // This leg used to read `JSON.stringify(issues)` for the substring `"body"` and was
-    // VACUOUS: the parent card slot puts `"body"` in the issue path for ANY refused child, so
-    // the old assertion held whether or not the `chatbot` arm named anything. Measured on this
-    // head — three documents with nothing wrong at `body`, all three satisfying the old
-    // assertion, none of them carrying an issue at the child's own `body` path:
+    // This leg used to read `JSON.stringify(issues)` for the substring naming the
+    // parent's child slot and was VACUOUS: that slot is in the issue path for ANY
+    // refused child, so the old assertion held whether or not the `chatbot` arm
+    // named anything. Measured on this head — three documents with nothing wrong
+    // at the child's own `body`, all three satisfying the old assertion, none of
+    // them carrying an issue at that path:
     //
-    //   nested off-spec `icon` (size: 'huge')  → blob contains `"body"`: true, issues at
-    //                                            `body.0.body`: 0
+    //   nested off-spec `icon` (size: 'huge')  → blob contains the slot name: true,
+    //                                            issues at `<slot>.0.body`: 0
     //   nested unmirrored `metric-card`        → true / 0
     //   nested `chatbot` missing `messages`    → true / 0
-    //   nested `chatbot` with a record `body`  → true / 1   ← the only one that is about `body`
+    //   nested `chatbot` with a record `body`  → true / 1   ← the only one about `body`
+    //
+    // ⚠️ The parent slot is spelled `children` since objectui#6771 retired `body`;
+    // the child's own refused key is still `body`, so the two halves of the path
+    // no longer read alike and the reading is easier to see, not different.
     //
     // ⇒ the reading that discriminates is the child's OWN path, not the serialized blob. The
     // controls above are kept as assertions below so the discrimination is pinned rather than
@@ -312,7 +320,7 @@ describe('objectui#8572 — the `chatbot` record `body` is refused at the ROOT a
       walk(issues, []);
       return out;
     };
-    const named = at(result.error.issues, 'body.0.body');
+    const named = at(result.error.issues, 'children.0.body');
     expect(named.length).toBeGreaterThan(0);
     // the refusal one slot down is the ARM's tombstone, and the REMEDY reaches the author at
     // depth and not only at the root — the root leg above reads the same string at depth 0.
@@ -326,7 +334,7 @@ describe('objectui#8572 — the `chatbot` record `body` is refused at the ROOT a
     ['`chatbot` missing `messages`', { type: 'chatbot' }],
   ])('CONTROL — a nested %s is refused with NOTHING at the child\'s `body` path', (_label, child) => {
     // These are the documents that made the old leg vacuous. Each is refused for a reason that
-    // has nothing to do with `body`, so the leg above must find nothing at `body.0.body` here.
+    // has nothing to do with `body`, so the leg above must find nothing at `children.0.body`.
     // ⛔ Do not "repair" a future failure by widening the path: a refusal that starts naming
     // `body` for an off-spec `icon` is a defect in the recursion point, not in this control.
     const result = AnyComponentSchema.safeParse(nested(child));
@@ -341,9 +349,11 @@ describe('objectui#8572 — the `chatbot` record `body` is refused at the ROOT a
       for (const bucket of issue.errors ?? []) walk(bucket, here);
     };
     walk(result.error.issues, []);
-    expect(paths).not.toContain('body.0.body');
+    expect(paths).not.toContain('children.0.body');
     // and the old assertion holds anyway — which is the whole reason it was replaced.
-    expect(JSON.stringify(result.error.issues)).toContain('"body"');
+    // (It reads the PARENT's slot name, which is what made it vacuous; that name is
+    // `children` since objectui#6771, and the vacuity is unchanged.)
+    expect(JSON.stringify(result.error.issues)).toContain('"children"');
   });
 });
 
@@ -365,7 +375,7 @@ describe('objectui#8344 + objectui#8498 — a refusal at depth 4 stays bounded a
   const deep = (levels: number): unknown =>
     levels === 0
       ? { type: 'badge', variant: 'not-a-variant' }
-      : { type: 'card', title: 'p', body: [deep(levels - 1)] };
+      : { type: 'card', title: 'p', children: [deep(levels - 1)] };
 
   it('refuses at every depth 0 through 4 without throwing', () => {
     for (const depth of [0, 1, 2, 3, 4]) {
@@ -387,7 +397,7 @@ describe('objectui#8344 + objectui#8498 — a refusal at depth 4 stays bounded a
     const legal = (levels: number): unknown =>
       levels === 0
         ? { type: 'badge', variant: 'default' }
-        : { type: 'card', title: 'p', body: [legal(levels - 1)] };
+        : { type: 'card', title: 'p', children: [legal(levels - 1)] };
     expect(safeValidateSchema(legal(4)).success).toBe(true);
   });
 });

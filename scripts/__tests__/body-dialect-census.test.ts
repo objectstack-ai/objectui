@@ -44,7 +44,7 @@ import {
   RULED_BUT_NOT_A_READER,
   BODY_ONLY_UNRULED,
 } from '../body-dialect-census.mjs';
-import { scan, producersOf } from '../body-dialect-producer-scan.mjs';
+import { scan, producersOf, unchannelledOf } from '../body-dialect-producer-scan.mjs';
 
 const REPO_ROOT = join(__dirname, '..', '..');
 const read = (p: string) => readFileSync(join(REPO_ROOT, p), 'utf8');
@@ -131,9 +131,18 @@ describe('the scanner sees the shapes authored metadata actually uses', () => {
   it('CONTROL — a corpus-shaped input returns hits, so a zero elsewhere is readable', () => {
     // Without this, every "0" in the census is indistinguishable from a
     // scanner that resolved nothing at all.
+    //
+    // ⚠️ RE-POINTED at `children` by objectui#6771. This file was the densest
+    // `body` corpus in the tree — 14 nodes — and the retirement migrated it, so
+    // a `body` control here now measures the migration instead of the scanner.
+    // The control's job is unchanged: prove the scanner resolves NODES and
+    // their child key on a real corpus file, so a zero read somewhere else is a
+    // reading rather than a blind walk.
     const nodes = scanNodes(read('examples/schema-catalog/src/schemas/components-basic-sidebar/basic-sidebar.json'));
     expect(nodes.length).toBeGreaterThan(0);
-    expect(nodes.filter((n: { keys: Set<string> }) => n.keys.has('body')).length).toBeGreaterThan(0);
+    expect(nodes.filter((n: { keys: Set<string> }) => n.keys.has('children')).length).toBeGreaterThan(0);
+    // And the retired spelling is gone from it, which is the migration half.
+    expect(nodes.filter((n: { keys: Set<string> }) => n.keys.has('body')).length).toBe(0);
   });
 });
 
@@ -155,14 +164,21 @@ describe('the measured population is read off the renderers, not off the card bo
     expect(BODY_ONLY.filter((k) => k.startsWith('sidebar')).length).toBe(10);
   });
 
-  it('`badge` and `alert` read `body` and never `children`', () => {
+  it('`badge` and `alert` read `children` and never `body` — CONVERGED by objectui#6771', () => {
+    // ⚠️ INVERTED. This pin held the ground the whole census rested on: these
+    // two rendered `renderChildren(schema.body)` and never touched
+    // `schema.children`, which is what made `body` their ONLY door and made
+    // retiring it a reject-direction change on published contract. The ruling
+    // was executed; the door is `children` now, and the reading the census
+    // produced is what cleared it (`badge` and `alert` carried ZERO authored
+    // `body` in both populations, so the published cost measured zero).
     for (const [file, type] of [
       ['packages/components/src/renderers/data-display/badge.tsx', 'badge'],
       ['packages/components/src/renderers/data-display/alert.tsx', 'alert'],
     ] as const) {
       const src = read(file);
-      expect(src, `${type} stopped reading schema.body`).toContain('renderChildren(schema.body)');
-      expect(src, `${type} now reads schema.children — it is no longer body-only`).not.toContain('schema.children');
+      expect(src, `${type} does not read schema.children`).toContain('renderChildren(schema.children)');
+      expect(src, `${type} still reads the retired schema.body`).not.toContain('schema.body');
     }
   });
 
@@ -175,24 +191,32 @@ describe('the measured population is read off the renderers, not off the card bo
     // 11 `sidebar-*` registrations. The one without is `sidebar-trigger`, whose
     // renderer never receives `schema` at all.
     expect(src.match(/ComponentRegistry\.register\('sidebar/g)?.length).toBe(11);
-    expect(src.match(/renderChildren\(schema\.body\)/g)?.length).toBe(10);
+    // Spelled `children` since objectui#6771; the COUNT is the load-bearing
+    // half and it did not move — ten reads across eleven registrations.
+    expect(src.match(/renderChildren\(schema\.children\)/g)?.length).toBe(10);
+    expect(src.match(/renderChildren\(schema\.body\)/g)?.length ?? 0).toBe(0);
     const trigger = src.slice(src.indexOf("register('sidebar-trigger'"));
     expect(trigger).not.toContain('schema.body');
     expect(trigger).not.toContain('schema.children');
   });
 
-  it('⚠️ `tooltip` is a `body`-only reader that the ruled 13 does NOT include', () => {
-    // Measured, and it matters: `tooltip` renders `renderChildren(schema.body)`
-    // and never `schema.children`, so direction B removes its only rich-content
-    // key too — yet it is absent from the ruling's step 2 list. It is also the
-    // ONE registration in the tree that DECLARES `body` as an authorable input,
-    // which makes it the most discoverable spelling of `body` on the whole
-    // authoring surface.
+  it('⚠️ `tooltip` was the `body`-only reader the ruled 13 omitted — and it converged with the rest', () => {
+    // ⚠️ INVERTED, and this one was a SCOPE call before it was an edit. The
+    // census measured `tooltip` rendering `renderChildren(schema.body)` and
+    // never `schema.children` — a `body`-only reader absent from the ruling's
+    // step 2 list — and, decisively, the ONE registration in the tree that
+    // DECLARED `body` as an authorable input, which made it the most
+    // discoverable spelling of the dialect on the whole authoring surface.
+    // Seat 1 read the ruling rather than filing for it (2026-09-17) and triage
+    // recorded the answer as already given: step 2's two clauses leave no third
+    // class, so `tooltip` is IN. It is, and its declared input moved too — the
+    // half that would otherwise have left the dialect advertised.
     expect(BODY_ONLY_UNRULED).toEqual(['tooltip']);
     const src = read('packages/components/src/renderers/overlay/tooltip.tsx');
-    expect(src).toContain('renderChildren(schema.body)');
-    expect(src).not.toContain('schema.children');
-    expect(src).toMatch(/name:\s*'body'/);
+    expect(src).toContain('renderChildren(schema.children)');
+    expect(src).not.toContain('schema.body');
+    expect(src).toMatch(/name:\s*'children'/);
+    expect(src).not.toMatch(/name:\s*'body'/);
   });
 
   it('the two published keys are exactly `badge` and `alert`', () => {
@@ -223,7 +247,7 @@ describe('the census stays re-runnable', () => {
 });
 
 describe('the `body` consumers the ruling does not enumerate', () => {
-  it('three generic readers outside the renderer tree still resolve `body`', () => {
+  it('three generic readers outside the renderer tree read `children` ALONE — step 2 reached them', () => {
     // Recorded because ruling steps 2-5 name renderers, the published type and
     // the tier — and these three are none of those. They read `body` for ANY
     // node type, so they outlive the per-registration convergence and would
@@ -238,15 +262,26 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     // objectui#7181 converged both onto the core spelling, adding the
     // `children` arm and KEEPING `body`. Nothing was retired; that is step 2.
     //
-    // ⇒ all three now read the same way, which is what these three assertions
-    // pin. The `body` arm surviving in each is the half that says step 2 is
-    // still outstanding.
+    // ⇒ all three then read the same way, and the `body` arm surviving in each
+    // was the half that said step 2 was still outstanding.
+    //
+    // ⚠️ INVERTED — step 2 landed (objectui#6771). These three are the reason
+    // the block exists: a per-registration convergence would have left them
+    // resolving `body` for ANY node type and the dialect alive underneath it,
+    // so the retirement is only real if all three dropped the arm. Both vscode
+    // readers even deferred it to that card BY NUMBER in their own comments.
+    // The lit control stays FIRST, because "does not contain `body`" holds just
+    // as well over a file that was renamed, emptied or moved.
     for (const reader of [
       'packages/core/src/validation/schema-validator.ts',
       'packages/vscode-extension/src/providers/SchemaValidator.ts',
       'packages/vscode-extension/src/providers/PreviewProvider.ts',
     ]) {
-      expect(readCode(reader), reader).toContain('schema.children || schema.body');
+      const text = readCode(reader);
+      expect(text, `${reader} — lit control: this reader still resolves a child list`)
+        .toMatch(/=\s*schema\.children;/);
+      expect(text, `${reader} still resolves the retired \`body\``)
+        .not.toContain('schema.children || schema.body');
     }
   });
 
@@ -311,10 +346,16 @@ describe('the `body` consumers the ruling does not enumerate', () => {
 
     // ⛔ That zero is NOT the answer to "is step 4 landable", and reading it as
     // one is the trap this half exists to close. The census states its own
-    // limits and TWO of them hide a producer: it scores a child list only on an
-    // object that also carries a string-LITERAL `type` (a `tabs` ITEM carries
+    // limits and TWO of them CAN hide a producer: it scores a child list only on
+    // an object that also carries a string-LITERAL `type` (a `tabs` ITEM carries
     // `label`/`value`/`body` and no `type`), and it never reads inside a string
     // or a template literal (a VS Code completion snippet is a string).
+    //
+    // ⚠️ PAST-TENSED where objectui#9871 wrote that both still DO. Only the
+    // first still hides a live producer. The second's only subjects were the
+    // `CompletionProvider` snippets, and objectui#6771 step 5 migrated them —
+    // which is the B2 inversion below, measured rather than assumed. The limit
+    // itself is unchanged and still structural; what emptied is its occupancy.
     //
     // ⭐ objectui#9871 REPLACED the enumeration that used to stand here. Two
     // named sites were an enumeration with the census's blind spots written
@@ -324,8 +365,17 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     // · C2 resolution · C3 carrier) and this block reads its table.
     //
     // ⭐ When the table empties, THAT is the handoff, and the message on the
-    // assertion says so in these terms — it is the day step 4 becomes landable.
-    // ⛔ Do not delete the claim to make the block green.
+    // assertion says so in these terms. ⚠️ CORRECTED where objectui#9871 wrote
+    // "the day step 4 becomes landable": step 4 lands in objectui#6771 with this
+    // table NON-empty, and measurement is why. The tier refuses `body` inside
+    // `Object.entries(node)` on a node whose `type` resolves to a registration;
+    // every site left in the table is carried on a `tabs` ITEM, which is the
+    // value of a declared `items` input and never a node in that walk. Probed
+    // rather than reasoned, both legs, against the built parser: a `card` node
+    // carrying `body` draws `unknown-prop: <card> has no prop "body" — the
+    // child-list key is "children"`, and a `tabs` item carrying the same key
+    // draws ZERO diagnostics. ⇒ an empty table is objectui#9590's finish line,
+    // ⛔ not step 4's gate. ⛔ Do not delete the claim to make the block green.
     const producerScan = scan(REPO_ROOT);
 
     // Two lit controls, because an empty table is the assertion's own shape: a
@@ -342,7 +392,9 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     expect(
       producers.length,
       'the producer table is EMPTY — under objectui#9871\'s criterion nothing in shipped source ' +
-        'emits the dialect any more, which is the day objectui#6771 step 4 becomes landable. ' +
+        'emits the dialect any more. ⚠️ That is objectui#9590\'s finish line, ⛔ NOT step 4\'s gate: ' +
+        'step 4 landed in objectui#6771 with this table non-empty, because everything left in it ' +
+        'is item-carried and outside the ruled family. ' +
         'Re-point this block and say so in those terms; ⛔ do not delete the claim.'
     ).toBeGreaterThan(0);
 
@@ -353,15 +405,85 @@ describe('the `body` consumers the ruling does not enumerate', () => {
       producers.filter((hit: { carrier: string }) => hit.carrier === 'item').length,
       'no item-carried producer — the B1 shape (a `body` on an object with no `type`)'
     ).toBeGreaterThan(0);
+    // ⚠️ B2 IS INVERTED BY THIS CARD, and the inversion is what the merge with
+    // `main` actually found rather than a tidy-up. objectui#9871 asserted a
+    // string-carried producer EXISTED, and its only subjects were the three VS
+    // Code completion snippets in `CompletionProvider.ts` — which objectui#6771
+    // step 5 migrated. The two changes were written without knowledge of each
+    // other and landed on DISJOINT files, so the text merged clean and this
+    // assertion is the one place they actually meet. ⛔ Not deleted, per
+    // objectui#9871's own instruction: re-pointed, with the reason named.
+    //
+    // ⭐ THE ZERO NEEDS A LIT CONTROL OR IT IS A BLIND WALK, and the control is
+    // in TWO parts, because `source !== 'code-key'` is a conjunction of two
+    // independent capabilities and a single control would leave one untested:
+    //   - B2 reads inside literals AT ALL — `scanSource`'s literal projection
+    //     still resolves the key in strings and templates somewhere in the tree;
+    //   - a literal-carried hit still PASSES C2 — some derived reader resolves
+    //     it into a child list, so the zero below is about C1 EMISSION alone.
+    // Without both, `toBe(0)` would hold just as well over a scan that had gone
+    // blind to literals — the exact failure objectui#9871 built B2 to end.
+    const literalCarried = producerScan.hits.filter(
+      (hit: { source: string }) => hit.source !== 'code-key'
+    );
+    expect(
+      literalCarried.length,
+      'lit control — the scan resolved NO literal-carried `body` anywhere, so B2 has gone blind ' +
+        'and the zero below would be measuring the instrument rather than the tree'
+    ).toBeGreaterThan(0);
+    expect(
+      unchannelledOf(producerScan.hits, producerScan.readers).filter(
+        (hit: { source: string }) => hit.source !== 'code-key'
+      ).length,
+      'lit control — no literal-carried hit passes C2 any more, so the zero below would be ' +
+        'measuring C2 rather than the emission channel it claims to measure'
+    ).toBeGreaterThan(0);
+
+    // ⇒ AND THE READING ITSELF, with both controls lit: no literal-carried site
+    // reaches an emission channel. The B2 shape is REACHABLE and UNOCCUPIED —
+    // which is a different sentence from the one objectui#9871 could write, and
+    // only this merge could have produced it.
     expect(
       producers.filter((hit: { source: string }) => hit.source !== 'code-key').length,
-      'no string-carried producer — the B2 shape (the key spelled inside a literal)'
-    ).toBeGreaterThan(0);
+      'a string-carried producer is BACK — objectui#6771 step 5 migrated the last of them ' +
+        '(the `CompletionProvider` snippets). A new one means a tool started writing the retired ' +
+        'spelling into an author document again; ⛔ do not relax this to a range.'
+    ).toBe(0);
+
+    // ⭐ THE SUBJECT THAT ZERO IS ABOUT, pinned BY NAME — because a shape
+    // assertion cannot say WHICH site left, and naming it is the handoff
+    // objectui#9871's prose asks for. A completion snippet is the most direct
+    // form a producer takes: it is inserted into the author's own document the
+    // moment the completion is accepted, so the author never types the spelling.
+    // The lit control stays and stays FIRST: "does not contain" is satisfied by
+    // a file that was renamed, emptied or moved.
+    const completion = readCode('packages/vscode-extension/src/providers/CompletionProvider.ts');
+    expect(completion, 'lit control — the snippet table is being read at all').toContain(
+      '"className": "$1"'
+    );
+    expect(completion).not.toContain('"body": {');
+    expect(completion).toContain('"children": {');
 
     // ⚠️ And the family question stays OPEN in the instrument rather than being
     // settled by it: an item-carried `body` is filed `unruled` and is never
     // folded into objectui#6771's ruled total. objectui#9871 handed that
     // question back rather than extending a ruled family from a dev seat.
+    //
+    // ⭐ AND THE CLAIM IN THIS TEST'S NAME, restated in the terms BOTH
+    // instruments now agree on — which is the other half of what this merge
+    // found. What still ships the spelling is the `tabs` ITEM, and that is a
+    // DIFFERENT KEY from the one step 4 refuses (measured above the scan call,
+    // both legs). objectui#9871 reaches the same disposition from its own side
+    // and files those sites `unruled:item-carrier` — ⛔ not objectui#6771's ruled
+    // family. ⇒ the consumer-side retirement and the producer-side scan do not
+    // contradict each other on the substance; they disagreed on ONE liveness
+    // assertion, B2's, and that is re-pointed above rather than deleted.
+    // ⇒ step 4 refuses nothing the platform still ships, which is exactly what
+    // step 5's ordering rule asks, and the item-level dialect is objectui#9590's
+    // card, ⛔ neither refused nor migrated here. ⚠️ That card's BODY names only
+    // `list`'s `items[].body`; `tabs` items and the `dashboard` widget key are
+    // recorded on it by comment 5733850974, so this pointer resolves to a record
+    // that actually carries the two shapes named here.
     for (const hit of producers.filter((h: { carrier: string }) => h.carrier === 'item')) {
       expect(hit.disposition).toBe('unruled:item-carrier');
     }

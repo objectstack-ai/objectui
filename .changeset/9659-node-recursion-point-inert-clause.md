@@ -68,7 +68,11 @@ carries an AMENDED note saying the exclusion set that pin reads is now empty.
 `content-channel-family-d-9256.test.ts` the plain `chatbot` row lists `children` only, which
 on the two TWIN faces still means "`body` held out and live" — and objectui#9639 had to
 re-point that table's LIVE CONTROL at a twin precisely because the plain face refuses `body`
-now, for objectui#8572's reason rather than this table's. Measured: `body` ACCEPTED on
-`chatbot-enhanced` and `chatbot-floating`, REFUSED on `chatbot`. The row is annotated as
+now, for objectui#8572's reason rather than this table's. Measured at the time: `body`
+ACCEPTED on `chatbot-enhanced` and `chatbot-floating`, REFUSED on `chatbot`. ⚠️ That
+hold-out has since ended and not by a decision on either card: objectui#6771 retired
+`body` on `BaseSchema` itself, so the twins had no content channel left to inherit and
+each now declares the same NEITHER-channel tombstone its `children` sentence already
+asserted, pointing at `requestBody`. The row is annotated as
 one-sided so the next reader does not take it for a two-sided reading. ⛔ No assertion in that
 table moved.

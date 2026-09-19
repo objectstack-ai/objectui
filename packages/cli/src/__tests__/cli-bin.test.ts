@@ -207,7 +207,7 @@ describe('@object-ui/cli bin', () => {
         JSON.stringify({
           type: 'div',
           className: 'p-4',
-          body: { type: 'text', content: 'ok' },
+          children: { type: 'text', content: 'ok' },
         }),
       );
       writeFileSync(join(work, 'bad.json'), JSON.stringify({ no_type_field: true }));

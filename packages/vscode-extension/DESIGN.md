@@ -70,7 +70,7 @@ The Object UI VSCode extension is a comprehensive development tool designed to e
 
 - **Component Types**: `div`, `card`, `button`, `input`, etc.
 - **Properties**: 根据component type提供相关属性
-- **Common Properties**: `type`, `className`, `body`, etc.
+- **Common Properties**: `type`, `className`, `children`, etc.
 - **Trigger Characters**: `"`, `:`, ` `
 
 **实现特点**:

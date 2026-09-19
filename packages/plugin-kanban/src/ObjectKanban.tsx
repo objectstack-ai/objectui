@@ -664,8 +664,13 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             // reasoning is why objectui#9925's refusal was put INSIDE this
             // named object rather than beside it: the resolver runs once, and
             // the saturation reading keeps reading the number that left.
-            // Keeping it inline here also keeps the spelling objectui#7322
-            // pins off disk (`object-kanban-group-by-limit-7322.test.ts`).
+            // Keeping it inline here also keeps this read where objectui#7322
+            // pins it off disk (`object-kanban-group-by-limit-7322.test.ts`):
+            // that pin reads the `$top` expression out of THIS named object, so
+            // the refusal landing inside it moved the SPELLING and not the
+            // read. objectui#9925 re-pointed the pin's `READ_TEXT` entry to the
+            // expression below; the pinned fact — `schema.limit` lowered into
+            // the query's top-level `$top` — is the same one it always held.
             const query = {
                 $filter: schema.filter,
                 $top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT),

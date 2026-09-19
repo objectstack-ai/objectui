@@ -2093,13 +2093,14 @@ function requireKanbanRecordSource(
 }
 
 // objectui#7322 — `groupBy` and `limit` are the keys `ObjectKanban.tsx` reads
-// (thirteen `schema.groupBy` sites; `$top: schema.limit ?? DEFAULT_KANBAN_LIMIT`
-// at `:264`); until this card neither was declared and both rode `BaseSchema`'s
-// `.passthrough()` unexamined, while the REQUIRED `groupField` had zero read
-// sites. `groupField` is now a `retirementTombstone()` — still a member, so
-// the parity ratchet's key sets stay equal and an authored value is refused
-// BY NAME rather than stripped — and it is node-local: the VIEW-LEVEL alias
-// `KanbanConfig.groupField` above is live and untouched.
+// (thirteen `schema.groupBy` sites; the row cap lowered into the query as
+// `$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`, re-spelled by
+// objectui#9925); until this card neither was declared and both rode
+// `BaseSchema`'s `.passthrough()` unexamined, while the REQUIRED `groupField`
+// had zero read sites. `groupField` is now a `retirementTombstone()` — still
+// a member, so the parity ratchet's key sets stay equal and an authored value
+// is refused BY NAME rather than stripped — and it is node-local: the
+// VIEW-LEVEL alias `KanbanConfig.groupField` above is live and untouched.
 export const ObjectKanbanSchema = BaseSchema.extend({
   type: z.literal('object-kanban'),
   objectName: z.string().optional().describe('ObjectQL object name — the LAST rung of the board ladder, after the pre-fetched data prop, bind and the inline row array on data; one of bind, data, objectName must be present (objectui#7780)'),

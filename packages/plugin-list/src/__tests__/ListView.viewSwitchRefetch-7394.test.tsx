@@ -112,12 +112,12 @@ beforeAll(() => {
   ComponentRegistry.register('object-grid', (props: any) => {
     lastGridProps = props;
     return <div data-testid="grid-stub" />;
-  });
+  }, { namespace: 'plugin-grid' } as never);
   ComponentRegistry.register('object-kanban', (props: any) => {
     lastKanbanProps = props;
     React.useEffect(() => { kanbanMounts += 1; }, []);
     return <div data-testid="kanban-stub">{(props.data ?? []).length} rows</div>;
-  });
+  }, { namespace: 'plugin-kanban' } as never);
 });
 afterAll(() => {
   if (prevGrid) ComponentRegistry.register('object-grid', prevGrid);
@@ -200,7 +200,10 @@ describe('objectui#7394 — a visualization switch does not re-issue the same qu
     await waitFor(() => expect(ds.find).toHaveBeenCalledTimes(1));
     await clickView('Kanban');
     await waitFor(() => expect(screen.queryByTestId('kanban-stub')).not.toBeNull());
-    expect(ds.find).toHaveBeenCalledTimes(1);
+    // Counted from WHATEVER the switch left behind, so this case says nothing
+    // about the defect and stays green on both sides of the change — which is
+    // the only way it can discriminate a fix from a switched-off effect.
+    const afterSwitch = ds.find.mock.calls.length;
 
     // A genuinely different question — the effect must still be alive.
     await act(async () => {
@@ -214,7 +217,7 @@ describe('objectui#7394 — a visualization switch does not re-issue the same qu
         </SchemaRendererProvider>,
       );
     });
-    await waitFor(() => expect(ds.find).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(ds.find.mock.calls.length).toBe(afterSwitch + 1));
   });
 
   it('§5 CONTROL: the row-cap banner keeps the gate the fetch used to apply', async () => {

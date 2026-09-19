@@ -3671,19 +3671,30 @@ interface MirroredUndeclared {
     | "requires";
 
   /**
-   * LOCAL, one key. `operators` is mirrored with a comment on its own line saying it
-   * was missing from an earlier TypeScript scan — so the gap was NOTICED at authoring
-   * time, written down in a comment, and then measured by nothing for as long as the
-   * fourth direction did not exist. That is this card's thesis in one key.
+   * LOCAL, one key — and the row STAYS after its ruling, which is the thing to
+   * read here before assuming it should have gone.
    *
-   * ⚠️ The twin is NOT silent about the neighbouring name: `ObjectGridSchema`
-   * declares `operations` (the CRUD-affordance toggles the block's authoring
-   * vocabulary and `@objectstack/spec`'s `object-grid` surface both spell that
-   * way), and it is `BaseSchema`'s index signature — not a declaration — that
-   * lets an authored `operators` type-check. Per-key consequences, including
-   * which face judges the key and which merely absorbs it, are measured by
-   * `mirror-only-published-keys-9729.test.ts` for objectui#9729's contract
-   * review. ⛔ Neither remedy is taken there and none is implied here.
+   * `operators` was mirrored with a comment on its own line saying it was missing
+   * from an earlier TypeScript scan — so the gap was NOTICED at authoring time,
+   * written down in a comment, and then measured by nothing for as long as the
+   * fourth direction did not exist. That was objectui#9729's thesis in one key.
+   *
+   * ⭐ objectui#9739 (maintainer, 2026-09-18, letter C) ruled it: the mirror no
+   * longer ACCEPTS the key, it REFUSES it by name and prints the spelling
+   * `@objectstack/spec` declares on `object-grid` — `operations`, re-derived
+   * against the installed pin by `object-grid-operators-tombstone-9739.test.ts`,
+   * not copied from prose. The twin is deliberately untouched (declaring the key
+   * was the refused option), so `BaseSchema`'s index signature still absorbs an
+   * authored `operators` as `any`.
+   *
+   * ⚠️ WHY THE ROW DOES NOT LEAVE THIS LEDGER. This direction measures "the zod
+   * mirror STATES a key the TypeScript twin does not", and a retirement tombstone
+   * is still a stated member — that is precisely what lets it refuse rather than
+   * be passed through unexamined. The same is true of the `aria` entry above,
+   * which has been a tombstone all along. ⇒ ⛔ Do not read a row here as an
+   * unrepaired defect; the ledger reports SHAPE, and the per-key consequence —
+   * silently absorbed, or loudly refused — is measured elsewhere and differs
+   * between rows that look identical from here.
    */
   "objectql.zod.ts#ObjectGridSchema":
     | "operators";

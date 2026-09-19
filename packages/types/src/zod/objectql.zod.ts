@@ -280,7 +280,41 @@ export const ObjectGridSchema = BaseSchema.extend({
   // metadata, the #6424 family form: the gain is the typed refusal, since the
   // `.passthrough()` base was already admitting ANY `title` unexamined.
   title: z.string().optional().describe('DEPRECATED, write label instead: legacy caption/export-file-title fallback, read only when label is absent'),
-  operators: z.record(z.string(), z.any()).optional(), // Missing in previous TS scan but common
+  // ⭐ objectui#9739 (maintainer ruling 2026-09-18, letter C) — the mirror stops
+  // accepting a key the upstream protocol refuses BY NAME, and says so.
+  //
+  // What this key was: a scan artefact. The line it replaces carried its own
+  // provenance in a trailing comment — "Missing in previous TS scan but common"
+  // — so the gap was noticed at authoring time, written down, and then measured
+  // by nothing. objectui#9729 measured it four ways and every one read zero: no
+  // render path consumes it (a byte ruler drew the same `object-grid` document
+  // twice, with the filter surface off AND on, and the bytes were identical —
+  // `ObjectGrid.operatorsInert-9729.test.tsx`, lit control included), no doc or
+  // example in this repo writes it, the block's author vocabulary never listed
+  // it, and `@objectstack/spec` refuses it.
+  //
+  // Why `operations` is the remedy named here, and not a guess: the pinned
+  // upstream (`@objectstack/spec` 17.4.0, `ObjectGridPropsSchema`) is a
+  // `strictObject`, and parsing `{ objectName, operators }` through it returns
+  // `unrecognized_keys` whose message prescribes the rename in the protocol's
+  // own words — "Did you mean `operators` → `operations`?" — while the same
+  // document spelled `operations` parses green. The twin `ObjectGridSchema`
+  // interface declares `operations` too (the `{ create, read, update, delete }`
+  // affordance toggles). ⇒ the correct spelling is MEASURED upstream, not
+  // inherited from this comment; `object-grid-operators-tombstone-9739.test.ts`
+  // re-derives both halves against the installed package.
+  //
+  // ⛔ NOT declared on the TypeScript twin — the ruling says so in as many
+  // words. `ObjectGridSchema` extends `BaseSchema`, whose index signature
+  // absorbs an authored `operators` as `any`; adding a `?: never` half would
+  // write the misspelling INTO the published interface, which is the ruling's
+  // letter A and was refused.
+  operators: retirementTombstone(
+    'RETIRED (objectui#9739, ADR-0049) — `operators` is not a key of this component; you meant `operations`. '
+    + 'The upstream protocol refuses `operators` by name on `object-grid` and prescribes that rename itself; '
+    + 'nothing in this renderer ever read the key, so an authored value parsed green and drew nothing. '
+    + '`operations` is the CRUD-affordance toggle object ({ create, read, update, delete }).',
+  ),
   rowActions: z.array(z.string()).optional(),
   batchActions: z.array(z.string()).optional(),
   editable: z.boolean().optional(),

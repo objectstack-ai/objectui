@@ -97,7 +97,23 @@ describe('objectui#9928 — savedViewLimit drops a cap the contract refuses', ()
       expect(composed.limit).toBe(20);
     });
 
-    it('CONTROL — the other composed keys are untouched when a cap is dropped', () => {
+    it('CONTROL — the other composed keys compose as before when the cap is usable', () => {
+      const composed = composeElementDataSource(bind, {
+        pagination: { pageSize: 7 },
+        columns: ['name'],
+        type: 'kanban',
+      });
+      expect(composed.columns).toEqual(['name']);
+      expect(composed.viewType).toBe('kanban');
+      expect(composed.limit).toBe(7);
+    });
+
+    // ⚠️ Deliberately NOT labelled a control: it asserts the drop, so it is one
+    // of the tests that must go red when the guard is ablated. The reverse
+    // verification caught an earlier version of this file calling it a control
+    // — every name carrying CONTROL or SILENCE below passes on both sides of
+    // the guard, and this one does not.
+    it('leaves the other composed keys alone while dropping the cap', () => {
       const composed = composeElementDataSource(bind, {
         pagination: { pageSize: 0 },
         columns: ['name'],

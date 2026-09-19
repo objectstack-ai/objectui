@@ -42,16 +42,28 @@
  * one applies `user_id`, `channel` and `$in` and then `$top`, so the number of
  * rows a tick delivers is a reading of the query the feed actually wrote.
  *
- * ## Reverse verification (direction predicted BEFORE running, measured in the PR)
+ * ## Reverse verification — direction predicted first, then MEASURED
  *
- *   - restore the old read (`{ user_id, channel }`, `$top: 200`, unconditional)
- *     and the three payload cases go RED — the delivered row count returns to
- *     the whole history and the `$in` comparand is gone — while the `badge` and
- *     `read-state` cases stay GREEN. That asymmetry is the whole finding: the
- *     old read was wider, not more correct.
- *   - drop the `notification_id` clause but keep `$top: ids.length` and the
- *     payload count case still goes RED with a different number, so the case is
- *     reading the FILTER and not just the ceiling.
+ * Predicted: restoring the old read (`{ user_id, channel }`, `$top: 200`,
+ * unconditional) turns the payload cases RED and leaves `badge` and
+ * `read-state` GREEN. Measured, with that read put back on the committed fix
+ * and the tree restored afterwards by blob hash: **6 failed, 5 passed** across
+ * this file and the #7249 cadence pin. The prediction was right about the
+ * direction and wrong about the count, and the gap is the interesting part:
+ *
+ *   - `read-state` stayed GREEN — the only case in this file that did. The old
+ *     read carried the same answer; it carried more rows to get there. That is
+ *     the behaviour-preservation half, and it holds under BOTH reads.
+ *   - `badge` went red, but NOT on the badge. Its `unreadTopics` equality — the
+ *     assertion that would catch an unread total quietly becoming a window — is
+ *     evaluated first and passed under the old read too. What failed after it
+ *     is the row arithmetic beside it (`expected +0 to be 180`: nothing was
+ *     dropped, because nothing was narrowed). ⇒ the number is invariant and the
+ *     payload is not, asserted in one case, which is why the two live together.
+ *   - the three payload cases and the new empty-window case in
+ *     `sharedInboxFeed.cadence-7249` went red as predicted, the last of them
+ *     with `expected 7 to be +0` — one receipt read per tick for a window with
+ *     nothing to join.
  */
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

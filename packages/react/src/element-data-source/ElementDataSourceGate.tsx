@@ -50,6 +50,16 @@
  * designer emits for an unconfigured column list, and supplying the columns is
  * exactly why a view was named.
  *
+ * The row cap answers "did the component author one?" the same way, and for the
+ * same reason (objectui#9899). A cap the contract REFUSES — `pageSize: 0`,
+ * a negative, a fraction — is not a cap this relay may treat as the author's
+ * intent, so it does not suppress the one the bound view supplies. Deciding
+ * that question by PRESENCE is how a view's legitimate cap was dropped in
+ * favour of the consuming renderer's own default: measured end to end on
+ * `list-view` before the repair, a component carrying `pagination.pageSize: 0`
+ * under a view supplying `7` put `$top: 100` on the wire — the view's cap never
+ * reached it, so the read was WIDER than the view asked for.
+ *
  * ## What a mapping may NOT do
  *
  * {@link ElementDataSourceMapping} names only keys the target block genuinely
@@ -153,6 +163,72 @@ export interface UseElementDataSourceSchemaResult<S> {
   error?: string;
 }
 
+/**
+ * What the contract admits as a row cap (objectui#9899).
+ *
+ * `@objectstack/spec` has already answered what `0` means for the keys this
+ * branch writes. Its view pagination config declares `pageSize` a positive
+ * integer with a default; every component row cap its component props map
+ * declares is `z.number().int().positive()`; and that flat `limit` is the key a
+ * view's `pagination.pageSize` is LOWERED INTO for the blocks that read it. So
+ * `0`, a negative and a fraction are not spellings this relay may assign a
+ * meaning to — they are values the contract refuses.
+ *
+ * ⚠️ Said precisely, because it is easy to overstate: the `object-grid` props
+ * face declares its OWN `pagination` key `z.unknown()`, so a save gate does not
+ * refuse a component-level `pagination.pageSize: 0` on that face, and the flat
+ * `pageSize` shorthand beside it is a bare `z.number()`. The refusal rests on
+ * the pagination CONFIG contract and on the `limit` the value is lowered into —
+ * the same ground objectui#9853, objectui#9897 and objectui#9925 already stood
+ * on at the renderer sites.
+ *
+ * ⛔ Deliberately a LOCAL restatement of the predicate objectui#9925 landed at
+ * the renderer sites, not an import and not a shared helper: hoisting it would
+ * be a cross-package extraction this card may not make. The cost is stated
+ * rather than hidden — one rule now has a spelling at every site that enforces
+ * it, and `git grep 'isUsableRowLimit\|isUsablePageSize'` is what enumerates
+ * them; the day one is meant to change, all of them are.
+ */
+function isUsableRowLimit(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The loud half, and the reason a RELAY owes one at all.
+ *
+ * A relay that merely declines to treat a value as authored could reasonably
+ * say nothing — the renderer it forwards to has its own refusal and its own
+ * message. Measured rather than assumed: BEFORE this repair, a `list-view`
+ * carrying `pagination.pageSize: 0` under a bound view was told about it, once,
+ * by `ListView`'s own diagnostic. AFTER it, the gate writes the view's usable
+ * cap, that renderer sees a value it accepts, and its message correctly goes
+ * silent — so the repair REMOVES the only place the author was being told.
+ * This restores that one message at the layer that now makes the decision.
+ *
+ * ⛔ NOT a second guard: the predicate lives once, in {@link isUsableRowLimit},
+ * and this reads it. `null` means "nothing to say" — an absent cap is not a
+ * mistake and a usable one is not either, which is what keeps this from
+ * becoming an always-on marker that states nothing.
+ */
+const describeDisplacedRowLimit = (
+  authored: unknown,
+  key: ElementDataSourceLimitKey,
+  used: number,
+  componentType: unknown,
+  objectName: unknown,
+): string | null => {
+  if (authored === undefined || authored === null) return null;
+  if (isUsableRowLimit(authored)) return null;
+  const type = typeof componentType === 'string' && componentType ? componentType : 'component';
+  const where = typeof objectName === 'string' && objectName ? `${type} on ${objectName}` : type;
+  return (
+    `[ObjectUI] ElementDataSourceGate row cap: ${where} declared ${key}: ${String(authored)}, `
+    + 'which is not a positive integer. A row cap must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and the cap '
+    + `from this component's bound data source (${used}) was used instead.`
+  );
+};
+
 const readLimit = (base: Record<string, any>, key: ElementDataSourceLimitKey): unknown => {
   if (key === 'pagination.pageSize') return base.pagination?.pageSize;
   return base[key];
@@ -201,12 +277,16 @@ export function useElementDataSourceSchema<S>(
   const binding = useElementDataSource(schema, adapter);
   const { object: objectKey = 'objectName', columns, filter, sort, limit, viewType } = mapping;
 
-  const mapped = React.useMemo(() => {
+  const mapped = React.useMemo((): { schema: S; capMessage: string | null } => {
     const composed = binding.composed;
-    if (!composed) return schema;
+    // BY REFERENCE when there is nothing to apply — a fresh object every render
+    // would remount the block and refetch. The wrapper is memoised alongside it,
+    // so the identity this carries is the one the caller sees.
+    if (!composed) return { schema, capMessage: null };
 
     const base = (schema ?? {}) as Record<string, any>;
     const next: Record<string, any> = { ...base };
+    let capMessage: string | null = null;
 
     if (objectKey !== false) next[objectKey] = composed.object;
 
@@ -235,8 +315,18 @@ export function useElementDataSourceSchema<S>(
 
     if (limit && composed.limit !== undefined) {
       const fromView = binding.config?.limit === undefined;
-      if (!fromView || readLimit(base, limit) === undefined) {
+      // PRESENCE is not authorship (objectui#9899) — the same question the
+      // `columns` branch above answers by CONTENT, answered the same way here.
+      const authored = readLimit(base, limit);
+      if (!fromView || !isUsableRowLimit(authored)) {
         writeLimit(next, base, limit, composed.limit);
+        capMessage = describeDisplacedRowLimit(
+          authored,
+          limit,
+          composed.limit,
+          base.type,
+          composed.object,
+        );
       }
     }
 
@@ -244,17 +334,25 @@ export function useElementDataSourceSchema<S>(
       next.viewType = composed.viewType;
     }
 
-    return next as S;
+    return { schema: next as S, capMessage };
   }, [schema, binding.composed, binding.config, objectKey, columns, filter, sort, limit, viewType]);
+
+  // Keyed on the MESSAGE, so it is one warning per declaration rather than one
+  // per render — and it fires from an effect, never from render, which is the
+  // same shape the renderer sites use for "you declared it, we dropped it".
+  const { schema: boundSchema, capMessage } = mapped;
+  React.useEffect(() => {
+    if (capMessage) console.warn(capMessage);
+  }, [capMessage]);
 
   return React.useMemo(
     () => ({
       status: binding.status,
-      schema: mapped,
+      schema: boundSchema,
       config: binding.config,
       error: binding.error,
     }),
-    [binding.status, binding.config, binding.error, mapped],
+    [binding.status, binding.config, binding.error, boundSchema],
   );
 }
 

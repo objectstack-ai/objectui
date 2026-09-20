@@ -2035,14 +2035,32 @@ objectstack repository root. A packed codeload tarball was measured against it a
 tarball endpoint has no server-side path filter, so it ships the whole repository however little
 of it the job needs.
 
-**The compile is `TURBO_FORCE=true pnpm type-check`, and the bypass is load-bearing.** That task
-dependsOn `^build`, so the job builds every workspace package against the injected spec and
-then type-checks against those declarations — both halves of the consumer compile. turbo's
-hash covers this repository's sources, its lockfile and a declared env list — not the
-*content* of `node_modules`, which is the only thing this job changes. Cached, it would replay
-a verdict taken against a different spec, including the published one.
-`scripts/__tests__/spec-main-shape-gate.test.ts` pins the bypass, the unfiltered trigger, the
-queue subscription and the two attribution directions.
+**The compile is `TURBO_FORCE=true pnpm type-check --continue`, and every word of it is
+load-bearing.** That task dependsOn `^build`, so the job builds every workspace package against
+the injected spec and then type-checks against those declarations — both halves of the consumer
+compile. turbo's hash covers this repository's sources, its lockfile and a declared env list —
+not the *content* of `node_modules`, which is the only thing this job changes. Cached, it would
+replay a verdict taken against a different spec, including the published one.
+
+`--continue` is what makes the diagnostic list a *set* rather than a lower bound. turbo stops
+scheduling at the first failing task unless told otherwise, so without it the parsed log carries
+the first broken package's diagnostics and says nothing at all about the packages turbo never
+asked — while reporting that silence as the reading. The harm is not hypothetical: while one
+long-lived break sits in the graph, every run stops at it and no other package's drift against
+the spec is ever measured. The flag does not soften the verdict — turbo still exits non-zero
+when a task failed — it only completes it. The ablation behind that claim, two packages broken
+on purpose with the same command otherwise, is in this gate's own pull request rather than
+copied here.
+
+**The attribution reads the log order turbo actually emits.** `tsc` prints paths relative to the
+package directory, so `src/foo.ts(3,9)` names no file until something says which package. turbo
+carries that in one of two carriers depending on where it runs: a `<package>:<task>:` prefix on
+every line locally, and on a GitHub Actions runner a `##[group]<package>:<task>` header with the
+output emitted bare beneath it — with the *failing* task announced by a bare colourised header
+and no group at all. Only the second ever reaches this job, and a prefix-only reading has nothing
+to match in it. `scripts/__tests__/spec-main-shape-gate.test.ts` pins the bypass, the completeness
+flag, the unfiltered trigger, the queue subscription and both attribution carriers, each with the
+firing control that proves the assertion is not satisfied by something else.
 
 **Why it is not a required check yet.** Requiredness is a GitHub ruleset — repository settings —
 which `scripts/check-required-check-set.mjs` can read and nothing in this tree can write. The

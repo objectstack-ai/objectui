@@ -95,7 +95,21 @@ describe('the two ways this gate could report a verdict it never took', () => {
   it('captures the compiler exit code with no pipe in between', () => {
     // `pnpm type-check | tail` reports the PIPE's status, and `tail` essentially
     // never fails, so red and green would read identically.
-    expect(body()).toMatch(/pnpm type-check > "\$RUNNER_TEMP\/typecheck\.log" 2>&1\n\s*code=\$\?/);
+    expect(body()).toMatch(
+      /pnpm type-check --continue > "\$RUNNER_TEMP\/typecheck\.log" 2>&1\n\s*code=\$\?/,
+    );
+  });
+
+  it('compiles EVERY package, so the diagnostic set is a set and not a lower bound', () => {
+    // turbo stops scheduling at the first failing task unless told otherwise, so
+    // without this flag the log holds the first broken package's diagnostics and
+    // silence about every package turbo never asked — reported as though it were
+    // the whole reading. While one long-lived break sits in the graph, every run
+    // stops there and nothing else is ever measured.
+    expect(
+      body(),
+      'without --continue this gate reports the FIRST broken package and calls it the set',
+    ).toMatch(/pnpm type-check --continue/);
   });
 
   it('never moves the pin: no install flag or manifest edit that could', () => {
@@ -124,6 +138,37 @@ describe('the acceptance criterion: a red names the objectui FILE and the object
     expect(rows[0].file).toBe('packages/core/src/utils/normalize-list-view.ts');
     expect(rows[0].line).toBe(205);
     expect(rows[0].code).toBe('TS2353');
+  });
+
+  it('attributes the GROUPED log a GitHub Actions runner actually produces', () => {
+    // ⚠️ The fixture above is turbo's STREAM order, which is what a local run
+    // emits. On an Actions runner turbo switches to GROUPED order: a
+    // `##[group]<package>:<task>` header, output emitted BARE beneath it, and
+    // the failing task announced by a colourised header with no group at all.
+    // That is the ONLY order this gate ever reads, and a prefix-only parser has
+    // nothing to match in it — measured on this gate's own runs, which reported
+    // `src/hooks/…` for a file that lives under `packages/react/`.
+    const ESC = String.fromCharCode(27);
+    const groupedLog = [
+      '##[group]@object-ui/sdui-parser:type-check',
+      '> tsc --noEmit && tsc -p tsconfig.test.json',
+      '##[endgroup]',
+      `${ESC}[;31m@object-ui/react:type-check${ESC}[;0m`,
+      "src/hooks/__tests__/useNavigationOverlay.modeDefault.test.tsx(76,3): error TS2322: Type 'string' is not assignable to type 'undefined'.",
+    ].join('\n');
+    const { rows } = parseDiagnostics(groupedLog);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].file).toBe(
+      'packages/react/src/hooks/__tests__/useNavigationOverlay.modeDefault.test.tsx',
+    );
+
+    // The firing control: the same diagnostic with its header removed must NOT
+    // resolve, or the assertion above is being satisfied by something other than
+    // the header it claims to read.
+    const headerless = parseDiagnostics(groupedLog.split('\n').slice(-1).join('\n'));
+    expect(headerless.rows[0].file).toBe(
+      'src/hooks/__tests__/useNavigationOverlay.modeDefault.test.tsx',
+    );
   });
 
   it('puts the file and the commit in the same report', () => {

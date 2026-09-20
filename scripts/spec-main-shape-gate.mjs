@@ -311,8 +311,37 @@ export function inject({ tarball, sha, repoRoot = repoRootDefault, log = () => {
  * `src/foo.ts(3,9)` is ambiguous across forty packages until the prefix says
  * which one. The prefix is the only thing that makes the acceptance criterion
  * -- name the objectui FILE -- answerable at all.
+ *
+ * ⚠️ BUT THE PREFIX IS NOT THERE IN THE ONLY LOG THIS GATE EVER READS. turbo picks
+ * its log order from the environment: STREAM locally, where every line carries
+ * the prefix above, and GROUPED on a GitHub Actions runner, where each task gets
+ * a `##[group]<package>:<task>` header and its output is emitted BARE. The
+ * failing task is not even grouped -- it is announced by a colourised header
+ * line and then streams unprefixed. Measured on this gate's own runs: both
+ * reported `src/hooks/__tests__/...` for a file that lives under
+ * `packages/react/`, because the prefix-only reading had nothing to match, and
+ * `unmappedPackages` stayed EMPTY so the summary did not even warn. A path no
+ * reader can open, handed over as the answer to "which objectui file".
+ *
+ * So the workspace is tracked from BOTH carriers: the prefix when it is there,
+ * and otherwise the header of the task whose output is currently streaming.
  */
 const TURBO_PREFIX = /^(?:\x1b\[[0-9;]*m)*([^\s:]+):([^\s:]+(?::[^\s:]+)*):\s?/;
+
+/**
+ * A turbo task header standing alone on its line -- `<package>:<task>`, with or
+ * without the `##[group]` that GitHub Actions wraps a collapsible section in.
+ *
+ * Deliberately anchored at BOTH ends: a header is the whole line. Anything with
+ * a space in it -- ` Tasks:    27 successful`, `> tsc --noEmit`, a diagnostic --
+ * is not one, and the caller additionally refuses any name that is not a real
+ * workspace, so a stray `foo:bar` in somebody's output cannot silently become
+ * the package a later diagnostic is charged to.
+ */
+const TURBO_GROUP_HEADER = /^(?:##\[group\])?([^\s:]+):([^\s:]+(?::[^\s:]+)*)$/;
+
+/** GitHub Actions' end-of-section marker: whatever was streaming has stopped. */
+const GROUP_END = /^##\[endgroup\]\s*$/;
 
 /** A `tsc` diagnostic line, in the form every package here emits it. */
 const DIAGNOSTIC = /^(.+?)\((\d+),(\d+)\):\s+(error|warning)\s+(TS\d+):\s+(.*)$/;
@@ -359,10 +388,31 @@ export function parseDiagnostics(logText, repoRoot = repoRootDefault) {
   const rows = [];
   const unmappedPackages = new Set();
 
+  // The task whose output is streaming right now, in turbo's GROUPED log order.
+  // Null means "nothing is known to be streaming", which is the honest state
+  // outside a task's own section -- and an unattributed diagnostic is reported
+  // as unattributed rather than charged to whoever ran last.
+  let streaming = null;
+
   for (const rawLine of logText.split('\n')) {
     const line = rawLine.replace(ANSI, '');
+
+    if (GROUP_END.test(line)) {
+      streaming = null;
+      continue;
+    }
+    const header = line.match(TURBO_GROUP_HEADER);
+    if (header) {
+      // Only a name this workspace actually has may become the attribution
+      // target; anything else clears it. The alternative -- trusting the shape
+      // -- attributes a file to a package that does not exist, which is worse
+      // than not attributing it.
+      streaming = dirs.has(header[1]) ? header[1] : null;
+      continue;
+    }
+
     const prefixed = line.match(TURBO_PREFIX);
-    const workspaceName = prefixed ? prefixed[1] : null;
+    const workspaceName = prefixed ? prefixed[1] : streaming;
     const body = prefixed ? line.slice(prefixed[0].length) : line;
 
     const diagnostic = body.match(DIAGNOSTIC);
@@ -531,6 +581,52 @@ function selfTest() {
     ' Tasks:    81 successful, 81 total',
   ].join('\n');
   check('a green log yields zero rows', parseDiagnostics(green).rows.length, 0);
+
+  // The log order turbo ACTUALLY selects on a GitHub Actions runner: a
+  // `##[group]` header per task, output emitted BARE under it, and the failing
+  // task announced by a colourised header with no group at all. The fixture is
+  // the shape this gate's own runs produced.
+  const grouped = [
+    '##[group]@object-ui/sdui-parser:type-check',
+    '> tsc --noEmit && tsc -p tsconfig.test.json',
+    '##[endgroup]',
+    `${ESC}[;31m@object-ui/react:type-check${ESC}[;0m`,
+    '> tsc --noEmit && tsc -p tsconfig.test.json',
+    "src/hooks/useNavigationOverlay.ts(76,3): error TS2322: Type 'string' is not assignable.",
+  ].join('\n');
+  check(
+    'attributes a BARE diagnostic to the task whose section it is streaming in',
+    parseDiagnostics(grouped).rows[0]?.file,
+    'packages/react/src/hooks/useNavigationOverlay.ts',
+  );
+
+  // The firing control for the line above. Same diagnostic, same parser, with
+  // the header removed: the attribution must fall away, or the assertion above
+  // is satisfied by something other than the header it claims to read.
+  const headerless = [
+    '##[endgroup]',
+    "src/hooks/useNavigationOverlay.ts(76,3): error TS2322: Type 'string' is not assignable.",
+  ].join('\n');
+  check(
+    'a diagnostic in no task section is NOT charged to a package',
+    parseDiagnostics(headerless).rows[0]?.file,
+    'src/hooks/useNavigationOverlay.ts',
+  );
+
+  // A name that is not a workspace may not become an attribution target: a
+  // `foo:bar` line in somebody's output would otherwise redirect every later
+  // diagnostic into a directory that does not exist.
+  check(
+    'a header-shaped line naming no workspace clears the attribution',
+    parseDiagnostics(
+      [
+        '##[group]@object-ui/react:type-check',
+        'totally:unrelated',
+        "src/hooks/useNavigationOverlay.ts(76,3): error TS2322: Type 'string' is not assignable.",
+      ].join('\n'),
+    ).rows[0]?.file,
+    'src/hooks/useNavigationOverlay.ts',
+  );
 
   // `renderSummary`, both directions.
   check(

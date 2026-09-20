@@ -215,11 +215,23 @@ jobs:
       # the PIPE's status and `tail` essentially never fails, so a red and a green
       # would read identically — the exact class of silent pass this repository
       # has been bitten by before.
+      #
+      # ⛔ `--continue` IS THE READING, not a convenience. Without it turbo stops
+      # scheduling the moment one task fails, so the log this gate parses holds
+      # the diagnostics of the FIRST package that broke and nothing about the
+      # packages it never asked. That is a lower bound reported as a set — and
+      # the harm is not hypothetical while any single long-lived break exists in
+      # the graph: every run stops there, and every other package's drift against
+      # the spec stays invisible for as long as that one break is open. Measured
+      # on this repository, two packages broken on purpose, same command
+      # otherwise: without the flag turbo reported one of them and counted six
+      # tasks, with it both and eight. `--continue` still exits non-zero when a
+      # task failed, so the verdict above is unchanged — only its completeness is.
       - name: Type-check objectui against it
         id: compile
         run: |
           set +e
-          TURBO_FORCE=true pnpm type-check > "$RUNNER_TEMP/typecheck.log" 2>&1
+          TURBO_FORCE=true pnpm type-check --continue > "$RUNNER_TEMP/typecheck.log" 2>&1
           code=$?
           set -e
           echo "status=$code" >> "$GITHUB_OUTPUT"

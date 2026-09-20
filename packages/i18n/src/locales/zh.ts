@@ -267,6 +267,9 @@ const zh = {
       selectBusinessUnit: '请选择业务单元',
       selectPosition: '请选择岗位',
       selectUnitAndSubordinates: '请选择业务单元',
+      selectField: '请选择用户字段',
+      noUserFields: '此对象没有用户字段',
+      fieldNotUserTyped: '{{name}} — 不是用户字段',
     },
     filterCondition: {
       selectObjectFirst: '请先选择对象。',

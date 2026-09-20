@@ -260,6 +260,9 @@ const fr = {
       selectBusinessUnit: "Sélectionner une unité opérationnelle",
       selectPosition: "Sélectionner un poste",
       selectUnitAndSubordinates: "Sélectionner une unité opérationnelle",
+      selectField: "Sélectionner un champ utilisateur",
+      noUserFields: "Cet objet n'a aucun champ utilisateur",
+      fieldNotUserTyped: "{{name}} — pas un champ utilisateur",
     },
     filterCondition: {
       selectObjectFirst: "Sélectionnez d'abord un objet.",

@@ -264,6 +264,9 @@ const ar = {
       selectBusinessUnit: "اختر وحدة عمل",
       selectPosition: "اختر منصباً",
       selectUnitAndSubordinates: "اختر وحدة عمل",
+      selectField: "اختر حقل مستخدم",
+      noUserFields: "لا توجد حقول مستخدم في هذا الكائن",
+      fieldNotUserTyped: "{{name}} — ليس حقل مستخدم",
     },
     filterCondition: {
       selectObjectFirst: "اختر كائناً أولاً.",

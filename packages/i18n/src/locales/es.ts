@@ -264,6 +264,9 @@ const es = {
       selectBusinessUnit: "Seleccionar una unidad de negocio",
       selectPosition: "Seleccionar un puesto",
       selectUnitAndSubordinates: "Seleccionar una unidad de negocio",
+      selectField: "Seleccionar un campo de usuario",
+      noUserFields: "Este objeto no tiene campos de usuario",
+      fieldNotUserTyped: "{{name}} — no es un campo de usuario",
     },
     filterCondition: {
       selectObjectFirst: "Selecciona primero un objeto.",

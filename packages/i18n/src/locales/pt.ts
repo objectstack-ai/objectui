@@ -259,6 +259,9 @@ const pt = {
       selectBusinessUnit: "Selecionar uma unidade de negócio",
       selectPosition: "Selecionar um cargo",
       selectUnitAndSubordinates: "Selecionar uma unidade de negócio",
+      selectField: "Selecionar um campo de usuário",
+      noUserFields: "Este objeto não tem campos de usuário",
+      fieldNotUserTyped: "{{name}} — não é um campo de usuário",
     },
     filterCondition: {
       selectObjectFirst: "Selecione primeiro um objeto.",

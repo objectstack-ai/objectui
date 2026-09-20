@@ -266,6 +266,9 @@ const ru = {
       selectBusinessUnit: "Выберите бизнес-подразделение",
       selectPosition: "Выберите должность",
       selectUnitAndSubordinates: "Выберите бизнес-подразделение",
+      selectField: "Выберите поле пользователя",
+      noUserFields: "В этом объекте нет полей пользователя",
+      fieldNotUserTyped: "{{name}} — не поле пользователя",
     },
     filterCondition: {
       selectObjectFirst: "Сначала выберите объект.",

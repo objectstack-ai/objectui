@@ -7,30 +7,34 @@
  */
 
 /**
- * `record:quick_actions.requiredPermissions` — the BLOCK-LEVEL permission
- * gate the registration describes as "Hide the whole bar unless the user
- * holds these permissions" (objectui#8071 slice 4).
+ * `record:quick_actions.requiredPermissions` — the BLOCK-LEVEL gate the
+ * published contract describes as "Hide the whole bar unless the current user
+ * holds every named permission on this object" (objectui#8071 slice 4).
+ *
+ * ## What this file pins, and why it was rewritten (objectui#10058)
+ *
+ * The key is an **ADR-0066 system capability set** — the one meaning the word
+ * carries on `action`, `app`, `field` and `bulkAction` (ruling batch #192 item
+ * 5 letter B). The renderer reads it through the permission context's
+ * capability path and gates fail-closed: an unheld or unrecognised capability
+ * hides the whole bar.
+ *
+ * It used to read `perms.can(objectName, name)`, whose second argument is the
+ * closed object-action enum. Under the stock `/me/permissions` provider a name
+ * outside the eight mapped verbs falls through that provider's `?? 'allowRead'`
+ * tail to the object's read bit — so a capability nobody holds passed for every
+ * reader of the object, silently. These pins were rewritten with it, because
+ * the previous ones mocked `usePermissions` down to a `can` stub and therefore
+ * pinned the defect: they passed on a gate that does not gate.
+ *
+ * ⭐ Every pin below mounts a REAL stock provider and reads its real verdicts.
+ * A mocked `usePermissions` cannot discriminate the two reading paths — it IS
+ * whichever path the mock chooses to implement.
  *
  * Not to be confused with an `ActionDef`'s OWN `requiredPermissions` — a
  * per-action field the `gated` fixture in
- * `record-quick-actions.declared-action-ids-7182.test.tsx` already exercises
- * through `ActionEngine.getActionsForLocation`'s per-action filter. This file
- * pins the renderer's OWN read of `schema.requiredPermissions`, at
- * `record-quick-actions.tsx`:
- *
- *   const required: string[] = Array.isArray(schema.requiredPermissions)
- *     ? schema.requiredPermissions
- *     : [];
- *   if (required.length > 0 && objectName) {
- *     const ok = required.every((p) => perms.can(objectName, p as any));
- *     if (!ok) return <…Insufficient permissions…/>;
- *   }
- *
- * — a gate that runs BEFORE any action is drawn, over the WHOLE array via
- * `.every`, against the record's own `objectName`. A declaration reading only
- * "array of string" cannot tell this from a single scalar flag; the member
- * shape only shows up once every element is actually checked (`.every`, not
- * `[0]`), which is what the "partial grant" case below is for.
+ * `record-quick-actions.declared-action-ids-7182.test.tsx` exercises through
+ * `ActionEngine.getActionsForLocation`'s per-action filter.
  */
 
 import * as React from 'react';
@@ -39,21 +43,31 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MetadataCtx, RecordContextProvider } from '@object-ui/react';
 import type { MetadataContextValue } from '@object-ui/react';
+import { MePermissionsProvider, PermissionProvider, usePermissions, type MePermissionsResponse } from '@object-ui/permissions';
 import { RecordQuickActionsRenderer } from '../record-quick-actions';
 
-/** Permissions the mocked `perms.can` currently grants — reassigned per test. */
-const stub = { granted: new Set<string>() };
-
-const canSpy = vi.fn((_object: string, action: string) => stub.granted.has(action));
-
+/**
+ * Records what the OBJECT-PERMISSION path was asked, without replacing it.
+ *
+ * ⭐ This is a wrapper, not a stub: `usePermissions` still returns the real
+ * stock provider's verdicts and every call is delegated. A mock that ANSWERS
+ * cannot discriminate the two reading paths — it IS whichever path the mock
+ * chose to implement, which is exactly how the previous version of this file
+ * came to pin the defect as correct behaviour.
+ */
+const canSpy = vi.fn();
 vi.mock('@object-ui/permissions', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@object-ui/permissions')>();
   return {
     ...actual,
-    usePermissions: () => ({
-      can: canSpy,
-      cannot: (object: string, action: string) => !canSpy(object, action),
-    }),
+    usePermissions: () => {
+      const real = actual.usePermissions();
+      return {
+        ...real,
+        can: (object: string, action: any) => { canSpy(object, action); return real.can(object, action); },
+        cannot: (object: string, action: any) => { canSpy(object, action); return real.cannot(object, action); },
+      };
+    },
   };
 });
 
@@ -93,69 +107,215 @@ const METADATA: MetadataContextValue = {
   getTypeStatus: () => 'ready' as const,
 };
 
-function mount(schema: Record<string, unknown>) {
-  return render(
+/**
+ * A `/me/permissions` payload.
+ *
+ * ⭐ The object bits are the LIT CONTROL that runs through this whole file:
+ * `allowRead` is TRUE while the other three are explicitly FALSE. That is what
+ * makes the discriminators below able to fail — a provider that answered every
+ * name off one bit, or a gate still reading the object action path, lands on a
+ * different verdict for at least one of them.
+ */
+function me(systemPermissions: string[] | undefined, objectBits?: Record<string, unknown>): MePermissionsResponse {
+  return {
+    authenticated: true,
+    userId: 'u1',
+    tenantId: 't1',
+    roles: [],
+    permissionSets: [],
+    ...(systemPermissions === undefined ? {} : { systemPermissions }),
+    objects: {
+      crm_account: { allowRead: true, allowCreate: false, allowEdit: false, allowDelete: false, ...objectBits },
+    },
+    fields: {},
+  } as MePermissionsResponse;
+}
+
+function bar(schema: Record<string, unknown>, objectName = 'crm_account') {
+  return (
     <MetadataCtx.Provider value={METADATA}>
-      <RecordContextProvider objectName="crm_account" recordId="rec-1" data={{ id: 'rec-1' }}>
-        <RecordQuickActionsRenderer schema={{ actionNames: ['approve'], ...schema } as any} />
+      <RecordContextProvider objectName={objectName} recordId="rec-1" data={{ id: 'rec-1' }}>
+        <RecordQuickActionsRenderer schema={schema as any} />
       </RecordContextProvider>
-    </MetadataCtx.Provider>,
+    </MetadataCtx.Provider>
   );
 }
 
+/** `actionNames` resolves through the object's metadata, so it needs an objectName. */
+const BY_NAME = { actionNames: ['approve'] };
+/** Inline defs, so the bar can be mounted with NO objectName at all. */
+const INLINE = { actions: [APPROVE] };
+
+const shown = () => screen.findByRole('button', { name: 'Approve' });
+const refused = () => screen.findByText(/insufficient permissions to view quick actions/i);
+const noButton = () => expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+const noRefusal = () => expect(screen.queryByText(/insufficient permissions/i)).not.toBeInTheDocument();
+
 beforeEach(() => {
-  stub.granted = new Set();
-  canSpy.mockClear();
   getItem.mockClear();
+  canSpy.mockClear();
 });
 
-describe('record:quick_actions.requiredPermissions — block-level gate (objectui#8071 slice 4)', () => {
-  it('CONTROL: with no `requiredPermissions` declared, the bar renders regardless of the (empty) grant set', async () => {
-    mount({});
-    expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument();
-    // The gate short-circuits on `required.length > 0` — an absent key never
-    // asks the permission system at all.
-    expect(canSpy).not.toHaveBeenCalled();
+describe('record:quick_actions.requiredPermissions — capability gate on MePermissionsProvider (objectui#10058)', () => {
+  it('hides the WHOLE bar when the declared capability is not held (REPORTED-empty capability set)', async () => {
+    render(<MePermissionsProvider initialPermissions={me([])}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
+    expect(await refused()).toBeInTheDocument();
+    noButton();
   });
 
-  it('hides the WHOLE bar when a declared permission is not held', async () => {
-    mount({ requiredPermissions: ['crm.manage'] });
-    expect(await screen.findByText(/insufficient permissions to view quick actions/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
-    expect(canSpy).toHaveBeenCalledWith('crm_account', 'crm.manage');
+  it('renders once the declared capability IS held', async () => {
+    render(<MePermissionsProvider initialPermissions={me(['crm.manage'])}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
+    expect(await shown()).toBeInTheDocument();
+    noRefusal();
   });
 
-  it('renders once the declared permission is granted — the same key, read for real', async () => {
-    stub.granted = new Set(['crm.manage']);
-    mount({ requiredPermissions: ['crm.manage'] });
-    expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument();
-    expect(screen.queryByText(/insufficient permissions/i)).not.toBeInTheDocument();
+  it('an UNKNOWN capability name hides the bar — unrecognised is refused, not waved through', async () => {
+    render(<MePermissionsProvider initialPermissions={me(['crm.manage'])}>{bar({ ...BY_NAME, requiredPermissions: ['not.a.real.capability'] })}</MePermissionsProvider>);
+    expect(await refused()).toBeInTheDocument();
+    noButton();
   });
 
-  it('every declared permission must be held — a PARTIAL grant still gates the bar', async () => {
-    // Only one of the two declared permissions is granted. A verdict driven
-    // by `required[0]` alone (or by "any", not "every") would pass this —
-    // reading `.every` over the full array is the member shape this test
-    // exists to discriminate.
-    stub.granted = new Set(['crm.manage']);
-    mount({ requiredPermissions: ['crm.manage', 'crm.export'] });
-    expect(await screen.findByText(/insufficient permissions to view quick actions/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
-    expect(canSpy).toHaveBeenCalledWith('crm_account', 'crm.manage');
-    expect(canSpy).toHaveBeenCalledWith('crm_account', 'crm.export');
+  it('an EMPTY array is no gate at all — the bar renders on an empty capability set', async () => {
+    render(<MePermissionsProvider initialPermissions={me([])}>{bar({ ...BY_NAME, requiredPermissions: [] })}</MePermissionsProvider>);
+    expect(await shown()).toBeInTheDocument();
   });
 
-  it('granting ALL declared permissions renders the bar — the positive control for the partial-grant case above', async () => {
-    stub.granted = new Set(['crm.manage', 'crm.export']);
-    mount({ requiredPermissions: ['crm.manage', 'crm.export'] });
-    expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument();
+  it('CONTROL: an ABSENT key is no gate at all', async () => {
+    render(<MePermissionsProvider initialPermissions={me([])}>{bar({ ...BY_NAME })}</MePermissionsProvider>);
+    expect(await shown()).toBeInTheDocument();
   });
 
-  it('checks the gate against THIS record\'s own `objectName`, not a fixed string', async () => {
-    stub.granted = new Set(['crm.manage']);
-    mount({ requiredPermissions: ['crm.manage'] });
-    await screen.findByRole('button', { name: 'Approve' });
-    expect(canSpy).toHaveBeenCalledWith('crm_account', 'crm.manage');
-    expect(canSpy).not.toHaveBeenCalledWith(expect.not.stringMatching('crm_account'), 'crm.manage');
+  it('EVERY declared capability must be held — a PARTIAL grant still gates the bar', async () => {
+    // A verdict driven by `required[0]` alone (or by "any", not "every") would
+    // pass this — reading the whole array is the member shape this pin exists
+    // to discriminate.
+    render(<MePermissionsProvider initialPermissions={me(['crm.manage'])}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage', 'crm.export'] })}</MePermissionsProvider>);
+    expect(await refused()).toBeInTheDocument();
+    noButton();
+  });
+
+  it('granting ALL declared capabilities renders the bar — the positive control for the partial-grant case', async () => {
+    render(<MePermissionsProvider initialPermissions={me(['crm.manage', 'crm.export'])}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage', 'crm.export'] })}</MePermissionsProvider>);
+    expect(await shown()).toBeInTheDocument();
+  });
+
+  it('gates even with NO objectName in the record context — a system capability is not object-scoped', async () => {
+    // The object-scoped read skipped the gate outright when `objectName` was
+    // empty, so a declared gate on a bar outside a record context did nothing.
+    render(<MePermissionsProvider initialPermissions={me([])}>{bar({ ...INLINE, requiredPermissions: ['crm.manage'] }, '')}</MePermissionsProvider>);
+    expect(await refused()).toBeInTheDocument();
+    noButton();
+  });
+});
+
+describe('the reading path is the capability set, NOT `perms.can()` (objectui#10058)', () => {
+  it('DISCRIMINATOR ①: holding `allowRead` on the object no longer opens the gate', async () => {
+    // `crm.manage` is not one of the provider's eight mapped verbs, so the
+    // object-action read resolved it to `allowRead` — TRUE here — and drew the
+    // bar. The capability read refuses it: nothing reported holds it.
+    render(<MePermissionsProvider initialPermissions={me([], { allowRead: true })}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
+    expect(await refused()).toBeInTheDocument();
+    noButton();
+  });
+
+  it('DISCRIMINATOR ②: holding the capability renders the bar even with `allowRead: false`', async () => {
+    // The mirror image, so neither pin can pass by accident on a gate that is
+    // simply always-closed or always-open: the two differ in BOTH inputs and
+    // land on OPPOSITE verdicts.
+    render(<MePermissionsProvider initialPermissions={me(['crm.manage'], { allowRead: false })}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
+    expect(await shown()).toBeInTheDocument();
+    noRefusal();
+  });
+
+  it('DISCRIMINATOR ③: an enum member is read as a CAPABILITY too — `manage` is gated, not resolved to the read bit', async () => {
+    // `manage`, `admin`, `share`, `configure` and `execute` are members of the
+    // closed object-action enum AND absent from the stock provider's map, so
+    // the old read sent all five to `allowRead`. On this key they are ordinary
+    // capability names with no special standing.
+    render(<MePermissionsProvider initialPermissions={me([], { allowRead: true })}>{bar({ ...BY_NAME, requiredPermissions: ['manage'] })}</MePermissionsProvider>);
+    expect(await refused()).toBeInTheDocument();
+    noButton();
+  });
+
+  it('DETECTOR: the renderer never asks the OBJECT-permission path about a capability name', async () => {
+    render(<MePermissionsProvider initialPermissions={me([], { allowRead: true })}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage', 'manage'] })}</MePermissionsProvider>);
+    expect(await refused()).toBeInTheDocument();
+    // Both names answer TRUE on that path (they fall through to `allowRead`),
+    // so a gate that still consulted it would have drawn the bar — and these
+    // two assertions name WHY it did not.
+    expect(canSpy).not.toHaveBeenCalledWith(expect.anything(), 'crm.manage');
+    expect(canSpy).not.toHaveBeenCalledWith(expect.anything(), 'manage');
+  });
+});
+
+describe('role-based PermissionProvider — capabilities are UNREPORTED here (objectui#10058)', () => {
+  /**
+   * ⚠️ This provider never fetches `/me/permissions`, so it reports
+   * `systemPermissions: undefined` — "no answer", which is NOT the same as a
+   * genuinely empty grant (objectui#4656). `hasCapabilities` is fail-open on
+   * it by that ruled doctrine, shared with every other capability gate in the
+   * tree, and this card does not move it: the console mounts
+   * `MePermissionsProvider`, which wires the real reported set.
+   *
+   * ⭐ What DID move here is that the verdict no longer depends on whether the
+   * object happens to carry a permission config. Before this fix the same
+   * declared name was refused for everyone when it did and allowed for
+   * everyone when it did not — two different answers to one declaration,
+   * neither of them about capabilities.
+   */
+  const WITH_CONFIG = [{ object: 'crm_account', roles: {} }] as any;
+
+  it('renders WITH an object permission config present', async () => {
+    render(<PermissionProvider roles={[]} permissions={WITH_CONFIG} userRoles={['viewer']}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage'] })}</PermissionProvider>);
+    expect(await shown()).toBeInTheDocument();
+    noRefusal();
+  });
+
+  it('renders WITHOUT an object permission config — the same verdict, which is the point', async () => {
+    render(<PermissionProvider roles={[]} permissions={[]} userRoles={['viewer']}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage'] })}</PermissionProvider>);
+    expect(await shown()).toBeInTheDocument();
+    noRefusal();
+  });
+});
+
+describe('CONTROL — `can()` answers exactly what it answered before this card (objectui#10058)', () => {
+  /**
+   * The ruling moves this ONE call site and no other caller: `can()`'s own
+   * semantics are untouched. These two pins are the whole truth table both
+   * stock providers produced BEFORE the fix, transcribed verbatim from the
+   * reproduction probe, so any drift in `can()` shows up here rather than in a
+   * renderer somewhere.
+   *
+   * ⚠️ Several of these verdicts are the defect itself (`crm.manage` → `true`
+   * off `allowRead`). They are pinned as UNCHANGED on purpose — the fix is
+   * that the quick-actions gate stopped ASKING this question, not that the
+   * answer moved.
+   */
+  const NAMES = ['crm.manage', 'manage_users', 'read', 'create', 'update', 'delete', 'execute', 'manage', 'configure', 'share', 'export', 'import', 'admin'];
+
+  function Table({ object }: { object: string }) {
+    const { can } = usePermissions();
+    return <span data-testid="t">{JSON.stringify(Object.fromEntries(NAMES.map((n) => [n, can(object, n as any)])))}</span>;
+  }
+  const read = () => JSON.parse(screen.getByTestId('t').textContent!);
+  const all = (v: boolean) => Object.fromEntries(NAMES.map((n) => [n, v]));
+
+  it('MePermissionsProvider: unmapped names still resolve to the object read bit, mapped verbs still to their own', () => {
+    render(<MePermissionsProvider initialPermissions={me([])}><Table object="crm_account" /></MePermissionsProvider>);
+    expect(read()).toEqual({
+      'crm.manage': true, manage_users: true, read: true,
+      // The lit control: these four are the provider's own mapped verbs and
+      // answer off their own FALSE bits, which is what proves the fallback
+      // tail above them is live rather than an absence the probe invented.
+      create: false, update: false, delete: false, import: false,
+      execute: true, manage: true, configure: true, share: true, export: true, admin: true,
+    });
+  });
+
+  it('role-based PermissionProvider: refused for everyone with a config, allowed for everyone without', () => {
+    render(<PermissionProvider roles={[]} permissions={[{ object: 'crm_account', roles: {} } as any]} userRoles={['viewer']}><Table object="crm_account" /></PermissionProvider>);
+    expect(read()).toEqual(all(false));
+    render(<PermissionProvider roles={[]} permissions={[]} userRoles={['viewer']}><Table object="crm_account" /></PermissionProvider>);
+    expect(JSON.parse(screen.getAllByTestId('t')[1].textContent!)).toEqual(all(true));
   });
 });

@@ -584,6 +584,21 @@ const pt = {
     eventTitlePlaceholder: "Sobre o que é este evento?",
     creating: "Criando…",
     titleRequired: "O título é obrigatório",
+    a11y: {
+      region: "Calendário",
+      grid: "Grade do calendário",
+      goToToday: "Ir para hoje",
+      previousPeriod: "Período anterior",
+      nextPeriod: "Período seguinte",
+      currentDate: "Data atual: {{date}}",
+      dayCell: "{{date}}, {{count}} eventos",
+      dayCell_one: "{{date}}, {{count}} evento",
+      dayCell_other: "{{date}}, {{count}} eventos",
+      resizeEventEnd: "Alterar o fim do evento",
+      resizeEventEndHint: "Arraste para alterar a data de término",
+      resizeStart: "Alterar o início",
+      resizeEnd: "Alterar o fim",
+    },
   },
   list: {
     firstRunTitle: "Ainda não há nada aqui",
@@ -1478,6 +1493,9 @@ const pt = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Voltar ao início",
+    },
     saveAdvisoryTitle: "Salvo — a verificação de criação gerou {{count}} recomendação(ões)",
     publishAdvisoryTitle: "Publicado — a verificação de criação gerou {{count}} recomendação(ões)",
     importMappingsUnavailable: "Não foi possível carregar os mapeamentos de importação salvos de {{object}}",

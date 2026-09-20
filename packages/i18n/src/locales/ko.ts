@@ -585,6 +585,21 @@ const ko = {
     eventTitlePlaceholder: "이 일정은 어떤 내용인가요?",
     creating: "생성 중…",
     titleRequired: "제목을 입력하세요",
+    a11y: {
+      region: "캘린더",
+      grid: "캘린더 그리드",
+      goToToday: "오늘로 이동",
+      previousPeriod: "이전 기간",
+      nextPeriod: "다음 기간",
+      currentDate: "현재 날짜: {{date}}",
+      dayCell: "{{date}}, 일정 {{count}}개",
+      dayCell_one: "{{date}}, 일정 {{count}}개",
+      dayCell_other: "{{date}}, 일정 {{count}}개",
+      resizeEventEnd: "일정 종료 시점 조절",
+      resizeEventEndHint: "드래그하여 종료 날짜 변경",
+      resizeStart: "시작 시점 조절",
+      resizeEnd: "종료 시점 조절",
+    },
   },
   list: {
     firstRunTitle: "아직 아무것도 없습니다",
@@ -1479,6 +1494,9 @@ const ko = {
     },
   },
   console: {
+    studio: {
+      backToHome: "홈으로 돌아가기",
+    },
     saveAdvisoryTitle: "저장되었습니다 — 작성 검사에서 {{count}}건의 권장 사항이 발견되었습니다",
     publishAdvisoryTitle: "게시되었습니다 — 작성 검사에서 {{count}}건의 권장 사항이 발견되었습니다",
     importMappingsUnavailable: "{{object}}의 저장된 가져오기 매핑을 불러오지 못했습니다",

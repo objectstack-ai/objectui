@@ -82,6 +82,20 @@ const DEFAULT_TRANSLATIONS: Record<string, string> = {
   'calendar.newEvent': 'New event',
   'calendar.moreEvents': '+{{count}} more',
   'calendar.allDay': 'All Day',
+  // Accessible names. These are the ONLY names the two landmarks below have,
+  // so a pack that cannot reach them leaves a screen-reader user on a
+  // translated console hearing English (objectui#10104).
+  'calendar.a11y.region': 'Calendar',
+  'calendar.a11y.grid': 'Calendar grid',
+  'calendar.a11y.goToToday': 'Go to today',
+  'calendar.a11y.previousPeriod': 'Previous period',
+  'calendar.a11y.nextPeriod': 'Next period',
+  'calendar.a11y.currentDate': 'Current date: {{date}}',
+  'calendar.a11y.dayCell': '{{date}}, {{count}} events',
+  'calendar.a11y.resizeEventEnd': 'Resize event end',
+  'calendar.a11y.resizeEventEndHint': 'Drag to change end date',
+  'calendar.a11y.resizeStart': 'Resize start',
+  'calendar.a11y.resizeEnd': 'Resize end',
 }
 
 /**
@@ -282,19 +296,19 @@ function CalendarView({
   }
 
   return (
-    <div role="region" aria-label="Calendar" className={cn("flex flex-col h-full bg-background min-w-0 overflow-hidden", className)}>
+    <div role="region" aria-label={t('calendar.a11y.region')} className={cn("flex flex-col h-full bg-background min-w-0 overflow-hidden", className)}>
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-2 sm:p-4 border-b min-w-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center bg-muted/50 rounded-lg p-1 gap-1">
-             <Button variant="ghost" size="sm" onClick={handleToday} className="h-8" aria-label="Go to today">
+             <Button variant="ghost" size="sm" onClick={handleToday} className="h-8" aria-label={t('calendar.a11y.goToToday')}>
                {t('calendar.today')}
              </Button>
              <div className="h-4 w-px bg-border mx-1" />
              <Button
                variant="ghost"
                size="icon"
-               aria-label="Previous period"
+               aria-label={t('calendar.a11y.previousPeriod')}
                onClick={handlePrevious}
                className="h-8 w-8"
              >
@@ -303,7 +317,7 @@ function CalendarView({
              <Button
                variant="ghost"
                size="icon"
-               aria-label="Next period"
+               aria-label={t('calendar.a11y.nextPeriod')}
                onClick={handleNext}
                className="h-8 w-8"
              >
@@ -315,7 +329,7 @@ function CalendarView({
             <PopoverTrigger asChild>
               <Button 
                 variant="ghost" 
-                aria-label={`Current date: ${getDateLabel()}`}
+                aria-label={t('calendar.a11y.currentDate', { date: getDateLabel() })}
                 className={cn(
                   "text-base sm:text-xl font-semibold h-auto px-2 sm:px-3 py-1 hover:bg-muted/50 transition-colors",
                   "flex items-center gap-2"
@@ -661,7 +675,7 @@ function MonthView({ date, events, locale = "default", onEventClick, onDateClick
       </div>
 
       {/* Calendar days */}
-      <div role="grid" aria-label="Calendar grid" className="grid grid-cols-7 flex-1 auto-rows-fr">
+      <div role="grid" aria-label={t('calendar.a11y.grid')} className="grid grid-cols-7 flex-1 auto-rows-fr">
         {days.map((day, index) => {
           const key = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`
           const dayEvents = eventsByDate.get(key) || []
@@ -672,7 +686,14 @@ function MonthView({ date, events, locale = "default", onEventClick, onDateClick
             <div
               key={index}
               role="gridcell"
-              aria-label={`${day.toLocaleDateString("default", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}${dayEvents.length > 0 ? `, ${dayEvents.length} event${dayEvents.length > 1 ? "s" : ""}` : ""}`}
+              aria-label={
+                dayEvents.length > 0
+                  ? t('calendar.a11y.dayCell', {
+                      date: day.toLocaleDateString("default", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
+                      count: dayEvents.length,
+                    })
+                  : day.toLocaleDateString("default", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+              }
               className={cn(
                 "border-b border-r last:border-r-0 p-2 min-h-[100px] cursor-pointer hover:bg-accent/50",
                 !isCurrentMonth && "bg-muted/50 text-muted-foreground opacity-50",
@@ -729,8 +750,8 @@ function MonthView({ date, events, locale = "default", onEventClick, onDateClick
                       {showResizeHandle && (
                         <span
                           role="separator"
-                          aria-label="Resize event end"
-                          title="Drag to change end date"
+                          aria-label={t('calendar.a11y.resizeEventEnd')}
+                          title={t('calendar.a11y.resizeEventEndHint')}
                           draggable
                           onDragStart={(e) => handleDragStart(e, event, "resize-end", day)}
                           onDragEnd={handleDragEnd}
@@ -1407,14 +1428,14 @@ function TimeGridView({
                         <div
                           onPointerDown={(e) => handleEventPointerDown(e, entry, dayIndex, "top")}
                           className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize"
-                          aria-label="Resize start"
+                          aria-label={t('calendar.a11y.resizeStart')}
                         />
                       )}
                       {onEventDrop && entry.isEnd && (
                         <div
                           onPointerDown={(e) => handleEventPointerDown(e, entry, dayIndex, "bottom")}
                           className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize"
-                          aria-label="Resize end"
+                          aria-label={t('calendar.a11y.resizeEnd')}
                         />
                       )}
                     </div>

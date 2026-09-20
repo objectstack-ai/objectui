@@ -14,7 +14,7 @@ import { Download, Printer, RefreshCw } from 'lucide-react';
 import { exportReport } from './ReportExportEngine';
 import { formatValue } from './formatValue';
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
-import { useSafeTranslate } from '@object-ui/i18n';
+import { useDisplayLocale, useSafeTranslate } from '@object-ui/i18n';
 
 // ---------------------------------------------------------------------------
 // Client-side grouping utility
@@ -104,6 +104,16 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ schema, onRefresh })
 
   const tt = useSafeTranslate();
 
+  // objectui#10020 — the display locale every `formatValue` call below
+  // formats in. `formatValue` is a plain function, not a component, so it
+  // cannot read this itself and the caller threads it — the same shape as
+  // `bucketLabel` in `DatasetReportRenderer.tsx`. Its `locale` parameter is
+  // OPTIONAL so the published signature stays additive, which leaves a leg that
+  // is only correct because every in-repo call site passes a resolved tag; all
+  // three of this component's are below, pinned by
+  // `__tests__/reportDisplayLocale-10020.test.tsx`.
+  const displayLocale = useDisplayLocale();
+
   const handleExport = (format: string) => {
     if (!report) {
       console.warn('ReportViewer: Cannot export, no report defined');
@@ -176,7 +186,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ schema, onRefresh })
     // Aggregation results are always raw numbers — keep simple numeric formatting
     // and skip type-aware rendering (lookup/badge/etc don't make sense for sums).
     if (field.aggregation) {
-      return formatValue(value, field);
+      return formatValue(value, field, displayLocale);
     }
 
     // Type-aware rendering via the shared field cell-renderer registry.
@@ -198,7 +208,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ schema, onRefresh })
       return <Renderer value={value} field={fieldMeta} />;
     }
 
-    return formatValue(value, field);
+    return formatValue(value, field, displayLocale);
   };
 
   if (!report) {
@@ -334,7 +344,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ schema, onRefresh })
                           <CardContent className="p-4">
                             <div className="text-sm text-muted-foreground">{field.label || field.name}</div>
                             <div className="text-2xl font-bold">
-                              {formatValue(computeAggregation(field.name, field.aggregation), field)}
+                              {formatValue(computeAggregation(field.name, field.aggregation), field, displayLocale)}
                             </div>
                           </CardContent>
                         </Card>

@@ -585,6 +585,21 @@ const ja = {
     eventTitlePlaceholder: "この予定の内容は？",
     creating: "作成中…",
     titleRequired: "タイトルは必須です",
+    a11y: {
+      region: "カレンダー",
+      grid: "カレンダーグリッド",
+      goToToday: "今日に移動",
+      previousPeriod: "前の期間",
+      nextPeriod: "次の期間",
+      currentDate: "現在の日付: {{date}}",
+      dayCell: "{{date}}、予定 {{count}} 件",
+      dayCell_one: "{{date}}、予定 {{count}} 件",
+      dayCell_other: "{{date}}、予定 {{count}} 件",
+      resizeEventEnd: "予定の終了日を変更",
+      resizeEventEndHint: "ドラッグして終了日を変更",
+      resizeStart: "開始時刻を変更",
+      resizeEnd: "終了時刻を変更",
+    },
   },
   list: {
     firstRunTitle: "まだ何もありません",
@@ -1479,6 +1494,9 @@ const ja = {
     },
   },
   console: {
+    studio: {
+      backToHome: "ホームに戻る",
+    },
     saveAdvisoryTitle: "保存しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",
     publishAdvisoryTitle: "公開しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",
     importMappingsUnavailable: "{{object}} の保存済みインポートマッピングを読み込めませんでした",

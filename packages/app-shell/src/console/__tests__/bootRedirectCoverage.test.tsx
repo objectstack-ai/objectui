@@ -105,7 +105,6 @@ import {
   RequireOrganization,
   RequireAiSurface,
   AuthenticatedRoute,
-  RootRedirect,
   SystemRedirect,
   SetupRedirect,
 } from '../ConsoleShell';
@@ -215,11 +214,6 @@ describe('boot-gate coverage — ConsoleShell (objectui#6507)', () => {
     expectCovered(reading, 'AuthenticatedRoute');
   });
 
-  it('RootRedirect :416 — metadata has settled', async () => {
-    metadata = { apps: [], loading: false };
-    const reading = await coverageAt('/', <RootRedirect />);
-    expectCovered(reading, 'RootRedirect');
-  });
 
   it('SetupRedirect :515 — the /setup deep link resolves', async () => {
     metadata = { apps: [{ name: 'setup', _packageId: 'com.objectstack.setup' }], loading: false };

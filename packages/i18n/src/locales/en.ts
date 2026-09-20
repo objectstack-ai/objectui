@@ -717,6 +717,21 @@ const en = {
     eventTitlePlaceholder: 'What\'s this event about?',
     creating: 'Creating…',
     titleRequired: 'Title is required',
+    a11y: {
+      region: 'Calendar',
+      grid: 'Calendar grid',
+      goToToday: 'Go to today',
+      previousPeriod: 'Previous period',
+      nextPeriod: 'Next period',
+      currentDate: 'Current date: {{date}}',
+      dayCell: '{{date}}, {{count}} events',
+      dayCell_one: '{{date}}, {{count}} event',
+      dayCell_other: '{{date}}, {{count}} events',
+      resizeEventEnd: 'Resize event end',
+      resizeEventEndHint: 'Drag to change end date',
+      resizeStart: 'Resize start',
+      resizeEnd: 'Resize end',
+    },
   },
   list: {
     loading: 'Loading records…',
@@ -1725,6 +1740,12 @@ const en = {
     },
   },
   console: {
+    // The Studio front door's wordmark (objectui#10043). Its sibling one
+    // route away -- `StudioDesignSurface`'s header Home button -- walks back
+    // to the same place, so both read as the same affordance.
+    studio: {
+      backToHome: 'Back to home',
+    },
     saveAdvisoryTitle: 'Saved — the authoring check raised {{count}} advisory finding(s)',
     publishAdvisoryTitle: 'Published — the authoring check raised {{count}} advisory finding(s)',
     importMappingsUnavailable: 'Saved import mappings for {{object}} could not be loaded',

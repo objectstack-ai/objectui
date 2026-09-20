@@ -213,9 +213,12 @@ export interface WizardFormSchema {
   mode: 'create' | 'edit' | 'view';
   
   /**
-   * Record ID (for edit/view modes)
+   * Record ID (for edit/view modes). A string, per the one record-id rule on
+   * `DataSource` (objectui#9511) — `ObjectForm` builds this schema from the
+   * authorable `ObjectFormSchema.recordId`, which is a string, and `findOne`
+   * takes a string.
    */
-  recordId?: string | number;
+  recordId?: string;
   
   /**
    * Wizard step sections

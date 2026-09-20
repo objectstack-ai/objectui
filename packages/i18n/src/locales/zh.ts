@@ -604,6 +604,21 @@ const zh = {
     eventTitlePlaceholder: '这个事件是关于什么的？',
     creating: '创建中…',
     titleRequired: '请填写标题',
+    a11y: {
+      region: '日历',
+      grid: '日历网格',
+      goToToday: '转到今天',
+      previousPeriod: '上一时段',
+      nextPeriod: '下一时段',
+      currentDate: '当前日期:{{date}}',
+      dayCell: '{{date}},{{count}} 个日程',
+      dayCell_one: '{{date}},{{count}} 个日程',
+      dayCell_other: '{{date}},{{count}} 个日程',
+      resizeEventEnd: '调整日程结束时间',
+      resizeEventEndHint: '拖动以更改结束日期',
+      resizeStart: '调整开始时间',
+      resizeEnd: '调整结束时间',
+    },
   },
   list: {
     loading: '正在加载记录…',
@@ -1544,6 +1559,9 @@ const zh = {
     },
   },
   console: {
+    studio: {
+      backToHome: '返回首页',
+    },
     saveAdvisoryTitle: '已保存 — 编辑检查提出了 {{count}} 条建议',
     publishAdvisoryTitle: '已发布 — 编辑检查提出了 {{count}} 条建议',
     importMappingsUnavailable: "无法加载 {{object}} 的已保存导入映射",

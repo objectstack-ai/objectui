@@ -1532,6 +1532,9 @@ const zh = {
     },
   },
   console: {
+    studio: {
+      backToHome: '返回首页',
+    },
     saveAdvisoryTitle: '已保存 — 编辑检查提出了 {{count}} 条建议',
     publishAdvisoryTitle: '已发布 — 编辑检查提出了 {{count}} 条建议',
     importMappingsUnavailable: "无法加载 {{object}} 的已保存导入映射",

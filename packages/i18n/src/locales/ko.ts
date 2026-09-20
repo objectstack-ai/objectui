@@ -1467,6 +1467,9 @@ const ko = {
     },
   },
   console: {
+    studio: {
+      backToHome: "홈으로 돌아가기",
+    },
     saveAdvisoryTitle: "저장되었습니다 — 작성 검사에서 {{count}}건의 권장 사항이 발견되었습니다",
     publishAdvisoryTitle: "게시되었습니다 — 작성 검사에서 {{count}}건의 권장 사항이 발견되었습니다",
     importMappingsUnavailable: "{{object}}의 저장된 가져오기 매핑을 불러오지 못했습니다",

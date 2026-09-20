@@ -77,7 +77,7 @@ const doc = fs.readFileSync(path.join(repoRoot, DOC), 'utf8');
  * it.
  */
 const MUST_SUBSCRIBE_MERGE_GROUP = new Map<string, string>([
-  ['ci.yml', 'produces Type Check, Build & E2E, Test (shard N/4) and Changeset Fixed Group Check'],
+  ['ci.yml', 'produces Type Check, Build & E2E, Test (the shard aggregator) and Changeset Fixed Group Check'],
   ['lint.yml', 'produces Lint — the ESLint error ratchets'],
   ['control-bytes.yml', 'produces Control Byte Scan, one of the two contexts #3523 found safe to require today'],
   ['docs-links.yml', 'produces Internal Docs Link Check, the other one'],

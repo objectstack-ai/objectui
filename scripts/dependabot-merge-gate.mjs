@@ -136,8 +136,8 @@ import { isEntrypoint } from './invoked-as.mjs';
  * path filter, so every pull request produces every one of them. Source of each
  * name, in the checks list rather than the file name:
  *
- *   ci.yml            Changeset Fixed Group Check, Type Check,
- *                     Test (shard 1..4/4), Build & E2E, Build Docs
+ *   ci.yml            Changeset Fixed Group Check, Type Check, Test,
+ *                     Build & E2E, Build Docs
  *   lint.yml          Lint
  *   control-bytes.yml Control Byte Scan
  *   docs-links.yml    Internal Docs Link Check
@@ -176,10 +176,22 @@ import { isEntrypoint } from './invoked-as.mjs';
 export const REQUIRED_CONTEXTS = Object.freeze([
   'Changeset Fixed Group Check',
   'Type Check',
-  'Test (shard 1/4)',
-  'Test (shard 2/4)',
-  'Test (shard 3/4)',
-  'Test (shard 4/4)',
+  // ⭐ ONE name, not one per shard (objectui#9499). This used to spell out
+  // `Test (shard 1/4)` … `Test (shard 4/4)`, which made the SHARD COUNT a
+  // member of the required set: widening the matrix renamed four live required
+  // contexts at once. `Test` is `ci.yml`'s `test-aggregate` job, which `needs`
+  // every shard and the dist-pin job and reads each one's OWN conclusion out of
+  // the Actions API before it reports.
+  //
+  // ⚠️ This is NOT the shape the #4959 counterfactual below warns about. That
+  // warning — "a gate that waited for `Test` as one name, or for whichever
+  // shard reported first, would have merged this pull request" — is about a
+  // single check produced BY a shard, which reports while its siblings are
+  // still running. This one cannot report before every shard has finished
+  // (`needs:`), and it is red unless every shard's own conclusion is `success`;
+  // `skipped` is not a pass there. The distinction is the whole content of
+  // `scripts/check-test-shard-results.mjs`.
+  'Test',
   'Build & E2E',
   'Build Docs',
   'Lint',
@@ -239,7 +251,23 @@ export const OPTIONAL_CONTEXTS = Object.freeze({
  * whichever shard happens to exist.
  */
 const COVERAGE_SHARD_NOT_A_GATE =
-  "ci.yml's push-only coverage lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the four `Test (shard N/4)` jobs above.";
+  "ci.yml's push-only coverage lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/8)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own 4-way sharding is unrelated to that matrix's width and objectui#9499 did not touch it.";
+
+/**
+ * The eight PR test shards share one reason, spelled once. Every one of them is
+ * a real blocking leg — the difference from the coverage shards above is that
+ * something else reports their verdict, not that they have none.
+ *
+ * ⛔ Listing them individually rather than by pattern is deliberate, for the
+ * same reason the coverage shards are listed individually: a pattern is
+ * satisfied by whichever shard happens to exist, so a matrix that quietly lost
+ * a leg would still partition cleanly. Here the count is pinned by
+ * `dependabot-merge-gate.test.ts` against ci.yml's own matrix, which is a test
+ * that fails loudly and locally — ⛔ unlike the repository-settings surface the
+ * count used to be welded to (objectui#9499).
+ */
+const PR_TEST_SHARD_NOT_A_GATE =
+  "ci.yml's PR/merge-queue test matrix. It is a blocking leg and it is NOT waited for by name: since objectui#9499 the `test-aggregate` job (`Test`, above) is the single required test context, and it reports only after every shard has finished, red unless each shard's OWN conclusion is `success` — `skipped` included. Waiting for the legs here as well would put the shard COUNT back into a second declaration, which is the coupling that card removed.";
 
 /**
  * Everything else a pull request to `main` produces, and why it cannot gate.
@@ -248,10 +276,20 @@ const COVERAGE_SHARD_NOT_A_GATE =
  * defaulting into silence.
  */
 export const NOT_A_GATE = Object.freeze({
+  'Test (shard 1/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 2/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 3/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 4/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 5/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 6/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 7/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 8/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (dist pins)':
+    "ci.yml's built-artifact pin lane, lifted out of the shard matrix by objectui#9499 (the lane itself is objectui#7183). Same reading as the shards above: it is blocking, and the `Test` aggregator asserts its result — `needs.test-dist-pins.result` is one job's own conclusion, so `skipped` is visible there without an API read — so the whole test lane still speaks through one required name.",
   dependabot:
     'This workflow itself. The gate runs inside this job, so requiring it would deadlock at its own deadline.',
   'Test (coverage)':
-    "ci.yml's push lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges the four shard blob reports into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the four `Test (shard N/4)` jobs above.",
+    "ci.yml's push lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges the four shard blob reports into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/8)` matrix, reported through the `Test` aggregator above.",
   'Test (coverage shard 1/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 2/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 3/4)': COVERAGE_SHARD_NOT_A_GATE,

@@ -15,7 +15,7 @@ import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagno
 import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, getSortValue } from '@object-ui/core';
 import type { DataTableSchema, TableSortItem, TableColumnType } from '@object-ui/types';
 import type { SortDirection } from '@objectstack/spec/shared';
-import { SchemaRenderer, toRenderableSchema, useRowPredicate, usePredicateScope } from '@object-ui/react';
+import { SchemaRenderer, toRenderableSchema, useCapabilityGate, useRowPredicate, usePredicateScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 import { 
   Table, 
@@ -494,11 +494,37 @@ const DataTableRowActionsMenu: React.FC<{
   t: (key: string) => string;
 }> = ({ schema, row, t }) => {
   const scope = usePredicateScope();
-  // Custom defs are only dispatchable when there is a handler to dispatch them
-  // to, so an unhandled `rowActionDefs` contributes no items (unchanged).
+  /**
+   * [ADR-0066 D4 / objectui#9623] The capability gate, applied ONCE to the
+   * whole declared set so `plan.count` (the "⋮" trigger) and the items it
+   * renders agree — the objectui#3562 invariant, and verbatim the posture
+   * `plugin-grid`'s `RowActionMenu` already takes for the standalone grid.
+   *
+   * This surface filters its own action list instead of routing through
+   * `ActionEngine.getActionsForLocation`, so the engine's gate never reached
+   * it. That left `requiredPermissions` INERT on every `list_item` action a
+   * data-table renders — the record page's related-list panel above all, which
+   * feeds a child object's `list_item` actions in as `rowActionDefs`
+   * (`RelatedRecordActionsBridge`). The record surface one level up gates the
+   * same declaration correctly, off the SAME `<ActionProvider>` this hook
+   * reads: the capability was on the page all along, this renderer just never
+   * asked (objectui#9623, cloud#2224 — a plain member was offered Set as
+   * Primary and read a 403 toast on click).
+   *
+   * A UI MIRROR of a decision the server still enforces, nothing more: unknown
+   * capabilities fail OPEN (see `useCapabilityGate`), an EMPTY held set gates
+   * normally, and the server remains the authority.
+   *
+   * Custom defs are only dispatchable when there is a handler to dispatch them
+   * to, so an unhandled `rowActionDefs` contributes no items (unchanged).
+   */
+  const mayInvoke = useCapabilityGate();
   const customActions = useMemo(
-    () => (Array.isArray(schema.rowActionDefs) && schema.onRowActionDef ? schema.rowActionDefs : []),
-    [schema.rowActionDefs, schema.onRowActionDef],
+    () =>
+      Array.isArray(schema.rowActionDefs) && schema.onRowActionDef
+        ? schema.rowActionDefs.filter((d) => mayInvoke(d.requiredPermissions))
+        : [],
+    [schema.rowActionDefs, schema.onRowActionDef, mayInvoke],
   );
   const plan = useMemo(
     () =>
@@ -2283,7 +2309,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                            ) {
                              return;
                            }
-                           schema.onRowClick(row);
+                           // objectui#9462 — the DOM event goes with the row.
+                           // `ObjectGrid` and `ListView` put the navigation
+                           // hook's own `handleClick` on this slot, and that
+                           // hook reads `metaKey` / `ctrlKey` / `button` off a
+                           // second argument to decide "open in a new tab".
+                           // Calling with one argument dropped the payload
+                           // here, so Cmd/Ctrl/middle-click reached no host
+                           // handler and degraded to an ordinary navigation.
+                           schema.onRowClick(row, e);
                         }
                       }}
                     >
@@ -2316,7 +2350,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               data-testid="row-expand-button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                schema.onRowClick?.(row);
+                                // objectui#9462 — same forward as the row's own
+                                // handler above. `e` was already bound here for
+                                // `stopPropagation`, so the payload was in
+                                // scope on this line and still was not handed
+                                // on: the hover "open record" affordance
+                                // answered a Cmd/Ctrl-click exactly like a
+                                // plain one.
+                                schema.onRowClick?.(row, e);
                               }}
                               title="Open record"
                             >

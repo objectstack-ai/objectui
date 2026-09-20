@@ -172,7 +172,7 @@ export const SchemaRenderer = ({ schema }: { schema: BaseSchema }) => {
   - 别再按"feature 要写、bug 修复不用"来判断 —— 正是这个旧判据让三条用户可见的修复(`19716b5bf` fix(charts)、`5e7ef1141` fix(i18n)、`0e50440` #3518)搭顺风车发了出去,任何 CHANGELOG/版本号/发布记录里都查不到:平台侧的发布判据(objectstack#4731/#4843)读的就是本仓声明的 changeset。
   - 本地先自查:`node scripts/check-changeset-presence.mjs`(未提交的 changeset 也算)。
 
-### 怎么跑测试(有两种写法会静默假绿 —— 现已机械拦截)
+### 怎么跑测试(有些写法会静默假绿 —— 现已机械拦截)
 
 **唯一正确的跑法:在【仓库根目录】执行,路径相对仓根书写,前面不要加 `--`。**
 
@@ -201,9 +201,12 @@ AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩�
   pnpm 把 `--` **原样**转发进脚本,vitest 的 CLI 解析在 `--` 处停止,后面的一切(包括你的路径)
   在 vitest 看到之前就没了 —— 不是「被忽略并警告」,是压根不存在。于是退回默认集合(叠加陷阱一
   就是别人的包),新加的测试文件零执行、输出全绿。
-- **两条现在都会直接失败**,由 `scripts/vitest-invocation-guard.mjs` 拦下:vitest root 不是仓根
-  → 拒绝;`--` 后面还有参数 → 拒绝。报错正文会指出机制并给出上面的正确命令。包级 `test` 脚本的
-  存废是 objectui#3240;在那之前它们只失败,不撒谎。
+- **上面的陷阱现在都会直接失败**,由 `scripts/vitest-invocation-guard.mjs` 拦下。⛔ **它今天拒绝
+  哪些形态不写在这里** —— 以 `scripts/__tests__/vitest-invocation-guard.test.ts` 为准,那份 pin
+  测试逐条钉住每个 verdict,guard 自己的文件头也是这么指的。⚠️ 理由是本文件的诫条 **#9**:写进散文的计数
+  只推导一次、此后永不复核,下一条拒绝加上来就把它证伪 —— 所以⛔ 别把本节展开的陷阱读成「就这些」,
+  拒绝集比它们大。报错正文会指出机制并给出上面的正确命令。包级 `test` 脚本的存废是 objectui#3240;
+  在那之前它们只失败,不撒谎。
   - **拦截点不止 `vitest.config.mts` 一处**(objectui#5406 / objectui#3240)。vitest 只加载
     「启动目录里的那份」config,所以根 config 顶部那一次调用,只覆盖得到「本目录没有任何
     config(向上找到根 config)」或「本目录 config import 了根 config」这两条路。
@@ -531,7 +534,7 @@ sha pin **退休**之后这条**更重、不是更轻**(维护者 2026-09-04 裁
 - **CI 全绿、已 review 都不构成例外。** 这类文件是后续每一次 dispatch 读的操作规程,绿灯说明不了它该不该成为规程。
 - **发现自己已经挂上了怎么办**:把 PR 转回 **draft** 是唯一能可靠退出合并队列的动作 —— 只调 `disable_pr_auto_merge` 会摘掉 auto-merge 但**不取消队列成员资格**,两个都要做。⚠️ 只回收**你自己**挂上的:本仓多 agent 共用同一 GitHub 身份,不是你设置的状态就属于别的 actor —— 去问、去报告,别替他回退。
 
-**本仓的机械兜底只有一件,而且它现在只报告、不拦截 —— 别读成一道拦得住的门,也别再读成「什么都没有」。** 本仓仍然没有 CODEOWNERS(核实:仓内不存在该文件),受管面上也没有钩子;但 `.github/workflows/governed-surface-guard.yml`(check 名 `Governed Surface Queue Guard`,判定逻辑在 `scripts/check-governed-queue-guard.mjs`)**是活的**:`pull_request` 腿是早期告警、**故意 exit 0**(受管 PR 停在 draft 正是健康终态,所以**绿不等于不受管**),`merge_group` 腿才是会拒绝的那条 —— 它要求 `GOVERNED_APPROVERS`(`os-zhuang` / `hotlong`)里某个账号的一条 latest-decisive APPROVED review,**留在哪个 commit 上都算**;DISMISSED 与被顶掉的批准(同一 reviewer 后续给了 CHANGES_REQUESTED)不算,该集合之外账号的 APPROVED 不算,review 列表为空或读不到则 fail closed —— 判定读的是**有没有一条人工批准记录**,不问它是对哪些字节给的(维护者 2026-09-04 裁,逐字未译:「你的门禁有问题，只需要有人工批准记录就行，不需要卡最新的提交。」;sha pin 是**退休**不是放宽,守卫里已没有任何判定读 `commit_id`)。⚠️ 已接受的代价:批准之后的 push 不再被这道门重审,一个已批准的受管 PR 可以带着批准者没读过的字节落地 —— 维护者接受这一点,而这道拒绝先印的补救仍是转回 draft、交人类合并。⚠️ 但它**尚未**是 required context:ruleset 开关只有维护者能翻(#6596,`pm:awaiting-maintainer`),**在翻转之前,那条拒绝腿只报告、不阻止队列**。事后一侧:`../objectstack` 的 report-only 合并后审计(`scripts/pm/check-governed-merges.mjs`)自 objectstack#9619 起**已覆盖本仓**(四个受管仓一次扫完),它把受管面的合并列出来,但同样不阻止任何事。⇒ 违规不再完全静默,但**仍然没有任何东西会替你拦下它**,这条规则的效力主要还是在于你读到了它并照做。**⛔ 别再把本段当成兜底工具的完整清单** —— 覆盖面以脚本自己的 `GOVERNED_SURFACES` 为准(它随树变化,本段不会);⚠️ 该清单曾与上面的受管面清单**并不一致**(脚本的集合含已发布 `skills/**`),这一分歧**已裁**:维护者第 5 场决裁批 #7 采 **Option A**(#6866 评论 5469339478)—— 已发布 `skills/**` **受管**,守卫的读法才是裁定的那个;该裁决**已随本段上方的清单落地**(#6866):上面五项已含 `skills/**`,与脚本的 `GOVERNED_SURFACES` 一致,曾经那条「仓根 `skills/**` 不受管、自行入队」的豁免**已作废**,⛔ 别再照它行事。
+**本仓的机械兜底只有一件,而且它现在只报告、不拦截 —— 别读成一道拦得住的门,也别再读成「什么都没有」。** 本仓仍然没有 CODEOWNERS(核实:仓内不存在该文件),受管面上也没有钩子;但 `.github/workflows/governed-surface-guard.yml`(check 名 `Governed Surface Queue Guard`,判定逻辑在 `scripts/check-governed-queue-guard.mjs`)**是活的**:`pull_request` 腿是早期告警、**故意 exit 0**(受管 PR 停在 draft 正是健康终态,所以**绿不等于不受管**),`merge_group` 腿才是会拒绝的那条 —— 它要求 `GOVERNED_APPROVERS`(`os-zhuang` / `hotlong`)里某个账号的一条 latest-decisive APPROVED review,**留在哪个 commit 上都算**;DISMISSED 与被顶掉的批准(同一 reviewer 后续给了 CHANGES_REQUESTED)不算,该集合之外账号的 APPROVED 不算,review 列表为空或读不到则 fail closed —— 判定读的是**有没有一条人工批准记录**,不问它是对哪些字节给的(维护者 2026-09-04 裁,逐字未译:「你的门禁有问题，只需要有人工批准记录就行，不需要卡最新的提交。」;sha pin 是**退休**不是放宽,守卫里已没有任何判定读 `commit_id`)。⚠️ 已接受的代价:批准之后的 push 不再被这道门重审,一个已批准的受管 PR 可以带着批准者没读过的字节落地 —— 维护者接受这一点,而这道拒绝先印的补救仍是转回 draft、交人类合并。⚠️ 而这条拒绝腿上的判据**不止上面那一条** —— #9018(PR #9212)给 `merge_group` 腿加了**第二条、与受管面完全无关的**判据:它枚举该 merge group 要落地的**每一个** PR(逐 commit 分解,不是只读 `merge_group.head_ref`),读每个 PR 的 label,其中任何一个仍挂着 `needs:contract-review` 就拒绝(**exit 6**);label 读不到、或该 group 指不出任何 PR,同样拒绝(**exit 7**)。⚠️ 这条判据读的是**挂在 PR 上的 label**,不读任何路径、不问 diff 命中了什么 —— ⇒ **一个 diff 完全没碰受管面的 merge group,现在也可能被这道 check 拒绝**;`pull_request` 腿不受影响,不读 label。⚠️ 但它**尚未**是 required context:ruleset 开关只有维护者能翻(#6596,`pm:awaiting-maintainer`),**在翻转之前,那条拒绝腿只报告、不阻止队列**。事后一侧:`../objectstack` 的 report-only 合并后审计(`scripts/pm/check-governed-merges.mjs`)自 objectstack#9619 起**已覆盖本仓**(四个受管仓一次扫完),它把受管面的合并列出来,但同样不阻止任何事。⇒ 违规不再完全静默,但**仍然没有任何东西会替你拦下它**,这条规则的效力主要还是在于你读到了它并照做。**⛔ 别再把本段当成兜底工具的完整清单** —— 覆盖面以脚本自己的 `GOVERNED_SURFACES` 为准(它随树变化,本段不会);⚠️ 该清单曾与上面的受管面清单**并不一致**(脚本的集合含已发布 `skills/**`),这一分歧**已裁**:维护者第 5 场决裁批 #7 采 **Option A**(#6866 评论 5469339478)—— 已发布 `skills/**` **受管**,守卫的读法才是裁定的那个;该裁决**已随本段上方的清单落地**(#6866):上面五项已含 `skills/**`,与脚本的 `GOVERNED_SURFACES` 一致,曾经那条「仓根 `skills/**` 不受管、自行入队」的豁免**已作废**,⛔ 别再照它行事。
 
 ### 服务纪律(本仓库与 `../objectstack` 多 agent 并行开发)
 

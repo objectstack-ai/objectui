@@ -121,7 +121,7 @@ A backend system sends a JSON schema:
 {
   "type": "card",
   "title": "Welcome",
-  "body": {
+  "children": {
     "type": "text",
     "content": "Hello, ${user.name}!"
   }
@@ -151,7 +151,7 @@ import type { BaseSchema } from '@object-ui/types'
 const schema: BaseSchema = {
   type: 'card',
   title: 'Welcome',
-  body: {
+  children: {
     type: 'text',
     content: 'Hello, ${user.name}!',
   },

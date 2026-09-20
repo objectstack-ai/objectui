@@ -178,6 +178,12 @@ export const ACTION_DEF_KEYS = [
   'aria',
   'bodyExtra',
   'bodyShape',
+  // The declarative single-record field write (spec 17.3.0). Promoted from
+  // inventory-only to declared `ActionDef` fields when the runner learned to
+  // read them — the branch that dispatches `operation: 'update'` on the
+  // platform action route, ahead of `type`.
+  'operation',
+  'patch',
   'mode',
   'recordIdField',
   'recordIdParam',
@@ -256,17 +262,13 @@ export const SPEC_ACTION_KEYS = [
   // `bulkActionDefs`: `operation: 'update'` applies `patch` (merged UNDER the
   // collected `params`) to the current record on the data plane AS THE CALLER.
   //
-  // Listed here for the same reason `description` above is, and with the same
-  // limits: this array's contract is "every property the spec's `ActionSchema`
-  // declares", so listing them RESTATES the spec rather than adopting a
-  // feature. `ActionDef` does NOT declare either key and is not changed, no
-  // runner branch reads them, and no action surface forwards them — that is a
-  // deliberate omission under the maintainer's 2026-09-05 ruling on this bump
-  // ("record both as justified omissions now; forward only the key a runtime
-  // actually reads, once its semantics are read from upstream — no speculative
-  // forwarding"). What these two entries buy is the one thing the inventory is
-  // consulted for: an action carrying them is no longer reported as having
-  // unknown keys, which is a dev-mode console warning and nothing else.
+  // Both keys were inventory-ONLY when that bump landed, under the maintainer's
+  // 2026-09-05 ruling on it ("record both as justified omissions now; forward
+  // only the key a runtime actually reads, once its semantics are read from
+  // upstream — no speculative forwarding"). That condition is now met: the
+  // runner reads both (`executeUpdateOperation`, dispatched ahead of `type`),
+  // `ActionDef` declares both, and every action surface forwards them — which
+  // is what `check:action-forward-parity` now requires rather than excuses.
   'operation',
   'order',
   'params',

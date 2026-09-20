@@ -142,7 +142,7 @@ export default function RunnerApp() {
              setPageSchema({
                type: 'page',
                title: 'Welcome to Object UI',
-               body: [{ type: 'div', className: "p-10 text-center text-muted-foreground", body: 'No index page found.' }]
+               children: [{ type: 'div', className: "p-10 text-center text-muted-foreground", children: 'No index page found.' }]
              } as any);
           } else {
              setPageSchema(null);

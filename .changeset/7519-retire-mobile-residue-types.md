@@ -21,8 +21,10 @@ declared-surface-with-no-consumption-path shape as `MobileComponentConfig`
 itself and `MobileOverrides` (objectui#4919) before it, one level down.
 
 Removed outright rather than kept as `?: never` tombstones, measured against
-this package's two-prong discriminator (a tombstone steers authors to a named
-live replacement key, or keeps loud a key the docs taught as working). Prong 1:
+this package's retire-vs-remove discriminator, in the form objectui#7678
+amended it to. That rule is cited here and not restated: it is stated once, and
+a second copy carried in a release note could only drift out of agreement with
+it. The per-prong measurement it asks for is kept as the record. Prong 1:
 neither has a replacement key — the behaviour they named lives in hooks, and
 `SpecGestureConfig` is a different contract, not a successor. Prong 2: the only
 release-note lines naming either are the objectstack#4115 rename-ledger rows

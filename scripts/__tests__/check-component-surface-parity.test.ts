@@ -218,12 +218,14 @@ describe('check-component-surface-parity', () => {
 
   describe('`inputs` ⊆ the key set -- an OMISSION is legal', () => {
     /**
-     * objectui#7316 is the live specimen and it must stay green here: `toast` /
-     * `sonner` declare and read `buttonVariant`, and both registry `inputs`
-     * arrays omit it. The ruling's rule is a SUBSET relation, so an omission is
-     * not a violation. This assertion exists so that widening the rule to a
-     * two-way mirror -- which would make that card's shape red -- cannot happen
-     * silently.
+     * objectui#7316 WAS the live specimen: `toast` / `sonner` declared and read
+     * `buttonVariant` while both registry `inputs` arrays omitted it. That card
+     * is resolved -- both now declare the key -- so the specimen is gone from
+     * the tree and this fixture is the only place the shape survives. It is
+     * kept, deliberately: the ruling's rule is a SUBSET relation, an omission
+     * is not a violation, and this assertion exists so that widening the rule
+     * to a two-way mirror cannot happen silently. Do NOT read the resolution of
+     * one specimen as licence to drop the rule it exercised.
      */
     it('is silent on a key the interface declares and the renderer reads but `inputs` omits', async () => {
       const root = tree(

@@ -260,6 +260,9 @@ const de = {
       selectBusinessUnit: "Geschäftseinheit auswählen",
       selectPosition: "Position auswählen",
       selectUnitAndSubordinates: "Geschäftseinheit auswählen",
+      selectField: "Benutzerfeld auswählen",
+      noUserFields: "Dieses Objekt hat keine Benutzerfelder",
+      fieldNotUserTyped: "{{name}} — kein Benutzerfeld",
     },
     filterCondition: {
       selectObjectFirst: "Wählen Sie zuerst ein Objekt.",
@@ -283,6 +286,10 @@ const de = {
         "Nicht gespeichert: {{name}} „{{text}}“ ist keine Zahl. Geben Sie einfache Dezimalzahlen ein (Beispiel: 30.2741, 120.1551).",
       refusedResidue:
         "Nicht gespeichert: {{name}} „{{text}}“ und {{otherName}} „{{otherText}}“ sind keine Zahlen. Geben Sie einfache Dezimalzahlen ein (Beispiel: 30.2741, 120.1551).",
+    },
+    number: {
+      badInput:
+        "Nicht gespeichert: Der Text in diesem Feld ist keine Zahl. Geben Sie eine einfache Dezimalzahl ein (Beispiel: {{example}}).",
     },
     tags: {
       placeholder: "Tippen und mit der Eingabetaste hinzufügen…",
@@ -1460,6 +1467,9 @@ const de = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Zurück zur Startseite",
+    },
     saveAdvisoryTitle: "Gespeichert — die Autorenprüfung ergab {{count}} Hinweis(e)",
     publishAdvisoryTitle: "Veröffentlicht — die Autorenprüfung ergab {{count}} Hinweis(e)",
     importMappingsUnavailable: "Gespeicherte Importzuordnungen für {{object}} konnten nicht geladen werden",
@@ -1843,6 +1853,13 @@ const de = {
       searching: "Suche…",
       records: "Datensätze",
       recentRecords: "Zuletzt angesehen",
+    },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'Ungewöhnliches Lesevolumen in dieser Umgebung',
+      ratio: 'Pro geschriebener Zeile werden {{ratio}} Zeilen gelesen. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
+      noWritesTitle: 'Lesevorgänge ganz ohne Schreibvorgänge in dieser Umgebung',
+      noWrites: 'Es werden Zeilen gelesen, aber überhaupt keine geschrieben, sodass die Leserate keine Obergrenze hat. Das ist der schwerwiegendste Messwert. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
     },
     errors: {
       somethingWentWrong: "Etwas ist schiefgelaufen",
@@ -2240,6 +2257,15 @@ const de = {
       role: "Rolle",
       save: "Änderungen speichern",
     },
+    language: {
+      title: "Sprache",
+      description: "Die Sprache für Benachrichtigungen und Nachrichten, die an Sie gesendet werden. Die Oberflächensprache wird separat über das Globus-Menü gewählt.",
+      label: "Bevorzugte Sprache",
+      systemDefault: "Standard der Bereitstellung verwenden",
+      save: "Speichern",
+      saved: "Spracheinstellung aktualisiert.",
+      readOnly: "Die Sprache Ihres Kontos wird von Ihrer Administration verwaltet.",
+    },
     password: {
       changeTitle: "Passwort ändern",
       setTitle: "Lokales Passwort festlegen",
@@ -2480,6 +2506,7 @@ const de = {
     resultsCount: "{{count}} Ergebnis für „{{query}}“",
     resultsCountPlural: "{{count}} Ergebnisse für „{{query}}“",
     itemsAvailable: "{{count}} Elemente verfügbar",
+    itemsAvailableOne: "{{count}} Element verfügbar",
     noResults: "Keine Ergebnisse gefunden",
     noResultsHint: "Versuchen Sie, Ihre Suchbegriffe anzupassen",
     typeObjects: "Objekte",
@@ -3245,6 +3272,7 @@ const de = {
     },
   },
   approvalsInbox: {
+    recordUnresolvable: 'Dieser Datensatz kann nicht geöffnet werden',
     loadMore: 'Mehr laden',
     loadingMore: 'Wird geladen…',
     loadedOf: '{{loaded}} von {{total}} geladen',
@@ -3478,7 +3506,7 @@ const de = {
       revertLabel: 'Eine Änderung rückgängig gemacht',
       applyLabel: 'Build-Änderung',
       revert: 'rückgängig',
-      items: 'Elemente',
+      items: 'Elemente: {{count}}',
       revertAction: 'Rückgängig',
       reverted: 'Rückgängig gemacht — die Änderung wurde zurückgenommen.',
       revertFailed: 'Rückgängig machen fehlgeschlagen',

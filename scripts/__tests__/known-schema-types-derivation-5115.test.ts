@@ -106,6 +106,59 @@ describe('the two drifted types objectui#5115 was filed for', () => {
   });
 });
 
+describe('registrations whose options arrive by reference (objectui#9641)', () => {
+  /**
+   * `page.tsx` declares one options object and registers five page kinds from
+   * it — one taking it whole, four spreading it to vary the label. All five are
+   * namespaced (`ui`) at runtime, so the registry stores ten keys; the
+   * derivation resolved only the five bare ones and said nothing, and the list
+   * shipped to `objectui check` was short by exactly the namespaced half.
+   *
+   * ⚠️ What made that expensive is not the size. Three instruments on
+   * objectui#9263 — that card's census, the dev's independent re-take, and this
+   * repository's own `deriveRegistryKeys` — agreed that a page registration was
+   * unused. They agreed because two of them were reading through this blind
+   * spot, not because they were independent.
+   *
+   * The MECHANISM is pinned over fixture trees in
+   * `check-doc-component-types.test.ts` — `resolves a namespace passed by
+   * SPREAD` and its neighbours for what the derivation READS, and the
+   * `reports options it cannot read` and `refuses a name` families for what it
+   * refuses — which is where a pin can fail on the old derivation and pass on
+   * the new one.
+   * What belongs HERE is the live-tree consequence: these keys reach the
+   * shipped list. The two halves are
+   * deliberately separate — an assertion about key strings alone would also be
+   * satisfied by a hand-edited generated file, and it is only the
+   * byte-for-byte regenerability pin below that rules that out.
+   */
+  it('⭐ ships the namespaced half of every page kind, not just the bare fallback', () => {
+    for (const type of ['ui:page', 'ui:app', 'ui:utility', 'ui:home', 'ui:record']) {
+      expect(derived.keys.has(type), `${type} is a real runtime registry key`).toBe(true);
+      expect(isKnownSchemaType(type), `${type} must not be reported as an unknown schema type`).toBe(true);
+    }
+  });
+
+  it('keeps the bare fallbacks it always had — this repair adds a half, it does not move one', () => {
+    // ⚠️ A REGRESSION GUARD, not a mechanism pin: it passes on both sides of
+    // the objectui#9641 change, because these five bare keys were derived
+    // before it too. What it excludes is a repair that traded the bare half for
+    // the namespaced one, which no ablation of the repair can show.
+    for (const type of ['page', 'app', 'utility', 'home', 'record']) {
+      expect(isKnownSchemaType(type)).toBe(true);
+    }
+  });
+
+  it('is not vacuous: the tree still contains registrations read through a reference', () => {
+    // The counter the derivation prints, never a number copied here (AGENTS #9):
+    // if `page.tsx` is rewritten to spell its options out at each call, this
+    // drops to zero and the pin above starts passing for a reason that has
+    // nothing to do with the repair. That is the day to re-read this block, not
+    // to delete it — some other registration will reach for the same shape.
+    expect(derived.counters.metaViaReference).toBeGreaterThan(0);
+  });
+});
+
 describe('the generated module is regenerable', () => {
   it('matches what the regeneration script would write, byte for byte', () => {
     // Keeps `node scripts/regenerate-known-schema-types.mjs` honest: if the

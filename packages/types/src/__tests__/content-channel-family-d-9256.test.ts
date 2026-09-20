@@ -50,9 +50,28 @@
  *     `calendar`'s tombstone by declaration (`Omit` on the TS face, `.extend()`
  *     on the mirror) and is pinned as its own row so the propagation is
  *     measured and not assumed.
- *   - `list` and `timeline` stay out: both declare in `data-display.ts`, which
- *     objectui#7804 slice 1 is editing on another branch. A serial constraint,
- *     not a verdict.
+ *   - ⭐ `list` and `timeline` are narrowed HERE, by objectui#9256 slice 3. They
+ *     were held for a SERIAL constraint and ⛔ never for a verdict: both declare
+ *     in `data-display.ts`, which another slice was editing. That constraint is
+ *     discharged, and READERSHIP was re-derived for both rather than inherited —
+ *     ownership (objectui#9264) settles who answers a bare key and licenses
+ *     NOTHING about which channel a renderer reads, which is the conflation that
+ *     would have narrowed `button`. `ListSchema` and `TimelineSchema` each file
+ *     ZERO channel reads under their declared type while the same sweep fires
+ *     `ButtonSchema` 2 · `DivSchema` 2 · `CardSchema` 2 · `ContainerSchema` 1, and
+ *     both target types ARE seen as receivers in the same program (`ListSchema`
+ *     for `bind` / `items` / `ordered` / `title` / `wrapperClass`, `TimelineSchema`
+ *     for `items` / `minDate` / `maxDate` / `rowLabel`) — so the zeros are
+ *     readings and not instrument blindness.
+ *   - ⚠️ `timeline`'s bare key is owned by `view:timeline`, whose renderer is
+ *     `any`-typed, so a receiver-type sweep alone would have scored it "reads
+ *     neither" for the wrong reason. Attributed directly instead: the whole of
+ *     `packages/plugin-timeline` contains NO `body` / `children` read, on any
+ *     receiver.
+ *   - ⚠️ `list`'s renderer DOES read a `body` — `item.content ||
+ *     renderChildren(item.body)` — but that is the ITEM channel, filed under
+ *     `ListItem` and not under `ListSchema`, the same shape as `tabs`. A LIVE
+ *     CONTROL below keeps the item channel parsing.
  *   - ⛔ `button` stays out, and the reason CHANGED under re-derivation.
  *     `check:registry-bare-names` reports `ui:button` as the sole owner of the
  *     bare key — but that owner's renderer reads
@@ -76,6 +95,13 @@
  *     records that key as "two different meanings of one key — a naming
  *     collision to rule on". Their `children` channel is narrowed here, and the
  *     LIVE CONTROL below proves `body` still parses there.
+ *     ⚠️ AMENDED (objectui#8572): that ruling has since been made and it reaches
+ *     ONE of the three faces — `ChatbotSchema`'s own `body`, whose disposition is
+ *     that card's to state and ⛔ is not restated here. The hold-out this card
+ *     recorded still stands on the two TWIN faces, so both controls below are
+ *     RE-POINTED at a twin rather than inverted; what this card asserts — that it
+ *     narrowed `children` on the chatbot faces and left their `body` alone — is
+ *     unmoved.
  *
  * ## ⚠️ Half of this file is a COMPILE-TIME assertion and vitest CANNOT read it
  *
@@ -97,6 +123,8 @@ import {
   TabsSchema as TabsMirror,
 } from '../zod/layout.zod';
 import {
+  ListSchema as ListMirror,
+  TimelineSchema as TimelineMirror,
   HtmlSchema as HtmlMirror,
   AvatarSchema as AvatarMirror,
   TreeViewSchema as TreeViewMirror,
@@ -176,17 +204,16 @@ import {
   FilterUISchema as FilterUIMirror,
   SortUISchema as SortUIMirror,
 } from '../zod/views.zod';
-import { ChatbotSchema as ChatbotBodyControl } from '../zod/complex.zod';
 import { AnyComponentSchema } from '../zod/index.zod';
 import type { CollapsibleSchema } from '../disclosure';
 import type { DialogSchema } from '../overlay';
 import type { SeparatorSchema } from '../layout';
 import type { CheckboxSchema } from '../form';
-import type { KbdSchema, PivotTableSchema } from '../data-display';
+import type { KbdSchema, PivotTableSchema, ListSchema, TimelineSchema } from '../data-display';
 import type { SkeletonSchema } from '../feedback';
 import type { PaginationSchema } from '../navigation';
 import type { ObjectGallerySchema } from '../objectql';
-import type { CarouselSchema, ChatbotSchema } from '../complex';
+import type { CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema } from '../complex';
 import type { ReportViewerSchema } from '../reports';
 import type { ViewSwitcherSchema } from '../views';
 import type { NLQuerySchema } from '../ai';
@@ -258,6 +285,22 @@ const ROWS: ReadonlyArray<readonly [
   ['table', TableMirror as unknown as Mirror, ['body', 'children'], {"data":[],"columns":[]}],
   ['data-table', DataTableMirror as unknown as Mirror, ['body', 'children'], {"data":[],"columns":[]}],
   ['calendar-view', CalendarViewMirror as unknown as Mirror, ['body', 'children'], {}],
+  // ⚠️ ONE-SIDED ROW, and ⛔ not a two-sided reading (objectui#9659, carrying a
+  // contract-review residual on objectui#9639). The three rows below list `children`
+  // only, and on the two TWIN faces that still means what it always meant: `children`
+  // dead, `body` held out and LIVE, with the same-face LIVE CONTROL below proving it.
+  // On the PLAIN `chatbot` face it no longer does. Ruling A on objectui#8572 retired
+  // `ChatbotSchema.body` as an ADR-0049 tombstone for a DIFFERENT reason than this card's
+  // — a naming collision, not a dead content channel — and objectui#9639 landed it, so
+  // the plain face refuses BOTH channels today. Measured: `body` is ACCEPTED on
+  // `chatbot-enhanced` and `chatbot-floating`, REFUSED on `chatbot`.
+  // ⇒ the absence of `body` from the plain row means "not this card's to assert", ⛔ not
+  // "still live here", and objectui#9639 had to re-point both controls below at a twin
+  // precisely because no same-face control is available any more. The `body` half of the
+  // plain face is pinned by `node-recursion-point-8344.test.ts`, which owns objectui#8572.
+  // ⛔ Do not add `'body'` to the plain row to "fix" this: the message that row's
+  // assertions read is objectui#9256's, and the plain face's tombstone carries
+  // objectui#8572's instead — the row would go red on a true statement.
   ['chatbot', ChatbotMirror as unknown as Mirror, ['children'], {"messages":[]}],
   ['chatbot-enhanced', ChatbotEnhancedMirror as unknown as Mirror, ['children'], {"messages":[]}],
   ['chatbot-floating', ChatbotFloatingMirror as unknown as Mirror, ['children'], {"messages":[]}],
@@ -282,6 +325,11 @@ const ROWS: ReadonlyArray<readonly [
   ['accordion', AccordionMirror as unknown as Mirror, ['body', 'children'], {"items":[]}],
   ['calendar', CalendarMirror as unknown as Mirror, ['body', 'children'], {}],
   ['ui:calendar', UiCalendarMirror as unknown as Mirror, ['body', 'children'], {}],
+  // ── objectui#9256 slice 3 — the two names a SERIAL constraint held back ──
+  // Readership re-derived for both rather than inherited from the slice that
+  // held them; ownership is a different question and licenses nothing here.
+  ['list', ListMirror as unknown as Mirror, ['body', 'children'], {"items":[]}],
+  ['timeline', TimelineMirror as unknown as Mirror, ['body', 'children'], {}],
 ];
 
 const CONTENT = [{ type: 'text', content: 'measured' }];
@@ -296,9 +344,9 @@ const CASES = ROWS.flatMap(([type, mirror, dead, required]) =>
 
 describe('objectui#9256 — family D refuses the content channels its renderers never read', () => {
   it('the population is the measured one — a row dropped from the table fails here', () => {
-    expect(ROWS).toHaveLength(65);
+    expect(ROWS).toHaveLength(67);
     // 3 fewer than 2x: the chatbot faces carry `children` only.
-    expect(CASES).toHaveLength(65 * 2 - 3);
+    expect(CASES).toHaveLength(67 * 2 - 3);
   });
 
   it.each(CASES)('%s is refused at that key\'s own path', (_label, mirror, key, required) => {
@@ -341,28 +389,44 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
     expect(Object.keys(mirror.shape)).toContain(key);
   });
 
-  it('LIVE CONTROL — `chatbot` still accepts `body`, the key held out of this card', () => {
-    // The parity ledger records `body` here as "two different meanings of one
-    // key — a naming collision to rule on": the mirror declares it as API
-    // request params, the declaration inherits the base's content channel.
-    // Refusing it would have been a guess, so it is untouched — and this line
-    // is what keeps the row above a reading about `children`.
-    const r = (ChatbotBodyControl as unknown as Mirror)
-      .safeParse({ type: 'chatbot', messages: [], body: { temperature: 0.2 } });
-    expect(r.success).toBe(true);
+  it('LIVE CONTROL — the chatbot family still accepts `body`, the channel held out of this card', () => {
+    // The held-out channel, still held out — RE-POINTED, not inverted, by
+    // objectui#8572. This control was aimed at `ChatbotSchema`, whose own `body`
+    // the parity ledger recorded as "two different meanings of one key — a naming
+    // collision to rule on"; that ruling has since been made and belongs to its
+    // own card, ⛔ which is why this line does not restate its verdict here.
+    //
+    // ⚠️ THE HOLD-OUT ENDED, and not by a decision on this card. It read: the
+    // two TWIN faces inherit `body` as the content channel, only their
+    // `children` is narrowed here. objectui#6771 retired `body` on `BaseSchema`
+    // itself, so there is no content channel left to inherit — and an inherited
+    // refusal would have named `children` as the remedy, which is refused on
+    // these two as well. Each twin therefore declares the same NEITHER-channel
+    // tombstone its `children` already carried, pointing at `requestBody`.
+    // ⛔ This is not a narrowing this card chose: the sentence was already
+    // asserted here, only the declaration was missing.
+    const r = (ChatbotEnhancedMirror as unknown as Mirror)
+      .safeParse({ type: 'chatbot-enhanced', messages: [], body: CONTENT });
+    expect(r.success).toBe(false);
+    const bodyIssue = (r.success ? [] : r.error!.issues).find((i) => i.path.join('.') === 'body');
+    expect(bodyIssue?.message).toContain('requestBody');
+    // CONTROL — the key an author should write instead still parses.
+    expect((ChatbotEnhancedMirror as unknown as Mirror)
+      .safeParse({ type: 'chatbot-enhanced', messages: [], requestBody: { model: 'gpt-4' } }).success).toBe(true);
   });
 
-  it('LIVE CONTROL — `button` still accepts BOTH channels: it is family C, not family D', () => {
-    // Re-derived at this branch point, and it contradicts the table this slice
-    // was dispatched from: `ui:button` owns the bare `button` key, and that
-    // renderer reads `schema.label || renderChildren(schema.body || schema.children)`
-    // — a LIVE fallback. Narrowing it would REMOVE A LIVE READ, which is a
-    // behaviour change and the maintainer's call (objectui#8284), so `button`
-    // is untouched and this line is what keeps the rows above a reading about
-    // the six that moved rather than about the whole mirror.
+  it('`button` is family C with ONE channel left — the `body` arm was retired, not narrowed away', () => {
+    // This line used to read `button` accepts BOTH channels, on the ground that
+    // `ui:button` renders `schema.label || renderChildren(schema.body || schema.children)`
+    // — a LIVE fallback whose removal was a behaviour change and the
+    // maintainer's call. That call was made: objectui#6771's ruling puts the
+    // `body` arm of every fallback reader in scope ("single-spelling applies to
+    // fallback readers too") and names this expression explicitly. `button` is
+    // still family C — it reads a content channel, unlike family D — and the
+    // channel it reads is `children`.
     const mirror = ButtonFamilyCControl as unknown as Mirror;
-    expect(issues(mirror, { type: 'button', body: CONTENT })).toBeNull();
     expect(issues(mirror, { type: 'button', children: CONTENT })).toBeNull();
+    expect(issues(mirror, { type: 'button', body: CONTENT })).not.toBeNull();
   });
 
   it('LIVE CONTROL — the ITEM-level channel is untouched: a `tabs` item still parses `content`', () => {
@@ -376,13 +440,28 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
     })).toBeNull();
   });
 
-  it('LIVE CONTROL — family C is NOT narrowed: a `div` still accepts both channels', () => {
-    // `div` reads `children || body` (a live fallback). Removing a live read is
-    // a behaviour change and is with the maintainer, so this line must stay
-    // green for this card to be a declaration repair rather than a behaviour
-    // change.
+  it('LIVE CONTROL — `list`\'s ITEM channel is untouched: an item still parses `content`', () => {
+    // `list.tsx` draws each entry as `item.content || renderChildren(item.body)`
+    // — an ITEM read, filed under `ListItem` and NOT under `ListSchema`. An
+    // instrument that attributed it to the NODE would have made `list` a `body`
+    // reader and the row above a mistake, so the item channel is pinned as still
+    // live. `content` is the key `ListItemSchema` declares; the row above is
+    // about the node's own two keys and touches neither.
+    expect(issues(ListMirror as unknown as Mirror, {
+      type: 'list',
+      items: [{ label: 'One', content: CONTENT }],
+    })).toBeNull();
+  });
+
+  it('family C still reads a content channel — `div` takes `children`, and only `children`', () => {
+    // `div` read `children || body`, a live fallback, and this line used to pin
+    // BOTH as accepted so that this card stayed a declaration repair rather than
+    // a behaviour change. objectui#6771 made the behaviour change deliberately,
+    // under a maintainer ruling, and the distinction this control exists to
+    // guard survives it: family C reads a content channel and family D reads
+    // none. What changed is how many spellings family C answers to.
     expect(AnyComponentSchema.safeParse({ type: 'div', children: CONTENT }).success).toBe(true);
-    expect(AnyComponentSchema.safeParse({ type: 'div', body: CONTENT }).success).toBe(true);
+    expect(AnyComponentSchema.safeParse({ type: 'div', body: CONTENT }).success).toBe(false);
   });
 });
 
@@ -471,6 +550,15 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
     const calendarBody: CalendarSchema = { type: 'calendar', body: CONTENT };
     // @ts-expect-error objectui#9256 — `calendar` reads neither channel on either of its two readers
     const calendarChildren: CalendarSchema = { type: 'calendar', children: CONTENT };
+    // ── slice 3: the two names a SERIAL constraint held back ──────────────
+    // @ts-expect-error objectui#9256 — `list` renders `items[]`, never the node's own channel
+    const listBody: ListSchema = { type: 'list', items: [], body: CONTENT };
+    // @ts-expect-error objectui#9256 — `list` renders `items[]`, never the node's own channel
+    const listChildren: ListSchema = { type: 'list', items: [], children: CONTENT };
+    // @ts-expect-error objectui#9256 — `timeline` reads neither channel on either of its two readers
+    const timelineBody: TimelineSchema = { type: 'timeline', body: CONTENT };
+    // @ts-expect-error objectui#9256 — `timeline` reads neither channel on either of its two readers
+    const timelineChildren: TimelineSchema = { type: 'timeline', children: CONTENT };
     // ⚠️ TRIPWIRE, and deliberately NOT a `@ts-expect-error`. `UiCalendarSchema`
     // is declared as `Omit<CalendarSchema, 'type'>`, and `BaseSchema` carries an
     // index signature — so `Omit` resolves through `Exclude<string, 'type'>` =
@@ -493,7 +581,8 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
       textBody, textChildren, imageBody, imageChildren, iconBody, iconChildren,
       tabsBody, tabsChildren, accordionBody, accordionChildren, calendarBody, calendarChildren,
       uiCalendarBody,
-    ]).toHaveLength(28);
+      listBody, listChildren, timelineBody, timelineChildren,
+    ]).toHaveLength(32);
   });
 
   it('CONTROL — the same nodes WITHOUT a content channel compile (no `@ts-expect-error` here, and `tsc` is the reader)', () => {
@@ -504,19 +593,35 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
       { type: 'checkbox' } satisfies CheckboxSchema,
       { type: 'dialog', content: CONTENT } satisfies DialogSchema,
       { type: 'collapsible', trigger: CONTENT, content: CONTENT } satisfies CollapsibleSchema,
+      // The ITEM channel of `list`, on the TypeScript face: `ListItem.content`
+      // is declared and stays authorable. `tsc` is the reader of this line, and
+      // it is what keeps the two `list` rows above a statement about the NODE.
+      { type: 'list', items: [{ label: 'One', content: CONTENT }] } satisfies ListSchema,
     ];
-    expect(ok).toHaveLength(6);
+    expect(ok).toHaveLength(7);
   });
 
-  it('CONTROL — `chatbot` still TYPE-CHECKS with `body`, the held-out key', () => {
-    // ⚠️ The VALUE differs from the mirror control above, and that difference
-    // IS the ledgered collision: the TypeScript face inherits `body` from
-    // `BaseSchema` as a content channel (`SchemaNode | SchemaNode[]`), while
-    // the mirror declares it as `Record` of unknown, "additional API body
-    // params". One key, two meanings, on the two published faces of one node —
-    // which is why objectui#9256 refuses to tombstone it on a measurement and
-    // leaves it for a ruling.
-    const held = { type: 'chatbot', messages: [], body: CONTENT } satisfies ChatbotSchema;
-    expect(held.type).toBe('chatbot');
+  it('the chatbot family no longer TYPE-CHECKS with `body` — the held-out channel was retired under it', () => {
+    // RE-POINTED by objectui#8572, for the reason spelled out at the mirror
+    // control above, and ⛔ deliberately not restating that card's verdict here.
+    //
+    // ⚠️ INVERTED, and not by a decision on this card. Its claim was: objectui#9256
+    // narrowed `children` on the chatbot faces and left their `body` channel
+    // alone, `body` arriving from `BaseSchema` as the content channel. objectui#6771
+    // retired `body` on `BaseSchema` itself, so there is no content channel left
+    // to inherit and each twin now declares the same NEITHER-channel tombstone
+    // its `children` sentence already asserted. ⇒ the hold-out ended by the base
+    // moving, not by this card re-deciding anything. `tsc`, not vitest, is the
+    // reader of both lines below.
+    // @ts-expect-error objectui#6771 — `body` is retired; this family authors `requestBody`
+    const retired = { type: 'chatbot-enhanced', messages: [], body: CONTENT } satisfies ChatbotEnhancedSchema;
+    // CONTROL — the key an author should write instead still compiles, so the
+    // line above is a reading about `body` and not about the whole declaration.
+    const live = {
+      type: 'chatbot-enhanced',
+      messages: [],
+      requestBody: { model: 'gpt-4' },
+    } satisfies ChatbotEnhancedSchema;
+    expect([retired.type, live.type]).toEqual(['chatbot-enhanced', 'chatbot-enhanced']);
   });
 });

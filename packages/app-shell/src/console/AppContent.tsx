@@ -29,6 +29,7 @@ import {
 } from '../providers/ExpressionProvider.js';
 import { buildExpressionUser } from '../providers/expressionUser.js';
 import { useTrackRouteAsRecent } from '../hooks/useTrackRouteAsRecent.js';
+import { useHomePath } from '../hooks/useHomePath.js';
 import { resolveRecordFormTarget, resolveFormViewLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget } from '../utils/recordFormNavigation.js';
 import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-view';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
@@ -170,6 +171,12 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const location = useLocation();
   const { appName } = useParams();
   const { apps, objects: allObjects, loading: metadataLoading, ensureType, error: metadataError, refresh: refreshMetadata } = useMetadata();
+  // objectui#7373 — where this file's two "you cannot be here" exits land. Both
+  // sit BELOW the readiness gate further down (`metadataLoading` &c), so the
+  // list they resolve against has settled; an app list that failed to load is
+  // `[]`, which resolves to the launcher — the unchanged status quo, never a
+  // worse answer than the literal it replaced.
+  const homePath = useHomePath();
   const previewDrafts = usePreviewDrafts();
   const { t } = useObjectTranslation();
   const { objectLabel } = useObjectLabel();
@@ -693,7 +700,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // objectui#5619 — `isWorkspaceAdminResolved` belongs in this readiness gate
   // for the same reason `metadataLoading` does: everything below branches on
   // the verdict. The guard at the "no active app" strand turns a `false` into a
-  // `<Navigate to="/home" replace>` that the later flip to `true` cannot undo,
+  // replacing redirect to home that the later flip to `true` cannot undo,
   // and the chrome this mounts (ConsoleLayout -> UnifiedSidebar / AppHeader)
   // reads the same verdict to decide which navigation exists. Waiting for three
   // of four inputs and acting on the fourth mid-flight is the defect itself.
@@ -745,13 +752,17 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     //
     // No Retry here — retrying a permission decision cannot change it, and a
     // button that promises otherwise is the same misdirection one layer down.
-    // The way back is `/home` instead, because this screen (like every no-app
+    // The way back is HOME instead, because this screen (like every no-app
     // surface in this file) returns ABOVE the single `ConsoleLayout` mount and
     // so carries no header, no navigation and no workspace switcher — the
-    // objectui#4473 strand, which a dead end here would recreate. Router-relative
-    // for the same reason as that fix: `<Navigate>`/`navigate` resolve through
-    // the host's `basename`, and `/home` is part of the outer skeleton every
-    // host mounting this component provides (see this file's header).
+    // objectui#4473 strand, which a dead end here would recreate. Which home is
+    // the DECLARED one (objectui#7373): a control-plane customer bounced to the
+    // environment launcher lands among cards that act on an environment their
+    // deployment does not have. Router-relative for the same reason as the
+    // #4473 fix: `<Navigate>`/`navigate` resolve through the host's `basename`,
+    // and both the declared landing and the launcher fallback are part of the
+    // outer skeleton every host mounting this component provides (see this
+    // file's header).
     if (accessVerdict === 'denied') {
       return (
         <div className="h-screen flex items-center justify-center">
@@ -766,7 +777,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
               })}
             </EmptyDescription>
             <div className="mt-4">
-              <Button onClick={() => navigate('/home')} data-testid="app-access-denied-home">
+              <Button onClick={() => navigate(homePath)} data-testid="app-access-denied-home">
                 {t('empty.appAccessDeniedHome', { defaultValue: 'Back to home' })}
               </Button>
             </div>
@@ -850,16 +861,24 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // WORKSPACE-level fact ("no apps are registered") that a per-user-filtered
   // list cannot establish, and offers two actions — create an app, open system
   // settings — that a non-admin cannot perform. For a workspace admin it stays
-  // the deliberate first-run surface (#3573 / #3590). For everyone else `/home`
-  // is the honest destination: it renders inside the shell (top bar + workspace
+  // the deliberate first-run surface (#3573 / #3590). For everyone else HOME is
+  // the honest destination: it renders inside the shell (top bar + workspace
   // switcher) and already carries the role-aware copy for this state ("No
   // applications yet — your workspace is being set up…", `home/HomePage.tsx`).
   // `replace`, so the strand is not left in history behind them.
   //
+  // WHICH home is `homePath` (objectui#7373), not the launcher literal this
+  // line used to carry: on a deployment that DECLARES a landing the launcher is
+  // the wrong screen to strand someone on — cloud's control plane has no
+  // environment for its "Build an app" cards to act on. Where nothing is
+  // declared `homePath` IS the launcher, so this branch is unchanged for every
+  // ordinary environment.
+  //
   // Router-relative on purpose: `<Navigate>` resolves through the host's
   // `basename`, so the console's `/_console` mount is preserved without
   // building a URL by hand (`resolveConsoleUrl` is for full-page navigations
-  // that leave the router — see `organizations/resolveHomeUrl.ts`). `/home` is
+  // that leave the router — see `organizations/resolveHomeUrl.ts`). Both the
+  // declared landing and the launcher fallback are
   // part of the outer skeleton every host that mounts this component provides
   // (see this file's header), and `RequireAiSurface` in `ConsoleShell.tsx`
   // already bounces the same way for a surface this runtime cannot serve.
@@ -880,7 +899,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // (`LegacyMetadataRedirect`, `ShorthandRecordRedirect`) deliberately do NOT
     // convert -- they fire INSIDE `ConsoleLayout`, with the console already on
     // screen, and a splash there would cover a layout that never went away.
-    return <RedirectWithSplash to="/home" replace />;
+    return <RedirectWithSplash to={homePath} replace />;
   }
 
   if (!activeApp && !isCreateAppRoute && !isSystemRoute && !isMetadataRoute) return (

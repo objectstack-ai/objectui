@@ -56,12 +56,42 @@ export type ViewSwitcherProps = {
   [key: string]: any;
 };
 
+/**
+ * Totality assert for a table keyed on the WHOLE {@link ViewType}
+ * (objectui#9943). `Exclude<…>` is `never` only while every member of the union
+ * has a row; a member the spec ADDS makes it a live union and this alias stops
+ * compiling (TS2344, measured).
+ *
+ * ⛔ NOT the annotation `Record<ViewType, X>` the three tables in this package
+ * carried until objectui#9943, and the difference is the whole point. An
+ * annotated object literal is EXACT IN BOTH DIRECTIONS: it catches the added
+ * member (wanted), and it also makes a RETIRED member an excess property —
+ * TS2353 — whose only repair is deleting the row. objectstack#17063 retired the
+ * list-view kind `page`, so on a spec built from objectstack `main` all three
+ * tables here went red, while the `@objectstack/spec` this repository RESOLVES
+ * still publishes `page` and an author can still write one. `satisfies
+ * Record<string, X>` keeps the value constraint, drops the exactness, and lets
+ * one spelling compile against both specs; this alias puts the added-member
+ * half back, because `satisfies Record<string, X>` alone would silently drop
+ * the guard objectui#5321 and objectui#8127 installed.
+ *
+ * ⛔ NOT objectui#9880's repair either. That one derives the undrawable half of
+ * a PARTITION with `Extract<ViewType, keyof typeof TABLE>`, so a retired row
+ * goes inert of its own accord. These tables partition nothing — they are total
+ * over the whole union — so there is no second half to derive from and the
+ * exhaustiveness has to be asserted separately.
+ *
+ * Both directions are pinned in
+ * `__tests__/ViewSwitcher.viewTypeTotalsBothLegs-9943.test.ts`.
+ */
+type _AssertNever<T extends never> = T;
+
 // `page` (objectui#8127): this switcher is keyed on the FULL `ViewType`, not on
 // the visualization subset, because `schema.views` may name any view type the
 // spec allows — and `@objectstack/spec@17.3.0` added `page`. Unlike the
 // visualization switcher in `plugin-list`, a missing entry here is a label
 // gap on a view that legitimately exists, so the map carries it.
-const DEFAULT_VIEW_LABELS: Record<ViewType, string> = {
+const DEFAULT_VIEW_LABELS = {
   list: 'List',
   detail: 'Detail',
   grid: 'Grid',
@@ -74,7 +104,10 @@ const DEFAULT_VIEW_LABELS: Record<ViewType, string> = {
   chart: 'Chart',
   tree: 'Tree',
   page: 'Page',
-};
+} satisfies Record<string, string>;
+
+/** Every {@link ViewType} has a label — see {@link _AssertNever}. */
+type _UncoveredViewLabel = _AssertNever<Exclude<ViewType, keyof typeof DEFAULT_VIEW_LABELS>>;
 
 // objectui#5586 — every value here is a name lucide still carries in its
 // runtime `icons` record, deliberately NOT one of the deprecated ALIASES it
@@ -89,7 +122,7 @@ const DEFAULT_VIEW_LABELS: Record<ViewType, string> = {
 // into the string map. This map's membership is judged by the repo-level gate
 // `scripts/check-lucide-icon-record-names.mjs` (objectui#5633); the string map
 // beside it is judged there too and rendered in `ViewSwitcher.test.tsx`.
-const DEFAULT_VIEW_ICONS: Record<ViewType, LucideIcon> = {
+const DEFAULT_VIEW_ICONS = {
   list: List,
   detail: FileText,
   grid: Grid3x3,
@@ -102,7 +135,10 @@ const DEFAULT_VIEW_ICONS: Record<ViewType, LucideIcon> = {
   chart: ChartColumn,
   tree: ListTree,
   page: LayoutTemplate,
-};
+} satisfies Record<string, LucideIcon>;
+
+/** Every {@link ViewType} has an icon — see {@link _AssertNever}. */
+type _UncoveredViewIcon = _AssertNever<Exclude<ViewType, keyof typeof DEFAULT_VIEW_ICONS>>;
 
 const viewSwitcherLayout = cva('flex gap-4', {
   variants: {

@@ -291,11 +291,26 @@ const FIELD_RULE_VERDICT_SLOTS: readonly string[] = ['visibleWhen', 'readonlyWhe
  * imports `@objectstack/formula` at module scope, so a STATIC import here
  * would drag the CEL parser into whatever chunk holds this module and undo the
  * bundle split the header describes.
+ *
+ * ⛔ Dynamic is necessary but NOT sufficient, and this docblock used to be
+ * silent about the other half (objectui#9492). Until that card the `.then`
+ * callback below returned the imported NAMESPACE object, so the whole barrel
+ * escaped into the cached Promise and rolldown had to retain every one of its
+ * exports in the eager `framework` chunk — a dynamic specifier carrying an
+ * eager payload. Destructuring the ONE symbol this module consumes, in the
+ * callback's parameter pattern, is what lets the rest be shaken out.
+ * ⛔ Do not widen this back to a namespace binding, and ⛔ do not reach for a
+ * deep subpath instead: `@object-ui/core`'s `package.json` declares only the
+ * `"."` export key, so `@object-ui/core/rowPredicateCanon` is unreachable for a
+ * real consumer of the published package — the destructure is the form that
+ * works through the published barrel. What this chunk weighs is what
+ * `pnpm check:eager-closure` prints on your own build; ⛔ no figure is copied
+ * here (AGENTS.md #9).
  */
 function loadRowCanon(): Promise<RowCanonModule | null> {
   if (!rowCanonCached) {
     rowCanonCached = import('@object-ui/core')
-      .then((m) => m as unknown as RowCanonModule)
+      .then(({ detectNonCanonicalRowSpelling }): RowCanonModule => ({ detectNonCanonicalRowSpelling }))
       .catch(() => null);
   }
   return rowCanonCached;

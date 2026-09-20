@@ -75,6 +75,13 @@ import {
   DataApiValidationError,
   createErrorFromResponse,
 } from './errors';
+// #9594 - the ONE error-envelope reader for this module's HTTP failure paths.
+// Four hand-copied ladders each read two of the three live envelope dialects
+// and missed the flat `{ code, error: <string> }` one, so a 403 naming the
+// missing grant reached the operator as the word `Forbidden`. Deliberately NOT
+// re-exported from this entry point: it is internal, and exporting it would
+// widen this package's published face.
+import { readErrorEnvelope } from './error-envelope';
 
 /**
  * Map human-readable filter operator names produced by SDUI view configs
@@ -3374,10 +3381,13 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       // empty result so the caller can fall back instead of hard-failing.
       if (res.status === 404) return { query: trimmed, hits: [] };
       const errorBody = await res.json().catch(() => ({ message: res.statusText }));
-      const err = new Error(
-        errorBody?.error?.message || errorBody?.message || res.statusText,
-      ) as Error & { status?: number };
+      const envelope = readErrorEnvelope(errorBody);
+      const err = new Error(envelope.message ?? res.statusText) as Error & {
+        status?: number;
+        code?: string;
+      };
       err.status = res.status;
+      err.code = envelope.code;
       throw err;
     }
 
@@ -4591,7 +4601,8 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
     if (!res.ok) {
       const errorBody = await res.json().catch(() => ({ message: res.statusText }));
-      const err = new Error(errorBody?.error?.message || errorBody?.message || res.statusText) as any;
+      const envelope = readErrorEnvelope(errorBody);
+      const err = new Error(envelope.message ?? res.statusText) as any;
       err.status = res.status;
       // Carry the ADR-0112 envelope, not just the status. This branch bypasses
       // `@objectstack/client` — whose fetch wrapper stamps `code`/`httpStatus`
@@ -4601,7 +4612,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       // other 404/405, leaving the surface nothing to discriminate on
       // (objectui#4408). Same precedence as the client's wrapper: the top-level
       // `code` first, then the nested envelope's.
-      err.code = errorBody?.code ?? errorBody?.error?.code;
+      err.code = envelope.code;
       err.httpStatus = res.status;
       throw err;
     }
@@ -4677,8 +4688,10 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     const res = await this.fetchImpl(url, { method: 'GET', headers, credentials: 'include' });
     if (!res.ok) {
       const errorBody = await res.json().catch(() => ({ message: res.statusText }));
-      const err = new Error(errorBody?.error?.message || errorBody?.message || res.statusText) as any;
+      const envelope = readErrorEnvelope(errorBody);
+      const err = new Error(envelope.message ?? res.statusText) as any;
       err.status = res.status;
+      err.code = envelope.code;
       throw err;
     }
     return await res.blob();
@@ -4900,8 +4913,10 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
     if (!res.ok) {
       const errBody: any = await res.json().catch(() => ({ message: res.statusText }));
-      const err: any = new Error(errBody?.error?.message || errBody?.message || res.statusText);
+      const envelope = readErrorEnvelope(errBody);
+      const err: any = new Error(envelope.message ?? res.statusText);
       err.status = res.status;
+      err.code = envelope.code;
       throw err;
     }
 
@@ -6548,9 +6563,13 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
+      const errorBody = await response.json().catch(() => ({ message: response.statusText }));
+      // #9594 - share the DIALECT READING only. This site's envelope is not the
+      // four ladders': a different error class, a hard-coded `UPLOAD_ERROR`
+      // code, and its own last rung, all of which stay exactly as they were.
+      const envelope = readErrorEnvelope(errorBody);
       throw new ObjectStackError(
-        error.message || `Upload failed with status ${response.status}`,
+        envelope.message ?? `Upload failed with status ${response.status}`,
         'UPLOAD_ERROR',
         response.status,
       );
@@ -6606,9 +6625,13 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
+      const errorBody = await response.json().catch(() => ({ message: response.statusText }));
+      // #9594 - share the DIALECT READING only. This site's envelope is not the
+      // four ladders': a different error class, a hard-coded `UPLOAD_ERROR`
+      // code, and its own last rung, all of which stay exactly as they were.
+      const envelope = readErrorEnvelope(errorBody);
       throw new ObjectStackError(
-        error.message || `Upload failed with status ${response.status}`,
+        envelope.message ?? `Upload failed with status ${response.status}`,
         'UPLOAD_ERROR',
         response.status,
       );

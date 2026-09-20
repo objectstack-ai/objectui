@@ -25,6 +25,24 @@
  * makes a missing `mode` mean something other than `'page'`, this suite goes
  * red and the parity file stays green — which is exactly the split of duties
  * the two files are for.
+ *
+ * ⚠️ objectui#9874 rewrote one row here and added one. A navigation body
+ * carrying `view: 'summary_view'` used to ride through into `onNavigate`'s
+ * navigation-MODE argument; `@objectstack/spec` 17.5.0 retired that key under
+ * ADR-0049 and the read is gone, so the row now pins that the name does NOT
+ * reach the mode slot. ⛔ The fixture keeps its `view` member on purpose — it
+ * is the one input the old and new implementations disagree about.
+ *
+ * ⚠️ objectui#10080 split the one declaration that was carrying both of those
+ * jobs, and the member moved with the split. It is carried now as a STORED
+ * body (`AS_STORED`, typed as the record it is), not as authored metadata: the
+ * authored fixture `AS_ALIAS` spells a key the spec still declares. Nothing was
+ * dropped — the #4550 TYPE pin (an authored config may omit `mode`) and the
+ * #9874 BEHAVIOUR pin (a stored `view` is inert) are both still here, one
+ * fixture each. ⛔ The member may not go back inside a `SpecAuthoredInput`
+ * literal: the spec types the retired key `never`, so authoring it there does
+ * not compile against a current spec — which is exactly what the Spec Main
+ * Shape Gate reported about this file (objectui#9860).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -63,11 +81,50 @@ import type { NavigationConfig, NavigationMode } from '../useNavigationOverlay';
  * A spec-shaped value that the spec-derived alias will not accept is the whole
  * finding in two lines, which is why it is pinned as a declaration rather than
  * described in a comment.
+ *
+ * ⚠️ What it pins is the OMISSION of `mode`. The key it spells beside that
+ * omission only has to be one the spec still declares, and since objectui#10080
+ * that key is `size` — `navigation: { size: 'lg' }` is the example
+ * `useNavigationOverlay`'s own header gives for legal authored metadata that
+ * lets the mode default. It used to spell `view`, retired by `@objectstack/spec`
+ * 17.5.0 under ADR-0049; that member now lives on
+ * {@link STORED_WITH_RETIRED_VIEW}, as the stored value it always was.
  */
 const AUTHORED_WITHOUT_MODE: SpecAuthoredInput<typeof NavigationConfigSchema> = {
-  view: 'summary_view',
+  size: 'lg',
 };
 const AS_ALIAS: NavigationConfig = AUTHORED_WITHOUT_MODE;
+
+/**
+ * The other half of what the declaration above used to carry: a navigation body
+ * authored before `@objectstack/spec` 17.5.0 and still carrying the key that
+ * release retired — what a database holds, handed to a hook that must ignore it.
+ *
+ * ⛔ Deliberately NOT typed through the authoring schema, and the retirement is
+ * the reason. 17.5.0 removed `view` under ADR-0049 (enforce-or-remove) and left
+ * a tombstone in the shape on purpose, so `NavigationConfigSchema` types the key
+ * `never` and `SpecAuthoredInput<…>` accepts no string for it. That is correct
+ * and it is not worked around here: nobody may AUTHOR this key today, and this
+ * value is not authored metadata. Spelling it inside the `SpecAuthoredInput`
+ * literal above said it was — the category error that made the BEHAVIOUR pin a
+ * compile error the moment a current spec was in front of it (objectui#10080,
+ * the one diagnostic the Spec Main Shape Gate reported).
+ *
+ * `packages/plugin-grid/src/__tests__/gridNavigationMembers-8071.test.tsx` feeds
+ * the identical legacy body through a `Record<string, unknown>` parameter and
+ * kept both of its rows through the retirement; this is the same shape, and the
+ * precedent was copied rather than invented.
+ *
+ * ⚠️ The assertion on the next line is the whole unsafe step, and it is here
+ * once, in the open, rather than at each call site: the hook's parameter is the
+ * AUTHORING type, so a stored body can only reach it by saying out loud that it
+ * is one. What it must not become is a fixture that authors the retired key
+ * again.
+ */
+const STORED_WITH_RETIRED_VIEW: Record<string, unknown> = {
+  view: 'summary_view',
+};
+const AS_STORED = STORED_WITH_RETIRED_VIEW as NavigationConfig;
 
 /** Every mode the hook's `handleClick` switches on, for the exhaustiveness pin. */
 const EVERY_MODE: NavigationMode[] = [
@@ -96,19 +153,43 @@ describe('useNavigationOverlay: a config without `mode` defaults to `page` (obje
     expect(result.current.isOpen).toBe(false);
   });
 
-  it('routes a click through the `page` branch, carrying the declared view', () => {
+  it('routes a click through the `page` branch WITHOUT a stored `view` reaching the mode slot (objectui#9874)', () => {
     const onNavigate = vi.fn();
     const { result } = renderHook(() =>
-      useNavigationOverlay({ navigation: AS_ALIAS, objectName: 'contacts', onNavigate }),
+      useNavigationOverlay({ navigation: AS_STORED, objectName: 'contacts', onNavigate }),
     );
 
     act(() => {
       result.current.handleClick(RECORD);
     });
 
-    // `view ?? 'view'` — the authored `view` survives the default-mode path.
-    expect(onNavigate).toHaveBeenCalledWith('r1', 'summary_view');
+    // ⭐ THE DISAGREEMENT ROW. `AS_STORED` carries `view: 'summary_view'`, and
+    // this line used to read `toHaveBeenCalledWith('r1', 'summary_view')` under
+    // the comment "`view ?? 'view'` — the authored `view` survives the
+    // default-mode path". It did survive, into the wrong slot: the second
+    // argument is the navigation MODE token, so the authored name SUBSTITUTED
+    // for the mode and matched no branch in a host reading it against
+    // `edit`/`view` — the silence `@objectstack/spec` 17.5.0 retired the key to
+    // end (ADR-0049). The old implementation and this one disagree on exactly
+    // this input, which is why the fixture keeps its `view` member.
+    expect(onNavigate).toHaveBeenCalledWith('r1', 'view');
+    expect(onNavigate).not.toHaveBeenCalledWith('r1', 'summary_view');
     expect(result.current.isOpen).toBe(false);
+  });
+
+  it('publishes no `view` member on its state — the key it mirrored is retired (objectui#9874)', () => {
+    const { result } = renderHook(() =>
+      useNavigationOverlay({ navigation: AS_STORED, objectName: 'contacts' }),
+    );
+
+    // Asserted on the KEY, not on the value: `toBeUndefined()` passes just as
+    // happily against a member that is present and empty, which is the state
+    // this card removed. The lit control is the sibling members in the same
+    // expectation — without them an empty `state` object would pass row one.
+    expect(Object.keys(result.current)).not.toContain('view');
+    expect(Object.keys(result.current)).toEqual(
+      expect.arrayContaining(['mode', 'isOverlay', 'width', 'handleClick']),
+    );
   });
 
   it('falls back to the `view` action when the config declares neither key', () => {

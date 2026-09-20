@@ -15,6 +15,14 @@ const DISCUSSION_TYPES = new Set(['record:discussion', 'record:chatter']);
  * these walkers at all; without it the synthesized `record:discussion` is
  * invisible and the host used to append a SECOND chatter panel on top of it.
  */
+// ⚠️ `body` STAYS here through objectui#6771's retirement of the dialect, on
+// the rule that governs every NON-RENDERING reader in this tree: while a
+// renderer still reaches stored `body` content — `page:card` and the three
+// thin `page:*` containers do — a walker that must see the SAME content keeps
+// its arm. Dropping it here would make a stored `body` subtree invisible to
+// the discussion dedup while the renderer still draws it, which re-creates the
+// second-chatter-panel defect this list exists to prevent. Pinned in
+// `__tests__/pageSchemaIntrospect.test.ts`; escalation objectui#9916.
 const CONTAINER_KEYS = ['children', 'items', 'body', 'components', 'regions'] as const;
 /** The same nesting one level down, inside the spec `properties` envelope. */
 const NESTED_CONTAINER_KEYS = ['children', 'items'] as const;

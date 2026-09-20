@@ -27,6 +27,7 @@ import {
   TooltipTrigger,
   cn,
 } from '@object-ui/components';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { hasCellValue } from './emptiness';
 
 export interface HistoryChange {
@@ -58,7 +59,14 @@ export interface HistoryTimelineProps {
   /** Localized fallback for entries with no resolved actor name. Defaults to "Unknown user". */
   unknownUserText?: string;
   className?: string;
-  /** Locale used for relative time formatting. Defaults to browser locale. */
+  /**
+   * BCP-47 tag used for both the relative and the absolute time face.
+   *
+   * ⚠️ Defaults to `useDisplayLocale()` — the tenant's regional default, then
+   * the active UI language, then `'en'` — and ⛔ NOT to the browser's own
+   * locale, which is the machine's and neither of those two channels
+   * (objectui#9786). Pass this only to OVERRIDE that composition.
+   */
   locale?: string;
 }
 
@@ -79,11 +87,12 @@ const ACTION_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | '
   import: 'outline',
 };
 
-function formatAbsolute(value: HistoryEntry['created_at']): string {
+function formatAbsolute(value: HistoryEntry['created_at'], locale: string): string {
   if (!value) return '';
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
-  return d.toLocaleString();
+  // The tag is DECLARED (objectui#9786) — a bare call reads the machine's locale.
+  return d.toLocaleString(locale);
 }
 
 const RELATIVE_THRESHOLDS: Array<[number, Intl.RelativeTimeFormatUnit]> = [
@@ -96,7 +105,7 @@ const RELATIVE_THRESHOLDS: Array<[number, Intl.RelativeTimeFormatUnit]> = [
   [Number.POSITIVE_INFINITY, 'year'],
 ];
 
-function formatRelative(value: HistoryEntry['created_at'], locale?: string): string {
+function formatRelative(value: HistoryEntry['created_at'], locale: string): string {
   if (!value) return '';
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
@@ -110,12 +119,12 @@ function formatRelative(value: HistoryEntry['created_at'], locale?: string): str
           unit,
         );
       } catch {
-        return formatAbsolute(value);
+        return formatAbsolute(value, locale);
       }
     }
     delta /= divisor;
   }
-  return formatAbsolute(value);
+  return formatAbsolute(value, locale);
 }
 
 function initialsFromName(name?: string | null): string {
@@ -160,6 +169,10 @@ export function HistoryTimeline({
   className,
   locale,
 }: HistoryTimelineProps) {
+  // The composed tag this timeline formats with when the caller states none.
+  // Read before the early returns below so the hook order never varies.
+  const displayLocale = useDisplayLocale();
+  const resolvedLocale = locale ?? displayLocale;
   if (loading) {
     return (
       <div className={cn('space-y-3', className)}>
@@ -199,8 +212,8 @@ export function HistoryTimeline({
             (typeof entry.user_name === 'string' && entry.user_name.trim()) ||
             unknownUserText ||
             'Unknown user';
-          const absoluteWhen = formatAbsolute(entry.created_at);
-          const relativeWhen = formatRelative(entry.created_at, locale);
+          const absoluteWhen = formatAbsolute(entry.created_at, resolvedLocale);
+          const relativeWhen = formatRelative(entry.created_at, resolvedLocale);
           const avatarUrl = typeof entry.user_avatar === 'string' ? entry.user_avatar : undefined;
           return (
             <li key={(entry.id as React.Key) ?? idx} className="flex items-start gap-3">

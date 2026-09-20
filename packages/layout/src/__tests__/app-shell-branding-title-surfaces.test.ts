@@ -64,13 +64,25 @@
  *    interface declares (read off the source, not hand-listed) must each carry
  *    a doc comment and those comments must be pairwise distinct.
  *
- * 6. **The code half, by source.** `document.title` is written exactly once in
- *    `AppShell.tsx`, and the right-hand side is the bare `title` — no template,
- *    no `+`, no `+=`. The behavioural version of this pin (render, then read
- *    `document.title`) lives in `app-shell-branding-title-assignment.test.tsx`;
- *    this half exists so a source diff that adds a SECOND writer is caught by
- *    the same file that pins the wording, since a second writer would change
- *    what the correct wording is.
+ * 6. **The code half, by source.** `AppShell.tsx` writes `document.title` in
+ *    exactly TWO places, one per role, and each right-hand side is a bare
+ *    identifier — no template, no `+`, no `+=`. The forward write assigns
+ *    `title`; the cleanup write restores the captured `previousTitle`
+ *    (objectui#8637). The behavioural version of this pin (render, then read
+ *    `document.title`) lives in `app-shell-branding-title-assignment.test.tsx`
+ *    and `app-shell-branding-title-restore.test.tsx`; this half exists so a
+ *    source diff that adds a writer beyond those two roles is caught by the
+ *    same file that pins the wording, since another writer would change what
+ *    the correct wording is.
+ *
+ *    ⚠️ This started life as "exactly one writer" and it FAILED on
+ *    objectui#8637's restore, which is the pin doing its job rather than a
+ *    reason to relax it. What was kept is every property that made it worth
+ *    having: the assigning writer is still exactly one, its operator is still
+ *    `=`, its right-hand side is still the bare `title`, and the total is still
+ *    an exact count — so a third writer is still a failure. What was added is
+ *    strictly more pinning, not less: the restore's own right-hand side is now
+ *    named too, so the cleanup cannot quietly start composing a title either.
  *
  * ## Scan surface
  *
@@ -308,14 +320,30 @@ describe('`AppShellBranding` fields are each described, and each differently (ob
 // The code half, by source
 // ---------------------------------------------------------------------------
 
-describe('`AppShell.tsx` writes `document.title` once, wholesale (objectui#6872)', () => {
-  it('exactly one writer, and its right-hand side is the bare `title`', () => {
-    const writers = [...APP_SHELL_SRC.matchAll(/document\.title\s*(\+?=)\s*([^;\n]+);/g)];
+describe('`AppShell.tsx` writes `document.title` wholesale, in two roles (objectui#6872, objectui#8637)', () => {
+  /** Every `document.title = …` / `+= …` in the source, as `[whole, operator, rhs]`. */
+  const writers = [...APP_SHELL_SRC.matchAll(/document\.title\s*(\+?=)\s*([^;\n]+);/g)];
+  /** The forward write; the restore is the one whose right-hand side is the captured title. */
+  const assigning = writers.filter((match) => match[2].trim() !== 'previousTitle');
+  const restoring = writers.filter((match) => match[2].trim() === 'previousTitle');
+
+  it('exactly two writers, one per role — nothing else touches the tab title', () => {
     expect(
       writers.map((match) => match[0]),
-      'a second `document.title` writer appeared — the wording every surface carries would need to change with it',
-    ).toHaveLength(1);
-    const [, operator, rhs] = writers[0];
+      [
+        'A `document.title` writer appeared or disappeared in AppShell.tsx. This hook is the ONE',
+        'writer while a shell is mounted (objectui#8637), and that is exactly two source writes:',
+        'the forward assignment of `title`, and the cleanup restore of `previousTitle`. A third',
+        'would change the wording every surface carries; a missing restore strands the shell',
+        'title on the tab and pushes the host back to a route-keyed reset, which is the defect.',
+      ].join('\n'),
+    ).toHaveLength(2);
+    expect(assigning.map((match) => match[0]), 'the forward writer').toHaveLength(1);
+    expect(restoring.map((match) => match[0]), 'the restore writer').toHaveLength(1);
+  });
+
+  it('the forward writer assigns the bare `title`', () => {
+    const [, operator, rhs] = assigning[0];
     expect(operator).toBe('=');
     expect(
       rhs.trim(),
@@ -325,5 +353,14 @@ describe('`AppShell.tsx` writes `document.title` once, wholesale (objectui#6872)
         'double-concatenate for every caller that already builds the whole string.',
       ].join('\n'),
     ).toBe('title');
+  });
+
+  it('the restore writer replays the captured title, and composes nothing', () => {
+    const [, operator, rhs] = restoring[0];
+    expect(operator).toBe('=');
+    expect(
+      rhs.trim(),
+      'the cleanup must put back what it captured, not build a new title out of it',
+    ).toBe('previousTitle');
   });
 });

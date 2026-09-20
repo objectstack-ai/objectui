@@ -12,8 +12,24 @@
  * `BaseSchema.label` and `.description` accept `string | I18nLabel` since
  * #4580's revised Q1 ruling (comment 5284973826) — `I18nLabel` being the spec's
  * INLINE locale MAP (`string | Record<string, string>` in `@objectstack/spec`
- * 17.0.0-rc.6), the shape a spec producer already writes: `bridgeListView`
- * assigns `node.label = spec.label` at `list-view.ts:180`.
+ * 17.0.0-rc.6). The DECLARED half of that is re-derived by
+ * `inline-locale-declared-face-9092.test.ts` in `@object-ui/types`; the READ
+ * half is re-derived by the cases below.
+ *
+ * ⚠️ The producer sentence this header carried is DEAD — quoted and dated,
+ * not deleted. As written on 2026-08-13 (#4580, PR #4608) it read, truly of the
+ * tree at that commit:
+ *
+ * > the shape a spec producer already writes: `bridgeListView` assigns
+ * > `node.label = spec.label` at `list-view.ts:180`
+ *
+ * ⛔ FALSIFIED on 2026-08-29 by objectui#6366 (PR #6632), which removed the
+ * whole spec-bridge — `SpecBridge`, `bridgeListView`, `bridgeFormView` — from
+ * `@object-ui/react` as a declared BREAKING CHANGE. ⛔ Nothing re-derives that
+ * sentence, so it is quoted rather than left reading as live (AGENTS.md #9): a
+ * test header is the worst place for a confident sentence about a producer that
+ * is gone, and reading it as live already cost objectui#9092 a
+ * premise-falsification round.
  *
  * Resolution happens at READ time, here, against the display locale — NOT at
  * the spec bridge. PR #4603 measured the bridge unable to do it: it is a plain

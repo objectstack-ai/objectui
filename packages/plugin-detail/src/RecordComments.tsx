@@ -10,6 +10,7 @@ import * as React from 'react';
 import { cn, Button, Card, CardHeader, CardTitle, CardContent } from '@object-ui/components';
 import { MessageSquare, Send, Pin, Search, X } from 'lucide-react';
 import type { CommentEntry } from '@object-ui/types';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useDetailTranslation } from './useDetailTranslation';
 
 export interface RecordCommentsProps {
@@ -38,7 +39,7 @@ type CommentsTranslate = (key: string, options?: Record<string, unknown>) => str
  * `t` is threaded in as a parameter rather than the helper being made a hook:
  * it is called from inside a `.map()` over the comment list.
  */
-function formatTimestamp(timestamp: string, t: CommentsTranslate): string {
+function formatTimestamp(timestamp: string, t: CommentsTranslate, locale: string): string {
   try {
     const date = new Date(timestamp);
     const now = new Date();
@@ -52,8 +53,9 @@ function formatTimestamp(timestamp: string, t: CommentsTranslate): string {
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return t('detail.daysAgo', { count: diffDays });
     // Past a week this is a DATE, not a relative phrase: `toLocaleDateString`
-    // already localizes it, so there is no literal here to key.
-    return date.toLocaleDateString();
+    // already localizes it, so there is no literal here to key. The tag is
+    // DECLARED (objectui#9786) — a bare call reads the machine's locale.
+    return date.toLocaleDateString(locale);
   } catch {
     return timestamp;
   }
@@ -67,6 +69,9 @@ export const RecordComments: React.FC<RecordCommentsProps> = ({
   className,
 }) => {
   const { t } = useDetailTranslation();
+  // The BCP-47 tag the absolute-date tail formats with; threaded down for the
+  // same reason `t` is — the helper runs inside a `.map()` (objectui#9786).
+  const displayLocale = useDisplayLocale();
   const [newComment, setNewComment] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -199,7 +204,7 @@ export const RecordComments: React.FC<RecordCommentsProps> = ({
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-sm font-medium truncate">{comment.author}</span>
                     <span className="text-xs text-muted-foreground">
-                      {formatTimestamp(comment.createdAt, t)}
+                      {formatTimestamp(comment.createdAt, t, displayLocale)}
                     </span>
                     {comment.pinned && (
                       <span className="text-xs text-amber-600 flex items-center gap-0.5">

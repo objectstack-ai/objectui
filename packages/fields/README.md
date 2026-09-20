@@ -77,7 +77,10 @@ They share one reading of that, in `widgets/numberBadInput.tsx`:
   DISPLAYING while `.value` reads `''` — the control is marked `aria-invalid`
   and draws a `Not saved: …` message, reusing objectui#6716's refusal shape.
   Both a change arm and a blur arm are wired, because pasting into an empty box
-  never moves `.value` and so fires no React change event at all.
+  never moves `.value` and so fires no React change event at all. The sentence
+  resolves through the `fields.number.badInput` locale key (objectui#8148), so
+  it follows the reader's language; the example numeral each box quotes is the
+  widget's own and is interpolated rather than translated.
 - ⚠️ **Not announced, and not announceable.** Entries the browser silently
   **truncates**: `1.2.3` stores `1.23`, `0x10` stores `10`. The characters are
   discarded as they arrive, before any handler here runs, so no widget-side
@@ -106,6 +109,21 @@ outside a record form (ADR-0059):
 The app-shell `ActionParamDialog` uses these to render declared action params
 through the exact same widgets as the object form — with a drift test pinning
 param support ⊇ form support.
+
+### Enumerating the CELL renderer registry
+
+`listCellRendererTypes()` is the read-side twin of `FORM_FIELD_TYPES`: every
+field type `getCellRenderer` resolves to a renderer **of its own**, as opposed
+to the `TextCellRenderer` fallback every other spelling lands on.
+
+⚠️ It is a **function**, not a frozen constant, and the difference is
+load-bearing. `registerFieldRenderer` is published, so the cell registry can
+grow after this module is evaluated; a constant would be a snapshot taken at
+import time. Consumers that reason about "all registered cell types" — the two
+censuses in `@object-ui/fields` and `@object-ui/plugin-detail` that measure what
+every type draws — reconcile their tables against this reading so a newly
+registered type fails them by name instead of slipping past a frozen
+population (objectui#8734).
 
 ### File uploads in line-item grids
 

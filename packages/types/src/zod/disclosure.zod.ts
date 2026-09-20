@@ -72,7 +72,15 @@ export const CollapsibleSchema = BaseSchema.extend({
   trigger: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).describe('Trigger content'),
   content: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).describe('Collapsible content'),
   defaultOpen: z.boolean().optional().describe('Default open state'),
-  open: z.boolean().optional().describe('Controlled open state'),
+  // objectui#8236, ADR-0049 — the guidance string is the maintainer's ruling
+  // text VERBATIM (2026-09-17 「9593 A,其他同意」); ⛔ do not paraphrase it and
+  // ⛔ do not "correct" it to 「author `defaultOpen` instead」, which the ruling
+  // measured and refused as a non-equivalent (`defaultOpen` seeds the initial
+  // state, it does not give the author control).
+  open: retirementTombstone(
+    '`open` is not authorable in SDUI: controlled state needs a handler the schema cannot carry '
+    + '(objectui#6124); use `defaultOpen` for the initial state',
+  ),
   onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Open change handler'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `collapsible` reads NEITHER content channel: measured with the '

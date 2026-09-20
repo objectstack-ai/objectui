@@ -70,7 +70,7 @@ const ButtonRenderer = forwardRef<HTMLButtonElement, { schema: ButtonSchema }>(
     >
       {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
       {!isLoading && Icon && schema.iconPosition !== 'right' && <Icon className="mr-2 h-4 w-4" />}
-      {schema.label || renderChildren(schema.body || schema.children)}
+      {schema.label || renderChildren(schema.children)}
       {!isLoading && Icon && schema.iconPosition === 'right' && <Icon className="ml-2 h-4 w-4" />}
     </Button>
   );

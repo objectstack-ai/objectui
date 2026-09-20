@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import type { BulkActionDef } from '@object-ui/types';
+import type { BulkActionDef, DataSource } from '@object-ui/types';
 import { RelatedCountStore } from '@object-ui/components';
 import { executeBulkBatch } from '@object-ui/core';
 import { normalizeMultiValuePatch, type MultiValueFieldDef } from './multiValueFields';
@@ -54,31 +54,45 @@ export interface BulkExecutorOptions {
    */
   objectFields?: Record<string, MultiValueFieldDef>;
   /**
-   * Minimal data-source surface required by the executor. Matches the public
-   * shape of `@object-ui/data-objectstack`'s DataSource without importing it,
-   * so consumers can inject any compatible adapter.
+   * The data-source members the executor calls. The two BULK doors are
+   * DERIVED from the `DataSource` contract (`DataSource['bulkUpdate']`,
+   * `DataSource['bulkDelete']`) rather than restated, so they cannot drift
+   * from the interface every in-tree adapter implements (objectui#9722).
+   *
+   * ## Why the bulk doors are derived and the two per-row doors are not
+   *
+   * The restatement this replaces still spelled the pre-objectui#9511
+   * `ReadonlyArray<string | number>` for `bulkUpdate` / `bulkDelete`. Under
+   * `strictFunctionTypes` those two are compared CONTRAVARIANTLY — they are
+   * declared with property syntax here — so the narrowed `DataSource` was not
+   * assignable to this face at all, and the one in-tree hand-off
+   * (`ObjectGrid` → `BulkActionDialog`) only compiled because it erased the
+   * check with an `as any`. Deriving is what makes that hand-off a real
+   * check again, and what keeps it one.
+   *
+   * `update` / `delete` stay spelled out, deliberately: this executor
+   * DISCARDS what they resolve to, so it must not demand `DataSource`'s
+   * return types. Measured while repairing this card — `Pick`ing all four
+   * members instead reddened four in-tree doubles in
+   * `__tests__/useBulkExecutor.test.ts` on `delete`'s `Promise<boolean>`
+   * alone, i.e. it NARROWS what a consumer may inject for a return value the
+   * executor never reads. Their id and patch parameters are spelled to match
+   * `DataSource` and are checked against it by the same hand-off.
+   *
+   * It stays a STRUCTURAL face either way: nothing here demands a whole
+   * `DataSource`, so any compatible adapter is still injectable.
+   *
+   * ⚠️ `bulkUpdate` / `bulkDelete` remain optional because they are optional
+   * on `DataSource` — an adapter with no server-side bulk primitive keeps
+   * working through the per-row fallback below. The executor only ever hands
+   * them ids it has already reduced to `string`, so the narrowed door costs
+   * it nothing.
    */
   dataSource: {
     update: (resource: string, id: string, patch: Record<string, unknown>) => Promise<unknown>;
     delete: (resource: string, id: string) => Promise<unknown>;
-    /**
-     * Optional server-side bulk-update primitive. When present, the executor
-     * collapses an entire `update` batch into a single HTTP request — turning
-     * "mark 500 notifications read" from 500 PATCH calls into 1. Adapters
-     * without bulk support keep working via the per-row fallback below.
-     */
-    bulkUpdate?: (
-      resource: string,
-      ids: ReadonlyArray<string | number>,
-      patch: Record<string, unknown>,
-    ) => Promise<number>;
-    /**
-     * Optional server-side bulk-delete primitive. Symmetric to bulkUpdate.
-     */
-    bulkDelete?: (
-      resource: string,
-      ids: ReadonlyArray<string | number>,
-    ) => Promise<number>;
+    bulkUpdate?: DataSource['bulkUpdate'];
+    bulkDelete?: DataSource['bulkDelete'];
   };
   /**
    * Per-record dispatcher for a PROMOTED bulk action — one declared object

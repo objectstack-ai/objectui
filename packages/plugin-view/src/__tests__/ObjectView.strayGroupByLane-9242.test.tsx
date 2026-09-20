@@ -66,14 +66,51 @@
  *
  * ## WHAT THIS CARD DELIBERATELY DOES NOT TOUCH — four faces
  *
- *  1. THE CONTRACT HALF. `KanbanConfig`'s `aliasKeyRefusal` for `groupBy`
- *     (`@object-ui/types`, `zod/objectql.zod.ts`) landed with PR objectui#9236
- *     and already covers BOTH routes — a view carrying the key is refused at
- *     every validating door. It is pinned in
+ *  1. THE CONTRACT HALF — AND WHAT IT ACTUALLY REACHES. `KanbanConfig`'s
+ *     `aliasKeyRefusal` for `groupBy` (`@object-ui/types`, `zod/objectql.zod.ts`)
+ *     landed with PR objectui#9236, and is pinned in
  *     `packages/plugin-list/src/__tests__/ListView.strayGroupByRefused-8365.test.tsx`
- *     and `packages/types/src/__tests__/kanban-stray-group-by-refusal-8365.test.ts`;
- *     ⛔ not re-pinned here, because what remains on this route is a BEHAVIOUR
- *     gap — a document that never went through a validator.
+ *     (runtime face) and
+ *     `packages/types/src/__tests__/kanban-stray-group-by-refusal-8365.test.ts`
+ *     (type face). ⛔ It does NOT cover both routes, and this note used to say
+ *     it did (objectui#9655).
+ *
+ *     ⭐ READ THE REACH, ⛔ DO NOT TRUST A COUNT WRITTEN DOWN HERE — a count in
+ *     prose is derived once and re-derived never, and the one that stood here
+ *     was wrong. Every place the arm reaches an authored document is a
+ *     reference to the `KanbanStrayGroupByRefusal` symbol, so the instrument is
+ *     an enumeration of that symbol:
+ *
+ *         git grep -n KanbanStrayGroupByRefusal packages/types/src
+ *
+ *     The declaration line is that run's own positive control — a run that does
+ *     not print it found nothing at all, rather than finding no install sites.
+ *     Read which object each hit hangs off; the arm's own "WHERE THIS ARM IS
+ *     INSTALLED" note in that file states the nestings it was written for. Both
+ *     pins above build `list-view` fixtures, which is the same reading taken
+ *     from the other side.
+ *
+ *     ⚠️ THE MODEL ERROR, NOT JUST THE SENTENCE. The claim that made the wrong
+ *     one feel safe to write was the tail of this item: that what remains on
+ *     this route is "a document that never went through a validator". ⛔ FALSE.
+ *     `safeValidateSchema` DOES judge an `object-view` document — it ACCEPTS
+ *     this one. The instrument is next door in this directory:
+ *     `ObjectView.calendarAliasRefused-8355.test.tsx`'s "REFUSED at the read
+ *     door" half drives a named view under `listViews` through
+ *     `safeValidateSchema` and gets a refusal — same door, same document shape,
+ *     a different key family. ⇒ write ACCEPTED, ⛔ never "not validated":
+ *     "not refused" is the weaker and true claim, and the substitution of the
+ *     stronger one got written down three times in this one neighbourhood —
+ *     here; in `KanbanStrayGroupByRefusal`'s own PUBLISHED message, which an
+ *     author still reads today (objectui#9653, ⛔ not this card's file); and in
+ *     objectui#8355's calendar stem, where a contract review caught the clause
+ *     before it landed (objectui#9648).
+ *
+ *     ⛔ Still not re-pinned here: what remains on this route is a BEHAVIOUR
+ *     gap. ⚠️ And NOTHING re-derives the kanban key's silence at that door
+ *     today — said here rather than left to read as live. Whether a named view
+ *     should be judged at all is objectui#7928's question, and this card ⛔ does
+ *     not answer it.
  *  2. THE LIVE LEGACY ALIAS `kanban.groupField`, a legacy spelling of the spec's
  *     `groupByField`. Still read, still resolves the lane — CONTROL below.
  *  3. `groupBy` ON THE GENERATED NODE. That is the canonical lane key

@@ -271,6 +271,107 @@ const NAMED_VIEW_UNREAD_CONTROL = 'rowHeight';
 /** A plausible list-view spelling that is neither declared nor read. */
 const NAMED_VIEW_ABSENT_CONTROL = 'stickyHeader';
 
+/* ── objectui#7924 — the DISPOSITION buckets, derived against the protocol ───
+ * The census above answers "declared, and read off a named view?". It does not
+ * answer the question the disposition turns on: does the PROTOCOL declare the
+ * member? That is what separates "the renderer sources it from the wrong place"
+ * from "objectui invented a spelling". The 2026-09-16 director-seat ruling on
+ * objectui#7924 is written in those terms, and its bucket lists were prose with
+ * no assertion that could fail — the same shape that let "about 52 members"
+ * survive two corrections. Everything below is DERIVED at test time from the
+ * installed `@objectstack/spec`, the declaration and the runtime fold; the
+ * literals are the pinned reading.
+ */
+
+/**
+ * The protocol's own member set for a named list view — `ObjectListViewSchema`'s
+ * shape, off `@objectstack/spec` as installed (17.4.0). ⛔ Not a copy of the
+ * objectui face and ⛔ not a hand list: it is read off the schema object, so a
+ * spec bump that moves a key moves this.
+ */
+const PROTOCOL_LIST_VIEW_KEYS = [
+  'addRecord', 'allowPrinting', 'appearance', 'aria', 'bordered', 'bulkActionDefs', 'bulkActions',
+  'calendar', 'chart', 'columns', 'compactToolbar', 'conditionalFormatting', 'data', 'description',
+  'emptyState', 'exportOptions', 'fieldOrder', 'filter', 'filterableFields', 'gallery', 'gantt',
+  'grouping', 'hiddenFields', 'inlineEdit', 'kanban', 'label', 'map', 'name', 'navigation',
+  'pageName', 'pagination', 'performance', 'resizable', 'responsive', 'rowActions', 'rowColor',
+  'rowHeight', 'searchableFields', 'selection', 'sharing', 'showRecordCount', 'sort', 'striped',
+  'tabs', 'timeline', 'tree', 'type', 'userActions', 'userFilters', 'virtualScroll',
+] as const;
+
+/**
+ * Five of those 50 are RETIREMENT TOMBSTONES, refused by name with the
+ * protocol's own `[REMOVED]` text. ⚠️ They are why a raw key-count diff reads
+ * objectui as "narrower" and is wrong to: not declaring a key the protocol
+ * refuses is agreement, not a gap. Derived by the tombstone's own marker, not
+ * listed by hand.
+ */
+const PROTOCOL_RETIRED_KEYS = ['bordered', 'performance', 'responsive', 'striped', 'virtualScroll'] as const;
+
+/** The marker every protocol tombstone's description opens with. */
+const PROTOCOL_TOMBSTONE_MARKER = '[REMOVED]';
+
+/**
+ * BUCKET ① — declared by BOTH faces and read off no named view: 23 members.
+ * The behaviour is the protocol's; only the SOURCE the renderer reads it from
+ * is wrong. ⛔ A `?: never` tombstone here would put objectui narrower than the
+ * protocol, which is the direction the maintainer principle forbids — what is
+ * left for these is implementation, ⛔ not declaration.
+ */
+const BUCKET_PROTOCOL_DECLARED_UNREAD = [
+  'addRecord', 'allowPrinting', 'aria', 'bulkActionDefs', 'bulkActions', 'compactToolbar',
+  'conditionalFormatting', 'description', 'emptyState', 'exportOptions', 'filterableFields',
+  'hiddenFields', 'inlineEdit', 'navigation', 'pagination', 'resizable', 'rowActions', 'rowHeight',
+  'searchableFields', 'selection', 'sharing', 'showRecordCount', 'userFilters',
+] as const;
+
+/**
+ * BUCKET ② — the eight legacy `show*` SPELLINGS: declared by objectui alone,
+ * each with a canonical protocol twin the runtime already folds onto. The
+ * mapping is objectui's own (`SHOW_FLAG_TO_USER_ACTION` + the `showDescription`
+ * fold), and it is re-derived off disk below rather than trusted from here.
+ */
+const LEGACY_SHOW_SPELLING_TWINS: Readonly<Record<string, readonly [string, string]>> = {
+  showSearch: ['userActions', 'search'],
+  showSort: ['userActions', 'sort'],
+  showFilters: ['userActions', 'filter'],
+  showDensity: ['userActions', 'rowHeight'],
+  showGroup: ['userActions', 'group'],
+  showHideFields: ['userActions', 'hideFields'],
+  showColor: ['userActions', 'rowColor'],
+  showDescription: ['appearance', 'showDescription'],
+};
+const BUCKET_LEGACY_SHOW_SPELLINGS = [
+  'showColor', 'showDensity', 'showDescription', 'showFilters', 'showGroup', 'showHideFields',
+  'showSearch', 'showSort',
+] as const;
+
+/**
+ * BUCKET ③ — ten members the protocol declares NOWHERE, no runtime fold, and no
+ * reader on any path. The only bucket where "declared, unenforced, unread" has
+ * nothing at all to weigh against it.
+ */
+const BUCKET_LOCAL_ONLY_UNREAD = [
+  'addDeleteRecordsInline', 'addRecordViaForm', 'allowExport', 'clickIntoRecordDetails',
+  'collapseAllByDefault', 'color', 'densityMode', 'fieldTextColor', 'prefixField', 'wrapHeaders',
+] as const;
+
+/**
+ * The two members objectui#8980 declared KNOWING nothing reads them, with the
+ * measurement reported — ⛔ not an oversight and ⛔ not a retirement candidate.
+ */
+const BUCKET_DECLARED_INERT = ['pageName', 'tabs'] as const;
+
+/**
+ * The one objectui-only member that IS read off a named view. It is the whole
+ * cost of a by-reference mirror in one name: the strict protocol value refuses
+ * it, and the renderer reads it.
+ */
+const LOCAL_ONLY_READ = 'options';
+
+/** The `SHOW_FLAG_TO_USER_ACTION` fold lives here, and is read off disk. */
+const FOLD = 'packages/core/src/utils/normalize-list-view.ts';
+
 /** The syntactic roles every occurrence of the named-views RECORD may take. */
 const RECORD_ROLES = [
   'COMPARISON', 'CONDITION', 'DECLARATION', 'ELEMENT_ACCESS', 'HOOK_DEPENDENCY',
@@ -280,9 +381,23 @@ const RECORD_ROLES = [
 /** The documented node; every assertion below is a delta on it. */
 const NODE = { type: 'object-view', objectName: 'accounts' } as const;
 
-/** One value per mirrored key that the declaration admits — the accept leg. */
+/**
+ * One value per mirrored key that the declaration admits — the accept leg.
+ *
+ * ⛔ `navigation` carries no `view` member: objectstack#18619 retired
+ * `navigation.view` as an ADR-0049 tombstone (objectui#9667). `size` replaces
+ * it as the second authored member, so the round-trip legs below still measure
+ * "more than one authored member survives the parse".
+ *
+ * ⭐ Note for anyone tracing why this site was NOT among the diagnostics the
+ * `Spec Main Shape Gate` printed: this annotation's VALUE type is `unknown`, so
+ * no excess/incompatible-property check ever fires on the object literal — and
+ * the one place it reaches a typed literal re-casts it (`as Record<Mirrored,
+ * never>`). Two independent erasures; the site was invisible to `tsc`, ⛔ not
+ * cleared by it.
+ */
 const ACCEPTED: Record<Mirrored, unknown> = {
-  navigation: { mode: 'drawer', view: 'summary_view' },
+  navigation: { mode: 'drawer', size: 'lg' },
   searchableFields: ['name', 'email'],
   filterableFields: ['status'],
   allowCreateView: true,
@@ -716,14 +831,22 @@ describe('objectui#7779 — the three spec-modelled keys are the spec\'s own slo
     // the hand copy of objectui#4588 refused. ⭐ It is STILL accepted, and since
     // objectui#8317 (decision batch #90) the parsed document no longer carries a
     // `mode` the author did not write: acceptance unchanged, substitution gone.
-    const defaulted = slot.safeParse({ view: 'summary_view' });
+    //
+    // ⛔ The carrier is `preventNavigation`, ⛔ not the `view` these legs used to
+    // author: objectstack#18619 retired `navigation.view` (objectui#9667). These
+    // are `safeParse` legs, so `view` was invisible to `tsc` here and the
+    // `Spec Main Shape Gate` never printed them — but a tombstoned key REFUSES
+    // at the parse, so on the spec that carries the retirement these three
+    // assertions go red at RUNTIME. That is the break this repair removes, and
+    // it is a different instrument from the type-level sites.
+    const defaulted = slot.safeParse({ preventNavigation: true });
     expect(defaulted.success).toBe(true);
     expect((defaulted.data as { mode?: string }).mode).toBeUndefined();
-    expect(defaulted.data).toEqual({ view: 'summary_view' });
+    expect(defaulted.data).toEqual({ preventNavigation: true });
     // …and a document that DOES write it round-trips unchanged, which is what
     // separates "stopped substituting" from "stopped declaring".
-    expect(slot.safeParse({ view: 'summary_view', mode: 'page' }).data)
-      .toEqual({ view: 'summary_view', mode: 'page' });
+    expect(slot.safeParse({ preventNavigation: true, mode: 'page' }).data)
+      .toEqual({ preventNavigation: true, mode: 'page' });
     // ⚠️ Two comparisons, deliberately. The first is against the spec slot AS IT
     // ENTERS THIS PACKAGE — the object actually under test. The second is
     // against the RAW spec slot, and it is the measurement that says the strip
@@ -903,10 +1026,20 @@ describe('objectui#7779 — `listViews` stays unmirrored on the ruling\'s fallba
     const filtered = SpecObjectListViewSchema.safeParse({ label: 'Under 100', type: 'grid', filter: [{ field: 'price', operator: 'less_than', value: 100 }] });
     expect(filtered.success).toBe(false);
     if (!filtered.success) expect(refusedAt(filtered.error.issues as readonly Issue[], 'columns')).toBe(true);
-    // schema-reference.md: an ObjectQL tuple filter and a `default: true` flag.
+    // schema-reference.md: an ObjectQL tuple filter. Only `tuple` still has a
+    // doc side, and that side is HELD — the "still what the docs teach" test
+    // below pins this exact filter string off disk.
     const tuple = SpecObjectListViewSchema.safeParse({ label: 'My Deals', columns: ['name'], filter: [['owner', '=', '${currentUser.id}']] });
     expect(tuple.success).toBe(false);
     if (!tuple.success) expect(refusedAt(tuple.error.issues as readonly Issue[], 'filter')).toBe(true);
+    // `flagged` has NO doc side, and its removal was deliberate: objectui#7923
+    // (PR objectui#7991) deleted the per-view `default: true` flag from that
+    // same `object-view` example, because `NamedListView` never declared the
+    // key and `ObjectView` never read it. What is left is a refusal pinned on
+    // its OWN merits — the spec closes `default` too, which is why that doc fix
+    // is not merely cosmetic — so this case is no longer a reading of any shape
+    // the docs teach. ⚠️ Nothing re-derives that absence: read the sentence
+    // above as history, not as a live reading of that file.
     const flagged = SpecObjectListViewSchema.safeParse({ label: 'My Deals', columns: ['name'], default: true });
     expect(flagged.success).toBe(false);
     // The control: the shape the schema catalog authors IS accepted, so the
@@ -1174,5 +1307,198 @@ describe('objectui#7779 — the docs no longer teach `viewTabBar` as an `object-
     expect(nodeRow).toContain('`viewTabBar` is retired');
     const configRow = src.split('\n').find((line) => line.startsWith('| `ViewTabBarConfig` |'));
     expect(configRow).toContain('`config` prop of `ViewTabBar`');
+  });
+});
+
+/* ── objectui#7924 — the disposition buckets, against the PROTOCOL ────────── */
+
+/** The protocol's named-list-view member set, off the installed schema object. */
+function protocolListViewKeys(): string[] {
+  return shapeKeys(SpecObjectListViewSchema).sort();
+}
+
+/** The protocol keys whose slot carries the retirement marker in its description. */
+function protocolRetiredKeys(): string[] {
+  return protocolListViewKeys()
+    .filter((key) => ((shapeMember(SpecObjectListViewSchema, key) as { description?: string } | undefined)?.description ?? '')
+      .startsWith(PROTOCOL_TOMBSTONE_MARKER))
+    .sort();
+}
+
+/** `SHOW_FLAG_TO_USER_ACTION`, read off the runtime fold rather than restated. */
+function foldFlagMap(): Record<string, string> {
+  const src = readRepo(FOLD);
+  const start = src.indexOf('const SHOW_FLAG_TO_USER_ACTION: Record<string, string> = {');
+  expect(start, `\`SHOW_FLAG_TO_USER_ACTION\` is no longer declared in ${FOLD}`).toBeGreaterThan(-1);
+  const end = src.indexOf('\n};', start);
+  const body = src.slice(start, end);
+  const out: Record<string, string> = {};
+  for (const m of body.matchAll(/^ {2}([A-Za-z_$][\w$]*):[ ]'([^']+)',$/gm)) out[m[1]] = m[2];
+  return out;
+}
+
+describe('objectui#7924 — the 43 unread members are FOUR populations, derived against the installed protocol', () => {
+  it('the protocol declares 50 keys for a named list view, and the instrument that reads them fires', () => {
+    const keys = protocolListViewKeys();
+    expect(keys).toEqual([...PROTOCOL_LIST_VIEW_KEYS]);
+    expect(keys).toHaveLength(50);
+    // Firing control + its negative twin, on the same query that produces every
+    // "the protocol declares this nowhere" zero below.
+    expect(keys).toContain(NAMED_VIEW_READ_CONTROL);
+    expect(keys).not.toContain(NAMED_VIEW_ABSENT_CONTROL);
+  });
+
+  it('five of the 50 are RETIREMENT TOMBSTONES, refused BY NAME — so objectui not declaring them is agreement, not narrowness', () => {
+    expect(protocolRetiredKeys()).toEqual([...PROTOCOL_RETIRED_KEYS]);
+    const base = { label: 'Directory', columns: ['name', 'email'] };
+    // The accept leg first: without it every refusal below is a schema that
+    // refuses everything rather than a reading of these five keys.
+    expect(SpecObjectListViewSchema.safeParse(base).success).toBe(true);
+    for (const key of PROTOCOL_RETIRED_KEYS) {
+      const r = SpecObjectListViewSchema.safeParse({ ...base, [key]: true });
+      expect(r.success, `the protocol no longer refuses the retired \`${key}\``).toBe(false);
+      if (!r.success) {
+        const issues = r.error.issues as readonly Issue[];
+        // Refused AT the key with the protocol's own prescription — ⛔ not
+        // swallowed as an unknown key, which is what a deleted member would do.
+        expect(refusedAt(issues, key)).toBe(true);
+        expect(issues.some((i) => (i.message ?? '').includes(PROTOCOL_TOMBSTONE_MARKER)
+          || (i.message ?? '').includes('was removed in @objectstack/spec'))).toBe(true);
+      }
+    }
+    // …and none of the five is declared on the objectui face.
+    const declared = namedListViewMembers().names;
+    expect(PROTOCOL_RETIRED_KEYS.filter((k) => declared.includes(k))).toEqual([]);
+  });
+
+  it('objectui declares every LIVE protocol key on this surface — the narrower-than-protocol direction is EMPTY today', () => {
+    const declared = new Set(namedListViewMembers().names);
+    const live = protocolListViewKeys().filter((k) => !protocolRetiredKeys().includes(k));
+    expect(live).toHaveLength(45);
+    const missing = live.filter((k) => !declared.has(k));
+    // ⭐ objectui#8979 measured SEVENTEEN live protocol keys missing here; the
+    // objectui#8980 ruling declared them (PR #9534) and this is the zero that
+    // records it. ⛔ A name appearing here is objectui going narrower than the
+    // protocol — the direction the maintainer principle forbids.
+    expect(missing, 'objectui is narrower than the protocol on these live keys').toEqual([]);
+    // The control for that zero: the SAME set difference over the SAME two key
+    // sets is non-empty in the other direction, so the emptiness is a reading.
+    const localOnly = [...declared].filter((k) => !protocolListViewKeys().includes(k)).sort();
+    expect(localOnly).toHaveLength(19);
+    expect(localOnly).toEqual([
+      ...BUCKET_LEGACY_SHOW_SPELLINGS, ...BUCKET_LOCAL_ONLY_UNREAD, LOCAL_ONLY_READ,
+    ].sort());
+  });
+
+  it('exactly one objectui-only member is READ off a named view — the whole cost of a by-reference mirror, in one name', () => {
+    const reads = deriveNamedViewReads().reads;
+    const protocolKeys = protocolListViewKeys();
+    const localOnlyRead = reads.filter((r) => !protocolKeys.includes(r));
+    expect(localOnlyRead).toEqual([LOCAL_ONLY_READ]);
+    // And the strict protocol value refuses it BY NAME, which is why the mirror
+    // is still not a drop-in — the same fact objectui#7928 weighs.
+    const r = SpecObjectListViewSchema.safeParse({ label: 'x', columns: ['a'], [LOCAL_ONLY_READ]: {} });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect((r.error.issues as readonly Issue[]).some((i) => i.code === 'unrecognized_keys')).toBe(true);
+    }
+  });
+
+  it('`.omit().extend().superRefine()` STILL refuses unknown keys under zod 4 — measured, not read off `strictObject`', () => {
+    // ⚠️ Carried as NOT MEASURED by the 2026-09-10 protocol sweep and by the
+    // triage that answered it; executed here. If this ever flips, bucket ③'s
+    // "the protocol refuses these" weakens to "does not declare these".
+    const base = { label: 'Directory', columns: ['name', 'email'] };
+    expect(SpecObjectListViewSchema.safeParse(base).success).toBe(true);
+    for (const key of [LOCAL_ONLY_READ, 'showSearch', 'densityMode', NAMED_VIEW_ABSENT_CONTROL]) {
+      const r = SpecObjectListViewSchema.safeParse({ ...base, [key]: key === LOCAL_ONLY_READ ? {} : true });
+      expect(r.success, `the strict protocol value now ADMITS \`${key}\``).toBe(false);
+      if (!r.success) {
+        const issues = r.error.issues as readonly Issue[];
+        expect(issues.some((i) => i.code === 'unrecognized_keys')).toBe(true);
+      }
+    }
+  });
+
+  it('the 43 unread members partition FOUR ways — 23 + 8 + 10 + 2 — disjoint and exhaustive', () => {
+    const unread = new Set(NAMED_LIST_VIEW_UNREAD as readonly string[]);
+    const protocolKeys = new Set(protocolListViewKeys());
+    const ruledInert = new Set<string>(BUCKET_DECLARED_INERT);
+    const spellings = new Set<string>(BUCKET_LEGACY_SHOW_SPELLINGS);
+
+    const protocolDeclared = [...unread].filter((m) => protocolKeys.has(m) && !ruledInert.has(m)).sort();
+    const localOnly = [...unread].filter((m) => !protocolKeys.has(m)).sort();
+    const legacy = localOnly.filter((m) => spellings.has(m)).sort();
+    const inventedOnly = localOnly.filter((m) => !spellings.has(m)).sort();
+
+    expect(protocolDeclared).toEqual([...BUCKET_PROTOCOL_DECLARED_UNREAD]);
+    expect(legacy).toEqual([...BUCKET_LEGACY_SHOW_SPELLINGS]);
+    expect(inventedOnly).toEqual([...BUCKET_LOCAL_ONLY_UNREAD]);
+    expect([...ruledInert].sort()).toEqual([...BUCKET_DECLARED_INERT]);
+    expect(protocolDeclared).toHaveLength(23);
+    expect(legacy).toHaveLength(8);
+    expect(inventedOnly).toHaveLength(10);
+    expect(BUCKET_DECLARED_INERT).toHaveLength(2);
+    // Exhaustive and disjoint against the census's own unread set: a member that
+    // lands in no bucket, or in two, fails here — which is the event that makes
+    // the 2026-09-16 disposition ruling stale.
+    const union = [...protocolDeclared, ...legacy, ...inventedOnly, ...BUCKET_DECLARED_INERT];
+    expect(union).toHaveLength(43);
+    expect(new Set(union).size).toBe(43);
+    expect([...union].sort()).toEqual([...unread].sort());
+  });
+
+  it('the runtime fold maps seven of the eight legacy spellings, and folds the eighth — read off the fold, not restated', () => {
+    const map = foldFlagMap();
+    expect(Object.keys(map).sort()).toEqual(
+      BUCKET_LEGACY_SHOW_SPELLINGS.filter((s) => s !== 'showDescription').slice().sort(),
+    );
+    for (const [flag, action] of Object.entries(map)) {
+      expect(LEGACY_SHOW_SPELLING_TWINS[flag]).toEqual(['userActions', action]);
+    }
+    // The eighth is folded by its own branch, not by the table.
+    const src = readRepo(FOLD);
+    expect(src).toContain('appearance.showDescription = s.showDescription;');
+    expect(src).toContain('delete next.showDescription;');
+    // Control: a flag the fold does NOT know, measured by the same query.
+    expect(map).not.toHaveProperty('showRecordCount');
+  });
+
+  it.each(BUCKET_PROTOCOL_DECLARED_UNREAD)('BUCKET ① — `%s` is declared by BOTH faces and read off no named view (the SOURCE is wrong, not the member)', (member) => {
+    expect(namedListViewMembers().names).toContain(member);
+    expect(protocolListViewKeys()).toContain(member);
+    expect(deriveNamedViewReads().reads).not.toContain(member);
+  });
+
+  it.each(BUCKET_LEGACY_SHOW_SPELLINGS)('BUCKET ② — `%s` is a legacy SPELLING: the protocol declares it nowhere, and the runtime already folds it onto its canonical twin', (member) => {
+    const [block, canonical] = LEGACY_SHOW_SPELLING_TWINS[member];
+    expect(namedListViewMembers().names).toContain(member);
+    expect(protocolListViewKeys()).not.toContain(member);
+    expect(deriveNamedViewReads().reads).not.toContain(member);
+    // The canonical twin is a real protocol key on this very surface, and the
+    // block that carries it is declared on the objectui face too — which is the
+    // condition the 2026-09-16 ruling attached to retiring the spelling.
+    expect(protocolListViewKeys()).toContain(block);
+    expect(namedListViewMembers().names).toContain(block);
+    const inner = shapeMember(SpecObjectListViewSchema, block) as { unwrap(): unknown };
+    expect(shapeKeys(inner.unwrap())).toContain(canonical);
+  });
+
+  it.each(BUCKET_LOCAL_ONLY_UNREAD)('BUCKET ③ — `%s` is objectui-only, folded nowhere and read nowhere', (member) => {
+    expect(namedListViewMembers().names).toContain(member);
+    expect(protocolListViewKeys()).not.toContain(member);
+    expect(foldFlagMap()).not.toHaveProperty(member);
+    expect(deriveNamedViewReads().reads).not.toContain(member);
+    // ⛔ "The protocol declares it nowhere" is the reading; the strict value
+    // refusing it is the measurement that backs it.
+    const r = SpecObjectListViewSchema.safeParse({ label: 'x', columns: ['a'], [member]: true });
+    expect(r.success).toBe(false);
+  });
+
+  it.each(BUCKET_DECLARED_INERT)('INERT BY RULING — `%s` is protocol-declared, declared here and read nowhere, reported rather than dropped', (member) => {
+    expect(namedListViewMembers().names).toContain(member);
+    expect(protocolListViewKeys()).toContain(member);
+    expect(deriveNamedViewReads().reads).not.toContain(member);
+    expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).toContain(member);
   });
 });

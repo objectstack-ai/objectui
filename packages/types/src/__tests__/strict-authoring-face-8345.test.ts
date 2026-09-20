@@ -222,18 +222,29 @@ describe('checks survive the clone — a twin rebuilt with `z.object(shape)` wou
     expect(z.object({ a: z.number() }).safeParse({ a: -1 }).success).toBe(true);
   });
 
-  it('the live instance: the `chatbot` body clause still fires at a child slot', () => {
+  it('the live instance: the `chatbot` body document is refused at a child slot', () => {
     // `defineNodeComponentUnion` installs a `superRefine` on the union that sits
-    // in the node slot, and only there. So this document is accepted at the root
-    // and refused one slot down — on BOTH faces. A twin that dropped the check
-    // would accept the nested form and this test would go red on the strict row.
+    // in the node slot, and only there. A twin that dropped the check would
+    // accept the nested form and this test would go red on the strict row.
+    //
+    // ⚠️ INVERTED by objectui#8572, which retired `ChatbotSchema.body` on both
+    // published faces: the two ROOT legs read `toBe(true)` until that ruling, and
+    // the asymmetry they recorded — accepted at the root, refused one slot down —
+    // is gone because the ARM itself now refuses the key at every depth. The legs
+    // are inverted rather than dropped because the root verdict is half of what
+    // this case reads, and a case that stopped reading the root would stop
+    // noticing if the two faces ever disagreed there.
+    // ⚠️ And the honest consequence, stated rather than left for a reader to
+    // discover: this input no longer DISCRIMINATES the clause, because the arm
+    // refuses it with or without the wrapper. The clause's own disposition is not
+    // this file's and not this ruling's; `../zod/base.zod.ts` carries it.
     const chatbot = { type: 'chatbot', messages: [], body: { foo: 'bar' } };
     const nested = { type: 'card', children: [chatbot] };
 
-    expect(StrictAnyComponentSchema.safeParse(chatbot).success).toBe(true);
+    expect(StrictAnyComponentSchema.safeParse(chatbot).success).toBe(false);
     expect(StrictAnyComponentSchema.safeParse(nested).success).toBe(false);
-    // …and unchanged on the tolerant face, which is (c) again on this input.
-    expect(AnyComponentSchema.safeParse(chatbot).success).toBe(true);
+    // …and the same on the tolerant face, which is (c) again on this input.
+    expect(AnyComponentSchema.safeParse(chatbot).success).toBe(false);
     expect(AnyComponentSchema.safeParse(nested).success).toBe(false);
   });
 });

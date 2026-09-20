@@ -68,7 +68,7 @@ const OFF_SPEC_ICON = { type: 'icon', icon: 'check', size: 'huge' } as const;
 const LEGAL_ICON = { type: 'icon', icon: 'check', size: 24 } as const;
 
 /** The same node one slot down — the depth #7869 measured as the shielded one. */
-const nested = (child: unknown) => ({ type: 'card', title: 'Parent', body: [child] });
+const nested = (child: unknown) => ({ type: 'card', title: 'Parent', children: [child] });
 
 describe('objectui#7869 — the off-spec node gets the same verdict at both depths', () => {
   it('is refused STANDING ALONE (unchanged — this half was never the defect)', () => {
@@ -142,8 +142,11 @@ describe('the late-binding wiring, read by IDENTITY on the exported wrapper', ()
   });
 
   it('that identity survives through a declared child slot', () => {
-    const body = (CardSchema.shape.body as unknown as { _zod: { def: { innerType: { _zod: { def: { options: unknown[] } } } } } });
-    expect(body._zod.def.innerType._zod.def.options).toContain(SchemaNodeSchema);
+    // Read off `children`: objectui#6771 retired `card`'s `body` spelling, so
+    // the declared child slot whose union must hold the recursion point is
+    // this one. `body` on this mirror is now an alias refusal with no union.
+    const slot = (CardSchema.shape.children as unknown as { _zod: { def: { innerType: { _zod: { def: { options: unknown[] } } } } } });
+    expect(slot._zod.def.innerType._zod.def.options).toContain(SchemaNodeSchema);
   });
 
   it('the holder is FILLED by importing the barrel — the module-cycle break works', () => {
@@ -156,22 +159,33 @@ describe('the late-binding wiring, read by IDENTITY on the exported wrapper', ()
     expect(AnyComponentSchema.safeParse(nested(LEGAL_ICON)).success).toBe(true);
   });
 
-  it('the fill is LIVE, and slot 0 holds the WRAPPED union, not the bare one', () => {
+  it('the fill is LIVE, and slot 0 holds the COMPONENT UNION, not the pre-objectui#8344 base shape', () => {
     // `z.union` re-reads its option array on every parse, so the recursion point is whatever
     // slot 0 holds NOW — not whatever it held when some other file in this worker first
     // parsed something (the unit project runs `isolate: false`, one module graph per worker).
-    // ⛔ Do not assert `toBe(AnyComponentSchema)` here: what is installed is deliberately the
-    // `superRefine` WRAPPER that keeps the `chatbot` arm from widening the node slot, and a
-    // pin on the bare union would go green the moment that narrowing was dropped.
+    //
+    // ⭐ RE-POINTED at the INSTALLATION by objectui#9659, carrying a contract-review residual
+    // on objectui#9639. This leg used to read the wrapper's SHAPE — `not.toBe` the bare union,
+    // plus `checks` of length exactly 1 — because `defineNodeComponentUnion` installed a
+    // `superRefine` clause narrowing objectui#8344's `chatbot` `body`. Ruling A on
+    // objectui#8572 retired the arm that clause narrowed, and objectui#9659 measured the
+    // consequence: the clause could no longer FIRE for any input, so those two assertions had
+    // become a pin on the shape of an inert clause. The clause is retired at its source and
+    // this leg now reads what it was always really for — that the fill TOOK.
+    //
+    // ⚠️ The old warning here — "⛔ do not assert `toBe(AnyComponentSchema)`, it would go green
+    // the moment the wrapper stopped being installed" — was correct WHILE a wrapper existed,
+    // and it retires with the wrapper. It is not a licence to reintroduce one: with nothing
+    // wrapped, identity with the component union is the strongest reading available, and it
+    // FAILS on the failure this leg exists for — an unfilled holder still answers
+    // `BaseSchemaCore`, which is a different object.
     const arm = (SchemaNodeSchema as unknown as {
       _zod: { def: { getter: () => { _zod: { def: { options: readonly { _zod: { propValues?: Record< string, unknown >; def: { checks?: unknown[] } } }[] } } } } };
     })._zod.def.getter()._zod.def.options[0];
-    expect(arm).not.toBe(AnyComponentSchema);
-    // it is still the discriminated union objectui#8498 built — the discrimination survives
-    // the wrapper, which is what keeps a nested refusal costing one arm instead of 106 —
+    expect(arm).toBe(AnyComponentSchema as unknown as typeof arm);
+    // and it is still the discriminated union objectui#8498 built, which is what keeps a
+    // nested refusal costing one arm instead of 106.
     expect(Object.keys(arm._zod.propValues ?? {})).toContain('type');
-    // and it carries exactly the one check that narrowing adds.
-    expect(arm._zod.def.checks).toHaveLength(1);
   });
 
 });
@@ -180,40 +194,63 @@ describe('the late-binding wiring, read by IDENTITY on the exported wrapper', ()
  * The EXACT bound on the one assertion `base.zod.ts` needs to make.
  *
  * `SchemaNodeSchema` keeps its objectui#7760 annotation `z.ZodType< SchemaNode,
- * SchemaNode >`, and `z.output< typeof AnyComponentSchema >` is not assignable to
- * `SchemaNode` for exactly ONE of its 106 arms: `complex.zod.ts#ChatbotSchema`
- * mirrors the chat API body params under the key `body`, which is `BaseSchema`'s
- * CHILDREN slot. That collision is pre-existing (the parity ledger carries it under
- * `KnownDrift`, the TS declaration renamed the key to `requestBody`, and
- * `ChatbotSharedMirrorShape` says a ruling on `ChatbotSchema`'s own `body` arm is a
- * separate question), and objectui#8344 does not decide it.
+ * SchemaNode >`, and this reads back which arms of `AnyComponentSchema` are NOT
+ * assignable to it.
  *
- * ⇒ the fill site takes a loose bound and this states the real one instead. A SECOND
- * arm drifting the same way turns this red — where a wide bound would have said
- * nothing. ⛔ Do not repair a red here by adding the new name to the union below:
- * that records a second declaration defect as if it were a contract.
+ * ⭐ INVERTED by ruling A on objectui#8572, ⛔ not deleted. It read `'chatbot'` for as long
+ * as `complex.zod.ts#ChatbotSchema` mirrored the chat API body params under the key `body`,
+ * which is `BaseSchema`'s CHILDREN slot — that collision WAS the whole exclusion, the parity
+ * ledger carried it under `KnownDrift`, and objectui#8344 was not allowed to decide it. The
+ * ruling retires the record arm on both faces, so every arm's output is assignable and the
+ * honest bound is `never`.
+ *
+ * ⇒ the fill site takes a loose bound and this states the real one instead. A SECOND arm
+ * drifting the same way turns this red — where a wide bound would have said nothing.
+ * ⛔ Do not repair such a red by adding the new name to the union below: that records a
+ * declaration defect as if it were a contract. ⛔ And do not delete this pin now that it
+ * reads `never`: an empty exclusion set nothing asserts is indistinguishable from an
+ * exclusion set nobody has looked at since.
+ *
+ * ⚠️ The `[…] extends [never]` guard is not decoration, and ⛔ it may not be simplified
+ * away. The bare projection `Exclude< … > extends { type: infer K } ? K : never` does NOT
+ * resolve to `never` on an EMPTY exclusion set: `never` is assignable to the probe shape,
+ * so the true branch is taken and `K` is inferred from nothing — measured on this branch,
+ * the bare spelling resolves to `unknown`. Written that way the pin can only ever be red,
+ * which reads as drift where there is none. The guard answers the empty case first and
+ * leaves the projection to do exactly what it did before: NAME the arm when there is one.
  */
 type ArmsNotAssignableToSchemaNode =
-  Exclude< z.output< typeof AnyComponentSchema >, SchemaNode > extends { type: infer K } ? K : never;
+  [Exclude< z.output< typeof AnyComponentSchema >, SchemaNode >] extends [never]
+    ? never
+    : Exclude< z.output< typeof AnyComponentSchema >, SchemaNode > extends { type: infer K } ? K : never;
 
 export type NodeRecursionPointDeclarationDrift = [
-  Expect< Equal< ArmsNotAssignableToSchemaNode, 'chatbot' > >,
+  Expect< Equal< ArmsNotAssignableToSchemaNode, never > >,
 ];
 
 
 /**
- * The one arm the redirect would have WIDENED, narrowed on the arm itself.
+ * The one arm the redirect would have WIDENED — retired at the source by objectui#8572.
  *
- * `ChatbotSchema.body` mirrors the chat API's body params as a record — the only wider
- * redeclaration among the 109 base-key redeclarations across the union's arms. Without the
- * `superRefine` on the installed arm the redirect would narrow at 108 slots and widen at
- * this one, which is what the card's appetite forbids in as many words.
+ * `ChatbotSchema.body` mirrored the chat API's body params as a record: the one
+ * redeclaration across the union's arms that was WIDER than the base key it restated.
+ * objectui#8344 was not allowed to move the published mirror, so it carried the narrowing on
+ * the INSTALLED arm (`defineNodeComponentUnion`'s `superRefine` in `../zod/base.zod.ts`) and
+ * this suite pinned the asymmetry that left behind: refused one slot down, still accepted at
+ * the root.
  *
- * ⛔ Both directions are load-bearing, and a fix that only satisfies the first is the
- * failure this pin exists to catch: narrowing the ROOT mirror would also refuse the nested
- * node, and it would be a change to a published face this card does not own.
+ * ⭐ Maintainer ruling A on objectui#8572 (decision batch #137, item 4, 2026-09-15) retired
+ * that arm — `retirementTombstone` on the mirror, `?: never` on the declaration — so the ROOT
+ * leg below is INVERTED, ⛔ not deleted: it is the only assertion in this file that reads the
+ * published face at the depth the retirement is about, and an inverted pin keeps the history
+ * of the key readable where a deleted one would leave the ROOT unwatched.
+ *
+ * ⛔ Both directions stay load-bearing, for a reason that OUTLIVED the asymmetry. The nested
+ * refusal is now produced by the ARM itself rather than by the wrapper clause, and the root
+ * refusal is the only one that can see the published mirror move; a repair that satisfies one
+ * and not the other is exactly the failure this suite exists to catch.
  */
-describe('objectui#8344 — the `chatbot` record `body` is refused NESTED and still accepted at the ROOT', () => {
+describe('objectui#8572 — the `chatbot` record `body` is refused at the ROOT and one slot down alike', () => {
   const CHATBOT = {
     type: 'chatbot',
     messages: [{ id: '1', role: 'assistant', content: 'hi' }],
@@ -225,8 +262,20 @@ describe('objectui#8344 — the `chatbot` record `body` is refused NESTED and st
     expect(AnyComponentSchema.safeParse({ type: 'div', children: [withRecordBody] }).success).toBe(false);
   });
 
-  it('is still ACCEPTED at the ROOT — the published mirror is untouched', () => {
-    expect(AnyComponentSchema.safeParse(withRecordBody).success).toBe(true);
+  it('is REFUSED at the ROOT too — objectui#8572 retired the published record arm', () => {
+    // INVERTED by ruling A on objectui#8572. Until that ruling this leg read `toBe(true)`,
+    // and the `superRefine` clause on the installed arm was the only thing narrowing the
+    // nested form. ⛔ Do not read a failure here as "the wrapper leaked to the root": the
+    // refusal below comes from the ARM, and its path and code say so.
+    const result = AnyComponentSchema.safeParse(withRecordBody);
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const bodyIssue = result.error.issues.find((issue) => issue.path.join('.') === 'body');
+    expect(bodyIssue?.code).toBe('invalid_type');
+    // The REMEDY reaches the author by name — `retirementTombstone` writes one string into
+    // both the parse-time message and the published `.describe()`, so this asserts the named
+    // replacement key rather than the sentence carrying it.
+    expect(bodyIssue?.message).toContain('requestBody');
   });
 
   it('NON-VACUITY: the same node without `body` is accepted at both depths', () => {
@@ -234,11 +283,77 @@ describe('objectui#8344 — the `chatbot` record `body` is refused NESTED and st
     expect(AnyComponentSchema.safeParse(nested(CHATBOT)).success).toBe(true);
   });
 
-  it('names `body` in the refusal, so the author is told which key is wrong', () => {
+  it('names `body` AT ITS OWN PATH one slot down, and carries the remedy there too', () => {
+    // ⭐ RE-POINTED by objectui#9659, carrying a contract-review residual on objectui#9639.
+    // This leg used to read `JSON.stringify(issues)` for the substring naming the
+    // parent's child slot and was VACUOUS: that slot is in the issue path for ANY
+    // refused child, so the old assertion held whether or not the `chatbot` arm
+    // named anything. Measured on this head — three documents with nothing wrong
+    // at the child's own `body`, all three satisfying the old assertion, none of
+    // them carrying an issue at that path:
+    //
+    //   nested off-spec `icon` (size: 'huge')  → blob contains the slot name: true,
+    //                                            issues at `<slot>.0.body`: 0
+    //   nested unmirrored `metric-card`        → true / 0
+    //   nested `chatbot` missing `messages`    → true / 0
+    //   nested `chatbot` with a record `body`  → true / 1   ← the only one about `body`
+    //
+    // ⚠️ The parent slot is spelled `children` since objectui#6771 retired `body`;
+    // the child's own refused key is still `body`, so the two halves of the path
+    // no longer read alike and the reading is easier to see, not different.
+    //
+    // ⇒ the reading that discriminates is the child's OWN path, not the serialized blob. The
+    // controls above are kept as assertions below so the discrimination is pinned rather than
+    // recorded in prose.
     const result = AnyComponentSchema.safeParse(nested(withRecordBody));
     expect(result.success).toBe(false);
     if (result.success) return;
-    expect(JSON.stringify(result.error.issues)).toContain('"body"');
+    const at = (issues: readonly unknown[], path: string): { code?: string; message?: string }[] => {
+      const out: { code?: string; message?: string }[] = [];
+      const walk = (node: unknown, prefix: readonly (string | number)[]): void => {
+        if (Array.isArray(node)) { for (const child of node) walk(child, prefix); return; }
+        const issue = node as { path?: readonly (string | number)[]; errors?: readonly unknown[]; code?: string; message?: string };
+        const here = [...prefix, ...(issue.path ?? [])];
+        if (here.join('.') === path) out.push({ code: issue.code, message: issue.message });
+        for (const bucket of issue.errors ?? []) walk(bucket, here);
+      };
+      walk(issues, []);
+      return out;
+    };
+    const named = at(result.error.issues, 'children.0.body');
+    expect(named.length).toBeGreaterThan(0);
+    // the refusal one slot down is the ARM's tombstone, and the REMEDY reaches the author at
+    // depth and not only at the root — the root leg above reads the same string at depth 0.
+    expect(named.some((i) => i.code === 'invalid_type')).toBe(true);
+    expect(named.some((i) => (i.message ?? '').includes('requestBody'))).toBe(true);
+  });
+
+  it.each([
+    ['off-spec `icon`', { type: 'icon', icon: 'check', size: 'huge' }],
+    ['unmirrored `metric-card`', { type: 'metric-card', title: 'x' }],
+    ['`chatbot` missing `messages`', { type: 'chatbot' }],
+  ])('CONTROL — a nested %s is refused with NOTHING at the child\'s `body` path', (_label, child) => {
+    // These are the documents that made the old leg vacuous. Each is refused for a reason that
+    // has nothing to do with `body`, so the leg above must find nothing at `children.0.body`.
+    // ⛔ Do not "repair" a future failure by widening the path: a refusal that starts naming
+    // `body` for an off-spec `icon` is a defect in the recursion point, not in this control.
+    const result = AnyComponentSchema.safeParse(nested(child));
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const paths: string[] = [];
+    const walk = (node: unknown, prefix: readonly (string | number)[]): void => {
+      if (Array.isArray(node)) { for (const c of node) walk(c, prefix); return; }
+      const issue = node as { path?: readonly (string | number)[]; errors?: readonly unknown[] };
+      const here = [...prefix, ...(issue.path ?? [])];
+      paths.push(here.join('.'));
+      for (const bucket of issue.errors ?? []) walk(bucket, here);
+    };
+    walk(result.error.issues, []);
+    expect(paths).not.toContain('children.0.body');
+    // and the old assertion holds anyway — which is the whole reason it was replaced.
+    // (It reads the PARENT's slot name, which is what made it vacuous; that name is
+    // `children` since objectui#6771, and the vacuity is unchanged.)
+    expect(JSON.stringify(result.error.issues)).toContain('"children"');
   });
 });
 
@@ -260,7 +375,7 @@ describe('objectui#8344 + objectui#8498 — a refusal at depth 4 stays bounded a
   const deep = (levels: number): unknown =>
     levels === 0
       ? { type: 'badge', variant: 'not-a-variant' }
-      : { type: 'card', title: 'p', body: [deep(levels - 1)] };
+      : { type: 'card', title: 'p', children: [deep(levels - 1)] };
 
   it('refuses at every depth 0 through 4 without throwing', () => {
     for (const depth of [0, 1, 2, 3, 4]) {
@@ -282,7 +397,7 @@ describe('objectui#8344 + objectui#8498 — a refusal at depth 4 stays bounded a
     const legal = (levels: number): unknown =>
       levels === 0
         ? { type: 'badge', variant: 'default' }
-        : { type: 'card', title: 'p', body: [legal(levels - 1)] };
+        : { type: 'card', title: 'p', children: [legal(levels - 1)] };
     expect(safeValidateSchema(legal(4)).success).toBe(true);
   });
 });

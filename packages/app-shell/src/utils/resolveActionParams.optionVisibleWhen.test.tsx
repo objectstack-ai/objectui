@@ -32,14 +32,13 @@
  * therefore exercise the predicates that need no record at all — scope-relative
  * (`current_user`), the role-gating case ADR-0058 opens — plus, in the last two
  * tests, what a record-relative predicate does on each side of that prop:
- * supplied (the dialog's values narrow the list) and absent (the evaluator's
- * `?? ctx.formValues` link, which this file can reach ONLY by casting a member
- * onto the context that `SchemaRendererContextType` does not declare — see the
- * note on `records` below, and objectui#7206).
+ * supplied (the dialog's values narrow the list) and absent (nothing narrows,
+ * and no ambient context can stand in — see the note on `records` below, and
+ * objectui#7206).
  */
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PredicateScopeProvider, SchemaRendererContext } from '@object-ui/react';
 import { SelectField } from '@object-ui/fields';
@@ -80,18 +79,20 @@ function renderInheritedSelect(
   positions: string[],
   value?: string,
   /**
-   * The two record channels `useCascadingOptions` reads, in its own precedence
-   * order. `dependentValues` is what a HOST supplies (the dialog now supplies
-   * its in-progress param values on it — objectui#3765); `ctxFormValues` drives
-   * the hook's `?? ctx.formValues` link.
+   * `dependentValues` is the ONE record channel `useCascadingOptions` reads —
+   * what a HOST supplies (the dialog supplies its in-progress param values on
+   * it, objectui#3765).
    *
-   * ⚠️ That second link is NOT reachable in production, and this used to call it
-   * "the `SchemaRendererContext` fallback the hook drops to".
-   * `SchemaRendererContextType` declares exactly `dataSource` / `debug` /
-   * `debugFlags` / `apiFetch`, so the only way to exercise it is the cast the
-   * provider below performs (objectui#7206). Both default to absent, which is
-   * the "no record at all" case — and the PRODUCTION case whenever no host
-   * passes `dependentValues`.
+   * `ctxFormValues` is not a second channel: it casts `formValues` onto the
+   * `SchemaRendererContext` value, which is what the hook's retired
+   * `?? ctx.formValues ?? ctx.data` tail used to read. That tail was never
+   * reachable in production — `SchemaRendererContextType` declares exactly
+   * `dataSource` / `debug` / `debugFlags` / `apiFetch` — and it was retired
+   * under ADR-0049 enforce-or-remove (objectui#7206). The option is kept here
+   * so the retirement stays OBSERVABLE: the last test renders that cast and
+   * pins that it changes nothing. Both default to absent, which is the "no
+   * record at all" case — and the PRODUCTION case whenever no host passes
+   * `dependentValues`.
    */
   records?: { dependentValues?: Record<string, unknown>; ctxFormValues?: Record<string, unknown> },
 ) {
@@ -116,8 +117,9 @@ function renderInheritedSelect(
   render(
     records?.ctxFormValues
       // The context type declares `dataSource` only; `formValues` is the key
-      // `useCascadingOptions` / `LookupField` read off it through an `any` cast,
-      // so a host supplying one is expressed the same way here.
+      // `useCascadingOptions` / `LookupField` USED to read off it through an
+      // `any` cast, so a host that tried to supply one is expressed the same
+      // way here — which is what makes the retirement measurable below.
       ? <SchemaRendererContext.Provider value={{ dataSource: null, formValues: records.ctxFormValues } as never}>
           {tree}
         </SchemaRendererContext.Provider>
@@ -206,28 +208,37 @@ describe('field-inherited option predicates reach the dialog control (objectui#3
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
-  it('falls back to the context record when the host supplies none, and fails OPEN when neither exists', () => {
-    // The evaluator was NOT touched by objectui#3765 — the ruling was "supply
-    // the record, do not change the reader" — so its chain
-    // (`dependentValues ?? ctx.formValues ?? ctx.data ?? {}`) still consults the
-    // second link. ⚠️ This used to say that link "must still work … for every
-    // widget rendered outside a dialog". It cannot:
-    // `SchemaRendererContextType` declares exactly `dataSource` / `debug` /
-    // `debugFlags` / `apiFetch`, so outside a dialog that tail is
-    // unconditionally `{}`, and this case is reachable only through the cast the
-    // helper performs (objectui#7206). What is pinned here is the READER's
-    // precedence — that the second link is still consulted at all — not a route
-    // any host can take today. Pinned because the dialog is the loudest producer
-    // of the FIRST link, and a wiring change that quietly bypassed the rest of
-    // the chain would look identical from the dialog's side.
+  it('ignores a record cast onto the context — the retired tail, with its channel as the control', () => {
+    // objectui#7206, the retirement made observable. `useCascadingOptions` now
+    // resolves `dependentValues ?? {}`; it used to end
+    // `?? ctx.formValues ?? ctx.data ?? {}`, links no host could ever set
+    // because `SchemaRendererContextType` declares exactly `dataSource` /
+    // `debug` / `debugFlags` / `apiFetch`. This case used to pin that the
+    // second link was "still consulted"; it now pins that it is gone.
+    //
+    // SUBJECT — a context carrying the exact member that tail named reaches
+    // nothing: `record` is `{}`, `record.country` is UNRESOLVABLE rather than
+    // false, and `resolveVisibleOptions()` fails OPEN by documented default, so
+    // the option is offered. Before the retirement this identical call rendered
+    // the empty state.
     renderInheritedSelect(PROVINCE, ['admin'], undefined, { ctxFormValues: { country: 'us' } });
-    expect(screen.getByTestId('select-empty-tier')).toBeInTheDocument();
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.queryByTestId('select-empty-tier')).not.toBeInTheDocument();
 
-    // Neither link supplied → `record` is `{}`, and `record.country` is
-    // UNRESOLVABLE rather than false, which `resolveVisibleOptions()` fails
-    // OPEN by documented default: the option is offered, never wrongly hidden.
-    // That is what an empty dialog now looks like, and it is the direction that
-    // makes this whole surface safe to get wrong.
+    // CONTROL, in the same case — the SAME predicate and the SAME record, moved
+    // to the channel that survives, must still hide the option. Without it the
+    // zero above is equally satisfied by a harness that narrows nothing.
+    cleanup();
+    renderInheritedSelect(PROVINCE, ['admin'], undefined, { dependentValues: { country: 'us' } });
+    expect(screen.getByTestId('select-empty-tier')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('fails OPEN when no record exists at all', () => {
+    // No prop, no context → `record` is `{}`, the predicate is unresolvable and
+    // the option is offered rather than wrongly hidden. That is what a widget
+    // outside a dialog now looks like, and it is the direction that makes this
+    // whole surface safe to get wrong.
     renderInheritedSelect(PROVINCE, ['admin']);
     expect(screen.getAllByRole('combobox')).toHaveLength(1);
   });

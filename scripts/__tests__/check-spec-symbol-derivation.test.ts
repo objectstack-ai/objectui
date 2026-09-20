@@ -682,6 +682,87 @@ describe('findClaim', () => {
   });
 });
 
+// ── EVERY occurrence of a claim phrase, not the first (objectui#8819) ────────
+
+describe('a claim phrase is read at EVERY occurrence, not just its first', () => {
+  /**
+   * The masking shape, taken from the live docblock the card was found in:
+   * `ROW_PREDICATE_ROOTS` (packages/app-shell/src/views/metadata-admin/
+   * ConditionalFormattingEditor.tsx) opens "They were mirror images" and
+   * "silently never matches", both far from its single spec mention.
+   *
+   * ⚠️ The direction is what makes this p2: `exec` once per pattern tested only
+   * the FIRST occurrence, so an innocent early "mirror" consumed the single
+   * examination and a real claim beside a mention later in the SAME block went
+   * green. A silent wrong answer — the planted premise the rule's own failure
+   * text is written against — not a loud one.
+   */
+  const MASKED = `
+/**
+ * The row predicate roots this editor offers.
+ *
+ * The two roots were settled in opposite directions. They were mirror images,
+ * and the ruling is that the engine's own root list is the contract this
+ * catalogue follows, in BOTH directions.
+ *
+ * The identity spelling authors reach for is \`os.user.id\`, and this catalogue
+ * mirrors @objectstack/spec ListView roots exactly.
+ */
+export interface RowPredicateRootCatalog {
+  roots: string[];
+  labelled: boolean;
+}
+`;
+
+  /** The SAME block with the innocent early occurrence removed — the card's own repro. */
+  const UNMASKED = MASKED.replace('They were mirror images,', 'They were opposites,');
+
+  it('flags a real claim that an innocent earlier occurrence of the same phrase used to hide', () => {
+    withFixture({ 'roots.ts': MASKED }, ({ 'roots.ts': file }) => {
+      const found = scan(file);
+      expect(found).toHaveLength(1);
+      expect(found[0].name).toBe('RowPredicateRootCatalog');
+      // The LATER occurrence is the one that pairs: the early "mirror images"
+      // is neither within CLAIM_WINDOW of the mention nor in its sentence.
+      expect(found[0].phrase.toLowerCase()).toBe('mirrors');
+    });
+  });
+
+  it('…and the masking is the ONLY difference — the same claim without it was always caught', () => {
+    // The control that makes the test above a reading rather than a tautology:
+    // this half is flagged by the first-occurrence scanner too, so the pair
+    // isolates the occurrence rule and nothing else.
+    withFixture({ 'roots.ts': UNMASKED }, ({ 'roots.ts': file }) => {
+      expect(scan(file).map((f) => f.name)).toEqual(['RowPredicateRootCatalog']);
+    });
+  });
+
+  it('⛔ the exported patterns stay `/g`-free, so `exec`/`test` on them cannot carry state', () => {
+    // The all-occurrences scan uses module-private `/g` COPIES with `matchAll`,
+    // which clones and never mutates the source `lastIndex`. Putting `/g` on
+    // these shared literals instead would make any importer's `exec`/`test`
+    // resume mid-string: a gate whose verdict depends on how many docblocks
+    // preceded it is worse than the bug this card fixes.
+    for (const pattern of CLAIM_PATTERNS) expect(pattern.flags, String(pattern)).not.toContain('g');
+  });
+
+  it('…and repeated scans of the same text return the same verdict', () => {
+    const reads = [1, 2, 3].map(() => findClaim(MASKED)?.phrase.toLowerCase() ?? null);
+    expect(reads).toEqual(['mirrors', 'mirrors', 'mirrors']);
+  });
+
+  it('…and a block scanned after another block is judged identically either way', () => {
+    // Order-independence stated as a reading, not as an assumption: the same
+    // two fixtures, scanned in both orders, produce the same two verdicts.
+    withFixture({ 'a.ts': MASKED, 'b.ts': UNMASKED }, ({ 'a.ts': a, 'b.ts': b }) => {
+      const forwards = [...scan(a), ...scan(b)].map((f) => f.phrase.toLowerCase());
+      const backwards = [...scan(b), ...scan(a)].map((f) => f.phrase.toLowerCase());
+      expect(forwards).toEqual(['mirrors', 'mirrors']);
+      expect(backwards).toEqual(['mirrors', 'mirrors']);
+    });
+  });
+});
+
 describe('normalizeDoc', () => {
   it('collapses comment syntax so a wrapped sentence reads as one line', () => {
     expect(normalizeDoc('/**\n * Aligned with\n * @objectstack/spec X.\n */')).toBe('Aligned with @objectstack/spec X.');

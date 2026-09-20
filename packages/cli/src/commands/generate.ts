@@ -69,7 +69,7 @@ function generatePage(cwd: string, name: string) {
   const content = {
     type: "page",
     title: name,
-    body: [
+    children: [
       {
         type: "markdown",
         content: `# Welcome to ${name}`

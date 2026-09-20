@@ -54,9 +54,10 @@ interface BoxSchema {
 ## Migrating from `div`
 
 `box` is a drop-in replacement for a JSON-authored `div`, with one deliberate
-difference: **`box` reads `children` only.** The old `div` renderer fell back
-to `body` when `children` was absent; a `div` node authored with `body` must
-move that content into `children` when it becomes a `box`:
+difference: **`box` reads `children` only** — as, since objectui#6771 retired
+the `body` spelling, every renderer now does. The old `div` renderer fell back
+to `body` when `children` was absent; a `div` node still authored with `body`
+must move that content into `children`, whether or not it becomes a `box`:
 
 ```json
 {

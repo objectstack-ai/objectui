@@ -69,7 +69,7 @@ Example:
 
 [Tailwind CSS Documentation](https://tailwindcss.com)`,
 
-      body: `**body** (object | array)
+      children: `**children** (object | array)
 
 Child components or content.
 
@@ -80,7 +80,7 @@ Can be:
 
 Example:
 \`\`\`json
-"body": [
+"children": [
   { "type": "text", "content": "Hello" },
   { "type": "button", "label": "Click me" }
 ]
@@ -182,7 +182,7 @@ Example:
 {
   "type": "div",
   "className": "flex gap-4 p-6",
-  "body": [...]
+  "children": [...]
 }
 \`\`\``,
 
@@ -196,7 +196,7 @@ Example:
   "type": "card",
   "title": "Card Title",
   "description": "Card description",
-  "body": {...}
+  "children": {...}
 }
 \`\`\``,
 

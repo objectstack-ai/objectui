@@ -53,15 +53,25 @@ affordance:
 - the relative face reads **"Overdue Nd"** instead of the neutral "N days ago";
 - the cell is styled red, whichever display face it is painting.
 
-The key is optional. When it is omitted, common due/deadline field-name
-conventions (`due_at`, `deadline`, `expires_at`, `sla_at`, `renewal_at`,
-`next_action_at`, …) turn the affordance on by themselves; set `dueLike: false`
-is not required to opt out, but authoring a neutral name is.
+The key is optional, and only a declared `true` short-circuits. With the key
+absent, common due/deadline field-name conventions (`due_at`, `deadline`,
+`expires_at`, `sla_at`, `renewal_at`, `next_action_at`, …) turn the affordance
+on by themselves — and writing `dueLike: false` does **not** suppress that
+fallback. Authoring a neutral field name is the opt-out.
 
 The affordance is **day-granular**. It compares calendar days, so a datetime a
 few hours past its deadline still reads "Today" and is not red — the same answer
 the date field gives for a deadline falling today. The shortest overdue phrase
 is "Overdue 2d".
+
+The two halves do not switch on and off together. The red styling starts the day
+after the deadline; the "Overdue Nd" wording starts a day later still, and then
+stops once the date is far enough in the past that the relative face falls back
+to an absolute date. The red does not stop with it — a long-overdue deadline
+reads as a plain past date, in red.
+
+The same key is authorable on a **detail-view field entry**, where it means
+exactly this. See [DetailViewSchema](/docs/api/schema-reference#detailviewschema).
 
 The value being edited, and the `className` / `disabled` a host supplies, are **not**
 metadata keys — they are runtime widget props. See [Field Widget Props](/docs/fields/widget-props).

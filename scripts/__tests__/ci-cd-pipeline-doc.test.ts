@@ -3,6 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Plain-JS CI helper; its types are INFERRED from the .mjs source by
+// `tsconfig.scripts.json` (`allowJs`), so no `@ts-expect-error` here — re-adding one
+// is itself an error (TS2578). See objectui#3494.
+import { stripComments } from '../js-comment-mask.mjs';
+
 /**
  * objectui#3197: `content/docs/guide/ci-cd-pipeline.md` described a bundle-size
  * regime that had not existed for a long time — a 60 KB console budget against a
@@ -2125,18 +2130,48 @@ const LIVE_CONFIG_FILE = 'playwright.live.config.ts';
 const liveConfig = fs.readFileSync(path.join(repoRoot, LIVE_CONFIG_FILE), 'utf8');
 
 /**
- * Source with `//` and block comments removed. The YAML-oriented `withoutComments` above
- * cannot be reused: this is TypeScript, and `playwright.live.config.ts` opens with a 20-line
- * block comment that names the config's behaviour in prose. A whole-file regex would read that
- * prose as configuration — the same class of mistake as counting a commented-out `env:` key.
+ * The `reporter:` value exactly as written in a Playwright config, e.g. `[['list']]`.
+ *
+ * Comments come off first, and they come off through `scripts/js-comment-mask.mjs` — this
+ * tree's one answer to "is this span a comment, or code?". The YAML-oriented
+ * `withoutComments` above cannot be reused: this is TypeScript, and
+ * `playwright.live.config.ts` opens with a 20-line block comment that names the config's
+ * behaviour in prose. A whole-file regex would read that prose as configuration — the same
+ * class of mistake as counting a commented-out `env:` key.
+ *
+ * ⛔ And a whole-file regex is exactly what this reader used to do about it (objectui#9613).
+ * The paragraph above argued the case against the naive family and the function underneath it
+ * WAS one: a block-comment regex plus a `//`-to-end-of-line rule, the second carrying an
+ * ad-hoc one-character guard so that the `:` in a URL would save it. A regex has no idea what
+ * a string literal is; the guard is a patch over that, not an answer to it.
+ *
+ * ## How it survived the conversion that was supposed to catch it
+ *
+ * objectui#9183 moved 29 source-scanning carriers onto the shared mask and ruled this file
+ * out of scope because it strips Markdown and YAML — true of the file, and false of this
+ * site inside it. ⭐ A census keyed on which FILE holds a stripper cannot see a second
+ * stripper in a MIXED file, and an explicit pass and an unseen site read identically
+ * afterwards. That is the reusable half of the card, not the call site.
+ *
+ * ## What was measured before the swap, so the claim is re-derivable
+ *
+ * Over `playwright.live.config.ts` as it stands, the two strippers agree BYTE FOR BYTE:
+ * 1,779 comment bytes either way, zero characters that one calls prose and the other calls
+ * code in either direction, and the same `[['list']]` out of both. The population checked was
+ * the whole file — every line holding a `//` (four: three `http://` URLs behind a `:`, and
+ * the real line comment beside `SELF_DEPTH_BELOW_REPO_ROOT`, which is the only one the naive
+ * rule fires on), every string literal holding a `/` (seven), every string literal holding a
+ * block-comment opener or terminator (none) and every regex literal (none). So the defect was
+ * LATENT: nothing in the config today is mis-read, and the value this reader reports was
+ * never wrong. What the swap buys is the shape the config does not hold today and a
+ * Playwright config plausibly grows tomorrow — pinned below rather than described here.
+ *
+ * `stripComments` and not `maskComments` because this reader reports neither a line number
+ * nor a byte offset into the source — it returns a captured value — which is the module's own
+ * stated rule for choosing between its two projections.
  */
-function withoutTsComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
-}
-
-/** The `reporter:` value exactly as written in a Playwright config, e.g. `[['list']]`. */
 function reporterValueOf(source: string): string | undefined {
-  return withoutTsComments(source).match(/^\s*reporter:\s*(.+?),?\s*$/m)?.[1];
+  return stripComments(source).match(/^\s*reporter:\s*(.+?),?\s*$/m)?.[1];
 }
 
 describe('ci-cd-pipeline.md + live-e2e.yml — the Playwright report claim (#8238)', () => {
@@ -2185,6 +2220,39 @@ describe('ci-cd-pipeline.md + live-e2e.yml — the Playwright report claim (#823
     ].join('\n');
 
     expect(reporterValueOf(specimen)).toBe("[['list']]");
+  });
+
+  it('survives a glob, which is where the hand-rolled stripper would have broken', () => {
+    // objectui#9613's carrier, and the reason the reader above goes through the shared mask.
+    // The specimen in the previous case is the shape the config has TODAY, and the two-regex
+    // stripper this reader used to carry got that one right — measured over the real
+    // `playwright.live.config.ts`, the two agreed byte for byte. This is the shape the config
+    // does NOT have: a Playwright glob, which spells a block-comment opener inside a string.
+    //
+    // A regex cannot see a string literal, so it opens a comment there and runs to the next
+    // real terminator — the docblock BELOW `reporter:` — taking the reporter line with it.
+    // The reader then answers `undefined` and the vacuity leg above reports that the config
+    // no longer declares a reporter at all: a false alarm pointing at a config that is fine,
+    // which is the expensive direction to fail in. Measured on this exact specimen: the old
+    // stripper yields `undefined`, the shared mask yields `[['list']]`.
+    //
+    // ⛔ Not a synthetic stand-in for the file's behaviour — `testIgnore` and `testMatch` take
+    // globs, and this config is one `testIgnore:` away from the shape. The claim about the
+    // real file is the measurement in `reporterValueOf`'s docblock, not this case.
+    const withGlob = [
+      '/**',
+      " * Run with reporter: [['html']] when you want a browsable report.",
+      ' */',
+      'export default defineConfig({',
+      "  testIgnore: '**/*.wip.spec.ts',",
+      "  // reporter: [['html']],  — history, not a setting",
+      "  reporter: [['list']],",
+      '  /** Serial by design, so a retry is cheap. */',
+      "  use: { trace: 'on-first-retry' },",
+      '});',
+    ].join('\n');
+
+    expect(reporterValueOf(withGlob)).toBe("[['list']]");
   });
 
   it('uploads no path the reporter cannot produce', () => {

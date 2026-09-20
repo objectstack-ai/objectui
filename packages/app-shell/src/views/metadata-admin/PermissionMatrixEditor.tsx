@@ -383,7 +383,16 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     } catch {
       baselineRef.current = null;
     }
-    setDraft(next);
+    // objectui#9484 — a fresh identity, ALWAYS. `isDirty` below is a `useMemo`
+    // keyed on `draft`, while the anchor it reads lives in a ref: hand
+    // `setDraft` the object that is already the draft and React bails out on
+    // `Object.is`, the memo never recomputes, and the moved anchor is never
+    // read — the editor keeps reporting dirty against a baseline that already
+    // says clean. Measured on the environment door's post-save re-read
+    // rejection, where the re-anchor falls back to the saved body, which IS
+    // `draft`; the copy is what makes re-anchoring observable at all. Shallow
+    // is enough: the anchor is a JSON snapshot, so a copy is anchor-identical.
+    setDraft({ ...next });
   }, []);
   const [objects, setObjects] = React.useState<ObjectSummary[]>([]);
   const [fieldsByObject, setFieldsByObject] = React.useState<Record<string, FieldSummary[]>>({});
@@ -391,6 +400,12 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // objectui#9484 — the ENVIRONMENT door's post-save baseline re-read REJECTED.
+  // The write itself has already landed when that read runs, so this is an
+  // advisory notice about the DISPLAY being un-refreshed, and it deliberately
+  // does NOT live on `error`: that strip means "your save failed", which is the
+  // opposite of the truth here.
+  const [postSaveRereadFailed, setPostSaveRereadFailed] = React.useState(false);
   const [destructive, setDestructive] = React.useState<
     null | { issues: Array<{ kind?: string; path?: string; message?: string }>; pending: PermissionSetDraft }
   >(null);
@@ -431,6 +446,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     // set can never carry the previous one's artifact verdict for a frame
     // (objectui#4518).
     setCodeIsArtifact(false);
+    // Same reason: a notice raised by the previous set's save must not survive
+    // into a set that is about to be read fresh (objectui#9484).
+    setPostSaveRereadFailed(false);
     (async () => {
       try {
         const [lay, objList, pendingDraft] = await Promise.all([
@@ -735,6 +753,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     const payload = pending ?? draft;
     setSaving(true);
     setError(null);
+    setPostSaveRereadFailed(false);
     try {
       // Package scope: merge only this package's slice back onto a fresh read
       // of the record so rows contributed by other packages survive byte-for-
@@ -787,8 +806,34 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         resetDraftBaseline(toDisplayDraft(toSave));
         onDraftSaved?.();
       } else {
-        const lay = await client.layered<PermissionSetDraft>(type, payload.name);
-        resetDraftBaseline(toDisplayDraft((lay.effective ?? toSave) as PermissionSetDraft));
+        // objectui#9484 — this read runs AFTER `client.save` has returned: the
+        // record on the server is already correct and nothing about the write
+        // depends on the answer. It only re-anchors the display baseline, so a
+        // REJECTION here may only degrade the DISPLAY. Left bare, it fell into
+        // this `try`'s `catch` and produced three wrong outcomes at once for a
+        // write that LANDED: the red error strip rendered the transport's
+        // message, `resetDraftBaseline` was skipped so `isDirty` stayed true
+        // and the `beforeunload` guard kept firing on a persisted record, and
+        // `setDestructive(null)` was skipped so a force-save left its dialog
+        // open. All three are closed by catching here and carrying on.
+        //
+        // This is NOT the package door's pre-save `.catch` above and the two
+        // must not be unified: there the re-read happens BEFORE the write and
+        // its rejection REFUSES the write on purpose (objectui#9420). Here the
+        // write is already done, and refusing anything would be a lie.
+        let rereadFailed = false;
+        const lay = await client
+          .layered<PermissionSetDraft>(type, payload.name)
+          .catch(() => {
+            rereadFailed = true;
+            return null;
+          });
+        // `toSave` is the body the server just accepted, so it is a correct
+        // anchor even when the confirming read never arrives — the same
+        // fallback this line already spelled for the resolved-but-empty
+        // (404-shaped) envelope.
+        resetDraftBaseline(toDisplayDraft((lay?.effective ?? toSave) as PermissionSetDraft));
+        setPostSaveRereadFailed(rereadFailed);
       }
       setDestructive(null);
     } catch (err: any) {
@@ -895,6 +940,21 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           <div className="m-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {/* objectui#9484 — the save LANDED and only its confirming re-read did
+            not, so this is advisory (amber, `role="status"`), not the
+            destructive-toned error strip above. Rendered separately rather than
+            folded into `error` so the two can never be mistaken for each other
+            on a permission surface. */}
+        {postSaveRereadFailed && (
+          <div
+            role="status"
+            className="m-4 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200 flex items-start gap-2"
+          >
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>{t('perm.save.rereadStale')}</span>
           </div>
         )}
 

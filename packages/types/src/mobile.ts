@@ -17,6 +17,96 @@
  */
 
 // ============================================================================
+// RETIRE-VS-REMOVE DISCRIMINATOR — cited in this file, never restated
+// (objectui#9684)
+// ============================================================================
+//
+// Four retirement notes below argue a route: `MobileResponsiveConfig`,
+// `MobileOverrides`, `GestureConfig` and `MobileComponentConfig`. Each keeps
+// its own per-retirement argument — WHICH prong holds here and why, which no
+// shared statement can carry — and CITES the rule itself instead of writing
+// it out. The statement they cite is the `ChatbotSchema` JSDoc in
+// `complex.ts`, in the form objectui#7678 amended it to (objectui#5941 /
+// #7526 are the precedent changesets it is quoted from).
+//
+// ⛔ That is the statement this file cites; it is NOT the only one in the
+// package. `complex.ts` states the rule at four sites — `ChatbotSchema` among
+// three peers (`KanbanColumn.color`, `displayMode`, `triggerIcon`) — and
+// whether those four become citations too is the open decision on
+// objectui#9684. ⇒ ⛔ do not read this block as saying the rule is stated once
+// here, and ⛔ do not amend `ChatbotSchema` alone: the pin named below fails
+// when the four stop agreeing, but only for the clauses it can name.
+//
+// ⭐ Why cite at all: a rule written out in full at N sites is amended at N
+// sites by hand, and the drift is SILENT — the sites do not reference each
+// other, so nothing goes red when one is missed. Measured on this branch's
+// base: eight statements of the rule across the two files, two of them still
+// without the precondition objectui#7678 added, and both of those two in this
+// file. Neither was named by the finding that measured the drift
+// (objectui#9684), whose probe enumerated the population by literal phrase.
+//
+// ⚠️ The trade a citation costs a reader is not the same on both faces, which
+// is why `complex.ts` still states the rule and this file no longer does:
+// these notes are `//` comments and `complex.ts` states the rule in JSDoc on
+// exported members, and declaration emit carries JSDoc into the published
+// `.d.ts` while it drops a `//` comment — measured on objectui#9684, including
+// a `//` comment placed directly above an exported declaration, so the
+// dividing line is JSDoc-vs-line-comment and ⛔ not module-scope-vs-attached.
+// So a citation is free for a consumer reading the published declarations here
+// and would cost one a jump there. The structural half of that contrast is
+// re-derived by `__tests__/tombstone-discriminator-agreement-9684.test.ts`;
+// the reading of the emitted `.d.ts` behind it is recorded on objectui#9684
+// and is ⛔ NOT re-derived by anything, so re-run it rather than trusting it.
+//
+// The agreement itself is pinned by that same test. It fails when a note in
+// this package states the rule without carrying the precondition in the rule's
+// OWN phrasing (⛔ not merely having the words "no carrier" somewhere in the
+// block — that wording let an un-amended statement through, measured); when
+// ANY comment in this package outside `complex.ts` states the rule at all,
+// prongs written out or not — this file has no special standing there, a
+// `//` riding on a code line is in the population too, and two ABUTTING
+// comments are two blocks rather than one, so a drifted copy glued to a
+// compliant neighbour cannot borrow its precondition; when a citation's
+// target has moved; when `complex.ts` states the rule at any number of sites
+// other than the recorded four; and when a clause appears at one of those four
+// and not at its peers.
+//
+// ⚠️ The first two of those widenings are the fourth in-seat review's: with
+// the old `mobile.ts`-only scope, a fully amended statement prepended to
+// `data-display.ts` passed — a fifth statement, off the roster, free to drift
+// at the next amendment with nothing red, which is the mechanism this card is
+// about reopened one file over. With the old comment-only-lines population, a
+// statement appended to an `export interface` line passed for the same reason.
+// The third is the fifth review's: a blank line was the only thing that ended
+// a comment run, so an un-amended note wedged between the `ChatbotSchema`
+// JSDoc's closing delimiter and the declaration — or stacked directly above
+// that JSDoc — read as ONE block with it, inherited its precondition and its
+// roster slot, and passed. A human read five statements where the test counted
+// four. Control that says the test was not merely blind: the same note with a
+// blank line between reds 4.
+//
+// ⚠️ For the clauses that test names, in the spellings it names: a third prong
+// is caught written `prong 3`, `third prong`, `(3)`, or as `or` followed by
+// `3`, `iii`, `third` or `thirdly`. The `or` in that last item is an ANCHOR —
+// `3`, `iii`, `third` and `thirdly` are caught ONLY directly behind `or`, with
+// nothing in between but commas, whitespace and opening parentheses, ANY
+// NUMBER of them in ANY ORDER. So `, or ( 3 ) …`, `, or ,3 …`, `, or, (iii) …`
+// and `, or (( 3 )) …` are each CAUGHT, while `, and (iii) …`,
+// `, or else (iii) …`, `; and, third, …` and `, or: (iii) …` are each SILENT.
+// The other three spellings carry no anchor: `prong 3`, `third prong` and a
+// parenthesised `(3)` are caught however the clause is joined, `, and (3) …`
+// included. Silent as well: a clause that numbers nothing, and a whole
+// statement worded past every marker.
+// ⛔ Read that list from the test, ⛔ never a summary of it — this sentence
+// FOUR times described a boundary one step off the real one, and each time a
+// reader amending the rule in the uncaught style would have believed the other
+// three sites were held. ⭐ The fourth time is why "in any order" is written
+// out: the sentence named the three permitted characters as a SET while the
+// pattern required them in one SEQUENCE, so `, or ( 3 ) …` and `, or ,3 …`
+// broke no published sentence and were silent anyway. That one was closed by
+// widening the PATTERN to the set, ⛔ not by describing the sequence.
+
+// ============================================================================
 // Responsive Configuration
 // ============================================================================
 
@@ -83,11 +173,15 @@ export type ResponsiveValue<T> = T | Partial<Record<BreakpointName, T>>;
 // zero authors. A value written against it could not reach a renderer by any
 // path.
 //
-// Removed outright rather than tombstoned, measured against the two-prong
-// discriminator the precedent changesets state (objectui#5941, #7526; the
-// one-line form in the objectui#4919 note below is under correction as
-// objectui#7678): a tombstone exists (1) to steer authors to a named live
-// replacement KEY, or (2) to keep loud a key the docs taught as working.
+// Removed outright rather than tombstoned, measured against this package's
+// retire-vs-remove discriminator — cited, not restated (see this file's
+// `RETIRE-VS-REMOVE DISCRIMINATOR` preamble; the rule is stated on
+// `ChatbotSchema` in `complex.ts`, in the form objectui#7678 amended it to,
+// from the precedent changesets objectui#5941 / #7526).
+// `MobileResponsiveConfig` is a whole exported type name, so it has no
+// carrier to host a `?: never` member at all and the surviving-carrier
+// precondition settles the route on its own; the per-prong measurement that
+// follows was taken anyway and is kept as the record.
 // Prong 1: none — its distinctive keys (`stackOnMobile`, `showOnly`,
 // `stackBreakpoint`) have zero readers outside this declaration, and no
 // mounted type has carried a `responsive` member since objectui#5942.
@@ -126,12 +220,24 @@ export type ResponsiveValue<T> = T | Partial<Record<BreakpointName, T>>;
 // `objectstack` sibling checkout ever read the property, so all six keys
 // behaved identically (they did nothing), and the navigation vocabulary's
 // three values were three spellings of the same no-op. Removal rather than a
-// `?: never` tombstone follows this package's own discriminator: a tombstone
-// exists to steer authors to a named live replacement (`crud.ts` `confirm` →
-// `confirmText`; `data-display.ts` `hoverable`/`striped` → `data-table`),
-// and there is no replacement here — the same zero-pull/no-successor shape as
-// the retired `AccordionItem.icon` / `ToggleGroupItem.icon`, which were
-// likewise removed outright rather than tombstoned.
+// `?: never` tombstone follows this package's retire-vs-remove discriminator
+// — cited, not restated (see this file's `RETIRE-VS-REMOVE DISCRIMINATOR`
+// preamble; the rule is stated on `ChatbotSchema` in `complex.ts`, in the
+// form objectui#7678 amended it to).
+//
+// Neither branch reaches this retirement. The surviving-carrier precondition
+// settles it first: an exported type name that goes whole has no carrier to
+// host a `?: never` member at all. And where a member did have one, prong 1
+// fails — the named live replacements it points at elsewhere in this package
+// (`crud.ts` `confirm` → `confirmText`; `data-display.ts` `hoverable` /
+// `striped` → `data-table`) have no analogue here, the same zero-pull /
+// no-successor shape as the retired `AccordionItem.icon` /
+// `ToggleGroupItem.icon`, which were likewise removed outright rather than
+// tombstoned — and prong 2 has nothing to guard: this module has never had a
+// `zod/` twin, so there is no mirror that could accept an undeclared key and
+// strip it silently, which is the hazard prong 2 guards where a mirror does
+// exist. ⛔ The route itself is settled (objectui#4919); this note states the
+// rule it followed and does not reopen it.
 //
 // Reopen condition, recorded on objectui#4919: real mobile-override renderer
 // work re-enters as designed product surface on its own card, with the
@@ -289,10 +395,15 @@ export type GestureType ='tap' | 'double-tap' | 'long-press' | 'swipe-left' | 's
 // A binding written against it could not reach a handler by any path —
 // `action` was a string nothing dispatched.
 //
-// Removed outright rather than tombstoned, measured against the two-prong
-// discriminator the precedent changesets state (objectui#5941, #7526): a
-// tombstone exists (1) to steer authors to a named live replacement KEY, or
-// (2) to keep loud a key the docs taught as working. Prong 1: none — no
+// Removed outright rather than tombstoned, measured against the discriminator
+// the precedent changesets state (objectui#5941, #7526), in the form
+// objectui#7678 amended it to — cited, not restated (see this file's
+// `RETIRE-VS-REMOVE DISCRIMINATOR` preamble; the rule is stated on
+// `ChatbotSchema` in `complex.ts`). `GestureConfig` is a whole exported type
+// name, so it has no carrier to host a `?: never` member at all and the
+// surviving-carrier precondition settles the route on its own; the per-prong
+// measurement that follows was taken anyway and is kept as the record.
+// Prong 1: none — no
 // dispatcher reads a gesture `action` (zero hits), and the only `gestures` key
 // on any type is `TouchInteraction.gestures: SpecGestureConfig[]`, a different
 // contract with no reader of its own. Prong 2: the CHANGELOG lines naming it
@@ -362,11 +473,15 @@ export interface GestureContext {
 // the container itself inert.
 //
 // Removed outright rather than kept as a `?: never` carcass, on this package's
-// own discriminator: a tombstone exists to steer authors to a named live
-// replacement KEY (`crud.ts` `confirm` -> `confirmText`; `data-display.ts`
-// `hoverable`/`striped` -> `data-table`), or to keep loud a key the docs taught
-// as working. Neither applies. There is no surviving object to hang a `never`
-// key on — the whole interface goes — and no documentation ever described it:
+// retire-vs-remove discriminator — cited, not restated (see this file's
+// `RETIRE-VS-REMOVE DISCRIMINATOR` preamble; the rule is stated on
+// `ChatbotSchema` in `complex.ts`). `MobileComponentConfig` is a whole
+// exported type name — the whole interface goes, so there is no surviving
+// carrier to hang a `never` key on — and the precondition settles the route
+// on its own. Neither prong reaches it either: the named live replacements
+// prong 1 points at elsewhere in this package (`crud.ts` `confirm` ->
+// `confirmText`; `data-display.ts` `hoverable`/`striped` -> `data-table`)
+// have no analogue here, and no documentation ever described it —
 // `skills/objectui/guides/mobile.md` teaches the HOOKS and never this type.
 // Same zero-pull, no-successor shape as `MobileOverrides` (objectui#4919), and
 // as `AccordionItem.icon` / `ToggleGroupItem.icon` before it.

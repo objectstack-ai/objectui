@@ -1035,20 +1035,40 @@ export function analyze(root = REPO_ROOT, options = {}) {
         `      (reason on file: ${meta.reason.slice(0, 90)}…)`
     );
   }
+  // ⛔ Neither stale-entry message below may put a GitHub closing keyword
+  // (`close`/`fix`/`resolve`, any tense) immediately in front of the anchor it
+  // interpolates. These messages exist to be QUOTED: the discipline around a
+  // KNOWN_GAPS or UNCHECKED_FORWARDS entry is to take the INTERMEDIATE reading —
+  // the gap fixed, the entry not yet deleted — and paste the gate's own output
+  // into the pull request as proof the work landed. A keyword in front of the
+  // number makes every such quote a card-ending trigger in the merge path, from
+  // a body whose author was being careful. GitHub's parser does no sentence
+  // parsing, so hedging the sentence around it buys nothing. Keep the
+  // instruction, lose the keyword, and spell the anchor `objectui#` rather than
+  // a bare `#` so the reference cannot match the closing grammar at all.
+  //
+  // ⚠️ KNOWN_GAPS is NOT empty in this tree, so the first message below is
+  // reachable the moment one of its entries stops excusing anything — which is
+  // exactly the workflow that produces the quote. The landed precedent is the
+  // rule-2 stale-entry message in scripts/check-spec-symbol-derivation.mjs and
+  // the DEBT ratchet in scripts/check-lint-coverage.mjs. Pinned by
+  // scripts/__tests__/check-action-forward-parity-closing-keyword.test.ts, which
+  // RENDERS both messages through a seeded ledger rather than trusting this
+  // comment or reading the template.
   for (const [entry, meta] of Object.entries(knownGaps)) {
     if (matchedGaps.has(entry)) continue;
     errors.push(
-      `KNOWN_GAPS entry \`${entry}\` is no longer a gap — delete it (and close #${meta.issue} once\n` +
-        "      its last entry is gone). Left in, it re-reserves the key for a future drop."
+      `KNOWN_GAPS entry \`${entry}\` is no longer a gap — delete it (and objectui#${meta.issue} can be\n` +
+        "      ended once its last entry is gone). Left in, it re-reserves the key for a future drop."
     );
   }
   for (const [surfaceId, meta] of Object.entries(uncheckedForwards)) {
     if (matchedUnchecked.has(surfaceId)) continue;
     errors.push(
       `UNCHECKED_FORWARDS entry \`${surfaceId}\` excuses nothing — the surface's forward literal is\n` +
-        `      excess-property checked now, or the surface is gone. Delete it (and close #${meta.issue} once\n` +
-        "      its last entry is gone): left in, it re-reserves the surface for a future unchecked\n" +
-        "      literal under a reason nobody re-examined."
+        `      excess-property checked now, or the surface is gone. Delete it (and objectui#${meta.issue}\n` +
+        "      can be ended once its last entry is gone): left in, it re-reserves the surface for a\n" +
+        "      future unchecked literal under a reason nobody re-examined."
     );
   }
   for (const entry of Object.keys(opaqueSpreads)) {

@@ -260,6 +260,9 @@ const ja = {
       selectBusinessUnit: "事業単位を選択",
       selectPosition: "役職を選択",
       selectUnitAndSubordinates: "事業単位を選択",
+      selectField: "ユーザーフィールドを選択",
+      noUserFields: "このオブジェクトにユーザーフィールドはありません",
+      fieldNotUserTyped: "{{name}} — ユーザーフィールドではありません",
     },
     filterCondition: {
       selectObjectFirst: "先にオブジェクトを選択してください。",
@@ -283,6 +286,10 @@ const ja = {
         "保存されていません: {{name}}「{{text}}」は数値ではありません。通常の小数で入力してください（例: 30.2741, 120.1551）。",
       refusedResidue:
         "保存されていません: {{name}}「{{text}}」と{{otherName}}「{{otherText}}」は数値ではありません。通常の小数で入力してください（例: 30.2741, 120.1551）。",
+    },
+    number: {
+      badInput:
+        "保存されていません: このボックスのテキストは数値ではありません。通常の小数で入力してください（例: {{example}}）。",
     },
     tags: {
       placeholder: "入力してEnterキーで追加…",
@@ -1460,6 +1467,9 @@ const ja = {
     },
   },
   console: {
+    studio: {
+      backToHome: "ホームに戻る",
+    },
     saveAdvisoryTitle: "保存しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",
     publishAdvisoryTitle: "公開しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",
     importMappingsUnavailable: "{{object}} の保存済みインポートマッピングを読み込めませんでした",
@@ -1845,6 +1855,13 @@ const ja = {
       searching: "検索中…",
       records: "レコード",
       recentRecords: "最近閲覧",
+    },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'この環境の読み取り量が異常です',
+      ratio: '書き込み 1 行あたり {{ratio}} 行を読み取っています。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
+      noWritesTitle: 'この環境は読み取りのみで書き込みがまったくありません',
+      noWrites: '行の読み取りはある一方で書き込みがまったくないため、読み取り比率に上限がありません。これは最も深刻な読み取り値です。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
     },
     errors: {
       somethingWentWrong: "問題が発生しました",
@@ -2242,6 +2259,15 @@ const ja = {
       role: "ロール",
       save: "変更を保存",
     },
+    language: {
+      title: "言語",
+      description: "あなた宛ての通知やメッセージに使用される言語です。画面の表示言語は地球アイコンのメニューで別途切り替えます。",
+      label: "優先する言語",
+      systemDefault: "デプロイメントの既定値を使用",
+      save: "保存",
+      saved: "言語の設定を更新しました。",
+      readOnly: "このアカウントの言語は管理者が管理しています。",
+    },
     password: {
       changeTitle: "パスワードを変更",
       setTitle: "ローカルパスワードを設定",
@@ -2482,6 +2508,7 @@ const ja = {
     resultsCount: "\"{{query}}\" の結果 {{count}} 件",
     resultsCountPlural: "\"{{query}}\" の結果 {{count}} 件",
     itemsAvailable: "{{count}} 件利用可能",
+    itemsAvailableOne: "{{count}} 件利用可能",
     noResults: "結果が見つかりません",
     noResultsHint: "検索語句を調整してみてください",
     typeObjects: "オブジェクト",
@@ -3247,6 +3274,7 @@ const ja = {
     },
   },
   approvalsInbox: {
+    recordUnresolvable: 'このレコードは開けません',
     loadMore: 'さらに読み込む',
     loadingMore: '読み込み中…',
     loadedOf: '{{total}} 件中 {{loaded}} 件を表示',
@@ -3480,7 +3508,7 @@ const ja = {
       revertLabel: '変更を取り消しました',
       applyLabel: 'ビルドによる変更',
       revert: '取り消し',
-      items: '件',
+      items: '{{count}} 件',
       revertAction: '取り消す',
       reverted: '取り消しました — 変更を元に戻しました。',
       revertFailed: '取り消しに失敗しました',

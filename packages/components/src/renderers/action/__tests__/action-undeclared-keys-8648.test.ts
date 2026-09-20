@@ -50,16 +50,17 @@
  *     unwraps the cast) still reports as present. Declaring without un-casting
  *     is an inert declaration that pins green.
  *   - Every negative leg carries a control that varies ONLY the claim.
- *   - The last block is a LEDGER, not a pin on a good state. Un-casting the
+ *   - The last block WAS a ledger and is not one any more. Un-casting the
  *     `resultDialog` READ made the compiler name a second, separate defect the
- *     `as any` had been hiding: `@object-ui/core`'s `ResultDialogSpec` is a
+ *     `as any` had been hiding: `@object-ui/core`'s `ResultDialogSpec` was a
  *     hand copy of the contract's block whose `title` / `description` /
- *     `acknowledge` are `string` where the contract says `I18nLabel`. That fix
- *     is in another package and needs an i18n-resolution decision, so it is
- *     filed as objectui#9542 and the WRITE carries a narrowing assertion here
- *     meanwhile. The ledger leg asserts that workaround is still exactly what
- *     it says it is — so it cannot quietly become `as any` again, and it goes
- *     red (as an unused entry) when objectui#9542 lands and the assertions go.
+ *     `acknowledge` read `string` where the contract says `I18nLabel`. That
+ *     repair was filed as objectui#9542 and has LANDED — the mirror derives
+ *     those members from the contract now — so the narrowing assertion the
+ *     WRITE carried meanwhile is deleted, and the ledger entry pinning it with
+ *     it. What replaces the block pins the two things that outlive a
+ *     workaround: the write arriving with nothing asserted between it and
+ *     `ActionDef`, and the `as any` it must never become.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -227,8 +228,11 @@ const maskedSource = (file: string): string => mask(readFileSync(join(RENDERERS,
 const castBefore = (key: string): RegExp =>
   new RegExp(String.raw`\(\s*schema\s+as\s+\w+\s*\)\s*\.\s*${key}\b`);
 
-/** The write-side narrowing this card had to leave behind — see objectui#9542. */
-const LEDGERED_WRITE_NARROWING = /resultDialog:\s*schema\.resultDialog as ActionDef\['resultDialog'\]/;
+/**
+ * The write, forwarded with NOTHING between it and `ActionDef` — the state
+ * objectui#9542 left behind when it deleted this card's write-side narrowing.
+ */
+const UNNARROWED_WRITE = /resultDialog:\s*schema\.resultDialog\s*,/;
 
 /** The spelling it must never regress to. */
 const WRITE_SIDE_ANY = /resultDialog:\s*schema\.resultDialog as any/;
@@ -303,24 +307,39 @@ describe('objectui#8648 — the mirror declaration reaches the read sites (NOT i
   }
 });
 
-describe('objectui#8648 — the `resultDialog` write-side narrowing is a LEDGER entry, not a fix', () => {
+/*
+ * The LEDGER entry this card left behind is GONE, and this block is what it
+ * became. objectui#9542 made `@object-ui/core`'s `ResultDialogSpec` DERIVE its
+ * label members from the contract instead of hand-writing them as `string`, so
+ * the narrowing assertion that stood at both write sites had nothing left to
+ * narrow and was deleted — the workaround did not outlive its cause.
+ *
+ * ⭐ What survives is the half that was never a workaround: the `as any`
+ * negative. `castBefore` matches a cast between `schema` and the key, which a
+ * cast on the WRITE side — `schema.resultDialog as any` — walks straight past,
+ * so this is the only leg that refuses it. It is also the spelling that hid two
+ * defects at once, which is why the guard outlives the entry.
+ */
+describe('objectui#9542 — the `resultDialog` write reaches `ActionDef` with nothing between', () => {
   it('both matchers can fire, so the legs below are readings', () => {
+    // The controls vary ONLY the claim: the same write, asserted and plain.
     const narrowed = "resultDialog: schema.resultDialog as ActionDef['resultDialog'],";
-    expect(LEDGERED_WRITE_NARROWING.test(narrowed)).toBe(true);
-    expect(WRITE_SIDE_ANY.test(narrowed)).toBe(false);
+    expect(UNNARROWED_WRITE.test('resultDialog: schema.resultDialog,')).toBe(true);
+    expect(UNNARROWED_WRITE.test(narrowed)).toBe(false);
     expect(WRITE_SIDE_ANY.test('resultDialog: schema.resultDialog as any,')).toBe(true);
+    expect(WRITE_SIDE_ANY.test('resultDialog: schema.resultDialog,')).toBe(false);
   });
 
   for (const file of CARD_KEYS.resultDialog) {
-    it(`${file} narrows the \`resultDialog\` WRITE to \`ActionDef\` and never to \`any\``, () => {
+    it(`${file} forwards \`resultDialog\` unasserted, and never as \`any\``, () => {
       const source = maskedSource(file);
-      // The entry is live. When objectui#9542 lands, `ResultDialogSpec` derives
-      // from the contract, the assertion is deleted, and THIS goes red — which
-      // is the point: a workaround must not outlive its cause in silence.
-      expect(source).toMatch(LEDGERED_WRITE_NARROWING);
+      // Proof the file was read and masked, so the reading below is about the
+      // spelling and not about an empty string.
+      expect(source).toMatch(/UIActionSchema/);
+      expect(source).toMatch(UNNARROWED_WRITE);
       // ⛔ The spelling that hid two defects at once must not come back. `as
-      // any` here would re-swallow the `ResultDialogSpec` drift AND make the
-      // mirror declaration inert at this site in one stroke.
+      // any` here would re-swallow a future `ResultDialogSpec` drift AND make
+      // the mirror declaration inert at this site in one stroke.
       expect(source).not.toMatch(WRITE_SIDE_ANY);
     });
   }

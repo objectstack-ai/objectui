@@ -24,16 +24,12 @@ export interface UseSpecGestureOptions {
   onPan?: (direction: string) => void;
   /** Callback when a rotate gesture is detected (degrees, CW positive) */
   onRotate?: (rotation: number) => void;
-  /** Fallback for gestures without a dedicated callback */
+  /**
+   * Fallback for gestures without a dedicated callback. Its `type` is the
+   * DECLARED spec gesture, never the recognizer's own name for the same move.
+   */
   onGesture?: (context: { type: string; direction?: string; scale?: number; rotation?: number }) => void;
 }
-
-const SWIPE_DIRECTION_MAP: Record<string, GestureType> = {
-  left: 'swipe-left',
-  right: 'swipe-right',
-  up: 'swipe-up',
-  down: 'swipe-down',
-};
 
 /**
  * `SPEC_GESTURE_TYPES` (the retired `ui/touch` vocabulary, owned by
@@ -41,8 +37,10 @@ const SWIPE_DIRECTION_MAP: Record<string, GestureType> = {
  * {@link GestureType} `useGesture` implements. Note the two sides are
  * different vocabularies, which is why this map exists at all: the retired
  * spec's `drag` and `pan` are one recognizer
- * (any-direction move past the threshold); `swipe` resolves per configured
- * direction, so it maps through {@link SWIPE_DIRECTION_MAP} instead.
+ * (any-direction move past the threshold); `swipe` declares a SET of
+ * directions, so it recognizes on that same any-direction move and fires only
+ * when the DETECTED direction is a member of the declared set — no single
+ * recognizer name carries that, which is why its entry below is a placeholder.
  * Exported for the spec-parity test.
  *
  * Before #2942 the hook never read `config.type` at all — it branched on
@@ -51,7 +49,7 @@ const SWIPE_DIRECTION_MAP: Record<string, GestureType> = {
  * fell through to the `'tap'` initializer and fired on a tap.
  */
 export const SPEC_GESTURE_TYPE_MAP: Record<string, GestureType> = {
-  swipe: 'swipe-left', // per-direction; resolved via SWIPE_DIRECTION_MAP
+  swipe: 'swipe-left', // placeholder; the hook recognizes any direction and filters by the declared set
   pinch: 'pinch',
   long_press: 'long-press',
   double_tap: 'double-tap',
@@ -69,7 +67,7 @@ export const SPEC_GESTURE_TYPE_MAP: Record<string, GestureType> = {
  * @example
  * ```tsx
  * const ref = useSpecGesture({
- *   config: { type: 'swipe', enabled: true, swipe: { direction: 'left', threshold: 80 } },
+ *   config: { type: 'swipe', enabled: true, swipe: { direction: ['left'], threshold: 80 } },
  *   onSwipe: (dir) => console.log('Swiped', dir),
  * });
  * return <div ref={ref}>Swipe me</div>;
@@ -99,16 +97,32 @@ export function useSpecGesture<T extends HTMLElement = HTMLElement>(
   let threshold: number | undefined;
   let longPressDuration: number | undefined;
   let onGesture: (ctx: { direction?: string; scale?: number; rotation?: number }) => void = () => {};
+  // `type` goes LAST in every payload below. The recognizer's own `type`
+  // travels inside `ctx` at runtime (`GestureContext.type`), so a `type`
+  // written BEFORE the spread is overwritten by it and the callback reports the
+  // recognizer instead of the declared spec gesture (objectui#9691). The two
+  // are different vocabularies — see `SPEC_GESTURE_TYPE_MAP` — so they agree
+  // only by coincidence, arm by arm.
   const fallback = (ctx: { type: string; direction?: string; scale?: number; rotation?: number }) => onAny?.(ctx);
 
   switch (declared) {
     case 'swipe': {
-      const dir = Array.isArray(config.swipe?.direction)
-        ? config.swipe?.direction[0]
-        : (config.swipe?.direction as string | undefined);
-      gestureType = (dir ? SWIPE_DIRECTION_MAP[dir] : undefined) ?? 'swipe-left';
+      // `SwipeGestureConfig.direction` is declared as a SET
+      // (`SpecSwipeDirection[]`), so recognition is the any-direction move past
+      // the threshold and the swipe fires only when the DETECTED direction is a
+      // MEMBER of that set. `direction[0]` would honour one element of a declared
+      // many; a scalar `direction` is rejected by the declared type and nothing
+      // re-admits it here (AGENTS.md #0.1). An empty or absent set declares no
+      // direction, so it fires for none.
+      const declaredDirections: readonly string[] = config.swipe?.direction ?? [];
+      gestureType = 'pan';
       threshold = config.swipe?.threshold;
-      onGesture = (ctx) => (onSwipe ? onSwipe(ctx.direction ?? dir ?? 'left') : fallback({ type: 'swipe', ...ctx }));
+      onGesture = (ctx) => {
+        const detected = ctx.direction;
+        if (detected === undefined || !declaredDirections.includes(detected)) return;
+        if (onSwipe) onSwipe(detected);
+        else fallback({ ...ctx, type: 'swipe' });
+      };
       break;
     }
     case 'long_press':
@@ -118,7 +132,7 @@ export function useSpecGesture<T extends HTMLElement = HTMLElement>(
       break;
     case 'pinch':
       gestureType = 'pinch';
-      onGesture = (ctx) => (onPinch ? onPinch(ctx.scale ?? 1) : fallback({ type: 'pinch', ...ctx }));
+      onGesture = (ctx) => (onPinch ? onPinch(ctx.scale ?? 1) : fallback({ ...ctx, type: 'pinch' }));
       break;
     case 'double_tap':
       gestureType = 'double-tap';
@@ -127,11 +141,11 @@ export function useSpecGesture<T extends HTMLElement = HTMLElement>(
     case 'pan':
     case 'drag':
       gestureType = 'pan';
-      onGesture = (ctx) => (onPan ? onPan(ctx.direction ?? 'left') : fallback({ type: declared, ...ctx }));
+      onGesture = (ctx) => (onPan ? onPan(ctx.direction ?? 'left') : fallback({ ...ctx, type: declared }));
       break;
     case 'rotate':
       gestureType = 'rotate';
-      onGesture = (ctx) => (onRotate ? onRotate(ctx.rotation ?? 0) : fallback({ type: 'rotate', ...ctx }));
+      onGesture = (ctx) => (onRotate ? onRotate(ctx.rotation ?? 0) : fallback({ ...ctx, type: 'rotate' }));
       break;
     default:
       break;

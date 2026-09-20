@@ -43,7 +43,9 @@ console's `registry-inputs-spec-parity` ledger is updated in step with the
 declaration — the `object-calendar.sort` unpublished-key exemption is deleted
 (its cover expires the moment the key is declared), the shrink-only objectui#8176
 backlog ceiling drops 16 to 15, and `sort` gets a `MEMBER_PINS` entry rather than
-a member-pin exemption. `MEMBER_PIN_EXEMPTION_CEILING` is untouched at 62.
+a member-pin exemption. `MEMBER_PIN_EXEMPTION_CEILING` is untouched by this
+change; it read 62 at the commit that wrote this paragraph (`35e63669d6`,
+2026-09-07), and that reading is dated on purpose — see the closing note.
 
 ⚠️ That member pin is deliberately NOT the identity-forwarding shape the two
 `filter` pins use. `ObjectCalendar.tsx` writes
@@ -55,3 +57,24 @@ member with no usable `field` dropped rather than invented.
 
 No version bump is declared for `@object-ui/console`: its only edit here is that
 test file's ledger data, which publishes nothing.
+
+⚠️ Closing note, written while this declaration was still pending
+(objectui#9781) — why the `MEMBER_PIN_EXEMPTION_CEILING` reading above is DATED
+rather than corrected. The sentence was authored as
+"`MEMBER_PIN_EXEMPTION_CEILING` is untouched at 62", and both of its halves
+were true at `35e63669d6`: this change did not touch that constant, and 62 was
+its value there. "Is untouched" is a closed statement about THIS change and
+cannot rot, so it is kept as written. "At 62" is an absolute reading of a
+SHARED constant, which somebody ELSE's change falsifies — objectui#8071 slice 1
+(`240c605939`, 2026-09-09) lowered it 62 -> 58, and later slices of that issue
+moved it again while this declaration sat pending.
+
+⛔ The reading is deliberately NOT restated at whatever that constant reads
+today: today's number is true today and false again at the next slice, so
+writing it would be this same defect authored a second time. ⇒ The rule this
+repair carries, and the line between this paragraph and every sibling changeset
+in the family: state your OWN change's bounded transition ("lowers 62 to 58",
+"follows 31 to 28 in the same change", "drops 37 to 33") or state that you did
+not touch the constant, and ⛔ never state what its value currently is. The
+first is a finished fact about something the author controlled; the second is a
+live claim about a world the author does not.

@@ -47,9 +47,10 @@ import {
   inferColumns,
   CONTAINER_GRID_COLS,
 } from './autoLayout';
-import { deriveFieldGroupSections } from './fieldGroups';
+import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
 import { sanitizeFormData } from './sanitize';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
+import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
 import { useOccSave } from './occSave';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
@@ -269,13 +270,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         // Declared static defaults are this form's opening values (#4047) —
         // see `schemaDefaults` for the create-only boundary and for why
         // runtime defaults are left to the server.
-        setFormData(seedCreateValues(objectSchema, schema.initialData || schema.initialValues, { currentUserId }));
+        setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
         setLoading(false);
         return;
       }
 
       if (!dataSource) {
-        setFormData(schema.initialData || schema.initialValues || {});
+        setFormData(resolveInitialRecord(schema));
         setLoading(false);
         return;
       }
@@ -579,29 +580,41 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         // name exactly the fields this group contributes (#6236).
         const sectionFields = buildSectionFields(section);
 
-        allFields.push({
-          name: `__section_${sectionKey}`,
-          label: section.label || '',
-          type: 'section-divider',
-          // ADR-0089 section predicate (#6111) — the renderer evaluates it on
-          // this pseudo-field with the host predicate scope bound (#6010).
-          visibleWhen: (section as any).visibleWhen,
-          // The membership claim (#6236): resolved member names, so the
-          // predicate gates the whole group.
-          fields: sectionFields.map(f => f.name),
-          colSpan: 4,
-          collapsible: section.collapsible,
-          collapsed: isCollapsed,
-          onToggle: section.collapsible
-            ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
-            : undefined,
-          // ⛔ `className` deliberately not read — objectstack#13626, maintainer
-          // ruling 2026-09-01 (batch C) "retire the reads". The key is on the
-          // SDUI-only side of the authorable boundary; `ObjectForm`'s drawer map
-          // stops copying it in the same pass. Full rationale at the tabbed arm
-          // in `ObjectForm.tsx`; pinned by
-          // `__tests__/sectionStyleKeysRetired-13626.test.tsx`.
-        } as any);
+        // The ONE path from a section configuration to its divider row
+        // (objectui#9849) — `projectSectionDivider` owns every key this row
+        // carries. ⚠️ This arm's gate stays UNCONDITIONAL: it draws a row for
+        // every section, heading or not, which is what makes a headingless
+        // section with a blurb render that blurb alone here while the default
+        // arm draws a blurb-only row and the modal's derived arm draws nothing.
+        // That difference is a reading (`drawerFormSectionDescription-9834`
+        // row 5), ⛔ not a ruling, and collapsing it would move the ADR-0089
+        // predicate and the objectui#6236 membership claim this row carries —
+        // see the gate union the helper hands back.
+        //
+        // ⚠️ The collapse pair is resolved HERE and handed over resolved: this
+        // push reads `section.collapsible` alone, so objectui#9780's
+        // «`collapsed` implies `collapsible`» — applied on the default arm —
+        // still does not hold on this one. ⛔ Unchanged by this card on
+        // purpose; converging it is the `collapsed` / `collapsible` decision.
+        allFields.push(
+          ...projectSectionDivider(
+            {
+              key: sectionKey,
+              title: section.label,
+              description: section.description,
+              visibleWhen: (section as any).visibleWhen,
+              members: sectionFields.map(f => f.name),
+              collapse: {
+                collapsible: section.collapsible,
+                collapsed: isCollapsed,
+                onToggle: section.collapsible
+                  ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
+                  : undefined,
+              },
+            },
+            'always',
+          ),
+        );
 
         if (isCollapsed) {
           allFields.push(...sectionFields.map(f => ({ ...f, hidden: true })));
@@ -644,24 +657,32 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         const title = section.name
           ? sectionLabel(schema.objectName, section.name, section.label || section.name)
           : section.label;
-        if (title) {
-          allFields.push({
-            name: `__section_${sectionKey}`,
-            label: title,
-            type: 'section-divider',
-            // ADR-0089 section predicate (#6111).
-            visibleWhen: (section as any).visibleWhen,
-            // The membership claim (#6236): resolved member names, so the
-            // predicate gates the whole group.
-            fields: body.map(f => f.name),
-            colSpan: 4,
-            collapsible: section.collapsible,
-            collapsed: isCollapsed,
-            onToggle: section.collapsible
-              ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
-              : undefined,
-          } as any);
-        }
+        // The ONE path (objectui#9849). ⚠️ This arm keeps its `if (title)`
+        // gate, so a derived group with no heading still draws no divider and
+        // still drops its blurb — the same residual the modal's derived arm
+        // has. ⛔ Widening it would also decide the ADR-0089 predicate row and
+        // the objectui#6236 membership claim; the helper's gate union carries
+        // that hand-back. The collapse pair is this file's SECOND resolution
+        // of the same two keys and is handed over resolved, unchanged.
+        allFields.push(
+          ...projectSectionDivider(
+            {
+              key: sectionKey,
+              title,
+              description: section.description,
+              visibleWhen: (section as any).visibleWhen,
+              members: body.map(f => f.name),
+              collapse: {
+                collapsible: section.collapsible,
+                collapsed: isCollapsed,
+                onToggle: section.collapsible
+                  ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
+                  : undefined,
+              },
+            },
+            'heading',
+          ),
+        );
         const laidOut = columns > 1 ? applyAutoColSpan(body, columns) : body;
         allFields.push(...(isCollapsed ? laidOut.map(f => ({ ...f, hidden: true })) : laidOut));
       });

@@ -479,31 +479,36 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
   // rejects on parse; the body-source contract is `sections`-presence, stated
   // in the `sections` description below.
   //
-  // Documented member keys are exactly the spec's four (`name`, `label`,
-  // `columns`, `fields`) — deliberately NOT `showBorder`, which
-  // `RecordDetailsRenderer` also honours on a section, nor `title`, which it
-  // honoured as an ALIAS of `label` until objectui#6190 converged the heading
-  // on the one declared slot, nor `hideEmpty`, which it honoured until
-  // objectui#7129 retired the key (maintainer 2026-09-01) and left the
-  // auto-hide heuristic as the whole contract. `title` and `hideEmpty` stay
-  // named here because the never-teach set is about what the description may
-  // say, not about what the renderer happens to read: the spec refuses them
-  // either way, whether or not anything still reads them. Those are
-  // undeclared upstream, and the spec's section object REFUSES them on parse
-  // rather than stripping them: `RecordDetailsProps.safeParse` on a section
-  // carrying any of the three returns `success: false` with
-  // `unrecognized_keys` naming the key (measured on the installed pin, 17.2.0,
-  // against a control — `columns: 2` — that parses and whose value survives).
-  // So publishing them here would advertise keys that make the whole document
-  // fail to validate, not keys the contract quietly throws away — the same
-  // trap as declaring a top-level `readonly` on `record:highlights` below. The
-  // renderer tolerating them is not a licence to teach them. (This said
-  // "STRIPS" until objectui#7127: that was the pre-#4001-batch-A behaviour the
-  // spec's own refusal message still recounts, and the `layout` paragraph
-  // above already said `rejects`.)
+  // The never-teach set is `title` — which `RecordDetailsRenderer` honoured as
+  // an ALIAS of `label` until objectui#6190 converged the heading on the one
+  // declared slot. It stays named here because this set is about what the
+  // description may SAY, not about what the renderer happens to read: the spec
+  // refuses `title` whether or not anything still reads it. Undeclared
+  // upstream, and the spec's section object REFUSES such a key on parse rather
+  // than stripping it — `RecordDetailsProps.safeParse` on a section carrying
+  // one returns `success: false` with `unrecognized_keys` naming it, against a
+  // control (`columns: 2`) that parses and whose value survives. So publishing
+  // it here would advertise a key that makes the whole document fail to
+  // validate, not one the contract quietly throws away — the same trap as
+  // declaring a top-level `readonly` on `record:highlights` below. The
+  // renderer tolerating it is not a licence to teach it. (This said "STRIPS"
+  // until objectui#7127: that was the pre-#4001-batch-A behaviour the spec's
+  // own refusal message still recounts, and the `layout` paragraph above
+  // already said `rejects`.)
+  //
+  // `hideEmpty` LEFT this set under objectui#8603 (director seat batch #137
+  // item 3, maintainer 2026-09-15) and the `sections` description below now
+  // teaches it. It was named here while objectui#7129 held — the key was
+  // retired on the premise the spec refused it, which the 17.3.0 pin move made
+  // false. The spec declares it on the section entry and this renderer reads
+  // it again, so the membership criterion no longer selects it; the set is
+  // derived against the installed spec at runtime by
+  // `__tests__/recordDetailsInputs.spec-parity.test.ts`, which is what keeps a
+  // stale prohibition from pinning itself. ⚠️ Still NOT this key:
+  // `record:reference_rail`'s own component-level `hideEmpty` input below.
   inputs: [
     { name: 'columns', type: 'enum', enum: ['1', '2', '3', '4'], description: 'Number of columns for field layout (1-4)' },
-    { name: 'sections', type: 'array', of: 'object', description: 'Field groups rendered as the detail body, in order. Every entry is an OBJECT — `{ name?, label?, columns?, fields }` — a bare section-id string is NOT accepted (the spec retired that spelling in objectstack#5611, and the renderer reads name/label/fields off each entry, so a string entry renders no fields at all). `fields` are the field names shown in this section, in order — required unless `group` supplies the members instead (the spec refuses a section carrying neither, and refuses one carrying both). `label` is the section heading; omit it for an untitled, borderless section. `name` is a stable snake_case identifier and the i18n anchor — the heading resolves through objects.<object>._sections.<name>.label, so a section without a name shows its authored label in every locale. `columns` (1-4) is THIS section\'s field-grid width; omit it and the renderer derives the width. Authoring `sections` at all makes it the only source of the detail body; omit it and the body falls back to the object\'s highlightFields. @objectstack/spec 17.3.0 declares eight more member keys on an entry, seven of which this renderer honours: `icon` (a Lucide name on the section header), `description` (sub-heading copy under the heading), `collapsible` and `defaultCollapsed` (a foldable section and its initial state), `showBorder` (force the Card wrapper on or off, overriding the heading-derived default) and `headerColor` (a header tint from the shared palette) through DetailSection, plus `group` — the ADR-0085 §5 REFERENCE form, the alternative to enumerating `fields`. `{ group: \'contact_info\' }` inherits the object\'s `fieldGroups` entry with that key: its members (every visible field pointing at it, in declaration order) and its presentation (label, icon, description, collapse) all come from the group, so the section restates none of it and the spec refuses those keys beside `group`; `columns`, `showBorder` and `headerColor` stay yours because they are how THIS page lays the section out. A `group` naming no declared group renders nothing and is reported to the console (`@objectstack/lint` flags it as `page-section-group-unknown`). Only `hideEmpty` is declared upstream and NOT read here, deliberately retired in objectui#7129 (maintainer 2026-09-01) in favour of DetailSection\'s auto-hide heuristic plus the reader\'s show-empty toggle — authoring it does nothing on this renderer. None of the eight has a designer control yet; they are authorable in source mode only, tracked as a deferred feature.' },
+    { name: 'sections', type: 'array', of: 'object', description: 'Field groups rendered as the detail body, in order. Every entry is an OBJECT — `{ name?, label?, columns?, fields }` — a bare section-id string is NOT accepted (the spec retired that spelling in objectstack#5611, and the renderer reads name/label/fields off each entry, so a string entry renders no fields at all). `fields` are the field names shown in this section, in order — required unless `group` supplies the members instead (the spec refuses a section carrying neither, and refuses one carrying both). `label` is the section heading; omit it for an untitled, borderless section. `name` is a stable snake_case identifier and the i18n anchor — the heading resolves through objects.<object>._sections.<name>.label, so a section without a name shows its authored label in every locale. `columns` (1-4) is THIS section\'s field-grid width; omit it and the renderer derives the width. Authoring `sections` at all makes it the only source of the detail body; omit it and the body falls back to the object\'s highlightFields. @objectstack/spec 17.3.0 declares eight more member keys on an entry, and this renderer honours all eight: `icon` (a Lucide name on the section header), `description` (sub-heading copy under the heading), `collapsible` and `defaultCollapsed` (a foldable section and its initial state), `showBorder` (force the Card wrapper on or off, overriding the heading-derived default) and `headerColor` (a header tint from the shared palette) through DetailSection, plus `group` — the ADR-0085 §5 REFERENCE form, the alternative to enumerating `fields`. `{ group: \'contact_info\' }` inherits the object\'s `fieldGroups` entry with that key: its members (every visible field pointing at it, in declaration order) and its presentation (label, icon, description, collapse) all come from the group, so the section restates none of it and the spec refuses those keys beside `group`; `columns`, `showBorder` and `headerColor` stay yours because they are how THIS page lays the section out. A `group` naming no declared group renders nothing and is reported to the console (`@objectstack/lint` flags it as `page-section-group-unknown`). `hideEmpty` is the eighth, and it decides whether an ALL-empty section exists: it defaults to on, so a section whose fields are every one of them empty renders nothing at all — no heading, no skeleton — and `hideEmpty: false` is the spelling that keeps that heading and its label skeleton on a brand-new record. It decides ONLY the all-empty case; the empty rows of a section that still has a filled one belong to DetailSection\'s auto-hide heuristic plus the reader\'s show-empty toggle, which no authored value overrides in either polarity (objectui#7129 Q2-C), and inline-edit mode renders the section either way so its fields stay reachable. Restored under objectui#8603 (maintainer 2026-09-15) after objectui#7129 retired it on the premise, since falsified upstream, that the spec refused the key. None of the eight has a designer control yet; they are authorable in source mode only, tracked as a deferred feature.' },
     { name: 'fields', type: 'array', of: 'string', description: 'Explicit field list (overrides highlightFields)' },
     // `hideFields` is DECLARED, not merely honoured (objectui#3808). The spec
     // declares it (objectstack#5611) and `RecordDetailsRenderer` has read it

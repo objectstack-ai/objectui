@@ -290,7 +290,16 @@ describe('the scan surface', () => {
   it('excludes every CHANGELOG and every pending changeset by PATH', () => {
     expect(isScanned('packages/react-runtime/CHANGELOG.md')).toBe(false);
     expect(isScanned('CHANGELOG.md')).toBe(false);
-    expect(isScanned('.changeset/8897-installed-spec-pin-claims.md')).toBe(false);
+    // ⛔ A synthetic name, never a PENDING changeset this repository carries
+    // (objectui#9472). `scripts/markdown-test-inputs.mjs` resolves markdown
+    // path literals out of test sources and offers only the ones that EXIST in
+    // the tree, so a literal naming a pending declaration becomes a ledger
+    // entry — and `pnpm changeset:version` deletes exactly those files, which
+    // turned this assertion's old literal into a `stale-not-read` finding and
+    // reddened `Validate the post-version tree` on every scheduled release run.
+    // The exclusion under test is by PATH PREFIX, so the basename carries no
+    // meaning here beyond sitting under the changeset directory.
+    expect(isScanned('.changeset/fixture-pending-declaration.md')).toBe(false);
     expect(isScanned('pnpm-lock.yaml')).toBe(false);
     expect(isScanned('packages/types/src/field-types.ts')).toBe(true);
   });

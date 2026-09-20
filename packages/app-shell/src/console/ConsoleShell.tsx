@@ -25,6 +25,7 @@ import { withSettleSignal } from '../observability/settleSignal.js';
 import { MetadataProvider, useMetadata } from '../providers/MetadataProvider.js';
 import { appRouteSegment } from '../utils/appRoute.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
+import { useHomePath } from '../hooks/useHomePath.js';
 import { PreviewModeProvider } from '../preview/PreviewModeContext.js';
 import { NavigationProvider } from '../context/NavigationContext.js';
 import { FavoritesProvider } from '../context/FavoritesProvider.js';
@@ -40,6 +41,7 @@ import { RedirectWithSplash } from '../chrome/RedirectWithSplash.js';
 import { RemediationOverlay } from './RemediationOverlay.js';
 import { HostNavigationBridge } from './HostNavigationBridge.js';
 import { ImpersonationBanner } from '../layout/ImpersonationBanner.js';
+import { ReadRateBanner } from '../layout/ReadRateBanner.js';
 
 // The console's every pre-React / pre-auth gate (Suspense fallback, adapter
 // not ready, org/auth loading) renders this. It used to be a bare, unbranded
@@ -172,6 +174,15 @@ function ConsoleShellProviders({ children }: { children: ReactNode }) {
                       header it warns about. Renders null on every ordinary
                       session. */}
                   <ImpersonationBanner />
+                  {/* objectui#9954 — the environment admin's read-rate report.
+                      Beside the impersonation indicator for the same reason it
+                      is here: chrome for EVERY console page, including `/home`,
+                      which has its own layout and would otherwise carry no
+                      report. Renders null unless the control plane's verdict is
+                      `anomalous`, so an ordinary session and an unmeasured
+                      environment both see nothing — and a non-admin session
+                      never even issues the request. */}
+                  <ReadRateBanner />
                   <Suspense fallback={<LoadingFallback />}>{children}</Suspense>
                   {/* ADR-0069 — full-screen gate (expired password / required MFA) above all routes */}
                   <RemediationOverlay />
@@ -379,14 +390,21 @@ export function RequireOrganization({ children }: { children: ReactNode }) {
  * from exactly the entry points that are visible (no shown CTA that bounces back
  * to home, no hidden FAB to a working route). Waits for the catalog to resolve
  * before deciding so the redirect never flashes on first paint.
+ *
+ * WHICH home it bounces to is the DECLARED landing (objectui#7373), resolved by
+ * `useHomePath()` — the default is no longer the launcher literal. A caller that
+ * passes `redirectTo` still wins, and on a deployment that declares no landing
+ * the hook answers the launcher, so every ordinary environment is unchanged.
  */
 export function RequireAiSurface({
   children,
-  redirectTo = '/home',
+  redirectTo,
 }: {
   children: ReactNode;
+  /** Overrides the declared-home default. */
   redirectTo?: string;
 }) {
+  const homePath = useHomePath();
   const { enabled, isLoading } = useAiSurfaceEnabled();
   if (isLoading) return <LoadingFallback />;
   // Splash-preserving handoff (objectui#6507). This is a BOOT-path redirect
@@ -396,7 +414,7 @@ export function RequireAiSurface({
   // runtime where this branch fires none of them is rendered. What reaches it
   // is a stale bookmark or an external link — a first navigation, with the
   // splash still up and no layout underneath.
-  if (!enabled) return <RedirectWithSplash to={redirectTo} replace />;
+  if (!enabled) return <RedirectWithSplash to={redirectTo ?? homePath} replace />;
   return <>{children}</>;
 }
 
@@ -437,6 +455,16 @@ export function AuthenticatedRoute({
 /**
  * RootRedirect — element for <Route path="/" />. Waits for metadata to load
  * then sends the user to /home.
+ *
+ * ⛔ Deliberately NOT retargeted onto `useHomePath()` by objectui#7373, which
+ * moved this file's `RequireAiSurface` bounce. This is not a recovery redirect:
+ * it is the `/` LANDING, and `/`'s policy is `resolveLandingPath`
+ * (`apps/console/src/components/RootLandingRedirect.tsx`), which layers a
+ * single-visible-app emptiness heuristic (objectui#4048) on the same
+ * declaration and refuses to conclude from an unresolved list (objectui#4233).
+ * Making this twin read the declaration WITHOUT those two would fork "where
+ * does `/` go" into a third answer for the consumers that mount it — a design
+ * question, raised on objectui#7373 rather than settled inside it.
  */
 export function RootRedirect() {
   const { loading } = useMetadata();

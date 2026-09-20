@@ -35,14 +35,29 @@
  *
  * ## The control half
  *
- * Two of them, because "unchanged" is the load-bearing half of the ruling on
- * objectui#8167: three further mounts (page block, hook, and the schema-driven
- * `ConditionWidget`) were deliberately left passing nothing while their tier
- * question is open. `HookDefaultInspector` stands for that set as a real
- * rendered mount, and a bare `ConditionBuilder` with no `scope` stands for the
- * default itself. Both must still lint the bare shorthand CLEAN. If a later
- * change makes the prop default to `'record'` — or derives it from
- * `subjects.fieldPrefix` — these two go red, which is the point.
+ * "Unchanged" is the load-bearing half of the ruling on objectui#8167, so the
+ * default itself is pinned: a bare `ConditionBuilder` with no `scope` must
+ * still lint the bare shorthand CLEAN. If a later change makes the prop default
+ * to `'record'` — or derives it from `subjects.fieldPrefix` — that case goes
+ * red, which is the point.
+ *
+ * ⚠️ `HookDefaultInspector` used to stand beside it as a second control, on the
+ * ground that its tier was unsettled. It is settled now (ruling of
+ * 2026-09-16), so the same mount appears BELOW as a rejecting case instead.
+ * That is a re-homing, not a weakened pin: the control asserted "no claim is
+ * made here", and a claim is now made.
+ *
+ * ## Two mounts still pass nothing, for two DIFFERENT reasons
+ *
+ *  - the schema-driven `ConditionWidget` in `widgets.tsx` — undecided channel,
+ *    no rendered harness of its own, and no JSX mount site to supply a prop;
+ *  - the PAGE BLOCK — decided, and the decision is that neither scope fits.
+ *    Its evaluator binds `record`, `current_user` AND `page.<var>`, and the
+ *    `record` scope REFUSES the third, because `page` is not among the engine's
+ *    scope roots. The case below is the falsifiable half of that: it pins the
+ *    spec's own documented example, so anyone who "settles" that mount with
+ *    `'record'` gets a red test instead of a designer whose Save button is
+ *    disabled by a predicate the spec prescribes.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -70,9 +85,12 @@ vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,
 }));
 
+import { PageSchema } from '@objectstack/spec/ui';
+
 import { ConditionBuilder } from './ConditionBuilder';
 import { ActionDefaultInspector } from './ActionDefaultInspector';
 import { HookDefaultInspector } from './HookDefaultInspector';
+import { PageBlockInspector } from './PageBlockInspector';
 import { ObjectValidationsPanel } from '../../studio-design/ObjectValidationsPanel';
 
 afterEach(cleanup);
@@ -81,6 +99,10 @@ afterEach(cleanup);
 const BARE = "status == 'done'";
 /** Its canonical twin — the must-not-break half of every narrowing. */
 const CANONICAL = "record.status == 'done'";
+/** The transition idiom: only expressible where `previous` is bound too. */
+const TRANSITION = "previous.status != 'done' && record.status == 'done'";
+/** `@objectstack/spec`'s OWN worked example for a page block's `visibleWhen`. */
+const PAGE_VAR = "page.selectedProjectId != ''";
 
 /** `CelPredicateField` renders its editor as a combobox TEXTAREA. */
 function rawEditorIn(root: HTMLElement): HTMLTextAreaElement {
@@ -205,7 +227,75 @@ describe('ObjectValidationsPanel — the SERVER binds a rule condition to `recor
   });
 });
 
-/* ── Controls — every mount that passes nothing is unchanged ───────────── */
+/* ── Mount 4 — a page block's `visibleWhen` ────────────────────────────── */
+
+function pageDraft(): Record<string, unknown> {
+  return PageSchema.parse({
+    name: 'home',
+    label: 'Home',
+    type: 'home',
+    template: 'default',
+    regions: [{ name: 'main', components: [{ type: 'text', id: 'b1' }] }],
+  }) as unknown as Record<string, unknown>;
+}
+
+function PageBlockHarness() {
+  const [draft, setDraft] = React.useState<Record<string, unknown>>(pageDraft);
+  return (
+    <PageBlockInspector
+      type="page"
+      name="home"
+      draft={draft}
+      selection={{ kind: 'block', id: 'regions[0].components[0]' }}
+      onPatch={(patch) => setDraft((d) => ({ ...d, ...patch }))}
+      onClearSelection={() => {}}
+      onSelectionChange={() => {}}
+      onBlockingIssuesChange={() => {}}
+      readOnly={false}
+      locale={'en-US' as never}
+    />
+  );
+}
+
+describe('PageBlockInspector — neither lint scope fits this mount (objectui#8167)', () => {
+  /**
+   * The mount passes NO `scope`, and this case is why it may not simply be
+   * "settled" with `'record'`.
+   *
+   * The renderer reading that motivated `'record'` is correct as far as it
+   * goes: `SchemaRenderer` binds the row as the `record` root, so a bare
+   * `status == 'done'` never matches here. But the SAME evaluator construction
+   * also binds `page: pageVariables`, and `@objectstack/spec`'s `page.zod.ts`
+   * documents exactly that — *"Contract-bound roots: `record`, `current_user`
+   * … and page state as `page.<var>`"* — with `page.selectedProjectId != ''`
+   * as its own worked example.
+   *
+   * At `scope: 'record'` the validator runs a strict environment declaring
+   * exactly the engine's `SCOPE_ROOTS`, and `page` is not in it. Measured on
+   * the installed `@objectstack/formula`:
+   *
+   *   scope 'record' · "page.selectedProjectId != ''"
+   *     -> error: "bare reference `page` … Write `record.page`."
+   *
+   * — a hard error prescribing a nonsense fix, on the spelling the spec
+   * prescribes. And this inspector reports blocking issues upward, where the
+   * host turns them into a disabled Save. So the narrowing that fixes the bare
+   * shorthand breaks a contract-bound root: the objectui#8155 shape, and an
+   * engine-vocabulary gap rather than a mount decision.
+   *
+   * ⇒ this case fails the moment someone passes `scope="record"` here. That is
+   * its entire job: it makes the deliberate omission falsifiable rather than
+   * asserted, and it fails in the DESIGNER, where the cost actually lands.
+   */
+  it("accepts the spec's own `page.<var>` example — which the `record` scope would refuse", async () => {
+    const { container } = render(<PageBlockHarness />);
+    const box = rawEditorIn(container as HTMLElement);
+    fireEvent.change(box, { target: { value: PAGE_VAR } });
+    await expectAccepted(box);
+  });
+});
+
+/* ── Mount 5 — a hook's `condition` ────────────────────────────────────── */
 
 function HookHarness() {
   const [draft, setDraft] = React.useState<Record<string, unknown>>({
@@ -239,17 +329,45 @@ function BareBuilderHarness() {
   );
 }
 
-describe('mounts that pass no `scope` are byte-for-byte unchanged (objectui#8167)', () => {
-  it('a hook guard — an OUT mount — still lints the bare shorthand clean', async () => {
-    // Server-trigger tier. objectui#8167 left it passing nothing on purpose:
-    // an explicit value is a claim, and that claim is what is unsettled. This
-    // case is what makes "left alone" falsifiable rather than asserted.
+describe('HookDefaultInspector — the SERVER binds a hook condition to `record` (objectui#8167)', () => {
+  // `@objectstack/objectql`'s `wrapDeclarativeHook` compiles the condition once
+  // and evaluates it as
+  //   `ExpressionEngine.evaluate<boolean>(expr, { record: record ?? {}, previous })`
+  // — `record` and `previous`, and nothing else. An unevaluable condition there
+  // throws `HookConditionError` rather than resolving false, so a bare
+  // reference is not merely a gate that never fires. The editor linted it
+  // clean; that mismatch is the defect this pair closes.
+  it('rejects the bare shorthand in a hook condition and names the record.<field> fix', async () => {
     render(<HookHarness />);
     const box = rawEditorIn(builderLabelled('Run only when (optional CEL)'));
     fireEvent.change(box, { target: { value: BARE } });
+    await expectRejected(box);
+  });
+
+  it('still accepts the canonical spelling in a hook condition', async () => {
+    render(<HookHarness />);
+    const box = rawEditorIn(builderLabelled('Run only when (optional CEL)'));
+    fireEvent.change(box, { target: { value: CANONICAL } });
     await expectAccepted(box);
   });
 
+  it('accepts `previous.<field>` — the transition idiom the server binds beside `record`', async () => {
+    // The ruling asked for `previous` to be reachable in this mount's scope.
+    // Measured on the installed engine, it already is: at `scope: 'record'`
+    // `validateExpression` returns no finding for a `previous.*` reference and
+    // `introspectScope` already advertises `previous` among its roots, so the
+    // narrowing to `record` does not cost this surface the one root that makes
+    // a transition expressible. This case is what keeps that true.
+    render(<HookHarness />);
+    const box = rawEditorIn(builderLabelled('Run only when (optional CEL)'));
+    fireEvent.change(box, { target: { value: TRANSITION } });
+    await expectAccepted(box);
+  });
+});
+
+/* ── Control — the mount that still passes nothing is unchanged ────────── */
+
+describe('mounts that pass no `scope` are byte-for-byte unchanged (objectui#8167)', () => {
   it('the component default is still the engine default, not `record`', async () => {
     // Omitting `scope` must forward `undefined`, so `celAuthoring`'s
     // `hint.scope ?? 'flattened'` answers exactly what it answered before the

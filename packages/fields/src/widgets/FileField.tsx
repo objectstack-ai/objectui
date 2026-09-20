@@ -506,7 +506,20 @@ export function FileCell({
           ) : (
             <FileIcon className="size-3 shrink-0 text-muted-foreground" />
           )}
-          <span className="truncate">{file.name}</span>
+          {/* THE DEFECT (objectui#9485): this chip stated a name and nothing
+              else, so an attachment on a line-item grid row could not be
+              opened — and under `disabled`, which is this control's READ-ONLY
+              state, the delete button below is gone too, leaving the chip with
+              no affordance at all. Same shared component the other two `file`
+              surfaces draw (objectui#9161), with `icon` suppressed because the
+              chip already drew its own thumbnail or file icon just above.
+              ⛔ A value that resolves to no URL keeps the plain span it always
+              had: no dead anchors (objectui#8490). */}
+          <FileValueAffordance
+            view={file}
+            icon={false}
+            fallback={<span className="truncate">{file.name}</span>}
+          />
           {!disabled && (
             <button
               type="button"

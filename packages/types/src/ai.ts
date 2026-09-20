@@ -579,83 +579,64 @@ export interface NLQuerySchema extends BaseSchema {
 }
 
 /**
- * AI Insights Schema - AI-generated data insights and analysis
+ * `AIInsightsSchema` (`type: 'ai-insights'`) — RETIRED. This comment is the
+ * tombstone, because a TypeScript interface erases and leaves no runtime residue
+ * that could carry a marker of its own.
+ *
+ * RETIRED under ADR-0049 enforce-or-remove by the director-seat ruling recorded
+ * on objectui#8800 (decision batch #137 item 2, 2026-09-15, maintainer verbatim
+ * 「同意」), letter **A** of the three the card offered: retire the declaration
+ * and its barrel export. ⛔ Not B (write a renderer for it) and ⛔ not C (keep it
+ * as a documented forward declaration) — both were refused by that ruling, and
+ * ⛔ neither may be re-proposed by a card that measured something adjacent. The
+ * whole-family precedent kept as a module tombstone is `./blocks.ts`; the
+ * member-level precedent one screen up is objectui#8178.
+ *
+ * **What went.** The exported `AIInsightsSchema` interface and its
+ * `@object-ui/types` barrel re-export. On top of {@link BaseSchema} it declared
+ * `objectName`, `data`, `config`, `insights[]` (each with `title`,
+ * `description`, `type`, `severity` and `metric`), `loading`, `autoRefresh` and
+ * `refreshInterval`. There is no replacement key and no replacement type.
+ *
+ * **Why.** Declared and unrenderable. NOTHING in this repository ever registered
+ * the `ai-insights` discriminant, so no node carrying that spelling ever reached
+ * a renderer, and the spelling occurred exactly once tree-wide — the `type`
+ * literal inside this very declaration. The three siblings this file still
+ * declares (`ai-form-assist`, `ai-recommendations`, `nl-query`) landed in the
+ * same commit as this one and were given renderers and registrations twenty-two
+ * minutes later by `@object-ui/plugin-ai`; this fourth one never was, for the
+ * seven months that followed. ⛔ The census is not copied into this prose: it is
+ * re-derived, with a lit control in the same pass, by the pin named at the foot
+ * of this block.
+ *
+ * **What an author got, and why a LOUD failure was still ruled a defect.**
+ * `SchemaRenderer` resolves an unregistered discriminant to the OBJUI-001
+ * "Unknown component type" panel, and the CLI validator reports an unknown
+ * schema type. Two loud refusals — ⛔ not a silent swallow, which is why the card
+ * was p3 and not urgent. But TypeScript said YES, because this declaration sat
+ * on the PUBLISHED `.d.ts`. A compile-time blessing in front of a guaranteed
+ * runtime refusal is what misleads an author — and misleads an AI reading the
+ * `.d.ts` as its authoring manual. The retirement moves the refusal from run
+ * time to the moment the node is written, which is the whole of what it buys.
+ *
+ * ⚠️ **The zero above is the IN-REPO HALF and nothing more.** This repository was
+ * enumerated; customer applications and published documents outside it were NOT,
+ * and the ruling was taken with that limit attached. `@object-ui/types` is a
+ * published package, so an external TypeScript consumer that authored this node
+ * is structurally unobservable from here and gets a compile error naming the
+ * symbol. That consumer's document was already being refused at run time; the
+ * FROM/TO in this retirement's changeset is what it greps.
+ *
+ * ⚠️ **NOT retired, deliberately.** {@link AIFormAssistSchema},
+ * {@link AIRecommendationsSchema} and {@link NLQuerySchema} above are registered
+ * and rendered, and stay. Their seven zero-read MEMBERS are objectui#8178's
+ * `?: never` tombstones — a different retirement, a different ruling, and ⛔ not
+ * reachable from this one. The support types {@link AIConfig},
+ * {@link AIFieldSuggestion}, {@link AIRecommendationItem} and
+ * {@link NLQueryResult} stay too: each has a reader among those three, so none
+ * is orphaned by this removal.
+ *
+ * The pin that makes this tombstone executable — the absence of the symbol, the
+ * absence of the spelling, and the lit controls that keep both from being
+ * vacuous — is `__tests__/ai-insights-retired-8800.test.ts`.
  */
-export interface AIInsightsSchema extends BaseSchema {
-  type: 'ai-insights';
-
-  /**
-   * Object name for context
-   */
-  objectName?: string;
-
-  /**
-   * Data to analyze
-   */
-  data?: any[];
-
-  /**
-   * AI configuration
-   */
-  config?: AIConfig;
-
-  /**
-   * Generated insights
-   */
-  insights?: Array<{
-    /**
-     * Insight title
-     */
-    title: string;
-
-    /**
-     * Insight description
-     */
-    description: string;
-
-    /**
-     * Insight type
-     */
-    type: 'trend' | 'anomaly' | 'prediction' | 'recommendation';
-
-    /**
-     * Severity level
-     */
-    severity?: 'info' | 'warning' | 'critical';
-
-    /**
-     * Associated metric
-     */
-    metric?: {
-      /**
-       * Metric value
-       */
-      value: number;
-
-      /**
-       * Change from previous period
-       */
-      change?: number;
-
-      /**
-       * Unit of measurement
-       */
-      unit?: string;
-    };
-  }>;
-
-  /**
-   * Loading state
-   */
-  loading?: boolean;
-
-  /**
-   * Automatically refresh insights
-   */
-  autoRefresh?: boolean;
-
-  /**
-   * Auto-refresh interval (in seconds)
-   */
-  refreshInterval?: number;
-}

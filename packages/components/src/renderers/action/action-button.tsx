@@ -210,6 +210,18 @@ const ActionButtonRenderer = forwardRef<
           // (objectstack#6938). Sibling of `bodyExtra` above, same whitelist,
           // same failure mode.
           bodyShape: schema.bodyShape,
+          // The declarative single-record field write, forwarded as a PAIR.
+          // `operation` is authored BESIDE `type`, not inside it — the spec
+          // materializes `type: 'script'` here and `ActionType` gained no member —
+          // so a forward that carries `type` alone tells the runner nothing about
+          // this action, and `patch` (which holds the field values) would be
+          // dropped one hop before the runner. The result is the route POSTed an
+          // empty write and a green toast for having written nothing: the
+          // objectstack#6837 / objectui#2960 shape, on the key whose whole payload
+          // is the thing dropped. `@object-ui/core`'s runner dispatches on
+          // `operation` ahead of `type`; both keys must reach it.
+          operation: schema.operation,
+          patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
           errorMessage: schema.errorMessage,
@@ -232,20 +244,15 @@ const ActionButtonRenderer = forwardRef<
           // backup codes). Without this forward the ActionRunner falls
           // back to the success toast and the user loses the value.
           //
-          // The READ is uncast since objectui#8648: `resultDialog` is declared
-          // on the mirror, so the compiler types it as the contract's own
-          // block. What the assertion narrows is the WRITE, and it is a
-          // ledgered workaround, not a shrug — removing the read-side `as any`
-          // is what made the compiler name it. `ActionDef['resultDialog']` is
-          // `@object-ui/core`'s hand-written `ResultDialogSpec`, whose own
-          // docblock claims it mirrors the contract's block and does not:
-          // `title` / `description` / `acknowledge` are `string` there and
-          // `I18nLabel` in the contract, so a contract-valid inline locale map
-          // reaches the dialog as an object. Filed as objectui#9542; the fix is
-          // in `@object-ui/core` plus the dialog's own resolver and is outside
-          // this card's declared surface. ⛔ Never widen this back to `as any` —
-          // that spelling hid this AND the missing declaration at once.
-          resultDialog: schema.resultDialog as ActionDef['resultDialog'],
+          // Both ends uncast: the READ since objectui#8648 (`resultDialog` is
+          // declared on the mirror, so the compiler types it as the contract's
+          // own block), and the WRITE since objectui#9542 retired the narrowing
+          // assertion that stood here — `ActionDef['resultDialog']` now DERIVES
+          // its label members from the contract instead of hand-writing them as
+          // `string`, so the whole forward type-checks against one declared
+          // meaning. ⛔ Never widen either end back to `as any`: that one
+          // spelling hid the missing declaration AND the drifted mirror at once.
+          resultDialog: schema.resultDialog,
           // Declared post-success navigation — spec's closed strict
           // `{ navigate, openIn }` block, authorable on `ActionSchema` since
           // @objectstack/spec 17.1.0 (objectui#5328). The runner reads it off

@@ -260,6 +260,9 @@ const ko = {
       selectBusinessUnit: "사업 단위 선택",
       selectPosition: "직위 선택",
       selectUnitAndSubordinates: "사업 단위 선택",
+      selectField: "사용자 필드 선택",
+      noUserFields: "이 객체에는 사용자 필드가 없습니다",
+      fieldNotUserTyped: "{{name}} — 사용자 필드가 아닙니다",
     },
     filterCondition: {
       selectObjectFirst: "먼저 객체를 선택하세요.",
@@ -283,6 +286,10 @@ const ko = {
         "저장되지 않았습니다: {{name}} “{{text}}”은(는) 숫자가 아닙니다. 일반 소수로 입력하세요(예: 30.2741, 120.1551).",
       refusedResidue:
         "저장되지 않았습니다: {{name}} “{{text}}”과(와) {{otherName}} “{{otherText}}”은(는) 숫자가 아닙니다. 일반 소수로 입력하세요(예: 30.2741, 120.1551).",
+    },
+    number: {
+      badInput:
+        "저장되지 않았습니다: 이 입력란의 텍스트는 숫자가 아닙니다. 일반 소수로 입력하세요(예: {{example}}).",
     },
     tags: {
       placeholder: "입력 후 Enter 키로 추가…",
@@ -1460,6 +1467,9 @@ const ko = {
     },
   },
   console: {
+    studio: {
+      backToHome: "홈으로 돌아가기",
+    },
     saveAdvisoryTitle: "저장되었습니다 — 작성 검사에서 {{count}}건의 권장 사항이 발견되었습니다",
     publishAdvisoryTitle: "게시되었습니다 — 작성 검사에서 {{count}}건의 권장 사항이 발견되었습니다",
     importMappingsUnavailable: "{{object}}의 저장된 가져오기 매핑을 불러오지 못했습니다",
@@ -1843,6 +1853,13 @@ const ko = {
       searching: "검색 중…",
       records: "레코드",
       recentRecords: "최근 본 항목",
+    },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: '이 환경의 읽기 양이 비정상적입니다',
+      ratio: '쓰기 1행당 {{ratio}}행을 읽고 있습니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
+      noWritesTitle: '이 환경은 읽기만 있고 쓰기가 전혀 없습니다',
+      noWrites: '행을 읽고 있지만 쓰기가 전혀 없어 읽기 비율에 상한이 없습니다. 가장 심각한 수치입니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
     },
     errors: {
       somethingWentWrong: "문제가 발생했습니다",
@@ -2240,6 +2257,15 @@ const ko = {
       role: "역할",
       save: "변경 사항 저장",
     },
+    language: {
+      title: "언어",
+      description: "회원님에게 발송되는 알림과 메시지에 사용되는 언어입니다. 화면 표시 언어는 지구본 메뉴에서 따로 변경합니다.",
+      label: "선호 언어",
+      systemDefault: "배포 기본값 사용",
+      save: "저장",
+      saved: "언어 설정을 업데이트했습니다.",
+      readOnly: "이 계정의 언어는 관리자가 관리합니다.",
+    },
     password: {
       changeTitle: "비밀번호 변경",
       setTitle: "로컬 비밀번호 설정",
@@ -2479,6 +2505,7 @@ const ko = {
     resultsCount: "\"{{query}}\"에 대한 {{count}}개 결과",
     resultsCountPlural: "\"{{query}}\"에 대한 {{count}}개 결과",
     itemsAvailable: "{{count}}개 항목 사용 가능",
+    itemsAvailableOne: "{{count}}개 항목 사용 가능",
     noResults: "결과를 찾을 수 없습니다",
     noResultsHint: "검색어를 조정해 보세요",
     typeObjects: "오브젝트",
@@ -3244,6 +3271,7 @@ const ko = {
     },
   },
   approvalsInbox: {
+    recordUnresolvable: '이 레코드를 열 수 없습니다',
     loadMore: '더 보기',
     loadingMore: '로딩 중…',
     loadedOf: '{{total}}개 중 {{loaded}}개 로드됨',
@@ -3477,7 +3505,7 @@ const ko = {
       revertLabel: '변경을 되돌렸습니다',
       applyLabel: '빌드 변경',
       revert: '되돌림',
-      items: '항목',
+      items: '{{count}} 항목',
       revertAction: '되돌리기',
       reverted: '되돌렸습니다 — 변경이 취소되었습니다.',
       revertFailed: '되돌리기 실패',

@@ -49,6 +49,19 @@
  * would block the first save of every set created through the Studio Access
  * pillar's "+ New". Pinned here so the refusal cannot widen onto it by
  * accident.
+ *
+ * ## The second card in this file — the ENVIRONMENT door (objectui#9484)
+ *
+ * Same harness, opposite door, opposite ruling. At environment scope there is
+ * no pre-save re-read; the `layered` call that rejects is the POST-save one
+ * that re-anchors the display baseline, and by the time it runs the write has
+ * already landed. Left bare it fell into `doSave`'s `catch`, which reported a
+ * SUCCESSFUL permission write as an error, left `isDirty` true (so the
+ * `beforeunload` guard kept firing on a persisted record) and skipped
+ * `setDestructive(null)`. The two doors must NOT be unified: one refusal
+ * protects a write that has not happened, the other would lie about a write
+ * that has. The `ENVIRONMENT door is untouched` describe below pins what that
+ * door WRITES; objectui#9484's describe pins what it then DISPLAYS.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -79,6 +92,8 @@ interface Server {
   savedOpts: Array<Record<string, unknown> | undefined>;
   /** `layered` calls seen so far — #1 is the load, #2 is `doSave`'s re-read. */
   layeredCalls: number;
+  /** objectui#9484 — set once the 409 destructive refusal has been raised. */
+  destructiveRaised?: boolean;
 }
 
 function freshServer(): Server {
@@ -103,7 +118,17 @@ const LAYERED_NO_RECORD = { effective: null, code: null, overlay: null, overlayS
 function makeClient(
   server: Server,
   afterLoad: 'reject' | 'published' | 'noRecord',
-  opts: { load?: typeof LAYERED_PUBLISHED | typeof LAYERED_NO_RECORD; draft?: Record<string, unknown> | null } = {},
+  opts: {
+    load?: typeof LAYERED_PUBLISHED | typeof LAYERED_NO_RECORD;
+    draft?: Record<string, unknown> | null;
+    /**
+     * objectui#9484 — when set, the FIRST `save` rejects with the 409 the
+     * destructive-change dialog opens on, and only the forced retry lands. The
+     * dialog is the only surface on which `setDestructive(null)` is
+     * observable, so reaching it is the only way to pin that consequence.
+     */
+    destructiveFirstSave?: boolean;
+  } = {},
 ) {
   return {
     layered: async () => {
@@ -123,6 +148,14 @@ function makeClient(
       payload: Record<string, unknown>,
       saveOpts?: Record<string, unknown>,
     ) => {
+      if (opts.destructiveFirstSave && !server.destructiveRaised) {
+        server.destructiveRaised = true;
+        throw Object.assign(new Error('destructive change'), {
+          status: 409,
+          code: 'DESTRUCTIVE_CHANGE',
+          body: { issues: [{ kind: 'field', message: 'a_account.allowRead would be revoked' }] },
+        });
+      }
       server.saved.push(payload);
       server.savedOpts.push(saveOpts);
       return payload;
@@ -147,10 +180,15 @@ import { PermissionMatrixEditPage } from './PermissionMatrixEditor';
 
 afterEach(cleanup);
 
-function renderDoor(packageId?: string) {
+function renderDoor(packageId?: string, onDirtyChange?: (dirty: boolean) => void) {
   return render(
     <MemoryRouter>
-      <PermissionMatrixEditPage type="permission" name="sales_perms" packageId={packageId} />
+      <PermissionMatrixEditPage
+        type="permission"
+        name="sales_perms"
+        packageId={packageId}
+        onDirtyChange={onDirtyChange}
+      />
     </MemoryRouter>,
   );
 }
@@ -251,8 +289,9 @@ describe('PermissionMatrixEditPage — the ENVIRONMENT door is untouched (guard)
   it('still PUTs the whole record even though the trailing layered read rejects', async () => {
     // No `packageId` ⇒ no slice merge and no pre-save re-read at all, so the
     // refusal must not reach this door. `layered` rejects from call #2 on,
-    // which here is the POST-save baseline refresh — it surfaces on the error
-    // strip exactly as it did before this change, after the write has landed.
+    // which here is the POST-save baseline refresh — what that rejection does
+    // to the DISPLAY is objectui#9484, pinned in the describe below. This one
+    // pins the other half: it changes nothing about what was WRITTEN.
     const server = freshServer();
     clientImpl = makeClient(server, 'reject');
     renderDoor(undefined);
@@ -273,5 +312,136 @@ describe('PermissionMatrixEditPage — the ENVIRONMENT door is untouched (guard)
     expect(server.savedOpts[0]).toEqual({ force: false });
     // …and the refusal wording never appears on this door.
     expect(screen.queryByText(REFUSAL)).toBeNull();
+  });
+});
+
+/**
+ * Distinctive slice of the DEGRADED-display notice (objectui#9484). It shares
+ * no substring with `REFUSAL` on purpose — one cancels a save, the other
+ * confirms one.
+ */
+const STALE = /shows what was just saved/;
+
+/** The transport's own message, i.e. what the ERROR strip renders pre-fix. */
+const TRANSPORT_MESSAGE = 'layered read failed';
+
+/**
+ * Fire the browser's real unload question at the page and report whether the
+ * editor's guard answered it. Read through the DOM event rather than any
+ * internal flag: `isDirty` is a `useMemo` local, and a pin that reaches for it
+ * would pass on a component that had stopped installing the listener.
+ */
+function unloadGuardArmed(): boolean {
+  const e = new Event('beforeunload', { cancelable: true });
+  window.dispatchEvent(e);
+  return e.defaultPrevented;
+}
+
+describe('PermissionMatrixEditPage — the ENVIRONMENT door DEGRADES the display when the post-save re-read rejects (objectui#9484)', () => {
+  it('reports the save as succeeded, re-anchors the baseline and disarms the unload guard', async () => {
+    const server = freshServer();
+    clientImpl = makeClient(server, 'reject');
+    const onDirtyChange = vi.fn();
+    renderDoor(undefined, onDirtyChange);
+    await screen.findByText('a_account');
+
+    editAccountRow();
+    // CONTROL for every absence below: the edit really did arm the guard, so
+    // "disarmed after the save" is a transition and not a listener that was
+    // never installed.
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    expect(unloadGuardArmed()).toBe(true);
+
+    clickSave();
+    await waitFor(() => expect(server.saved).toHaveLength(1));
+    // CONTROL: the post-save re-read really was attempted and really rejected.
+    await waitFor(() => expect(server.layeredCalls).toBe(2));
+
+    // CONSEQUENCE 1 — the write LANDED, so nothing may read as a failed save.
+    // Pre-fix this rendered the transport's message on the destructive-toned
+    // error strip.
+    await waitFor(() => expect(screen.queryByText(TRANSPORT_MESSAGE)).toBeNull());
+    // …and the author is still TOLD the re-read failed — on an advisory
+    // channel, which is the whole distinction this card turns on.
+    const notice = screen.getByText(STALE);
+    expect(notice).toBeInTheDocument();
+    expect(notice.closest('[role="status"]')).not.toBeNull();
+    // The package door's refusal wording stays off this door.
+    expect(screen.queryByText(REFUSAL)).toBeNull();
+
+    // CONSEQUENCE 2 — `resetDraftBaseline` ran, so the editor stops claiming
+    // unsaved changes and the `beforeunload` guard stops firing on a record
+    // that is already persisted.
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+    expect(unloadGuardArmed()).toBe(false);
+
+    // The page is usable again.
+    expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();
+  });
+
+  it('CONTROL — the same harness shows no notice when the post-save re-read resolves', async () => {
+    const server = freshServer();
+    clientImpl = makeClient(server, 'published');
+    const onDirtyChange = vi.fn();
+    renderDoor(undefined, onDirtyChange);
+    await screen.findByText('a_account');
+
+    editAccountRow();
+    clickSave();
+
+    await waitFor(() => expect(server.saved).toHaveLength(1));
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+    // The notice is raised by the REJECTION and by nothing else — without this
+    // arm a notice rendered unconditionally would satisfy the pin above.
+    expect(screen.queryByText(STALE)).toBeNull();
+    expect(unloadGuardArmed()).toBe(false);
+  });
+
+  it('closes the destructive-change dialog after a forced save whose re-read rejects', async () => {
+    // CONSEQUENCE 3. `setDestructive(null)` is only observable through the
+    // dialog it controls, and the dialog is only reachable through the 409 the
+    // server raises on a destructive change — so the pin has to walk that
+    // route: refuse once, force, and let the post-save re-read reject.
+    const server = freshServer();
+    clientImpl = makeClient(server, 'reject', { destructiveFirstSave: true });
+    renderDoor(undefined);
+    await screen.findByText('a_account');
+
+    editAccountRow();
+    clickSave();
+
+    // The 409 opened the dialog — the presence this test's absence is read
+    // against.
+    await screen.findByText('Destructive change');
+    expect(server.saved).toEqual([]);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Force save$/ }));
+
+    // The forced write LANDS…
+    await waitFor(() => expect(server.saved).toHaveLength(1));
+    await waitFor(() => expect(server.layeredCalls).toBe(2));
+    // …and the dialog closes. Pre-fix the rejecting re-read threw past
+    // `setDestructive(null)`, leaving the author staring at a destructive-change
+    // confirmation for a change that had already been committed.
+    await waitFor(() => expect(screen.queryByText('Destructive change')).toBeNull());
+    expect(screen.queryByText(TRANSPORT_MESSAGE)).toBeNull();
+    expect(screen.getByText(STALE)).toBeInTheDocument();
+  });
+
+  it('CONTROL — the same forced save closes the dialog when the re-read resolves', async () => {
+    const server = freshServer();
+    clientImpl = makeClient(server, 'published', { destructiveFirstSave: true });
+    renderDoor(undefined);
+    await screen.findByText('a_account');
+
+    editAccountRow();
+    clickSave();
+    await screen.findByText('Destructive change');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Force save$/ }));
+
+    await waitFor(() => expect(server.saved).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByText('Destructive change')).toBeNull());
+    expect(screen.queryByText(STALE)).toBeNull();
   });
 });

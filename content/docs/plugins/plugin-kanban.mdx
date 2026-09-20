@@ -143,7 +143,7 @@ interface KanbanLane {
   cards?: KanbanCard[]        // a STATIC board's lane only
   limit?: number              // Max cards allowed (WIP limit)
   className?: string
-  collapsed?: boolean         // honoured by the enhanced board
+  collapsed?: boolean         // lane starts collapsed; the viewer can reopen it
 }
 
 interface KanbanCard {
@@ -177,7 +177,7 @@ An undeclared lane key is accepted and dropped, not refused.
 | `cards` | KanbanCard[] | Cards this lane carries — **optional**, and a static board's option; an object-bound board's cards arrive from the record source |
 | `limit` | number | Max cards allowed (WIP limit). Never reaches the query — the fetch window is the board's `limit` |
 | `className` | string | Additional Tailwind CSS classes |
-| `collapsed` | boolean | Whether the lane renders collapsed (honoured by the enhanced board) |
+| `collapsed` | boolean | Whether the lane renders collapsed — narrowed to a title spine with its cards withheld, and its heading a disclosure the viewer can open. The authored value is the lane's INITIAL state: once a viewer toggles the lane, their choice holds for the session, including across data refreshes |
 
 ### Card Properties
 

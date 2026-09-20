@@ -46,8 +46,13 @@ export interface UseViewDataResult<T = any> {
   dataSource: DataSource<T> | null;
   /** Re-fetch data with current or new params */
   refresh: (newParams?: QueryParams) => Promise<void>;
-  /** Fetch a single record by ID */
-  fetchOne: (id: string | number) => Promise<T | null>;
+  /**
+   * Fetch a single record by ID. The id is a `string`, as every record door on
+   * `DataSource` declares it — this hook hands the value straight to
+   * `DataSource.findOne`, so the union it used to admit was a claim the
+   * protocol never made (objectui#9511).
+   */
+  fetchOne: (id: string) => Promise<T | null>;
   /** Whether more records are available */
   hasMore: boolean;
 }
@@ -185,7 +190,7 @@ export function useViewData<T = any>(options: UseViewDataOptions<T>): UseViewDat
 
   // Fetch one record
   const fetchOne = useCallback(
-    async (id: string | number): Promise<T | null> => {
+    async (id: string): Promise<T | null> => {
       if (!resolvedDataSource) return null;
       try {
         return await resolvedDataSource.findOne(resource, id);

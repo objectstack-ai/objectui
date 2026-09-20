@@ -144,6 +144,79 @@ interface EntryState {
   error?: string;
 }
 
+/**
+ * Preview rows fetched for one entry when the author declared no `limit`.
+ *
+ * Named rather than spelled inline because it was spelled TWICE — once in the
+ * `$top` the entry's query carries and once in the fetch signature that decides
+ * whether to re-issue it — and objectui#9925 gave both a resolver, which needs
+ * one fallback to agree on.
+ */
+export const DEFAULT_REFERENCE_RAIL_LIMIT = 3;
+
+/**
+ * What the contract admits as a preview-row cap for a rail entry.
+ *
+ * `@objectstack/spec` has already answered what `limit: 0` means: this entry's
+ * own member is declared a POSITIVE INTEGER on `ReferenceRailEntrySchema`
+ * (`z.number().int().positive().optional()`, described there as "Preview rows
+ * per card, and the `$top` of the one query this entry issues"). So `0` is not
+ * a spelling whose meaning this renderer may choose; it is a value the contract
+ * refuses.
+ */
+function isUsableRowLimit(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The ONE resolver for a rail entry's row cap, for the reason objectui#9853
+ * gave when it landed the same shape on `ObjectGrid` and objectui#9897 repeated
+ * on `ListView`: one resolver at every entry is what keeps the answer single.
+ *
+ * Before objectui#9925 both read points were a bare `entry.limit ?? 3`, and
+ * `??` rejects only `null` and `undefined` — so an authored `limit: 0` was not
+ * nullish and survived as a real window, reaching the wire as `$top: 0`. This
+ * rail degrades silently by design (a failed entry renders "—"), so an entry
+ * asked for nothing rendered an empty card with a zero badge and named no
+ * cause. A negative goes out the same way.
+ *
+ * ⚠️ The refusal is FAIL-SOFT on purpose, as it is at the two sibling sites
+ * this card repairs: throwing would take out the whole rail over one entry's
+ * declaration, which is a worse outcome than the defect. The value is dropped,
+ * this rail's own default is used, and `describeRefusedRowLimit` states it
+ * through the developer channel — the only channel available, because the
+ * suppression this rail already does is silent on screen by construction.
+ * ⛔ Not a silent clamp, and ⛔ not a clamp to 1.
+ */
+function resolveRowLimit(authored: unknown, fallback: number): number {
+  return isUsableRowLimit(authored) ? authored : fallback;
+}
+
+/**
+ * The diagnostic half. `null` means "nothing to say" — an absent `limit` is not
+ * a mistake, and a usable one is not either, so the message is CONDITIONAL and
+ * the silence controls in the pin are what keep it from being an always-on
+ * marker that states nothing.
+ *
+ * ⛔ NOT a second guard: the predicate lives once, in `isUsableRowLimit`, and
+ * this reads it. Two predicates would be free to drift, and the drift would be
+ * invisible — a value refused by one and admitted by the other.
+ */
+function describeRefusedRowLimit(authored: unknown, objectName: unknown): string | null {
+  if (authored === undefined || authored === null) return null;
+  if (isUsableRowLimit(authored)) return null;
+  const where =
+    typeof objectName === 'string' && objectName
+      ? `record:reference_rail entry for ${objectName}`
+      : 'record:reference_rail entry';
+  return (
+    `[ObjectUI] RecordReferenceRail row cap: ${where} declared limit: ${String(authored)}, `
+    + 'which is not a positive integer. A row cap must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and this '
+    + `entry fell back to its default preview-row cap (${DEFAULT_REFERENCE_RAIL_LIMIT}).`
+  );
+}
+
 const humanize = (s: string) =>
   s
     .replace(/[_-]+/g, ' ')
@@ -258,7 +331,39 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
   // only place it can be said at all. Fired from the effect, never from render.
   const warnedSuppressedLinks = React.useRef<Set<string>>(new Set());
 
-  const entriesSig = JSON.stringify(entries.map((e) => `${e.objectName}:${e.relationshipField}:${e.limit ?? 3}`));
+  // [objectui#9925] One warning per (object, refused value) per mounted rail —
+  // the same dedupe shape as the link suppression above, and for the same
+  // reason: an entry that asked for nothing is silent on screen by
+  // construction, so the developer channel is the only place it can be said.
+  // Fired from an effect, never from render, and keyed on the DECLARATION so a
+  // re-render with the same authored value says nothing a second time.
+  const warnedRefusedLimits = React.useRef<Set<string>>(new Set());
+
+  // [objectui#9925] Through the resolver, so this signature names the window
+  // that actually leaves — two entries whose refused `limit`s differ (`0` and
+  // `-5`) issue the SAME query and must not read as two different fetches.
+  const entriesSig = JSON.stringify(
+    entries.map(
+      (e) =>
+        `${e.objectName}:${e.relationshipField}:${resolveRowLimit(e.limit, DEFAULT_REFERENCE_RAIL_LIMIT)}`,
+    ),
+  );
+  // [objectui#9925] The DECLARATION, kept apart from the signature above: the
+  // diagnostic has to re-fire when the authored value changes even though the
+  // resolved window does not, which is exactly the pair the resolver collapses.
+  const authoredLimitSig = JSON.stringify(entries.map((e) => [e.objectName, e.limit ?? null]));
+  React.useEffect(() => {
+    for (const entry of entries) {
+      const message = describeRefusedRowLimit(entry.limit, entry.objectName);
+      if (!message) continue;
+      const key = `${entry.objectName}:${String(entry.limit)}`;
+      if (warnedRefusedLimits.current.has(key)) continue;
+      warnedRefusedLimits.current.add(key);
+      console.warn(message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `entries` is tracked by CONTENT (`authoredLimitSig`), the way the fetch effect below tracks it by `entriesSig`; an inline array on a schema node is a new object every render.
+  }, [authoredLimitSig]);
+
   React.useEffect(() => {
     if (!railVisible) return;
     if (!dataSource?.find || !parentId || entries.length === 0) return;
@@ -290,7 +395,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
           // historical wire — so an adapter that cannot serve metadata is no
           // worse off than before this card.
           $filter: composeParentScopeFilter(entry.relationshipField, parentId, fields),
-          $top: entry.limit ?? 3,
+          $top: resolveRowLimit(entry.limit, DEFAULT_REFERENCE_RAIL_LIMIT),
           $count: true,
         });
         if (!mountedRef.current) return;

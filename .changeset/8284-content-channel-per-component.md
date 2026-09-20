@@ -25,7 +25,7 @@ that names the channel to write instead:
 | the renderer reads | components | now refused |
 |---|---|---|
 | `children` | `box`, `span`, `container`, `flex`, `stack`, `grid`, `scroll-area`, `form`, `toggle` | `body` |
-| `body` | `alert`, `badge`, `tooltip` (which reads `content` first, `body` as its fallback) | `children` |
+| `body` (at the time of this change; objectui#6771 has since retired that spelling and these three read `children`) | `alert`, `badge`, `tooltip` (which reads `content` first, the child list as its fallback) | the other channel |
 
 Which channel each renderer reads was measured with the TypeScript type checker over
 every `ComponentRegistry.register(...)` call in `packages/components` — a read site is a
@@ -43,9 +43,12 @@ this change. If your own metadata authors the refused channel on one of these tw
 types, the component was already drawing nothing there; rename the key to the one in the
 table.
 
-**Not narrowed here, and why.** Components whose renderer reads BOTH channels through a
+**Not narrowed here, and why.** Components whose renderer read BOTH channels through a
 live `children || body` fallback (`div`, `card`, `button`, `aspect-ratio`, the `page`
 family), components that read neither, and components with no dedicated declaration
-(`sidebar-*`, the `any`-typed registrations) keep both channels. Each is named on
+(`sidebar-*`, the `any`-typed registrations) kept both channels at the time of this
+change. ⚠️ objectui#6771 has since retired the `body` spelling outright, so those
+fallbacks now read `children` alone — this paragraph records what THIS change did and
+did not do, not the state of the tree at release. Each is named on
 objectui#8284 with the specific measurement it still needs; acting on any of them from the
 `packages/components`-only sweep would have been a guess.

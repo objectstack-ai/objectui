@@ -11,15 +11,15 @@
  * the shape is declared `SchemaNode[]` and only ever a list. The delegation
  * check `containsTitledPageHeader` opened with `if (!Array.isArray(nodes)) …
  * return false`, so every channel whose declared arity is
- * `SchemaNode | SchemaNode[]` — `PageNodeSchema.body`, `PageNodeSchema.children`
- * and, through the recursion, every nested `body` / `children` — took that early
+ * `SchemaNode | SchemaNode[]` — the page node's flat content list and, through
+ * the recursion, every nested child list — took that early
  * return and answered "no titled header here". PageRenderer then drew its own
  * `h1` next to the one the header renders: the exact broken document outline
  * objectui#3434 closed, reopened for the arity the README flagship example
- * actually authors (`body: { type: 'grid', … }`, a bare node).
+ * actually authors (`children: { type: 'grid', … }`, a bare node).
  *
  * The single-node arity became a declared, first-class authored shape in
- * objectui#8914 (card objectui#8310), which widened `PageNodeSchema.body` /
+ * objectui#8914 (card objectui#8310), which widened the page node's flat content list /
  * `.children` to `SchemaNode | SchemaNode[]`; `FlatContent` in the same file has
  * always normalised a bare node into a one-element list. This suite is the
  * runtime reproduction the card asked the fixing seat to take first: assertions
@@ -55,7 +55,7 @@ function titledHeader(props: Record<string, unknown> = { title: HEADER_TITLE }) 
 }
 
 /**
- * A region-less page. `body` / `children` are handed through verbatim so each
+ * A region-less page. `children` is handed through verbatim so each
  * row controls the ARITY under test — the whole point of the suite.
  */
 function pageWith(extra: Record<string, unknown>) {
@@ -79,25 +79,25 @@ function renderPage(schema: any) {
 }
 
 /**
- * A chain of `cards` nested containers whose INNERMOST `body` is the bare
- * header node and whose every outer `body` is a one-element list. The header is
+ * A chain of `cards` nested containers whose INNERMOST `children` is the bare
+ * header node and whose every outer `children` is a one-element list. The header is
  * therefore examined at recursion depth `cards`, through the single-node hop —
  * exactly the arity the budget must keep treating like the list arity.
  */
 function chainToBareHeader(cards: number): any {
-  let node: any = { type: 'card', body: titledHeader() };
+  let node: any = { type: 'card', children: titledHeader() };
   for (let i = 1; i < cards; i += 1) {
-    node = { type: 'card', body: [node] };
+    node = { type: 'card', children: [node] };
   }
   return node;
 }
 
-describe('PageRenderer — single-node `body`/`children` delegate the h1 too (objectui#8923)', () => {
+describe('PageRenderer — a single-node `children` delegates the h1 too (objectui#8923)', () => {
   // -------------------------------------------------------------------------
   // A1 — the reproduction the card asked for, at the top level.
   // -------------------------------------------------------------------------
-  it('DISCRIMINATING — `body` as a SINGLE titled `page:header` node renders exactly ONE h1', () => {
-    renderPage(pageWith({ body: titledHeader() }));
+  it('DISCRIMINATING — `children` as a SINGLE titled `page:header` node renders exactly ONE h1', () => {
+    renderPage(pageWith({ children: titledHeader() }));
 
     // Before the normaliser this read 2: the page's implicit `label` h1 plus
     // the header's own. `getAllByRole` is the locator the live e2e depends on.
@@ -117,28 +117,28 @@ describe('PageRenderer — single-node `body`/`children` delegate the h1 too (ob
 
   // -------------------------------------------------------------------------
   // A2 — the hole is per-RECURSION-LEVEL, not only at the top. The recursion
-  // feeds `n.body` / `n.children` back into the SAME early return.
+  // feeds `n.children` back into the SAME early return.
   // -------------------------------------------------------------------------
-  it('DISCRIMINATING — a nested container whose `body` is a SINGLE titled header still delegates', () => {
-    renderPage(pageWith({ body: [{ type: 'card', body: titledHeader() }] }));
+  it('DISCRIMINATING — a nested container whose `children` is a SINGLE titled header still delegates', () => {
+    renderPage(pageWith({ children: [{ type: 'card', children: titledHeader() }] }));
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(HEADER_TITLE);
   });
 
   it('DISCRIMINATING — a nested container whose `children` is a SINGLE titled header still delegates', () => {
-    renderPage(pageWith({ body: [{ type: 'card', children: titledHeader() }] }));
+    renderPage(pageWith({ children: [{ type: 'card', children: titledHeader() }] }));
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(HEADER_TITLE);
   });
 
   it('DISCRIMINATING — a bare node at EVERY level of the chain (single-node all the way down)', () => {
-    // Neither the outer `body` nor any inner one is a list. Before the fix the
+    // Neither the outer `children` nor any inner one is a list. Before the fix the
     // walk stopped at the very first hop.
     renderPage(
       pageWith({
-        body: { type: 'card', body: { type: 'card', body: titledHeader() } },
+        children: { type: 'card', children: { type: 'card', children: titledHeader() } },
       }),
     );
 
@@ -150,22 +150,22 @@ describe('PageRenderer — single-node `body`/`children` delegate the h1 too (ob
   // LIVE CONTROLS — the list arity that already worked. Green on BOTH ablation
   // legs; they are what says the normaliser did not cross a boundary.
   // -------------------------------------------------------------------------
-  it('LIVE CONTROL — `body` as a one-element LIST still renders exactly ONE h1', () => {
-    renderPage(pageWith({ body: [titledHeader()] }));
+  it('LIVE CONTROL — `children` as a one-element LIST still renders exactly ONE h1', () => {
+    renderPage(pageWith({ children: [titledHeader()] }));
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(HEADER_TITLE);
   });
 
-  it('LIVE CONTROL — a nested container whose `body` is a LIST still renders exactly ONE h1', () => {
-    renderPage(pageWith({ body: [{ type: 'card', body: [titledHeader()] }] }));
+  it('LIVE CONTROL — a nested container whose `children` is a LIST still renders exactly ONE h1', () => {
+    renderPage(pageWith({ children: [{ type: 'card', children: [titledHeader()] }] }));
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(HEADER_TITLE);
   });
 
   it('LIVE CONTROL — a page that authors NO `page:header` keeps its own implicit h1', () => {
-    renderPage(pageWith({ body: { type: 'element:text', properties: { text: 'body' } } }));
+    renderPage(pageWith({ children: { type: 'element:text', properties: { text: 'body' } } }));
 
     const h1s = screen.getAllByRole('heading', { level: 1 });
     expect(h1s).toHaveLength(1);
@@ -178,27 +178,27 @@ describe('PageRenderer — single-node `body`/`children` delegate the h1 too (ob
   // widens the arity, never the "counts as titled" test. Without these rows the
   // repair could trade a duplicate h1 for a page with ZERO h1 — strictly worse.
   // -------------------------------------------------------------------------
-  it('LIVE CONTROL — single-node `body` header with NO title leaves the page its own h1', () => {
+  it('LIVE CONTROL — single-node `children` header with NO title leaves the page its own h1', () => {
     // PageHeaderRenderer's bare branch renders `{explicitTitle && <h1>}`, so an
     // untitled header contributes no heading at all.
-    renderPage(pageWith({ body: titledHeader({ subtitle: 'Just a subtitle' }) }));
+    renderPage(pageWith({ children: titledHeader({ subtitle: 'Just a subtitle' }) }));
 
     const h1s = screen.getAllByRole('heading', { level: 1 });
     expect(h1s).toHaveLength(1);
     expect(h1s[0].textContent).toBe(PAGE_LABEL);
   });
 
-  it('LIVE CONTROL — single-node `body` header whose title interpolates to nothing leaves the page its own h1', () => {
+  it('LIVE CONTROL — single-node `children` header whose title interpolates to nothing leaves the page its own h1', () => {
     // `title: '{name}'` with no record in scope → `interpolate()` blanks it.
-    renderPage(pageWith({ body: titledHeader({ title: '{name}' }) }));
+    renderPage(pageWith({ children: titledHeader({ title: '{name}' }) }));
 
     const h1s = screen.getAllByRole('heading', { level: 1 });
     expect(h1s).toHaveLength(1);
     expect(h1s[0].textContent).toBe(PAGE_LABEL);
   });
 
-  it('DISCRIMINATING — delegating from a single-node `body` keeps the page `description`', () => {
-    renderPage(pageWith({ body: titledHeader(), description: 'Page-level prose.' }));
+  it('DISCRIMINATING — delegating from a single-node `children` keeps the page `description`', () => {
+    renderPage(pageWith({ children: titledHeader(), description: 'Page-level prose.' }));
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByText('Page-level prose.')).toBeTruthy();
@@ -211,10 +211,10 @@ describe('PageRenderer — single-node `body`/`children` delegate the h1 too (ob
   describe('depth budget (`depth > 6`) — unchanged by the normaliser', () => {
     it('DISCRIMINATING — a bare header at the LAST in-budget depth (6) still delegates', () => {
       // Six containers; the header is reached through the innermost container's
-      // single-node `body`, so it is examined at depth 6 — the last value the
+      // single-node `children`, so it is examined at depth 6 — the last value the
       // guard admits. If normalising a bare node spent a depth level this row
       // would fall out of budget and the page would draw a second h1.
-      renderPage(pageWith({ body: [chainToBareHeader(6)] }));
+      renderPage(pageWith({ children: [chainToBareHeader(6)] }));
 
       expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
       expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(HEADER_TITLE);
@@ -226,7 +226,7 @@ describe('PageRenderer — single-node `body`/`children` delegate the h1 too (ob
       // buy the walk an extra level. The duplicate h1 it asserts is the
       // pre-existing outcome for headers buried deeper than the walk looks
       // (objectui#3434's depth bound), and is out of scope for objectui#8923.
-      renderPage(pageWith({ body: [chainToBareHeader(7)] }));
+      renderPage(pageWith({ children: [chainToBareHeader(7)] }));
 
       expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(2);
     });

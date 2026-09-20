@@ -30,11 +30,13 @@
  *    is what stops the controls from being an instance of the defect.
  */
 
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { describe, it, expect, afterAll } from 'vitest';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 
 import {
+  fileLines,
   scanFile,
   resolveCited,
   anchorsFor,
@@ -45,9 +47,15 @@ import {
   evaluateControls,
   finalVerdict,
   bucketOf,
+  declarationNear,
+  evaluateDeclaration,
   CONTROLS,
+  DECLARATION_CASES,
+  DECLARATION_WINDOW,
   FALSE_VERDICTS,
   MAX_ANCHOR_LINES,
+  REASON_MAX,
+  SELF_FILES,
   CONT_WINDOW,
 } from '../cross-file-line-citation-census.mjs';
 
@@ -61,8 +69,15 @@ type Hit = {
   inTestName: boolean;
 };
 
+type Declared = Hit & { declaredReason: string; declaredOnLine: number };
+
 const scan = (text: string, path = 'packages/demo/src/demo.ts') =>
-  scanFile(path, text) as { hits: Hit[]; carvedOut: Hit[]; lines: string[] };
+  scanFile(path, text) as {
+    hits: Hit[];
+    carvedOut: Hit[];
+    declared: Declared[];
+    lines: string[];
+  };
 
 const shapes = (text: string, path?: string) =>
   scan(text, path).hits.map((h) => `${h.syntax} ${h.citedWritten}:${h.citedLine}`);
@@ -237,6 +252,98 @@ describe('the verdict is decided against the tree as it is today, never against 
     expect(locateAnchors(lines, ['ActionDef'])).toEqual([{ anchor: 'ActionDef', lines: [3] }]);
     const flooded = Array.from({ length: MAX_ANCHOR_LINES + 2 }, () => 'string');
     expect(locateAnchors(flooded, ['string'])).toEqual([]);
+  });
+});
+
+describe("a cited file is as long as `wc -l` says, not one line longer (objectui#9890)", () => {
+  /**
+   * ⚠️ These cases go through REAL FILES ON DISK, and that is the point rather
+   * than an inconvenience. The phantom element is created by the read inside
+   * `judge`, so every case above — each of which hands `judge` a pre-seeded
+   * `fileCache` holding an array someone already split — walks straight past
+   * the boundary this repair moves and passes identically on the defect and on
+   * the fix. Only a read of a real file exercises it.
+   *
+   * ⛔ No fixture below writes down a line count as a literal: each one derives
+   * its expectation from its own text, the way `wc -l` derives it from bytes.
+   */
+  const CITED = 'packages/core/src/actions/ActionRunner.ts';
+  const index = new Map<string, string[]>([['ActionRunner.ts', [CITED]]]);
+  const root = mkdtempSync(join(tmpdir(), 'census-9890-'));
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  /** What `wc -l` counts: newline characters, which is not the same as lines. */
+  const lf = (text: string) => (text.match(/\n/g) ?? []).length;
+
+  const write = (text: string) => {
+    const abs = join(root, CITED);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, text);
+    return text;
+  };
+  const run = (citedLine: number, anchors: string[] = ['ActionDef']) =>
+    judge(
+      { file: 'scripts/demo.mjs', citedWritten: CITED, citedLine, anchors },
+      root,
+      index,
+      new Map<string, string[] | null>(),
+    ) as { verdict: string; citedLength?: number };
+
+  it('reports a trailing-newline file at its `wc -l` length, not one more', () => {
+    // RED before the repair: the printed `file has N lines` was `wc -l` + 1 on
+    // nearly every tracked file, because the terminator was counted as a line.
+    const text = write('const a = 1;\nexport interface ActionDef {\n  type: string;\n}\n');
+    const verdict = run(lf(text) + 40);
+    expect(verdict.verdict).toBe('out-of-range');
+    expect(verdict.citedLength).toBe(lf(text));
+  });
+
+  it('calls a citation AT the phantom line out of range, not non-substantive', () => {
+    // RED before the repair: line `wc -l` + 1 passed the range check, read the
+    // empty string the terminator left behind, and came back `non-substantive`
+    // — a false verdict for the wrong reason, on an address that is genuinely
+    // past the end of the file.
+    const text = write('const a = 1;\nexport interface ActionDef {\n  type: string;\n}\n');
+    expect(run(lf(text) + 1).verdict).toBe('out-of-range');
+  });
+
+  it('keeps the real last line of a file that does NOT end in a newline', () => {
+    // ⚠️ THE CONTROL ON THE REPAIR, and the reason it cannot be a blanket
+    // `length - 1`. Here `wc -l` UNDERCOUNTS: the last line carries no
+    // terminator, so it contributes no newline while still being a line. A
+    // subtraction that did not look at the last element would delete it. Green
+    // on both sides of the repair — that is what makes it a control.
+    const text = write('const a = 1;\nexport interface ActionDef {');
+    const last = lf(text) + 1;
+    expect(run(last).verdict).toBe('resolves');
+    const past = run(last + 1);
+    expect(past.verdict).toBe('out-of-range');
+    expect(past.citedLength).toBe(last);
+  });
+
+  it('drops the terminator of a file ending in a blank line, and nothing else', () => {
+    // A genuinely empty last line and a terminator look alike in the split
+    // array and are not alike: the blank line stays in range and is judged
+    // `non-substantive` on its content, while the index past it is out of range.
+    const text = write('export interface ActionDef {\n\n');
+    expect(run(lf(text)).verdict).toBe('non-substantive');
+    expect(run(lf(text) + 1).verdict).toBe('out-of-range');
+  });
+
+  it('gives an empty file zero lines, so every citation into it is out of range', () => {
+    // RED before the repair: `''.split('\n')` is `['']`, so an empty file read
+    // as one line long and a citation at line 1 was scored on that empty string.
+    write('');
+    const verdict = run(1);
+    expect(verdict.verdict).toBe('out-of-range');
+    expect(verdict.citedLength).toBe(0);
+  });
+
+  it('separates a line terminator from a line, in the helper itself', () => {
+    expect(fileLines('a\nb\n')).toEqual(['a', 'b']);
+    expect(fileLines('a\nb')).toEqual(['a', 'b']);
+    expect(fileLines('a\n\n')).toEqual(['a', '']);
+    expect(fileLines('')).toEqual([]);
   });
 });
 
@@ -557,14 +664,39 @@ describe('a bare filename opens the continuation scope, not only a full address'
   });
 
   it('⚠️ leaves the restated address BLIND, and says so rather than implying coverage', () => {
-    // The sixth address is restated in a second paragraph, eight lines below the
-    // only filename and with none of its own. It is NOT read, and that is the
-    // deliberate guard doing its job, ⛔ not an oversight to quietly widen: on
-    // this tree, reaching it costs 14 more rows of which 3 are a port, a cron
-    // minute and a Chinese enumeration. Pinned by name so no reader can cite
-    // this syntax as covering an address that drifted out of its scope.
+    // The sixth address is restated eight lines below the only filename and
+    // carries none of its own. It is NOT read, and that is a deliberate guard
+    // doing its job, ⛔ not an oversight to quietly widen. Pinned by name so no
+    // reader can cite this syntax as covering an address that drifted out of
+    // its scope. ⛔ The PRICE of reaching it is not written down here, per
+    // AGENTS.md #9 -- re-derive it from the census, never from a comment.
     expect(DOCBLOCK).toContain(':613');
     expect(cited(DOCBLOCK)).not.toContain(613);
+  });
+
+  it('⛔ names DISTANCE as the reason for that blindness, ⛔ not a paragraph break', () => {
+    // objectui#9216: two docblocks in the census credited `carryScope`'s
+    // blank-line guard for this sixth address being out of scope. It cannot
+    // have been that guard, and the fixture is the proof -- it is a JSDoc body,
+    // so the separator its author sees as a paragraph break is `   *`, which
+    // ⛔ does not trim to the empty string. The scanner sees ONE prose unit.
+    const lines = DOCBLOCK.split('\n');
+    expect(lines.filter((l) => l.trim() === '')).toEqual([]);
+    // ⭐ The separator LOOKS like a break and is not one. Both halves asserted,
+    // so neither can be read as the other.
+    expect(lines.some((l) => l.trim() === '*')).toBe(true);
+
+    // ⛔ ABLATION, both directions: the separator is not load-bearing. Delete
+    // it, or turn it into a REAL blank line, and the reading does not move --
+    // because distance is the only rule acting here.
+    const namesFileAt = lines.findIndex((l) => l.includes('ObjectKanban.tsx'));
+    const restatedAt = lines.findIndex((l) => l.includes(':613'));
+    expect(restatedAt - namesFileAt).toBeGreaterThan(CONT_WINDOW);
+
+    const withoutSeparator = lines.filter((l) => l.trim() !== '*').join('\n');
+    const withRealBlank = lines.map((l) => (l.trim() === '*' ? '' : l)).join('\n');
+    expect(cited(withoutSeparator)).toEqual(cited(DOCBLOCK));
+    expect(cited(withRealBlank)).toEqual(cited(DOCBLOCK));
   });
 
   it('gives an address to the file named to its LEFT, not to the line’s last match', () => {
@@ -582,14 +714,206 @@ describe('a bare filename opens the continuation scope, not only a full address'
   });
 
   it('does not let a filename in one paragraph capture a number in the next', () => {
-    // A blank line ends the prose unit. Without this, a filename in one
-    // sentence adopts the port number in the next one — measured on this tree
-    // as three readings, two of them a port and one a cron minute.
+    // A line that TRIMS TO EMPTY ends the prose unit. Without it, a filename in
+    // one sentence adopts the port number in the next one. ⚠️ This is the
+    // MARKDOWN case, and it is the only case it covers — see the block-comment
+    // pin below, which is the other half of the same fact.
     const acrossBlank = ['see `apps/console/vite.config.ts`', '', 'the backend runs on :3000'].join('\n');
     expect(shapes(acrossBlank)).toEqual([]);
     // FIRING CONTROL for the same code path: without the blank line it IS read,
     // so the empty result above is the barrier and ⛔ not a scanner that failed.
     const sameParagraph = ['see `apps/console/vite.config.ts`', 'the backend runs on :3000'].join('\n');
     expect(shapes(sameParagraph)).toEqual(['continuation apps/console/vite.config.ts:3000']);
+  });
+
+  it('⛔ that paragraph guard is INERT inside a block comment, and the docblocks may not claim it', () => {
+    // objectui#9216. The guard tests `line.trim() === ''`. A JSDoc separator is
+    // `   *` and a line-comment separator is `//`; NEITHER trims to the empty
+    // string, so the guard cannot fire in either — which is precisely where
+    // syntax 5's population lives. This test exists so the docblocks that
+    // describe the guard cannot drift back into claiming coverage it has never
+    // had, and so that anyone who later DOES extend it sees this pin go red
+    // rather than discovering the change by its effect on the census.
+    expect('   *'.trim()).not.toBe('');
+    expect('//'.trim()).not.toBe('');
+
+    // Same three legs as the Markdown case above, one run, so the empty result
+    // there and the non-empty ones here are the same instrument.
+    const hit = ['continuation apps/console/vite.config.ts:3000'];
+    const jsdocSeparated = ['   * see `apps/console/vite.config.ts`', '   *', '   * the backend runs on :3000'].join('\n');
+    const lineCommentSeparated = ['// see `apps/console/vite.config.ts`', '//', '// the backend runs on :3000'].join('\n');
+    // FIRING CONTROL, same shape with no separator at all: it reads the hit.
+    const noSeparator = ['   * see `apps/console/vite.config.ts`', '   * the backend runs on :3000'].join('\n');
+
+    expect(shapes(noSeparator)).toEqual(hit);
+    // ⭐ The separator changes NOTHING — that identity is the finding.
+    expect(shapes(jsdocSeparated)).toEqual(hit);
+    expect(shapes(lineCommentSeparated)).toEqual(hit);
+
+    // ⛔ And the contrast that makes it a barrier rather than a dead scanner:
+    // the SAME text with a real blank line is refused.
+    const reallyBlank = ['   * see `apps/console/vite.config.ts`', '', '   * the backend runs on :3000'].join('\n');
+    expect(shapes(reallyBlank)).toEqual([]);
+  });
+});
+
+/**
+ * objectui#9865 — an address the citing file DECLARES as fixture data.
+ *
+ * ⭐ WHAT MAKES THIS NOT `SELF_FILES` WITH MORE NAMES. The carve-out this joins
+ * is right about WHY and wrong about HOW FAR: "carries addresses as fixture
+ * data" holds of many instruments here, and a by-name list carves out WHOLE
+ * FILES when what is fixture data is ONE ADDRESS inside them. So the assertions
+ * below are written to fail if the class ever becomes a second list — the
+ * carve-out has to be reachable from a file nobody named, and unreachable from
+ * a file that names nothing.
+ *
+ * ⚠️ A passing run proves nothing on its own: the reader could be carving out
+ * everything, or nothing. Each firing leg is written beside the ⛔ leg that
+ * would still pass if the reader had stopped reading, which is the discipline
+ * the classifier controls in this file already follow.
+ */
+describe('an address the citing file DECLARES as fixture data (objectui#9865)', () => {
+  const ADDRESS = '// the vocabulary is declared at packages/core/src/actions/ActionRunner.ts:112';
+  const REASON = 'RuleTester input, the rule under test is what reads it';
+
+  it('passes its own control set on every census run', () => {
+    for (const c of evaluateDeclaration() as { ok: boolean; name: string; detail: string }[]) {
+      expect(c.ok, `${c.name} -- ${c.detail}`).toBe(true);
+    }
+  });
+
+  it('takes the address out of the population and into `declared`, with its reason', () => {
+    const r = scan([`// fixture-address: ${REASON}`, ADDRESS].join('\n'));
+    expect(r.hits).toEqual([]);
+    expect(r.declared).toHaveLength(1);
+    expect(r.declared[0].citedLine).toBe(112);
+    expect(r.declared[0].declaredReason).toBe(REASON);
+    // The DECLARING line, not the cited one: an auditor needs the sentence that
+    // made the claim, and it is usually not the line carrying the address.
+    expect(r.declared[0].declaredOnLine).toBe(1);
+    expect(r.declared[0].line).toBe(2);
+  });
+
+  it('⛔ FIRING CONTROL — the same address with no declaration is still counted', () => {
+    // Without this leg the assertion above is satisfied by a reader that carves
+    // out every address it sees.
+    const r = scan(ADDRESS);
+    expect(r.declared).toEqual([]);
+    expect(r.hits).toHaveLength(1);
+  });
+
+  it('reaches exactly as far as the window, and the far side is a real barrier', () => {
+    const at = (gap: number) =>
+      scan([`// fixture-address: ${REASON}`, ...Array(gap - 1).fill('//'), ADDRESS].join('\n'));
+    expect(DECLARATION_WINDOW).toBe(2);
+    expect(at(DECLARATION_WINDOW).declared).toHaveLength(1);
+    expect(at(DECLARATION_WINDOW + 1).declared).toEqual([]);
+    expect(at(DECLARATION_WINDOW + 1).hits).toHaveLength(1);
+  });
+
+  it('reads a declaration written BELOW the address too — prose puts it on either side', () => {
+    const r = scan([ADDRESS, `// fixture-address: ${REASON}`].join('\n'));
+    expect(r.declared).toHaveLength(1);
+    expect(r.declared[0].declaredOnLine).toBe(2);
+  });
+
+  it('⛔ a marker with NO reason declares nothing — a mute button is not a declaration', () => {
+    // THE load-bearing requirement. The reason is the only thing an auditor of
+    // this carve-out has; without it this mechanism is a by-name list spelled
+    // one address at a time, which is the shape objectui#9865 ⛔ ruled out.
+    expect(scan(['// fixture-address:', ADDRESS].join('\n')).hits).toHaveLength(1);
+    expect(scan(['// fixture-address: ab', ADDRESS].join('\n')).hits).toHaveLength(1);
+    expect(scan(['// fixture-address: abc', ADDRESS].join('\n')).declared).toHaveLength(1);
+  });
+
+  it('⛔ does not let a LONGER token declare anything', () => {
+    expect(scan([`// not-a-fixture-address: ${REASON}`, ADDRESS].join('\n')).hits).toHaveLength(1);
+  });
+
+  it('is keyed on the DECLARATION and ⛔ never on the citing path', () => {
+    // The same two lines under four unrelated paths, one of them a path the
+    // by-name carve-out has never heard of. If this class were a list, at least
+    // one of these would answer differently.
+    const text = [`// fixture-address: ${REASON}`, ADDRESS].join('\n');
+    for (const path of [
+      'packages/demo/src/demo.ts',
+      'eslint-rules/no-line-address-in-test-name.test.js',
+      'scripts/pm/check-half-states.mjs',
+      'content/docs/guide/anything.md',
+    ]) {
+      expect(SELF_FILES.has(path), path).toBe(false);
+      expect(scan(text, path).declared, path).toHaveLength(1);
+    }
+  });
+
+  it('shows a truncated reason rather than cutting it in silence', () => {
+    const long = `${'w'.repeat(REASON_MAX + 40)}`;
+    const found = declarationNear([`// fixture-address: ${long}`], 0) as { reason: string };
+    expect(found.reason).toHaveLength(REASON_MAX);
+    expect(found.reason.endsWith('…')).toBe(true);
+    // …and a reason that fits is handed back whole, so the ellipsis means
+    // something rather than always being there.
+    const short = declarationNear([`// fixture-address: ${REASON}`], 0) as { reason: string };
+    expect(short.reason).toBe(REASON);
+  });
+
+  it('strips a JSDoc terminator so a one-line declaration in a docblock still reads', () => {
+    const r = declarationNear([` * fixture-address: ${REASON} */`], 0) as { reason: string };
+    expect(r.reason).toBe(REASON);
+  });
+
+  it('leaves the released-changelog carve-out first, so a row lands in ONE bucket', () => {
+    const changelog = [
+      '# @object-ui/plugin-form',
+      '',
+      '## 17.6.0',
+      '',
+      `<!-- fixture-address: ${REASON} -->`,
+      '- released note citing `form.tsx:1428`',
+    ].join('\n');
+    const r = scan(changelog, 'packages/plugin-form/CHANGELOG.md');
+    expect(r.carvedOut).toHaveLength(1);
+    expect(r.declared).toEqual([]);
+  });
+
+  it('every control case states what it wants in its own name', () => {
+    expect(DECLARATION_CASES.length).toBeGreaterThanOrEqual(5);
+    for (const c of DECLARATION_CASES as { name: string; text: string }[]) {
+      expect(c.name.length).toBeGreaterThan(10);
+    }
+  });
+});
+
+/**
+ * ⭐ THE PIN THAT MAKES THE CLASS LIVE, and the one an ablation reddens.
+ *
+ * A mechanism whose live reading is a permanent zero is indistinguishable from
+ * one that never fires, which is the exact failure this census exists to make
+ * impossible. So the tree really does carry declarations, on files that are ⛔
+ * NOT in `SELF_FILES` — remove the reading branch, or remove a marker, and this
+ * goes back to zero and reds.
+ *
+ * ⚠️ The roster is a floor, ⛔ not a ceiling: more files may declare, and that
+ * is not a failure. What fails is any of these going silent.
+ */
+describe('the declaration is carried by the live tree, on files no list names', () => {
+  const DECLARING = [
+    'scripts/check-changeset-claims.mjs',
+    'scripts/__tests__/check-changeset-claims.test.ts',
+    'scripts/__tests__/check-i18n-call-site-keys.test.ts',
+    'scripts/__tests__/check-doc-links.test.ts',
+    'scripts/vite-dts-fail-on-type-errors.ts',
+  ];
+
+  it('declares at least one address per file, each with a reason a reader can weigh', () => {
+    for (const rel of DECLARING) {
+      expect(SELF_FILES.has(rel), `${rel} must NOT be carved out by name`).toBe(false);
+      const r = scan(readFileSync(join(REPO_ROOT, rel), 'utf8'), rel);
+      expect(r.declared.length, `${rel} declares nothing`).toBeGreaterThan(0);
+      for (const row of r.declared) {
+        expect(row.declaredReason.trim().length, `${rel}:${row.line}`).toBeGreaterThanOrEqual(3);
+      }
+    }
   });
 });

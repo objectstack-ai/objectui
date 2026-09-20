@@ -43,9 +43,14 @@
  * producer writes it when it has nothing to say about the field), the RANGE
  * vocabulary is still exactly the four bounds it always was, and the divergence
  * between the two spellings is the repair. The end-to-end obligations of the new
- * operator — the real `openRecordList`, the destination scope, the chip, and the
- * answer for `[null]=false` — live in
- * `drillEmptyBucketEscapeHatch-9159.test.tsx`.
+ * operator — the real `openRecordList`, the destination scope and the chip —
+ * live in `drillEmptyBucketEscapeHatch-9159.test.tsx`.
+ *
+ * ⚠️ The answer for `[null]=false` moved AGAIN in objectui#9508, which gave the
+ * dialect the is-not-null half of the pair; it is pinned in
+ * `drillNotNullDialect-9508.test.tsx`. The RANGE vocabulary asserted below is
+ * still exactly the four bounds it always was — that card added no range
+ * operator either.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -74,13 +79,16 @@ describe('drill escape hatch vs the empty bucket (objectui#9085, repaired by obj
     // view.
     expect(Object.keys(URL_FILTER_OPS)).toEqual(['gte', 'lte', 'gt', 'lt']);
     expect(Object.keys(RANGE_OP_PARAM)).toEqual(['$gte', '$lte', '$gt', '$lt']);
-    expect(NULL_FILTER).toEqual({
-      param: 'null',
-      flag: 'true',
-      op: 'is_null',
-      key: '$null',
-      labelKey: 'filterBuilder.operators.isNull',
-    });
+    // ⚠️ objectui#9508 added this record's inverse half (`notFlag` / `notOp` /
+    // `existsKey` / `notLabelKey`), so the assertion names the members whose
+    // MOVEMENT would falsify the claim above rather than the record's whole
+    // shape — an exhaustive `toEqual` here would redden on every future
+    // spelling this dialect gains without any of these five having moved.
+    expect(NULL_FILTER.param).toBe('null');
+    expect(NULL_FILTER.flag).toBe('true');
+    expect(NULL_FILTER.op).toBe('is_null');
+    expect(NULL_FILTER.key).toBe('$null');
+    expect(NULL_FILTER.labelKey).toBe('filterBuilder.operators.isNull');
   });
 
   it('the new spelling NO LONGER serializes identically to the bare null it replaced', () => {

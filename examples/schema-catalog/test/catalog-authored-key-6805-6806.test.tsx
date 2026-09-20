@@ -463,14 +463,22 @@ describe('counter-probes (objectui#6157 discipline)', () => {
     }
   });
 
-  it('⭐ the WRONG generalisation: a `badge` repaired to `children` is STILL empty', () => {
-    // THE assertion this PR exists for. A blind `content` -> `children` sweep
-    // is correct for `scroll-area` and leaves both badges blank — and it would
-    // pass a "no `content` left in the catalog" check while doing it.
-    const wrong = draw({ type: 'badge', children: '12', className: 'ml-auto' });
+  it('⭐ the WRONG generalisation: a `badge` repaired to the RETIRED key is STILL empty', () => {
+    // THE assertion this PR exists for: a blind sweep onto one renderer's key
+    // is correct for `scroll-area` and leaves both badges blank, while passing
+    // a "no `content` left in the catalog" check as it does it.
+    //
+    // ⚠️ RE-POINTED at `body` by objectui#6771. The key this probe used was
+    // `children`, which `badge` did not read; the retirement converged `badge`
+    // onto `children`, so the blind sweep that is still wrong is the one onto
+    // the retired spelling. ⛔ The PRINCIPLE is untouched and is the reason the
+    // probe is re-pointed rather than deleted: author the key THIS renderer
+    // reads, never the key some other renderer reads.
+    const wrong = draw({ type: 'badge', body: '12', className: 'ml-auto' });
     try {
       expect(wrong.text).toBe('');
-      // …and it does not even leak, so the objectui#5574 attribute sweep that
+      // …and it does not even leak — `SchemaRenderer` still strips the retired
+      // key out of the props bag — so the objectui#5574 attribute sweep that
       // catches the `content` spelling cannot catch this one (objectui#6829).
       expect(wrong.leaked).toBe(0);
     } finally {

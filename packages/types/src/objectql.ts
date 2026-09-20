@@ -24,6 +24,12 @@ import type { BaseSchema } from './base.js';
 // kanban faces judge a card the same way. Type-only: no runtime edge.
 import type { KanbanCard } from './complex.js';
 import type { DrillDownConfig } from './data-display.js';
+// `QueryParams` is the destination `ObjectGallerySchema.filter`'s own docblock
+// names — the value is forwarded verbatim into that slot — so the declaration
+// is an INDEXED ACCESS on it rather than a copy of its arms (objectui#9309).
+// Type-only: no runtime edge, and `./data.ts` imports nothing from here, so
+// this adds no cycle in either direction.
+import type { QueryParams } from './data.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
 import type { FormField } from './form.js';
 // ListView type is now derived from the zod schema (issue #2231) — see ListViewSchema below.
@@ -3248,6 +3254,33 @@ export interface ObjectCalendarSchema extends BaseSchema {
   startDateField?: string;
   /** Field for event end */
   endDateField?: string;
+  /**
+   * ⛔ RETIRED (objectui#8355, director ruling of 2026-09-16) — `dateField` was
+   * the pre-#2231 objectui spelling of {@link ObjectCalendarSchema.startDateField}
+   * and is refused BY NAME on both faces: `?: never` here, an
+   * `aliasKeyRefusal()` arm on the zod mirror (`zod/objectql.zod.ts`). Write
+   * `startDateField`.
+   *
+   * ⚠️ It is a TOMBSTONE, not a deletion, and the difference is the whole
+   * ruling. `BaseSchema` carries `[key: string]: any` on this face and
+   * `.passthrough()` on the mirror, so a DELETED key is not refused — it is
+   * KEPT, unexamined, and then ignored now that `ObjectCalendar`'s alias ladder
+   * is gone. Silent is the failure mode an earlier attempt shipped
+   * (objectui#8651 records it); declared-and-unwritable is what makes the same
+   * document fail loudly instead.
+   */
+  dateField?: never;
+  /**
+   * ⛔ RETIRED (objectui#8355) — the pre-#2231 spelling of
+   * {@link ObjectCalendarSchema.endDateField}, refused by name for the reason
+   * spelled out on {@link ObjectCalendarSchema.dateField} above. Write
+   * `endDateField`.
+   *
+   * ⚠️ This one degraded even more quietly than its sibling before the
+   * retirement: the node still resolved through `startDateField`, so the
+   * calendar drew, and only the end binding went missing.
+   */
+  endField?: never;
   /** Field for event title */
   titleField?: string;
   /**
@@ -3676,17 +3709,23 @@ export interface ObjectKanbanSchema extends BaseSchema {
         /** WIP limit — the card count at which the lane warns. Never reaches the query. */
         limit?: number;
         className?: string;
-        /** Whether the lane renders collapsed (honoured by the enhanced board). */
+        /**
+         * Whether the lane renders collapsed — narrowed to a title spine with
+         * its cards withheld, and reopenable by the viewer, who then owns the
+         * state for the session. Honoured on both of the registered board's
+         * layouts since objectui#9628; see {@link KanbanColumn.collapsed}.
+         */
         collapsed?: boolean;
       }>;
   /**
    * Row cap — the most records the board fetches, sent as a real `$top` on
-   * the query (`packages/plugin-kanban/src/ObjectKanban.tsx:264`,
-   * `$top: schema.limit ?? DEFAULT_KANBAN_LIMIT`; objectui#4025). The board
-   * renders every fetched record into a lane and offers no pagination, so
-   * this is the author's window on the object rather than a page size. A
-   * bound `dataSource` (its own `limit`, or the named view's
-   * `pagination.pageSize`) sets it too. Undeclared until objectui#7322.
+   * the query (`packages/plugin-kanban/src/ObjectKanban.tsx`,
+   * `$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`; objectui#4025,
+   * re-spelled by objectui#9925, which refuses a non-positive cap rather than
+   * forwarding it). The board renders every fetched record into a lane and
+   * offers no pagination, so this is the author's window on the object rather
+   * than a page size. A bound `dataSource` (its own `limit`, or the named
+   * view's `pagination.pageSize`) sets it too. Undeclared until objectui#7322.
    *
    * @default 100 — `DEFAULT_KANBAN_LIMIT`
    */
@@ -3716,6 +3755,42 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * either. Only {@link ObjectCalendarSchema} declares both keys.
    */
   filter?: any[];
+  /**
+   * The record field rendered as each card's title — the CANONICAL spelling of
+   * the one card-title choice this board reads two ways
+   * (`cardTitle || titleField`), and the spelling `@objectstack/spec`,
+   * `plugin-kanban`'s registration `inputs` and this repository's own root
+   * README all tell authors to prefer.
+   *
+   * Undeclared on BOTH published faces of this arm until objectui#9606, while
+   * its legacy alias {@link titleField} beside it was declared — so the key
+   * authors are told to use was the one neither face judged. It reached the
+   * renderer through {@link BaseSchema}'s `[key: string]: any` and the zod
+   * mirror's `.passthrough()`: `cardTitle: 42` validated GREEN and kept the
+   * `42`, which `resolveKanbanTitleField` returns as a record field name, while
+   * the protocol's `ObjectKanbanPropsSchema` refused the same document.
+   *
+   * ⛔ Declaring it does NOT retire {@link titleField} (director seat, batch
+   * #150 item 3, letter 1): a mirror cannot be narrower than the spec it
+   * mirrors, and `@objectstack/spec` still declares the alias. If the alias is
+   * ever retired, that starts in the spec on its own card.
+   *
+   * Optional here and optional in the zod mirror, so the two faces accept and
+   * refuse the same documents. ⚠️ That agreement is NOT held by the
+   * zod-mirror-parity ratchet, and this comment said it was until the claim was
+   * measured: with the key on the mirror and this member deleted, `type-check`
+   * exits 0, including the `tsc -p tsconfig.test.json` leg that judges the
+   * ratchet. The ratchet has `UnmirroredDeclaredKeys` for declared-but-unmirrored
+   * and no counterpart for the reverse — one direction closed by name, its
+   * reverse left open (objectui#9711).
+   *
+   * What this member buys, measured: {@link BaseSchema}'s `[key: string]: any`
+   * would admit `cardTitle: 42` in a typed corpus, and with the member declared
+   * `tsc` refuses it. The `@ts-expect-error` row in
+   * `__tests__/object-kanban-card-title-9606.test.ts` is what turns that into a
+   * guard — delete this member and the directive goes unused, TS2578.
+   */
+  cardTitle?: string;
   /** Field for card title */
   titleField?: string;
   /** Fields to display on card */
@@ -3735,11 +3810,94 @@ export interface ObjectKanbanSchema extends BaseSchema {
   coverImageField?: string;
 
   /**
-   * Allow columns to be collapsed/expanded.
-   * Collapsed columns show only the title and card count.
-   * @default false
+   * RETIRED (objectui#8801, ADR-0049 enforce-or-remove; director seat, class-1
+   * self-adjudication of 2026-09-16, letter A). An authored `allowCollapse` was
+   * accepted by BOTH published faces of this arm and collapsed nothing.
+   *
+   * ## The protocol row is what decides it
+   *
+   * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` —
+   * `ObjectKanbanPropsSchema` — has never declared the key, and the token
+   * occurs nowhere in the installed package's published sources (re-measured
+   * against the pinned install, with `groupBy` and `coverImageField` firing as
+   * controls in the same pass). That schema is a `strictObject`, so the
+   * PLATFORM already refuses an authored `allowCollapse` by name at publish
+   * while this declaration said yes: `tsc` agreed, and the document was
+   * rejected whole. This tombstone is what makes `tsc` say the same thing.
+   *
+   * ## Zero read sites, and both unnamed channels terminate
+   *
+   * `@object-ui/plugin-kanban` names the token in ZERO files, and that zero is
+   * a reading rather than a dead grep because live sibling keys fire as
+   * controls on the same instrument and the same run — `groupBy`,
+   * `conditionalFormatting`, `quickAdd` and `coverImageField`.
+   *
+   * ⛔ Their per-key counts are deliberately NOT written here (AGENTS.md #9).
+   * A figure in prose is derived once and re-derived never: the four that used
+   * to stand in this paragraph had already drifted by the time they landed, and
+   * a reader who spot-checked them would have confirmed a number the population
+   * underneath had already moved out from under. Point at the instrument
+   * instead — the walk re-runs on every test run, as the `it` named
+   * "`@object-ui/plugin-kanban` names it in ZERO files, with controls firing in
+   * the same pass" in
+   * `packages/types/src/__tests__/object-kanban-allow-collapse-retired-8801.test.ts`.
+   * The ZERO above is that test's own assertion rather than a remembered
+   * reading, which is why it stays here while the control counts do not.
+   *
+   * A source grep alone cannot answer the inertness question, because a
+   * renderer may consume a key it never names; both such channels were traced
+   * to their ends:
+   *
+   *   - the PROP channel — `SchemaRenderer` spreads every non-metadata key as a
+   *     React prop, `ObjectKanbanRenderer` destructures `schema` and forwards
+   *     its rest into `ObjectKanban`, whose first statement after its own
+   *     destructure is `void _props;`. The rest is discarded and never spread
+   *     onward.
+   *   - the SCHEMA channel — the key does ride `ObjectKanban`'s `{ ...schema }`
+   *     spread into `effectiveSchema`, which reaches `KanbanRenderer`; that
+   *     component destructures `schema` / `objectFields` / `onCardMove` and
+   *     NAMES every key it hands to the lazy board. An unnamed key stops there.
+   *
+   * ## Where collapse actually lives, so the remedy is not a second fiction
+   *
+   * Lane collapse is {@link KanbanColumn.collapsed}'s — a PER-LANE member, not
+   * a board-level authored toggle: it is written on the lane the author wants
+   * collapsed, inside `columns`, and the board THIS arm renders honours it on
+   * both of its layouts since objectui#9628 — the lane starts collapsed and the
+   * viewer can open it again.
+   *
+   * ⚠️ When this key retired that per-lane member was itself
+   * declared-but-unhonoured on the registered board, read only by
+   * `KanbanEnhanced`, which is referenced by no registration since the
+   * `kanban-enhanced` node key retired (objectui#8257); objectui#9628 repaired
+   * that at the reader rather than by retiring a second key. The distinction
+   * this key's retirement rests on is unchanged either way: per-LANE collapse
+   * is the author's to declare, while SWIMLANE collapse is the VIEWER's alone
+   * — `KanbanImpl` collapses a swimlane row when its header button is clicked
+   * and persists that set per `swimlaneField` under the storage key
+   * `objectui:kanban-collapsed:` + that field, and no authored key reaches it.
+   *
+   * ⇒ delete the key; there is no board-level replacement to rename it to, and
+   * nothing that worked stops working.
+   *
+   * ## Why a tombstone rather than a plain deletion
+   *
+   * {@link BaseSchema} carries `[key: string]: any` and its mirror ends
+   * `.passthrough()`, so a deleted member is KEPT, not refused — one silent
+   * no-op traded for another. The member therefore stays declared and
+   * unwritable on both faces, paired with a `retirementTombstone()` on the zod
+   * twin so the value is refused BY NAME instead of stripped, which is also
+   * what keeps the two faces' key sets equal for the parity ratchet.
+   *
+   * ⚠️ The sibling `kanban` arm's same-spelled key is NOT this one and its
+   * retirement did not reach here. Batch #70 tombstoned `allowCollapse` on
+   * `KanbanSchema`, and objectui#8802 then removed that arm whole — those
+   * refusals were arm-scoped by construction, so a `type: "object-kanban"`
+   * document went on being accepted. This is the decision for this arm.
+   *
+   * @deprecated Not part of this contract — the value was accepted and dropped.
    */
-  allowCollapse?: boolean;
+  allowCollapse?: never;
 
   /**
    * Conditional formatting rules for card coloring.
@@ -4002,11 +4160,18 @@ export interface ObjectChartSchema extends BaseSchema {
    *
    * ⚠️ Narrowing to ONE arm is a decision LOCAL TO THIS NODE, not a
    * cross-widget one — an earlier draft of this docblock said the opposite and
-   * the census refutes it. Six sibling `object-*` widgets declare `filter` on
-   * this interface and every one of them is array-only
-   * ({@link ObjectGanttSchema.filter}, {@link ObjectKanbanSchema.filter} and
-   * four more); this key is the only `object-*` `filter` with a record arm. So
-   * there is no fleet-wide convention to renegotiate — what is unresolved is
+   * the census refutes it. ⛔ The census is no longer WRITTEN DOWN here, and
+   * that is objectui#9309's doing on both halves of what used to stand in this
+   * spot. This paragraph stated a sibling count and called this key the only
+   * `object-*` `filter` with a record arm; {@link ObjectGallerySchema.filter}
+   * is now `QueryParams['$filter']`, which HAS a record arm, and one of the
+   * counted siblings was `NamedListView` — the named-view interface, not a
+   * view schema at all. Read the population off the instrument that re-derives
+   * it on every run, `__tests__/object-gallery-filter-9309.test.ts`, which
+   * charges every `filter` declaration in this file to its owning interface
+   * through the parser; ⛔ do not copy its table back into prose here
+   * (AGENTS.md #9). So there is no fleet-wide convention to renegotiate — what
+   * is unresolved is
    * only this component's own two-armed read, and objectui#7946 declares the
    * accept set it measured rather than picking an arm without a ruling.
    *
@@ -4222,8 +4387,28 @@ export interface ObjectGallerySchema extends BaseSchema {
   type: 'object-gallery';
   /** ObjectQL object name; omitted when the records arrive through `bind` or `data` */
   objectName?: string;
-  /** Query filter, forwarded verbatim as `$filter` */
-  filter?: unknown;
+  /**
+   * Query filter, forwarded verbatim as `$filter`.
+   *
+   * Typed as the DESTINATION the sentence above names, by an indexed access on
+   * {@link QueryParams} rather than a copy of its arms, so the declaration
+   * cannot drift away from the slot it is forwarded into (objectui#9309).
+   *
+   * It was `unknown` until then, which promised a destination it did not type:
+   * the docblock mandated a verbatim forward and the compiler refused it, so
+   * the only way through was an assertion at the call site — the shape that
+   * teaches casting, and the opposite of the repo's own direction (AGENTS.md
+   * #0.1: fix the declaration, do not widen the consumer). `unknown` is the
+   * widest type there is, so this is a NARROWING of the published accept set:
+   * `filter: 'stage=won'` and `filter: 42` are compile errors now, where
+   * before they compiled and the downstream assertion un-checked them again.
+   *
+   * ⛔ Do not re-spell the arms here. What `QueryParams['$filter']` resolves to
+   * is stated once, in `./data.ts`, next to the readers that honour it; a copy
+   * in this docblock would be a second dialect of one key the moment that slot
+   * moves.
+   */
+  filter?: QueryParams['$filter'];
   /** Inline records — rendered ahead of a fetch when present */
   data?: Record<string, unknown>[];
   /** Gallery configuration — aligned with @objectstack/spec `GalleryConfig` */
@@ -4375,8 +4560,33 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * Row click handler — a RUNTIME SLOT a React host supplies through this
    * interface, never through authored JSON (objectui#6124; the zod mirror
    * refuses the key by name). When present it overrides drill-to-record.
+   *
+   * TWO parameters since objectui#9799, catching up to the `DataTableSchema`
+   * twin objectui#9462 widened one hop further in. `ObjectDataTable`
+   * (`packages/plugin-dashboard/src/ObjectDataTable.tsx`) forwards this slot
+   * onto the `data-table` node it renders, and the forwarding line reads, in
+   * full:
+   * `onRowClick: schema.onRowClick ?? (recordDrillEnabled ? handleRowClick : undefined)`
+   * ⚠️ Quoted whole because the gate is load-bearing for how it is read, not for
+   * whether it applies: a host's handler is the FIRST operand of that `??` and
+   * reaches the node whatever `recordDrillEnabled` says — the gate only chooses
+   * the FALLBACK. That node's renderer calls the slot as
+   * `schema.onRowClick(row, e)`, so the payload `useNavigationOverlay`'s
+   * `handleClick` reads (`metaKey` / `ctrlKey` / `button`) has been arriving
+   * here ever since objectui#9462 repaired that call; until this card the
+   * declaration denied a second argument the runtime was already passing.
+   * ⛔ Nothing about the runtime call moved with this widening — it is a
+   * declaration catching up to a call, in one direction only.
+   *
+   * OPTIONAL, and spelled `any`, for the two reasons objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: optional so an existing one-parameter
+   * host handler is still accepted (source compatibility holds in BOTH
+   * directions, pinned by `object-data-table-row-click-arity-9799.test.ts`),
+   * and `any` rather than `HandleClickModifiers` because that interface lives
+   * in `@object-ui/react`, which depends on THIS package — naming it here is a
+   * phantom dependency that closes a cycle.
    */
-  onRowClick?: (row: any) => void;
+  onRowClick?: (row: any, event?: any) => void;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-data-table` reads
    * NEITHER content channel: no renderer read consumes `body` or `children` for

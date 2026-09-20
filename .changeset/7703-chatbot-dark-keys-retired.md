@@ -101,10 +101,11 @@ All six **have** a Zod arm, and that is what decides the route here. `BaseSchema
 `.passthrough()` on the Zod side and carries a `[key: string]: any` index signature on the
 TS side, so an UNDECLARED key is not refused — it is KEPT. Deleting the members would hand
 the authored spelling exactly the silent no-op this card exists to close, on both faces at
-once. The two-prong discriminator (`mobile.ts`, objectui#5941 / #7526 / #7678) leaves that
-structural hazard to the carrier: where there is no mirror there is "no silent-strip hazard
-for prong 2 to guard". Here there is a mirror to host the refusal, and prong 1 holds by the
-letter for four of the six. The "deleted" row is pinned live as a control in
+once. This package's retire-vs-remove discriminator (objectui#5941 / #7526, amended by
+objectui#7678) leaves that structural hazard to the carrier: where there is no mirror there
+is "no silent-strip hazard for prong 2 to guard" (`mobile.ts`). Here there is a mirror to
+host the refusal, and prong 1 holds by the letter for four of the six. The "deleted" row is
+pinned live as a control in
 `packages/types/src/__tests__/chatbot-dark-keys-retired-7703.test.ts`, so the contrast
 cannot rot into prose.
 

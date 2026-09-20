@@ -375,8 +375,25 @@ describe('`button` is EXCLUDED by ruling — permanently, and with its ground (o
       // 13 do not violate today, and listing a non-violator trips the OTHER
       // direction of the baseline's red. They are pinned as non-violators by the
       // `schema.body` readers block below instead.
-      expect(Object.keys(baseline.excluded)).toEqual(['button']);
-      expect(baseline.excluded.button.issue).toBe('objectui#6804');
+      // ⚠️ `button` is no longer alone. objectui#6804's ruling covered FOURTEEN
+      // tags — `button` plus the `schema.body` readers — and said in as many
+      // words what to do when objectui#6771 gave those readers a `children`
+      // read: a pin exception WITH ITS GROUND, ⛔ not `isContainer`. That
+      // happened, so ten of them are here now, each carrying its own reason.
+      // Exact equality is kept deliberately — admitting an entry stays a
+      // deliberate act, and the set is asserted rather than its size, so a
+      // swap for an unruled tag cannot ride in on a count.
+      expect(Object.keys(baseline.excluded).sort()).toEqual([
+        'alert', 'badge', 'button',
+        'sidebar-content', 'sidebar-footer', 'sidebar-group', 'sidebar-header',
+        'sidebar-inset', 'sidebar-menu', 'sidebar-menu-item', 'sidebar-provider',
+      ]);
+      // Every one of them points at the ruling that decided it, not at the card
+      // that deferred it or the one that executed it.
+      for (const [tag, entry] of Object.entries(baseline.excluded)) {
+        expect(entry.issue, tag).toBe('objectui#6804');
+        expect(entry.reason.length, `\`${tag}\` carries no ground`).toBeGreaterThan(200);
+      }
 
       // Pinned as a live description rather than as prose, so the exclusion
       // cannot outlive its reason. These three are exactly the facts the ruling
@@ -427,27 +444,71 @@ describe('the predicate is RUNTIME, so the exception shapes need no skip-list (o
     expect(diagnose(withChildren(type)).map((d) => d.code)).toContain(CONTAINMENT);
   });
 
-  it('the `schema.body` readers stay non-containers — `body` is a key the check never inspects', async () => {
-    // The other 13 of objectui#6804's 14, and the population a "children or
-    // body" predicate would collapse: these render `renderChildren(schema.body)`
-    // and never touch `schema.children`. That 2026-08-30 ruling gives them the
-    // SAME answer as `button` — no `isContainer` — but they get no baseline
-    // entry while they do not violate, because listing a non-violator is the
-    // other direction of that file's red. If objectui#6771's retirement of the
-    // `body` dialect gives one of them a `children` read, that is when it earns
-    // a reasoned entry of its own. ⚠️ Two of them are PUBLIC — `badge` and
-    // `alert` — so that change would be moving published contract, not a
-    // mechanical fix. That is a measurement, so it is pinned rather than
-    // asserted in prose: see the block below.
-    // `validateTree`'s containment branch is guarded by `node.children?.length`
-    // ALONE, so no author writing `body` on them has ever drawn a false
-    // diagnostic. Measured: 13 bare keys, not the 10 objectui#6779 estimated —
-    // the `sidebar-` family is 11 keys, not 8.
-    const bodyReaders = ['badge', 'alert', ...bareTags().filter((t) => t.startsWith('sidebar'))];
-    expect(bodyReaders.length).toBe(13);
-    for (const type of bodyReaders) {
-      expect(await rendersChildren(type), `\`${type}\` started rendering children`).toBe(false);
-      expect(diagnose(withChildren(type)).map((d) => d.code), type).toContain(CONTAINMENT);
+  it('the former `schema.body` readers now read `children` — and the containment warning moved WITH them', async () => {
+    // ⚠️ THIS PIN IS INVERTED, and it is inverted into a REFUSAL rather than
+    // deleted, because what it now records is a cost the ruling did not price.
+    //
+    // It used to read: these thirteen render `renderChildren(schema.body)` and
+    // never touch `schema.children`, so `validateTree`'s containment branch —
+    // guarded by `node.children?.length` ALONE — never fired on them and no
+    // author writing `body` had ever drawn a false diagnostic. It closed by
+    // saying that if objectui#6771's retirement gave one of them a `children`
+    // read, that is when it would earn a reasoned baseline entry of its own.
+    //
+    // That is what happened, and it moved the defect rather than removing it:
+    //
+    //   before  `body` renders, `children` does not, `children` draws the warning
+    //   after   `children` renders, `body` does not, `children` draws the warning
+    //
+    // ⇒ the false `not-a-container` is now on the ONE key these registrations
+    // read — which is the shape objectui#6771 was filed about, one key over.
+    // ⛔ Do not resolve it by declaring `isContainer`: objectui#6804's ruling
+    // (2026-08-30) forbids that for exactly this population and orders a
+    // reasoned pin exception instead, which is what the baseline now carries.
+    // The ruling's GROUND — `children` here is a label/content fallback, not
+    // layout containment — transfers cleanly to `badge`, `alert` and `button`;
+    // whether it transfers to the `sidebar-*` family, whose child lists ARE
+    // layout, is the question reported back on objectui#6771 rather than
+    // answered here. Until it is answered, this pin is what keeps the cost
+    // visible instead of rediscovered.
+    const converged = ['badge', 'alert', ...bareTags().filter((t) => t.startsWith('sidebar'))];
+    expect(converged.length).toBe(13);
+
+    // (a) the retired spelling is ANSWERED, and the answer names the remedy.
+    // ⛔ Not "draws nothing": silence on a retired key is the state this whole
+    // retirement exists to end.
+    for (const type of converged) {
+      const messages = diagnose({ type, body: [{ type: 'text', content: MARK }] } as unknown)
+        .map((d) => d.message);
+      expect(
+        messages.some((m) => m.includes('"body"') && m.includes('"children"')),
+        `\`${type}\` does not name \`children\` when an author writes the retired \`body\``,
+      ).toBe(true);
+    }
+
+    // (b) none of them declares the flag — objectui#6804's ruling, still held.
+    const rows = await census();
+    const byType = new Map(rows.map((r) => [r.type, r]));
+    for (const type of converged) {
+      expect(byType.get(type)?.isContainer, `\`${type}\` declared \`isContainer\``).toBe(false);
+    }
+
+    // (c) THE REFUSAL. Every one of them that puts an authored `children` list
+    // on the page still draws `not-a-container` for it. Asserted on the
+    // measured renderers rather than on all thirteen, because three of them
+    // (`sidebar`, `sidebar-menu-button`, `sidebar-trigger`) do not put a child
+    // on the page under this probe and so are not part of the cost.
+    const rendering: string[] = [];
+    for (const type of converged) {
+      if (await rendersChildren(type)) rendering.push(type);
+    }
+    expect(rendering.length, 'no converged registration renders children — the retirement did not land')
+      .toBeGreaterThan(0);
+    for (const type of rendering) {
+      expect(
+        diagnose(withChildren(type)).map((d) => d.code),
+        `\`${type}\` stopped drawing the false warning — resolve the exception rather than this pin`,
+      ).toContain(CONTAINMENT);
     }
   }, CENSUS_TIMEOUT);
 });

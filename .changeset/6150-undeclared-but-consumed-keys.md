@@ -54,15 +54,51 @@ on its own, and each says so in its own doc comment:
 - `ContextMenuSchema.trigger` is OPTIONAL although the docs page shows it
   required; the renderer substitutes a placeholder, so trigger-less documents are
   legal today.
-- `TreeViewSchema.onNodeClick` gets NO zod mirror. It is invoked, not read as a
-  value, so it cannot appear in an authored JSON document; objectui#6152 ruled
-  that class is recorded in `zod-mirror-parity.test.ts`'s `RuntimeOnlyDeclared`
-  instead, and it is (the first pair to sit there without also sitting in
-  `UnmirroredDeclared`, so that file's two counts move with it).
+- `TreeViewSchema.onNodeClick` gets no zod VALUE SHAPE. It is invoked, not read as
+  a value, so it cannot appear in an authored JSON document, and objectui#6152
+  ruled that the class never gets one.
+
+  ⭐ **AMENDED, and the amendment ships in this same release.** objectui#7804's
+  `TreeViewSchema` slice gave the key a zod arm after all — a NAMED REFUSAL
+  (`handlerKeyRefusal(key, 'runtime-slot', label)`), never a shape — because "no
+  mirror entry" is not neutral under `BaseSchema.passthrough()`: it meant an
+  authored `{ "type": "tree-view", "onNodeClick": { "action": "toast" } }` parsed
+  GREEN, survived the parse, and reached a call site that expects a function.
+  ⇒ the three clauses this bullet used to carry are no longer true of the code
+  shipping beside it. The key is now a MEMBER of `TreeViewSchema.shape` and an
+  authored value is refused BY NAME at path `onNodeClick`; it has LEFT
+  `zod-mirror-parity.test.ts`'s `RuntimeOnlyDeclared` for that file's
+  `KnownDrift`; and it is no longer "the first pair to sit there without also
+  sitting in `UnmirroredDeclared`" — draining it emptied that difference, so
+  `RuntimeOnlyDeclared` is now a SUBSET of `UnmirroredDeclared` and the union of
+  the two equals `UnmirroredDeclared` itself. ⛔ objectui#6152's ruling is
+  untouched by any of this: what the key still does not have, and never will, is a
+  `z.function()` shape — no serialized document could satisfy one.
 
 Two of the 13 declare a SECOND spelling for a slot that already had one —
 `TextSchema.content` beside `value`, `TreeViewSchema.nodes` beside `data` — because
 that is what the renderers read. Retiring either spelling is an ADR-0049
-enforce-or-remove question and is deliberately not decided here. Declaring `nodes`
-also does not by itself make a `nodes`-only tree-view document legal: `data` stays
-required on both faces.
+enforce-or-remove question and is deliberately not decided here.
+
+⭐ **AMENDED — both `tree-view` alias questions have SINCE been decided, and the
+decisions publish in this same release.** This paragraph used to end "Declaring
+`nodes` also does not by itself make a `nodes`-only tree-view document legal:
+`data` stays required on both faces." Neither half of that is true any more, on
+either face:
+
+- **A `nodes`-only `tree-view` document IS legal.** objectui#6939 made `data`
+  optional, so the `nodes` spelling the renderer reads FIRST stands on its own
+  (`6939-tree-view-nodes-mirror.md`, published beside this note). `bind` is read
+  before either and is unchanged.
+- **`data` is not required — it is REFUSED BY NAME.** objectui#6951 retired it
+  under ADR-0049 on both faces: the TypeScript member is a `?: never` tombstone
+  and the zod arm is a `retirementTombstone(...)` whose guidance points the author
+  at `nodes` (`6951-tree-view-data-retired.md`, also published beside this note).
+  `nodes` is `z.array(TreeNodeSchema).optional()`, and its own describe text
+  records that a `nodes`-only document became legal at objectui#6939.
+
+⛔ Nothing on the branch carrying this amendment falsified that sentence: it was
+already untrue at that branch's base, and both cards that made it untrue are
+closed. It is corrected here, rather than left to objectui#6150's owner, because
+this note and theirs publish VERBATIM into the same CHANGELOG — a reader would
+have met three paragraphs contradicting each other in one release.

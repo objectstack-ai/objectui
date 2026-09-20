@@ -207,6 +207,60 @@ export interface DetailViewField {
    * Currency code for currency fields (e.g. 'USD', 'EUR')
    */
   currency?: string;
+  /**
+   * Marks a `date` / `datetime` field as due/deadline-semantic (vs. a plain
+   * start/end/created date). It is the same key, with the same meaning, as
+   * `DateFieldMetadata.dueLike` and `DateTimeFieldMetadata.dueLike` in
+   * `./field-types.ts` — those two are OBJECT metadata; this one is the
+   * AUTHORED detail-view field, which is a different key of the same name.
+   *
+   * ## What it does to the rendered cell
+   *
+   * Both halves of the overdue affordance, on the `date` and the `datetime`
+   * cell alike:
+   *
+   *   - **wording** — inside the relative face, a past due date reads
+   *     `Overdue Nd` instead of the neutral `N days ago`. `formatRelativeDate`
+   *     (`@object-ui/core`) gates that phrase on this key; the phrase has no
+   *     `Intl` equivalent, so it is also the only route by which that function
+   *     reaches the translate fn.
+   *   - **styling** — the cell's span gains `text-red-600` once the deadline
+   *     day has passed, whichever display face it is painting
+   *     (`isOverdueInstant` in `@object-ui/fields`).
+   *
+   * ⚠️ The two halves have different thresholds, inherited from the shared
+   * relative-time path and ⛔ not re-decided here: the red styling starts the
+   * day after the deadline, while the `Overdue Nd` wording starts the day after
+   * that (`formatRelativeDate` gates its phrase on a difference of more than
+   * one calendar day, so `Overdue 2d` is the shortest phrase this codebase
+   * produces). Beyond a week the relative face falls back to an absolute date
+   * and the wording stops; the styling does not.
+   *
+   * ## Why it is declared HERE, on the detail-view field
+   *
+   * Because the renderer already honours it here, on the AUTHORED field of a
+   * detail view — not only on object metadata. `DetailSection`
+   * (`@object-ui/plugin-detail`) spreads the authored field into the bag
+   * `enrichDetailField` returns and hands that bag to the resolved cell
+   * renderer, whose `resolveDueLike` reads this key first and falls back to the
+   * due/deadline field-NAME convention only when it is not `true`. That read is
+   * measured by rendering rather than by grep, in that package's
+   * `DetailSection.dueLikeReachesTheCell-9729.test.tsx`, which draws the same
+   * `end_date` field with and without the key and watches the drawn wording
+   * change.
+   *
+   * Until objectui#9738 this interface was the one published face that refused
+   * the key (`TS2353` — it carries no index signature) while
+   * `DetailViewFieldSchema` in `./zod/views.zod.ts` validated it and the
+   * renderer honoured it. The declaration is that contradiction's remedy
+   * (maintainer ruling, letter A), ⛔ not a new capability: the obligation was
+   * already on the books, with a reader and two documentation pages.
+   *
+   * ⚠️ Omitting the key is NOT the same as writing `false`. Absent, the
+   * field-NAME convention can still turn the affordance on; `false` does not
+   * suppress that fallback either — only a neutral field name does.
+   */
+  dueLike?: boolean;
 }
 
 /**
@@ -342,32 +396,69 @@ export interface DetailViewSection {
     | 'primary/10'
     | 'secondary/10'
     | 'destructive/10';
-  /*
-   * RETIRED — `hideEmpty?: boolean` (objectui#7129, maintainer 2026-09-01).
+  /**
+   * Hide this section's empty fields, and — when EVERY field is empty — hide
+   * the whole section: no heading, no skeleton.
    *
-   * ⛔ Do not re-add it. The key was declared here, REFUSED by
-   * `@objectstack/spec` `RecordDetailsProps` (`unrecognized_keys` on the
-   * `sections[]` element, measured on 17.2.0), absent from the
-   * `DetailViewSectionSchema` mirror in `./zod/views.zod.ts`, and honoured by
-   * `RecordDetailsRenderer` — one key, four parties, three different answers,
-   * and the only one that let an author write it was this declaration.
+   * Set `false` to keep an all-empty section's heading and label skeleton, the
+   * spelling a brand-new record needs so its authored sections do not vanish.
    *
-   * The ruling converged the four on the spec's answer: emptiness on a
-   * `record:details` section is decided by `DetailSection`'s auto-hide
-   * heuristic (4 fields / 25% empty; 3 / 20% on mobile) and by the reader's
-   * own "Show N empty fields" toggle. That heuristic is now the WHOLE
-   * contract, which also dissolves the paradox this key carried: an authored
-   * `hideEmpty: false` was tested as `!section.hideEmpty`, so it was
-   * indistinguishable from unauthored and overrode nothing.
+   * ## ⚠️ Omitting it does NOT mean the same thing on both consumers
    *
-   * The retirement is pinned four ways at
-   * `packages/plugin-detail/src/renderers/__tests__/record-details.hideEmptyRetired-7129.test.tsx`.
+   * This type is consumed by two authorable renderers, and only one of them
+   * resolves a default — so this member deliberately carries no default tag:
    *
-   * ⚠️ NOT the same key as `record:reference_rail`'s own `hideEmpty`
-   * (`packages/plugin-detail/src/renderers/record-reference-rail.tsx`), which
-   * is a different surface and is untouched, nor the `detail.hideEmptyFields`
-   * i18n label, which is the toggle's own copy.
+   * - **`record:details`** (`RecordDetailsRenderer`) maps every authored
+   *   section with `hideEmpty ?? true`, so an omitted key behaves as `true`
+   *   and an all-empty section renders nothing. That is the default the spec's
+   *   own `describe()` states, and this renderer is the one the key is
+   *   declared on.
+   * - **`detail-view`** (`DetailViewRenderer`, whose registration takes a
+   *   `sections` input) hands each section to `DetailSection` unchanged. No
+   *   default is applied there, so an omitted key leaves the all-empty section
+   *   rendering its heading and skeleton. Only an explicit `true` hides it.
+   *
+   * Measured at objectui#8603, non-vacuously — a sibling control section that
+   * must render was present in every case, and it rendered in all six:
+   * `detail-view` unauthored keeps heading and rows, `true` hides, `false`
+   * keeps; `record:details` unauthored hides, `true` hides, `false` keeps.
+   * A single default tag on a member two renderers read would be true of one
+   * of them and false of the other, which is the objectui#7361 /
+   * objectui#7735 class (maintainer 2026-09-09: a docs-vs-implementation
+   * mismatch is a docs fix).
+   *
+   * ## What this key decides, and what it does NOT
+   *
+   * It decides the ALL-EMPTY case only. Empty ROWS inside a section that still
+   * has at least one filled row are decided by `DetailSection`'s auto-hide
+   * heuristic and by the reader's own "Show N empty fields" toggle — that
+   * remains the whole contract there (objectui#7129 Q2-C, untouched by the
+   * ruling below), so an authored value of either polarity does not override
+   * it. The two domains are disjoint: the heuristic requires a filled row,
+   * this key applies only where there is none.
+   *
+   * ## Provenance
+   *
+   * Declared by `@objectstack/spec` on the `record:details` section entry
+   * (`RecordDetailsProps.sections[]`, 17.3.0+, upstream #11289, maintainer
+   * ruling 2026-08-23 direction 1). objectui#7129 (maintainer 2026-09-01)
+   * retired this declaration and the renderer read on the premise that the
+   * spec REFUSED the key — true at the 17.2.0 pin, false upstream by the time
+   * the pin moved. objectui#8603 (director seat batch #137 item 3, maintainer
+   * 2026-09-15) ruled the protocol correct and restored the read; that ruling
+   * supersedes #7129's Q1-A for this key only.
+   *
+   * The wording above is the renderer's behaviour, kept in agreement with the
+   * spec's own `describe()` text — which the four-party pin
+   * `packages/plugin-detail/src/renderers/__tests__/record-details.hideEmptyRetired-7129.test.tsx`
+   * reads off the installed schema rather than restating.
+   *
+   * ⚠️ NOT the same key as `record:reference_rail`'s own component-level
+   * `hideEmpty` (`packages/plugin-detail/src/renderers/record-reference-rail.tsx`),
+   * which folds zero-count entry cards, nor the `detail.hideEmptyFields` i18n
+   * label, which is the reader toggle's copy — a prefix match on the name.
    */
+  hideEmpty?: boolean;
 }
 
 /**

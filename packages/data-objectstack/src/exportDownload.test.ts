@@ -139,3 +139,118 @@ describe('ObjectStackAdapter.exportDownload — search', () => {
     expect(JSON.parse(p.get('filter')!)).toEqual([['status', '=', 'open']]);
   });
 });
+
+/**
+ * `exportDownload` -- the error envelope the operator actually reads
+ * (objectui#9594).
+ *
+ * A console operator clicking "export to CSV" without the `allowExport` grant
+ * was shown one word: `Forbidden`. The server had answered a full sentence
+ * naming the object and the user, in the flat `{ code, error: <string> }`
+ * dialect the old ladder could not read -- it looked for `error.message` and
+ * `message`, found neither, and fell through to `res.statusText`.
+ *
+ * The 401 case is the CONTROL, not a duplicate: same route, one status apart,
+ * flat envelope too, but its sentence lives in `message` while its `error` key
+ * holds the code word. It rendered correctly all along, which is what shows the
+ * producer was never at fault -- and it pins the rung order, because reading a
+ * string `error` before `message` would make this 401 render the bare word
+ * `UNAUTHENTICATED`.
+ *
+ * Whether the caller SHOULD have been denied is not in scope here: it should
+ * have been, and the 403 stays a 403. Only its legibility changes.
+ */
+describe('ObjectStackAdapter.exportDownload -- error envelope dialects', () => {
+  const failWith = (status: number, statusText: string, body: unknown) =>
+    makeDS(
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(body), {
+            status,
+            statusText,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+
+  it('403 flat dialect: surfaces the sentence and the code, not "Forbidden"', async () => {
+    const ds = failWith(403, 'Forbidden', {
+      code: 'EXPORT_NOT_PERMITTED',
+      error: "Export is not permitted on object 'crm_lead' for this user",
+      object: 'crm_lead',
+    });
+
+    await expect(ds.exportDownload('crm_lead', { format: 'csv' })).rejects.toMatchObject({
+      message: "Export is not permitted on object 'crm_lead' for this user",
+      code: 'EXPORT_NOT_PERMITTED',
+      status: 403,
+    });
+  });
+
+  it('403 flat dialect: the status word is NOT what reaches the operator', async () => {
+    const ds = failWith(403, 'Forbidden', {
+      code: 'EXPORT_NOT_PERMITTED',
+      error: "Export is not permitted on object 'crm_lead' for this user",
+      object: 'crm_lead',
+    });
+
+    // The whole card in one assertion.
+    await expect(ds.exportDownload('crm_lead', { format: 'csv' })).rejects.toThrow(
+      /Export is not permitted on object 'crm_lead'/,
+    );
+  });
+
+  it('401 CONTROL: the sentence in `message` still wins over the code word', async () => {
+    const ds = failWith(401, 'Unauthorized', {
+      error: 'UNAUTHENTICATED',
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication is required to access this endpoint.',
+    });
+
+    await expect(ds.exportDownload('crm_lead', { format: 'csv' })).rejects.toMatchObject({
+      message: 'Authentication is required to access this endpoint.',
+      code: 'UNAUTHENTICATED',
+      status: 401,
+    });
+  });
+
+  it('404 ADR-0112 nested dialect keeps working, code carried too', async () => {
+    const ds = failWith(404, 'Not Found', {
+      success: false,
+      error: { code: 'ENDPOINT_NOT_FOUND', message: 'Not found' },
+    });
+
+    await expect(ds.exportDownload('crm_lead', { format: 'csv' })).rejects.toMatchObject({
+      message: 'Not found',
+      code: 'ENDPOINT_NOT_FOUND',
+      status: 404,
+    });
+  });
+
+  it('falls back to statusText only when the body carries no sentence at all', async () => {
+    const ds = failWith(500, 'Internal Server Error', { object: 'crm_lead' });
+
+    await expect(ds.exportDownload('crm_lead', { format: 'csv' })).rejects.toMatchObject({
+      message: 'Internal Server Error',
+      status: 500,
+    });
+  });
+
+  it('falls back to statusText when the body is not JSON at all', async () => {
+    const ds = makeDS(
+      vi.fn(
+        async () =>
+          new Response('<html>gateway</html>', {
+            status: 502,
+            statusText: 'Bad Gateway',
+            headers: { 'Content-Type': 'text/html' },
+          }),
+      ),
+    );
+
+    await expect(ds.exportDownload('crm_lead', { format: 'csv' })).rejects.toMatchObject({
+      message: 'Bad Gateway',
+      status: 502,
+    });
+  });
+});

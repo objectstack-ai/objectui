@@ -2246,6 +2246,15 @@ const fr = {
       role: "Rôle",
       save: "Enregistrer les modifications",
     },
+    language: {
+      title: "Langue",
+      description: "La langue utilisée pour les notifications et les messages qui vous sont envoyés. La langue de l'interface se choisit séparément, dans le menu du globe.",
+      label: "Langue préférée",
+      systemDefault: "Utiliser la valeur par défaut du déploiement",
+      save: "Enregistrer",
+      saved: "Préférence de langue mise à jour.",
+      readOnly: "La langue de votre compte est gérée par votre administrateur.",
+    },
     password: {
       changeTitle: "Changer le mot de passe",
       setTitle: "Définir un mot de passe local",

@@ -2334,6 +2334,15 @@ const zh = {
       role: '角色',
       save: '保存更改',
     },
+    language: {
+      title: '语言',
+      description: '发送给您的通知和消息所使用的语言。界面语言另行设置,在地球图标菜单中切换。',
+      label: '首选语言',
+      systemDefault: '使用部署默认值',
+      save: '保存',
+      saved: '语言偏好已更新。',
+      readOnly: '您账户的语言由管理员管理。',
+    },
     password: {
       changeTitle: '修改密码',
       setTitle: '设置本地密码',

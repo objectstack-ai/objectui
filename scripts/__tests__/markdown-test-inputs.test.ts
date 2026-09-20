@@ -22,9 +22,12 @@
  *           yields `should_run=true`.
  *   before  the SAME input through the `type-check` job's copy of the same step,
  *           which is the unwidened shape, yields `should_run=false`. That copy
- *           is not a reconstruction: `ci.yml` carries three copies of this step
- *           and the other two are untouched by this change, so the "before"
- *           answer is a real one taken from the file rather than from history.
+ *           is not a reconstruction: `ci.yml` carries four copies of this step
+ *           and the `type-check` and `e2e` ones are untouched by this change, so
+ *           the "before" answer is a real one taken from the file rather than
+ *           from history. (It was three copies until objectui#9499 moved the
+ *           built-artifact pin lane into a job of its own; that job's copy is
+ *           byte-identical to the `test` job's, which is asserted below.)
  *   inert   an excluded change nothing reads still yields `should_run=false`,
  *           through the WIDENED step. Without this leg, deleting the exclusions
  *           entirely would pass every other assertion in this file.
@@ -104,7 +107,7 @@ function decisionSteps(yaml: string): string[] {
 const YAML = readFileSync(CI_YML, 'utf8');
 const STEPS = decisionSteps(YAML);
 /** `ci.yml` declares the gated jobs in this order. */
-const [TYPE_CHECK_STEP, TEST_STEP, E2E_STEP] = STEPS;
+const [TYPE_CHECK_STEP, TEST_STEP, DIST_PINS_STEP, E2E_STEP] = STEPS;
 
 /* ── a real repository, a real bash run ──────────────────────────────────── */
 
@@ -179,11 +182,40 @@ afterAll(() => {
 /* ── the step this file is about ─────────────────────────────────────────── */
 
 describe('the decision step, as `ci.yml` writes it', () => {
-  it('carries three copies, and only the `test` job asks about markdown inputs', () => {
-    expect(STEPS).toHaveLength(3);
+  it('carries four copies, and only the two test jobs ask about markdown inputs', () => {
+    expect(STEPS).toHaveLength(4);
     expect(TEST_STEP).toContain('scripts/markdown-test-inputs.mjs');
+    expect(DIST_PINS_STEP).toContain('scripts/markdown-test-inputs.mjs');
     expect(TYPE_CHECK_STEP).not.toContain('markdown-test-inputs');
     expect(E2E_STEP).not.toContain('markdown-test-inputs');
+  });
+
+  it('gives the dist-pin job the `test` job\'s gate VERBATIM (objectui#9499)', () => {
+    // The built-artifact pin lane ran as a step of `test` shard 1 until
+    // objectui#9499 gave it a job. Inside that job it inherited the widened
+    // gate; a narrower one here would silently stop running the pins on exactly
+    // the markdown-only pull requests objectui#9096 brought back into scope,
+    // and a green suite that stopped measuring something is what this whole
+    // file is about. Equality of the CODE rather than "also contains the
+    // script": the second stage is only an improvement while it asks the same
+    // question, and "contains" is satisfied by a copy that asks it differently.
+    //
+    // Shell comments are stripped from both sides first, and only they: the
+    // `test` job's copy carries ~70 lines of them recording objectui#8857,
+    // #9096 and #9241, which are the reasoning for the stage and not the stage.
+    // Every executable line, including the exclusion pathspecs and every
+    // fail-open branch, is compared verbatim.
+    const code = (step: string) =>
+      step
+        .split('\n')
+        .filter((line) => !/^\s*#/.test(line))
+        .join('\n')
+        .trim();
+
+    expect(code(DIST_PINS_STEP)).toEqual(code(TEST_STEP));
+    // The control: stripping comments must not have emptied either side.
+    expect(code(TEST_STEP)).toContain('markdown-test-inputs.mjs');
+    expect(code(TEST_STEP).split('\n').length).toBeGreaterThan(20);
   });
 
   it('asks the markdown question only AFTER the unwidened diff came back empty', () => {

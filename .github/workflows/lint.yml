@@ -419,8 +419,10 @@ jobs:
       #
       # This step is a SECOND signal, not the gate. The gate is
       # `scripts/__tests__/check-test-path-roots.test.ts`, which runs inside
-      # `Test (shard N/4)` — a required context that subscribes `merge_group`,
-      # so it blocks a queue build. This step reaches the same verdict sooner
+      # `Test (shard N/8)`. Those shards are not required contexts themselves
+      # since objectui#9499 — the `Test` aggregator reports for all of them, and
+      # it is required and subscribes `merge_group` — so the verdict still
+      # blocks a queue build, through one name instead of N. This step reaches the same verdict sooner
       # and with a message aimed at the author.
       #
       # After `pnpm install`, unlike the entry-guard step above: the scan parses

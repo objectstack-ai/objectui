@@ -112,18 +112,16 @@ Keep custom component registrations namespaced to avoid collisions.
 
 ### 5. Use action data, not inline callback spaghetti
 
-Represent interactions as data where possible:
+Represent interactions as data: a control that runs something is an `action:button`
+node, and `actionType` names the executor the action runner dispatches to.
 
 <!-- os:check -->
 ```json
 {
-  "events": {
-    "onClick": [
-      { "action": "validate", "target": "customer_form" },
-      { "action": "submit", "target": "customer_form" },
-      { "action": "navigate", "params": { "url": "/customers" } }
-    ]
-  }
+  "type": "action:button",
+  "label": "Save customer",
+  "actionType": "url",
+  "target": "/customers"
 }
 ```
 

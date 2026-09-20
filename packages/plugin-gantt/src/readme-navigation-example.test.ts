@@ -53,6 +53,29 @@
  * A `safeParse` that succeeds proves nothing on its own if the schema accepts
  * everything, so the historical shape is parsed alongside and must be REJECTED
  * by name. The pair is the measurement; neither half alone is one.
+ *
+ * ## The PROSE is pinned too, not only the fence (objectui#9987)
+ *
+ * The fence was clean and the paragraph around it was not. It INSTRUCTED the
+ * reader to write `navigation.view` -- the member objectstack#18619 retired
+ * under ADR-0049 -- and then, in the same breath, explained the mechanism by
+ * which an undeclared key rejects the whole config. The first sentence caused
+ * what the second diagnosed, and a reader who stops at the instruction never
+ * reaches the contradiction. This README ships inside the npm tarball
+ * (`files: ["dist", "README.md", ...]`), so the instruction was published.
+ *
+ * The fence tests above could not see it: they extract the ```json block and
+ * the block never carried the key. An instruction can live entirely in prose,
+ * which is why the prose is measured here too.
+ *
+ * WARNING: no schema this package installs can derive that key's retirement.
+ * The pinned `@objectstack/spec@17.4.0` still DECLARES `view`, so
+ * `declaredMembers()` reports it legal and every schema-derived statement about
+ * it is vacuous in this tree; the retirement lands it as a tombstone (typed
+ * `never`, raising a prescription at parse) only when the pin moves. It is
+ * therefore named by hand, exactly as `basePath` already is -- and the absence
+ * carries its own control: the same detector is run over the sentence that used
+ * to carry the instruction, in the same file, and must find it there.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -151,6 +174,42 @@ const EXAMPLE = readmeExample();
 /** The historical shape, kept only as the control's input. */
 const REJECTED_KEY = 'basePath';
 
+/**
+ * The retired member (objectstack#18619, ADR-0049) the README used to instruct.
+ * Named by hand because this tree's pinned spec still declares it -- see the
+ * warning in the header.
+ */
+const RETIRED_KEY = 'view';
+
+/** The form-view name the retired instruction offered as its worked value. */
+const RETIRED_KEY_SAMPLE = 'summary_view';
+
+/**
+ * The replacement route, by the identifiers that carry it. `@object-ui/react`'s
+ * `useNavigationOverlay` docblock states it: assign a `record` page to the
+ * object and let `isDefault` pick the one that opens. The README has to keep
+ * ANSWERING the question the retired instruction answered -- deleting the
+ * instruction alone sends the reader looking, and the retired key is what they
+ * find. These are identifiers, not wording: the sentence may be rewritten
+ * freely as long as it still hands the reader these two.
+ */
+const REPLACEMENT_ROUTE = ['record', 'isDefault'] as const;
+
+/** Every inline code span in a markdown fragment, in order. */
+function codeSpans(markdown: string): string[] {
+  return [...markdown.matchAll(/`([^`\n]+)`/g)].map((m) => m[1]);
+}
+
+/**
+ * The sentence this section carried until objectui#9987, verbatim. It is the
+ * control's input and nothing else: it is what lights `codeSpans` so that the
+ * empty result below reads as a measurement rather than as a detector that
+ * cannot fire.
+ */
+const RETIRED_INSTRUCTION =
+  'To choose *which* detail view opens, use the declared `view` member (a ' +
+  'form-view name, e.g. `"summary_view"`).';
+
 function unrecognizedKeys(issues: readonly { code: string }[]): string[] {
   const out: string[] = [];
   for (const issue of issues) {
@@ -206,5 +265,42 @@ describe('plugin-gantt README: the record-navigation example', () => {
       `\`${REJECTED_KEY}\` is not authorable here in any spelling — prose or fence. ` +
         '`useNavigationOverlay` builds no URL out of this config; the host owns the route.',
     ).toBe(false);
+  });
+
+  it('does not INSTRUCT the retired detail-view key, in prose or fence', () => {
+    const section = navigationSection();
+    expect(
+      codeSpans(section).filter((span) => span === RETIRED_KEY),
+      `The section must not tell an author to write \`${RETIRED_KEY}\`. It is retired ` +
+        '(objectstack#18619, ADR-0049): once the spec pin moves it is typed `never` and a ' +
+        'value reaching the parse raises the prescription — which is the paragraph’s own ' +
+        'next sentence, turned on the reader who followed the paragraph’s first one.',
+    ).toEqual([]);
+    expect(
+      section.includes(RETIRED_KEY_SAMPLE),
+      `\`${RETIRED_KEY_SAMPLE}\` was the worked value the instruction offered. A sample ` +
+        'left behind still teaches the key, with the member name only implied.',
+    ).toBe(false);
+  });
+
+  it('CONTROL: the same detector finds the key in the sentence that carried it', () => {
+    expect(
+      codeSpans(RETIRED_INSTRUCTION).filter((span) => span === RETIRED_KEY),
+      'This control is what makes the empty result above a measurement. If `codeSpans` ' +
+        'stops finding the key HERE — in the sentence that indisputably carries it — then ' +
+        'the clean section above says nothing at all.',
+    ).toEqual([RETIRED_KEY]);
+    expect(RETIRED_INSTRUCTION.includes(RETIRED_KEY_SAMPLE)).toBe(true);
+  });
+
+  it('still answers the question the retired instruction answered', () => {
+    const spans = new Set(codeSpans(navigationSection()));
+    expect(
+      REPLACEMENT_ROUTE.filter((name) => !spans.has(name)),
+      'Deleting the instruction is not the repair on its own: it answered a real authoring ' +
+        'question — which detail layout opens — and a reader who loses the answer goes ' +
+        'looking and finds the retired key elsewhere. The section must name the replacement ' +
+        'route `@object-ui/react`\'s `useNavigationOverlay` docblock states.',
+    ).toEqual([]);
   });
 });

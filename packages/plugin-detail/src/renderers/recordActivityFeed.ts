@@ -561,10 +561,45 @@ export function normalizeFeedTypes(value: unknown): FeedItemType[] | undefined {
   return kept;
 }
 
-/** Coerce `limit` to a positive integer, falling back to the spec default. */
+/**
+ * The ONE resolver for this block's row cap (objectui#10096).
+ *
+ * `@objectstack/spec` declares the member a POSITIVE INTEGER
+ * (`RecordActivityProps.limit`: `z.number().int().positive().default(20)`,
+ * described there as "Number of items to load per page"), so a fractional cap
+ * is not a spelling this renderer may interpret — it is a value the contract
+ * REFUSES. A refused value is therefore dropped for this block's own default.
+ *
+ * ⛔ Not `Math.floor`, which is what this replaces: flooring REPAIRED an
+ * authored `2.5` into a two-row window and handed it back as a result, so the
+ * author got a silently different number than the one they wrote and no
+ * channel named it. Refusing and defaulting is the answer the sibling
+ * `record:history` gives through `normalizeHistoryLimit` (objectui#10093), and
+ * the answer objectui#9925 landed at three further read points.
+ *
+ * `Number.isInteger` replaces `Number.isFinite` and nothing else: `NaN` and
+ * both infinities were already refused by the old arm and are refused by this
+ * one too. What the swap removes is the fractional ADMISSION.
+ *
+ * ⚠️ FAIL-SOFT and SILENT, both on purpose. Fail-soft because throwing would
+ * take out a record page over one declaration. Silent because the sibling this
+ * block is matched to refuses silently too — the three objectui#9925 read points
+ * warn instead, so the family holds two answers on loudness and that question
+ * is ruled on its own card (objectui#10097), not decided here by accident. The
+ * silence is pinned.
+ *
+ * Coercion is kept exactly where the sibling keeps it: a numeric STRING still
+ * resolves (`normalizeLimit('5')` is pinned to `5`). What narrows is the
+ * admitted value SET, not how a node's value is read.
+ *
+ * ⭐ Shared with `record:chatter` / `record:discussion`, which resolve
+ * `feed.limit` through this same function — `RecordChatterProps.feed` is
+ * `RecordActivityProps`, so it is the same declared member and the same
+ * refusal.
+ */
 export function normalizeLimit(value: unknown): number {
-  const n = Math.floor(Number(value));
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_ACTIVITY_LIMIT;
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_ACTIVITY_LIMIT;
 }
 
 /**
@@ -733,6 +768,27 @@ export function applyFeedConfig(
   }
 
   const total = kept.length;
+  // An INTERNAL clamp, settled as one rather than removed (objectui#10096).
+  //
+  // The expression is the `Math.max(1, …)` objectui#10093 took off
+  // `record:history`, but it is not the same defect there and here. There it
+  // sat between an UNNORMALIZED authored member and the wire, so it REPAIRED a
+  // cap the contract refuses into a one-row window. Here `pageSize` is not an
+  // authored member at all: it is the paging WINDOW, and both call sites
+  // compute it identically as `limit * (extraPages + 1)` — `limit` already
+  // {@link normalizeLimit}'s answer, `extraPages` a `React.useState(0)` whose
+  // only writer is `setExtraPages((n) => n + 1)`. This function is exported
+  // from this module but not from the package barrel, so those two renderers
+  // are the whole production population.
+  //
+  // ⇒ a positive integer times a positive integer. `Math.floor` is the
+  // identity on it, the `||` arm never fires and `Math.max(1, …)` never lifts:
+  // there is no refused authored value here for the clamp to repair. That
+  // reading rests on {@link normalizeLimit} returning an INTEGER, and the pin
+  // named "a refused cap widens the window to the default rather than
+  // narrowing it" is what ties the two sites together — it goes red if a
+  // fraction ever reaches this line again, because then this floor, not the
+  // resolver, would be deciding the window.
   const size = Math.max(1, Math.floor(pageSize) || DEFAULT_ACTIVITY_LIMIT);
   // Newest first when trimming a page, chronological when rendering: the feed
   // reads oldest→newest, so a page of `size` is the LAST `size` items.

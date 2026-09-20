@@ -264,6 +264,9 @@ const ar = {
       selectBusinessUnit: "اختر وحدة عمل",
       selectPosition: "اختر منصباً",
       selectUnitAndSubordinates: "اختر وحدة عمل",
+      selectField: "اختر حقل مستخدم",
+      noUserFields: "لا توجد حقول مستخدم في هذا الكائن",
+      fieldNotUserTyped: "{{name}} — ليس حقل مستخدم",
     },
     filterCondition: {
       selectObjectFirst: "اختر كائناً أولاً.",
@@ -2257,6 +2260,15 @@ const ar = {
       emailImmutable: "لا يمكن تغيير البريد الإلكتروني.",
       role: "الدور",
       save: "حفظ التغييرات",
+    },
+    language: {
+      title: "اللغة",
+      description: "اللغة المستخدمة في الإشعارات والرسائل المرسلة إليك. أما لغة الواجهة فتُختار بشكل منفصل من قائمة الكرة الأرضية.",
+      label: "اللغة المفضلة",
+      systemDefault: "استخدام الإعداد الافتراضي للنشر",
+      save: "حفظ",
+      saved: "تم تحديث تفضيل اللغة.",
+      readOnly: "يدير المسؤول لغة حسابك.",
     },
     password: {
       changeTitle: "تغيير كلمة المرور",

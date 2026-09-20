@@ -264,6 +264,9 @@ const es = {
       selectBusinessUnit: "Seleccionar una unidad de negocio",
       selectPosition: "Seleccionar un puesto",
       selectUnitAndSubordinates: "Seleccionar una unidad de negocio",
+      selectField: "Seleccionar un campo de usuario",
+      noUserFields: "Este objeto no tiene campos de usuario",
+      fieldNotUserTyped: "{{name}} — no es un campo de usuario",
     },
     filterCondition: {
       selectObjectFirst: "Selecciona primero un objeto.",
@@ -2254,6 +2257,15 @@ const es = {
       emailImmutable: "El correo electrónico no se puede cambiar.",
       role: "Rol",
       save: "Guardar cambios",
+    },
+    language: {
+      title: "Idioma",
+      description: "El idioma que se usa para las notificaciones y los mensajes que se le envían. El idioma de la interfaz se elige aparte, en el menú del globo terráqueo.",
+      label: "Idioma preferido",
+      systemDefault: "Usar el valor predeterminado del despliegue",
+      save: "Guardar",
+      saved: "Preferencia de idioma actualizada.",
+      readOnly: "El idioma de su cuenta lo gestiona su administrador.",
     },
     password: {
       changeTitle: "Cambiar contraseña",

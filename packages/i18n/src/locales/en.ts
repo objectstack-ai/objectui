@@ -296,6 +296,9 @@ const en = {
       selectBusinessUnit: 'Select a business unit',
       selectPosition: 'Select a position',
       selectUnitAndSubordinates: 'Select a business unit',
+      selectField: 'Select a user field',
+      noUserFields: 'No user fields on this object',
+      fieldNotUserTyped: '{{name}} — not a user field',
     },
     filterCondition: {
       selectObjectFirst: 'Select an object first.',
@@ -2603,6 +2606,15 @@ const en = {
       emailImmutable: 'Email cannot be changed.',
       role: 'Role',
       save: 'Save Changes',
+    },
+    language: {
+      title: 'Language',
+      description: 'The language used for notifications and messages sent to you. The interface language is chosen separately, from the globe menu.',
+      label: 'Preferred language',
+      systemDefault: 'Use the deployment default',
+      save: 'Save',
+      saved: 'Language preference updated.',
+      readOnly: 'Your administrator manages the language for your account.',
     },
     password: {
       changeTitle: 'Change Password',

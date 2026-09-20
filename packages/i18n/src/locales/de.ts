@@ -260,6 +260,9 @@ const de = {
       selectBusinessUnit: "Geschäftseinheit auswählen",
       selectPosition: "Position auswählen",
       selectUnitAndSubordinates: "Geschäftseinheit auswählen",
+      selectField: "Benutzerfeld auswählen",
+      noUserFields: "Dieses Objekt hat keine Benutzerfelder",
+      fieldNotUserTyped: "{{name}} — kein Benutzerfeld",
     },
     filterCondition: {
       selectObjectFirst: "Wählen Sie zuerst ein Objekt.",
@@ -2250,6 +2253,15 @@ const de = {
       emailImmutable: "Die E-Mail-Adresse kann nicht geändert werden.",
       role: "Rolle",
       save: "Änderungen speichern",
+    },
+    language: {
+      title: "Sprache",
+      description: "Die Sprache für Benachrichtigungen und Nachrichten, die an Sie gesendet werden. Die Oberflächensprache wird separat über das Globus-Menü gewählt.",
+      label: "Bevorzugte Sprache",
+      systemDefault: "Standard der Bereitstellung verwenden",
+      save: "Speichern",
+      saved: "Spracheinstellung aktualisiert.",
+      readOnly: "Die Sprache Ihres Kontos wird von Ihrer Administration verwaltet.",
     },
     password: {
       changeTitle: "Passwort ändern",

@@ -267,6 +267,9 @@ const zh = {
       selectBusinessUnit: '请选择业务单元',
       selectPosition: '请选择岗位',
       selectUnitAndSubordinates: '请选择业务单元',
+      selectField: '请选择用户字段',
+      noUserFields: '此对象没有用户字段',
+      fieldNotUserTyped: '{{name}} — 不是用户字段',
     },
     filterCondition: {
       selectObjectFirst: '请先选择对象。',
@@ -2340,6 +2343,15 @@ const zh = {
       emailImmutable: '邮箱不可修改。',
       role: '角色',
       save: '保存更改',
+    },
+    language: {
+      title: '语言',
+      description: '发送给您的通知和消息所使用的语言。界面语言另行设置,在地球图标菜单中切换。',
+      label: '首选语言',
+      systemDefault: '使用部署默认值',
+      save: '保存',
+      saved: '语言偏好已更新。',
+      readOnly: '您账户的语言由管理员管理。',
     },
     password: {
       changeTitle: '修改密码',

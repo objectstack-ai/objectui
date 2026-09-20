@@ -5,7 +5,7 @@
  * change their password, and manage account settings.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth, getUserInitials } from '@object-ui/auth';
 import {
   Button,
@@ -25,7 +25,9 @@ import {
 } from '@object-ui/components';
 import { useUpload } from '@object-ui/providers';
 import { useObjectTranslation } from '@object-ui/i18n';
-import { CheckCircle2, AlertCircle, User, Lock, Upload, Loader2, X } from 'lucide-react';
+import { useAdapter, extractFieldErrors, extractWriteErrorMessage } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
+import { CheckCircle2, AlertCircle, User, Lock, Upload, Loader2, X, Globe } from 'lucide-react';
 
 export function ProfilePage() {
   const { t } = useObjectTranslation();
@@ -242,6 +244,9 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
+      {/* Language — the user's own `sys_user.locale` */}
+      <LanguageCard userId={user.id} />
+
       {/* Password Change */}
       <PasswordCard
         changePassword={changePassword}
@@ -249,6 +254,271 @@ export function ProfilePage() {
         hasLocalPassword={hasLocalPassword}
       />
     </div>
+  );
+}
+
+/**
+ * Name a language in its own language.
+ *
+ * `Intl.DisplayNames` in the locale itself, capitalized, with the bare code as
+ * the last resort — `Intl.DisplayNames` is absent on old runtimes, throws
+ * `RangeError` on a malformed tag, and hands back the input unchanged for a tag
+ * it has no name for. A code is still an honest, selectable entry.
+ *
+ * ⚠️ This is deliberately NOT a copy of `@object-ui/app-shell`'s hand-kept
+ * `BUILT_IN_LABELS` map. That package's `localeLabel` is the same idea and is
+ * the one this control would rather call, but it is not on the
+ * `@object-ui/app-shell` entry (only `LocaleSwitcher` itself is) and the
+ * package's `exports` map has no subpath to reach it — so there is nothing to
+ * import today. Re-typing its ten strings here would create the second source
+ * of truth for language NAMES that nothing re-derives, so the derived name is
+ * used instead and the export gap is filed rather than worked around. The list
+ * itself is not duplicated: it comes from `offerableLanguages`.
+ */
+function nativeLanguageName(code: string): string {
+  try {
+    const name = new Intl.DisplayNames([code], { type: 'language' }).of(code);
+    if (!name || name === code) return code;
+    // CLDR names many languages lowercase (`português (Brasil)`); a menu that
+    // mixes cases reads as a bug. A no-op for caseless scripts.
+    return name.charAt(0).toLocaleUpperCase(code) + name.slice(1);
+  } catch {
+    return code;
+  }
+}
+
+/** The `<option>` value standing for "no stored tag" — see {@link LanguageCard}. */
+const USE_DEPLOYMENT_DEFAULT = '';
+
+interface LanguageCardProps {
+  /** The signed-in user's `sys_user` record id. */
+  userId: string;
+}
+
+/**
+ * The signed-in user's own `sys_user.locale` — a BCP-47 tag such as `zh-CN`.
+ *
+ * ## Why this is not part of the Personal Information form above
+ *
+ * `name` and `image` are written by `useAuth().updateUser`, which posts to
+ * better-auth's `/update-user`. `locale` is deliberately NOT a better-auth
+ * `additionalFields` entry, so that endpoint does not know the column and
+ * cannot carry it — the card that asked for this control says so, and
+ * `createAuthClient`'s `updateUser` is a thin pass-through to
+ * `betterAuth.updateUser`, so there is no seam to widen on this side either.
+ * The write therefore goes through the data API (`PATCH` on the `sys_user`
+ * row) via the adapter, which is a different writer from the form above.
+ *
+ * A different writer gets its own card with its own submit and its own
+ * feedback — the shape `PasswordCard` below already establishes in this file,
+ * for the same reason (`changePassword` is not `updateUser` either). What is
+ * kept identical to the `name` form is the FEEDBACK vocabulary: the same
+ * `Alert` success/failure pair, the same disabled-while-saving submit, the
+ * same `profile.saving` label.
+ *
+ * ## The UI language is a different thing, and is deliberately not touched
+ *
+ * `@object-ui/i18n`'s provider keeps the interface language in `localStorage`
+ * (`LOCALE_STORAGE_KEY`), seeded per device from the tenant's
+ * `/auth/me/localization`. `sys_user.locale` is a server-stored, per-user
+ * column that the messaging channels read per recipient at delivery time.
+ * Saving here therefore does NOT call `changeLanguage`, and switching the UI
+ * language from the globe menu does NOT write this column. Wiring the two
+ * together is a product decision nobody has made; this control states the
+ * distinction in its own description instead of guessing.
+ *
+ * ## What is offered, and what happens when the write route is not there
+ *
+ * The option list is `offerableLanguages` — the i18n provider's own answer
+ * (the deployment's published locales ∩ what this renderer can resolve), which
+ * is what `LocaleSwitcher` renders too. ⛔ No second list is introduced here.
+ * A stored tag that is not in that set is prepended so the control shows the
+ * truth rather than rendering blank.
+ *
+ * Availability is asked, not discovered from a rejection: the card renders
+ * nothing until the row has been read, and `checkField('sys_user', 'locale',
+ * 'write')` — which consults field-level permissions and falls back to the
+ * object gate's `allowEdit` — decides between an editable control and a
+ * read-only one carrying the reason. A failed read hides the card, the same
+ * "render nothing rather than something you will have to retract" idiom
+ * `LocaleSwitcher` uses for a locale list it does not have yet. That is the
+ * card's own "hidden ... rather than rendering a control that answers 403".
+ */
+function LanguageCard({ userId }: LanguageCardProps) {
+  const { t, offerableLanguages } = useObjectTranslation();
+  const adapter = useAdapter();
+  const { checkField } = usePermissions();
+
+  const [stored, setStored] = useState<string | null>(null);
+  const [choice, setChoice] = useState<string>(USE_DEPLOYMENT_DEFAULT);
+  const [rowRead, setRowRead] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!adapter || !userId) return;
+    let cancelled = false;
+    adapter
+      .findOne('sys_user', userId)
+      .then((row) => {
+        if (cancelled) return;
+        const raw = (row as { locale?: unknown } | null)?.locale;
+        const value = typeof raw === 'string' && raw.length > 0 ? raw : USE_DEPLOYMENT_DEFAULT;
+        setStored(value);
+        setChoice(value);
+        setRowRead(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Stay hidden. A deployment that does not expose `sys_user` to this
+        // caller, and one that refuses the read outright, both arrive here —
+        // and a control that cannot state the current value is worse than no
+        // control. The warning is the diagnosable half.
+        console.warn('[profile] Could not read your language preference:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [adapter, userId]);
+
+  const codes = useMemo(() => {
+    const offered = offerableLanguages ?? [];
+    // A stored tag the deployment no longer publishes is still this account's
+    // truth; showing it beats a select whose value matches no option.
+    return stored && stored.length > 0 && !offered.includes(stored)
+      ? [stored, ...offered]
+      : [...offered];
+  }, [offerableLanguages, stored]);
+
+  if (!adapter || !rowRead || offerableLanguages === null) return null;
+
+  const writable = checkField('sys_user', 'locale', 'write');
+  const dirty = choice !== (stored ?? USE_DEPLOYMENT_DEFAULT);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setFieldError(null);
+    setSaved(false);
+    setSubmitting(true);
+    try {
+      // `null`, not `''`: an unset column is the documented "use the
+      // deployment default", and it is the only way back once a tag has been
+      // stored. The avatar's remove path in this file clears `image` the same
+      // way.
+      await adapter.update('sys_user', userId, {
+        locale: choice === USE_DEPLOYMENT_DEFAULT ? null : choice,
+      });
+      setStored(choice);
+      setSaved(true);
+    } catch (err) {
+      // A malformed tag comes back as `400 VALIDATION_FAILED` carrying
+      // `{ field: 'locale', code: 'invalid_format' }` and a localized message.
+      // `extractFieldErrors` is this repo's one normaliser for that envelope;
+      // the message it yields is rendered ON the item, which is the whole
+      // point of asking for it rather than showing an undirected alert.
+      const perField = extractFieldErrors(err);
+      const onLocale = perField?.find((entry) => entry.field === 'locale');
+      if (onLocale && onLocale.message) {
+        setFieldError(onLocale.message);
+      } else {
+        setError(
+          extractWriteErrorMessage(err) ?? (err instanceof Error ? err.message : String(err)),
+        );
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Globe className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-base sm:text-lg">
+            {t('profile.language.title', { defaultValue: 'Language' })}
+          </CardTitle>
+        </div>
+        <CardDescription>
+          {t('profile.language.description', {
+            defaultValue:
+              'The language used for notifications and messages sent to you. The interface language is chosen separately, from the globe menu.',
+          })}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSave} className="space-y-4 max-w-md">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {saved && (
+            <Alert>
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 dark:text-green-400">
+                {t('profile.language.saved', { defaultValue: 'Language preference updated.' })}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="profile-language">
+              {t('profile.language.label', { defaultValue: 'Preferred language' })}
+            </Label>
+            <select
+              id="profile-language"
+              data-testid="profile-language-select"
+              value={choice}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                setChoice(e.target.value);
+                setFieldError(null);
+                setSaved(false);
+              }}
+              disabled={!writable || submitting}
+              aria-invalid={fieldError ? true : undefined}
+              aria-describedby={fieldError ? 'profile-language-error' : undefined}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value={USE_DEPLOYMENT_DEFAULT}>
+                {t('profile.language.systemDefault', {
+                  defaultValue: 'Use the deployment default',
+                })}
+              </option>
+              {codes.map((code) => (
+                <option key={code} value={code}>
+                  {nativeLanguageName(code)}
+                </option>
+              ))}
+            </select>
+            {fieldError && (
+              <p id="profile-language-error" className="text-sm text-destructive">
+                {fieldError}
+              </p>
+            )}
+            {!writable && (
+              <p className="text-xs text-muted-foreground">
+                {t('profile.language.readOnly', {
+                  defaultValue: 'Your administrator manages the language for your account.',
+                })}
+              </p>
+            )}
+          </div>
+
+          {writable && (
+            <Button type="submit" disabled={submitting || !dirty} className="w-full sm:w-auto">
+              {submitting
+                ? t('profile.saving', { defaultValue: 'Saving…' })
+                : t('profile.language.save', { defaultValue: 'Save' })}
+            </Button>
+          )}
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 

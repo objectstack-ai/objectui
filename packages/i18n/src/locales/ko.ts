@@ -260,6 +260,9 @@ const ko = {
       selectBusinessUnit: "사업 단위 선택",
       selectPosition: "직위 선택",
       selectUnitAndSubordinates: "사업 단위 선택",
+      selectField: "사용자 필드 선택",
+      noUserFields: "이 객체에는 사용자 필드가 없습니다",
+      fieldNotUserTyped: "{{name}} — 사용자 필드가 아닙니다",
     },
     filterCondition: {
       selectObjectFirst: "먼저 객체를 선택하세요.",
@@ -2250,6 +2253,15 @@ const ko = {
       emailImmutable: "이메일은 변경할 수 없습니다.",
       role: "역할",
       save: "변경 사항 저장",
+    },
+    language: {
+      title: "언어",
+      description: "회원님에게 발송되는 알림과 메시지에 사용되는 언어입니다. 화면 표시 언어는 지구본 메뉴에서 따로 변경합니다.",
+      label: "선호 언어",
+      systemDefault: "배포 기본값 사용",
+      save: "저장",
+      saved: "언어 설정을 업데이트했습니다.",
+      readOnly: "이 계정의 언어는 관리자가 관리합니다.",
     },
     password: {
       changeTitle: "비밀번호 변경",

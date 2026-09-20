@@ -31,10 +31,18 @@
  *     `update`/`delete`, and silently re-opens generic Edit/Delete for every
  *     author who declared a block naming neither.
  *  2. **`update` and `delete` are independent**, not one write flag.
- *  3. **They are a UNION with `rowActions`' canonical names, never an
- *     intersection** — `operations: { update: false }` cannot close what
- *     `rowActions: ['edit']` opened. Pinned because the opposite reading is the
- *     natural one for a key spelled like a permission block.
+ *  3. **`operations` is the CEILING — an INTERSECTION with `rowActions`' canonical
+ *     names, never a union.** `operations: { update: false }` closes row editing
+ *     whatever `rowActions` says, and a member a PRESENT block does not name is
+ *     closed too, so `rowActions: ['edit']` cannot select what the block
+ *     withheld. ⚠️ This file pinned the OPPOSITE — the union — from slice 12
+ *     until the maintainer ruling of 2026-09-18 (batch #162 item 1, letter A,
+ *     objectui#9819) made the two gates intersections. The flip is that ruling
+ *     landing, ⛔ not a regression; the union's own shape is kept below as the
+ *     case that goes red if the `||` ever comes back.
+ *     ⚠️ The ruling's OTHER half — `rowActions` NARROWING inside the ceiling —
+ *     is NOT implemented, and the case that says so is pinned below rather than
+ *     left for a reader to discover from the absence of a case.
  *  4. **Neither member is a grant.** Without the consumer's callback the
  *     affordance stays closed whatever the block says.
  *  5. **`export` defaults the OTHER WAY inside a present block** — omitted
@@ -171,20 +179,59 @@ describe('object-grid `operations` — `update` and `delete` are read independen
   });
 });
 
-describe('object-grid `operations` — neither member is a grant, and neither can close what `rowActions` opened', () => {
+describe('object-grid `operations` — neither member is a grant, and the block is the CEILING over `rowActions`', () => {
   it('`update`/`delete` true with NO callbacks wired offers nothing', async () => {
     renderGrid({ operations: { update: true, delete: true }, wireCallbacks: false });
     await settle();
     expect(await rowKebab()).toEqual({ trigger: false, edit: false, delete: false });
   });
 
-  it('a UNION with `rowActions`: `update: false` does not survive `rowActions: [edit]`', async () => {
+  it('the CEILING refuses: `update: false` SURVIVES `rowActions: [edit]`', async () => {
     renderGrid({ operations: { update: false, delete: false }, rowActions: ['edit'] });
     await settle();
-    // The canonical name in `rowActions` re-opens Edit, while `delete` — named
-    // in neither place — stays closed. An author reading `operations` as a
-    // permission block would predict the opposite for both.
-    expect(await rowKebab()).toEqual({ trigger: true, edit: true, delete: false });
+    // Until objectui#9819 this read `{ trigger: true, edit: true, delete: false }`
+    // — the canonical name in `rowActions` re-opened Edit over the author's own
+    // `update: false`. What an author reading `operations` as a permission block
+    // always predicted is now the only answer the gate gives, for both members:
+    // with nothing left to offer the row grows no kebab at all.
+    expect(await rowKebab()).toEqual({ trigger: false, edit: false, delete: false });
+  });
+
+  it('the ceiling refuses a member the block does not NAME, not only an explicit `false`', async () => {
+    // Fact 1's replacement rule and the ceiling meet here: `{ delete: true }`
+    // allows delete and says NOTHING about update — and nothing is not an
+    // allowance, so `rowActions: ['edit']` selects an operation that is not on
+    // offer. Without this case a ceiling implemented as `update !== false`
+    // passes every other case in this file, and `rowActions` keeps its old power
+    // to open on the shape authors write most (one member named, one omitted).
+    renderGrid({ operations: { delete: true }, rowActions: ['edit'] });
+    await settle();
+    expect(await rowKebab()).toEqual({ trigger: true, edit: false, delete: true });
+  });
+
+  it('…while `rowActions` with NO `operations` block still gets the wired-callback default', async () => {
+    // The direction the ruling explicitly protects — "`operations` absent means
+    // today's defaults". The CONTROL for the two cases above: without it they
+    // read as "`rowActions: [edit]` never opens Edit", which is not the rule and
+    // would be satisfied by a gate that ignored `rowActions` and `operations`
+    // both.
+    renderGrid({ rowActions: ['edit'] });
+    await settle();
+    expect(await rowKebab()).toEqual({ trigger: true, edit: true, delete: true });
+  });
+
+  it('⚠️ NOT IMPLEMENTED — `rowActions` does not NARROW inside the ceiling', async () => {
+    // The ruling's second half: `rowActions` "chooses among what `operations`
+    // allows", so naming only `edit` ought to leave Delete out even though
+    // `operations` allows it. It does not today, because the gate cannot tell
+    // "`rowActions` absent" from "`rowActions` present without `delete`" — the
+    // call site collapses both to the same `false`, and narrowing on it would
+    // close the generic entries on every grid that declares no `rowActions`.
+    // Pinned as a RECORD of the gap, ⛔ not as an endorsement: implementing the
+    // narrowing turns this case red, which is the re-read it should force.
+    renderGrid({ operations: { update: true, delete: true }, rowActions: ['edit'] });
+    await settle();
+    expect(await rowKebab()).toEqual({ trigger: true, edit: true, delete: true });
   });
 });
 

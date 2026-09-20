@@ -234,11 +234,13 @@ test.describe('Console boot indicator', () => {
  * a session exists — `RequireOrganization` (no active org), `RequireAiSurface`
  * (a runtime serving no agent), `SetupRedirect` (the `/setup` deep link) and
  * `AppContent`'s no-accessible-app bounce all sit behind `ProtectedRoute`, so a
- * signed-out boot bounces to `/login` before reaching any of them. Two more —
- * `RootRedirect` and `AuthenticatedRoute` — are published by
- * `@object-ui/app-shell` for consumers and are not mounted by `apps/console` at
- * all (it uses its own `RootLandingRedirect` and `ProtectedRoute`), so no boot
- * of THIS bundle can reach them at any session state.
+ * signed-out boot bounces to `/login` before reaching any of them. One more —
+ * `AuthenticatedRoute` — is published by `@object-ui/app-shell` for consumers
+ * and is not mounted by `apps/console` at all (it uses its own
+ * `ProtectedRoute`), so no boot of THIS bundle can reach it at any session
+ * state. The published `/` element that used to sit beside it in that sentence
+ * was removed by objectui#10042: `/`'s only resolver is the console's own
+ * `RootLandingRedirect`, which this bundle does mount.
  *
  * A signed-in mock boot for the first four WAS built and run, and the result is
  * the reason no per-site case was added here: those scenarios stay GREEN against

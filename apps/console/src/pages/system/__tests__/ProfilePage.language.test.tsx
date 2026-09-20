@@ -41,12 +41,17 @@
  * reason. The button is still asserted present and ENABLED at that moment, so
  * "the user could reach this submit" stays pinned.
  *
- * ## Reverse verification
+ * ## Reverse verification — both legs run, from the committed fix
  *
- * Removing `LanguageCard` from `ProfilePage` (the state on `origin/main`)
- * turns every case in this file red on the missing `profile-language-select`;
- * re-pointing its write at `updateUser` turns cases 2-4 red while case 1 stays
- * green, which is the pair that matters.
+ * Restoring `ProfilePage` to its `origin/main` state (no `LanguageCard` at
+ * all) turns **all seven** cases red on the missing `profile-language-select`.
+ * That leg only proves the file is reachable, so a second, surgical leg was
+ * run: re-pointing the write at `useAuth().updateUser` — the better-auth door
+ * that cannot carry this column — and leaving everything else alone turns the
+ * **three save cases** red (`saves the pick…`, `clears back…`, `renders the
+ * server's per-field refusal…`) while the four menu / seeding / permission /
+ * hidden cases stay green. The second leg is the one that says these
+ * assertions are about the WRITE and not merely about something rendering.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';

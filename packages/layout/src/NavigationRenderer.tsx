@@ -378,6 +378,42 @@ export interface NavigationVisibilityOptions {
 }
 
 /**
+ * The per-item guard sequence, in ONE place.
+ *
+ * `visible`, then `requiredPermissions`, then the `requiresObject` /
+ * `requiresService` runtime-capability gates. It answers only "does this NODE
+ * itself survive" — whether a surviving `group` has anything inside it is
+ * `hasVisibleNavigationItems`'s question, and whether an `action` item has a
+ * dispatcher is the caller's.
+ *
+ * Extracted because the sequence had been written out three times — in
+ * `NavigationItemRenderer`, in `hasVisibleNavigationItems`, and nowhere at all
+ * in `collectPinnedItems`, which is how the Favorites section came to render an
+ * entry out of a subtree the same guards had already removed (objectui#10119).
+ * A gate that holds on one path into a subtree and not on another is the
+ * authoring trap this predicate exists to prevent, so the three callers share
+ * the statement rather than agreeing about it.
+ */
+function passesNavItemGuards(
+  item: NavigationItem,
+  options: NavigationVisibilityOptions,
+): boolean {
+  const {
+    evaluateVisibility = defaultVisibility,
+    checkPermission = defaultPermission,
+    checkCapability = defaultCapability,
+  } = options;
+
+  if (!evaluateVisibility(item.visible)) return false;
+  if (item.requiredPermissions?.length && !checkPermission(item.requiredPermissions)) return false;
+  const requiresObject = (item as { requiresObject?: string }).requiresObject;
+  const requiresService = (item as { requiresService?: string }).requiresService;
+  if (requiresObject && !checkCapability('object', requiresObject)) return false;
+  if (requiresService && !checkCapability('service', requiresService)) return false;
+  return true;
+}
+
+/**
  * Whether a navigation tree contains at least one item that would actually
  * render under the given guards — the exact guards `NavigationItemRenderer`
  * applies per item: the `visible` expression, `requiredPermissions`, the
@@ -403,19 +439,11 @@ export function hasVisibleNavigationItems(
   items: NavigationItem[],
   options: NavigationVisibilityOptions = {},
 ): boolean {
-  const {
-    evaluateVisibility = defaultVisibility,
-    checkPermission = defaultPermission,
-    checkCapability = defaultCapability,
-    hasActionHandler = false,
-  } = options;
+  const { hasActionHandler = false } = options;
 
   for (const item of items) {
-    // Same guard order as NavigationItemRenderer.
-    if (!evaluateVisibility(item.visible)) continue;
-    if (item.requiredPermissions?.length && !checkPermission(item.requiredPermissions)) continue;
-    if (item.requiresObject && !checkCapability('object', item.requiresObject)) continue;
-    if (item.requiresService && !checkCapability('service', item.requiresService)) continue;
+    // The same guard statement NavigationItemRenderer runs, not a copy of it.
+    if (!passesNavItemGuards(item, options)) continue;
 
     if (item.type === 'separator') continue;
     if (item.type === 'group') {
@@ -1030,19 +1058,18 @@ function NavigationItemRenderer({
       : (explicitOpen ?? (childCount >= AUTO_COLLAPSE_THRESHOLD ? false : true));
   const [isOpen, setIsOpen] = useState(initialOpen);
 
-  // --- Visibility guard ---
-  if (!evalVis(item.visible)) return null;
-
-  // --- Permission guard ---
-  if (item.requiredPermissions?.length && !checkPerm(item.requiredPermissions)) return null;
-
-  // --- Capability guard (runtime-feature gates) ---
-  // Hide entries whose required object/service is not registered in this
-  // runtime — e.g. `sys_app` only exists when the tenant service is loaded.
-  const requiresObject = (item as any).requiresObject as string | undefined;
-  const requiresService = (item as any).requiresService as string | undefined;
-  if (requiresObject && !checkCap('object', requiresObject)) return null;
-  if (requiresService && !checkCap('service', requiresService)) return null;
+  // --- Per-item guards: `visible`, `requiredPermissions`, and the
+  // runtime-capability gates (an entry whose required object/service is not
+  // registered in this runtime — e.g. `sys_app` only exists when the tenant
+  // service is loaded — is hidden). One statement, shared with the area
+  // derivation and the Favorites collection so none of the three can drift.
+  const guardOptions: NavigationVisibilityOptions = {
+    evaluateVisibility: evalVis,
+    checkPermission: checkPerm,
+    checkCapability: checkCap,
+    hasActionHandler: !!onAction,
+  };
+  if (!passesNavItemGuards(item, guardOptions)) return null;
 
   // --- Separator ---
   if (item.type === 'separator') {
@@ -1054,6 +1081,17 @@ function NavigationItemRenderer({
     const children = (item.children ?? [])
       .slice()
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    // A group survives only through its children (objectui#10119). Without
+    // this the group's own label rendered as a disclosure that opens onto
+    // nothing once every child was gated away — and it contradicted
+    // `hasVisibleNavigationItems`, which already scores such a group as
+    // contributing nothing and is the predicate the area switcher elects
+    // areas by. The same statement decides both, so the sidebar and the area
+    // list can no longer disagree about what the user can reach. A group
+    // authored with no children at all derives the same way, as it already
+    // does for area election.
+    if (!hasVisibleNavigationItems(children, guardOptions)) return null;
 
     const groupLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel);
 
@@ -1292,8 +1330,12 @@ export function NavigationRenderer({
 
   // --- Pinned items (favorites section) ---
   const pinnedItems = useMemo(
-    () => collectPinnedItems(filteredItems),
-    [filteredItems],
+    () => collectPinnedItems(filteredItems, {
+      evaluateVisibility: evalVis,
+      checkPermission: checkPerm,
+      checkCapability: checkCap,
+    }),
+    [filteredItems, evalVis, checkPerm, checkCap],
   );
 
   // --- Sort top-level items by order ---
@@ -1456,14 +1498,27 @@ export function NavigationRenderer({
 // Helper: collect all pinned items (leaf-only) from a navigation tree
 // ---------------------------------------------------------------------------
 
-function collectPinnedItems(items: NavigationItem[]): NavigationItem[] {
+function collectPinnedItems(
+  items: NavigationItem[],
+  options: NavigationVisibilityOptions,
+): NavigationItem[] {
   const pinned: NavigationItem[] = [];
   for (const item of items) {
+    // A gated-away node takes its whole subtree with it (objectui#10119).
+    // This walk is a SECOND path into the same children, so without the guard
+    // an author who gated a group watched a pinned descendant keep rendering
+    // under Favorites — the group's `visible` predicate evaluated, answered
+    // false, and changed nothing the excluded user could see. Guarding here
+    // rather than leaving it to the per-item render also means a Favorites
+    // section whose every entry is gated away is not rendered at all, instead
+    // of a "Favorites" heading over an empty list.
+    if (!passesNavItemGuards(item, options)) continue;
+
     if (item.pinned && item.type !== 'group' && item.type !== 'separator') {
       pinned.push(item);
     }
     if (item.children?.length) {
-      pinned.push(...collectPinnedItems(item.children));
+      pinned.push(...collectPinnedItems(item.children, options));
     }
   }
   return pinned;

@@ -3,7 +3,7 @@
  *
  * This file owns the routing tree — fork and edit it. The building blocks
  * imported from @object-ui/app-shell (ConsoleShell, AuthenticatedRoute,
- * RootRedirect, Default* pages) encapsulate the provider stack and auth guard
+ * Default* pages) encapsulate the provider stack and auth guard
  * so you only write JSX.
  *
  * Common customisations:
@@ -18,7 +18,6 @@ import { Toaster } from 'sonner';
 import {
   ConsoleShell,
   AuthenticatedRoute,
-  RootRedirect,
   SystemRedirect,
   DefaultLoginPage,
   DefaultRegisterPage,
@@ -68,13 +67,15 @@ export function App() {
                 <DefaultAppContent />
               </AuthenticatedRoute>
             } />
-            {/* `RootRedirect` resolves the landing from metadata, so it needs a
-              * session. Guarded (not a bare `ConnectedShell`) so an
+            {/* This starter lands on the launcher, and routes `/` there
+              * itself: objectui#10042 removed the published `/` element, so
+              * `/` has exactly one resolver in this repo and it is the
+              * console's own. Still guarded (not a bare `ConnectedShell`) so an
               * unauthenticated visitor goes to /login instead of firing a round
               * of doomed 401 `/meta/*` reads first — objectui#4042. */}
             <Route path="/" element={
               <AuthenticatedRoute requireOrganization={false}>
-                <RootRedirect />
+                <Navigate to="/home" replace />
               </AuthenticatedRoute>
             } />
             <Route path="*" element={<Navigate to="/" replace />} />

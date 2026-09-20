@@ -846,10 +846,13 @@ export const REGRESSION_THIS_GATE_MUST_CATCH_BYTES = 89 * 1024;
  * worth under half the payload it gets blamed for. ⭐ Why `main` was one byte from
  * this line in the first place is objectui#8554: it sat at 70,999 against 71,000
  * — headroom 0.00x — and printed a GREEN sensitivity row while it did, because
- * {@link evaluateHeadroomSensitivity} had no floor at the time. It has one now,
- * {@link EXHAUSTED_HEADROOM_FLOOR_MULTIPLE}, so this row is loud rather than
- * green. objectui#8541 recorded the same red first and is closed as this card's
- * duplicate.
+ * {@link evaluateHeadroomSensitivity} had no floor at the time. ⚠️ It briefly
+ * had one and has no floor again: objectui#8554 added a lower bound and a
+ * maintainer ruling on objectui#10148 retired it, so a row in that state draws
+ * a green tick once more — see the RETIRED block below. ⛔ That is a statement
+ * about THIS half only; the row's ceiling is unchanged and a build over it
+ * still exits 1. objectui#8541 recorded the same red first and is closed as
+ * this card's duplicate.
  *
  * ⚠️ This also makes `framework` the LOOSEST ceiling in this object, measured
  * rather than asserted. All four were read from the one `3f775eeb8` console
@@ -995,10 +998,12 @@ export const REGRESSION_THIS_GATE_MUST_CATCH_BYTES = 89 * 1024;
  * same mechanism one step earlier: `framework` sat at 70,999 against 71,000 and
  * printed a GREEN sensitivity row while it did, because
  * {@link evaluateHeadroomSensitivity} had no floor at the time. Re-pinning to
- * 804 bytes would reproduce both inside a week. ⭐ That card is also where the
- * convention this paragraph reaches for stopped being prose: the tenth chosen
- * here is now {@link EXHAUSTED_HEADROOM_FLOOR_MULTIPLE}, and a re-pin that
- * ignores it reds instead of merely disagreeing with a comment.
+ * 804 bytes would reproduce both inside a week. ⚠️ objectui#8554 briefly made
+ * the tenth this paragraph reaches for into a PREDICATE; objectui#10148's
+ * maintainer ruling retired that predicate, so the tenth is prose again — a
+ * re-pin that ignores it disagrees with this comment and with every re-pin
+ * recorded above it, and ⛔ nothing reds. See the RETIRED block below for what
+ * putting the predicate back would take.
  *
  * So the size comes from this key's own convention rather than from the overage:
  * 8,804 bytes = 0.10x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, against the
@@ -1109,9 +1114,11 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
   // passed before this edit and measures under 50,000 fails after it, and the
   // ~9.5 KB of runway left here is `en`'s alone rather than ten packs' shared.
   // Headroom 9,585 bytes = 0.11x REGRESSION_THIS_GATE_MUST_CATCH_BYTES over the
-  // baseline below — just above the 0.10x floor, this file's own convention for
-  // a deliberate re-pin, and the first time this key has cleared that floor
-  // without a declared allowance holding it open.
+  // baseline below — just above the 0.10x this file's own convention asks of a
+  // deliberate re-pin, and the first time this key has cleared it on the
+  // measurement alone. ⚠️ That tenth is a CONVENTION for sizing a re-pin, ⛔ not
+  // a line this gate enforces: objectui#10148 retired the leg that did. ⛔ This
+  // row is also the one the ruling names, and its ceiling is NOT touched by it.
   'i18n-locale-en': 50_000,
   // Raised by the maintainer ruling of 2026-09-08, ⛔ not by a measurement here:
   // `main` had been red on this line since `f76f43628`. The bytes that put it
@@ -1149,14 +1156,15 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
   //
   // ⛔ A TIGHTENING. No build that passed before this edit and measures under
   // 289,000 fails after it. Headroom 23,063 bytes = 0.25x
-  // REGRESSION_THIS_GATE_MUST_CATCH_BYTES — well above the 0.10x floor, and
-  // chosen larger than `i18n-locale-en`'s 0.11x because this row is the one
+  // REGRESSION_THIS_GATE_MUST_CATCH_BYTES — well above the 0.10x convention,
+  // and chosen larger than `i18n-locale-en`'s 0.11x because this row is the one
   // that had been living at 0.02x: the runway is the point of paying it down,
-  // and a re-pin that left it at the floor would hand the next author the same
-  // ratchet the day after it was cleared.
+  // and a re-pin that left it at the convention would hand the next author the
+  // same ratchet the day after it was cleared.
   //
-  // ⚠️ This is also why this key no longer appears in
-  // {@link EXHAUSTED_HEADROOM_ALLOWANCES} — see the note there.
+  // ⚠️ That reasoning is why this key was taken out of the declared-allowance
+  // table objectui#8554 kept, which objectui#10148 then retired outright — the
+  // re-pin is what discharged the debt, and it reads the same either way.
   'ui-components': 289_000,
 });
 
@@ -1308,206 +1316,82 @@ export const PER_CHUNK_BASELINE = Object.freeze({
 });
 
 /**
- * The LOWER bound on a ceiling's headroom, as a fraction of
- * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES} (objectui#8554).
+ * ## ⛔ RETIRED — the exhausted-headroom leg, and why it is not coming back
+ *   quietly (objectui#10148)
  *
- * ## The half this closes
+ * This is where `EXHAUSTED_HEADROOM_FLOOR_MULTIPLE`,
+ * `EXHAUSTED_HEADROOM_ALLOWANCES` and
+ * `EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE` stood, and the paragraph
+ * is here rather than deleted with them for one reason: the text they carried
+ * forbade, in as many words, the edit that has now been made. ⛔ A removal that
+ * takes the prohibition out with the leg leaves the next reader holding an
+ * argument for a mechanism that no longer exists, and the obvious repair is to
+ * put it back.
  *
- * {@link evaluateHeadroomSensitivity} asks whether a ceiling is still close
- * enough to its payload to mean anything, and until this constant it asked that
- * in ONE direction only: a ceiling more than one regression ABOVE its payload is
- * blind, and every other row drew a green tick — one byte of headroom included.
- * A spent ceiling is not a measurement of this bundle either. It is a
- * measurement of the NEXT change, whatever that turns out to be.
+ * ### What stood here
  *
- * The cost is recorded rather than argued, twice. `framework` stood at 70,999
- * gzipped bytes against a 71,000 ceiling across at least two merges, printing a
- * green sensitivity row the whole time, and then `main` went red on an ordinary
- * change. `i18n-locales` stood at 398 bytes and did something worse: this gate
- * weighs the merge ref, so two independent, finished pull requests each added
- * under a kilobyte to that chunk and whichever the queue weighed SECOND turned
- * red for the other one's bytes. An exhausted ceiling does not only red the
- * trunk — it reds an innocent diff and misnames the cause, while this half
- * prints a green tick at the bottom of the same run.
+ * A ceiling whose headroom had fallen under a tenth of one
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES} made
+ * {@link evaluateHeadroomSensitivity} return `error`, so the run exited 2 — on
+ * a build where nothing had grown past any line. The argument was
+ * objectui#8554's, and it is a real one, recorded here as history rather than
+ * as a live claim: a ceiling with no headroom left passes today and reds
+ * whatever lands next, whether or not that diff is what grew, and the merge
+ * queue weighs the merge ref, so the change it reds is very often not the
+ * change that spent the bytes. `EXHAUSTED_HEADROOM_ALLOWANCES` held, at the
+ * byte, the rows that were already under that floor the day it landed;
+ * `..._GRANULARITY_MULTIPLE` was the unit those pinned figures were compared
+ * in. ⛔ Neither has any other reader, which is why both left with the floor.
  *
- * ## Why a tenth, and why that is not a reading of today's rows
+ * ### The prohibition that stood with it, and who is allowed to overrule it
  *
- * This file already had an answer and only ever wrote it in prose. Every
- * deliberate re-pin in {@link PER_CHUNK_GZIP_CEILINGS} sizes the new headroom at
- * a tenth of the regression: objectui#7399 re-pinned two keys to it, and
- * objectui#8816 rejected the minimal raise that would have admitted its two
- * claimants exactly — choosing, in as many words, this key's own convention over
- * the overage, and citing objectui#8554 for why the minimal raise would
- * reproduce both failures inside a week. The maintainer ruling that authorised
- * that raise was taken on that reasoning.
+ * The retired text said, and the failure message printed:
  *
- * ⇒ the bound is this file's own already-taken decision, promoted from a comment
- * into the predicate. ⛔ It was NOT picked by asking which rows are green today.
- * What it does to today's rows is recorded, after the fact and in that order, in
- * {@link EXHAUSTED_HEADROOM_ALLOWANCES}.
+ *     ⛔ Never lower EXHAUSTED_HEADROOM_FLOOR_MULTIPLE, and ⛔ never add a row
+ *     to EXHAUSTED_HEADROOM_ALLOWANCES to silence this
  *
- * ⛔ Never raise this to quiet a row. It is a floor on a floor: raising it buys
- * silence for a ceiling that has stopped measuring, which is the defect and not
- * the cure — the same rule the blind side states in the other direction.
+ * ⭐ That was written about a SEAT reaching for the knob because a build had
+ * gone red — which is exactly what it should forbid, and exactly what was
+ * happening when objectui#10148 was filed. It was ⛔ never a bar on the
+ * maintainer: this repository's priority order is 「维护者裁决 > `AGENTS.md` >
+ * 红线 > 核心条款 > 细则 > 座位判断」, and a gate-strength change is precisely
+ * the class that needs a ruling rather than a judgement call.
+ *
+ * ### The ruling — recorded VERBATIM and UNTRANSLATED (maintainer, 2026-09-20,
+ *   on objectui#10148). Rewriting a ruling is rewriting the decision, which is
+ *   why the two utterances below are carried in the language they were made in.
+ *
+ *     10148 i18n-locale-en 天花板余量 不需要这是天花板余量
+ *
+ *     10148 不需要设置天花板余量
+ *
+ * ⇒ it is the headroom REQUIREMENT that is not wanted. ⛔ Not the row the first
+ * utterance names: `i18n-locale-en` keeps its ceiling in
+ * {@link PER_CHUNK_GZIP_CEILINGS}, at the value it had, and a build that puts
+ * that chunk OVER it still exits 1.
+ *
+ * ### What re-adding it would take
+ *
+ * ⛔ Not a repair, and ⛔ not a seat's judgement that the next collision proves
+ * the leg was right — objectui#8554's two incidents were already the argument,
+ * and they were ruled on with that argument in view. It takes a maintainer
+ * decision, on a card, recorded the way this one is. ⚠️ Until then, this gate
+ * answers "is this bundle over a line?" and deliberately does ⛔ not answer "is
+ * this line still comfortably above this bundle?" at the lower end.
+ *
+ * ⭐ What did NOT go with it: the BLIND leg at the other end of the same range.
+ * A ceiling more than one whole regression ABOVE its payload is still an
+ * `error`, because such a ceiling cannot tell "no regression" from the
+ * motivating incident — a gauge verdict, not a headroom requirement, and
+ * outside what was ruled on. It is also why this half still publishes
+ * `closure_headroom_status`, which `.github/workflows/performance-budget.yml`
+ * reads as `BUDGET_CLOSURE_HEADROOM_STATUS`.
+ *
+ * ⚠️ The headroom FIGURES stay in the report: every row still prints its
+ * headroom in KB and as a multiple of the regression. Printing a number is
+ * reporting; failing a build on it is the requirement that was retired, and the
+ * two are separable here because only the predicate read the floor.
  */
-export const EXHAUSTED_HEADROOM_FLOOR_MULTIPLE = 0.1;
-
-/**
- * Ceilings whose headroom was ALREADY under
- * {@link EXHAUSTED_HEADROOM_FLOOR_MULTIPLE} on the day that floor landed, each
- * pinned at the headroom it measured that day (objectui#8554).
- *
- * ## Why a table and not simply a lower floor
- *
- * Two rows were under a tenth of the regression when the floor was written. A
- * floor low enough to clear them would be green on a board whose tightest line
- * is the exact instance this card was filed about — it would say nothing, which
- * is the defect wearing the cure's clothes. A floor without them reds `main` on
- * landing, which is how a budget gets switched off rather than met. So the bound
- * stays where this file's own convention put it, and the debt is DECLARED here,
- * at the byte.
- *
- * ## What an entry does
- *
- * A listed ceiling passes while its headroom is at least the figure below and
- * reds the moment it gets TIGHTER. The gate is therefore loud immediately: every
- * listed row is named in the PASSING verdict too, not only when it fires. Each
- * entry is a ratchet that can be paid off and never spent.
- *
- * ⛔ No figure here may ever be LOWERED. Lowering one turns this object from a
- * record of debt into a supply of headroom, and the row it was written about
- * goes exactly as silent as it was before this card.
- *
- * ⛔ No row may be ADDED to buy silence. A ceiling that cannot clear the floor is
- * a ceiling set at the wrong number; the answer is the bytes, or a deliberate
- * authorised re-pin, never a new line in this object. The unit test pins these
- * contents exactly, so an edit in either direction is a visible, deliberate act
- * rather than a number that drifted.
- *
- * ⛔ These are not ceilings and nothing may be raised to satisfy one. The
- * `ui-components` number in particular is an open decision (objectui#7848) and
- * this table ⛔ does not answer it — it only stops the gate being silent while
- * that decision stands unanswered.
- *
- * Both figures were read from one full console build on `2596b1b85`, from the
- * same report the gate reads. ⚠️ `i18n-locales` carries the pair objectui#8816's
- * maintainer ruling set eight days earlier, whose prose calls its headroom
- * "0.10x": rendered to two decimals it is, measured it is 0.0966x, so the floor
- * catches it by 310 bytes. That is a rounding artifact in the prose, ⛔ not a
- * finding about the ruling, and ⛔ not a reason to bend the bound to 0.095 —
- * bending it to clear a named row is choosing the bound by today's board, which
- * is the one move this card may not make.
- *
- * ⭐ `ui-components` was read TWICE while this was being written, an hour apart,
- * and it moved: 394,708 on `e8b7b0785` and 394,711 five merges later, none of
- * them about this chunk. The console build is deterministic on a fixed tree —
- * checked, two builds byte-identical across all four budgeted chunks — so those
- * three bytes are content and not noise, and the first reading was already stale
- * when it was taken. That is this card's whole thesis arriving during its own
- * fix: the tightest line on the board moves under ordinary traffic and nothing
- * said so.
- *
- * ⇒ that reading is also why these figures are NOT compared at the byte. See
- * {@link EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE}, which is the unit
- * the comparison is made in and the reason a red here is a red a reader can see.
- *
- * ⚠️ The `@type` is load-bearing now that the table can be EMPTY. Its shape used
- * to be inferred from the one entry it carried, so `Object.values(...)` was
- * `number[]` for free; an empty literal infers nothing and the same expression
- * becomes `unknown[]`, which fails `tsc -p tsconfig.scripts.json` in the unit
- * suite that reads it — a leg no per-package `type-check` and no
- * `turbo run type-check` covers, because `scripts/` is not a workspace package.
- * ⛔ The fix belongs HERE, on the declaration, and not as a cast at the reader:
- * chunk name to allowance bytes is what this table IS, whether or not it
- * currently holds a row.
- *
- * @type {Readonly<Record<string, number>>}
- */
-export const EXHAUSTED_HEADROOM_ALLOWANCES = Object.freeze({
-  // ⭐ EMPTY, and that is a state this table is allowed to be in: it is a ledger
-  // of debt, and debt can be discharged. Two rows have left it, by the two ways
-  // a row leaves — neither of them by being lowered, because a lowered figure is
-  // headroom supplied to a row that still owes it.
-  //
-  //   `i18n-locales: 8_804`  — left at objectui#7479 because its CHUNK ceased to
-  //     exist: nine of the ten catalogues it weighed became `import()`ed on
-  //     demand, and the one that stays is budgeted under its own key at 0.11x.
-  //
-  //   `ui-components: 4_289` — left at objectui#9251 because the ROW cleared the
-  //     floor. Its chunk is still here and still budgeted; what changed is that
-  //     lucide's 1,781-icon record came off the eager path, the ceiling was
-  //     re-pinned DOWN to 289,000 over a 265,937 measurement, and the headroom
-  //     went from 0.02x to 0.25x — two and a half times the floor this table
-  //     exists to excuse rows from.
-  //
-  // ⛔ Leaving the entry in place after that would have been the worse edit, not
-  // the cautious one, and in two ways at once. `floorFor` reads an allowance as
-  // this row's REQUIRED headroom, so a stale 4,289 would have replaced the
-  // 9,113.6-byte floor with a 3,377.6-byte one — the gate running WEAKER on the
-  // row it had just been strengthened for. And the row renderer prints
-  // "under the 0.10x floor and held open by its declared allowance" for every
-  // listed key unconditionally, so the passing verdict would have said the row
-  // was under a floor it is 2.5x clear of.
-  //
-  // ⚠️ An empty table must not be read as "this mechanism is unused". The
-  // ratchet is pinned on a synthetic row in
-  // `scripts/__tests__/check-eager-closure-budget.test.ts`, precisely so that
-  // paying the last debt off cannot quietly retire the instrument with it.
-});
-
-/**
- * The unit a declared allowance is compared in, as a fraction of
- * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. A listed row reds when its
- * headroom falls a whole one of these below its pinned figure — ⛔ not when it
- * falls one BYTE below it.
- *
- * ## Why the byte is the wrong unit, demonstrated rather than argued
- *
- * This gate renders three numbers per row, and every one of them is rounded:
- * measured and headroom through {@link kb} at one decimal of a KiB, and the
- * multiple at two decimals of a regression. Take `ui-components` at its pinned
- * 4,289 bytes of headroom and remove ONE byte — the boundary a byte-exact
- * comparison would red on:
- *
- *     headroom 4,289  ->  385.5 KB measured / headroom 4.2 KB / 0.05x
- *     headroom 4,288  ->  385.5 KB measured / headroom 4.2 KB / 0.05x
- *
- * ⇒ ⭐ identical. Every column. A byte-exact ratchet fires with a red cross above
- * an evidence table that is character-for-character the table the green run
- * printed, so the reader cannot see what moved, cannot tell their own diff from
- * the drift under it, and has nothing to act on. That is the same defect
- * objectui#8554 is about — a number nobody can read — moved one level in.
- *
- * ## Why a hundredth, specifically
- *
- * It is the coarser of this file's two rendering grids: 0.01x is 911.36 bytes,
- * where one tenth of a KiB is 102.4. Choosing the coarser one is what makes a
- * red visible in BOTH columns rather than only the finer of them. Across the
- * same trip point that is:
- *
- *     headroom 4,289  ->  385.5 KB measured / headroom 4.2 KB / 0.05x
- *     headroom 3,377  ->  386.4 KB measured / headroom 3.3 KB / 0.04x
- *
- * It is also the next decade of the unit this whole file is denominated in —
- * 1.00x is blind, 0.10x is the floor, 0.01x is the grain — so the instrument
- * measures at one resolution throughout instead of claiming an 89 KB question
- * and answering a one-byte one.
- *
- * ## What this is NOT
- *
- * ⛔ Not a raise, and ⛔ not headroom to spend. The pinned figures do not move,
- * the table stays pay-down-only, and paying a row down moves its trip point up
- * with it. It coarsens WHEN a declared row reds, ⛔ never whether it is
- * declared, and ⛔ never the {@link EXHAUSTED_HEADROOM_FLOOR_MULTIPLE} floor
- * itself, which is unchanged and still reds an undeclared row at 0.10x.
- *
- * ⚠️ ⛔ It does not make a declared row's red CLEARABLE by the pull request that
- * trips it — nothing at this bound can, while a row's headroom is somebody
- * else's open decision. What it does is stop that red firing on drift too small
- * to see, and the verdict text for a declared row says whose question it is
- * rather than sending its author to audit their own diff.
- */
-export const EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE = 0.01;
 
 /**
  * The report shape this checker understands. v2 added `files[].name` — the
@@ -1898,54 +1782,51 @@ export function evaluatePerChunkBudgets({
  * that is absent: a check that passes by measuring nothing must be LOUDER than
  * one that fails by measuring something, never quieter.
  *
- * ## Both sides of the range (objectui#8554)
+ * ## ONE side of the range — the lower bound was RETIRED (objectui#10148)
  *
- * A ceiling stops measuring at either end. Too far above the payload and its
- * green tick cannot tell "no regression" from the motivating incident; too close
- * and its green tick is about the next change rather than this one. The upper
- * bound is one whole regression; the lower bound is
- * {@link EXHAUSTED_HEADROOM_FLOOR_MULTIPLE} of one, with the rows that were
- * already under it pinned at their measured headroom in
- * {@link EXHAUSTED_HEADROOM_ALLOWANCES}. Both verdicts are the same kind — about
- * the GAUGE, so `error` and exit 2 — because a ceiling nobody can act on until
- * it fires is not a working ceiling in either direction.
+ * A ceiling stops measuring at either end, and this function used to say so at
+ * both. Too far above the payload and its green tick cannot tell "no
+ * regression" from the motivating incident — that is the bound this function
+ * still enforces, one whole regression wide. Too CLOSE and its green tick is
+ * about the next change rather than this one — that was objectui#8554's lower
+ * bound, and a maintainer ruling retired it. The ruling, and the in-file
+ * prohibition it overrules, are recorded in the RETIRED block where those
+ * constants used to stand; ⛔ read it before putting a floor back here.
+ *
+ * ⇒ what remains is ONE predicate, `headroomBytes >= regressionBytes`, and it
+ * is a verdict about the GAUGE — `error` and exit 2 — because a ceiling that
+ * far above its payload is not measuring the payload. A ceiling that is merely
+ * TIGHT is a pass: its headroom is still printed on its row, and no predicate
+ * reads it.
  *
  * ## What it deliberately does not do
  *
  * It does not treat a NEGATIVE headroom — a ceiling under the payload — as its
- * business, at EITHER bound. That is an over-budget bundle, the other two halves
- * own it, and reporting it here as well would turn one regression into an error
- * and teach a reader to distrust the exit code. ⛔ The exhausted leg therefore
- * tests `0 <= headroom < floor` and not `headroom < floor`: the second would
- * swallow every over-budget row into this half and convert a size failure into a
- * gauge error, which is precisely the confusion this paragraph exists to
- * prevent. Over-budget rows are still printed, marked as such, so the table is a
- * complete picture of every ceiling.
+ * business. That is an over-budget bundle, the other two halves own it, and
+ * reporting it here as well would turn one regression into an error and teach a
+ * reader to distrust the exit code. Over-budget rows are still printed, marked
+ * as such, so the table is a complete picture of every ceiling — ⛔ printed
+ * here, and weighed by the halves that own them.
  *
  * @param {object} input
  * @param {unknown} input.report
  * @param {number} [input.budgetBytes]      the aggregate ceiling
  * @param {Record<string, number>} [input.ceilings]  the per-chunk ceilings
  * @param {number} [input.regressionBytes]  the size this gate must stay able to catch
- * @param {number} [input.floorMultiple]    the lower bound, as a fraction of that size
- * @param {Record<string, number>} [input.allowances]  declared already-exhausted rows
  * @param {string} [input.reportPath]
  * @returns {{ status: 'pass' | 'error', message: string,
  *             sites: { key: string, label: string, constant: string, measuredBytes: number,
  *                      ceilingBytes: number, headroomBytes: number, multiple: number }[],
- *             blind: string[], exhausted: string[] }}
+ *             blind: string[] }}
  */
 export function evaluateHeadroomSensitivity({
   report,
   budgetBytes = MAX_EAGER_CLOSURE_GZIP_BYTES,
   ceilings = PER_CHUNK_GZIP_CEILINGS,
   regressionBytes = REGRESSION_THIS_GATE_MUST_CATCH_BYTES,
-  floorMultiple = EXHAUSTED_HEADROOM_FLOOR_MULTIPLE,
-  allowances = EXHAUSTED_HEADROOM_ALLOWANCES,
-  allowanceGrainMultiple = EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE,
   reportPath = DEFAULT_REPORT_PATH,
 } = {}) {
-  const base = { sites: [], blind: [], exhausted: [] };
+  const base = { sites: [], blind: [] };
 
   if (report === null || report === undefined) {
     return {
@@ -2014,40 +1895,23 @@ export function evaluateHeadroomSensitivity({
     const headroomBytes = site.ceilingBytes - site.measuredBytes;
     return { ...site, headroomBytes, multiple: headroomBytes / regressionBytes };
   });
+  // The ONLY predicate this half applies (objectui#10148 retired the other).
+  // A LOWER bound used to stand right here; the RETIRED block above records the
+  // maintainer ruling that took it out and what putting it back would take.
   const blind = rows.filter((row) => row.headroomBytes >= regressionBytes);
-  const floorBytes = regressionBytes * floorMultiple;
-  const allowanceGrainBytes = regressionBytes * allowanceGrainMultiple;
-  // The headroom this row must keep: the floor, unless it is one of the rows
-  // that was already under the floor when the floor was written, in which case
-  // it is that row's own pinned figure — less one grain, because a ratchet that
-  // fires on drift the table cannot render is a red with no readable evidence.
-  // See EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE.
-  const floorFor = (row) =>
-    allowances[row.key] === undefined ? floorBytes : allowances[row.key] - allowanceGrainBytes;
-  // ⛔ `headroomBytes >= 0` is load-bearing, not defensive. Without it every
-  // OVER-budget row falls under the floor too, and this half would convert the
-  // size verdict's exit 1 into a gauge error — see "What it deliberately does
-  // not do" above.
-  const exhausted = rows.filter(
-    (row) => row.headroomBytes >= 0 && row.headroomBytes < floorFor(row),
-  );
 
   const table = rows
     .map((row) => {
-      const allowance = allowances[row.key];
+      // ⭐ The headroom figure is REPORTING and stays (objectui#10148). What was
+      // retired is the predicate that failed a build on a SMALL one, ⛔ not the
+      // number: a reader watching a row tighten is exactly who the ruling left
+      // this column for, and a tick beside it now means "under its line".
       const band =
         row.headroomBytes < 0
           ? `OVER by ${kb(-row.headroomBytes)} KB — the size verdict owns this row, not this one`
           : `headroom ${kb(row.headroomBytes)} KB = ${row.multiple.toFixed(2)}x the ` +
-            `${kb(regressionBytes)} KB regression` +
-            // Printed on a PASSING row too: a declared exhausted ceiling that
-            // only appears when it fires is the silence this leg exists to end.
-            (allowance === undefined
-              ? ''
-              : `, under the ${floorMultiple.toFixed(2)}x floor and held open by its ` +
-                `declared ${allowance}-byte allowance, which may only be paid DOWN; ` +
-                `reds below ${Math.round(allowance - allowanceGrainBytes)} bytes`);
-      const failing = row.headroomBytes >= regressionBytes || exhausted.includes(row);
+            `${kb(regressionBytes)} KB regression`;
+      const failing = row.headroomBytes >= regressionBytes;
       return (
         `  ${failing ? '❌' : '✅'} ${row.label.padEnd(28)} ` +
         `${kb(row.measuredBytes).padStart(9)} KB measured / ${kb(row.ceilingBytes)} KB ceiling ` +
@@ -2080,65 +1944,10 @@ export function evaluateHeadroomSensitivity({
     );
   }
 
-  // Two populations, two remedies. A row falling under the floor for the first
-  // time is somebody's to fix; a DECLARED row getting tighter is a standing debt
-  // whose payoff is a decision this run's author very likely does not own. Giving
-  // both the same "find the bytes" text is what sends an innocent author to audit
-  // a diff that is not the cause — the misattribution objectui#8554 documents.
-  const newlyExhausted = exhausted.filter((row) => allowances[row.key] === undefined);
-  const declaredTightened = exhausted.filter((row) => allowances[row.key] !== undefined);
-
-  if (exhausted.length > 0) {
-    headlines.push(
-      `${exhausted.length} ceiling${exhausted.length === 1 ? ' is' : 's are'} EXHAUSTED — under ` +
-        `${floorMultiple.toFixed(2)}x of one ${kb(regressionBytes)} KB regression, or a declared ` +
-        `row that has tightened by a whole ${allowanceGrainMultiple.toFixed(2)}x:`,
-    );
-  }
-
-  if (newlyExhausted.length > 0) {
-    prose.push(
-      `A ceiling with no headroom left has stopped being a measurement of THIS bundle and become ` +
-        `a measurement of the NEXT change: it passes today and reds whatever lands next, whether ` +
-        `or not that diff is what grew. This gate has already been paid for twice ` +
-        `(objectui#8554): \`framework\` sat at one byte across two merges and printed a green ` +
-        `row throughout, and \`i18n-locales\` sat at 398 bytes while the merge queue weighed two ` +
-        `independent finished pull requests and turned red on whichever it happened to weigh ` +
-        `SECOND, for the other one's bytes.\n` +
-        `The remedy is the bytes: take them out of the chunk this row names, or take a ` +
-        `deliberate, authorised re-pin and say in the PR what the new headroom buys.\n` +
-        `⛔ Never raise a ceiling because this leg noticed it is full — that is how a budget gets ` +
-        `switched off rather than met, the same rule the blind-side verdict states in the other ` +
-        `direction. ⛔ Never lower EXHAUSTED_HEADROOM_FLOOR_MULTIPLE, and ⛔ never add a row to ` +
-        `EXHAUSTED_HEADROOM_ALLOWANCES to silence this: that object records debt measured on the ` +
-        `day the floor landed and may only be paid down.`,
-    );
-  }
-
-  if (declaredTightened.length > 0) {
-    prose.push(
-      `${declaredTightened.map((row) => row.label).join(', ')} ` +
-        `${declaredTightened.length === 1 ? 'was' : 'were'} ALREADY declared exhausted before ` +
-        `this run, and ${declaredTightened.length === 1 ? 'has' : 'have'} now lost a further ` +
-        `${allowanceGrainMultiple.toFixed(2)}x of a regression against the pinned figure.\n` +
-        `⚠️ READ THIS BEFORE AUDITING YOUR OWN DIFF. This row's headroom is a standing debt that ` +
-        `predates this change, and it moves under traffic that has nothing to do with the chunk ` +
-        `— measured at three gzipped bytes across five unrelated merges. So this verdict is NOT ` +
-        `an accusation that your diff spent the bytes, and the amount it names is very likely ` +
-        `not yours. What it asserts is only that the row is tighter than the day it was pinned.\n` +
-        `⛔ There is therefore nothing here for this pull request to "fix", and the two edits that ` +
-        `would turn this green are both forbidden: ⛔ never raise the ceiling, and ⛔ never raise ` +
-        `the allowance. Paying the row down is the open decision on the chunk, ⛔ not a task for ` +
-        `whichever change the queue happened to weigh — take it there, and say on this pull ` +
-        `request that you did.`,
-    );
-  }
-
   if (headlines.length > 0) {
     return {
       sites: rows,
       blind: blind.map((row) => row.key),
-      exhausted: exhausted.map((row) => row.key),
       status: 'error',
       // One table, however many verdicts named it: a reader comparing two
       // renderings of the same five rows is reading for differences that are
@@ -2150,7 +1959,6 @@ export function evaluateHeadroomSensitivity({
   return {
     sites: rows,
     blind: [],
-    exhausted: [],
     status: 'pass',
     message:
       `Ceiling sensitivity (${rows.length} ceilings, each weighed against the report just read):\n` +
@@ -2630,10 +2438,15 @@ function writeGithubOutput(entries, outputPath = process.env.GITHUB_OUTPUT) {
  * Exit codes: `0` within budget, `1` over budget — the aggregate ceiling or any
  * per-chunk ceiling — and `2` no trustworthy verdict (report missing,
  * stale-shaped, internally inconsistent, missing a budgeted chunk, governed by
- * a ceiling that has drifted out of range of the regression it must catch,
- * governed by a ceiling with no headroom left to measure with — objectui#8554,
- * the same verdict at the other end of the same range — or — objectui#6245 —
- * weighed against a ceiling the base branch has since replaced).
+ * a ceiling that has drifted out of range of the regression it must catch, or
+ * — objectui#6245 — weighed against a ceiling the base branch has since
+ * replaced).
+ *
+ * ⛔ A ceiling with almost no headroom LEFT is no longer one of them. It was,
+ * between objectui#8554 and objectui#10148, and the maintainer ruling that
+ * retired it is recorded in the RETIRED block above `SUPPORTED_REPORT_VERSION`.
+ * ⇒ a chunk that goes OVER its ceiling still exits 1; a chunk that merely sits
+ * close to one exits 0 with its headroom printed.
  *
  * The last of those is the one exit 2 case with a PERFECTLY GOOD measurement
  * behind it, so nothing downstream may word exit 2 as "nothing was measured".

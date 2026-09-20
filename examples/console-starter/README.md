@@ -16,7 +16,7 @@ building blocks exported by `@object-ui/app-shell`
 | `ConsoleShell` | Top-level provider stack: theme, navigation, favorites, notifications, `Suspense`. Goes inside `BrowserRouter`, around `Routes`. |
 | `AuthenticatedRoute` | `AuthGuard` + `ConnectedShell` + `RequireOrganization`, the guard for protected routes. `requireOrganization={false}` opts out (the `/organizations` route shows this). |
 | `ConnectedShell` | The data layer — `AdapterProvider` (an `ObjectStackAdapter` at `VITE_SERVER_URL`) + `MetadataProvider`. |
-| `RootRedirect` / `SystemRedirect` | `/` → `/home` once metadata loads; legacy `/system/*` → `/apps/setup/*`. |
+| `SystemRedirect` | Legacy `/system/*` → `/apps/setup/*`. (`/` is routed by this file's own `<Route path="/">` — the package publishes no `/` element, objectui#10042.) |
 | `Default*` pages | Drop-in login / register / forgot-password / home / organizations screens — replace any one with your own component. |
 | `DefaultAppContent` | Mounted at `/apps/:appName/*`. This is the console proper: layout, command palette, and the object / record / dashboard / report / page routes. |
 
@@ -111,8 +111,8 @@ Measured with nothing listening on `:3000`, `pnpm dev` on a free port, headless
 Chromium on `/`:
 
 **`/` redirects to `/login`.** The root route is wrapped in `AuthenticatedRoute`
-(objectui#4042), so the guard resolves the session before `RootRedirect` — and the
-`/meta/*` reads behind it — ever mount. The branded "Initializing application... /
+(objectui#4042), so the guard resolves the session before the landing redirect —
+and the `/meta/*` reads behind it — ever mount. The branded "Initializing application... /
 Connecting to data source" screen still appears, but only as a *transient* frame
 while `GET /api/v1/auth/get-session` is in flight; the redirect lands within a few
 hundred milliseconds of that request being refused. `/login` then renders in full

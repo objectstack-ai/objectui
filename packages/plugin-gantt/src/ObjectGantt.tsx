@@ -611,10 +611,15 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // branch below ever matched it), which is why nothing a published document
   // can express moves here.
   const rawDataConfig = resolveRecordSourceConfig(schema, 'view-data');
+  // The authored data config's deep VALUE, as one primitive — the memo's only
+  // dependency, hoisted out of the dependency array so it has a name. ⛔ It is
+  // NOT the key the record fetch runs on; see `adapterInputsKey` below for why
+  // the wide key is the wrong one there.
+  const dataConfigKey = JSON.stringify(rawDataConfig);
   // Memoize dataConfig using deep comparison to prevent infinite loops
   const dataConfig = useMemo(() => {
     return rawDataConfig;
-  }, [JSON.stringify(rawDataConfig)]);
+  }, [dataConfigKey]);
 
   const ganttConfig = getGanttConfig(schema);
   const dataProvider = dataConfig?.provider;
@@ -656,6 +661,65 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     () => resolveDataSource(dataConfig, dataSource ?? null, { fetch: apiFetch }),
     // dataConfig is already memoized by deep value above.
     [dataConfig, dataSource, apiFetch],
+  );
+  /**
+   * The adapter, reachable from the fetch path WITHOUT that path depending on
+   * its IDENTITY (objectui#10036; AGENTS.md §5 commandment #10, ruled on
+   * objectui#8640).
+   *
+   * `useMemo` is a performance hint: React may throw the cache away and
+   * recompute even when the dependency list compares equal, and `useCallback`
+   * is the same hint over a function. The memo above is not value-stable
+   * under that — `resolveDataSource` returns the context adapter UNCHANGED for
+   * `provider: 'object'`, but CONSTRUCTS a new `ApiDataSource` /
+   * `ValueDataSource` for `'api'` and `'value'`. So on those two providers a
+   * discard alone handed `reload` a brand-new adapter for a byte-identical
+   * authored config, rebuilt `reload`, and re-fired the mount effect below —
+   * one redundant round trip, per discard, on a component nobody had touched.
+   * That is the same mechanism the `dataItems` note above records for
+   * objectui#6592; one banned identity came off `reload`'s dependency list
+   * there and this one stayed on it.
+   *
+   * ⇒ `reload` READS the adapter through this ref and KEYS on the values that
+   * determine it: `adapterInputsKey` below, plus `dataSource` and `apiFetch` —
+   * this memo's own dependency list, with the memoised `dataConfig` replaced by
+   * the VALUES `resolveDataSource` reads out of it. A genuine change to any of
+   * them still rebuilds `reload` and still refetches; a discard alone no longer
+   * can.
+   */
+  const effectiveDataSourceRef = useRef(effectiveDataSource);
+  effectiveDataSourceRef.current = effectiveDataSource;
+
+  /**
+   * What `resolveDataSource` ACTUALLY READS out of the authored config, per
+   * provider arm, as one primitive.
+   *
+   * ⛔ Deliberately NOT `dataConfigKey`, the whole config's deep value. The
+   * note above `dataItems` says such a flattening "cannot be flattened to a
+   * fixed primitive list" — true of a fixed LIST, and the reason that note
+   * gives is exactly right: the `api` arm's input is a whole `read`/`write`
+   * request config. A per-arm VALUE, however, is expressible, and it has to be
+   * the per-arm one rather than the whole config, because the whole config is
+   * WIDER than the adapter's inputs. `ObjectGantt.discardedConfigMemo.test.tsx`
+   * measures the difference: it moves an inert field inside `schema.data` that
+   * "is read by nothing under test", and the fetch must not re-fire. Keying on
+   * the whole config makes that authored-but-inert byte a refetch trigger on
+   * the `object` provider, where the adapter is the context DataSource and the
+   * config contributes nothing to it at all.
+   *
+   * ⚠️ The arms below mirror `resolveDataSource` (`@object-ui/core`) — `read` +
+   * `write` for `'api'`, `items` for `'value'`, nothing but the fallback for
+   * `'object'` and for an unknown provider. Everything else the record query
+   * derives from the config reaches the list through its own binding
+   * (`resource`, `dataProvider`, `hasInlineData`), so this key answers for the
+   * ADAPTER and only the adapter.
+   */
+  const adapterInputsKey = JSON.stringify(
+    rawDataConfig?.provider === 'api'
+      ? { provider: 'api', read: rawDataConfig.read, write: rawDataConfig.write }
+      : rawDataConfig?.provider === 'value'
+        ? { provider: 'value', items: rawDataConfig.items }
+        : { provider: rawDataConfig?.provider ?? null },
   );
 
   // Unified resource name for find/update/delete. For 'object' it's the bound
@@ -736,7 +800,12 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       // (objectui#8513 stays where it is). The matcher is LOCAL: it never
       // reaches `convertFiltersToAST`, so a comparand that converter refuses
       // is excluded-and-logged here rather than thrown at render.
-      if (!effectiveDataSource || typeof effectiveDataSource.find !== 'function') {
+      // Read through the ref, NOT through the memo's identity — see the block
+      // above `effectiveDataSourceRef` (objectui#10036). The ref is refreshed
+      // on every render, so this is always the adapter the current render
+      // resolved; what it is not is a reason to rebuild this callback.
+      const adapter = effectiveDataSourceRef.current;
+      if (!adapter || typeof adapter.find !== 'function') {
         throw new Error('DataSource required for object/api providers');
       }
 
@@ -771,7 +840,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       const expand = !perms?.isLoaded || !resource
         ? expandable
         : expandable.filter((f) => perms.checkField(resource, f, 'read'));
-      const result = await effectiveDataSource.find(resource, {
+      const result = await adapter.find(resource, {
         $filter: schema.filter,
         $orderby: convertSortToQueryParams(schema.sort),
         // The platform ceiling (objectui#7210, ruling a′). The gantt still
@@ -818,8 +887,16 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         setLoading(false);
       }
     }
+    // ⭐ THE VALUE LIST (objectui#10036). The first three replace what used to
+    // be a single `effectiveDataSource` entry: they are that memo's OWN
+    // dependencies, with the memoised `dataConfig` swapped for the values
+    // `resolveDataSource` reads out of it. Every input that can change the
+    // adapter is still named, and no `useMemo` / `useCallback` identity is.
+    // The fetch effect below repeats this list for the same reason; the pins in
+    // `ObjectGantt.discardedReloadIdentity-10036.test.tsx` hold the two in
+    // parity by exercising each entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- (rest as any).data intentionally untracked, matching the original effect
-  }, [effectiveDataSource, resource, hasInlineData, dataProvider, schema.filter, schema.sort, objectSchema, perms]);
+  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, objectSchema, perms]);
 
   /**
    * Does the query this effect is about to issue DERIVE anything from the
@@ -850,10 +927,24 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // ⛔ Gating is not capping. The row ceiling is objectui#7210's ruling and
   // lives on the query itself (`$top` above); this decides WHEN the query
   // fires, not how many rows it may bring back.
+  /**
+   * ⛔ …and this effect may not name `reload` either (objectui#10036).
+   *
+   * `reload` is a `useCallback` result, so it is the same performance hint one
+   * link further out: a discarded cache hands back a fresh function WHATEVER
+   * its own dependency list says — an empty list included. Keying the fetch on
+   * that identity therefore leaves React licensed to re-fire it for nothing,
+   * no matter how carefully `reload`'s own list is written. ⇒ Both sides of
+   * the seam, or neither holds: the callback is reached through a ref and this
+   * effect keys on the SAME value list `reload` keys on.
+   */
+  const reloadRef = useRef(reload);
+  reloadRef.current = reload;
+
   useEffect(() => {
     if (recordQueryDerivesExpand && !objectSchemaReady) return;
-    reload();
-  }, [reload, recordQueryDerivesExpand, objectSchemaReady]);
+    reloadRef.current();
+  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
 
   // Transform data to gantt tasks
   const tasks = useMemo(() => {

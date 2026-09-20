@@ -356,22 +356,45 @@ export const ListSchema = z.object({}).describe(
   });
 });
 
-describe('⚠️ C3 — the scan REPORTS the unruled family question and ⛔ does not answer it', () => {
-  it('an item carrier is filed `unruled` and is NEVER folded into the ruled total', () => {
-    expect(dispositionOf('node')).toBe('ruled:6771');
-    expect(dispositionOf('item')).toBe('unruled:item-carrier');
-    expect(dispositionOf('string')).toBe('carrier-undetermined');
+describe('⭐ C3 — an item carrier is RULED, and what it is ruled to be is ⛔ NOT a dialect', () => {
+  /**
+   * Director seat, summon #25 class-1 item 2, LETTER C, on objectui#9871
+   * (2026-09-20): a `body` child list on a non-node ITEM (a tab item, a list
+   * item) is ⛔ not inside objectui#6771's ruled family and ⛔ not a second
+   * family — it is a PRODUCER VIOLATING THE ITEM'S OWN PUBLISHED SCHEMA
+   * (`TabItemSchema` declares `content` and declares no `body`; `ListItem`
+   * likewise), fixed at the producer (done: objectui#9941).
+   *
+   * ⭐ The SPELLING is pinned, not just the behaviour: the rename IS the
+   * deliverable, and a neutral-sounding name that left a reader guessing would
+   * reproduce the ambiguity the ruling closed.
+   */
+  const ITEM_DISPOSITION = 'ruled:not-a-dialect/item-schema-violation';
 
-    const root = plant({
-      'packages/widget/src/tabs.tsx': `
+  /** Both carriers in ONE corpus, so every split below is a discrimination. */
+  const BOTH_CARRIERS = `
 ComponentRegistry.register('tabs', T, {
   defaultProps: {
     items: [{ label: 'a', value: 'a', body: [{ type: 'text' }] }],
     body: [{ type: 'text' }],
   },
 });
-`,
-    });
+`;
+
+  it('the disposition SAYS "not a dialect" and ⛔ no longer files the site as awaiting a ruling', () => {
+    expect(dispositionOf('node')).toBe('ruled:6771');
+    expect(dispositionOf('item')).toBe(ITEM_DISPOSITION);
+    expect(dispositionOf('string')).toBe('carrier-undetermined');
+
+    // ⭐ Both halves, because a rename that only moved a word would satisfy the
+    // equality above on any spelling at all: the name must CARRY the answer,
+    // and it must no longer say the site is waiting for one.
+    expect(dispositionOf('item')).toContain('not-a-dialect');
+    expect(dispositionOf('item')).not.toContain('unruled');
+  });
+
+  it('an item carrier is STILL never folded into the ruled total — and ⛔ not by a prefix', () => {
+    const root = plant({ 'packages/widget/src/tabs.tsx': BOTH_CARRIERS });
     const run = scan(root);
     const producers = producersOf(run.hits, run.readers);
     const byDisposition = producers.map((p: { disposition: string }) => p.disposition).sort();
@@ -381,9 +404,56 @@ ComponentRegistry.register('tabs', T, {
     // the node is the registration, and its `type` is the registered key. So
     // one run yields BOTH dispositions, which is what makes the split a
     // discrimination rather than an artifact of a one-shaped corpus.
-    expect(byDisposition).toEqual(['ruled:6771', 'unruled:item-carrier']);
+    expect(byDisposition).toEqual(['ruled:6771', ITEM_DISPOSITION]);
     const ruled = producers.find((p: { disposition: string }) => p.disposition === 'ruled:6771');
     expect(ruled.nodeType).toBe('tabs');
+
+    // ⚠️ THE HAZARD THE RENAME ITSELF INTRODUCES, pinned in the same act that
+    // introduces it. Both answers now begin `ruled:`, so a reader that bucketed
+    // on that prefix would fold the item carrier into objectui#6771's ruled
+    // total — the one arithmetic the ruling says must NOT weaken. The
+    // discriminator is the CARRIER and never the prefix; these rows hold the
+    // buckets at two while the prefix is one.
+    expect(dispositionOf('item').startsWith('ruled:')).toBe(true);
+    expect(new Set(byDisposition).size).toBe(2);
+    const item = producers.find((p: { disposition: string }) => p.disposition === ITEM_DISPOSITION);
+    expect(item.carrier).toBe('item');
+    expect(ruled.carrier).toBe('node');
+  });
+
+  it('the ruling TRAVELS with the reading — cited where a reader MEETS the disposition', () => {
+    // ⭐ Where a reader meets it: the machine-readable limit that every run
+    // emits in both modes, and the note printed under the dispositions table.
+    // A citation only in the file header would be read by whoever was already
+    // reading the file, which is not who needs it.
+    const limit = (KNOWN_LIMITS as Array<{ id: string; what: string }>).find(
+      (l) => l.id === 'item-carrier-not-in-ruled-total',
+    );
+    expect(limit, 'the item limit is emitted under its ruled id').toBeTruthy();
+    expect(limit!.what).toContain('NOT a dialect');
+    expect(limit!.what).toContain('summon #25');
+    expect(limit!.what).toContain('letter C');
+
+    const c3 = (CRITERION as Array<{ id: string; what: string }>).find((c) => c.id === 'C3-carrier');
+    expect(c3!.what, 'C3 still described the item face as unruled').not.toContain('UNRULED');
+
+    // TEXT mode, which is the form a human reads. ⭐ Lit control FIRST and on
+    // the same output: this run reported an item-carried producer, so the note
+    // below is asserted over a reading that actually contains its subject — a
+    // note asserted over an empty table passes on a scan that found nothing.
+    const script = join(REPO_ROOT, 'scripts', 'body-dialect-producer-scan.mjs');
+    const root = plant({ 'packages/widget/src/tabs.tsx': BOTH_CARRIERS });
+    const out = spawnSync(process.execPath, [script, '--root', root], { encoding: 'utf8' });
+    expect(out.status).toBe(0);
+    expect(out.stdout, 'lit control — no item-carried producer in this reading').toContain(
+      `| item | — | default-props | ${ITEM_DISPOSITION} |`,
+    );
+    expect(out.stdout).toContain('⛔ NOT a dialect');
+    expect(out.stdout).toContain('summon #25');
+    expect(out.stdout).toContain('objectui#9941');
+    expect(out.stdout, 'step 4 landability must be stated as node-face-only').toMatch(
+      /node face only/i,
+    );
   });
 
   it('the item-array key set is DERIVED from the reader, not named here', () => {
@@ -425,7 +495,7 @@ describe('the criterion TRAVELS with the reading', () => {
     // reporting what made it a table: no flag suppresses any of the three.
     expect(payload.criterion.map((c) => c.id)).toContain('C2-resolution');
     expect(payload.notAProducer.map((c) => c.id)).toContain('declaration');
-    expect(payload.knownLimits.map((c) => c.id)).toContain('unruled-item-carrier');
+    expect(payload.knownLimits.map((c) => c.id)).toContain('item-carrier-not-in-ruled-total');
     expect(payload.readers.reads.length).toBeGreaterThan(0);
 
     const blind = run(['--root', join(REPO_ROOT, 'no-such-directory-9871'), '--json']);
@@ -637,10 +707,12 @@ describe('the LIVE tree, read through the criterion', () => {
     // ⭐ And the claim that outlives every one of them — ⚠️ CORRECTED, because
     // objectui#9871 wrote it as "while the table is non-empty, objectui#6771
     // step 4 is not landable" and that blanket does not survive measurement.
-    // This file files every surviving producer `unruled:item-carrier` and says
-    // in as many words that whether an item-carried `body` belongs to
-    // objectui#6771 is UNRULED — so using the same rows to block that card's
-    // step 4 reads the question back as an answer.
+    // This file files every surviving producer
+    // `ruled:not-a-dialect/item-schema-violation` — ⭐ RULED since the director
+    // seat's summon #25 class-1 item 2, letter C, on objectui#9871
+    // (2026-09-20): an item-carried `body` is ⛔ not objectui#6771's family and
+    // ⛔ not a dialect at all, so those rows were never that card's to block.
+    // objectui#6771 step 4's landability is judged ON THE NODE FACE ONLY.
     //
     // Probed rather than reasoned, both legs, against the built parser: the
     // tier refuses `body` inside `Object.entries(node)` on a node whose `type`

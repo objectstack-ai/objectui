@@ -1466,6 +1466,9 @@ const pt = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Voltar ao início",
+    },
     saveAdvisoryTitle: "Salvo — a verificação de criação gerou {{count}} recomendação(ões)",
     publishAdvisoryTitle: "Publicado — a verificação de criação gerou {{count}} recomendação(ões)",
     importMappingsUnavailable: "Não foi possível carregar os mapeamentos de importação salvos de {{object}}",

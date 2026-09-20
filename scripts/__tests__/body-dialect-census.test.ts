@@ -489,31 +489,39 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     expect(completion).not.toContain('"body": {');
     expect(completion).toContain('"children": {');
 
-    // ⚠️ And the family question stays OPEN in the instrument rather than being
-    // settled by it: an item-carried `body` is filed `unruled` and is never
-    // folded into objectui#6771's ruled total. objectui#9871 handed that
-    // question back rather than extending a ruled family from a dev seat.
+    // ⭐ And the family question is RULED — it no longer stays open in the
+    // instrument, and ⛔ nothing here awaits a seat. Director seat, summon #25
+    // class-1 item 2, LETTER C, on objectui#9871 (2026-09-20): an item-carried
+    // `body` is ⛔ not inside objectui#6771's ruled family and ⛔ not a second
+    // family — it is a producer violating the ITEM'S OWN published schema
+    // (`TabItemSchema` declares `content` and declares no `body`), fixed at the
+    // producer (done: objectui#9941). ⚠️ What did ⛔ NOT change is the
+    // arithmetic: such a site is still never folded into objectui#6771's ruled
+    // total, and objectui#6771 step 4's landability is judged on the NODE FACE
+    // ONLY.
     //
     // ⭐ AND THE CLAIM IN THIS TEST'S NAME, restated in the terms BOTH
     // instruments now agree on — which is the other half of what this merge
-    // found. What still ships the spelling is the `tabs` ITEM, and that is a
+    // found. What used to ship the spelling was the `tabs` ITEM, and that is a
     // DIFFERENT KEY from the one step 4 refuses (measured above the scan call,
     // both legs). objectui#9871 reaches the same disposition from its own side
-    // and files those sites `unruled:item-carrier` — ⛔ not objectui#6771's ruled
-    // family. ⇒ the consumer-side retirement and the producer-side scan do not
-    // contradict each other on the substance; they disagreed on ONE liveness
-    // assertion, B2's, and that is re-pointed above rather than deleted.
+    // and files those sites `ruled:not-a-dialect/item-schema-violation` — ⛔ not
+    // objectui#6771's ruled family. ⇒ the consumer-side retirement and the
+    // producer-side scan do not contradict each other on the substance; they
+    // disagreed on ONE liveness assertion, B2's, and that is re-pointed above
+    // rather than deleted.
     // ⇒ step 4 refuses nothing the platform still ships, which is exactly what
-    // step 5's ordering rule asks, and the item-level dialect is objectui#9590's
-    // card, ⛔ neither refused nor migrated here. ⚠️ That card's BODY names only
-    // `list`'s `items[].body`; `tabs` items and the `dashboard` widget key are
-    // recorded on it by comment 5733850974, so this pointer resolves to a record
-    // that actually carries the two shapes named here.
+    // step 5's ordering rule asks. The item-face sites themselves are recorded
+    // on objectui#9590, ⛔ neither refused nor migrated here — ⛔ and, under the
+    // ruling above, ⛔ not as a dialect. ⚠️ That card's BODY names only `list`'s
+    // `items[].body`; `tabs` items and the `dashboard` widget key are recorded
+    // on it by comment 5733850974, so this pointer resolves to a record that
+    // actually carries the two shapes named here.
     // ⚠️ VACUOUS SINCE objectui#9941 — the item-carried set is EMPTY, so this
     // loop body never runs and asserts nothing. Kept, ⛔ not deleted: it is the
     // disposition claim that fires the moment an item-carried producer returns.
     for (const hit of producers.filter((h: { carrier: string }) => h.carrier === 'item')) {
-      expect(hit.disposition).toBe('unruled:item-carrier');
+      expect(hit.disposition).toBe('ruled:not-a-dialect/item-schema-violation');
     }
     // ⏱ Explicit, because this block runs TWO tree-wide instruments (the census
     // over 7,855 files and the producer scan over 5,136) and the default 15s is

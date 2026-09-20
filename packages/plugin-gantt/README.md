@@ -53,13 +53,15 @@ When used through `ObjectGantt` (the wiring the framework uses for the
 
   The destination route is **not** authorable here — `useNavigationOverlay`
   builds no URL out of this config, so page mode hands the record to the
-  host's `onNavigate` / `onRowClick` and the host owns where it lands. To
-  choose *which* detail view opens, use the declared `view` member (a
-  form-view name, e.g. `"summary_view"`). `navigation` is the spec's
-  `NavigationConfig`, and its schema refuses any key it does not declare: an
-  undeclared key rejects the whole config, so the `mode` beside it never
-  takes effect either. `@objectstack/spec`'s `NavigationConfigSchema` owns the
-  member list.
+  host's `onNavigate` / `onRowClick` and the host owns where it lands. *Which*
+  detail layout opens is not authorable here either: assign a `record` page to
+  the object and let `isDefault` pick the one that opens. Page assignment is
+  what resolves a detail layout; this block only decides **how** that detail
+  is surfaced (`mode`, `size`) — `@object-ui/react`'s `useNavigationOverlay`
+  docblock owns that account. `navigation` is the spec's `NavigationConfig`,
+  and its schema refuses any key it does not declare: an undeclared key
+  rejects the whole config, so the `mode` beside it never takes effect either.
+  `@objectstack/spec`'s `NavigationConfigSchema` owns the member list.
 
 
 ### Drag-and-drop rescheduling

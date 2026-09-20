@@ -51,6 +51,17 @@
  * through `onOpaqueShape`. That is the whole limit list, not a sample of it,
  * and the pin file re-derives it rather than quoting this sentence.
  *
+ * The reporter's contract is wider than that list, and the difference is the
+ * follow-up the director owed this card: EVERY shape the walker meets and does
+ * not close is reported. The first round's `default:` arm treated whatever it
+ * had no arm for as a leaf, so `set`, `map`, `prefault` and `promise` — each a
+ * wrapper carrying a schema — were handed back in silence with the object
+ * inside them still open and nothing reported. Those four are walked now. What
+ * still falls through is reported under its own def type rather than swallowed;
+ * on zod 4.4.3 the only schema-bearing kind that does is `success`, which
+ * parses its inner schema into a boolean and can never refuse, so reporting it
+ * is the truth and walking it would move an output value while closing nothing.
+ *
  * One further limit is worth naming because it is invisible in the shape: a
  * check installed with `.superRefine()` is a CLOSURE, and a closure that
  * consults another schema keeps consulting the TOLERANT one. The live instance
@@ -82,7 +93,7 @@ import { SchemaNodeSchema } from './zod/base.zod.js';
 // recursion-point fill is installed. The pin file asserts that end state from
 // the published barrel rather than trusting this paragraph.
 import { AnyComponentSchema } from './zod/index.zod.js';
-import { carryRegistryMeta, cloneWithDef, internals, isZodType } from './zod/node-derivation.js';
+import { carryRegistryMeta, cloneWithDef, internals, isZodType, type WalkableDef } from './zod/node-derivation.js';
 
 /**
  * One shape the strict walker could not close, reported as it is met.
@@ -91,7 +102,12 @@ import { carryRegistryMeta, cloneWithDef, internals, isZodType } from './zod/nod
  * root of the walk, so a consumer can say WHERE rather than only how many.
  */
 export interface StrictAuthoringLimit {
-  /** The zod def type that has no shape to close: `custom`, `function` or `transform`. */
+  /**
+   * The zod def type that has no shape to close — `custom`, `function` or
+   * `transform` — or, for a schema-bearing wrapper the walker has no arm for,
+   * that wrapper's own def type (reported rather than swallowed; see the
+   * `default:` arm).
+   */
   kind: string;
   /** Trail from the walk root, e.g. `#/options/8/shape/props`. */
   path: string;
@@ -133,6 +149,20 @@ export interface DeriveStrictAuthoringOptions {
  * rebuilds unconditionally, because "strict" is a property every node must
  * acquire). Only the three primitives above are common, and only they moved.
  */
+
+/**
+ * The def members through which a node can hold another schema — the union of
+ * what the arms above read. A def carrying none of them is a leaf; one carrying
+ * any of them and reaching the `default:` arm is an unclosed shape to report.
+ * `getter` is absent on purpose: `lazy` is resolved before the switch.
+ */
+const SCHEMA_BEARING_MEMBERS = [
+  'shape', 'options', 'items', 'element', 'rest',
+  'valueType', 'keyType', 'left', 'right', 'in', 'out', 'innerType',
+] as const satisfies readonly (keyof WalkableDef)[];
+
+const carriesSchema = (def: WalkableDef): boolean =>
+  SCHEMA_BEARING_MEMBERS.some((member) => def[member] != null);
 
 /**
  * A walker with ONE memo. Two schemas derived through the same walker share
@@ -203,6 +233,20 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
       case 'record':
         out = cloneWithDef(schema, { valueType: walk(def.valueType!, `${path}/valueType`) });
         break;
+      // A `set` keeps its element under `valueType`, exactly like `record`; a
+      // `map` keeps BOTH a key schema and a value schema, and a key can be an
+      // object as easily as a value can. These two, with `prefault` and
+      // `promise` below, are the wrappers the first round's `default:` arm
+      // swallowed — inner object open, nothing reported.
+      case 'set':
+        out = cloneWithDef(schema, { valueType: walk(def.valueType!, `${path}/valueType`) });
+        break;
+      case 'map':
+        out = cloneWithDef(schema, {
+          keyType: walk(def.keyType!, `${path}/keyType`),
+          valueType: walk(def.valueType!, `${path}/valueType`),
+        });
+        break;
       case 'intersection':
         out = cloneWithDef(schema, {
           left: walk(def.left!, `${path}/left`),
@@ -237,9 +281,11 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
       case 'optional':
       case 'nullable':
       case 'default':
+      case 'prefault':
       case 'nonoptional':
       case 'readonly':
       case 'catch':
+      case 'promise':
         out = cloneWithDef(schema, { innerType: walk(def.innerType!, `${path}/innerType`) });
         break;
       case 'custom':
@@ -250,8 +296,17 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
         out = schema;
         break;
       default:
-        // Leaves: string, number, boolean, literal, enum, any, unknown, never,
-        // date, … — nothing to close and nothing to walk into.
+        // Leaves — string, number, boolean, literal, enum, any, unknown, never,
+        // date, … — have nothing to close and nothing to walk into. ⚠️ But a
+        // wrapper this switch has NO ARM FOR is not a leaf: it carries a schema
+        // the walk never reached, i.e. an unclosed shape, and the reporter's
+        // contract is that every unclosed shape the walker meets is reported.
+        // So it is reported under its own def type rather than handed back in
+        // silence, which is how `set` / `map` / `prefault` / `promise` slipped
+        // through the first round with their inner objects open. The pin file
+        // holds `success` — the one schema-bearing kind zod 4.4.3 still routes
+        // here — as the live instance, and a row of leaves as the control.
+        if (carriesSchema(def)) options.onOpaqueShape?.({ kind: def.type, path });
         out = schema;
     }
     memo.set(schema, out);
@@ -265,9 +320,10 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
  * Derive the strict authoring twin of any schema on the published zod face.
  *
  * Every reachable object gains `catchall: z.never()`, reached through unions,
- * discriminated unions, arrays, tuples, records, intersections, optionals,
- * nullables, defaults, pipes and `z.lazy` (memoised, so the self-referential
- * node face terminates). The returned schema has the same TypeScript type as
+ * discriminated unions, arrays, tuples, records, sets, maps, intersections,
+ * optionals, nullables, defaults, prefaults, promises, pipes and `z.lazy`
+ * (memoised, so the self-referential node face terminates). A schema-bearing
+ * wrapper with no arm here is reported through `onOpaqueShape`, never skipped. The returned schema has the same TypeScript type as
  * the input and shares no mutable state with it — the input is left exactly as
  * it was, which is what keeps the rendering face untouched.
  *

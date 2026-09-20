@@ -577,6 +577,21 @@ const ar = {
     newEvent: "حدث جديد",
     moreEvents: "+{{count}} المزيد",
     unscheduled: "غير مجدولة ({{count}})",
+    a11y: {
+      region: "التقويم",
+      grid: "شبكة التقويم",
+      goToToday: "الانتقال إلى اليوم",
+      previousPeriod: "الفترة السابقة",
+      nextPeriod: "الفترة التالية",
+      currentDate: "التاريخ الحالي: {{date}}",
+      dayCell: "{{date}}، عدد الأحداث: {{count}}",
+      dayCell_one: "{{date}}، {{count}} حدث",
+      dayCell_other: "{{date}}، عدد الأحداث: {{count}}",
+      resizeEventEnd: "تغيير نهاية الحدث",
+      resizeEventEndHint: "اسحب لتغيير تاريخ الانتهاء",
+      resizeStart: "تغيير وقت البدء",
+      resizeEnd: "تغيير وقت الانتهاء",
+    },
   },
   list: {
     firstRunTitle: "لا يوجد شيء هنا بعد",
@@ -1474,6 +1489,9 @@ const ar = {
     },
   },
   console: {
+    studio: {
+      backToHome: "العودة إلى الرئيسية",
+    },
     saveAdvisoryTitle: "تم الحفظ — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
     publishAdvisoryTitle: "تم النشر — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
     importMappingsUnavailable: "تعذّر تحميل تعيينات الاستيراد المحفوظة لـ {{object}}",

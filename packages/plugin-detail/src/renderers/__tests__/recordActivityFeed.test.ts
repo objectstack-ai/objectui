@@ -428,6 +428,13 @@ describe('input normalisation reads its vocabulary from the spec', () => {
   });
 
   it('coerces `limit` to a positive integer, defaulting to the spec default', () => {
+    // ⚠️ These four refused values are NOT this resolver's coverage, and reading
+    // them as such is how objectui#10096 survived: `0`, `-3`, `undefined` and
+    // `'lots'` all answer the default whether the resolver REFUSES a
+    // non-integer or FLOORS one, so as a set they cannot tell the two apart.
+    // The cases that discriminate live in
+    // `recordActivityFeed.rowLimitRefusal-10096.test.tsx`; keep them there
+    // rather than assuming this list grew to cover them.
     expect(normalizeLimit(5)).toBe(5);
     expect(normalizeLimit('5')).toBe(5);
     expect(normalizeLimit(0)).toBe(DEFAULT_ACTIVITY_LIMIT);

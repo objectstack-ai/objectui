@@ -577,6 +577,21 @@ const es = {
     newEvent: "Nuevo evento",
     moreEvents: "+{{count}} más",
     unscheduled: "Sin programar ({{count}})",
+    a11y: {
+      region: "Calendario",
+      grid: "Cuadrícula del calendario",
+      goToToday: "Ir a hoy",
+      previousPeriod: "Período anterior",
+      nextPeriod: "Período siguiente",
+      currentDate: "Fecha actual: {{date}}",
+      dayCell: "{{date}}, {{count}} eventos",
+      dayCell_one: "{{date}}, {{count}} evento",
+      dayCell_other: "{{date}}, {{count}} eventos",
+      resizeEventEnd: "Cambiar el fin del evento",
+      resizeEventEndHint: "Arrastra para cambiar la fecha de fin",
+      resizeStart: "Cambiar el inicio",
+      resizeEnd: "Cambiar el fin",
+    },
   },
   list: {
     firstRunTitle: "Aquí todavía no hay nada",
@@ -1471,6 +1486,9 @@ const es = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Volver al inicio",
+    },
     saveAdvisoryTitle: "Guardado: la comprobación de creación generó {{count}} recomendación(es)",
     publishAdvisoryTitle: "Publicado: la comprobación de creación generó {{count}} recomendación(es)",
     importMappingsUnavailable: "No se pudieron cargar las asignaciones de importación guardadas de {{object}}",

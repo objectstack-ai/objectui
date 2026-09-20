@@ -278,9 +278,12 @@ export interface DetailSchema extends BaseSchema {
    */
   api?: string;
   /**
-   * Resource ID to display
+   * Resource ID to display. A record id is a `string` on every
+   * boundary (objectui#9511) — a numeric primary key is converted at the
+   * adapter's own boundary, so an authored `42` is refused with `'42'`
+   * prescribed.
    */
-  resourceId?: string | number;
+  resourceId?: string;
   /**
    * Field groups for organized display
    */

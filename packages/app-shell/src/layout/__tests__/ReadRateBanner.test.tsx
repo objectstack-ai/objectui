@@ -112,6 +112,10 @@ describe('ReadRateBanner', () => {
     const noWrites = render(<ReadRateBanner />);
     const noWritesText = noWrites.container.textContent ?? '';
 
+    // Asserted before the comparison: an empty render would satisfy "different
+    // from the ratio copy" while proving nothing — and a hidden no-writes banner
+    // is the exact defect this case exists to catch.
+    expect(noWrites.getByTestId('read-rate-banner')).toBeInTheDocument();
     expect(noWritesText).not.toBe(ratioText);
     expect(ratioText).toMatch(/rows for every row written/i);
     expect(noWritesText).not.toMatch(/rows for every row written/i);

@@ -39,9 +39,23 @@ describe('resolveRowCrudAffordances', () => {
       .toEqual({ canEdit: false, canDelete: false });
   });
 
-  it('honors explicit rowActions (edit/delete strings) when callbacks exist', () => {
+  // [objectui#9819] `operations` is the CEILING over `rowActions`, by the
+  // maintainer ruling of 2026-09-18 (batch #162 item 1, letter A). These two
+  // cases replace one that asserted the opposite — that the canonical
+  // `rowActions` names opened both entries on their own, with `operations`
+  // contributing nothing. The gate is now an intersection like every layer
+  // around it, and an `operations` member the authored block does not name is
+  // not an allowance.
+  it('an explicit rowActions selection alone can no longer OPEN either entry', () => {
     expect(rowGate({ wantEditAction: true, wantDeleteAction: true, hasOnEdit: true, hasOnDelete: true }))
-      .toEqual({ canEdit: true, canDelete: true });
+      .toEqual({ canEdit: false, canDelete: false });
+  });
+
+  it('…and an explicit `operations.update: false` beats the selection outright, per member', () => {
+    expect(rowGate({ ...wired, operationsUpdate: false, wantEditAction: true }))
+      .toEqual({ canEdit: false, canDelete: true });
+    expect(rowGate({ ...wired, operationsDelete: false, wantDeleteAction: true }))
+      .toEqual({ canEdit: true, canDelete: false });
   });
 
   describe('#2614 object form (per-record CEL predicates)', () => {

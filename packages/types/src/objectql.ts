@@ -1345,9 +1345,12 @@ export interface ObjectFormSchema extends BaseSchema {
   mode: 'create' | 'edit' | 'view';
   
   /**
-   * Record ID (required for edit/view modes)
+   * Record ID (required for edit/view modes). A record id is a `string` on every
+   * boundary (objectui#9511) — a numeric primary key is converted at the
+   * adapter's own boundary, so an authored `42` is refused with `'42'`
+   * prescribed.
    */
-  recordId?: string | number;
+  recordId?: string;
   
   /**
    * Optional title for the form

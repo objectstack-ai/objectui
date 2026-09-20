@@ -268,8 +268,15 @@ function lazyIconComponent(recordKey: string, kebab: string): LucideIcon {
       // better answer than a thrown render.
       if (!load) return undefined;
       void load()
-        .then((module: { __iconNode?: IconNode }) => {
-          const node = module.__iconNode;
+        .then((module: { __iconNode?: IconNode; __iconData?: { node?: IconNode } }) => {
+          // lucide moved the path data between these two exports: an icon
+          // module used to expose `__iconNode` directly and now wraps it in
+          // `__iconData` alongside `name`, `size` and `aliases`. Both are read
+          // because the failure mode of reading only one is invisible — the
+          // placeholder `<svg>` below is already mounted with the right classes
+          // and the right box, so a glyph that never arrives looks exactly like
+          // one that has not arrived YET. Nothing throws and nothing logs.
+          const node = module.__iconData?.node ?? module.__iconNode;
           if (!node) return;
           loadedIconNodes.set(kebab, node);
           if (live) setIconNode(node);

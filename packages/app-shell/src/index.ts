@@ -74,7 +74,6 @@ export {
   RequireOrganization,
   RequireAiSurface,
   AuthenticatedRoute,
-  RootRedirect,
   SystemRedirect,
   // objectui#2794 — the stable `/setup` deep link into platform administration,
   // plus the pure policy behind it and the identifiers it resolves by.

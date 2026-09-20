@@ -260,6 +260,9 @@ const ko = {
       selectBusinessUnit: "사업 단위 선택",
       selectPosition: "직위 선택",
       selectUnitAndSubordinates: "사업 단위 선택",
+      selectField: "사용자 필드 선택",
+      noUserFields: "이 객체에는 사용자 필드가 없습니다",
+      fieldNotUserTyped: "{{name}} — 사용자 필드가 아닙니다",
     },
     filterCondition: {
       selectObjectFirst: "먼저 객체를 선택하세요.",

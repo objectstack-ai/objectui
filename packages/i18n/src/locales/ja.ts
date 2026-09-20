@@ -260,6 +260,9 @@ const ja = {
       selectBusinessUnit: "事業単位を選択",
       selectPosition: "役職を選択",
       selectUnitAndSubordinates: "事業単位を選択",
+      selectField: "ユーザーフィールドを選択",
+      noUserFields: "このオブジェクトにユーザーフィールドはありません",
+      fieldNotUserTyped: "{{name}} — ユーザーフィールドではありません",
     },
     filterCondition: {
       selectObjectFirst: "先にオブジェクトを選択してください。",

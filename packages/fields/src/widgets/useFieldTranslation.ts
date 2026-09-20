@@ -75,6 +75,17 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'fields.recipient.selectBusinessUnit': 'Select a business unit',
   'fields.recipient.selectPosition': 'Select a position',
   'fields.recipient.selectUnitAndSubordinates': 'Select a business unit',
+  // objectui#7613 — the `field` recipient kind (maintainer ruling
+  // objectstack#14103, executor objectstack#15072). It picks a user-valued
+  // COLUMN of the shared object rather than a record, so its three sentences
+  // are about columns and none of the per-type placeholders above fits.
+  // `noUserFields` exists rather than reusing `fields.recipient.empty`
+  // ("No matches") because an empty list here is not a failed search: it is
+  // the object having no column the evaluator could read as users, and an
+  // admin who is not told that has no way to act on it.
+  'fields.recipient.selectField': 'Select a user field',
+  'fields.recipient.noUserFields': 'No user fields on this object',
+  'fields.recipient.fieldNotUserTyped': '{{name}} — not a user field',
   'fields.filterCondition.selectObjectFirst': 'Select an object first.',
   // objectstack#3896 — this used to be 'All records'. An empty criteria never
   // meant "share everything"; it meant the predicate was missing, and the

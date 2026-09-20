@@ -296,6 +296,9 @@ const en = {
       selectBusinessUnit: 'Select a business unit',
       selectPosition: 'Select a position',
       selectUnitAndSubordinates: 'Select a business unit',
+      selectField: 'Select a user field',
+      noUserFields: 'No user fields on this object',
+      fieldNotUserTyped: '{{name}} — not a user field',
     },
     filterCondition: {
       selectObjectFirst: 'Select an object first.',

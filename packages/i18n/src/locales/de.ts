@@ -260,6 +260,9 @@ const de = {
       selectBusinessUnit: "Geschäftseinheit auswählen",
       selectPosition: "Position auswählen",
       selectUnitAndSubordinates: "Geschäftseinheit auswählen",
+      selectField: "Benutzerfeld auswählen",
+      noUserFields: "Dieses Objekt hat keine Benutzerfelder",
+      fieldNotUserTyped: "{{name}} — kein Benutzerfeld",
     },
     filterCondition: {
       selectObjectFirst: "Wählen Sie zuerst ein Objekt.",

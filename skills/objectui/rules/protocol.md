@@ -251,24 +251,28 @@ last row — the host resolves the array and puts it on the node — for the rea
 given under "Rule: Keys Live on the Node": the third row works today, but its
 channel is objectui#4795's open question, not a taught surface.
 
-## Rule: Action Event Structure
+## Rule: Actions Are Node Types, Not An Event Bag
 
-Events must be defined as arrays of action definitions:
+A control that RUNS something MUST be its own node — `action:button` — with
+`actionType` naming the executor the action runner dispatches to and the node's
+own keys carrying that executor's arguments:
 
 <!-- os:check -->
 ```json
 {
-  "events": {
-    "onClick": [
-      { "action": "validate", "target": "form_1" },
-      { "action": "submit", "target": "form_1" },
-      { "action": "navigate", "params": { "url": "/success" } }
-    ]
-  }
+  "type": "action:button",
+  "label": "Submit",
+  "actionType": "url",
+  "target": "/success"
 }
 ```
 
-**❌ DO NOT** use function references or inline callbacks in JSON schemas.
+**❌ DO NOT** use function references or inline callbacks in JSON schemas, and
+**❌ DO NOT** author an `events` bag. `BaseSchema` declares no `events` member and no
+renderer reads `schema.events`; "Rule: Component Schema Structure" above lists it
+only because the node accepts any key — `.passthrough()` keeps such a node, judges
+it by nothing and runs it by nothing (objectui#6497). `ButtonSchema.onClick` is a
+runtime slot for a host-supplied function and is refused by name for the same reason.
 
 ## Rule: Action Params Use Field Types (Shared Widget Renderer)
 

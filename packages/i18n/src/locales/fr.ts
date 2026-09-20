@@ -573,6 +573,21 @@ const fr = {
     newEvent: "Nouvel événement",
     moreEvents: "+{{count}} de plus",
     unscheduled: "Non planifié ({{count}})",
+    a11y: {
+      region: "Calendrier",
+      grid: "Grille du calendrier",
+      goToToday: "Aller à aujourd'hui",
+      previousPeriod: "Période précédente",
+      nextPeriod: "Période suivante",
+      currentDate: "Date actuelle : {{date}}",
+      dayCell: "{{date}}, {{count}} événements",
+      dayCell_one: "{{date}}, {{count}} événement",
+      dayCell_other: "{{date}}, {{count}} événements",
+      resizeEventEnd: "Modifier la fin de l'événement",
+      resizeEventEndHint: "Faites glisser pour modifier la date de fin",
+      resizeStart: "Modifier le début",
+      resizeEnd: "Modifier la fin",
+    },
   },
   list: {
     firstRunTitle: "Rien pour l'instant",
@@ -1469,6 +1484,9 @@ const fr = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Retour à l'accueil",
+    },
     saveAdvisoryTitle: "Enregistré — le contrôle de création a signalé {{count}} recommandation(s)",
     publishAdvisoryTitle: "Publié — le contrôle de création a signalé {{count}} recommandation(s)",
     importMappingsUnavailable: "Impossible de charger les mappages d’import enregistrés pour {{object}}",

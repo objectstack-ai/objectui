@@ -723,6 +723,28 @@ export interface ActionParamDef {
   lookupPageSize?: number;
   /** Form-field dependencies that gate / parameterise the picker query. */
   dependsOn?: unknown[];
+
+  // ── Resolution failure ────────────────────────────────────────────
+  /**
+   * Set by `resolveActionParams()` when a FIELD-BACKED param (`{ field }`)
+   * named a field that is not in the object metadata the resolver was given,
+   * carrying `<object>.<field>` — the pair that could not be resolved.
+   *
+   * It exists because the alternative is a SILENT one. Without it the resolver
+   * hands back `type: param.type ?? 'text'`, and every downstream reader of the
+   * degradation is blind to it: the param is a `text` param by then, so
+   * `paramDegradesWithoutTarget()` answers false, `paramToField()` emits no
+   * "no reference target" warning, and the #3405 "paste a record id" hints do
+   * not apply either. A lookup param that should have rendered a record picker
+   * renders an unannotated empty box instead — no options, no dropdown, and no
+   * request for the referenced object on the wire, because no picker was ever
+   * built (objectui#10129).
+   *
+   * ⛔ It is not a widget config key and `paramToField()` deliberately does not
+   * map it: the whole point is that the param's type is UNKNOWN, so there is no
+   * widget to configure. `ActionParamDialog` reads it and refuses.
+   */
+  unresolvedField?: string;
 }
 
 /**

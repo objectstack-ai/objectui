@@ -2565,6 +2565,7 @@ const de = {
     description: "Bitte geben Sie die erforderlichen Informationen ein, um fortzufahren.",
     selectPlaceholder: "{{label}} auswählen",
     requiredError: "{{label}} ist erforderlich",
+    unresolvedParam: 'Dieser Parameter kann nicht angezeigt werden: Das zugrunde liegende Feld fehlt in den Objektmetadaten, daher lässt sich das benötigte Steuerelement nicht erzeugen. Bitten Sie eine Administratorin oder einen Administrator, die Aktionsdefinition zu korrigieren.',
     cancel: "Abbrechen",
     confirm: "Bestätigen",
     uploading: "Wird hochgeladen…",

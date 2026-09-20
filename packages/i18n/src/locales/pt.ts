@@ -2564,6 +2564,7 @@ const pt = {
     description: "Insira as informações necessárias para continuar.",
     selectPlaceholder: "Selecionar {{label}}",
     requiredError: "{{label}} é obrigatório",
+    unresolvedParam: 'Não é possível exibir este parâmetro: o campo em que ele se baseia não está nos metadados do objeto, portanto o controle necessário não pode ser construído. Peça a um administrador para corrigir a definição da ação.',
     cancel: "Cancelar",
     confirm: "Confirmar",
     uploading: "Enviando…",

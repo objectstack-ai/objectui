@@ -1023,6 +1023,12 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // For month-cell click, `end` equals `start` and the dialog shows date-only.
   const [quickCreate, setQuickCreate] = useState<{ start: Date; end?: Date; title: string; submitting: boolean; error?: string } | null>(null);
 
+  // Read at render rather than inside the callback below: `tt` is a fresh
+  // closure on every render, so taking IT as a dependency would rebuild
+  // `submitQuickCreate` every time. A string is stable by value and moves only
+  // when the language does.
+  const titleRequiredMessage = tt('calendar.titleRequired', 'Title is required');
+
   const handleDateClickDefault = useCallback((day: Date) => {
     if (!calendarConfig || !schema.objectName || !dataSource?.create) return;
     setQuickCreate({ start: day, title: '', submitting: false });
@@ -1037,7 +1043,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     if (!quickCreate || !calendarConfig) return;
     const title = quickCreate.title.trim();
     if (!title) {
-      setQuickCreate(qc => qc ? { ...qc, error: 'Title is required' } : qc);
+      setQuickCreate(qc => qc ? { ...qc, error: titleRequiredMessage } : qc);
       return;
     }
     if (!schema.objectName || !dataSource?.create) return;
@@ -1100,13 +1106,13 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       setQuickCreate(qc => qc ? { ...qc, submitting: false, error: msg } : qc);
       console.error('[ObjectCalendar] Quick-create failed:', err);
     }
-  }, [quickCreate, calendarConfig, schema.objectName, dataSource, objectSchema]);
+  }, [quickCreate, calendarConfig, schema.objectName, dataSource, objectSchema, titleRequiredMessage]);
 
   if (loading) {
     return (
       <div className={className}>
         <div className="flex items-center justify-center h-96">
-          <div className="text-muted-foreground">Loading calendar...</div>
+          <div className="text-muted-foreground">{tt('calendar.loading', 'Loading calendar…')}</div>
         </div>
       </div>
     );
@@ -1116,7 +1122,16 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     return (
       <div className={className}>
         <div className="flex items-center justify-center h-96">
-          <div className="text-destructive">Error: {error.message}</div>
+          <div className="text-destructive">
+            {/* `t`, not `tt`: the prefix carries a hole, and `useSafeTranslate`
+                passes no options. The MESSAGE itself stays untranslated on
+                purpose — it is the thrower's own text, not this component's
+                copy. */}
+            {t('calendar.loadError', {
+              message: error.message,
+              defaultValue: 'Error: {{message}}',
+            })}
+          </div>
         </div>
       </div>
     );
@@ -1188,12 +1203,16 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
         <div className="flex items-center justify-center h-96">
           <div className="text-muted-foreground max-w-md text-center space-y-2">
             <p>
-              Calendar configuration required. Please specify startDateField, the calendar's one
-              required key; the event title resolves without titleField.
+              {tt(
+                'calendar.configRequired',
+                'Calendar configuration required. Please specify startDateField, the calendar\'s one required key; the event title resolves without titleField.',
+              )}
             </p>
             <p className="text-sm">
-              It belongs on the view's calendar block. An interface page has no calendar slot of
-              its own: point its sourceView at a view that declares one.
+              {tt(
+                'calendar.configRequiredHint',
+                'It belongs on the view\'s calendar block. An interface page has no calendar slot of its own: point its sourceView at a view that declares one.',
+              )}
             </p>
           </div>
         </div>
@@ -1221,9 +1240,12 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     const rec = navigation.selectedRecord as Record<string, any>;
     const recordId = rec.id ?? rec._id;
     if (!objectName || recordId == null) return null;
+    // ONE reading of the key for BOTH arms — the two spellings of this
+    // fallback used to be able to drift apart independently.
+    const eventDetailsTitle = tt('calendar.eventDetails', 'Event Details');
     const titleText = calendarConfig?.titleField
-      ? String(rec[calendarConfig.titleField] ?? 'Event Details')
-      : 'Event Details';
+      ? String(rec[calendarConfig.titleField] ?? eventDetailsTitle)
+      : eventDetailsTitle;
     return (
       <NavigationOverlay
         {...navigation}
@@ -1280,7 +1302,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           className="flex items-center justify-center text-xs text-muted-foreground"
           style={{ height: pullDistance }}
         >
-          {isRefreshing ? 'Refreshing…' : 'Pull to refresh'}
+          {isRefreshing
+            ? tt('calendar.refreshing', 'Refreshing…')
+            : tt('calendar.pullToRefresh', 'Pull to refresh')}
         </div>
       )}
       <div className="bg-background h-[calc(100vh-120px)] sm:h-[calc(100vh-160px)] md:h-[calc(100vh-200px)] min-h-[400px] sm:min-h-[600px]">
@@ -1388,7 +1412,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>New event</DialogTitle>
+            <DialogTitle>{tt('calendar.newEvent', 'New event')}</DialogTitle>
             <DialogDescription>
               {quickCreate && (() => {
                 const hasRange = quickCreate.end && quickCreate.end.getTime() !== quickCreate.start.getTime();
@@ -1397,12 +1421,12 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
                   const fmt = (d: Date) => d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
                   return <>{datePart} · {fmt(quickCreate.start)} – {fmt(quickCreate.end!)}</>;
                 }
-                return <>On {datePart}</>;
+                return <>{t('calendar.onDate', { date: datePart, defaultValue: 'On {{date}}' })}</>;
               })()}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="quick-create-title">Title</Label>
+            <Label htmlFor="quick-create-title">{tt('calendar.eventTitle', 'Title')}</Label>
             <Input
               id="quick-create-title"
               autoFocus
@@ -1414,7 +1438,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
                   void submitQuickCreate();
                 }
               }}
-              placeholder="What's this event about?"
+              placeholder={tt('calendar.eventTitlePlaceholder', "What's this event about?")}
               disabled={quickCreate?.submitting}
             />
             {quickCreate?.error && (
@@ -1427,13 +1451,15 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
               onClick={() => setQuickCreate(null)}
               disabled={quickCreate?.submitting}
             >
-              Cancel
+              {tt('common.cancel', 'Cancel')}
             </Button>
             <Button
               onClick={() => void submitQuickCreate()}
               disabled={quickCreate?.submitting || !quickCreate?.title.trim()}
             >
-              {quickCreate?.submitting ? 'Creating…' : 'Create'}
+              {quickCreate?.submitting
+                ? tt('calendar.creating', 'Creating…')
+                : tt('common.create', 'Create')}
             </Button>
           </DialogFooter>
         </DialogContent>

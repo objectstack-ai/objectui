@@ -228,8 +228,16 @@ const allDayOf = (el: Element) => readList(el, 'data-event-allday');
 const unscheduledLabel = () =>
   document.body.querySelector('[data-calendar-unscheduled]')?.textContent ?? null;
 
-/** The placeholder `ObjectCalendar` renders instead of everything else. */
-const LOADING_PLACEHOLDER = 'Loading calendar...';
+/**
+ * The placeholder `ObjectCalendar` renders instead of everything else.
+ *
+ * ⚠️ U+2026, not three ASCII full stops (objectui#10031). This sentence now
+ * comes from the `calendar.loading` pack value rather than from a literal in
+ * the component, and `ellipsis-glyph-3878.test.ts` holds every pack value to
+ * the typographic ellipsis — so the glyph moved when the string moved into the
+ * pack. The placeholder itself is unchanged in every other respect.
+ */
+const LOADING_PLACEHOLDER = 'Loading calendar…';
 
 describe('objectui#8314 — `object-calendar` reads records inside `data` and `staticData`', () => {
   it('draws every `data` member as an event, titled and identified from the keys the config names', async () => {

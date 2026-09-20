@@ -129,6 +129,7 @@ const MATRIX: Record<string, z.ZodType> = {
   nullable: z.nullable(leaf),
   default: leaf.default(1),
   prefault: leaf.prefault(1),
+  promise: z.promise(leaf),
   catch: leaf.catch(0),
   readonly: z.object({ a: leaf }).readonly(),
   nonoptional: z.optional(leaf).nonoptional(),

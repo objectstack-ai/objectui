@@ -8,11 +8,35 @@
 
 import type { ReportField } from '@object-ui/types';
 
+import { DISPLAY_LOCALE_LAST_RESORT, formatNumberInDisplayLocale } from './displayLocale';
+
 /**
  * Format a cell value based on the field definition.
  * Handles number (with thousand separators), currency, percent, and date formatting.
+ *
+ * `locale` is the BCP-47 DISPLAY tag the numeric branches below format in —
+ * in React, whatever `useDisplayLocale()` returned for the session. It is
+ * OPTIONAL, and that is a deliberate contract decision rather than convenience
+ * (objectui#10020): this function is a published export of
+ * `@object-ui/plugin-report`, so a REQUIRED third parameter would be a breaking
+ * change to a public signature. Optional is purely additive — everything that
+ * compiled before compiles after.
+ *
+ * ⚠️ The cost of that choice, named rather than hidden: an OPTIONAL locale
+ * leaves a leg that is still wrong when nobody passes one. Closing it is the
+ * caller's job, and inside this repo every caller does — `ReportViewer` is a
+ * component and resolves `useDisplayLocale()` itself at all three of its call
+ * sites, pinned in `__tests__/reportDisplayLocale-10020.test.tsx`. An OPTIONAL
+ * parameter nobody passes is the same defect with a longer signature.
+ *
+ * The default is {@link DISPLAY_LOCALE_LAST_RESORT} — the contract's own last
+ * resort, which is neither the `'en-US'` this card removed nor an absent tag.
  */
-export function formatValue(value: any, field?: ReportField): string {
+export function formatValue(
+  value: any,
+  field?: ReportField,
+  locale: string = DISPLAY_LOCALE_LAST_RESORT,
+): string {
   if (value == null || value === '') return '';
 
   const type = field?.type;
@@ -29,16 +53,16 @@ export function formatValue(value: any, field?: ReportField): string {
     if (isNaN(num)) return String(value);
 
     if (format === 'currency' || format === 'currency_cny') {
-      return `¥${num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+      return `¥${formatNumberInDisplayLocale(num, locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
     }
     if (format === 'currency_usd') {
-      return `$${num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+      return `$${formatNumberInDisplayLocale(num, locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
     }
     if (format === 'percent') {
-      return `${num.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+      return `${formatNumberInDisplayLocale(num, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
     }
     // Default: thousand-separated number
-    return num.toLocaleString('en-US');
+    return formatNumberInDisplayLocale(num, locale);
   }
 
   return String(value);

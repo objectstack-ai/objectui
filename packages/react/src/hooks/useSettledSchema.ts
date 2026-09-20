@@ -39,6 +39,33 @@ export interface SettledSchema<TDef = unknown> {
 }
 
 /**
+ * Is this refetch's answer the SAME answer, by value, as the one already
+ * published?
+ *
+ * Used for exactly one decision — whether a settle republishes or keeps the
+ * object consumers already hold — and its failure direction is chosen for
+ * that decision. A false NEGATIVE (two encodings of the same metadata that
+ * serialise differently, e.g. with the keys in another order) republishes,
+ * which is precisely what this hook did for every answer before
+ * objectui#10106: no consumer can be worse off than it already was. A false
+ * POSITIVE would withhold a genuinely new definition from consumers, so the
+ * comparison is deliberately a whole-payload one and never a sampled or
+ * shallow test.
+ *
+ * ⚠️ An answer JSON cannot express — a cycle, a `BigInt` — makes
+ * `JSON.stringify` throw; that is answered as "not equal" rather than allowed
+ * to escape into a state updater, which lands on the safe side above.
+ */
+function isEqualPayload(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resolves an object's schema/definition and tracks whether that resolution
  * has SETTLED for the object CURRENTLY being asked about — one piece of
  * state a caller cannot observe half of.
@@ -134,20 +161,53 @@ export function useSettledSchema<TDef = unknown>(
     let isMounted = true;
     const settleKey = key;
 
+    /**
+     * Settle THIS effect run's resolution — and, when the answer is one
+     * consumers already hold, settle it as the object they already hold.
+     *
+     * This is the PRODUCER half of `AGENTS.md` §5 commandment #10: *"a
+     * provider that refetches may not republish an equal payload as a new
+     * object, and a consumer that needs stability keys on the data, not on a
+     * cache"*. This hook refetches whenever the adapter identity changes, and
+     * the consumers its own `@example` instructs do exactly what the other
+     * half of that sentence asks — they key their record fetch on `def`, the
+     * payload, never on a memo identity. So a fresh object for an unchanged
+     * answer is not a wasted allocation; it is a DUPLICATE RECORD QUERY at
+     * every one of them, carrying the same expand set as the one before it.
+     * Pinned with its control in
+     * `useSettledSchema.equalPayload-10106.test.tsx` (objectui#10106).
+     *
+     * ⛔ The cure may NOT be moved to the consumer — the same sentence names
+     * keying on a cache as the wrong one, and a consumer that stopped keying
+     * on `def` would also stop re-querying when the definition genuinely
+     * changes, which the control case in that pin holds open.
+     *
+     * Bailing out is only ever safe for the SAME key: `resolution` is one
+     * piece of state whose `key` decides `ready`, so a settle for a different
+     * key must always publish (see the hook doc comment above).
+     */
+    const settle = (settledDef: TDef | null) => {
+      setResolution((prev) =>
+        prev && prev.key === settleKey && isEqualPayload(prev.def, settledDef)
+          ? prev
+          : { key: settleKey, def: settledDef },
+      );
+    };
+
     const resolve = async () => {
       if (!dataSource || !settleKey || typeof dataSource.getObjectSchema !== 'function') {
         // No source for a definition: settle with none, so anything gated on
         // `ready` still runs (unexpanded — with no schema there is no expand
         // set to derive).
-        if (isMounted) setResolution({ key: settleKey, def: null });
+        if (isMounted) settle(null);
         return;
       }
       try {
         const def = await dataSource.getObjectSchema(settleKey);
-        if (isMounted) setResolution({ key: settleKey, def: def as TDef });
+        if (isMounted) settle(def as TDef);
       } catch (err) {
         console.error('[useSettledSchema] getObjectSchema failed for', settleKey, err);
-        if (isMounted) setResolution({ key: settleKey, def: null });
+        if (isMounted) settle(null);
       }
     };
 

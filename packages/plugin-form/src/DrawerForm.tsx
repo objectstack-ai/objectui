@@ -49,6 +49,7 @@ import {
 } from './autoLayout';
 import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
 import { sanitizeFormData } from './sanitize';
+import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
@@ -194,7 +195,24 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   className,
 }) => {
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
-  const { userId: currentUserId } = usePermissions();
+  const perms = usePermissions();
+  const { userId: currentUserId } = perms;
+  /**
+   * FLS gate: drop non-readable fields, render non-editable ones read-only.
+   * The drawer is the third container of this family and used to carry NEITHER
+   * half of it — the same edit that the modal and the simple form refused to
+   * send, this one sent, and the field the other two rendered disabled this one
+   * rendered as a live input (objectui#10120). One pass, shared.
+   */
+  const applyFieldPerms = useCallback(
+    (fields: FormField[]): FormField[] =>
+      applyFieldPermissions(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+      }) as FormField[],
+    [perms, schema.objectName, schema.mode],
+  );
   const { t } = useDiscardTranslation();
   const previewMode = usePreviewMode();
   const [objectSchema, setObjectSchema] = useState<any>(null);
@@ -407,7 +425,12 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       }
 
       let result;
-      const payload = sanitizeFormData(data, objectSchema);
+      // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
+      // retains state for unmounted/disabled fields, so the render gate above
+      // is not enough on its own (objectui#10120).
+      const payload = sanitizeFormData(data, objectSchema, {
+        canEdit: fieldWriteGate(perms, schema.objectName),
+      });
       // Omit the fields the producer owns (#4069) — see
       // `omitServerResolvedDefaults` for why an empty key is not the same as
       // no key at insert time. Create only: on an edit form a cleared column is
@@ -458,7 +481,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [schema, dataSource, objectSchema, saveWithOcc, formData]);
+  }, [schema, dataSource, objectSchema, saveWithOcc, formData, perms]);
 
   // Actually close the drawer, firing onCancel only when the close originated
   // from the explicit Cancel button.
@@ -579,7 +602,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         const isCollapsed = collapsedSections[sectionKey] ?? (section.collapsed ?? false);
         // Resolved before the divider push so the membership claim below can
         // name exactly the fields this group contributes (#6236).
-        const sectionFields = buildSectionFields(section);
+        const sectionFields = applyFieldPerms(buildSectionFields(section));
 
         // The ONE path from a section configuration to its divider row
         // (objectui#9849) — `projectSectionDivider` owns every key this row
@@ -644,7 +667,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       const columns = (Number(derivedSections[0]?.columns) || 1) as 1 | 2 | 3 | 4;
       const allFields: FormField[] = [];
       derivedSections.forEach((section, index) => {
-        const body = buildSectionFields(section);
+        const body = applyFieldPerms(buildSectionFields(section));
         if (!body.length) return;
         const sectionKey = section.name || String(index);
         // Only a section that declares itself collapsible can hide its fields —
@@ -701,7 +724,9 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     }
 
     // Apply auto-layout for flat fields (infer columns + colSpan)
-    const autoLayoutResult = applyAutoLayout(formFields, objectSchema, schema.columns, schema.mode);
+    const autoLayoutResult = applyAutoLayout(
+      applyFieldPerms(formFields), objectSchema, schema.columns, schema.mode,
+    );
 
     // Flat fields layout — use container-query grid classes so the form
     // responds to the drawer width, not the viewport width.

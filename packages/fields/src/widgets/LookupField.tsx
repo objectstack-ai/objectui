@@ -1181,6 +1181,22 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     </Button>
   );
 
+  /**
+   * Whether the selected-value chips offer their remove control.
+   *
+   * `readonly` already returned a display-only rendering far above, so the case
+   * this answers is the DISABLED one — and it is not a rare one: a field the
+   * object declares `readonly` arrives here as `disabled` (the form's section
+   * builder folds `field.readonly` into `disabled`), and so does a field the
+   * caller's field-level security marks `editable: false`. Both disabled the
+   * picker trigger and the browse button while leaving the chip's ✕ live, so
+   * the one control that could still CHANGE the value was the one control the
+   * gate had missed — a reporter could clear a master-detail parent the server
+   * would then refuse to unset (objectui#10120). ⭐ A refusal the UI invites is
+   * worse than a refusal it prevents: the chips stay, the affordance goes.
+   */
+  const chipsRemovable = !props.disabled;
+
   return (
     <div className={compact ? '' : 'space-y-2'}>
       {/* Selected values display (full mode only — compact shows it in-trigger) */}
@@ -1205,28 +1221,32 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
                     </AvatarFallback>
                   </Avatar>
                   <span className="max-w-[10rem] truncate">{chipLabel}</span>
-                  <button
-                    onClick={() => handleRemove(opt?.value)}
-                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    type="button"
-                    aria-label={t('lookup.remove', { label: chipLabel })}
-                  >
-                    <X className="size-3" />
-                  </button>
+                  {chipsRemovable && (
+                    <button
+                      onClick={() => handleRemove(opt?.value)}
+                      className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      type="button"
+                      aria-label={t('lookup.remove', { label: chipLabel })}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  )}
                 </span>
               );
             }
             return (
               <Badge key={idx} variant="outline" className="gap-1">
                 {chipLabel}
-                <button
-                  onClick={() => handleRemove(opt?.value)}
-                  className="ml-1 hover:text-destructive"
-                  type="button"
-                  aria-label={t('lookup.remove', { label: chipLabel })}
-                >
-                  <X className="size-3" />
-                </button>
+                {chipsRemovable && (
+                  <button
+                    onClick={() => handleRemove(opt?.value)}
+                    className="ml-1 hover:text-destructive"
+                    type="button"
+                    aria-label={t('lookup.remove', { label: chipLabel })}
+                  >
+                    <X className="size-3" />
+                  </button>
+                )}
               </Badge>
             );
           })}

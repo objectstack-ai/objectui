@@ -37,6 +37,31 @@ export interface DashboardFilterDef {
   /** Default target field when a widget declares no explicit binding. */
   field: string;
   /**
+   * The object `field` lives on, carried through from
+   * @objectstack/spec's `GlobalFilterSchema.object` (objectui#10132).
+   *
+   * The spec's own describe text for that key states the contract: "Object
+   * whose `fields.<object>.<field>` translation-bundle entry resolves this
+   * filter's field label and option labels". It was shipped on the spec side
+   * and never reached a consumer here, because this builder names the keys it
+   * copies and this one was not among them — so the value could not reach a
+   * renderer even in principle.
+   *
+   * ⚠️ NOT `optionsFrom.object`, which the spec separates deliberately: that
+   * one names the object dynamic OPTIONS are fetched from and may differ
+   * (filtering `opportunity` by `owner` with options sourced from `user`),
+   * while this one names the object whose translation bundle is keyed by
+   * `field`. Reading the former for label resolution resolves against the
+   * wrong object for exactly that filter.
+   *
+   * Like {@link DashboardFilterDef.label}, this module carries it through
+   * UNRESOLVED — `@object-ui/core` is locale-free by design and the bundle
+   * read belongs to the render side. Omitted entirely when the author declared
+   * none, so a dashboard that never names an object resolves to a def with the
+   * same key set it always had.
+   */
+  object?: string;
+  /**
    * Display label, in @objectstack/spec's `I18nLabel` vocabulary — a plain
    * string, or an inline per-locale map (`{ en: 'Owner', 'zh-CN': '负责人' }`).
    *
@@ -490,6 +515,11 @@ export function resolveDashboardFilterDefs(
     byName.set(name, {
       name,
       field: f.field,
+      // Spread rather than assigned (objectui#10132): every filter authored
+      // before this key existed keeps the exact key set it resolved to, so
+      // `'object' in def` stays the discriminator the render side branches on
+      // and no consumer sees a new own-property carrying `undefined`.
+      ...(typeof f.object === 'string' && f.object ? { object: f.object } : {}),
       label: f.label,
       type,
       // `name` is the identifying context the deprecation warning needs, and

@@ -63,20 +63,41 @@ describe('buildMasterDetailEditBatch — atomic master-detail edit ops', () => {
     expect(ops).toEqual([
       { object: 'po', action: 'update', id: 'p1', data: { status: 'open', total_amount: 45 } },
       { object: 'po_line', action: 'create', data: { amount: 30, po: 'p1' } },
-      { object: 'po_line', action: 'update', id: 'l1', data: { id: 'l1', amount: 15, po: 'p1' } },
+      // DIRTY FIELDS ONLY (objectui#10108): `amount` moved 10 -> 15 and the FK
+      // is absent from the snapshot, so both ride; the unchanged `id` no longer
+      // round-trips inside `data` (it was never the routing id — that is the
+      // sibling `id` member, asserted on this same line).
+      { object: 'po_line', action: 'update', id: 'l1', data: { amount: 15, po: 'p1' } },
       { object: 'po_line', action: 'delete', id: 'l2' },
     ]);
   });
 
   it('emits only the parent update when children are unchanged', () => {
+    // The snapshot carries the back-reference FK, because the loader that
+    // produces it reads the children BY that FK — a row it returns is a row
+    // already linked to this parent. A snapshot written without it (the shape
+    // this fixture used to have) is not the runtime's shape, and the row below
+    // pins what the builder does with one.
     const rows = [{ id: 'l1', amount: 10 }];
     const ops = buildMasterDetailEditBatch('po', 'p1', { status: 'open' }, [
-      { childObject: 'po_line', relationshipField: 'po', rows, original: [{ id: 'l1', amount: 10 }] },
+      { childObject: 'po_line', relationshipField: 'po', rows, original: [{ id: 'l1', amount: 10, po: 'p1' }] },
     ]);
-    // parent update + l1 update (rows with ids always re-update; no creates/deletes)
-    expect(ops[0]).toEqual({ object: 'po', action: 'update', id: 'p1', data: { status: 'open' } });
-    expect(ops.filter((o) => o.action === 'delete')).toHaveLength(0);
-    expect(ops.filter((o) => o.action === 'create')).toHaveLength(0);
+    // This row's own name was false until objectui#10108: the batch also
+    // carried a full-row rewrite of `l1`, because a row with an id was routed
+    // to "update" whether or not anything had moved. It is now what it says.
+    expect(ops).toEqual([{ object: 'po', action: 'update', id: 'p1', data: { status: 'open' } }]);
+  });
+
+  it('re-asserts the FK when the snapshot does not show the row already linked', () => {
+    // The dirty diff resolves what it cannot settle towards SENDING: a snapshot
+    // with no `po` key cannot establish that the row is already linked, so the
+    // FK rides. Dropping it on the strength of "the loader usually includes it"
+    // would be the one failure this diff must never have — a write the user
+    // asked for, silently not made (objectui#10108).
+    const ops = buildMasterDetailEditBatch('po', 'p1', { status: 'open' }, [
+      { childObject: 'po_line', relationshipField: 'po', rows: [{ id: 'l1', amount: 10 }], original: [{ id: 'l1', amount: 10 }] },
+    ]);
+    expect(ops[1]).toEqual({ object: 'po_line', action: 'update', id: 'l1', data: { po: 'p1' } });
   });
 
   it('folds a caller-computed rollup into op 0 so it commits in the same batch (#2679)', () => {
@@ -162,11 +183,20 @@ describe('child payload sanitize (childSchema supplied)', () => {
     }]);
     // op[0] is the PARENT update — scope to the child object for the line ops.
     const upd = ops.find((o) => o.object === 'inv_line' && o.action === 'update');
-    // Routed by id; data has the FK + stored fields, NOT id/line_total/note_calc.
+    // Routed by id; data carries the FK and the CHANGED stored columns, NOT
+    // id/line_total/note_calc. `product` and `unit_price` left the payload with
+    // objectui#10108: they match the snapshot, and an update operation that
+    // carries an unchanged column is what made a permitted save 403 (the
+    // platform reads an echoed system-managed column as an ownership transfer).
     expect(upd).toEqual({
       object: 'inv_line', action: 'update', id: 'l1',
-      data: { product: 'Widget', quantity: 2, unit_price: 10, amount: 25, invoice: 'inv1' },
+      data: { quantity: 2, amount: 25, invoice: 'inv1' },
     });
+    // The sanitize half of this row's claim, kept able to fail: the computed
+    // columns DIFFER from the snapshot (it has neither), so only the sanitizer
+    // can be keeping them out — the dirty diff would let both through.
+    expect(upd!.data).not.toHaveProperty('line_total');
+    expect(upd!.data).not.toHaveProperty('note_calc');
     const cre = ops.find((o) => o.object === 'inv_line' && o.action === 'create');
     expect(cre!.data).toEqual({ product: 'New', quantity: 2, unit_price: 10, amount: 5, invoice: 'inv1' });
     expect(cre!.data).not.toHaveProperty('note_calc');

@@ -183,21 +183,30 @@ describe('ObjectMap — top-level `style` is inline CSS, not a map style (object
 });
 
 /**
- * The producer-side shape, pinned on the consumer side.
+ * The two shapes that arrive at the TOP LEVEL, pinned on the consumer side.
  *
  * `ObjectView.generateViewSchema('map')` / `ListView`'s `case 'map'` build their
- * `object-map` schema as `{ type: 'object-map', ...baseProps, locationField,
- * ...(options.map || {}) }` — the CONTENTS of the `map` block at the top level
- * and no `map` key at all. That product shape is pinned at the producer by
- * `plugin-view/src/__tests__/ObjectView.mapFlatten.test.tsx` (objectui#5018);
- * measured against this branch it flattens `map: { style: '<url>' }` into a
- * top-level string `style`, and `map: { mapStyle: '<url>' }` into a top-level
- * `mapStyle`.
+ * `object-map` schema with the CONTENTS of the `map` block at the top level and
+ * no `map` key at all. That product shape is pinned at the producer by
+ * `ObjectView.mapFlatten.test.tsx` / `ListView.mapFlatten.test.tsx`
+ * (objectui#5018).
  *
- * So this describe block feeds those two literal products to the consumer. It is
- * the half the producer's pin cannot state: what the flattened key MEANS once it
- * arrives. Without it, #5017's deletion looks like a pure subtraction with no
- * reachable caller — it is not; the caller is spec-invalid, not absent.
+ * ⚠️ WHICH KEY EACH ONE ARRIVES AS MOVED (objectui#9950). The flatten is a
+ * whitelist of the keys `ObjectMapConfigSchema` declares, each written under a
+ * flat SPELLING, and `style`'s flat spelling is `mapStyle`. So today a view
+ * authoring `map: { style: '<url>' }` arrives as a top-level `mapStyle` and is
+ * READ; before #9950 it arrived as a top-level string `style` and was dropped.
+ * A `map: { mapStyle: '<url>' }` block arrives as NOTHING — `mapStyle` is not a
+ * member of that schema, so the whitelist never picks it up (the remedy text
+ * that used to prescribe it is objectui#10002; the end-to-end measurement of
+ * both keys, through the real `ListView`, is in
+ * `ObjectMap.styleRemedyText-10002.test.tsx`).
+ *
+ * ⇒ this describe block feeds both literal top-level shapes to the consumer and
+ * states the half a producer pin cannot: what each key MEANS once it arrives. A
+ * top-level string `style` is no longer emitted by either producer, but it stays
+ * runtime-reachable from a node authored (or host-composed) with one written
+ * directly on it — spec-invalid, not absent.
  */
 describe('ObjectMap — the ObjectView/ListView flatten product (objectui#5017)', () => {
   it('ignores the `style` a flattened `map: { style }` lands at the top level', async () => {
@@ -208,14 +217,20 @@ describe('ObjectMap — the ObjectView/ListView flatten product (objectui#5017)'
       locationField: 'location',
       latitudeField: 'latitude',
       longitudeField: 'longitude',
-      // `...(options.map || {})` put the block's `style` here.
+      // A string `style` written directly on the node. Until objectui#9950 the
+      // flatten also landed a view's `map: { style }` here; it no longer does.
       style: 'https://flattened.example.com/style.json',
       data: { provider: 'value', items: mockData },
     });
 
     expect(capturedProps.mapStyle).toBe(DEMO_STYLE);
     expect(styleWarnings()).toHaveLength(1);
-    expect(styleWarnings()[0]).toContain('options.map` is FLATTENED');
+    // ⛔ NO string snapshot of the remedy here. This assertion used to pin a
+    // phrase out of that sentence, which is how a remedy naming a key nothing
+    // reads stayed green for as long as it did (objectui#10002). The remedy is
+    // EXECUTED instead — every key it prescribes is parsed out of this same
+    // warning and written into a real `map` block, on both paths, in
+    // `ObjectMap.styleRemedyText-10002.test.tsx`.
   });
 
   it('honours the flattened `mapStyle`, which is the spelling that survives', async () => {
@@ -226,7 +241,8 @@ describe('ObjectMap — the ObjectView/ListView flatten product (objectui#5017)'
       locationField: 'location',
       latitudeField: 'latitude',
       longitudeField: 'longitude',
-      // `map: { mapStyle: '<url>' }` on the view flattens to exactly this.
+      // What a view's declared `map: { style: '<url>' }` flattens to since
+      // objectui#9950 — `mapStyle` is that key's flat spelling.
       mapStyle: 'https://flattened.example.com/style.json',
       data: { provider: 'value', items: mockData },
     });

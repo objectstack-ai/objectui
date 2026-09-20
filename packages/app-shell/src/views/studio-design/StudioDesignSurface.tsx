@@ -106,6 +106,7 @@ import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
 import { formatMetadataError, formatPublishFailures, type PublishFailure } from './metadataError.js';
+import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { loadPackageSurfaces } from './packageSurfaces.js';
 import { useMetadataRefreshNonce } from './useMetadataRefreshNonce.js';
 import { useHomePath } from '../../hooks/useHomePath.js';
@@ -852,6 +853,13 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     return () => window.removeEventListener('beforeunload', handler);
   }, [pillarDirty]);
 
+  // The shared authenticated metadata client for this surface. Declared here
+  // rather than beside its other reader below because the publish immediately
+  // under it needs the SAME instance: `useMetadataClient` is the layer that
+  // hands the console's advisory toast renderer to the client, so the seam is
+  // what makes the gate's per-draft findings reach the author (objectui#10039).
+  const shellClient = useMetadataClient();
+
   // Package-level publish (ADR-0033/0037/0048): edits accumulate as per-item
   // drafts STAMPED with this package (each save passes packageId → the draft row's
   // sys_metadata.package_id). Publishing promotes exactly THIS package's drafts in
@@ -875,24 +883,42 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   const doPublish = React.useCallback(async () => {
     setPublishing(true);
     try {
-      const res = await fetch(`/api/v1/packages/${encodeURIComponent(packageId)}/publish-drafts`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: '{}',
-      });
-      const payload = (await res.json().catch(() => null)) as {
+      // objectui#10039 — through `MetadataClient`, not a bare `fetch`. The
+      // route answers the runtime authoring gate's per-draft advisories on
+      // each `published[]` element (objectstack#9343), and the client is the
+      // seam that reports them: one advisory event per advised item, into the
+      // same sink, renderer and wording every other write door on this surface
+      // uses. A bare fetch had nothing to report THROUGH. Same move
+      // objectui#6965 / PR objectui#10038 made for the two sibling call sites.
+      const payload = (await shellClient.publishPackageDrafts(packageId)) as {
         success?: boolean;
         error?: { message?: string; details?: { issues?: unknown } };
-        data?: { failed?: PublishFailure[] };
-      } | null;
-      if (!res.ok || payload?.success === false) {
-        // Hard failure (e.g. package not found) — carry the field-anchored issues.
-        throw Object.assign(new Error(payload?.error?.message || `HTTP ${res.status}`), {
-          issues: payload?.error?.details?.issues,
-        });
+        failed?: PublishFailure[];
+      };
+      // A non-2xx now throws inside the client, already carrying the server's
+      // message AND the field-anchored `error.details.issues` on
+      // `MetadataError.issues` — which is exactly what `formatMetadataError`
+      // in the catch below reads, so the hard-failure branch keeps its shape
+      // without restating it. What is left here is the 2xx batch verdict.
+      if (payload?.success === false) {
+        // The status is no longer in hand — a non-2xx threw above — so the
+        // last rung is a sentence rather than "HTTP 200".
+        throw Object.assign(
+          new Error(
+            // The sibling call site's own last rung for THIS route
+            // (`PackagesPage`'s `publishDrafts`), reused rather than a new
+            // key: one route, one sentence when the body carried no prose.
+            readEnvelopeFailureText(payload) ||
+              t('engine.packages.detail.actionFailed', locale),
+          ),
+          { issues: payload?.error?.details?.issues },
+        );
       }
-      const failed = payload?.data?.failed ?? [];
+      // `failed[]` off the body the client returns: it unwraps the
+      // dispatcher's `{ success, data }` for this route (the one route whose
+      // spec declaration says it arrives inside one), so the enveloped and
+      // unenveloped compositions read through ONE spelling here.
+      const failed = payload?.failed ?? [];
       if (failed.length > 0) {
         // Partial publish: some drafts did NOT go live. The server returns 200
         // with them buried in `failed[]`, so the UI used to claim success and
@@ -912,7 +938,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       setPublishing(false);
     }
     await refreshPending();
-  }, [packageId, refreshPending]);
+  }, [shellClient, packageId, refreshPending, locale]);
 
   const onDraftSaved = React.useCallback(() => setDraftNonce((n) => n + 1), []);
   const hasPending = (pendingCount ?? 0) > 0;
@@ -925,7 +951,6 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // objectui#7373 — the header's Home button walks back to the DECLARED
   // landing; the environment launcher only where nothing is declared.
   const shellHomePath = useHomePath();
-  const shellClient = useMetadataClient();
   const [packageApp, setPackageApp] = React.useState<{ name: string; label: string } | null>(null);
   // Create app (package has no app yet): create a draft `app` item — the
   // published front-end's on-ramp. The button flips to Open app after the

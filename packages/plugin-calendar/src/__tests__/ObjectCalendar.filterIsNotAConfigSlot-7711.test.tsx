@@ -33,10 +33,12 @@
  *      ground on which the rider was omitted.
  *   2. When the retired spelling is the only place a config was written, this
  *      component returns null and the early return renders the existing
- *      "Calendar configuration required. Please specify startDateField and
- *      titleField." screen. The map fell back to DEFAULT field names — an empty
- *      map that looks like bad data — which is exactly why it had to warn. The
- *      calendar already says what is missing, by name, on screen.
+ *      "Calendar configuration required" screen. The map fell back to DEFAULT
+ *      field names — an empty map that looks like bad data — which is exactly
+ *      why it had to warn. The calendar already says what is missing, by name,
+ *      on screen. (objectui#8170 reworded that screen's SECOND clause; the
+ *      `REFUSAL` matcher below reads the first clause only, which is why this
+ *      file is unaffected by it and why this citation is clipped to it.)
  *
  * BOTH DIRECTIONS ARE PINNED, because a fix that simply stopped reading the
  * filter would also pass a retirement-only file: the second group asserts that

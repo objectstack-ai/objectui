@@ -48,9 +48,11 @@ import {
   inferModalSize,
   CONTAINER_GRID_COLS,
 } from './autoLayout';
-import { deriveFieldGroupSections } from './fieldGroups';
+import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
 import { sanitizeFormData } from './sanitize';
+import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
+import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
 import { useOccSave } from './occSave';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
@@ -100,7 +102,8 @@ export interface ModalFormSchema {
   formType: 'modal';
   objectName: string;
   mode: 'create' | 'edit' | 'view';
-  recordId?: string | number;
+  /** Record ID (for edit/view modes). A string, per the one record-id rule on `DataSource` (objectui#9511) — `ObjectForm` builds this schema from the authorable `ObjectFormSchema.recordId`, which is a string, and `findOne` takes a string. */
+  recordId?: string;
   title?: string;
   description?: string;
   sections?: ModalFormSectionConfig[];
@@ -217,25 +220,16 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   const { t } = useDiscardTranslation();
   const previewMode = usePreviewMode();
   const perms = usePermissions();
-  // FLS gate: drop non-readable fields, disable non-editable ones.
+  // FLS gate: drop non-readable fields, disable non-editable ones. ONE pass,
+  // shared with `ObjectForm` and `DrawerForm` (objectui#10120).
   // Fail-open when no PermissionProvider mounted (perms.isLoaded false).
   const applyFieldPerms = useCallback(
-    (fields: FormField[]): FormField[] => {
-      if (!perms?.isLoaded) return fields;
-      const out: FormField[] = [];
-      for (const f of fields) {
-        if (!f?.name) { out.push(f); continue; }
-        const canRead = perms.checkField(schema.objectName, f.name, 'read');
-        if (!canRead) continue;
-        const canWrite = perms.checkField(schema.objectName, f.name, 'write');
-        if (!canWrite && schema.mode !== 'view') {
-          out.push({ ...f, readOnly: true, disabled: true });
-        } else {
-          out.push(f);
-        }
-      }
-      return out;
-    },
+    (fields: FormField[]): FormField[] =>
+      applyFieldPermissions(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+      }) as FormField[],
     [perms, schema.objectName, schema.mode],
   );
   const [objectSchema, setObjectSchema] = useState<any>(null);
@@ -347,13 +341,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         // supplied initial values still win. See `schemaDefaults` for why
         // runtime defaults (`NOW()`, `current_user`, CEL envelopes) are left
         // to the server and why option-level `default` is not read here.
-        setFormData(seedCreateValues(objectSchema, schema.initialData || schema.initialValues, { currentUserId: perms.userId }));
+        setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId: perms.userId }));
         setLoading(false);
         return;
       }
 
       if (!dataSource) {
-        setFormData(schema.initialData || schema.initialValues || {});
+        setFormData(resolveInitialRecord(schema));
         setLoading(false);
         return;
       }
@@ -458,17 +452,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       }
 
       let result;
-      let payload = sanitizeFormData(data, objectSchema);
-      // FLS defence-in-depth: strip non-editable fields from payload.
-      // react-hook-form retains state for unmounted/disabled fields; we
-      // must never trust the client to omit them.
-      if (perms?.isLoaded) {
-        const stripped: Record<string, any> = {};
-        for (const k of Object.keys(payload)) {
-          if (perms.checkField(schema.objectName, k, 'write')) stripped[k] = payload[k];
-        }
-        payload = stripped;
-      }
+      // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
+      // retains state for unmounted/disabled fields, so the gate above is not
+      // enough on its own — but the verdict is the same resolver's, adapted by
+      // `fieldWriteGate` rather than copied here (objectui#10120).
+      const payload = sanitizeFormData(data, objectSchema, {
+        canEdit: fieldWriteGate(perms, schema.objectName),
+      });
       // Omit the fields the producer owns (#4069) — see
       // `omitServerResolvedDefaults` for why an empty key is not the same as
       // no key at insert time. Create only: on an edit form a cleared column is
@@ -712,23 +702,26 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       // grid to override here.)
       const allFields: FormField[] = [];
       groups.forEach((g) => {
-        if (g.title || g.description) {
-          allFields.push({
-            name: `__section_${g.key}`,
-            label: g.title,
-            description: g.description,
-            type: 'section-divider',
-            // ADR-0089 section predicate (#6111) — the renderer evaluates it on
-            // this pseudo-field with the host predicate scope bound (#6010).
-            visibleWhen: g.visibleWhen,
-            // The membership claim (#6236): resolved member names, so the
-            // predicate gates the whole group (same spelling as the
-            // `fieldTabs` claim above).
-            fields: g.fields.map((f) => f.name),
-            colSpan: 4,
-            className: g.className,
-          } as any);
-        }
+        // The ONE path from a section configuration to its divider row
+        // (objectui#9849) — `projectSectionDivider` owns every key this row
+        // carries, including the ADR-0089 predicate and the objectui#6236
+        // membership claim, so this arm can no longer copy a different set
+        // than its siblings. This arm's gate is the `title || description`
+        // one-row shape it has always had; ⛔ the gate union is the residual
+        // the helper's own docblock hands back, ⛔ not something decided here.
+        allFields.push(
+          ...projectSectionDivider(
+            {
+              key: g.key,
+              title: g.title,
+              description: g.description,
+              visibleWhen: g.visibleWhen,
+              members: g.fields.map((f) => f.name),
+              className: g.className,
+            },
+            'headingOrBlurbRow',
+          ),
+        );
         allFields.push(...g.fields);
       });
 
@@ -750,18 +743,25 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         const title = section.name
           ? sectionLabel(schema.objectName, section.name, section.label || section.name)
           : section.label;
-        if (title) {
-          allFields.push({
-            name: `__section_${section.name || index}`,
-            label: title,
-            type: 'section-divider',
-            // ADR-0089 section predicate (#6111).
-            visibleWhen: (section as any).visibleWhen,
-            // The membership claim (#6236): resolved (post-FLS) member names,
-            // so the predicate gates the whole group.
-            fields: body.map((f) => f.name),
-          } as any);
-        }
+        // The ONE path (objectui#9849). This push is the site the card was
+        // filed on: it rebuilt the row key by key WITHOUT `description`, while
+        // its stacked sibling twenty lines up carried it — so a modal form
+        // that declares no `sections` and leans on the object's own
+        // `fieldGroups` metadata drew a group's heading and silently ate the
+        // blurb its author wrote. Going through the shared projection is what
+        // fixes it, and ⛔ not a key added back here.
+        allFields.push(
+          ...projectSectionDivider(
+            {
+              key: section.name || index,
+              title,
+              description: section.description,
+              visibleWhen: (section as any).visibleWhen,
+              members: body.map((f) => f.name),
+            },
+            'heading',
+          ),
+        );
         allFields.push(...(columns > 1 ? applyAutoColSpan(body, columns) : body));
       });
       const groupedContainerClass = CONTAINER_GRID_COLS[columns];

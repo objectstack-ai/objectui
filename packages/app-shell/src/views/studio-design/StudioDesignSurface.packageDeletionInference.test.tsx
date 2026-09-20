@@ -41,7 +41,9 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import React from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MetadataCtx, type MetadataContextValue } from '@object-ui/react';
 
 const PACKAGE_ID = 'app.b2r4';
 const SIBLING_ID = 'app.other';
@@ -184,14 +186,38 @@ function LocationProbe() {
   return <div data-testid="location">{useLocation().pathname}</div>;
 }
 
-function renderSurface() {
+/**
+ * The app list the eviction's destination resolves against (objectui#7373).
+ * `undefined` mounts the surface with no metadata context — every case written
+ * before that card, for which `useHomePath()` answers the launcher.
+ */
+function withMetadata(
+  apps: MetadataContextValue['apps'] | undefined,
+  children: React.ReactNode,
+) {
+  if (!apps) return <>{children}</>;
+  const value: MetadataContextValue = {
+    apps,
+    objects: [], dashboards: [], reports: [], pages: [],
+    loading: false, error: null,
+    refresh: async () => {}, invalidate: () => {}, ensureType: async () => [],
+    getItem: async () => null, getItemsByType: () => [], getTypeStatus: () => 'ready',
+  };
+  return <MetadataCtx.Provider value={value}>{children}</MetadataCtx.Provider>;
+}
+
+function renderSurface(apps?: MetadataContextValue['apps']) {
   return render(
     <MemoryRouter initialEntries={[START_PATH]}>
       <LocationProbe />
-      <Routes>
-        <Route path="/studio/:packageId/:tab" element={<StudioDesignSurface />} />
-        <Route path="/home" element={<div data-testid="home-page" />} />
-      </Routes>
+      {withMetadata(
+        apps,
+        <Routes>
+          <Route path="/studio/:packageId/:tab" element={<StudioDesignSurface />} />
+          <Route path="/home" element={<div data-testid="home-page" />} />
+          <Route path="/apps/cloud_control" element={<div data-testid="declared-landing" />} />
+        </Routes>,
+      )}
     </MemoryRouter>,
   );
 }
@@ -205,9 +231,12 @@ const where = () => screen.getByTestId('location').textContent;
  * button. Every case shares this drive, so the ONLY difference between the
  * pins below is what the refresh does.
  */
-async function openLifecycleSheet(initial = [row(PACKAGE_ID)]): Promise<HTMLElement> {
+async function openLifecycleSheet(
+  initial = [row(PACKAGE_ID)],
+  apps?: MetadataContextValue['apps'],
+): Promise<HTMLElement> {
   fetchPackagesMock.mockResolvedValue(initial);
-  renderSurface();
+  renderSurface(apps);
   await waitFor(() => expect(trigger()).toHaveAttribute('data-pkg-list-state', 'loaded'));
   fireEvent.click(trigger());
   fireEvent.click(await screen.findByText('Package info & settings'));
@@ -273,6 +302,24 @@ describe('Studio package lifecycle — a failed refresh is not a deletion (#7821
     expect(await screen.findByTestId('home-page')).toBeInTheDocument();
     expect(where()).toBe('/home');
     // A successful refresh is not a failure: nothing was reported.
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it('REAL deletion, nothing left, a DECLARED landing: evicts to it, not to the launcher (objectui#7373)', async () => {
+    // Same eviction as the case above — the only difference is that this
+    // deployment declares where home is. Pre-#7373 the destination was the
+    // `/home` literal either way, which on a control plane drops the author
+    // into the environment launcher.
+    const lifecycle = await openLifecycleSheet([row(PACKAGE_ID)], [
+      { name: 'cloud_control', label: 'Cloud', isDefault: true },
+      { name: 'account', label: 'Account' },
+    ]);
+
+    fetchPackagesMock.mockResolvedValue([]);
+    fireEvent.click(lifecycle);
+
+    expect(await screen.findByTestId('declared-landing')).toBeInTheDocument();
+    expect(where()).toBe('/apps/cloud_control');
     expect(toastError).not.toHaveBeenCalled();
   });
 

@@ -259,6 +259,9 @@ const pt = {
       selectBusinessUnit: "Selecionar uma unidade de negócio",
       selectPosition: "Selecionar um cargo",
       selectUnitAndSubordinates: "Selecionar uma unidade de negócio",
+      selectField: "Selecionar um campo de usuário",
+      noUserFields: "Este objeto não tem campos de usuário",
+      fieldNotUserTyped: "{{name}} — não é um campo de usuário",
     },
     filterCondition: {
       selectObjectFirst: "Selecione primeiro um objeto.",
@@ -282,6 +285,10 @@ const pt = {
         "Não salvo: {{name}} “{{text}}” não é um número. Informe decimais simples (exemplo: 30.2741, 120.1551).",
       refusedResidue:
         "Não salvo: {{name}} “{{text}}” e {{otherName}} “{{otherText}}” não são números. Informe decimais simples (exemplo: 30.2741, 120.1551).",
+    },
+    number: {
+      badInput:
+        "Não salvo: o texto deste campo não é um número. Informe um decimal simples (exemplo: {{example}}).",
     },
     tags: {
       placeholder: "Digite e pressione Enter para adicionar…",
@@ -565,6 +572,33 @@ const pt = {
     newEvent: "Novo evento",
     moreEvents: "+{{count}} mais",
     unscheduled: "Sem agendamento ({{count}})",
+    loading: "Carregando calendário…",
+    loadError: "Erro: {{message}}",
+    configRequired: "Configuração do calendário necessária. Informe startDateField, a única chave obrigatória do calendário; o título do evento é resolvido sem titleField.",
+    configRequiredHint: "Ela pertence ao bloco calendar da visão. Uma página de interface não tem espaço de calendário próprio: aponte o sourceView dela para uma visão que declare um.",
+    eventDetails: "Detalhes do evento",
+    pullToRefresh: "Puxe para atualizar",
+    refreshing: "Atualizando…",
+    onDate: "Em {{date}}",
+    eventTitle: "Título",
+    eventTitlePlaceholder: "Sobre o que é este evento?",
+    creating: "Criando…",
+    titleRequired: "O título é obrigatório",
+    a11y: {
+      region: "Calendário",
+      grid: "Grade do calendário",
+      goToToday: "Ir para hoje",
+      previousPeriod: "Período anterior",
+      nextPeriod: "Período seguinte",
+      currentDate: "Data atual: {{date}}",
+      dayCell: "{{date}}, {{count}} eventos",
+      dayCell_one: "{{date}}, {{count}} evento",
+      dayCell_other: "{{date}}, {{count}} eventos",
+      resizeEventEnd: "Alterar o fim do evento",
+      resizeEventEndHint: "Arraste para alterar a data de término",
+      resizeStart: "Alterar o início",
+      resizeEnd: "Alterar o fim",
+    },
   },
   list: {
     firstRunTitle: "Ainda não há nada aqui",
@@ -1459,6 +1493,9 @@ const pt = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Voltar ao início",
+    },
     saveAdvisoryTitle: "Salvo — a verificação de criação gerou {{count}} recomendação(ões)",
     publishAdvisoryTitle: "Publicado — a verificação de criação gerou {{count}} recomendação(ões)",
     importMappingsUnavailable: "Não foi possível carregar os mapeamentos de importação salvos de {{object}}",
@@ -1842,6 +1879,13 @@ const pt = {
       searching: "Pesquisando…",
       records: "Registros",
       recentRecords: "Vistos recentemente",
+    },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'Volume de leitura incomum neste ambiente',
+      ratio: 'São lidas {{ratio}} linhas para cada linha gravada. A plataforma sinaliza tudo acima de {{threshold}}. Nada está sendo limitado ou bloqueado; este é um relatório para que o padrão de leitura possa ser revisado.',
+      noWritesTitle: 'Leituras sem nenhuma gravação neste ambiente',
+      noWrites: 'Linhas estão sendo lidas sem que nenhuma seja gravada, portanto a taxa de leitura não tem limite superior. Esta é a leitura mais grave. A plataforma sinaliza tudo acima de {{threshold}}. Nada está sendo limitado ou bloqueado; este é um relatório para que o padrão de leitura possa ser revisado.',
     },
     errors: {
       somethingWentWrong: "Algo deu errado",
@@ -2239,6 +2283,15 @@ const pt = {
       role: "Função",
       save: "Salvar alterações",
     },
+    language: {
+      title: "Idioma",
+      description: "O idioma usado nas notificações e mensagens enviadas para você. O idioma da interface é escolhido separadamente, no menu do globo.",
+      label: "Idioma preferido",
+      systemDefault: "Usar o padrão da implantação",
+      save: "Salvar",
+      saved: "Preferência de idioma atualizada.",
+      readOnly: "O idioma da sua conta é gerenciado pelo seu administrador.",
+    },
     password: {
       changeTitle: "Alterar senha",
       setTitle: "Definir senha local",
@@ -2479,6 +2532,7 @@ const pt = {
     resultsCount: "{{count}} resultado para \"{{query}}\"",
     resultsCountPlural: "{{count}} resultados para \"{{query}}\"",
     itemsAvailable: "{{count}} itens disponíveis",
+    itemsAvailableOne: "{{count}} item disponível",
     noResults: "Nenhum resultado encontrado",
     noResultsHint: "Tente ajustar seus termos de pesquisa",
     typeObjects: "Objetos",
@@ -2522,6 +2576,7 @@ const pt = {
     description: "Insira as informações necessárias para continuar.",
     selectPlaceholder: "Selecionar {{label}}",
     requiredError: "{{label}} é obrigatório",
+    unresolvedParam: 'Não é possível exibir este parâmetro: o campo em que ele se baseia não está nos metadados do objeto, portanto o controle necessário não pode ser construído. Peça a um administrador para corrigir a definição da ação.',
     cancel: "Cancelar",
     confirm: "Confirmar",
     uploading: "Enviando…",

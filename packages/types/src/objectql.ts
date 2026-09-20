@@ -24,6 +24,12 @@ import type { BaseSchema } from './base.js';
 // kanban faces judge a card the same way. Type-only: no runtime edge.
 import type { KanbanCard } from './complex.js';
 import type { DrillDownConfig } from './data-display.js';
+// `QueryParams` is the destination `ObjectGallerySchema.filter`'s own docblock
+// names — the value is forwarded verbatim into that slot — so the declaration
+// is an INDEXED ACCESS on it rather than a copy of its arms (objectui#9309).
+// Type-only: no runtime edge, and `./data.ts` imports nothing from here, so
+// this adds no cycle in either direction.
+import type { QueryParams } from './data.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
 import type { FormField } from './form.js';
 // ListView type is now derived from the zod schema (issue #2231) — see ListViewSchema below.
@@ -1339,9 +1345,12 @@ export interface ObjectFormSchema extends BaseSchema {
   mode: 'create' | 'edit' | 'view';
   
   /**
-   * Record ID (required for edit/view modes)
+   * Record ID (required for edit/view modes). A record id is a `string` on every
+   * boundary (objectui#9511) — a numeric primary key is converted at the
+   * adapter's own boundary, so an authored `42` is refused with `'42'`
+   * prescribed.
    */
-  recordId?: string | number;
+  recordId?: string;
   
   /**
    * Optional title for the form
@@ -3713,12 +3722,13 @@ export interface ObjectKanbanSchema extends BaseSchema {
       }>;
   /**
    * Row cap — the most records the board fetches, sent as a real `$top` on
-   * the query (`packages/plugin-kanban/src/ObjectKanban.tsx:264`,
-   * `$top: schema.limit ?? DEFAULT_KANBAN_LIMIT`; objectui#4025). The board
-   * renders every fetched record into a lane and offers no pagination, so
-   * this is the author's window on the object rather than a page size. A
-   * bound `dataSource` (its own `limit`, or the named view's
-   * `pagination.pageSize`) sets it too. Undeclared until objectui#7322.
+   * the query (`packages/plugin-kanban/src/ObjectKanban.tsx`,
+   * `$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`; objectui#4025,
+   * re-spelled by objectui#9925, which refuses a non-positive cap rather than
+   * forwarding it). The board renders every fetched record into a lane and
+   * offers no pagination, so this is the author's window on the object rather
+   * than a page size. A bound `dataSource` (its own `limit`, or the named
+   * view's `pagination.pageSize`) sets it too. Undeclared until objectui#7322.
    *
    * @default 100 — `DEFAULT_KANBAN_LIMIT`
    */
@@ -4153,11 +4163,18 @@ export interface ObjectChartSchema extends BaseSchema {
    *
    * ⚠️ Narrowing to ONE arm is a decision LOCAL TO THIS NODE, not a
    * cross-widget one — an earlier draft of this docblock said the opposite and
-   * the census refutes it. Six sibling `object-*` widgets declare `filter` on
-   * this interface and every one of them is array-only
-   * ({@link ObjectGanttSchema.filter}, {@link ObjectKanbanSchema.filter} and
-   * four more); this key is the only `object-*` `filter` with a record arm. So
-   * there is no fleet-wide convention to renegotiate — what is unresolved is
+   * the census refutes it. ⛔ The census is no longer WRITTEN DOWN here, and
+   * that is objectui#9309's doing on both halves of what used to stand in this
+   * spot. This paragraph stated a sibling count and called this key the only
+   * `object-*` `filter` with a record arm; {@link ObjectGallerySchema.filter}
+   * is now `QueryParams['$filter']`, which HAS a record arm, and one of the
+   * counted siblings was `NamedListView` — the named-view interface, not a
+   * view schema at all. Read the population off the instrument that re-derives
+   * it on every run, `__tests__/object-gallery-filter-9309.test.ts`, which
+   * charges every `filter` declaration in this file to its owning interface
+   * through the parser; ⛔ do not copy its table back into prose here
+   * (AGENTS.md #9). So there is no fleet-wide convention to renegotiate — what
+   * is unresolved is
    * only this component's own two-armed read, and objectui#7946 declares the
    * accept set it measured rather than picking an arm without a ruling.
    *
@@ -4373,8 +4390,28 @@ export interface ObjectGallerySchema extends BaseSchema {
   type: 'object-gallery';
   /** ObjectQL object name; omitted when the records arrive through `bind` or `data` */
   objectName?: string;
-  /** Query filter, forwarded verbatim as `$filter` */
-  filter?: unknown;
+  /**
+   * Query filter, forwarded verbatim as `$filter`.
+   *
+   * Typed as the DESTINATION the sentence above names, by an indexed access on
+   * {@link QueryParams} rather than a copy of its arms, so the declaration
+   * cannot drift away from the slot it is forwarded into (objectui#9309).
+   *
+   * It was `unknown` until then, which promised a destination it did not type:
+   * the docblock mandated a verbatim forward and the compiler refused it, so
+   * the only way through was an assertion at the call site — the shape that
+   * teaches casting, and the opposite of the repo's own direction (AGENTS.md
+   * #0.1: fix the declaration, do not widen the consumer). `unknown` is the
+   * widest type there is, so this is a NARROWING of the published accept set:
+   * `filter: 'stage=won'` and `filter: 42` are compile errors now, where
+   * before they compiled and the downstream assertion un-checked them again.
+   *
+   * ⛔ Do not re-spell the arms here. What `QueryParams['$filter']` resolves to
+   * is stated once, in `./data.ts`, next to the readers that honour it; a copy
+   * in this docblock would be a second dialect of one key the moment that slot
+   * moves.
+   */
+  filter?: QueryParams['$filter'];
   /** Inline records — rendered ahead of a fetch when present */
   data?: Record<string, unknown>[];
   /** Gallery configuration — aligned with @objectstack/spec `GalleryConfig` */
@@ -4526,8 +4563,33 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * Row click handler — a RUNTIME SLOT a React host supplies through this
    * interface, never through authored JSON (objectui#6124; the zod mirror
    * refuses the key by name). When present it overrides drill-to-record.
+   *
+   * TWO parameters since objectui#9799, catching up to the `DataTableSchema`
+   * twin objectui#9462 widened one hop further in. `ObjectDataTable`
+   * (`packages/plugin-dashboard/src/ObjectDataTable.tsx`) forwards this slot
+   * onto the `data-table` node it renders, and the forwarding line reads, in
+   * full:
+   * `onRowClick: schema.onRowClick ?? (recordDrillEnabled ? handleRowClick : undefined)`
+   * ⚠️ Quoted whole because the gate is load-bearing for how it is read, not for
+   * whether it applies: a host's handler is the FIRST operand of that `??` and
+   * reaches the node whatever `recordDrillEnabled` says — the gate only chooses
+   * the FALLBACK. That node's renderer calls the slot as
+   * `schema.onRowClick(row, e)`, so the payload `useNavigationOverlay`'s
+   * `handleClick` reads (`metaKey` / `ctrlKey` / `button`) has been arriving
+   * here ever since objectui#9462 repaired that call; until this card the
+   * declaration denied a second argument the runtime was already passing.
+   * ⛔ Nothing about the runtime call moved with this widening — it is a
+   * declaration catching up to a call, in one direction only.
+   *
+   * OPTIONAL, and spelled `any`, for the two reasons objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: optional so an existing one-parameter
+   * host handler is still accepted (source compatibility holds in BOTH
+   * directions, pinned by `object-data-table-row-click-arity-9799.test.ts`),
+   * and `any` rather than `HandleClickModifiers` because that interface lives
+   * in `@object-ui/react`, which depends on THIS package — naming it here is a
+   * phantom dependency that closes a cycle.
    */
-  onRowClick?: (row: any) => void;
+  onRowClick?: (row: any, event?: any) => void;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-data-table` reads
    * NEITHER content channel: no renderer read consumes `body` or `children` for

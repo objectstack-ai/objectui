@@ -19,6 +19,7 @@ import { cn } from '@object-ui/components';
 import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
+import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
 import { useOccSave } from './occSave';
@@ -113,9 +114,12 @@ export interface TabbedFormSchema {
   mode: 'create' | 'edit' | 'view';
   
   /**
-   * Record ID (for edit/view modes)
+   * Record ID (for edit/view modes). A string, per the one record-id rule on
+   * `DataSource` (objectui#9511) — `ObjectForm` builds this schema from the
+   * authorable `ObjectFormSchema.recordId`, which is a string, and `findOne`
+   * takes a string.
    */
-  recordId?: string | number;
+  recordId?: string;
   
   /**
    * Tab sections configuration
@@ -295,7 +299,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
         // Declared static defaults are this form's opening values (#4047) —
         // see `schemaDefaults` for the create-only boundary and for why
         // runtime defaults are left to the server.
-        setFormData(seedCreateValues(objectSchema, schema.initialData || schema.initialValues, { currentUserId }));
+        setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
         setLoading(false);
         return;
       }

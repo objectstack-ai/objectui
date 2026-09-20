@@ -106,7 +106,8 @@ const plotAreaOf = (c: HTMLElement) => {
 
 /** Each mark's painted centre and radius, straight off the symbol path: recharts
  *  writes the symbol's bounding box onto it, so `width / 2` IS the drawn radius
- *  rather than a value assumed from the ZAxis range. */
+ *  rather than a value assumed from a declaration (objectui#9681 — the scatter
+ *  branch's `ZAxis range` was such a declaration, and it was inert). */
 const marksOf = (c: HTMLElement) =>
   [...c.querySelectorAll('path.recharts-symbols')].map((p) => {
     const cx = Number(p.getAttribute('cx'));
@@ -166,7 +167,8 @@ describe('objectui#7396 — every scatter mark is drawn wholly inside the plot a
   it('reserves at least a full mark radius, so the WHOLE symbol clears the edge', () => {
     // Stated as the reader sees it — "half a dot is showing" is the complaint,
     // and clearing the edge by a hair would still leave it half-clipped once a
-    // symbol grows. The margin is sized to the declared symbol envelope, so
+    // symbol grows. The margin is sized to `SCATTER_SYMBOL_MAX_AREA`, the
+    // headroom budget rather than the size painted today (objectui#9681), so
     // every clearance is a full radius or better.
     const { container } = renderScatter(FOUR_EDGES);
     for (const o of overhangs(container)) {
@@ -181,8 +183,11 @@ describe('objectui#7396 — every scatter mark is drawn wholly inside the plot a
     // pin: on its own it passes on the defect too, so it would measure nothing.
     // Together they state the whole fix — the marks came inside AND the domain
     // did not move to bring them there. Moving the domain instead would invent
-    // unround tick endpoints and would write the very prop the scatter's
-    // missing spec-axis spread is about (objectui#9675).
+    // unround tick endpoints and would spend the very prop the scatter's
+    // spec-axis derivation needs (objectui#9675, since landed: it writes
+    // `domain` on both scatter axes, and the two props compose because this
+    // one is `padding`). These rows declare no spec axis, so the derivation
+    // contributes nothing here and the endpoints below are still the data's.
     const { container } = renderScatter(GALLERY);
     expect(worstOverhang(container), 'a mark is painted outside the plot area').toBeLessThan(0);
     const ticks = (orientation: string) =>

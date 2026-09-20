@@ -30,7 +30,7 @@ ComponentRegistry.register('aspect-ratio',
         {schema.image ? (
           <img src={schema.image} alt={schema.alt || ''} loading="lazy" className="rounded-md object-cover w-full h-full" />
         ) : (
-          renderChildren(schema.children || schema.body)
+          renderChildren(schema.children)
         )}
       </AspectRatio>
     );
@@ -39,7 +39,7 @@ ComponentRegistry.register('aspect-ratio',
     namespace: 'ui',
     label: 'Aspect Ratio',
     // Same declaration, same reason as `semantic.tsx` (objectui#6764): the
-    // renderer falls back to `renderChildren(schema.children || schema.body)`
+    // renderer falls back to `renderChildren(schema.children)`
     // whenever no `image` is set, so a ratio box wrapping authored content is
     // the documented shape -- and it drew `not-a-container` for it. Not in
     // `PUBLIC_BLOCKS`, so the react-page scope builder never saw this tag and

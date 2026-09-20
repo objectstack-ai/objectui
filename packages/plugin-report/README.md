@@ -480,11 +480,21 @@ exportExcelWithFormulas(report, rows, {
     { name: 'total', header: 'Total', formula: '=B{ROW}*C{ROW}' },
   ],
   includeAggregationRow: true,
+  locale: 'de-DE',
 });
 ```
 
 Omitting `columns` derives them from `report.fields`. `includeAggregationRow`
 appends a totals row built from each field's `aggregation`.
+
+`locale` is the BCP-47 tag the numeric cells are formatted in — above, an
+`amount` of `1234.5` writes `1.234,50` rather than `1,234.50`. Pass the tag the
+session renders in: `useDisplayLocale()` from `@object-ui/i18n` in React, or
+whatever your non-React caller resolved. This function is not a component and a
+display locale is a property of the session rather than of the authored report
+schema, so its caller is the only place the tag can come from. Omitted, cells
+format in `'en'` — the display channel's own last resort, which is neither
+`'en-US'` nor the machine's locale (objectui#10020).
 
 ### Scheduled export
 

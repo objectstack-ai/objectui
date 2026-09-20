@@ -8,6 +8,12 @@
 
 import React, { useCallback, useState } from 'react';
 
+// `TranslateFn` is imported rather than re-declared — `LocationField`,
+// `FileField` and `ImageField` already pass `t as TranslateFn` through it, and
+// a second spelling of the same one-line type is how two of them drift.
+import { type TranslateFn } from './file-size-guard.js';
+import { useFieldTranslation } from './useFieldTranslation.js';
+
 /**
  * ONE reading of "this box is showing text the browser cannot read", shared by
  * every `type="number"` widget in this package (objectui#6780).
@@ -84,9 +90,34 @@ import React, { useCallback, useState } from 'react';
  * points at the box instead.
  */
 
-/** The one sentence, in objectui#6716's `Not saved: …` shape. */
-export function badInputMessage(example: string): string {
-  return `Not saved: the text in this box is not a number. Enter a plain decimal (example: ${example}).`;
+/**
+ * The one sentence, in objectui#6716's `Not saved: …` shape, read from the
+ * package's locale channel (objectui#8148).
+ *
+ * objectui#6755 ruled that a widget's OWN refusal sentence goes through
+ * `useFieldTranslation` + `FIELD_DEFAULTS`; objectui#6888 applied it to
+ * `LocationField`'s residue arm. This was the FIFTH such sentence and the only
+ * SHARED one — the four already keyed are each one widget's, while this literal
+ * served `NumberField`, `CurrencyField`, `PercentField` and both of
+ * `GeolocationField`'s boxes through {@link useBadInputRefusal}. Its sharpest
+ * consequence: `GeolocationField` sits beside `LocationField`, whose refusals
+ * are all keyed, so two adjacent coordinate widgets refused bad input in two
+ * different languages on one form.
+ *
+ * ⭐ `example` stays a HOLE rather than being keyed per widget, and that is
+ * what keeps the decimal numerals out of every pack. Five different values
+ * reach this one sentence — `1234`, `1234.56`, `12.5`, `30.2741`, `120.1551` —
+ * so a per-widget key would need five keys times ten packs, and each pack would
+ * then hold a decimal numeral it could legitimately re-punctuate. A pack that
+ * wrote `1234,56` would read as the `latitude, longitude` PAIR the adjacent
+ * widget asks for; the hole is filled by the widget in ASCII and no pack ever
+ * spells a digit.
+ *
+ * The English value is byte-identical to the literal it replaces, so English
+ * and provider-less rendering are unchanged.
+ */
+export function badInputMessage(t: TranslateFn, example: string): string {
+  return t('fields.number.badInput', { example });
 }
 
 /**
@@ -109,15 +140,23 @@ export function badInputMessage(example: string): string {
  */
 export function useBadInputRefusal(example: string) {
   const [refusal, setRefusal] = useState<string | null>(null);
+  // objectui#8148 — the sentence is read here, at the ONE place that produces
+  // it, and called with the other hooks so every widget of this class keeps
+  // unconditional hook order across its readonly branch.
+  const { t } = useFieldTranslation();
   const readBadInput = useCallback(
     (target: HTMLInputElement | null | undefined): boolean => {
       const bad = target?.validity?.badInput === true;
       // Setting the same value is a React bail-out, so the good path costs no
       // extra render.
-      setRefusal(bad ? badInputMessage(example) : null);
+      setRefusal(bad ? badInputMessage(t as TranslateFn, example) : null);
       return bad;
     },
-    [example],
+    // `t` is a VALUE dependency, not an identity one (AGENTS.md #10): a
+    // language switch must change what this reader writes. Nothing keys off
+    // `readBadInput`'s identity — the four widgets call it from event
+    // handlers — so re-creating it costs nothing.
+    [example, t],
   );
   return { refusal, readBadInput };
 }

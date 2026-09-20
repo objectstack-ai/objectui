@@ -6,7 +6,8 @@ Redirect the node recursion point from `BaseSchemaCore` to `AnyComponentSchema`
 (objectui#8344) — a nested node is now judged by its OWN component schema.
 
 **Behaviour change, deliberately, at every depth below the root.** Every child slot
-(`body`, `children`, and every per-component redeclaration of them) is
+(`body`, `children`, and every per-component redeclaration of them — objectui#6771 has
+since retired `body`, leaving `children` and its redeclarations) is
 `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])`, and `SchemaNodeSchema`'s
 component arm was `BaseSchemaCore` — the ~21 base keys and nothing type-specific. So
 per-type enforcement was ROOT-ONLY, for every component type: objectui#7869 measured
@@ -56,8 +57,8 @@ a child by its own schema would therefore have ADMITTED, at every child slot, a 
 the base arm refused. ⛔ That widening is eliminated rather than declared: the arm the
 recursion point installs carries a check that a nested `chatbot` node's `body` still fits
 the node slot. Measured, corpus-valid chatbot seed plus `body: { model, temperature }`:
-accepted at the root before and after; inside `card.body[]` and `div.children[]` refused
-before and refused now. ⇒ the redirect narrows at all 109 redeclarations and widens at
+accepted at the root before and after; inside the card's and the div's child lists
+refused before and refused now. ⇒ the redirect narrows at all 109 redeclarations and widens at
 none. The published `ChatbotSchema` is untouched — whether its own `body` should carry the
 chat API's params is a separate question, recorded on objectui#8572 and deliberately not
 decided here.
@@ -100,7 +101,7 @@ the `./zod` barrel under Node or vitest, `@object-ui/cli`'s `check` / `validate`
 Measured on the published `dist/zod` face of this head (Vite 8.2.1 lib build, `es`,
 esbuild-minified, `zod` 4.4.3 and `@objectstack/spec` external, so the figures are this
 package's own bytes; nested off-spec node = `{ type: 'icon', icon: 'check', size: 'huge' }`
-inside `card.body[]`, parsed through `CardSchema`):
+inside the card's child list, parsed through `CardSchema`):
 
 | entry | nested off-spec node | bundle (raw / gzip) | fill in output |
 | --- | --- | --: | --- |

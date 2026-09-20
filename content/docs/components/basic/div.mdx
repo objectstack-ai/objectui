@@ -42,8 +42,9 @@ Measured through the real renderer, on a node carrying an authored `className`:
 inside an extra element. So a mechanical `div` → `card`/`flex`/`grid` swap changes
 the page; a `div` → `box` swap does not.
 
-One caveat that applies to every option except `card`: they read `children` and
-never `body`. A node that authored `body` must move that content into `children`
+One caveat for a node still authored in the retired `body` spelling: every
+option reads `children` and never `body` (objectui#6771 retired it across the
+protocol, `card` included). Such a node must move that content into `children`
 as part of the swap, or it disappears from the page without changing the element
 count — silently.
 

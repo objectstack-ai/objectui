@@ -7,9 +7,10 @@ they render (objectui#6764).
 
 `renderers/layout/semantic.tsx` registers `aside`, `main`, `header`, `nav`,
 `footer`, `section` and `article`, and `renderers/layout/aspect-ratio.tsx`
-registers one more; all eight call
-`renderChildren(schema.children || schema.body)` and none declared
-`isContainer`. Nothing on the render path reads that flag, so children always
+registers one more; all eight called
+`renderChildren(schema.children || schema.body)` when this change landed — the `body`
+arm has since been retired by objectui#6771 and they call
+`renderChildren(schema.children)` — and none declared `isContainer`. Nothing on the render path reads that flag, so children always
 rendered — what the omission did was make `validateTree` warn `not-a-container`
 on a child list it then rendered, on the tier built to accept AI-authored pages.
 A warning that lies trains authors to discount the true ones.

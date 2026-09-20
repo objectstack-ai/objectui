@@ -160,6 +160,55 @@ export type _SheetAdmitsArray = Expect<Equals<AdmitsArray<SheetSchema['trigger']
 // all. `block-family-retired-4895.test.ts` pins it out of the published
 // surface; the seven corrected rows below still assert against `SchemaNode`.
 
+/* -- The forcing subject for the comment projection (objectui#9768) -- */
+
+/**
+ * A subject `members()` reads DIFFERENTLY with and without the comment
+ * projection -- the one thing this reader and its two siblings did not have.
+ *
+ * Measured over the population the three readers sharing
+ * `scripts/js-comment-mask.mjs` actually project (this file,
+ * `alert-dialog-read-dialect-7104.test.ts` and `overlay-trigger-union-7081.test.ts`):
+ * 20 distinct interface bodies -- 10 declarations and 10 docs fences -- and the
+ * member map built WITH the projection equalled the map built with NO
+ * projection at all on every one, though the projection really does delete
+ * prose in most of them. The guard was correct and INERT: nothing would have
+ * noticed it being deleted, weakened, or reverted to a hand-rolled regex
+ * (objectui#9768, out of the reverse ablation on objectui#9751). ⛔ The counts
+ * in that sentence are a reading of one day and nothing re-derives them; what
+ * re-derives the PROPERTY is the pin below, on every run.
+ *
+ * ⚠️ The `@example` counter-probe further down is NOT that subject, and it
+ * reads as though it were: a docblock gutter spells its member-shaped line with
+ * three spaces and a star, while `members()` anchors on exactly two spaces
+ * followed by an identifier, so that probe passes identically with the
+ * projection removed. The row inside the ORDINARY block comment below sits ON
+ * the anchor, which is the whole difference -- and is the hazard this reader's
+ * docblock names.
+ *
+ * ⛔ Not a synthetic string handed to `members()`: the pin reads this file off
+ * disk and extracts this body the same way it extracts a declaration, so what
+ * it measures is a subject's behaviour rather than a shape the tree does not
+ * have (the distinction objectui#9748 drew).
+ */
+export interface CommentProjectionForcingSubject {
+  /*
+  ⛔ Do not give this block a `*` gutter, and do not "tidy" the row below: a
+  gutter moves it off the two-space anchor and this subject silently stops
+  forcing anything.
+
+  phantom?: SchemaNode;
+
+  That row is prose. It is a MEMBER ROW to any reader that counts members
+  before it separates code from comments.
+  */
+  real?: SchemaNode;
+  label: string;
+}
+
+export type _ForcingSubjectReal = Expect<Equals<CommentProjectionForcingSubject['real'], SchemaNode>>;
+export type _ForcingSubjectLabel = Expect<Equals<CommentProjectionForcingSubject['label'], string>>;
+
 /* -- Reading a member row, on both sides -- */
 
 interface Member {
@@ -203,6 +252,11 @@ function interfaceBody(source: string, opener: string, path: string): string {
  * neither a line number nor an offset into the source it was handed -- it
  * returns member names. That is the projection the module's own header names
  * for that caller.
+ *
+ * What makes that a live claim rather than a classification argument:
+ * `CommentProjectionForcingSubject` above, whose body carries a member-shaped
+ * row inside an ordinary block comment. Remove the `stripComments` call here
+ * and the pin over that subject reds (objectui#9768).
  */
 function members(body: string): Map<string, Member> {
   const bare = stripComments(body);
@@ -358,8 +412,14 @@ describe('the row a docs-only edit could not honestly resolve, resolved (objectu
     const renderer = read('packages/components/src/renderers/overlay/alert-dialog.tsx');
     expect(renderer).not.toMatch(/schema\.actions/);
     // Control: this IS the renderer, and the scan can find things in it.
+    // ⛔ Deliberately NOT a string on the TRIGGER path. This control used to
+    // read `renderChildren(schema.trigger)` and died when objectui#9710 moved
+    // the eight overlay triggers onto a shared seam — a dead control reds, which
+    // is the loud direction, but it reds for a reason that has nothing to do
+    // with what this test proves. `content` is a sibling slot the trigger work
+    // does not touch, so it survives the next trigger refactor too.
     expect(renderer).toContain("ComponentRegistry.register('alert-dialog'");
-    expect(renderer).toContain('renderChildren(schema.trigger)');
+    expect(renderer).toContain('renderChildren(schema.content)');
   });
 });
 
@@ -419,5 +479,27 @@ describe('counter-probes: the readers above can still fail (objectui#7082)', () 
   it('optionality is read, not assumed -- the two directions differ in this very file', () => {
     expect(declRow('HoverCardSchema', 'trigger')?.optional).toBe(false);
     expect(declRow('SheetSchema', 'trigger')?.optional).toBe(true);
+  });
+});
+
+describe('the comment projection has a subject that FORCES it (objectui#9768)', () => {
+  const OWN = fileURLToPath(import.meta.url);
+  const OPENER = 'export interface CommentProjectionForcingSubject {';
+  const subject = (): string => interfaceBody(readFileSync(OWN, 'utf8'), OPENER, OWN);
+
+  it('the subject really carries a member-shaped row inside a block comment -- read off the UNPROJECTED text', () => {
+    // A lookup, not a projection. Without this leg the pin below passes just as
+    // well against a subject that lost the row, and an empty guard reads
+    // exactly like a live one.
+    expect(subject()).toMatch(/\n {2}phantom\?: SchemaNode;\n/);
+  });
+
+  it('`members()` reads the two DECLARED rows and not the row in the comment', () => {
+    // ⭐ The leg that reds: drop `stripComments` from `members()` and `phantom`
+    // joins this map, so the member list -- and the count -- is wrong.
+    const rows = members(subject());
+    expect([...rows.keys()]).toEqual(['real', 'label']);
+    expect(rows.get('real')).toEqual({ optional: true, typeText: 'SchemaNode' });
+    expect(rows.get('label')).toEqual({ optional: false, typeText: 'string' });
   });
 });

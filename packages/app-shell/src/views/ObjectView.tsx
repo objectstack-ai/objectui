@@ -2170,10 +2170,19 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 return;
             }
             // Default: navigate to record detail page.
-            // `action` may be 'view' / 'page' / undefined, OR a custom view name
-            // forwarded from `navigation.view` (e.g. 'detail_form'). The view
-            // variant is resolved by RecordDetailView from its own config, so
-            // any non-`new_window` action lands on the record detail route.
+            // `action` is a navigation-MODE token — 'view' / 'page' / undefined
+            // — and every non-`new_window` value lands on the record detail
+            // route.
+            //
+            // ⛔ It is NOT a view name, and this comment used to say a custom
+            // one could arrive here "forwarded from `navigation.view` (e.g.
+            // 'detail_form')", resolved "by RecordDetailView from its own
+            // config". No layer ever resolved a view by that name — which is
+            // why `@objectstack/spec` 17.5.0 retired the key under ADR-0049,
+            // and why `useNavigationOverlay` stopped forwarding it
+            // (objectui#9874). Nothing here changes behaviour: this branch
+            // already treated the name and the token identically, which is
+            // exactly what made the substitution inaudible on this surface.
             const originState = {
               from: {
                 pathname: location.pathname + (location.search || ''),

@@ -412,6 +412,27 @@ export interface ActionDef {
   bodyExtra?: SpecActionInput['bodyExtra'];
   /** How collected params are shaped into the request body (`flat` or nested). */
   bodyShape?: SpecActionInput['bodyShape'];
+  /**
+   * The declarative single-record field write — a parallel key BESIDE `type`,
+   * never a member of it.
+   *
+   * `ActionType` did not gain a member: the spec materializes `type: 'script'`
+   * on an `operation: 'update'` action, because the write is performed on the
+   * platform action route — `POST /api/v1/actions/{object}/{action}`, the route
+   * the registered `script` dispatch already posts — as the CALLER, so the
+   * caller's permissions, the object's hooks and its validations all fire as
+   * for a user edit. That is why {@link execute} reads this key BEFORE `type`:
+   * by the time `type` is consulted an update action is indistinguishable from
+   * any other script action, and its `patch` would never reach the request.
+   */
+  operation?: SpecActionInput['operation'];
+  /**
+   * For `operation: 'update'` — static field values written to the current
+   * record, merged UNDER the collected `params` so a fixed value can be
+   * declared without exposing it in the dialog. The spec refuses it on an
+   * action without `operation: 'update'`, where it would be silently dropped.
+   */
+  patch?: SpecActionInput['patch'];
   /** Execution mode of the action. */
   mode?: SpecActionInput['mode'];
   /** Field on the record supplying the record id sent to the endpoint. */
@@ -543,9 +564,29 @@ export type ParamCollectionHandler = (
 ) => Promise<Record<string, any> | null>;
 
 /**
+ * The contract's own result-dialog block, and one entry of its field list.
+ *
+ * ⭐ The two interfaces below DERIVE their label members from these instead of
+ * restating them, and that is the whole repair of objectui#9542: the three
+ * label members were hand-written `string` while the producer declares each as
+ * `I18nLabel` — a plain string **or** an inline per-locale map, both authorized
+ * and neither deprecated — so this mirror refused what the platform accepts
+ * while its own docblock claimed the alignment. A hand copy can drift again the
+ * moment the contract moves; a derived member makes `tsc` re-check the claim on
+ * every build instead of trusting a sentence written once.
+ *
+ * ⛔ Local, deliberately not exported: the two interfaces below stay the only
+ * names this module publishes for the block.
+ */
+type SpecResultDialog = NonNullable<SpecActionInput['resultDialog']>;
+type SpecResultDialogField = NonNullable<SpecResultDialog['fields']>[number];
+
+/**
  * Result dialog spec — declarative description of how to render a
  * one-shot reveal of an action's API response. Mirrors
- * `Action.resultDialog` in @objectstack/spec.
+ * `Action.resultDialog` in @objectstack/spec — derived from it member by
+ * member for the labels, so the claim in this sentence is enforced rather
+ * than asserted.
  *
  * When set on an action and the action succeeds, the runner suppresses
  * the success toast and awaits a ResultDialogHandler instead. Used for
@@ -554,13 +595,22 @@ export type ParamCollectionHandler = (
  */
 export interface ResultDialogFieldSpec {
   path: string;
-  label?: string;
+  /**
+   * Derived `I18nLabel` — a plain string, or an inline per-locale map. A
+   * renderer must RESOLVE it (`resolveI18nLabel` in `@objectstack/spec/ui`)
+   * before it reaches the DOM; passed through as-is, the map arm is an object
+   * and React refuses an object as a child.
+   */
+  label?: SpecResultDialogField['label'];
   format?: 'qrcode' | 'code-list' | 'secret' | 'text' | 'json';
 }
 export interface ResultDialogSpec {
-  title?: string;
-  description?: string;
-  acknowledge?: string;
+  /** Derived `I18nLabel` — see `ResultDialogFieldSpec.label` on resolving it. */
+  title?: SpecResultDialog['title'];
+  /** Derived `I18nLabel` — see `ResultDialogFieldSpec.label` on resolving it. */
+  description?: SpecResultDialog['description'];
+  /** Derived `I18nLabel` — see `ResultDialogFieldSpec.label` on resolving it. */
+  acknowledge?: SpecResultDialog['acknowledge'];
   format?: 'qrcode' | 'code-list' | 'secret' | 'text' | 'json';
   fields?: ResultDialogFieldSpec[];
 }
@@ -673,6 +723,28 @@ export interface ActionParamDef {
   lookupPageSize?: number;
   /** Form-field dependencies that gate / parameterise the picker query. */
   dependsOn?: unknown[];
+
+  // ── Resolution failure ────────────────────────────────────────────
+  /**
+   * Set by `resolveActionParams()` when a FIELD-BACKED param (`{ field }`)
+   * named a field that is not in the object metadata the resolver was given,
+   * carrying `<object>.<field>` — the pair that could not be resolved.
+   *
+   * It exists because the alternative is a SILENT one. Without it the resolver
+   * hands back `type: param.type ?? 'text'`, and every downstream reader of the
+   * degradation is blind to it: the param is a `text` param by then, so
+   * `paramDegradesWithoutTarget()` answers false, `paramToField()` emits no
+   * "no reference target" warning, and the #3405 "paste a record id" hints do
+   * not apply either. A lookup param that should have rendered a record picker
+   * renders an unannotated empty box instead — no options, no dropdown, and no
+   * request for the referenced object on the wire, because no picker was ever
+   * built (objectui#10129).
+   *
+   * ⛔ It is not a widget config key and `paramToField()` deliberately does not
+   * map it: the whole point is that the param's type is UNKNOWN, so there is no
+   * widget to configure. `ActionParamDialog` reads it and refuses.
+   */
+  unresolvedField?: string;
 }
 
 /**
@@ -766,6 +838,46 @@ function crossesObjectBoundary(viewName: string, contextObject: string | undefin
   if (!contextObject) return false;
   if (!viewName.includes('.')) return false;
   return !viewName.startsWith(`${contextObject}.`);
+}
+
+/**
+ * Is this the declarative single-record field write?
+ *
+ * Asks the AUTHORED key, not `type`: the spec materializes `type: 'script'`
+ * here and refuses every other explicit spelling, so `type` cannot answer the
+ * question — see the dispatch comment in {@link ActionRunner.execute}.
+ *
+ * `'update'` is the only member the spec declares (`'delete'` and `'custom'`
+ * have no row-level form), and an unrecognized spelling is a parse rejection
+ * upstream. This reads the ONE member rather than "any truthy `operation`" so a
+ * future member cannot silently inherit the update write path — the dispatch
+ * table's own guard reasoning, applied to this key.
+ */
+function isUpdateOperationAction(action: ActionDef): boolean {
+  return action.operation === 'update';
+}
+
+/**
+ * The fields an `operation: 'update'` action writes, and their prior values.
+ *
+ * `undoable` promises to restore EXACTLY the fields the action wrote, so the
+ * captured set is the effective payload — `patch` merged under the collected
+ * `params` — and never `patch` alone: a param-collected field left out of the
+ * capture would make Undo restore SOME of the edit and report a full one, which
+ * is worse than offering no Undo at all.
+ *
+ * Prior values come from the row record the invoking surface stashed under
+ * `params._rowRecord` (the same client-side stash the record-id dance reads).
+ * A field absent from that row is captured as `null`, which is what clearing it
+ * back to empty means on the data plane.
+ */
+function captureUpdateUndoData(
+  writtenFields: readonly string[],
+  rowRecord: Record<string, unknown>,
+): Record<string, unknown> {
+  const undoData: Record<string, unknown> = {};
+  for (const field of writtenFields) undoData[field] = rowRecord[field] ?? null;
+  return undoData;
 }
 
 /*
@@ -1061,6 +1173,33 @@ export class ActionRunner {
         }
       }
 
+      // ── `operation` is read BEFORE `type`, and this is the only order that
+      // can work ────────────────────────────────────────────────────────────
+      //
+      // `operation: 'update'` is a PARALLEL key beside `type`, not a member of
+      // it: `@objectstack/spec` materializes `type: 'script'` on such an action
+      // (the platform action route is the script type's own route) and refuses
+      // any other explicit `type`. `ActionType` therefore did not gain a
+      // member, which is why `builtinExecutors` — a `Record<RunnableActionType,
+      // …>` — still compiles unchanged across the bump that added this key.
+      //
+      // The cost of that design is paid here: by the time `actionType` is
+      // consulted, an update action is indistinguishable from every other
+      // script action. Dispatched on `type` it would reach the registered
+      // `script` handler with its `patch` never merged into the request — the
+      // route would be POSTed a payload with no field values in it and answer a
+      // green success for having written nothing (objectui#2960). Worse, a row
+      // rehydrated from `sys_metadata` UNPARSED (objectui#3903) carries no
+      // materialized `type` at all, so `actionType` falls back to the action's
+      // NAME, matches no executor, and the action lands in
+      // `executeActionSchema`. Reading `operation` first is what makes both of
+      // those impossible.
+      if (isUpdateOperationAction(action)) {
+        const result = await this.executeUpdateOperation(action);
+        await this.handlePostExecution(action, result);
+        return result;
+      }
+
       // Check for a registered custom handler first
       if (actionType && this.handlers.has(actionType)) {
         const handler = this.handlers.get(actionType)!;
@@ -1327,6 +1466,102 @@ export class ActionRunner {
     } else {
       result.redirect = url;
     }
+  }
+
+  /**
+   * `operation: 'update'` — the declarative single-record field write.
+   *
+   * ## The write is the ROUTE's, never this client's
+   *
+   * This method composes a request and hands it to the registered `script`
+   * dispatch; it does not touch a `DataSource`. That is a security boundary,
+   * not an implementation preference. `POST /api/v1/actions/{object}/{action}`
+   * runs the write AS THE CALLER — the caller's permissions, the object's hooks
+   * and its validations all fire as for a user edit — while a client-side
+   * `dataSource.update()` reaches the data plane having consulted none of them.
+   * The spec says the same thing from its end by refusing `target`, `body`,
+   * `method` and `bodyExtra` beside this key and pinning `type` to `'script'`:
+   * there is exactly one execution surface for an update action, and it is the
+   * route.
+   *
+   * Consequently, a consumer that has registered NO server-action dispatch gets
+   * a loud refusal naming the remedy. The two silent alternatives were both
+   * available and both wrong: falling through to `executeScript` ends at "No
+   * script provided" (an update action declares no `target` — the author is
+   * sent hunting for a field they were right not to write), and falling through
+   * to `executeActionSchema` reports on an action that never ran.
+   *
+   * ## `patch` rides UNDER the collected params
+   *
+   * The spec's words: static field values "merged UNDER the user-supplied
+   * `params` so a fixed value can be declared without exposing it in the
+   * dialog". So a collected param of the same name WINS — the author declared a
+   * default, and the user answered it.
+   */
+  private async executeUpdateOperation(action: ActionDef): Promise<ActionResult> {
+    const dispatch = this.handlers.get('script');
+    if (!dispatch) {
+      return {
+        success: false,
+        error:
+          'An `operation: "update"` action is written by the platform action route, which this ' +
+          'client runner cannot reach: no `script` handler is registered. The write is never ' +
+          'performed client-side — a direct data-plane update bypasses the route\'s permission ' +
+          'floor, the object\'s hooks and its validations. Register a handler that POSTs to ' +
+          '/api/v1/actions/{object}/{action} — build one with createServerActionHandler from ' +
+          '@object-ui/core.',
+      };
+    }
+
+    const collected: Record<string, unknown> = (action.params && !Array.isArray(action.params))
+      ? { ...(action.params as Record<string, unknown>) }
+      : {};
+    const patch: Record<string, unknown> =
+      (action.patch && typeof action.patch === 'object' && !Array.isArray(action.patch))
+        ? { ...(action.patch as Record<string, unknown>) }
+        : {};
+    // `patch` UNDER the collected params — see the doc above.
+    const params = { ...patch, ...collected };
+
+    // The row stash and the record selector are transport mechanics, not
+    // written fields: the dispatch strips `_rowRecord` before POSTing and reads
+    // `recordId` as the record's address.
+    const rowRecord = (collected._rowRecord && typeof collected._rowRecord === 'object')
+      ? (collected._rowRecord as Record<string, unknown>)
+      : undefined;
+    const writtenFields = Object.keys(params).filter((k) => k !== '_rowRecord' && k !== 'recordId');
+
+    const result = await dispatch({ ...action, params }, this.context);
+
+    // A refusal is returned exactly as the dispatch reported it. The route's
+    // envelope rule (`interpretActionResponse`) has already turned a 4xx/5xx
+    // AND a 200-with-`success:false` business rejection into `error`, and
+    // `handlePostExecution` surfaces that as the failure toast. Re-labelling it
+    // here, or answering success because the POST itself completed, is the
+    // objectui#2960 shape this branch exists to prevent.
+    if (!result.success) return result;
+
+    // Undo: prior values of exactly the fields this action wrote. Needs a row
+    // record to read them from — without one there is nothing to restore, so
+    // the affordance is correctly not offered rather than offered empty.
+    if (action.undoable && rowRecord && writtenFields.length > 0) {
+      const objectName = action.objectName || readContextObjectName(this.context);
+      const recordId = collected.recordId ?? rowRecord.id;
+      if (objectName && recordId != null) {
+        result.undo = {
+          id: `undo-${objectName}-${String(recordId)}-${Date.now()}`,
+          type: 'update',
+          objectName,
+          recordId: String(recordId),
+          timestamp: Date.now(),
+          description: action.label || `Undo ${objectName}`,
+          undoData: captureUpdateUndoData(writtenFields, rowRecord),
+          redoData: Object.fromEntries(writtenFields.map((k) => [k, params[k]])),
+        };
+      }
+    }
+
+    return result;
   }
 
   /**

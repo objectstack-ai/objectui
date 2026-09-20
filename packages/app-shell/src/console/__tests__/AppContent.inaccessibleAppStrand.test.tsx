@@ -61,7 +61,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
 
 // ---------------------------------------------------------------------------
@@ -268,6 +268,25 @@ describe('AppContent — an inaccessible landing app bounces to /home (objectui#
 
     expect(await screen.findByTestId('create-first-app-btn')).toBeInTheDocument();
     expect(pathname()).toBe('/apps/setup');
+    expect(screen.queryByTestId('home-launcher')).not.toBeInTheDocument();
+  });
+
+  it('bounces to the DECLARED landing where the deployment declares one (objectui#7373)', async () => {
+    // The bounce and the declaration CAN both be true at once, and this is how:
+    // the branch fires on `!activeApp`, whose fallback list is
+    // `launcherApps` — `active !== false` and `hidden !== true` — while
+    // `resolveDeclaredHomePath` reads the whole list. A landing declared on an
+    // app that is hidden from the launcher (the shape
+    // `apps/console/src/components/landingHomeParity-7256.test.ts` already
+    // carries as its own case) therefore leaves nothing to enter here and a
+    // declared place to go.
+    //
+    // Pre-#7373 this landed on `/home` — for a control-plane customer, the
+    // environment launcher, which is the screen the card is about.
+    metadataApps = [{ name: 'cloud_control', label: 'Cloud', isDefault: true, hidden: true, navigation: [] }];
+    renderConsoleAt('/apps/setup');
+
+    await waitFor(() => expect(pathname()).toBe('/apps/cloud_control'));
     expect(screen.queryByTestId('home-launcher')).not.toBeInTheDocument();
   });
 });

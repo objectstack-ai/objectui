@@ -36,7 +36,7 @@ import {
   InspectorCheckboxField,
 } from './_shared.js';
 import { useObjectOptions } from '../previews/useObjectOptions.js';
-import { ConditionBuilder } from './ConditionBuilder.js';
+import { ConditionBuilder, RECORD_CONDITION_SUBJECTS } from './ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from './expression-envelope.js';
 
 /* ─────────────── constants ─────────────── */
@@ -321,6 +321,15 @@ export function HookDefaultInspector({
           objectName={conditionObject}
           disabled={readOnly}
           scope="record"
+          /* objectui#9855 — the SUBJECT dropdown's half of the same narrowing
+             the `scope` above buys for the autocomplete. `wrapDeclarativeHook`
+             evaluates this condition against `{ record, previous }` and
+             nothing else, so a `user.*` subject compiles a row that can never
+             match; offering it here was the row-builder door of the trap
+             objectui#9645 closed in the raw editor. Declared at the mount
+             rather than defaulted, because `scope="record"` does not imply a
+             server host — see `RECORD_CONDITION_SUBJECTS`. */
+          subjects={{ context: RECORD_CONDITION_SUBJECTS }}
           onBlockingIssuesChange={reportCel}
         />
       </div>

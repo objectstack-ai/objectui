@@ -228,6 +228,65 @@ describe('check-upstream-port-parity is wired, not merely present', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('`--list` publishes each divergence at its real size, not one more (objectui#9922)', () => {
+    // The emitter, not the helper. The gate's own self-test pins
+    // `snippetLineCount` over fixtures; this pins the thing a reader actually
+    // sees, because a correct counter that `list()` stopped calling would leave
+    // that self-test green and the printed listing wrong.
+    //
+    // Relational, so it survives every re-sync: the expected size is re-derived
+    // from the snippet stored in the pin. ⛔ No count is written down here —
+    // the header's refusal of copied line counts stands, and this asserts an
+    // agreement rather than a number.
+    const pin = JSON.parse(fs.readFileSync(path.join(ROOT, PIN), 'utf8')) as {
+      files: Array<{ ported: string; divergences?: Array<{ id: string; ported: string }> }>;
+    };
+    const out = stripAnsi(execFileSync('node', [GATE, '--list'], { cwd: ROOT, encoding: 'utf8' }));
+
+    // `wc -l` semantics, spelled out here rather than imported from the gate: an
+    // expectation that borrowed the gate's own counter would agree with it
+    // however it counts, which is the shape this file exists to refuse. A
+    // newline TERMINATES a line, so the terminators are the lines — plus a last
+    // line for any text left dangling after the final one.
+    const wcL = (text: string) => (text.match(/\n/g) ?? []).length + (text !== '' && !text.endsWith('\n') ? 1 : 0);
+
+    // Ids repeat ACROSS files (they name the adaptation, not the site), so each
+    // listing is read inside its own file's section.
+    const sections = new Map<string, string[]>();
+    let current: string[] | null = null;
+    for (const line of out.split('\n')) {
+      const header = /^(\S+)\s+<-\s+\S+\s*$/.exec(line);
+      if (header) {
+        current = [];
+        sections.set(header[1], current);
+      } else current?.push(line);
+    }
+
+    const all = pin.files.flatMap((f) => f.divergences ?? []);
+    expect(all.length, 'a pin with no divergences would make the loop below vacuous').toBeGreaterThan(0);
+    // The control leg, and it is the whole assertion's licence: the two
+    // counters differ ONLY on a snippet that ends in a newline. With none in
+    // the pin this test is green on the very defect it was written for.
+    expect(
+      all.filter((d) => d.ported.endsWith('\n')).length,
+      'nothing here ends in a newline, so this test cannot tell a line from a terminator',
+    ).toBeGreaterThan(0);
+
+    for (const f of pin.files) {
+      const section = sections.get(f.ported);
+      expect(section, `no listing section for ${f.ported}`).toBeTruthy();
+      for (const d of f.divergences ?? []) {
+        const line = section!.find((l) => l.trimStart().startsWith(`- ${d.id} (`));
+        expect(line, `no listing line for ${d.id} under ${f.ported}`).toBeTruthy();
+        const printed = /\((\d+) line\(s\)/.exec(line!)?.[1];
+        expect({ id: `${f.ported}#${d.id}`, printed }).toEqual({
+          id: `${f.ported}#${d.id}`,
+          printed: String(wcL(d.ported)),
+        });
+      }
+    }
+  });
+
   it('and the tree itself is at parity right now', () => {
     // Not a duplicate of the CI step: this is the assertion that the pin
     // shipped in this commit describes the files shipped in this commit. A pin

@@ -78,11 +78,22 @@ const SchemaRendererComponent: React.FC<any> = ImportedSchemaRenderer;
 
 /**
  * The `case 'map'` branch below builds an `object-map` schema by flattening
- * `viewOptions.map`'s CONTENTS to the top level. Whitelisted to these keys —
- * `ObjectMapConfigSchema`'s shape minus `style` — rather than the whole bag:
- * `style` is ALSO `BaseSchema.style` (inline CSS, legal on every node), and
- * spreading the raw `map` block collapsed the two namespaces onto one key
- * (objectui#5177).
+ * `viewOptions.map`'s CONTENTS to the top level — one entry per key
+ * `ObjectMapConfigSchema` declares, written under the name the FLAT form uses
+ * for that key. Whitelisted rather than a whole-bag spread: `style` is ALSO
+ * `BaseSchema.style` (inline CSS, legal on every node), and spreading the raw
+ * `map` block collapsed the two namespaces onto one key (objectui#5177). That
+ * reason is unchanged, and so is its consequence: a key the declaration does
+ * NOT carry never reaches the product.
+ *
+ * `style` IS delivered (objectui#9950) — under its flat spelling `mapStyle`,
+ * NOT by widening the whitelist to let `style` through unrenamed.
+ * `getMapConfig` in `ObjectMap.tsx` reads `schema.mapStyle || schema.map?.style`
+ * and deliberately does NOT read a top-level `style`, because that key is the
+ * base face's inline CSS (objectui#5017). `mapStyle` is itself a declared
+ * member of `ObjectMapSchema`, so the flat product stays inside the declaration
+ * at both ends. Before this, a view authoring `map: { style: '<url>' }` parsed
+ * green, was dropped here, and the map painted the PUBLIC DEMO TILES.
  *
  * HAND-LISTED, not derived at runtime — deliberately, and only here (`plugin-
  * map`'s own `FLAT_MAP_CONFIG_KEYS` in `ObjectMap.tsx` DOES derive from
@@ -99,28 +110,50 @@ const SchemaRendererComponent: React.FC<any> = ImportedSchemaRenderer;
  * gets away with the runtime import only because nothing in
  * console-starter's graph reaches `@object-ui/plugin-map` today.
  *
- * Anti-drift is a TEST, not this comment: `ObjectView.mapFlatten.test.tsx`
- * pins this exact list against `ObjectMapConfigSchema.shape` — imported only
- * from that TEST file, which the alias-closure walker explicitly excludes
- * from traversal — so a key added to or removed from the declaration still
- * fails here, loudly and by name, without reintroducing the runtime edge that
- * breaks the walker.
+ * Anti-drift is TWO mechanisms, neither of them this comment:
+ * - the type below is TOTAL — a `Record` over EVERY `keyof ObjectMapConfig`,
+ *   not a list of some of them — so a key added to the declaration fails
+ *   `tsc` here until it is given a flat spelling. A key can no longer be
+ *   left out by simply not being written down, which is how `style` was.
+ * - `ObjectView.mapFlatten.test.tsx` pins this object's key set against
+ *   `ObjectMapConfigSchema.shape` — imported only from that TEST file, which
+ *   the alias-closure walker explicitly excludes from traversal — and asserts
+ *   the RELATION (every declared key is delivered under its flat spelling).
+ *   The pre-#9950 pin could not see the omission because it compared the hand
+ *   list against `shape` MINUS `style`: the set it measured against was
+ *   narrowed by the same subtraction the defect was made of, so it stayed
+ *   green while an authored style was being discarded.
  */
-export const FLAT_MAP_CONFIG_KEYS = [
-  'latitudeField',
-  'longitudeField',
-  'locationField',
-  'titleField',
-  'descriptionField',
-  'zoom',
-  'center',
-] as const satisfies readonly (keyof Omit<ObjectMapConfig, 'style'>)[];
+export const FLAT_MAP_CONFIG_SPELLING = {
+  latitudeField: 'latitudeField',
+  longitudeField: 'longitudeField',
+  locationField: 'locationField',
+  titleField: 'titleField',
+  descriptionField: 'descriptionField',
+  zoom: 'zoom',
+  center: 'center',
+  // The one key whose flat spelling differs from its declared name — see the
+  // objectui#9950 paragraph above for why it is `mapStyle` and not `style`.
+  style: 'mapStyle',
+} as const satisfies Record<keyof ObjectMapConfig, string>;
 
-/** Pick only the declared flat map keys present on an authored `map` block. */
+/**
+ * Copy the declared map keys an author actually wrote onto the flat product,
+ * each under its flat spelling.
+ *
+ * Values travel AS WRITTEN: this is transport, not a second validation of the
+ * declared block — that reading belongs to `getMapConfig` in `ObjectMap.tsx`
+ * and stays there (objectui#5018). Discarding an ill-typed value here would
+ * reintroduce exactly the silent drop objectui#9950 closed.
+ */
 function pickFlatMapConfig(mapConfig: unknown): Record<string, unknown> {
   if (!mapConfig || typeof mapConfig !== 'object') return {};
   const source = mapConfig as Record<string, unknown>;
-  return Object.fromEntries(FLAT_MAP_CONFIG_KEYS.filter((key) => key in source).map((key) => [key, source[key]]));
+  return Object.fromEntries(
+    Object.entries(FLAT_MAP_CONFIG_SPELLING)
+      .filter(([declared]) => declared in source)
+      .map(([declared, flat]) => [flat, source[declared]]),
+  );
 }
 
 /**
@@ -394,8 +427,20 @@ export interface ObjectViewProps {
 
   /**
    * Callback when a row is clicked (for record detail navigation)
+   *
+   * TWO parameters since objectui#9462, and the second is not decoration. The
+   * view's own `handleRowClick` is what `ObjectGrid` hands to
+   * `useNavigationOverlay`, and that hook invokes it as
+   * `onRowClick(record, event)` — the modifier payload (`metaKey` / `ctrlKey` /
+   * `button`) a host needs to implement Cmd/Ctrl/middle-click for itself.
+   * `handleRowClick` used to forward one argument, so this prop delivered
+   * nothing on the second and a host's "open in a new tab" degraded to an
+   * ordinary navigation. Spelled `any` and not `HandleClickModifiers` for the
+   * reason objectui#9341 measured on `ObjectKanbanSchema.onCardClick`: a host
+   * that discovered the payload from the implementation annotated it
+   * `React.MouseEvent`, which a narrower declaration refuses contravariantly.
    */
-  onRowClick?: (record: Record<string, unknown>) => void;
+  onRowClick?: (record: Record<string, unknown>, event?: any) => void;
 
   /**
    * Callback when edit is triggered on a record
@@ -417,7 +462,13 @@ export interface ObjectViewProps {
     schema: any;
     dataSource: DataSource;
     onEdit?: (record: Record<string, unknown>) => void;
-    onRowClick?: (record: Record<string, unknown>) => void;
+    /**
+     * The view's own `handleRowClick`, verbatim — so TWO parameters since
+     * objectui#9462, for the same reason {@link ObjectViewProps.onRowClick}
+     * carries them: a custom list view that has a DOM click event in hand may
+     * pass it, and it reaches the host through the forward below.
+     */
+    onRowClick?: (record: Record<string, unknown>, event?: any) => void;
     className?: string;
     /** Current refresh counter — increment signals that a mutation occurred */
     refreshKey?: number;
@@ -1151,9 +1202,34 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   }, [layout, schema]);
 
   // Handle row click - respects NavigationConfig
-  const handleRowClick = useCallback((record: Record<string, unknown>) => {
+  //
+  // objectui#9462 — `event` is forwarded, not consumed. This callback is what
+  // `ObjectGrid` feeds to `useNavigationOverlay` (and what a host's
+  // `renderListView` receives verbatim), and `handleClick` invokes it with the
+  // modifier payload; truncating to `onRowClick(record)` here meant a host
+  // wired to this component's own prop never saw it.
+  //
+  // objectui#9806 — the branches below do NOT read it, and that is a GAP
+  // rather than a delegation. This paragraph used to close by saying what
+  // Cmd/Ctrl/middle-click does with no host handler "is the hook's own
+  // decision, taken before this callback runs". It is not, on this path:
+  // `handleClick` returns EARLY on the `onRowClick` it is handed, ahead of its
+  // own `event.metaKey` / `event.ctrlKey` / middle-button branch, and this
+  // component hands `handleRowClick` down UNCONDITIONALLY — so that branch is
+  // unreachable from here. ⇒ with no host `onRowClick`, a modifier click on an
+  // ObjectView row does exactly what a plain click does and opens no browser
+  // tab of its own. Whether it SHOULD is a behaviour change on a published
+  // component, owed its own card; objectui#9806 amended the sentence only.
+  //
+  // ⚠️ Nothing above is remembered — it is re-derived (AGENTS.md #9) by
+  // ObjectView.modifierClickInPlace-9806.test.tsx, which drives a plain click
+  // and a modifier click through the REAL hook, carries a control that reaches
+  // the hook's modifier branch, and pins this file's citation of it. Change
+  // what a modifier click does here and that pin reds together with this
+  // comment.
+  const handleRowClick = useCallback((record: Record<string, unknown>, event?: any) => {
     if (onRowClick) {
-      onRowClick(record);
+      onRowClick(record, event);
       return;
     }
 
@@ -1242,9 +1318,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `tree` view was labelled with the GRID icon. objectui#2916 fixed
         // exactly that for `chart` by adding one key, and nothing recorded
         // that the set has to be COMPLETE, so `tree` stayed missing. The
-        // annotation is the guard for the whole class: `ViewSwitcher`'s own
-        // `DEFAULT_VIEW_ICONS` — the consumer of these strings — is already
-        // `Record<ViewType, LucideIcon>`, and only this producer was partial.
+        // TOTALITY is the guard for the whole class: `ViewSwitcher`'s own
+        // `DEFAULT_VIEW_ICONS` — the consumer of these strings — is asserted
+        // total the same way, and only this producer was partial.
         //
         // The values are the spellings `ViewSwitcher.resolveIcon` PascalCases
         // back into lucide icons, so `tree: 'list-tree'` resolves to the same
@@ -1268,7 +1344,22 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `ViewSwitcher.DEFAULT_VIEW_ICONS` — draws for the same view type, and
         // `resolveIcon` looks these strings up in lucide's runtime `icons`
         // record, where a deprecated alias resolves to no icon at all.
-        const iconMap: Record<ViewType, string> = {
+        //
+        // objectui#9943 — the ANNOTATION is gone and the exhaustiveness is
+        // asserted instead. An annotated literal is exact in BOTH directions:
+        // it catches the added member (what #5321 wanted) and it also makes a
+        // RETIRED member an excess property (TS2353), whose only repair is
+        // deleting the row. objectstack#17063 retired the list-view kind
+        // `page`, so this table went red against a spec built from objectstack
+        // `main` while the `@objectstack/spec` this repository RESOLVES still
+        // publishes `page` and an author can still write one. `satisfies
+        // Record<string, string>` keeps the value constraint and drops the
+        // exactness; `_UncoveredHostViewIcon` below puts the added-member half
+        // back, so #5321's "no member can land without an icon" still holds.
+        // ⛔ Deleting that assert is the regression this shape exists to
+        // prevent — both directions are pinned in
+        // `__tests__/ViewSwitcher.viewTypeTotalsBothLegs-9943.test.ts`.
+        const iconMap = {
           kanban: 'kanban',
           calendar: 'calendar',
           map: 'map',
@@ -1281,7 +1372,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           chart: 'chart-column',
           tree: 'list-tree',
           page: 'layout-template',
-        };
+        } satisfies Record<string, string>;
+
+        /** `never` only while every {@link ViewType} has an icon name. */
+        type _AssertNever<T extends never> = T;
+        type _UncoveredHostViewIcon = _AssertNever<Exclude<ViewType, keyof typeof iconMap>>;
         return {
           type: v.type as ViewType,
           label: v.label,
@@ -1667,7 +1762,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           ...(viewOptions.gantt || {}),
         };
       case 'map':
-        // Whitelisted flatten (objectui#5177) — see `FLAT_MAP_CONFIG_KEYS`.
+        // Whitelisted flatten (objectui#5177) — see `FLAT_MAP_CONFIG_SPELLING`,
+        // which also carries `style` out as `mapStyle` (objectui#9950).
         // `viewOptions.map` is an untyped bag (`NamedListView.options`); a raw
         // spread here forwarded every key the author wrote, including `style`,
         // which `ObjectMap`'s `FlatMapConfigKeys` declares OUT of this flat form.
@@ -1882,8 +1978,14 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
   // Build form schema
   const buildFormSchema = (): ObjectFormSchema => {
+    // ⚠️ The assertion states the PROTOCOL, it does not convert (objectui#9511).
+    // `selectedRecord` is an untyped record bag, so this was always a hand-written
+    // assertion; it now asserts the one shape a record id has — a `string` — rather
+    // than the wide one. ⛔ Deliberately NOT `String(...)`: the ruling puts the
+    // conversion at the adapter's own boundary, in one typed place, and a reader-side
+    // coercion here is exactly the option it refused.
     const recordId = selectedRecord
-      ? ((selectedRecord.id || selectedRecord._id) as string | number | undefined)
+      ? ((selectedRecord.id || selectedRecord._id) as string | undefined)
       : undefined;
 
     return {

@@ -260,6 +260,9 @@ const de = {
       selectBusinessUnit: "Geschäftseinheit auswählen",
       selectPosition: "Position auswählen",
       selectUnitAndSubordinates: "Geschäftseinheit auswählen",
+      selectField: "Benutzerfeld auswählen",
+      noUserFields: "Dieses Objekt hat keine Benutzerfelder",
+      fieldNotUserTyped: "{{name}} — kein Benutzerfeld",
     },
     filterCondition: {
       selectObjectFirst: "Wählen Sie zuerst ein Objekt.",
@@ -283,6 +286,10 @@ const de = {
         "Nicht gespeichert: {{name}} „{{text}}“ ist keine Zahl. Geben Sie einfache Dezimalzahlen ein (Beispiel: 30.2741, 120.1551).",
       refusedResidue:
         "Nicht gespeichert: {{name}} „{{text}}“ und {{otherName}} „{{otherText}}“ sind keine Zahlen. Geben Sie einfache Dezimalzahlen ein (Beispiel: 30.2741, 120.1551).",
+    },
+    number: {
+      badInput:
+        "Nicht gespeichert: Der Text in diesem Feld ist keine Zahl. Geben Sie eine einfache Dezimalzahl ein (Beispiel: {{example}}).",
     },
     tags: {
       placeholder: "Tippen und mit der Eingabetaste hinzufügen…",
@@ -566,6 +573,33 @@ const de = {
     newEvent: "Neuer Termin",
     moreEvents: "+{{count}} weitere",
     unscheduled: "Nicht geplant ({{count}})",
+    loading: "Kalender wird geladen…",
+    loadError: "Fehler: {{message}}",
+    configRequired: "Kalenderkonfiguration erforderlich. Bitte startDateField angeben, den einzigen erforderlichen Schlüssel des Kalenders; der Termintitel wird auch ohne titleField aufgelöst.",
+    configRequiredHint: "Sie gehört in den calendar-Block der Ansicht. Eine Interface-Seite hat keinen eigenen Kalender-Slot: Richten Sie ihr sourceView auf eine Ansicht, die einen deklariert.",
+    eventDetails: "Termindetails",
+    pullToRefresh: "Zum Aktualisieren ziehen",
+    refreshing: "Wird aktualisiert…",
+    onDate: "Am {{date}}",
+    eventTitle: "Titel",
+    eventTitlePlaceholder: "Worum geht es bei diesem Termin?",
+    creating: "Wird erstellt…",
+    titleRequired: "Titel ist erforderlich",
+    a11y: {
+      region: "Kalender",
+      grid: "Kalenderraster",
+      goToToday: "Zu heute springen",
+      previousPeriod: "Vorheriger Zeitraum",
+      nextPeriod: "Nächster Zeitraum",
+      currentDate: "Aktuelles Datum: {{date}}",
+      dayCell: "{{date}}, {{count}} Termine",
+      dayCell_one: "{{date}}, {{count}} Termin",
+      dayCell_other: "{{date}}, {{count}} Termine",
+      resizeEventEnd: "Ende des Termins ändern",
+      resizeEventEndHint: "Ziehen, um das Enddatum zu ändern",
+      resizeStart: "Beginn ändern",
+      resizeEnd: "Ende ändern",
+    },
   },
   list: {
     firstRunTitle: "Hier ist noch nichts",
@@ -1460,6 +1494,9 @@ const de = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Zurück zur Startseite",
+    },
     saveAdvisoryTitle: "Gespeichert — die Autorenprüfung ergab {{count}} Hinweis(e)",
     publishAdvisoryTitle: "Veröffentlicht — die Autorenprüfung ergab {{count}} Hinweis(e)",
     importMappingsUnavailable: "Gespeicherte Importzuordnungen für {{object}} konnten nicht geladen werden",
@@ -1843,6 +1880,13 @@ const de = {
       searching: "Suche…",
       records: "Datensätze",
       recentRecords: "Zuletzt angesehen",
+    },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'Ungewöhnliches Lesevolumen in dieser Umgebung',
+      ratio: 'Pro geschriebener Zeile werden {{ratio}} Zeilen gelesen. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
+      noWritesTitle: 'Lesevorgänge ganz ohne Schreibvorgänge in dieser Umgebung',
+      noWrites: 'Es werden Zeilen gelesen, aber überhaupt keine geschrieben, sodass die Leserate keine Obergrenze hat. Das ist der schwerwiegendste Messwert. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
     },
     errors: {
       somethingWentWrong: "Etwas ist schiefgelaufen",
@@ -2240,6 +2284,15 @@ const de = {
       role: "Rolle",
       save: "Änderungen speichern",
     },
+    language: {
+      title: "Sprache",
+      description: "Die Sprache für Benachrichtigungen und Nachrichten, die an Sie gesendet werden. Die Oberflächensprache wird separat über das Globus-Menü gewählt.",
+      label: "Bevorzugte Sprache",
+      systemDefault: "Standard der Bereitstellung verwenden",
+      save: "Speichern",
+      saved: "Spracheinstellung aktualisiert.",
+      readOnly: "Die Sprache Ihres Kontos wird von Ihrer Administration verwaltet.",
+    },
     password: {
       changeTitle: "Passwort ändern",
       setTitle: "Lokales Passwort festlegen",
@@ -2480,6 +2533,7 @@ const de = {
     resultsCount: "{{count}} Ergebnis für „{{query}}“",
     resultsCountPlural: "{{count}} Ergebnisse für „{{query}}“",
     itemsAvailable: "{{count}} Elemente verfügbar",
+    itemsAvailableOne: "{{count}} Element verfügbar",
     noResults: "Keine Ergebnisse gefunden",
     noResultsHint: "Versuchen Sie, Ihre Suchbegriffe anzupassen",
     typeObjects: "Objekte",
@@ -2523,6 +2577,7 @@ const de = {
     description: "Bitte geben Sie die erforderlichen Informationen ein, um fortzufahren.",
     selectPlaceholder: "{{label}} auswählen",
     requiredError: "{{label}} ist erforderlich",
+    unresolvedParam: 'Dieser Parameter kann nicht angezeigt werden: Das zugrunde liegende Feld fehlt in den Objektmetadaten, daher lässt sich das benötigte Steuerelement nicht erzeugen. Bitten Sie eine Administratorin oder einen Administrator, die Aktionsdefinition zu korrigieren.',
     cancel: "Abbrechen",
     confirm: "Bestätigen",
     uploading: "Wird hochgeladen…",

@@ -284,6 +284,52 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
     [state.params, scope, state.title],
   );
 
+  /**
+   * Params whose FIELD-BACKED declaration could not be resolved against object
+   * metadata — `resolveActionParams()` names the `<object>.<field>` pair it
+   * could not find on each one (objectui#10129).
+   *
+   * ## Why the dialog REFUSES instead of rendering an input
+   *
+   * An unresolved param has no type, no options and no picker target: the
+   * resolver's `type: param.type ?? 'text'` is a placeholder for a contract it
+   * could not read, not a reading of one. Rendering it is a lie in both
+   * directions — a `lookup` becomes an empty box with no dropdown and no
+   * request for the referenced object on the wire, and a `select` loses the
+   * option list that was the only legal input. When such a param is `required`
+   * the action cannot be launched from the UI at all, which is exactly the
+   * state that hid this defect for a whole version: the dialog LOOKED usable.
+   *
+   * The refusal is deliberately not gated on `required`. A param that cannot be
+   * read is a broken action declaration whether or not a value is mandatory,
+   * and a silent optional param is the same invisible failure one submit later.
+   *
+   * ⛔ Not a validation error: the user cannot fix it, so it is not reported on
+   * the control. It names the object and field an administrator must repair.
+   */
+  const unresolvedParams = visibleParams.filter((p) => !!p.unresolvedField);
+  /** Primitive digest — ⛔ never the array's identity (AGENTS.md #10). */
+  const unresolvedKey = unresolvedParams.map((p) => `${p.name}=${p.unresolvedField}`).join('|');
+
+  // Loud in EVERY build, not just dev: the whole defect this refuses was
+  // invisible in a shipped one. Fired once per dialog opening — the effect is
+  // keyed on the digest above, so a re-render with the same params says nothing.
+  useEffect(() => {
+    if (!state.open || !unresolvedKey) return;
+    for (const p of unresolvedParams) {
+      console.error(
+        `[ActionParamDialog] Action "${typeof state.title === 'string' && state.title ? state.title : '(untitled)'}" `
+          + `declares a field-backed param "${p.name}" whose backing field \`${p.unresolvedField}\` is not in `
+          + 'the object metadata. The param\'s type, options and picker target are therefore unknown, so the '
+          + 'dialog refuses it instead of offering an input built from a contract it could not read. '
+          + 'Fix the action declaration (field name / `objectOverride`) or publish the missing field.',
+      );
+    }
+    // `unresolvedParams` is derived from `unresolvedKey`'s source each render;
+    // keying on the digest is what keeps this from re-firing on identity churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.open, state.title, unresolvedKey]);
+
   // Reset values when params change
   useEffect(() => {
     if (state.open) {
@@ -312,6 +358,10 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
     // An upload is still in flight — the param value isn't its fileId yet, so
     // block the submit (Confirm is also disabled; this guards keyboard submit).
     if (anyUploading) return;
+    // A param the resolver could not read has no value this dialog could
+    // legitimately collect, so the action is not launchable from here. Confirm
+    // is disabled too; this guards keyboard submit (objectui#10129).
+    if (unresolvedKey) return;
     // Validate required fields
     const newErrors: Record<string, boolean> = {};
     for (const param of visibleParams) {
@@ -363,6 +413,29 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
               helpText: rawParam.helpText != null ? pickLocalized(rawParam.helpText, language) : rawParam.helpText,
               options: rawParam.options?.map((o) => ({ ...o, label: pickLocalized(o.label, language) })),
             };
+            // The refusal comes FIRST — ahead of `paramToField()`, which would
+            // otherwise build a widget from the placeholder type the resolver
+            // fell back to (objectui#10129).
+            if (rawParam.unresolvedField) {
+              return (
+                <div key={param.name} className="grid gap-2">
+                  <Label>{param.label}</Label>
+                  <div
+                    role="alert"
+                    data-testid={`param-unresolved-${param.name}`}
+                    className="grid gap-1 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive"
+                  >
+                    <p>{t('actionDialog.unresolvedParam')}</p>
+                    {/* The locator is its own node rather than an interpolation
+                        (objectui#10129): `<object>.<field>` is an identifier, so
+                        it must render verbatim in every locale, never be
+                        re-ordered by a translator, and stay readable when the
+                        surrounding sentence has not been translated yet. */}
+                    <p className="font-mono">{rawParam.unresolvedField}</p>
+                  </div>
+                </div>
+              );
+            }
             const field = paramToField(param);
             const Widget = getLazyFieldWidget(field.type);
             // Only upload widgets emit upload-in-progress; wiring the callback
@@ -377,17 +450,19 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
             // prop existed the dialog passed nothing, so `useCascadingOptions`
             // resolved the EMPTY record — and a `visibleWhen` written against a
             // sibling PARAM could never see the value the user had just picked
-            // in this same dialog. The evaluator is untouched: it already reads
-            // `dependentValues ?? formValues ?? data`; this is the supply half
-            // that was missing.
+            // in this same dialog. The evaluator is untouched: this is the
+            // supply half that was missing.
             //
             // ⚠️ This used to say the fall-through reached "`SchemaRendererContext`'s
             // `formValues` / `data` — the OUTER page's record". It did not, and
             // no host could have made it: `SchemaRendererContextType` declares
             // exactly `dataSource` / `debug` / `debugFlags` / `apiFetch`, so
-            // that tail is unconditionally `{}` — unsettable, not merely unset
-            // (objectui#7206). The fall-through reached `{}`, which is why the
-            // predicate came back UNRESOLVABLE rather than resolved against
+            // that tail was unconditionally `{}` — unsettable, not merely
+            // unset. It has since been retired under ADR-0049 enforce-or-remove
+            // (objectui#7206), and `useCascadingOptions` now reads
+            // `dependentValues ?? {}`. The fall-through reached `{}` then and
+            // resolves `{}` now, which is why a predicate the dialog has no
+            // param for comes back UNRESOLVABLE rather than resolved against
             // some outer record.
             //
             // Ruled cost, recorded rather than worked around: because a
@@ -551,7 +626,7 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
 
         <DialogFooter>
           <Button variant="outline" onClick={handleCancel}>{t('actionDialog.cancel')}</Button>
-          <Button onClick={handleSubmit} disabled={anyUploading}>
+          <Button onClick={handleSubmit} disabled={anyUploading || !!unresolvedKey}>
             {anyUploading ? t('actionDialog.uploading') : t('actionDialog.confirm')}
           </Button>
         </DialogFooter>

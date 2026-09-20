@@ -6,6 +6,7 @@
 // computes that program's diagnostics, PRINTS them — and then lets the build
 // finish green:
 //
+// fixture-address: a QUOTED TRANSCRIPT of the build output this file exists to fail on
 //     src/AppSchemaRenderer.tsx:581:5 - error TS2353: Object literal may only
 //       specify known properties, and 'logo' does not exist in type
 //       'AppShellBranding'.

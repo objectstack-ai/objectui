@@ -46,6 +46,23 @@
  * and this one only announces, because refusing would make React restore the
  * control and wipe the very text the diagnostic points at. The emission
  * assertions below pin that on purpose.
+ *
+ * ## ⚠️ What objectui#8148 moved in this file, and why
+ *
+ * This suite used to spell its expectation as `badInputMessage(example)`. That
+ * helper no longer composes an English sentence on its own: objectui#8148
+ * routed the sentence through `useFieldTranslation` + `FIELD_DEFAULTS` (the
+ * fifth application of objectui#6755's ruling), so it now takes the widget's
+ * `t` and reads `fields.number.badInput`. A test cannot call it without
+ * fabricating a `t`, and a fabricated `t` would make the expectation the
+ * TEST's copy rather than the product's.
+ *
+ * So the expectation is spelled here as {@link EN_BAD_INPUT}, the English the
+ * provider-less render produces — byte-identical to the literal this suite
+ * asserted before, which is why every verdict below is UNCHANGED. That
+ * byte-identity is not assumed here: `numberBadInput.i18n-8148.test.tsx`
+ * asserts it through the rendered widget under an `en` provider and with no
+ * provider at all, alongside the translated renders this file does not cover.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -56,7 +73,6 @@ import { CurrencyField } from '../widgets/CurrencyField';
 import { PercentField } from '../widgets/PercentField';
 import { NumberField } from '../widgets/NumberField';
 import { GeolocationField } from '../widgets/GeolocationField';
-import { badInputMessage } from '../widgets/numberBadInput';
 import {
   BROWSER_READINGS,
   BAD_INPUT_AGREED,
@@ -65,6 +81,16 @@ import {
 } from './numberInputBrowserReadings.js';
 
 afterEach(() => cleanup());
+
+/**
+ * The sentence a provider-less render draws, one `example` filled in.
+ *
+ * ⚠️ Spelled here rather than imported (see the header): after
+ * objectui#8148 the sentence's source is the locale pack, and the English
+ * value is byte-identical to the literal this file asserted before.
+ */
+const EN_BAD_INPUT = (example: string) =>
+  `Not saved: the text in this box is not a number. Enter a plain decimal (example: ${example}).`;
 
 /**
  * Every widget of this class takes the same three runtime props, but their
@@ -164,7 +190,7 @@ describe.each(WIDGETS)('$name announces bad input (objectui#6780)', ({ example, 
     // The a11y state a screen reader reads...
     expect(box).toHaveAttribute('aria-invalid', 'true');
     // ...and a reason a person can read, in objectui#6716's `Not saved:` shape.
-    expect(diagnostic(container)).toBe(badInputMessage(example));
+    expect(diagnostic(container)).toBe(EN_BAD_INPUT(example));
     expect(diagnostic(container)).toContain('Not saved:');
   });
 
@@ -207,7 +233,7 @@ describe.each(WIDGETS)('$name announces bad input (objectui#6780)', ({ example, 
 
     fireEvent.blur(box);
 
-    expect(diagnostic(container)).toBe(badInputMessage(example));
+    expect(diagnostic(container)).toBe(EN_BAD_INPUT(example));
     expect(box).toHaveAttribute('aria-invalid', 'true');
   });
 
@@ -310,14 +336,14 @@ describe('GeolocationField reads its two boxes independently (objectui#6780)', (
     const messages = Array.from(container.querySelectorAll('p.text-red-500')).map(
       p => (p.textContent || '').trim(),
     );
-    expect(messages).toEqual([badInputMessage('30.2741'), badInputMessage('120.1551')]);
+    expect(messages).toEqual([EN_BAD_INPUT('30.2741'), EN_BAD_INPUT('120.1551')]);
   });
 
   it('the longitude box announces on blur too', () => {
     const { container, lng } = mountGeo();
     lng.value = '1e';
     fireEvent.blur(lng);
-    expect(diagnostic(container)).toBe(badInputMessage('120.1551'));
+    expect(diagnostic(container)).toBe(EN_BAD_INPUT('120.1551'));
   });
 });
 
@@ -367,6 +393,6 @@ describe('the added onBlur composes the host handler instead of replacing it', (
     box.value = '1e';
     fireEvent.blur(box);
     expect(hostBlur).toHaveBeenCalledTimes(1);
-    expect(within(container).getByText(badInputMessage('1234'))).toBeInTheDocument();
+    expect(within(container).getByText(EN_BAD_INPUT('1234'))).toBeInTheDocument();
   });
 });

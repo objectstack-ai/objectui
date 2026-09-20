@@ -32,7 +32,7 @@ function App() {
   const schema: PageNodeSchema = {
     type: "page",
     title: "My Dashboard",
-    body: [{ type: "text", content: "Hello" }]
+    children: [{ type: "text", content: "Hello" }]
   }
   
   return <SchemaRenderer schema={schema} />
@@ -66,7 +66,7 @@ interface BaseSchema {
   "className": "p-6 shadow-lg",
   "title": "User Statistics",
   "visibleOn": "${user.role === 'admin'}",
-  "body": {
+  "children": {
     "type": "text",
     "content": "Total Users: ${stats.totalUsers}"
   }
@@ -167,14 +167,14 @@ Schemas can be nested to create complex UIs:
 {
   "type": "page",
   "title": "Dashboard",
-  "body": {
+  "children": {
     "type": "grid",
     "columns": 2,
     "children": [
       {
         "type": "card",
         "title": "Card 1",
-        "body": {
+        "children": {
           "type": "text",
           "content": "Nested content"
         }
@@ -182,7 +182,7 @@ Schemas can be nested to create complex UIs:
       {
         "type": "card",
         "title": "Card 2",
-        "body": {
+        "children": {
           "type": "chart",
           "chartType": "bar",
           "xAxisKey": "month",
@@ -275,7 +275,7 @@ it on `label`: `text` is not a `BadgeSchema` key.
   "type": "alert",
   "variant": "default",
   "title": "Welcome!",
-  "body": {
+  "children": {
     "type": "text",
     "content": "${
       user.isNew ? 'Start with the quick tour.' :
@@ -337,20 +337,53 @@ action renderer forwards.
 
 ## Performance Optimization
 
-### Lazy Loading
+### Lazy loading: there is no such knob
 
-Large schemas are automatically optimized:
+There is no authorable lazy-loading key — not on `tabs`, not on any other node.
+This section used to show a `tabs` node carrying `"lazyLoad": true` beneath the
+sentence "Large schemas are automatically optimized". Nothing in this repository
+performs that optimization and nothing reads that key, so the promise is removed
+here rather than respelled.
+
+Two things mislead, so both are worth naming:
+
+- **`lazyLoad` is a real name in this repository — on a different surface.** It is
+  a member of `PerformanceConfig`, the argument type of the `usePerformance`
+  hook: a configuration object you pass in TypeScript, never a key you author on
+  a node. Finding it in a search does not make it authorable. It gates nothing
+  even there — `usePerformance` resolves it into the config it hands back and
+  never branches on it, unlike its sibling `debounceMs`, which the hook lifts
+  into a local and passes to `setTimeout`.
+- **The `tabs` renderer builds every panel on the same render pass.** It maps
+  `items` twice, unconditionally — once for the triggers and once for the
+  panels — so no tab's `content` waits for a click. It uses neither `lazy` nor
+  `Suspense`, and it never calls `usePerformance`.
+
+To defer real work behind a tab, defer the *component* rather than the node: see
+[Code Splitting](#code-splitting) below.
+
+For reference, a `tabs` node written with the keys `TabsSchema` actually declares:
 
 ```json
 {
   "type": "tabs",
-  "lazyLoad": true,
-  "tabs": [
-    { "title": "Tab 1", "body": { /* Loaded when tab is clicked */ } },
-    { "title": "Tab 2", "body": { /* Loaded when tab is clicked */ } }
+  "defaultValue": "tab1",
+  "items": [
+    { "value": "tab1", "label": "Tab 1", "content": { "type": "text", "content": "First panel" } },
+    { "value": "tab2", "label": "Tab 2", "content": { "type": "text", "content": "Second panel" } }
   ]
 }
 ```
+
+`items` is the node's tab list — there is no `tabs` key — and every item takes
+`value`, `label` and `content`: the identifier, the visible title, and the panel.
+All three are required, and the two ways of getting an item wrong fail
+differently. An item missing one of them is **refused**. An item that also
+carries the older `title` / `body` spelling is **accepted with those two keys
+dropped**, so the tab renders an empty panel with nothing naming the cause. On
+the node itself, `body` and `children` are refused by name: `tabs` reads neither
+content channel. The four keys it does render are `defaultValue`, `items`,
+`orientation` and `value`.
 
 ### Memoization
 
@@ -384,6 +417,44 @@ The renderer includes built-in error boundaries:
 />
 ```
 
+## Render is not a validation door
+
+`SchemaRenderer` does **not** parse your document against the published Zod schema before it
+draws. The one document check on the render path is `validateSchema` from `@object-ui/core` —
+a hand-written structural walker — and it runs **in development only**: the call sits behind a
+`process.env.NODE_ENV !== 'production'` guard, warns to the console, and marks the offending
+host element with `data-obj-schema-invalid` so an app can hang a visual cue off it. In a
+production build that pass is skipped entirely — the document is not checked at all before it
+is drawn, and `data-obj-schema-invalid` is never emitted.
+
+The walker and the schema do not share an accept set, so neither one's verdict tells you
+anything about the other's. The walker judges node *structure* — is the root an object, does
+every node carry a `type`, recursing through `children` — plus a few rules of its own, such as
+a short hand-written table of retired node-type spellings. The rest of the published contract
+is outside it. Take a `chatbot` node carrying a key the schema has retired: the walker is
+silent, whether that key holds a node, an array of nodes, a string, a number or a record, while
+`safeValidateSchema` refuses the same document with the retirement's own message. So a document
+that renders without a warning has **not** thereby passed the contract, and a warning that does
+appear is a report about node structure, not about the schema.
+
+Validation happens at three doors, all of them outside the render path:
+
+1. **Load time — the framework's Zod parse.** Every metadata item a package ships is validated
+   against its Zod schema when the framework loads it; the result travels with the item as a
+   `_diagnostics` envelope, which Studio surfaces. See
+   [Metadata Diagnostics](./metadata-diagnostics.md).
+2. **Authoring time — the CLI.** `objectui validate` parses one document against the published
+   schema and prints the schema's own errors when it fails. `objectui check` sweeps a project
+   and lists the files that carry a registered component type but did not validate, pointing at
+   `objectui validate` for the reason.
+3. **Wherever else you need it — `safeValidateSchema`.** Exported from `@object-ui/types/zod`,
+   it is the same parse both CLI commands run, so a build step, a CI job or a save handler can
+   apply the identical contract.
+
+Put the check where documents are authored, saved or loaded — not in the paint. A document that
+reaches the browser without passing one of those doors is drawn as best the renderer can, in
+development and in production alike.
+
 ## TypeScript Support
 
 Full type safety for your schemas:
@@ -400,7 +471,7 @@ const form: FormSchema = {
 const schema: PageNodeSchema = {
   type: "page",
   title: "Typed Page",
-  body: [form]
+  children: [form]
 }
 ```
 
@@ -421,7 +492,7 @@ const footerSchema = { /* ... */ }
 
 const pageSchema = {
   type: "page",
-  body: [headerSchema, contentSchema, footerSchema]
+  children: [headerSchema, contentSchema, footerSchema]
 }
 ```
 
@@ -468,7 +539,7 @@ const schema = user.isAdmin ? adminSchema : userSchema
 // ✅ Good
 const schema = {
   type: "page",
-  body: [
+  children: [
     { 
       type: "admin-panel",
       visibleOn: "${user.isAdmin}"
@@ -521,14 +592,14 @@ Always type your schemas for better IDE support and fewer runtime errors.
   "variant": "destructive",
   "visibleOn": "${error}",
   "title": "Something went wrong",
-  "body": { "type": "text", "content": "${error.message}" }
+  "children": { "type": "text", "content": "${error.message}" }
 }
 ```
 
 `visibleOn` is a condition key and is evaluated on every node type. The message text is a
 nested `text` node because `alert` carries no expression rows — and `message` is not an
 `AlertSchema` key at all: the alert's own text keys are `title` and `description`, and the
-renderer falls back from `description` to `body`. `destructive` is the variant this state
+renderer falls back from `description` to `children`. `destructive` is the variant this state
 wants; `error` is not in the closed set.
 
 ## Next Steps

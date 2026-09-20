@@ -13,7 +13,7 @@ import { DefaultChatTransport } from 'ai';
 import { generateUniqueId } from './utils';
 import { uiMessagesToChatMessages } from './mapMessages';
 import { toRuntimeRole, toRuntimeTimestamp } from './chatMessageAdapter';
-import type { SeamChatMessage } from './chatMessageAdapter';
+import type { SeamChatMessage, SeamToolInvocation } from './chatMessageAdapter';
 
 /**
  * What `useObjectChat` actually emits — from `messages` and from the
@@ -237,7 +237,22 @@ function warnMaxToolRoundtripsInert(): void {
 }
 
 type InitialMessage = OuiChatMessage & {
-  parts?: Array<Record<string, unknown>>;
+  /**
+   * Pre-built chat-runtime parts, handed through to the store untouched when
+   * present. Declared as {@link SdkChatMessage}'s own part array — DERIVED, so
+   * a runtime bump moves it — rather than as the `Array<Record<string,
+   * unknown>>` it used to be (objectui#8426).
+   *
+   * ⚠️ **BREAKING for a host that passes `parts`.** `Record<string, unknown>`
+   * admitted every object, including the ones the store cannot hold, and the
+   * mismatch was absorbed by a cast at the `useChat` call instead of being
+   * reported here. Nothing in this repository sets this member (the schema
+   * renderer passes `schema.messages`, and app-shell passes the output of
+   * `hydratedMessagesToChatMessages`, whose literal declares no `parts`), so
+   * the narrowing is visible only to external hosts — which is exactly the
+   * population it protects.
+   */
+  parts?: SdkChatMessage['parts'];
   reasoning?: string;
 };
 
@@ -496,6 +511,210 @@ function narrowToSdkChatMessages(messages: unknown[]): SdkChatMessage[] {
 }
 
 /**
+ * One element of the part array {@link SdkChatMessage} carries — DERIVED from
+ * that alias for the same reason it is itself derived: no chat-runtime type is
+ * named here, so a version bump that moves the part union moves this with it.
+ */
+type SdkMessagePart = SdkChatMessage['parts'][number];
+
+/**
+ * The TOOL arm of that union.
+ *
+ * The runtime's tool part is a mapped type over its tool set; that set is open
+ * (`Record<string, …>`), so the map collapses to an index signature and the
+ * arm's discriminant is the template `tool-${string}`. ⇒ a DYNAMIC tool name is
+ * fully expressible, which is the thing objectui#8426 was feared to be blocked
+ * on and which was measured false before this builder was written.
+ */
+type SdkToolPart = Extract<SdkMessagePart, { type: `tool-${string}` }>;
+
+/** One warning per (state, tool) pair — see {@link warnApprovalStateWithoutEnvelope}. */
+const warnedApprovalWithoutEnvelope = new Set<string>();
+
+/**
+ * An invocation claims an approval state with no envelope to back it. Decide
+ * whether that is a producer bug worth telling the author about.
+ *
+ * ⛔ It is NOT, when the invocation carries a `pendingActionId`: an ObjectStack
+ * HITL approval is carried by that id and by the `{ status: 'pending_approval' }`
+ * tool result, never by the chat runtime's own envelope, and
+ * `mapMessages.extractToolInvocations` RE-PROMOTES the state from that same
+ * result on the way back out. So the approval card survives the round trip
+ * through the derived arm, and there is nothing to report.
+ */
+function reportUnbackedApprovalState(tool: SeamToolInvocation): void {
+  if (tool.pendingActionId) return;
+  warnApprovalStateWithoutEnvelope(tool.state ?? 'approval', tool.toolName);
+}
+
+/**
+ * Tell an author once that an invocation claims an approval state it cannot
+ * back up.
+ *
+ * The chat runtime makes the `approval` envelope REQUIRED alongside
+ * `approval-requested`, `approval-responded` and `output-denied`: a value that
+ * claims one of those states without it is not a constructible part, so there
+ * is no faithful thing to build. This is NOT a tolerated dialect (AGENTS.md
+ * #0.1) — the producer is wrong and is told so; the state is then derived from
+ * the data the invocation DOES carry so the turn still renders.
+ *
+ * The authoring `state` union shedding these three runtime-only states is the
+ * residual clause of this chain's ruling and is deliberately not done in this
+ * package; once it lands, this branch becomes unreachable by construction and
+ * goes away with it. See `ChatToolInvocation` in `@object-ui/types`, whose own
+ * doc records that the narrowing was left to objectui#8426.
+ */
+function warnApprovalStateWithoutEnvelope(state: string, toolName: string): void {
+  const key = `${state}:${toolName}`;
+  if (warnedApprovalWithoutEnvelope.has(key)) return;
+  warnedApprovalWithoutEnvelope.add(key);
+  console.warn(
+    `[@object-ui/plugin-chatbot] tool invocation \`${toolName}\` declares state ` +
+      `\`${state}\` with no \`approval\` envelope. The chat runtime requires the ` +
+      'envelope alongside that state, so the invocation is not representable as ' +
+      'authored and its state was derived from the data instead. Fix it at the ' +
+      'producer: carry `approval.id` (plus `approved` for `approval-responded` ' +
+      'and `output-denied`) beside the state (objectui#8426).',
+  );
+}
+
+/**
+ * The arm to build when the declared state is absent, or is an approval state
+ * with no envelope to back it: read it off the data the invocation carries.
+ *
+ * `input-available` is the floor rather than "no state at all" because the
+ * runtime's tool part has no state-less arm — every arm carries one. It is
+ * also the honest reading of "input, no output yet", and `mapMessages` already
+ * promotes a dangling `input-*` in non-live history to a terminal state, so a
+ * reloaded conversation does not show it spinning.
+ */
+function deriveSdkToolPart(tool: SeamToolInvocation, type: `tool-${string}`): SdkToolPart {
+  const { toolCallId } = tool;
+  const input = tool.args;
+  if (tool.errorText !== undefined) {
+    return { type, toolCallId, state: 'output-error', input, errorText: tool.errorText };
+  }
+  if (tool.result !== undefined) {
+    return { type, toolCallId, state: 'output-available', input, output: tool.result };
+  }
+  return { type, toolCallId, state: 'input-available', input };
+}
+
+/**
+ * Build ONE discriminated tool part from one chat tool invocation.
+ *
+ * This is objectui#8426's clause of the chain's ruling: the producer
+ * CONSTRUCTS the discriminated shape, so the `as any` that used to sit on the
+ * `messages` option at the `useChat` call below is no longer load-bearing and
+ * is gone. Two consequences worth naming, because both were measured rather
+ * than assumed:
+ *
+ *   - **`toolName` is not copied across.** It is an excess property on a
+ *     `tool-*` part (only the dynamic-tool arm declares one) AND it is dead on
+ *     this path: the round-trip reader in `mapMessages.ts` derives the name by
+ *     stripping the `tool-` prefix off `type`, and reads a part's `toolName`
+ *     only for a `dynamic-tool` part. Dropping it is behaviour-preserving.
+ *   - **the legacy authoring states are FOLDED, not passed through.**
+ *     `partial-call` / `call` / `result` are not runtime states; passing them
+ *     through left `isToolState` in `mapMessages.ts` refusing them, so the
+ *     invocation came back with no state at all. Folding them onto the
+ *     lifecycle arm each one means is what the authoring contract's own doc
+ *     says they map to.
+ */
+function toSdkToolPart(tool: SeamToolInvocation): SdkToolPart {
+  const type: `tool-${string}` = `tool-${tool.toolName}`;
+  const { toolCallId, approval } = tool;
+  const input = tool.args;
+
+  switch (tool.state) {
+    case 'approval-requested':
+      // `approved` and `reason` are `?: never` on this arm — an OUTSTANDING
+      // request has neither, so neither is copied across even if a producer
+      // put one there.
+      if (approval) {
+        return {
+          type,
+          toolCallId,
+          state: 'approval-requested',
+          input,
+          approval: {
+            id: approval.id,
+            isAutomatic: approval.isAutomatic,
+            signature: approval.signature,
+          },
+        };
+      }
+      reportUnbackedApprovalState(tool);
+      break;
+    case 'approval-responded':
+      // The decision itself is what this state MEANS, so an envelope without
+      // one does not back it either.
+      if (approval && typeof approval.approved === 'boolean') {
+        return {
+          type,
+          toolCallId,
+          state: 'approval-responded',
+          input,
+          approval: {
+            id: approval.id,
+            approved: approval.approved,
+            reason: approval.reason,
+            isAutomatic: approval.isAutomatic,
+            signature: approval.signature,
+          },
+        };
+      }
+      reportUnbackedApprovalState(tool);
+      break;
+    case 'output-denied':
+      // This arm pins `approved: false`. An envelope saying `true` contradicts
+      // the state it is attached to, so it does not back it up.
+      if (approval && approval.approved === false) {
+        return {
+          type,
+          toolCallId,
+          state: 'output-denied',
+          input,
+          approval: {
+            id: approval.id,
+            approved: false,
+            reason: approval.reason,
+            isAutomatic: approval.isAutomatic,
+            signature: approval.signature,
+          },
+        };
+      }
+      reportUnbackedApprovalState(tool);
+      break;
+    case 'input-streaming':
+    case 'partial-call':
+      return { type, toolCallId, state: 'input-streaming', input };
+    case 'input-available':
+    case 'call':
+      return { type, toolCallId, state: 'input-available', input };
+    case 'output-error':
+      // `errorText` is required on this arm. An authored error with no text is
+      // still an error: the state is kept and the empty message is the
+      // author's own.
+      return { type, toolCallId, state: 'output-error', input, errorText: tool.errorText ?? '' };
+    case 'output-available':
+    case 'result':
+      return { type, toolCallId, state: 'output-available', input, output: tool.result };
+    case undefined:
+      break;
+    default: {
+      // Exhaustiveness. A state added to the authoring union lands here and
+      // turns this assignment red, instead of silently taking the derived arm.
+      const unhandledState: never = tool.state;
+      void unhandledState;
+      break;
+    }
+  }
+
+  return deriveSdkToolPart(tool, type);
+}
+
+/**
  * useObjectChat – Composable hook for ObjectUI Chatbot.
  *
  * When `api` is provided, delegates to @ai-sdk/react's useChat for
@@ -565,9 +784,16 @@ export function useObjectChat(options: UseObjectChatOptions = {}): UseObjectChat
   // the render seam already applies. This builder now performs it instead of
   // asserting it, same as objectui#4424 and objectui#8342 each did for one other
   // instance of this class.
-  const aiInitialMessages = useMemo(
+  //
+  // The array this builds is DECLARED as what the store takes
+  // (`SdkChatMessage[]`), and every part is CONSTRUCTED to fit — the
+  // objectui#8426 clause of the ruling. The annotation is on the map callback
+  // rather than on the `useMemo` alone so a builder branch that stops fitting
+  // is reported at the branch that broke, not at the call site that consumes
+  // it.
+  const aiInitialMessages = useMemo<SdkChatMessage[]>(
     () =>
-      (initialMessages ?? []).map((msg, idx) => {
+      (initialMessages ?? []).map((msg, idx): SdkChatMessage => {
         if (Array.isArray(msg.parts) && msg.parts.length > 0) {
           return {
             id: msg.id || `msg-${idx}`,
@@ -576,7 +802,7 @@ export function useObjectChat(options: UseObjectChatOptions = {}): UseObjectChat
           };
         }
         const normalized = normalizeMessages([msg])[0];
-        const parts: Array<Record<string, unknown>> = [];
+        const parts: SdkChatMessage['parts'] = [];
         if (normalized.content) {
           parts.push({ type: 'text', text: normalized.content });
         }
@@ -584,15 +810,7 @@ export function useObjectChat(options: UseObjectChatOptions = {}): UseObjectChat
           parts.push({ type: 'reasoning', text: msg.reasoning });
         }
         for (const tool of normalized.toolInvocations ?? []) {
-          parts.push({
-            type: `tool-${tool.toolName}`,
-            toolCallId: tool.toolCallId,
-            toolName: tool.toolName,
-            input: tool.args,
-            output: tool.result,
-            errorText: tool.errorText,
-            state: tool.state,
-          });
+          parts.push(toSdkToolPart(tool));
         }
         return {
           id: normalized.id || `msg-${idx}`,
@@ -724,15 +942,14 @@ export function useObjectChat(options: UseObjectChatOptions = {}): UseObjectChat
   const chatRef = useRef<any>(null);
   const chatResult = useChat({
     transport,
-    // The `as any` here is the LIVE suppression on this call, and it is the only
-    // one: `aiInitialMessages` builds `parts` as `Record<string, unknown>[]`, which
-    // is not a `UIMessagePart` union, so dropping this cast turns the call red with
-    // TS2322 (measured, objectui#8378). The blanket `as any` that used to sit on the
-    // whole options object was removed there because it hid nothing this one does not
-    // already absorb — but it also switched off checking of `transport`, `onError`
-    // and excess properties. Fix the builder before deleting this cast; do NOT
-    // re-widen the call by casting the options object again.
-    messages: isApiMode && aiInitialMessages.length > 0 ? (aiInitialMessages as any) : undefined,
+    // No cast. `aiInitialMessages` is built as `SdkChatMessage[]` and every
+    // part is constructed to fit the store's own part union, so this option is
+    // CHECKED — which is the whole of objectui#8426 (the last suppression on
+    // this call; the blanket `as any` on the options object went with
+    // objectui#8378). ⛔ Do not re-widen this call, here or on the options
+    // object: a mismatch belongs at the producer above, where the branch that
+    // caused it is named.
+    messages: isApiMode && aiInitialMessages.length > 0 ? aiInitialMessages : undefined,
     onError: isApiMode
       ? (err: Error) => {
           // The POST was rejected before any reply streamed (see sendAwareFetch).

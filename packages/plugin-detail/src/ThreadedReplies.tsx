@@ -10,6 +10,7 @@ import * as React from 'react';
 import { cn, Button } from '@object-ui/components';
 import { MessageSquare, ChevronDown, ChevronRight, Send } from 'lucide-react';
 import type { FeedItem } from '@object-ui/types';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useDetailTranslation } from './useDetailTranslation';
 
 export interface ThreadedRepliesProps {
@@ -27,6 +28,7 @@ export interface ThreadedRepliesProps {
 function formatTimestamp(
   timestamp: string,
   t: (key: string, options?: Record<string, unknown>) => string,
+  locale: string,
 ): string {
   try {
     const date = new Date(timestamp);
@@ -40,7 +42,9 @@ function formatTimestamp(
     if (diffHours < 24) return t('detail.hoursAgo', { count: diffHours });
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return t('detail.daysAgo', { count: diffDays });
-    return date.toLocaleDateString();
+    // The tag is DECLARED (objectui#9786): a bare call formats the past-a-week
+    // date in the machine's locale, which is neither channel.
+    return date.toLocaleDateString(locale);
   } catch {
     return timestamp;
   }
@@ -58,6 +62,8 @@ export const ThreadedReplies: React.FC<ThreadedRepliesProps> = ({
   className,
 }) => {
   const { t } = useDetailTranslation();
+  // The BCP-47 tag the absolute-date tail formats with (objectui#9786).
+  const displayLocale = useDisplayLocale();
   const [expanded, setExpanded] = React.useState(false);
   const [replyText, setReplyText] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -128,7 +134,7 @@ export const ThreadedReplies: React.FC<ThreadedRepliesProps> = ({
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-medium">{reply.actor}</span>
                   <span className="text-[10px] text-muted-foreground">
-                    {formatTimestamp(reply.createdAt, t)}
+                    {formatTimestamp(reply.createdAt, t, displayLocale)}
                   </span>
                 </div>
                 <p className="text-xs whitespace-pre-wrap break-words">{reply.body}</p>

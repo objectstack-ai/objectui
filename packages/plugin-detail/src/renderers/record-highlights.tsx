@@ -15,6 +15,7 @@ import { useRecordContext, useRegisterHighlightFields } from '@object-ui/react';
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
 import type { RecordHighlightsComponentProps } from '@object-ui/types';
 import { HeaderHighlight } from '../HeaderHighlight';
+import { useRecordAriaProps } from './recordComponentAria';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -37,20 +38,59 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
 }) => {
   const ctx = useRecordContext();
   const { designer } = splitDesigner(props);
+  /**
+   * The block's authored `aria` bag, honoured through the family's ONE read
+   * point (objectui#9556). Called here, with the other hooks, because every
+   * renderer below it has early returns.
+   *
+   * ⛔ No `defaultRole`: with nothing authored this container stays the bare
+   * `div` it has always been, so a page that never wrote `aria` renders
+   * byte-identical DOM. An author who does write one gets a `region` to carry
+   * it — see `recordComponentAria.ts` for why the attribute alone would reach
+   * nobody.
+   */
+  const ariaProps = useRecordAriaProps(schema.aria);
   const objectName = ctx?.objectName || '';
   const perms = usePermissions();
   const { readableFields } = useFieldPermissions(objectName);
 
-  // Object-level permission gate (record:* may declare requiredPermissions
-  // like ['read','update'] which all must pass on the active object).
+  /**
+   * Block-level ADR-0066 CAPABILITY gate, read fail-closed (objectui#10155 —
+   * the sibling family of objectui#10058, ruling batch #192 item 5 letter B).
+   *
+   * `requiredPermissions` on a record block is a **system capability set** —
+   * the one meaning the word carries on `action`, `app`, `field` and
+   * `bulkAction` — so it is read through the permission context's capability
+   * path (`hasCapabilities` over the reported `systemPermissions`). An unheld
+   * or unrecognised capability hides the whole strip.
+   *
+   * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
+   * closed object-action enum, and the stock `/me/permissions` provider maps
+   * only eight verbs (`read`, `view`, `create`, `update`, `edit`, `delete`,
+   * `import`, `export`) before its `?? 'allowRead'` tail sends everything else
+   * to the object's read bit — so a capability nobody holds passed for every
+   * reader of the object, with no refusal, no warning and no log. The full
+   * reproduction behind that sentence is written once, at the same gate in
+   * `record-quick-actions.tsx`, and is not restated here.
+   *
+   * ⛔ The object name is deliberately ABSENT from the verdict. A system
+   * capability is not object-scoped, and the old `&& objectName` conjunct was
+   * a second silent fail-open: a block rendered with no `objectName` in its
+   * record context skipped its declared gate entirely.   *
+   * ⚠️ A provider that never REPORTS capabilities (`systemPermissions`
+   * `undefined` — the role-based `PermissionProvider`, a backend predating
+   * ADR-0066, or no provider at all) still opens this gate. That is
+   * `hasCapabilities`'s own ruled unreported-vs-empty doctrine
+   * (objectui#4656), shared with every other capability gate in the tree; a
+   * REPORTED empty array (`[]`, "holds nothing") is a real answer and gates
+   * strictly.
+   */
   const required: string[] = Array.isArray((schema as any).requiredPermissions)
     ? (schema as any).requiredPermissions
     : [];
   // Evaluated up-front but enforced AFTER the hooks below (useId /
   // useRegisterHighlightFields) so hook order stays stable across renders.
-  const highlightsAllowed =
-    !(required.length > 0 && objectName) ||
-    required.every((p) => perms.can(objectName, p as any));
+  const highlightsAllowed = required.length === 0 || perms.hasCapabilities(required);
 
   const rawFields: any[] = Array.isArray(schema.fields) ? schema.fields : [];
   // Normalize: accepts either bare strings or { name, label?, type?, readonly? }
@@ -124,7 +164,7 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
   }
 
   return (
-    <div className={className} {...designer}>
+    <div className={className} {...designer} {...ariaProps}>
       <HeaderHighlight
         fields={highlightFields as any}
         data={ctx?.data}

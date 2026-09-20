@@ -50,7 +50,7 @@ ComponentRegistry.register('scroll-area',
       width: '100%',
       orientation: 'vertical',
       children: [
-        { type: 'div', className: 'p-4', body: [{ type: 'text', content: 'Scrollable content goes here. Add more content to see scrolling behavior.' }] }
+        { type: 'div', className: 'p-4', children: [{ type: 'text', content: 'Scrollable content goes here. Add more content to see scrolling behavior.' }] }
       ],
       className: 'rounded-md border'
     }

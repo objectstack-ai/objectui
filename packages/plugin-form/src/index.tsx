@@ -259,7 +259,7 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
     { name: 'recordId', type: 'string', description: 'The record to load in `edit` / `view` mode. Leave unset for `create`.' },
     { name: 'customFields', type: 'array', description: 'Field definitions merged over the set generated from object metadata. With inline definitions and no data source, this becomes the only field source.' },
     { name: 'initialValues', type: 'object', description: 'Values to prefill in `create` mode.' },
-    { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` that the drawer/modal presentations read FIRST (`schema.initialData || schema.initialValues`). Prefer `initialValues` in new schemas.' },
+    { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` that the drawer/modal presentations read FIRST — PER MEMBER (`{ ...initialValues, ...initialData }`), so a member this key says nothing about keeps its `initialValues` value. Prefer `initialValues` in new schemas.' },
     { name: 'readOnly', type: 'boolean', description: 'Render every field read-only, whatever `mode` says.' },
     // Buttons
     { name: 'submitText', type: 'string' },
@@ -427,13 +427,13 @@ ComponentRegistry.register('object-master-detail-form', MasterDetailFormRenderer
     // Declaring them would mint choices an authoring UI offers and this block
     // cannot honour.
     { name: 'formType', type: 'enum', enum: ['simple', 'tabbed'], description: 'How the PARENT half of the form is presented. The detail grids below it are unaffected.' },
-    { name: 'fields', type: 'array', description: 'Which parent fields to show, in order. Ignored when `sections` is given — sections carry their own field lists. Members are bare field names (`{ name }` tolerated); NOT the spec `FormFieldSchema` object `sections[].fields` accepts (identity key `field`) — that shape resolves to no name here and is silently skipped (the parent form renders through the same `ObjectForm` / `SimpleObjectForm` as `object-form` — see its `fields` description).' },
+    { name: 'fields', type: 'array', description: 'Which parent fields to show, in order — and it is NOT ignored when `sections` is given: the two INTERSECT. The parent field pool is built from this key first and every section then resolves its own members against that pool, so a section member this key does not list is dropped from the rendered form, and a section that loses EVERY member that way disappears with its heading. Each such drop is reported once via `console.warn` (objectui#9884); it is not repaired, because this key is also the parent pool for values, create defaults and the submitted set. Author one or the other, or list every section member here too. Members are bare field names (`{ name }` tolerated); NOT the spec `FormFieldSchema` object `sections[].fields` accepts (identity key `field`) — that shape resolves to no name here and is silently skipped (the parent form renders through the same `ObjectForm` / `SimpleObjectForm` as `object-form` — see its `fields` description).' },
     { name: 'title', type: 'string' },
     { name: 'submitText', type: 'string', description: 'Label of the button that saves the parent and every detail row in one batch.' },
     { name: 'cancelText', type: 'string' },
     { name: 'showSubmit', type: 'boolean' },
     { name: 'initialValues', type: 'object', description: 'Values to prefill on the PARENT record in `create` mode.' },
-    { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` the renderer also reads (MasterDetailForm.tsx:602). Prefer `initialValues` in new schemas.' },
+    { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` the renderer also reads: the `parentSchema` memo carries both keys onto the parent form, which merges them PER MEMBER with this one winning. Prefer `initialValues` in new schemas.' },
     { name: 'taxRateField', type: 'string', description: 'Name of the field ON THE CHILD object that holds each line’s tax rate. Feeds the line-items totals row; leave unset when the detail rows carry no tax.' },
   ],
 });

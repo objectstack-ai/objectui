@@ -130,6 +130,37 @@ delegate) and `ConsoleNotificationBanners` (the banners, guarded by
 banners instead of throwing). See the
 [notifications guide](https://objectui.org/docs/guide/notifications).
 
+## Read-rate report (environment admin)
+
+`ConsoleShell` also mounts `<ReadRateBanner />`, beside the impersonation
+indicator, so every console route carries it — including `/home`, which has its
+own layout. It is **not** a notification banner: nothing in this app raises it.
+It renders the tenant runtime's own verdict, read by `useReadRateReading` from
+the optional `readRate` key on `GET /api/v1/usage/storage`.
+
+| the reading | what renders |
+| --- | --- |
+| `state: 'anomalous'`, with a `readsPerWrite` | the ratio, and the line it was measured against |
+| `state: 'anomalous'`, `readsPerWrite` ABSENT | the no-writes reading: an unbounded ratio, its own words, the heavier tone |
+| `state: 'ok'` | nothing — measured, and under the line |
+| no `readRate` at all | nothing — the control plane reported NO reading |
+| the endpoint could not be read | nothing |
+
+The last three all render nothing and are **three different facts**;
+`classifyReadRate` keeps them apart, because "why does my environment show no
+banner" has more than one answer and one of them is *nobody has measured it*.
+
+Two more properties of that contract are load-bearing. An absent `readsPerWrite`
+means the environment made no writes at all, so the ratio has no upper bound —
+it is the most severe reading there is, never a missing number to hide or dash
+out. And the threshold is **data**: it is rendered from `ratioThreshold` on the
+wire, the verdict is never re-derived from it, and this package holds no copy of
+the line.
+
+It is a **report**. It never refuses, throttles or degrades anything, and the
+copy says so. It is shown only to a workspace admin, who is also the only
+session that issues the request.
+
 ## Components
 
 ### AppShell

@@ -2,7 +2,7 @@
   "type": "page",
   "title": "Dashboard",
   "description": "Monitor your business metrics in real-time",
-  "body": [
+  "children": [
     {
       "type": "grid",
       "columns": 4,

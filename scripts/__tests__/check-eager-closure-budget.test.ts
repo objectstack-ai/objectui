@@ -15,9 +15,6 @@ import { attachedDocs } from './helpers/attached-docs';
 // re-adding one is now itself an error (TS2578). See objectui#3494.
 import {
   BASELINE,
-  EXHAUSTED_HEADROOM_ALLOWANCES,
-  EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE,
-  EXHAUSTED_HEADROOM_FLOOR_MULTIPLE,
   MAX_EAGER_CLOSURE_GZIP_BYTES,
   PER_CHUNK_BASELINE,
   PER_CHUNK_GZIP_CEILINGS,
@@ -444,11 +441,18 @@ describe('chunk attribution (objectui#7399)', () => {
    * regex literal (`vendor-objectstack` reads a computed test, so that the
    * `OBJECTSTACK_SPEC_DIST` override cannot change the chunk layout —
    * objectui#5388). Those are refused a verdict below rather than guessed at.
+   *
+   * ⚠️ The tail is `[,}]` and not `}` — a group may carry options AFTER
+   * `priority`, and `types-zod` does (`includeDependenciesRecursively: false`,
+   * objectui#10065). Requiring the closing brace silently dropped that group
+   * from this table while every case below went on passing, which is the
+   * failure this parse's own "matches nothing agrees with everything" note is
+   * about: a group this parse cannot see is a group it cannot judge.
    */
   function parseGroups(): Group[] {
     const source = fs.readFileSync(viteConfigPath, 'utf8');
     const entry =
-      /\{\s*name:\s*'([^']+)',\s*test:\s*(\/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+\/[a-z]*|[A-Za-z_$][\w$]*)\s*,\s*priority:\s*(\d+)\s*\}/g;
+      /\{\s*name:\s*'([^']+)',\s*test:\s*(\/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+\/[a-z]*|[A-Za-z_$][\w$]*)\s*,\s*priority:\s*(\d+)\s*[,}]/g;
     return [...source.matchAll(entry)].map(([, name, test, priority]) => {
       const literal = /^\/(.*)\/([a-z]*)$/s.exec(test);
       return {
@@ -473,6 +477,11 @@ describe('chunk attribution (objectui#7399)', () => {
   const I18N_RUNTIME_MODULE = moduleId('packages/i18n/src/provider.tsx');
   const DATA_MODULE = moduleId('packages/data-objectstack/src/index.ts');
   const CORE_MODULE = moduleId('packages/core/src/index.ts');
+  // objectui#10065's pair: a validator that must leave the eager line, and the
+  // `packages/types/src/` neighbour that must NOT go with it — the eager
+  // `plugin-grid` chunk reads its runtime values.
+  const ZOD_MODULE = moduleId('packages/types/src/zod/objectql.zod.ts');
+  const TYPES_SHARED_MODULE = moduleId('packages/types/src/data-display.ts');
 
   /** The groups whose test matches this id, highest priority first. */
   function claimants(id: string): Group[] {
@@ -494,6 +503,10 @@ describe('chunk attribution (objectui#7399)', () => {
         'data-adapter',
         'ui-components',
         'infrastructure',
+        // Named here because this group is the one that carries an option
+        // after `priority`, so it is the group a narrower parse loses first
+        // (objectui#10065).
+        'types-zod',
       ]));
     });
 
@@ -523,6 +536,7 @@ describe('chunk attribution (objectui#7399)', () => {
       ['the resident locale catalogue', RESIDENT_LOCALE_MODULE, 'i18n-locale-en'],
       ['the i18n runtime', I18N_RUNTIME_MODULE, 'i18n-runtime'],
       ['the ObjectStack data adapter', DATA_MODULE, 'data-adapter'],
+      ['the zod validators', ZOD_MODULE, 'types-zod'],
     ])('routes %s to `%s` at a priority `framework` cannot tie', (_what, id, expected) => {
       const framework = groups.find((g) => g.name === 'framework');
       expect(framework).toBeDefined();
@@ -538,12 +552,43 @@ describe('chunk attribution (objectui#7399)', () => {
     });
 
     it('leaves no second claimant at the winner`s priority', () => {
-      for (const id of [LOCALE_MODULE, RESIDENT_LOCALE_MODULE, DATA_MODULE]) {
+      for (const id of [LOCALE_MODULE, RESIDENT_LOCALE_MODULE, DATA_MODULE, ZOD_MODULE]) {
         const claiming = claimants(id);
         const top = claiming[0].priority;
         expect(claiming.filter((g) => g.priority === top)).toHaveLength(1);
       }
     });
+  });
+
+  /**
+   * objectui#10065 — `types-zod` is a SPLIT of the chunk `framework` budgets,
+   * so the pin it needs is the one the split can silently lose: the directory
+   * leaves, and its `packages/types/src/` neighbours stay.
+   *
+   * The eager `plugin-grid` chunk reads runtime values out of
+   * `data-display.ts` (`ObjectGrid.tsx` imports `normalizeTableColumnType` and
+   * `isSystemManagedField` from `@object-ui/types`). If that module travelled
+   * with the validators, `plugin-grid` would have to import their chunk
+   * statically and all of it would be eager again — measured, that is exactly
+   * what rolldown's default `includeDependenciesRecursively` produced, and the
+   * saving was zero while the config read as correct.
+   *
+   * ⚠️ This pins the group TABLE. Whether rolldown honours it is a property of
+   * the emitted bundle, weighed by `scripts/vite-types-zod-lazy.ts` on a real
+   * console build; neither substitutes for the other.
+   */
+  it('leaves the validators` `packages/types/src/` neighbours on the eager line', () => {
+    // Fails closed in both directions: no claimant at all is an error, and the
+    // neighbour landing anywhere but `framework` is the defect.
+    const neighbour = claimants(TYPES_SHARED_MODULE);
+    expect(neighbour.length).toBeGreaterThan(0);
+    expect(neighbour[0].name).toBe('framework');
+
+    // And the reason the priority above is load-bearing rather than cosmetic:
+    // `framework`s own regex matches the validator too, so a tie or an
+    // inversion hands it straight back.
+    const framework = groups.find((g) => g.name === 'framework');
+    expect(framework?.test?.test(ZOD_MODULE)).toBe(true);
   });
 
   it('budgets the chunk the RESIDENT catalogue lands in', () => {
@@ -763,295 +808,121 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
   });
 
   /**
-   * The other end of the same range (objectui#8554).
+   * ⛔ RETIRED — the lower bound, at the unit level (objectui#10148).
    *
-   * The leg above answers "is this ceiling still LOW enough to mean anything?".
-   * Until this block it was the only question asked, so a ceiling with one byte
-   * left drew a green tick — and the reading that produced this card is exactly
-   * that: `framework` at 70,999 gzipped bytes against a 71,000 ceiling, across
-   * at least two merges, rendered ✅ with the run exiting 0, until an ordinary
-   * change turned `main` red.
+   * objectui#8554 added a second predicate here: a ceiling with less than a
+   * tenth of one regression left returned `error`, so a build where nothing had
+   * grown past any line exited 2. A maintainer ruling retired it. The ruling,
+   * and the in-file prohibition it overrules, are recorded in the checker's own
+   * RETIRED block — ⛔ this describe does not restate them, it pins what the
+   * half now DOES.
+   *
+   * ⭐ Every case below carries its own same-subject control in the same call
+   * or the one beside it, because "the floor is gone" and "this half stopped
+   * judging anything" produce the same green on a one-sided test.
    */
-  describe('the exhausted end (objectui#8554)', () => {
-    /** The floor in bytes — a tenth of the regression, computed and not pinned. */
-    const FLOOR = REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_FLOOR_MULTIPLE;
-
+  describe('the lower bound is RETIRED (objectui#10148)', () => {
     /**
-     * The predicate as it stood before this card: one-sided, and no allowances.
-     * Passing these two makes a case a CONTROL rather than an assertion about
-     * arithmetic — the same fixture, judged by the old leg.
+     * This card's own reading, turned around. objectui#8554 was filed on
+     * `framework` at 70,999 gzipped bytes against a 71,000 ceiling and made it
+     * red; the ruling makes it green again.
      */
-    const AS_IT_STOOD = { floorMultiple: 0, allowances: {} } as const;
+    const ONE_BYTE_UNDER = {
+      report: sensitivityReport(BASELINE.gzipBytes, { framework: 70_999 }),
+      ceilings: { ...PER_CHUNK_GZIP_CEILINGS, framework: 71_000 },
+    };
 
-    /**
-     * ⭐ The firing control triage asked for, on the row this card was filed
-     * about: the exact `framework` reading, red now and green before.
-     */
-    it("reds on this card's own reading — `framework` at 70,999 under a 71,000 ceiling", () => {
-      const input = {
-        report: sensitivityReport(BASELINE.gzipBytes, { framework: 70_999 }),
-        ceilings: { ...PER_CHUNK_GZIP_CEILINGS, framework: 71_000 },
-      };
-
-      // Green before, which is the defect and not a hypothetical.
-      expect(evaluateHeadroomSensitivity({ ...input, ...AS_IT_STOOD }).status).toBe('pass');
-
-      const result = evaluateHeadroomSensitivity(input);
-      expect(result.status).toBe('error');
-      expect(result.exhausted).toEqual(['framework']);
-      // Not the other leg: this row is nowhere near blind, so a green blind list
-      // is what proves the new predicate is the one that fired.
+    it('passes a ceiling with ONE byte of headroom, and still prints the figure', () => {
+      const result = evaluateHeadroomSensitivity(ONE_BYTE_UNDER);
+      expect(result.status).toBe('pass');
       expect(result.blind).toEqual([]);
-      expect(result.message).toContain('EXHAUSTED');
-      // The constant to act on, so the fix is one named edit — the blind side's
-      // convention, applied to the row at the other end.
-      expect(result.message).toContain("PER_CHUNK_GZIP_CEILINGS['framework']");
+      // ⭐ The reporting the ruling deliberately left in place: the row is still
+      // rendered with its headroom, so a reader watching a chunk tighten can
+      // still see it. A pass that stopped printing the number would satisfy the
+      // ruling and lose what it was careful to keep.
+      expect(result.message).toContain('chunk `framework`');
+      expect(result.message).toContain('headroom 0.0 KB = 0.00x');
     });
 
-    it('renders the failing row ❌ rather than ✅ — the tick follows the verdict', () => {
-      const input = {
-        report: sensitivityReport(BASELINE.gzipBytes, { framework: 70_999 }),
-        ceilings: { ...PER_CHUNK_GZIP_CEILINGS, framework: 71_000 },
-      };
-      // The row renderer was a second copy of the predicate, so a floor that
-      // moved the verdict without moving the tick would print a green line under
-      // a red verdict — the same silence one indirection along.
-      expect(evaluateHeadroomSensitivity({ ...input, ...AS_IT_STOOD }).message).toContain(
+    it('renders that row ✅ — the tick follows the verdict, at this end too', () => {
+      expect(evaluateHeadroomSensitivity(ONE_BYTE_UNDER).message).toContain(
         '✅ chunk `framework`',
       );
-      expect(evaluateHeadroomSensitivity(input).message).toContain('❌ chunk `framework`');
-    });
-
-    it('is exactly a tenth of a regression wide, from either side of the line', () => {
-      const measured = PER_CHUNK_BASELINE.framework;
-      const at = (headroom: number) =>
-        evaluateHeadroomSensitivity({
-          report: sensitivityReport(BASELINE.gzipBytes),
-          ceilings: { ...PER_CHUNK_GZIP_CEILINGS, framework: measured + headroom },
-        }).status;
-
-      expect(FLOOR).toBe(9_113.6);
-      expect(at(Math.ceil(FLOOR))).toBe('pass');
-      expect(at(Math.floor(FLOOR))).toBe('error');
+      expect(evaluateHeadroomSensitivity(ONE_BYTE_UNDER).message).not.toContain(
+        '❌ chunk `framework`',
+      );
     });
 
     /**
-     * The bound this leg must NOT own. A ceiling under its payload is an
-     * over-budget bundle: it is also under the floor, arithmetically, and
-     * counting it here would convert the size verdict's exit 1 into a gauge
-     * error and teach a reader that exit 2 does not mean what this file says.
+     * ⭐ THE CONTROL that separates "the floor was removed" from "this half was
+     * removed". One call, two rows: `framework` is a hair under its ceiling —
+     * the case the ruling made green — while the AGGREGATE ceiling sits more
+     * than one whole regression above its payload, which is the blind leg and
+     * was ⛔ not ruled on. A half that had stopped judging would pass both.
      */
-    it('leaves an OVER-budget ceiling to the size verdict, at this bound too', () => {
+    it('still ERRORS on the blind leg in the very run the tight row passes', () => {
+      const result = evaluateHeadroomSensitivity({
+        ...ONE_BYTE_UNDER,
+        report: sensitivityReport(BASELINE.gzipBytes - REGRESSION_THIS_GATE_MUST_CATCH_BYTES, {
+          framework: 70_999,
+        }),
+      });
+      expect(result.status).toBe('error');
+      expect(result.blind).toEqual(['aggregate']);
+      expect(result.message).toContain('DRIFTED');
+      // The tight row is in the SAME table and is not what fired.
+      expect(result.message).toContain('✅ chunk `framework`');
+    });
+
+    /**
+     * The bound this half never owned, unchanged. A ceiling under its payload is
+     * an over-budget bundle; the size verdict owns it and this half says so.
+     */
+    it('still leaves an OVER-budget ceiling to the size verdict', () => {
       const result = evaluateHeadroomSensitivity({
         report: sensitivityReport(BASELINE.gzipBytes, {
           framework: PER_CHUNK_GZIP_CEILINGS.framework + 1,
         }),
       });
       expect(result.status).toBe('pass');
-      expect(result.exhausted).toEqual([]);
       expect(result.message).toContain('the size verdict owns this row');
     });
 
     /**
-     * A declared row's hinge is its pinned figure LESS one grain, and the pair
-     * is taken at that exact boundary.
-     *
-     * ⭐ The allowance below is SYNTHETIC and that is deliberate (objectui#9251).
-     * It used to be read live out of {@link EXHAUSTED_HEADROOM_ALLOWANCES}, and
-     * when `ui-components` paid its debt off the table went empty — which would
-     * have left this whole block with no subject, silently retiring the ratchet
-     * on the run that proved it worked. A mechanism must stay pinned when
-     * nothing currently uses it, or the day someone needs it again is the day
-     * they find out it was never checked. 4,289 is kept as the figure because it
-     * is the one the ratchet was designed and measured against; the LIVE table
-     * is pinned separately, under "the allowance table is a ratchet, pinned".
+     * ⛔ The removal is pinned on the SOURCE as well as on the behaviour, and
+     * the two answer different questions. The cases above say the floor no
+     * longer fires; this one says the ruling that retired it is still written
+     * where the next reader meets it. ⭐ A silent deletion leaves a header
+     * arguing for a leg that is gone, and the next reader puts it back — which
+     * is the failure this card was told to avoid, not a stylistic preference.
      */
-    describe('a declared row', () => {
-      const CEILING = PER_CHUNK_GZIP_CEILINGS['ui-components'];
-      const ALLOWANCE = 4_289;
-      const DECLARED = { 'ui-components': ALLOWANCE };
-      const GRAIN =
-        REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE;
+    it('records the ruling in the checker, rather than deleting the prohibition', () => {
+      const source = fs.readFileSync(checkerPath, 'utf8');
+      const at = source.indexOf('RETIRED — the exhausted-headroom leg');
+      // Non-vacuity first: a matcher that finds nothing agrees with everything.
+      expect(at).toBeGreaterThan(-1);
+      const retired = source.slice(at, at + 4_000);
 
-      /** The report with `ui-components` sized to leave exactly `headroom`. */
-      const atHeadroom = (headroom: number) =>
-        evaluateHeadroomSensitivity({
-          report: sensitivityReport(BASELINE.gzipBytes, { 'ui-components': CEILING - headroom }),
-          allowances: DECLARED,
-        });
+      // The prohibition this change contradicts is QUOTED, not removed.
+      expect(retired).toContain('Never lower EXHAUSTED_HEADROOM_FLOOR_MULTIPLE');
+      expect(retired).toContain('never add a row');
+      // The first utterance, verbatim — its ASCII half is the part a pin can
+      // name without restating a ruling in a second place.
+      expect(retired).toContain('10148 i18n-locale-en');
+      // ⭐ The second utterance is Chinese end to end, so it is pinned by SHAPE
+      // rather than by text: a run of CJK inside this block is exactly what a
+      // translation or a paraphrase would remove, and translating a ruling is
+      // rewriting it.
+      expect(retired).toMatch(/[\u4e00-\u9fff]{4,}/u);
 
-      it('is held open at its pinned figure', () => {
-        expect(atHeadroom(ALLOWANCE).status).toBe('pass');
-      });
-
-      /**
-       * ⭐ The reason this bound is a grain and not a byte, asserted rather than
-       * asserted-about. A byte-exact ratchet would red HERE — and the evidence
-       * table it would print is character-for-character the one the passing run
-       * prints, because every column this gate renders is rounded past a single
-       * byte. A red whose own table is identical to the green table tells its
-       * reader nothing, which is objectui#8554's defect one level in.
-       */
-      it('does NOT red on drift its own table cannot render', () => {
-        const green = atHeadroom(ALLOWANCE);
-        const oneByteTighter = atHeadroom(ALLOWANCE - 1);
-        expect(oneByteTighter.status).toBe('pass');
-
-        const rowOf = (result: { message: string }) =>
-          result.message.split('\n').find((line) => line.includes('`ui-components`'));
-        expect(rowOf(oneByteTighter)).toBe(rowOf(green));
-      });
-
-      it('reds once it has lost a whole grain, and not before', () => {
-        expect(GRAIN).toBe(911.36);
-        expect(atHeadroom(Math.ceil(ALLOWANCE - GRAIN)).status).toBe('pass');
-
-        const tightened = atHeadroom(Math.floor(ALLOWANCE - GRAIN));
-        expect(tightened.status).toBe('error');
-        expect(tightened.exhausted).toEqual(['ui-components']);
-      });
-
-      /**
-       * The remedy text is the half of this that keeps an innocent author out of
-       * their own diff. A row falling under the floor for the first time is
-       * somebody's to fix; a declared row tightening is a standing debt whose
-       * payoff is a decision that author very likely does not own, and the two
-       * verdicts must not read the same.
-       */
-      it('reds with the DEBT remedy, not the find-the-bytes remedy', () => {
-        const message = atHeadroom(Math.floor(ALLOWANCE - GRAIN)).message;
-        expect(message).toContain('ALREADY declared exhausted');
-        expect(message).toContain('BEFORE AUDITING YOUR OWN DIFF');
-        expect(message).toContain('never raise the allowance');
-        // ⛔ and NOT the text a newly-exhausted row gets, which tells its reader
-        // the bytes are theirs to find.
-        expect(message).not.toContain('The remedy is the bytes');
-      });
-
-      it('a row falling under the floor for the FIRST time still gets that one', () => {
-        const message = evaluateHeadroomSensitivity({
-          report: sensitivityReport(BASELINE.gzipBytes, { framework: 70_999 }),
-          ceilings: { ...PER_CHUNK_GZIP_CEILINGS, framework: 71_000 },
-        }).message;
-        expect(message).toContain('The remedy is the bytes');
-        expect(message).not.toContain('ALREADY declared exhausted');
-      });
-
-      it('paying the row DOWN moves its trip point up with it', () => {
-        // The grain coarsens WHEN a declared row reds; it is not a fixed pool of
-        // bytes the row keeps forever. A larger pinned figure trips sooner in
-        // absolute terms, which is what makes this a ratchet rather than a
-        // rebate.
-        const paidDown = ALLOWANCE + 2_000;
-        const at = (headroom: number, allowance: number) =>
-          evaluateHeadroomSensitivity({
-            report: sensitivityReport(BASELINE.gzipBytes, { 'ui-components': CEILING - headroom }),
-            allowances: { 'ui-components': allowance },
-          }).status;
-
-        expect(at(Math.floor(paidDown - GRAIN), paidDown)).toBe('error');
-        // The same headroom was fine under the smaller pin it used to carry.
-        expect(at(Math.floor(paidDown - GRAIN), ALLOWANCE)).toBe('pass');
-      });
-    });
-
-    it('names every declared row in the PASSING verdict, not only when one fires', () => {
-      // A debt list that is only legible on the run that reds is the parenthetical
-      // this card is about: noticing stays manual, and it already failed twice.
-      //
-      // ⭐ Driven by a SYNTHETIC table, and the live one is folded in beside it.
-      // Reading only the live table made this case vacuous the moment the last
-      // debt was paid off (objectui#9251) — a green tick over an empty `for`.
-      const declared = { ...EXHAUSTED_HEADROOM_ALLOWANCES, 'ui-components': 4_289 };
-      const result = evaluateHeadroomSensitivity({
-        report: sensitivityReport(BASELINE.gzipBytes),
-        allowances: declared,
-      });
-      expect(result.status).toBe('pass');
-      expect(Object.keys(declared).length).toBeGreaterThan(0);
-      for (const [name, allowance] of Object.entries(declared)) {
-        expect(result.message).toContain(`chunk \`${name}\``);
-        expect(result.message).toContain(`declared ${allowance}-byte allowance`);
-      }
-    });
-
-    /**
-     * The allowance table is a RATCHET, and the whole of its ratchet-ness is
-     * that these numbers can only be paid down. Nothing in the runtime can
-     * enforce that — the constant is whatever the file says — so the pin is the
-     * enforcement: an edit in either direction has to come here and be argued.
-     */
-    describe('the allowance table is a ratchet, pinned', () => {
-      it('holds exactly the rows still in debt — today, none', () => {
-        // ⚠️ Two rows have left this table and NEITHER was lowered, which is the
-        // distinction the ratchet is made of:
-        //
-        //   `i18n-locales: 8_804`  — objectui#7479. Its CHUNK ceased to exist.
-        //   `ui-components: 4_289` — objectui#9251. Its ROW cleared the floor:
-        //     lucide's 1,781-icon record came off the eager path, the ceiling
-        //     was re-pinned DOWN to 289,000 over a 265,937 measurement, and the
-        //     headroom went 0.02x -> 0.25x.
-        //
-        // ⛔ An empty table is NOT this mechanism being retired. Every case in
-        // "a declared row" above now drives a SYNTHETIC entry for exactly that
-        // reason, so the ratchet stays measured with nothing currently owing.
-        expect(EXHAUSTED_HEADROOM_ALLOWANCES).toEqual({});
-      });
-
-      it('every entry is real debt — strictly under the floor it excuses', () => {
-        // An allowance at or above the floor is not debt, it is a second floor
-        // for one row, and the row should simply have been dropped from here.
-        // ⚠️ The live table is empty today, so the rule is also asserted the way
-        // it FAILS — otherwise this case is a green tick over an empty loop.
-        for (const allowance of Object.values(EXHAUSTED_HEADROOM_ALLOWANCES)) {
-          expect(allowance).toBeLessThan(FLOOR);
-        }
-        expect(4_289).toBeLessThan(FLOOR);
-        expect(FLOOR).toBeLessThan(FLOOR + 1);
-      });
-
-      it('is compared at the coarser of the two grids this gate renders on', () => {
-        // The grain must be at least the coarsest rounding in the row renderer,
-        // or a red can print an evidence table identical to the green one. The
-        // two grids are one decimal of a KiB (102.4 bytes) and two decimals of a
-        // regression (911.36); the second is the binding one, and 0.01x is it.
-        const grain =
-          REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE;
-        expect(grain).toBeGreaterThanOrEqual(1024 / 10);
-        expect(grain).toBe(REGRESSION_THIS_GATE_MUST_CATCH_BYTES / 100);
-      });
-
-      it('is coarser than a byte but far finer than the floor it excuses', () => {
-        // Both directions matter. Too fine and the ratchet fires invisibly; as
-        // coarse as the floor and a declared row would never red at all, which
-        // is the silence this card is about.
-        const grain =
-          REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE;
-        const floor = REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_FLOOR_MULTIPLE;
-        expect(grain).toBeGreaterThan(1);
-        expect(grain).toBeLessThan(floor);
-        // Every declared row must still have a reachable trip point above zero,
-        // or its entry would be decorative. Asserted on the live table AND on
-        // the synthetic figure the ratchet was measured against, so an empty
-        // live table cannot make this read as checked.
-        for (const allowance of Object.values(EXHAUSTED_HEADROOM_ALLOWANCES)) {
-          expect(allowance - grain).toBeGreaterThan(0);
-        }
-        expect(4_289 - grain).toBeGreaterThan(0);
-      });
-
-      it('every entry names a ceiling that exists', () => {
-        // An allowance for a key with no ceiling excuses nothing and would sit
-        // here unread, which is how a table of debt becomes a table of noise.
-        const judged = ['aggregate', ...Object.keys(PER_CHUNK_GZIP_CEILINGS)];
-        for (const key of Object.keys(EXHAUSTED_HEADROOM_ALLOWANCES)) {
-          expect(judged).toContain(key);
-        }
-        // Non-vacuity for an empty live table: the key the last entry named is
-        // still a budgeted chunk, and an invented one is still not.
-        expect(judged).toContain('ui-components');
-        expect(judged).not.toContain('a-chunk-nothing-budgets');
-      });
+      // ⛔ And the constants are gone from the EXECUTABLE surface: every
+      // surviving mention above is inside a comment.
+      expect(source).not.toContain('export const EXHAUSTED_HEADROOM_FLOOR_MULTIPLE');
+      expect(source).not.toContain('export const EXHAUSTED_HEADROOM_ALLOWANCES');
+      // The control for that pair of negatives, in the same command: a constant
+      // that IS still exported answers the same probe, so a mistyped probe
+      // cannot read as a clean removal.
+      expect(source).toContain('export const REGRESSION_THIS_GATE_MUST_CATCH_BYTES');
     });
   });
 });
@@ -1279,17 +1150,46 @@ describe('main', () => {
   });
 
   /**
-   * objectui#8554: the same blind spot at the other end. `framework` one byte
-   * under its own ceiling is inside every size line in the file — both size
-   * halves pass, and every one of this gate's other exits is 0 — so the exit
-   * code here is produced by the exhausted leg alone.
+   * objectui#10148 — the RETIRED exhausted-headroom leg, pinned on the
+   * BEHAVIOUR rather than on the absence of a constant.
+   *
+   * ⭐ This pair is one fixture apart, on the SAME chunk and the same ceiling:
+   * `framework` one byte UNDER its line, and `framework` one byte OVER it. A
+   * pin written against the constant's absence would pass the moment the
+   * identifier was deleted, whatever the gate then did with either fixture —
+   * which is how a removal takes the budget out with the leg it was aimed at.
+   *
+   * Before this card the under-by-one fixture exited 2: every size line in the
+   * file was satisfied and the exhausted leg alone produced the code. The
+   * maintainer retired that leg (the ruling is quoted in this file's header
+   * and in the checker's), so the same fixture is now a pass — and the
+   * over-by-one fixture below is what proves the budget did not leave with it.
    */
-  it('exits 2 when a ceiling has no headroom left to measure with', () => {
+  it('exits 0 when a chunk sits just UNDER its ceiling — merely close is not a verdict', () => {
     const { code, outputs } = run(budgeted({ framework: PER_CHUNK_GZIP_CEILINGS.framework - 1 }));
-    expect(code).toBe(2);
+    expect(code).toBe(0);
     expect(outputs.closure_status).toBe('pass');
     expect(outputs.closure_chunk_status).toBe('pass');
-    expect(outputs.closure_headroom_status).toBe('error');
+    // The sensitivity half still runs and still publishes: its BLIND leg — a
+    // ceiling that has drifted more than one regression ABOVE its payload — is
+    // untouched by this card, which is why `.github/workflows/`'s
+    // `BUDGET_CLOSURE_HEADROOM_STATUS` still reads a value that exists.
+    expect(outputs.closure_headroom_status).toBe('pass');
+  });
+
+  /**
+   * ⭐ THE CONTROL, and it is the half of this pair that can fail for the wrong
+   * reason. It reds before this card and after it: one byte the other side of
+   * the same line is a size regression, the per-chunk half owns it, and exit 1
+   * is a verdict about the BUNDLE. A run where both of these pass is the only
+   * one that distinguishes "the headroom leg was removed" from "the budget was
+   * removed".
+   */
+  it('still exits 1 when that same chunk goes OVER the same ceiling — the budget stays', () => {
+    const { code, outputs } = run(budgeted({ framework: PER_CHUNK_GZIP_CEILINGS.framework + 1 }));
+    expect(code).toBe(1);
+    expect(outputs.closure_status).toBe('pass');
+    expect(outputs.closure_chunk_status).toBe('fail');
   });
 
   /**
@@ -1344,7 +1244,8 @@ describe('main', () => {
    * purpose. `docs-route-eager-closure.yml` and `performance-budget.yml` are
    * not among this repo's required merge-queue contexts, so a regression in
    * the fold would not block a merge through the gate's own job. This file
-   * runs inside `Test (shard N/4)`, which is required (objectui#9098 landed
+   * runs inside `Test (shard N/8)`, whose verdict is required through the
+   * `Test` aggregator since objectui#9499 (objectui#9098 landed
    * the same reasoning one card earlier).
    */
   describe('the fold recognises exactly the statuses the halves declare (objectui#9006)', () => {

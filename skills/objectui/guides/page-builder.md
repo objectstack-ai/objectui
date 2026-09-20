@@ -31,7 +31,8 @@ When helping third-party apps, consume these packages; avoid duplicating core ru
 
 ### 3. Compose schema using proven node shape
 
-Use a strict component schema shape similar to:
+Use a strict component schema shape similar to this — a page whose host
+published `userRole` and `metrics` (section 4, step 3, names the channel):
 
 <!-- os:check -->
 ```json
@@ -40,11 +41,11 @@ Use a strict component schema shape similar to:
   "id": "customer_summary",
   "className": "col-span-12 lg:col-span-4",
   "title": "Customer Summary",
-  "hidden": "${data.userRole !== 'admin'}",
+  "hidden": "${userRole !== 'admin'}",
   "children": [
     {
       "type": "text",
-      "content": "Active users: ${data.metrics.activeUsers}"
+      "content": "Active users: ${metrics.activeUsers}"
     }
   ]
 }
@@ -98,25 +99,29 @@ Typical integration sequence:
 
 1. Register default renderers/components.
 2. Register plugin components needed by the page type.
-3. Provide `dataSource` and contextual data through renderer provider.
+3. Publish the roots the page's expressions read: wrap the tree in
+   `PredicateScopeProvider` (`@object-ui/react`) — every key of its `scope` is
+   a root (`userRole`, `metrics` above; `bind` reads the same bag). The renderer
+   itself adds `record` (the page's row) and `page` (page variables); nothing
+   publishes `data`, and `SchemaRendererProvider`'s `dataSource` is the adapter
+   the object-bound blocks fetch through, not a root. Provider fence:
+   [`guides/auth-permissions.md`](./auth-permissions.md).
 4. Render schema via `SchemaRenderer`.
 
 Keep custom component registrations namespaced to avoid collisions.
 
 ### 5. Use action data, not inline callback spaghetti
 
-Represent interactions as data where possible:
+Represent interactions as data: a control that runs something is an `action:button`
+node, and `actionType` names the executor the action runner dispatches to.
 
 <!-- os:check -->
 ```json
 {
-  "events": {
-    "onClick": [
-      { "action": "validate", "target": "customer_form" },
-      { "action": "submit", "target": "customer_form" },
-      { "action": "navigate", "params": { "url": "/customers" } }
-    ]
-  }
+  "type": "action:button",
+  "label": "Save customer",
+  "actionType": "url",
+  "target": "/customers"
 }
 ```
 
@@ -166,7 +171,8 @@ A key must clear **two independent gates** to reach the screen: the renderer has
 to *read* it, and `SchemaRenderer` has to *evaluate* it. Both lists -- what is
 evaluated, what is read raw, and what `props` / `properties` each do -- are in
 [`rules/protocol.md`](../rules/protocol.md). Two consequences shape almost every
-page:
+page; both examples below read `metrics`, a root the host published (section 4,
+step 3):
 
 **A `statistic` carries its own text keys**, so both static values and
 expressions work on the node (`statistic` declares `label` / `value` /
@@ -176,7 +182,7 @@ expressions work on the node (`statistic` declares `label` / `value` /
 {
   "type": "statistic",
   "label": "Active Users",
-  "value": "${data.metrics.activeUsers}",
+  "value": "${metrics.activeUsers}",
   "description": "+5% from last month",
   "trend": "up"
 }
@@ -190,7 +196,7 @@ is evaluated on every component type:
   "type": "card",
   "title": "Active Users",
   "children": [
-    { "type": "text", "content": "${data.metrics.activeUsers} active, +${data.metrics.growth}% this month" }
+    { "type": "text", "content": "${metrics.activeUsers} active, +${metrics.growth}% this month" }
   ]
 }
 ```

@@ -1158,6 +1158,31 @@ function judgeAuthoredNodes(root, { sources, documents }, types = RECORD_READING
 }
 
 // ── Part 3: anchored first-party maps ────────────────────────────────────────
+/**
+ * The object literal a `const NAME = …` initializer ultimately is, or `null`.
+ *
+ * ⚠️ objectui#9943 — a bare `ts.isObjectLiteralExpression(node.initializer)`
+ * test is FALSE for `const X = { … } satisfies Record<string, Y>`, because the
+ * initializer is then a `SatisfiesExpression` WRAPPING the literal. That is not
+ * a hypothetical spelling: it is the one a table keyed on a union the upstream
+ * spec can RETIRE a member from has to use, since an annotated (or
+ * `satisfies`-ed) exact type makes the retired row an excess property. Two of
+ * the anchors below moved onto it, and the failure this unwrap prevents is the
+ * one the `min` precondition was written for — a reader that finds nothing
+ * reports no violations. Here it would at least have failed loudly; it must not
+ * fail at all, because the map is still perfectly readable.
+ *
+ * `as` is unwrapped for the same reason and parentheses because both wrappers
+ * admit them. Anything else yields `null` and the `min` precondition fires.
+ */
+function unwrapToObjectLiteral(node) {
+  let current = node;
+  while (current && (ts.isSatisfiesExpression(current) || ts.isAsExpression(current) || ts.isParenthesizedExpression(current))) {
+    current = current.expression;
+  }
+  return current && ts.isObjectLiteralExpression(current) ? current : null;
+}
+
 function judgeAnchoredMaps(root, anchors) {
   const violations = [];
   const errors = [];
@@ -1181,8 +1206,8 @@ function judgeAnchoredMaps(root, anchors) {
           }
         }
       } else if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === anchor.anchor
-        && node.initializer && ts.isObjectLiteralExpression(node.initializer)) {
-        for (const property of node.initializer.properties) {
+        && unwrapToObjectLiteral(node.initializer)) {
+        for (const property of unwrapToObjectLiteral(node.initializer).properties) {
           if (!ts.isPropertyAssignment(property)) continue;
           const init = property.initializer;
           if (anchor.kind === 'strings' && ts.isStringLiteral(init)) found.push({ value: init.text, node: init });

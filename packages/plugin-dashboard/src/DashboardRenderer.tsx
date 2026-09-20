@@ -1126,7 +1126,9 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * What may legitimately become a DOM attribute on this container
      * (objectui#4432, migration step 2 of objectui#4425 phase 2).
      *
-     * `view:dashboard` resolves to this component, so `SchemaRenderer` hands it
+     * `plugin-dashboard:dashboard` resolves to this component (it was
+     * `view:dashboard` until objectui#9533 converged the bare key), so
+     * `SchemaRenderer` hands it
      * the dashboard node's OWN keys, the contents of the node's `props`
      * container, the ARIA it resolved, its evaluated `disabled` verdict and the
      * host's trailing props. Everything this component does not destructure

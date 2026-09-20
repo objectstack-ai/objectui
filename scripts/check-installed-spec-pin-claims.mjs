@@ -751,6 +751,14 @@ export const LEDGER = [
     why: "\"`publicPicker` arrives in @objectstack/spec 17.0.0 GA\" \u2014 the arrival release. \u26a0\ufe0f The stale claim in the SAME docblock (\"this repo is pinned to `^17.0.0-rc.6`\") is a RANGE and therefore outside this gate's predicate by construction; it is recorded in objectui#8924 rather than silently covered here.",
   },
   {
+    file: "packages/plugin-grid/src/__tests__/gridNavigationMembers-8071.test.tsx",
+    package: "@objectstack/spec",
+    version: "17.5.0",
+    sites: 1,
+    class: "historical",
+    why: "\"`@objectstack/spec` 17.5.0 retired `view.list.navigation.view` under ADR-0049\" names the RELEASE that removed the key, not what is installed -- the same shape as the `offline-nav-performance-spec-parity` entry below (\"retired that name in 17.0.0-rc.1\"). The marker that puts it in the population is the word `pinned` in \"the row that pinned this\", where it means a TEST ROW pinning a behaviour rather than a version pin; the `pinned-recording-sense` cue does not reach that phrasing. This version is AHEAD of the resolved pin rather than behind it, which is why restamping is not merely unnecessary but false: 17.4.0 is exactly the version where the key still EXISTS, so stamping the sentence at the pin would assert that 17.4.0 retired it. That is the fresh false premise this gate\u0027s docblock warns restamping plants (objectui#9874).",
+  },
+  {
     file: "packages/react/src/hooks/__tests__/offline-nav-performance-spec-parity.test.ts",
     package: "@objectstack/spec",
     version: "17.0.0-rc.1",

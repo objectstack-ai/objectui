@@ -38,14 +38,18 @@
  * pin the shape a producer actually hands over rather than a hand-written
  * literal no caller emits.
  *
- * ## The flag is not data, and `false` is not a second operator
+ * ## The param is not data, and its value is the DIRECTION
  *
- * `filter[<field>][null]` carries a FLAG: only the exact `true` spelling is the
- * is-null condition. `...[null]=false` is NOT "is not null" — the write side
- * cannot spell that operator, so the read side refuses to invent it and drops
- * the param the same way it drops an unknown suffix, leaving the drill degraded
- * to a superset exactly as it was before this card. Pinned below so the read
- * side has no unspecified input.
+ * `filter[<field>][null]` carries no comparand: only its exact spellings are
+ * conditions. When this card shipped, `true` was the only one — `...[null]=false`
+ * was NOT "is not null", because the write side could not spell that operator
+ * and a read-side operator with no producer would have been a second contract.
+ * ⚠️ objectui#9508 supplied that producer and `false` IS now the is-not-null
+ * operator, so the assertion below records the spelling this card left
+ * unspecified rather than the refusal it shipped. The is-not-null obligations
+ * themselves live in `drillNotNullDialect-9508.test.tsx`; what stays here is
+ * this card's own boundary — that a value which is NEITHER spelling is still
+ * dropped like an unknown suffix.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -132,13 +136,15 @@ describe('the drill escape hatch and the empty bucket (objectui#9159)', () => {
     // pins the CONTRACT (the param key and its value) and not URLSearchParams'
     // encoding of square brackets.
     expect(decodeURIComponent(search)).toBe('?filter[owner][null]=true');
-    expect(NULL_FILTER).toEqual({
-      param: 'null',
-      flag: 'true',
-      op: 'is_null',
-      key: '$null',
-      labelKey: 'filterBuilder.operators.isNull',
-    });
+    // ⚠️ The record grew its inverse half in objectui#9508; the five members
+    // this card shipped are asserted BY NAME and unchanged, which is the claim
+    // that matters here — a published URL surface may gain a spelling and may
+    // not move one.
+    expect(NULL_FILTER.param).toBe('null');
+    expect(NULL_FILTER.flag).toBe('true');
+    expect(NULL_FILTER.op).toBe('is_null');
+    expect(NULL_FILTER.key).toBe('$null');
+    expect(NULL_FILTER.labelKey).toBe('filterBuilder.operators.isNull');
   });
 
   it('the chip the list renders names the condition instead of showing a bare `true`', () => {
@@ -164,16 +170,23 @@ describe('the drill escape hatch and the empty bucket (objectui#9159)', () => {
     expect(chips[1].text).toBeUndefined();
   });
 
-  it('`[null]=false` is NOT a second operator — it produces no condition at all', () => {
-    // The write side cannot spell "is not null", so the read side refuses to
-    // invent it: the param is dropped exactly like an unknown suffix, never
-    // downgraded to `is_null false` and never to an equality against "false".
-    expect(parseUrlFilterTriples(new URLSearchParams('filter[owner][null]=false'))).toEqual([]);
+  it('a value that is NEITHER spelling still produces no condition at all', () => {
+    // This card's boundary, kept at the input it was written about: the param
+    // is not a truthiness test, so a third value is dropped exactly like an
+    // unknown suffix — never downgraded to `is_null false`, never to an
+    // equality against the string it holds.
+    expect(parseUrlFilterTriples(new URLSearchParams('filter[owner][null]=1'))).toEqual([]);
+    expect(parseUrlFilterTriples(new URLSearchParams('filter[owner][null]=yes'))).toEqual([]);
     // An empty value was already dropped before this card (a param whose value
     // is `''` never reaches the suffix arm), so equality-to-empty-string stays
     // what it always was: no condition.
     expect(parseUrlFilterTriples(new URLSearchParams('filter[owner][null]='))).toEqual([]);
     expect(parseUrlFilterTriples(new URLSearchParams('filter[owner]='))).toEqual([]);
+    // ⚠️ `false` is NO LONGER in this set — objectui#9508 made it the
+    // is-not-null operator. Asserted here, in the file that used to pin the
+    // refusal, so the two cards cannot both be believed at once.
+    expect(parseUrlFilterTriples(new URLSearchParams('filter[owner][null]=false')))
+      .toEqual([['owner', 'is_not_null', true]]);
   });
 
   it('CONTROL: a NON-empty drill still reaches the URL unchanged', () => {

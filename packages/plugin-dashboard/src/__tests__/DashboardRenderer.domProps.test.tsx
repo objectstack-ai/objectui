@@ -14,8 +14,8 @@
  *
  * `packages/app-shell/src/__tests__/widget-dom-leak-sweep.test.tsx` is the
  * cross-package ratchet: it proves nothing UNEXPLAINED arrives, and its
- * `view:dashboard` row expired with this fix. These cases are the other half,
- * in this package, next to the code:
+ * `plugin-dashboard:dashboard` row expired with this fix. These cases are the
+ * other half, in this package, next to the code:
  *
  *  - the exact attribute SET on the host element — so a key that stops being
  *    DELIVERED (`role`, `aria-label`, `data-obj-id`, `tabindex`) is as red as a
@@ -46,7 +46,10 @@ import * as React from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-// Side-effect import: the package barrel is what registers `view:dashboard`.
+// Side-effect import: the package barrel is what registers
+// `plugin-dashboard:dashboard` (it was `view:dashboard` until objectui#9533
+// converged the bare key; that spelling now resolves to a refusal tombstone,
+// pinned in `dashboardBareKeyOwnership.test.tsx`).
 // At MODULE scope (never inside a case) per AGENTS.md's flaky-test rule — the
 // cost lands in the import phase, unbounded by any timeout.
 import { DashboardRenderer } from '../index';
@@ -73,7 +76,7 @@ const ADAPTER = {
  * gates report one vocabulary rather than two.
  */
 const CANARY_NODE = {
-  type: 'view:dashboard',
+  type: 'plugin-dashboard:dashboard',
   id: 'canary-node',
   name: 'canary_node',
   className: 'zz-authored-class',
@@ -150,7 +153,7 @@ describe("DashboardRenderer's widget grid — only whitelisted DOM props (object
     // The whitelisted keys carry their real values — an empty pass-through
     // would satisfy the set above only by also losing these.
     expect(grid).toHaveAttribute('id', 'canary-node');
-    expect(grid).toHaveAttribute('data-obj-type', 'view:dashboard');
+    expect(grid).toHaveAttribute('data-obj-type', 'plugin-dashboard:dashboard');
     expect(grid).toHaveAttribute('role', 'region');
     expect(grid).toHaveAttribute('tabindex', '0');
     expect(grid.className).toContain('zz-authored-class');

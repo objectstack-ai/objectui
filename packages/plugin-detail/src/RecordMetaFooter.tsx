@@ -11,6 +11,7 @@ import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@o
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
 import { AUDIT_FIELD_BY_ROLE } from '@object-ui/types';
 import type { FieldMetadata } from '@object-ui/types';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useDetailTranslation } from './useDetailTranslation';
 import { hasCellValue } from './emptiness';
 
@@ -86,9 +87,13 @@ function formatRelativeTime(date: Date, t: TFn): string {
   return t('detail.daysAgo', { count: days });
 }
 
-function formatAbsolute(date: Date): string {
+function formatAbsolute(date: Date, locale: string): string {
   try {
-    return new Intl.DateTimeFormat(undefined, {
+    // The tag is DECLARED (objectui#9786). A literal `undefined` here is the
+    // one thing `useDisplayLocale`'s own doc comment tells a caller not to do:
+    // it means the MACHINE's locale, which is neither the tenant's regional
+    // default nor the active UI language.
+    return new Intl.DateTimeFormat(locale, {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(date);
@@ -159,9 +164,11 @@ interface MetaEntryProps {
   objectSchema?: any;
   userField: string;
   t: TFn;
+  /** BCP-47 tag for the absolute date in the tooltip (objectui#9786). */
+  locale: string;
 }
 
-const MetaEntry: React.FC<MetaEntryProps> = ({ label, user, date, objectSchema, userField, t }) => {
+const MetaEntry: React.FC<MetaEntryProps> = ({ label, user, date, objectSchema, userField, t, locale }) => {
   if (!user && !date) return null;
   const dateNode = date ? (
     <TooltipProvider delayDuration={200}>
@@ -174,7 +181,7 @@ const MetaEntry: React.FC<MetaEntryProps> = ({ label, user, date, objectSchema, 
             {formatRelativeTime(date, t)}
           </time>
         </TooltipTrigger>
-        <TooltipContent side="top">{formatAbsolute(date)}</TooltipContent>
+        <TooltipContent side="top">{formatAbsolute(date, locale)}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   ) : null;
@@ -207,6 +214,9 @@ export const RecordMetaFooter: React.FC<RecordMetaFooterProps> = ({
   className,
 }) => {
   const { t } = useDetailTranslation();
+  // The BCP-47 tag the hover tooltip's absolute date formats with
+  // (objectui#9786). Read before the early return so hook order never varies.
+  const displayLocale = useDisplayLocale();
   if (!data) return null;
 
   const createdAt = toDate(data[AUDIT_FIELDS.createdAt]);
@@ -246,6 +256,7 @@ export const RecordMetaFooter: React.FC<RecordMetaFooterProps> = ({
           objectSchema={objectSchema}
           userField={AUDIT_FIELDS.createdBy}
           t={t}
+          locale={displayLocale}
         />
       )}
       {hasUpdated && (
@@ -256,6 +267,7 @@ export const RecordMetaFooter: React.FC<RecordMetaFooterProps> = ({
           objectSchema={objectSchema}
           userField={AUDIT_FIELDS.updatedBy}
           t={t}
+          locale={displayLocale}
         />
       )}
     </div>

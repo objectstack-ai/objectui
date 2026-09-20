@@ -267,6 +267,9 @@ const zh = {
       selectBusinessUnit: '请选择业务单元',
       selectPosition: '请选择岗位',
       selectUnitAndSubordinates: '请选择业务单元',
+      selectField: '请选择用户字段',
+      noUserFields: '此对象没有用户字段',
+      fieldNotUserTyped: '{{name}} — 不是用户字段',
     },
     filterCondition: {
       selectObjectFirst: '请先选择对象。',
@@ -290,6 +293,10 @@ const zh = {
         '未保存：{{name}}“{{text}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
       refusedResidue:
         '未保存：{{name}}“{{text}}”和{{otherName}}“{{otherText}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
+    },
+    number: {
+      badInput:
+        '未保存：此输入框中的文本不是数字。请输入普通小数（例如 {{example}}）。',
     },
     tags: {
       placeholder: '输入后回车添加…',
@@ -585,6 +592,33 @@ const zh = {
     newEvent: '新建事件',
     moreEvents: '+{{count}} 更多',
     unscheduled: '未排期 ({{count}})',
+    loading: '加载日历中…',
+    loadError: '错误：{{message}}',
+    configRequired: '需要日历配置。请指定 startDateField，这是日历唯一必填的键；事件标题无需 titleField 也能解析。',
+    configRequiredHint: '它属于视图的 calendar 块。界面页面没有自己的日历插槽：请将其 sourceView 指向一个声明了日历的视图。',
+    eventDetails: '事件详情',
+    pullToRefresh: '下拉刷新',
+    refreshing: '刷新中…',
+    onDate: '{{date}}',
+    eventTitle: '标题',
+    eventTitlePlaceholder: '这个事件是关于什么的？',
+    creating: '创建中…',
+    titleRequired: '请填写标题',
+    a11y: {
+      region: '日历',
+      grid: '日历网格',
+      goToToday: '转到今天',
+      previousPeriod: '上一时段',
+      nextPeriod: '下一时段',
+      currentDate: '当前日期:{{date}}',
+      dayCell: '{{date}},{{count}} 个日程',
+      dayCell_one: '{{date}},{{count}} 个日程',
+      dayCell_other: '{{date}},{{count}} 个日程',
+      resizeEventEnd: '调整日程结束时间',
+      resizeEventEndHint: '拖动以更改结束日期',
+      resizeStart: '调整开始时间',
+      resizeEnd: '调整结束时间',
+    },
   },
   list: {
     loading: '正在加载记录…',
@@ -1525,6 +1559,9 @@ const zh = {
     },
   },
   console: {
+    studio: {
+      backToHome: '返回首页',
+    },
     saveAdvisoryTitle: '已保存 — 编辑检查提出了 {{count}} 条建议',
     publishAdvisoryTitle: '已发布 — 编辑检查提出了 {{count}} 条建议',
     importMappingsUnavailable: "无法加载 {{object}} 的已保存导入映射",
@@ -1916,6 +1953,13 @@ const zh = {
         previous30Days: '过去 30 天',
         older: '更早',
       },
+    },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: '本环境读取量异常',
+      ratio: '每写入 1 行就读取 {{ratio}} 行。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
+      noWritesTitle: '本环境只有读取、完全没有写入',
+      noWrites: '有行被读取,却完全没有任何写入,因此读取比率没有上限。这是最严重的读数。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
     },
     errors: {
       somethingWentWrong: '出错了',
@@ -2330,6 +2374,15 @@ const zh = {
       role: '角色',
       save: '保存更改',
     },
+    language: {
+      title: '语言',
+      description: '发送给您的通知和消息所使用的语言。界面语言另行设置,在地球图标菜单中切换。',
+      label: '首选语言',
+      systemDefault: '使用部署默认值',
+      save: '保存',
+      saved: '语言偏好已更新。',
+      readOnly: '您账户的语言由管理员管理。',
+    },
     password: {
       changeTitle: '修改密码',
       setTitle: '设置本地密码',
@@ -2569,6 +2622,7 @@ const zh = {
     resultsCount: '找到 {{count}} 条与“{{query}}”相关的结果',
     resultsCountPlural: '找到 {{count}} 条与“{{query}}”相关的结果',
     itemsAvailable: '共 {{count}} 项可搜索',
+    itemsAvailableOne: '共 {{count}} 项可搜索',
     noResults: '未找到结果',
     noResultsHint: '请尝试调整搜索关键字',
     typeObjects: '对象',
@@ -2687,6 +2741,7 @@ const zh = {
     requiredError: '{{label}} 为必填项',
     lookupPlaceholder: '{{label}} 的记录 ID',
     lookupHelpText: '该参数未配置引用对象，无法使用记录选择器。请直接填写记录 ID，或联系管理员修正该动作参数。',
+    unresolvedParam: '无法显示该参数：它所依据的字段不在对象元数据中，因此无法构建它所需的控件。请联系管理员修正该动作定义。',
     cancel: '取消',
     confirm: '确认',
     uploading: '上传中…',

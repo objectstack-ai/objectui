@@ -90,7 +90,16 @@ export type assertionGalleryTypeIsRegistryKey = Expect<Equal<ObjectGallerySchema
 export type assertionDataTableTypeIsRegistryKey = Expect<Equal<ObjectDataTableSchema['type'], 'object-data-table'>>;
 /** objectui#6914 — declared with the types measured at their prior homes. */
 export type assertionDrillDownDeclared = Expect<Equal<ObjectDataTableSchema['drillDown'], DrillDownConfig | undefined>>;
-export type assertionOnRowClickDeclared = Expect<Equal<ObjectDataTableSchema['onRowClick'], ((row: any) => void) | undefined>>;
+/**
+ * ⭐ STILL measured at its prior home, which is the point of leaving this pin
+ * `Equal` rather than relaxing it: objectui#6576 declared `onRowClick` here with
+ * the spelling `DataTableSchema` carried, objectui#9462 widened THAT twin to two
+ * parameters, and objectui#9799 brought this one back into step. The pin moved
+ * with the measurement, ⛔ not ahead of it — an `extends` check would have been
+ * green through all three states, since `(row) => void` and `(row, event?) => void`
+ * satisfy each other in both directions.
+ */
+export type assertionOnRowClickDeclared = Expect<Equal<ObjectDataTableSchema['onRowClick'], ((row: any, event?: any) => void) | undefined>>;
 /**
  * Inherited members resolve to their DECLARED types. `Equal`, not `extends`:
  * through the index signature a missing member reads `any`, which a one-way

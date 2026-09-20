@@ -10,10 +10,12 @@ groups on that card, dispatched as its own PR per the ruling).
 Both members demanded `children` and omitted keys the renderer reads first, so
 `safeValidateSchema` refused two catalog entries that draw correctly:
 
-- **`tooltip`** now declares `trigger`, and `content` / `body` as the two halves of
-  one read (`renderers/overlay/tooltip.tsx:28,31` — `renderChildren(schema.trigger)`
-  and `schema.content || renderChildren(schema.body)`). The registration's own
-  `inputs` list `trigger` / `content` / `body` and never `children`. `trigger`
+- **`tooltip`** now declares `trigger`, and `content` plus the rich-content slot as
+  the two halves of one read (`renderers/overlay/tooltip.tsx` —
+  `renderChildren(schema.trigger)` and `schema.content || renderChildren(…)`). The
+  registration's own `inputs` list `trigger` / `content` / that slot. ⚠️ The slot was
+  spelled `body` when this change landed; objectui#6771 retired that spelling and it
+  is `children` now, on both the read and the published `inputs`. `trigger`
   follows `HoverCardSchema` two entries below, which is the settled in-repo shape
   for this slot.
 - **`context-menu`** now declares `triggerClassName`, `contentClassName` and

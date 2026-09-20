@@ -31,10 +31,25 @@
  * `packages/components/src/renderers/**` (114 registrations) and the read side
  * is measured with the TypeScript TYPE CHECKER — each `body` / `children`
  * property access is filed under the TYPE of the object it is read from, so a
- * docblock mention cannot score (the control: the `BoxSchema` docblock in
- * `renderers/layout/box.tsx` says `schema.body` in prose and `grep -l` counts
- * it, the checker does not; the card's own `17 / 17` figure came from that
- * query).
+ * docblock mention cannot score.
+ *
+ * ⚠️ THE CONTROL MOVED, because objectui#6771 SPENT the one that stood here.
+ * It read: the `BoxSchema` docblock in `renderers/layout/box.tsx` SAYS
+ * `schema.body` in prose and `grep -l` counts it, the checker does not — and
+ * the card's own `17 / 17` figure came from that query. This card rewrote that
+ * docblock, so `box.tsx` now answers 0 to BOTH halves and a reader replaying it
+ * gets no divergence at all. ⛔ A control that cannot fire is worse than none:
+ * it reads as evidence and is not.
+ *
+ * ⭐ The live control is `renderers/basic/span.tsx`, whose JSX comment says
+ * "This read used to be `schema.body`" and carries no such property access.
+ * Measured with the repo's own masker (`scripts/js-comment-mask.mjs`, the
+ * instrument the producer scan projects): the raw text answers 1 — what
+ * `grep -l` counts — and the comment-stripped text answers 0 — what the checker
+ * can see. ⇒ the divergence is live and replayable. The masker is controlled on
+ * the same run rather than trusted: `schema.bodyExtra` in
+ * `renderers/action/action-icon.tsx` is a REAL property access and survives
+ * stripping at 1, so the 0 above is a reading and not a blanked file.
  *
  * The twelve rows below are the ones where the renderer reads EXACTLY ONE
  * channel, the component owns a dedicated declaration, and exactly one
@@ -106,9 +121,17 @@ const ROWS: ReadonlyArray<readonly [
   ['scroll-area', ScrollAreaMirror as unknown as Mirror, 'children', 'body', {}],
   ['form', FormMirror as unknown as Mirror, 'children', 'body', { fields: [] }],
   ['toggle', ToggleMirror as unknown as Mirror, 'children', 'body', {}],
-  ['alert', AlertMirror as unknown as Mirror, 'body', 'children', {}],
-  ['badge', BadgeMirror as unknown as Mirror, 'body', 'children', {}],
-  ['tooltip', TooltipMirror as unknown as Mirror, 'body', 'children', {}],
+  // ⚠️ THESE THREE SWAPPED SIDES with objectui#6771, and the rule did not.
+  // `alert`, `badge` and `tooltip` were family B — the renderer read `body`
+  // and `children` was the dead channel — because `body` was the ONLY door on
+  // a dozen registrations. That ruling retired the spelling; the renderers
+  // converged on `children`, so the channel each of them does not read is now
+  // `body`, and the tombstone moved with the read. What is pinned here is
+  // objectui#8284's rule, not a fixed key per component: every assertion below
+  // reads `live` / `dead` out of this table.
+  ['alert', AlertMirror as unknown as Mirror, 'children', 'body', {}],
+  ['badge', BadgeMirror as unknown as Mirror, 'children', 'body', {}],
+  ['tooltip', TooltipMirror as unknown as Mirror, 'children', 'body', {}],
 ];
 
 const CONTENT = [{ type: 'text', content: 'measured' }];
@@ -212,13 +235,15 @@ describe('objectui#8284 — the TypeScript face refuses the dead channel at the 
     // @ts-expect-error objectui#8284 — `toggle` reads `children`, never `body`
     const toggle: ToggleSchema = { type: 'toggle', body: CONTENT };
 
-    // Family B — the renderer reads `body`; `children` is `?: never`.
-    // @ts-expect-error objectui#8284 — `alert` reads `body`, never `children`
-    const alert: AlertSchema = { type: 'alert', children: CONTENT };
-    // @ts-expect-error objectui#8284 — `badge` reads `body`, never `children`
-    const badge: BadgeSchema = { type: 'badge', children: CONTENT };
-    // @ts-expect-error objectui#8284 — `tooltip` reads `content`/`body`, never `children`
-    const tooltip: TooltipSchema = { type: 'tooltip', children: CONTENT };
+    // Family B — these three read `body` until objectui#6771 retired it. The
+    // renderers converged on `children`, so the refused channel is now `body`
+    // on them too, and this block reads the same way for all twelve.
+    // @ts-expect-error objectui#8284 — `alert` reads `children`, never `body`
+    const alert: AlertSchema = { type: 'alert', body: CONTENT };
+    // @ts-expect-error objectui#8284 — `badge` reads `children`, never `body`
+    const badge: BadgeSchema = { type: 'badge', body: CONTENT };
+    // @ts-expect-error objectui#8284 — `tooltip` reads `content`/`children`, never `body`
+    const tooltip: TooltipSchema = { type: 'tooltip', body: CONTENT };
 
     expect([box, span, container, flex, stack, grid, scrollArea, form, toggle, alert, badge, tooltip]).toHaveLength(12);
   });
@@ -234,9 +259,9 @@ describe('objectui#8284 — the TypeScript face refuses the dead channel at the 
       { type: 'scroll-area', children: CONTENT } satisfies ScrollAreaSchema,
       { type: 'form', children: CONTENT } satisfies FormSchema,
       { type: 'toggle', children: CONTENT } satisfies ToggleSchema,
-      { type: 'alert', body: CONTENT } satisfies AlertSchema,
-      { type: 'badge', body: CONTENT } satisfies BadgeSchema,
-      { type: 'tooltip', body: CONTENT } satisfies TooltipSchema,
+      { type: 'alert', children: CONTENT } satisfies AlertSchema,
+      { type: 'badge', children: CONTENT } satisfies BadgeSchema,
+      { type: 'tooltip', children: CONTENT } satisfies TooltipSchema,
     ];
     expect(live).toHaveLength(12);
   });

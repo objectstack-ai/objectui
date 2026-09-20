@@ -1193,7 +1193,6 @@ const CLAIM_DEBT = {
     "PageRegionWidth",
     "RecordActivityComponentProps",
     "RecordChatterComponentProps",
-    "RecordComponentAriaProps",
     "RecordDetailsComponentProps",
     "RecordHighlightsComponentProps",
     "RecordPathComponentProps",

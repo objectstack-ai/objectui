@@ -58,6 +58,10 @@ import {
 
 const REPO_ROOT = join(__dirname, '..', '..');
 
+/** The two files the census carves out of its own population, by name. */
+const CENSUS_PATH = 'scripts/dollar-dialect-alias-census.mjs';
+const SUITE_PATH = 'scripts/__tests__/dollar-dialect-alias-census.test.ts';
+
 const SPEC_OPERATORS = [
   '$eq', '$ne', '$gt', '$gte', '$lt', '$lte', '$in', '$nin', '$between',
   '$contains', '$notContains', '$startsWith', '$endsWith', '$icontains', '$null', '$exists',
@@ -288,13 +292,71 @@ describe('the tree as it stands today', () => {
     expect(operatorMapKeysFromSource(source)).toContain('$eq');
   });
 
-  it('carves ITSELF out, because it carries every spelling as fixture text', () => {
-    // Including `IMPOSSIBLE_SPELLING`. Scanning these two files makes the
-    // negative control fire on its own declaration, and the run stops being a
-    // reading — which is exactly how this was found, the first time they became
-    // tracked files.
-    expect(SELF_FILES.has('scripts/dollar-dialect-alias-census.mjs')).toBe(true);
-    expect(SELF_FILES.has('scripts/__tests__/dollar-dialect-alias-census.test.ts')).toBe(true);
+  it('carves ITSELF out, both files, by name', () => {
+    expect(SELF_FILES.has(CENSUS_PATH)).toBe(true);
+    expect(SELF_FILES.has(SUITE_PATH)).toBe(true);
+  });
+
+  it('keeps the bait in the CENSUS and out of the SUITE, which is what makes one entry control-backed', () => {
+    // `IMPOSSIBLE_SPELLING` as a LITERAL is the whole reason dropping the census
+    // from SELF_FILES fires the `impossible` control instead of printing a
+    // quietly wrong number. This suite must NOT carry that literal — it hands
+    // the imported binding to `scanText` — or the ablation below would fire for
+    // the wrong file and the two entries would look interchangeable.
+    //
+    // ⚠️ The comment this replaced claimed BOTH files carried the impossible
+    // spelling. Measured, only one does, and the pin below is what keeps the
+    // corrected claim honest.
+    const censusSource = readFileSync(join(REPO_ROOT, CENSUS_PATH), 'utf8');
+    const suiteSource = readFileSync(join(REPO_ROOT, SUITE_PATH), 'utf8');
+    expect(
+      scanText(censusSource, IMPOSSIBLE_SPELLING).length,
+      'the census must carry the impossible spelling, or its carve-out has no control behind it',
+    ).toBeGreaterThan(0);
+    expect(
+      scanText(suiteSource, IMPOSSIBLE_SPELLING),
+      'this suite must reach the impossible spelling through the import, never as a literal',
+    ).toEqual([]);
+  });
+
+  it('is asymmetric, measured by ABLATION rather than asserted: only the census entry is control-backed', async () => {
+    // objectui#9891 asked whether the `fixture-address: <reason>` class should
+    // replace this by-name list. The answer turns on what the list actually
+    // blocks, so this case REMOVES each entry and reads the controls, instead of
+    // taking either entry's justification on trust.
+    const controlsOf = async (dropped: string) => {
+      SELF_FILES.delete(dropped);
+      try {
+        const r = await runCensus(REPO_ROOT) as { controls: Array<{ id: string; ok: boolean; detail: string }> };
+        return r.controls;
+      } finally {
+        SELF_FILES.add(dropped);
+      }
+    };
+
+    // Leg 1 — the census. Scanning it must make its own negative control fire,
+    // so a drifted entry REFUSES to print a number rather than printing a wrong
+    // one. That is the property a declaration would otherwise have had to buy.
+    const withoutCensus = await controlsOf(CENSUS_PATH);
+    const impossible = withoutCensus.find((c) => c.id === 'impossible');
+    expect(
+      impossible?.ok,
+      'scanning this census must fire its own `impossible` control — that is what backs the by-name entry',
+    ).toBe(false);
+
+    // Leg 2 — the suite. ⚠️ Nothing fires. Recorded rather than implied: this
+    // entry rests on the plain argument only, and a reader who generalises the
+    // first leg to both would be wrong. If a control is ever added that DOES
+    // back it, this case goes red and the census docblock has to be corrected
+    // in the same change.
+    const withoutSuite = await controlsOf(SUITE_PATH);
+    expect(
+      withoutSuite.filter((c) => !c.ok).map((c) => c.id),
+      'no control witnesses the suite carve-out today; the docblock says so and this pins it',
+    ).toEqual([]);
+
+    // Both entries restored, so no later case inherits a mutated carve-out.
+    expect([...SELF_FILES].sort()).toEqual([SUITE_PATH, CENSUS_PATH].sort());
   });
 
   it('still carries the $-free sibling rows the conflation control is aimed at', () => {

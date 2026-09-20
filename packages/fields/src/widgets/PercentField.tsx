@@ -3,15 +3,117 @@ import { Input, Slider, EmptyValue, cn } from '@object-ui/components';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useBadInputRefusal, BadInputMessage, BAD_INPUT_BORDER } from './numberBadInput.js';
+// The ONE out-of-range `scale` ruling both percent faces take (objectui#9808),
+// in its own module so the barrel can share the same spelling without
+// publishing it — see that module's header for the ruling and its sunset.
+import { renderablePercentScale } from './percent-scale.js';
 
 /**
- * PercentField - Percentage input with configurable decimal precision
+ * The stored fraction a typed percentage-point value becomes — computed by
+ * shifting the DECIMAL point two places, ⛔ never by dividing a binary float
+ * by 100 (objectui#9810).
+ *
+ * Maintainer ruling, batch #161 item 3, letter B — the operative clause,
+ * quoted rather than paraphrased:
+ *
+ * > `scale` on a `percent` field means the DISPLAYED percentage-point
+ * > decimals — the landed objectui#9295 convention; the storage side derives:
+ * > for a fraction-stored percent (`percentScaleOf` = `fraction`) the objectql
+ * > record validator's `max_scale` branch allows `scale + 2` decimal places in
+ * > the stored fraction
+ *
+ * ⇒ the derivation is a CONTRACT this widget has to be able to meet: the
+ * platform refuses (never rounds) a written value carrying more decimal places
+ * than the declaration allows, and for a fraction-stored percent that
+ * allowance is exactly `scale + 2`. `n / 100` cannot meet it. Division by 100
+ * is not representable in binary floating point, so the quotient carries
+ * residue that no author typed: measured over the whole step grid a `scale: 2`
+ * field offers (`0.00` … `100.00`, 10001 values), 2760 of them — 27.6% —
+ * convert to a stored fraction of 16 to 19 decimal places. Ordinary ones:
+ * `66.67` stores `0.6667000000000001`, `99.99` stores `0.9998999999999999`,
+ * `29.97` stores `0.29969999999999997`. Each is a value the widget's OWN
+ * `step` attribute offers and the write path then refuses — the affordance
+ * objectui#9810 was filed about, surviving the ruling on the limb the ruling
+ * settled in this widget's favour.
+ *
+ * Shifting the decimal exponent instead is EXACT in the sense that matters
+ * here: the result is the double nearest the decimal value the author typed,
+ * so a display value carrying `d` decimal places stores `d + 2` and no more.
+ * ⛔ It is not a rounding and it alters nothing: an author who types finer than
+ * the declared width (`12.345` into a `scale: 2` field) still stores
+ * `0.12345` and is still refused upstream, which is the ruled behaviour —
+ * `max_scale` is enforced by REJECTION, and a widget-side rounding here would
+ * convert that refusal into the silent data alteration the platform ruled out.
+ *
+ * The `whole` arm keeps its identity conversion for the same reason: there the
+ * typed number IS the stored number, so there is no arithmetic of ours to
+ * correct.
+ */
+const storedFraction = (displayValue: number): number => {
+  // `Number.isFinite` first: `String(NaN)` / `String(Infinity)` produce no
+  // exponent to shift, and the callers below treat a non-finite reading as the
+  // empty value rather than as a number to convert.
+  if (!Number.isFinite(displayValue)) return displayValue;
+  // `String(1e-7)` is already exponential, so the exponent is ADDED to the
+  // existing one rather than appended (`1e-7` ⇒ `1e-9`, never `1e-7e-2`).
+  const [mantissa, exponent] = String(displayValue).split('e');
+  return Number(`${mantissa}e${exponent ? Number(exponent) - 2 : -2}`);
+};
+
+/**
+ * PercentField - Percentage input whose decimal places follow the field's
+ * declared `scale` (see the read below)
  * Stores values as decimals (0-1) and displays as percentages (0-100%)
  * Includes a slider for interactive control.
  */
 export function PercentField({ value, onChange, field, readonly, error, className, ...props }: FieldWidgetComponentProps<number>) {
   const percentField = field as any;
-  const precision = percentField?.precision ?? 2;
+  /**
+   * Decimal places come from `scale`, NOT `precision` (objectui#9568) — the
+   * correction `NumberField` in this directory already carries, and the one
+   * objectui#9295 made on the read-only cell, the grid summary footer and the
+   * detail summary chip. This widget is the face that did not move.
+   *
+   * `@objectstack/spec` declares the pair on the field face in its own words:
+   * `precision` is "Total digits (non-negative integer)" and `scale` is
+   * "Decimal places (non-negative integer)". Reading `precision` padded every
+   * value out to the column's TOTAL width, so a decimal(10, 2) percent field
+   * rendered `25.0000000000%` and offered a `1e-10` step — a step that is not
+   * a cosmetic defect but an unusable control for the value it is declared to
+   * edit.
+   *
+   * ⛔ NOT `CurrencyConfigSchema.precision`, which is a different surface with
+   * the opposite convention and its own `scale` alias; the spec warns against
+   * conflating the two at the field-face declaration itself. And ⛔ not
+   * `CurrencyField`'s read of `precision` either: there the competing source is
+   * the currency's own ISO 4217 minor-unit count, and objectui#4361 ruled an
+   * authored `precision` wins over THAT. It ruled nothing about `scale`, which
+   * a currency field's face does not carry a meaning for, and it pushed the
+   * contract question upstream rather than settling it here.
+   *
+   * `typeof`, not truthiness: `scale: 0` is a valid declaration (a percent
+   * field that edits whole percents) and `||` would silently drop it — the
+   * reason `NumberField` guards its own read the same way, and the guard the
+   * `max` read below already uses. `??` would keep a `0` too, but it also
+   * keeps a `scale: "2"` arriving from JSON metadata, and inventing a width
+   * from a string is the consumer-side guessing AGENTS.md #0.1 refuses.
+   *
+   * An ABSENT `scale` keeps this widget's own 2. The repair moves the MEMBER
+   * that is read and nothing else, so it is invisible to every percent field
+   * that declares neither member. ⚠️ Stated rather than papered over: that
+   * leaves this widget and `PercentCellRenderer` still disagreeing when
+   * nothing is declared — the cell spells the same absence `0` and pins it —
+   * which is a disagreement objectui#9568 explicitly declines to make a
+   * premise and this change neither widens nor closes. Whether the two faces
+   * should agree at all needs its own ruling, not a side effect of this one.
+   */
+  const declaredScale = percentField?.scale;
+  // The width this face resolves, then the ONE out-of-range ruling both faces
+  // take (objectui#9808) — see `./percent-scale.js` for why a width the engine
+  // cannot render is clamped and reported rather than refused, why it leaves a
+  // width the engine already accepts byte-identical, and the SUNSET condition
+  // that retires the whole clamp.
+  const scale = renderablePercentScale(typeof declaredScale === 'number' ? declaredScale : 2);
 
   // Before the readonly return below: hooks are unconditional (objectui#6780).
   const { refusal, readBadInput } = useBadInputRefusal('12.5');
@@ -25,14 +127,17 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
   const maxAttr = typeof percentField?.max === 'number' ? (percentField.max as number) : undefined;
   const whole = maxAttr != null && maxAttr > 1;
   const toDisplay = (v: number) => (whole ? v : v * 100);
-  const fromDisplay = (n: number) => (whole ? n : n / 100);
+  // ⛔ NOT `n / 100` — see `storedFraction` above: the quotient's binary
+  // residue overflows the `scale + 2` stored width ruling B derives, for 27.6%
+  // of the values this widget's own step offers (objectui#9810).
+  const fromDisplay = (n: number) => (whole ? n : storedFraction(n));
   const sliderMax = whole ? maxAttr! : 100;
 
   if (readonly) {
     if (value == null) return <EmptyValue />;
     return (
       <span className="text-sm font-medium tabular-nums">
-        {toDisplay(value).toFixed(precision)}%
+        {toDisplay(value).toFixed(scale)}%
       </span>
     );
   }
@@ -52,7 +157,7 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
    * change event fires.
    *
    * Measured on Chromium 141.0.7390.37 (Playwright 1.62.1), driving THIS
-   * widget (fraction convention, `precision: 2`):
+   * widget (fraction convention, a two-decimal width):
    *
    * ```
    * typed  "12abc" -> box.value "12"    onChange(0.12)
@@ -122,8 +227,11 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
     onChange(nextValue as any);
   };
 
-  // Derive slider step from precision so slider granularity matches the input
-  const sliderStep = Math.pow(10, -precision);
+  // Derive the slider step from the SAME `scale` the input and the readonly
+  // face take, so slider granularity matches the input and neither offers a
+  // value the other would round away (objectui#9568 kept the two tied on
+  // purpose — the decision is one member, read once).
+  const sliderStep = Math.pow(10, -scale);
 
   return (
     <div className="space-y-2">
@@ -137,7 +245,7 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
           placeholder={percentField?.placeholder || '0'}
           disabled={readonly || props.disabled}
           className={cn('pr-8', refusal ? BAD_INPUT_BORDER : '', className)}
-          step={Math.pow(10, -precision).toFixed(precision)}
+          step={Math.pow(10, -scale).toFixed(scale)}
           // `refusal` is this widget's OWN reading, which no host can produce;
           // `error` keeps its single author (objectui#3222 / objectui#6716).
           aria-invalid={!!error || !!refusal}

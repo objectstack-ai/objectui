@@ -246,6 +246,46 @@ export const singleCollapsible: CollapsibleSchema = { type: 'collapsible', trigg
 // it is a `SchemaNode`, which is why that half was redundant (objectui#7767).
 export const stringCollapsible: CollapsibleSchema = { type: 'collapsible', trigger: 'Toggle', content: [] };
 
+/* -- The forcing subject for the comment projection (objectui#9768) -- */
+
+/**
+ * The subject that makes this reader's comment projection LOAD BEARING.
+ *
+ * Every subject this file reads today produces the same member map with the
+ * projection and with no projection at all -- measured across all three
+ * `packages/types` readers that share `scripts/js-comment-mask.mjs`, over the
+ * whole population they project, and identical on every body (objectui#9768,
+ * out of the reverse ablation on objectui#9751). A guard nothing exercises
+ * cannot notice being deleted, weakened, or reverted to a hand-rolled regex.
+ *
+ * The body below carries a member-shaped row inside an ORDINARY block comment
+ * -- no `*` gutter, so the row sits on the two-space anchor `members()` matches
+ * -- and the pin over it reds the moment `stripComments` leaves `members()`.
+ *
+ * ⛔ A subject, not a synthetic string: the pin reads this file off disk and
+ * extracts this body exactly as it extracts a declaration (the distinction
+ * objectui#9748 drew). It is declared here rather than shared with its two
+ * sibling readers because each of them carries its OWN copy of `members()`, and
+ * a guard in one file cannot red for a projection dropped in another.
+ */
+export interface CommentProjectionForcingSubject {
+  /*
+  ⛔ Do not give this block a `*` gutter, and do not "tidy" the row below: a
+  gutter moves it off the two-space anchor and this subject silently stops
+  forcing anything.
+
+  phantom?: SchemaNode;
+
+  That row is prose. It is a MEMBER ROW to any reader that counts members
+  before it separates code from comments.
+  */
+  real?: SchemaNode;
+  label: string;
+}
+
+export type _ForcingSubjectReal = Expect<Equal<CommentProjectionForcingSubject['real'], SchemaNode>>;
+export type _ForcingSubjectLabel = Expect<Equal<CommentProjectionForcingSubject['label'], string>>;
+
 /* -- Readers (the objectui#7082 shape) -- */
 
 interface Member {
@@ -273,6 +313,11 @@ function interfaceBody(source: string, opener: string, path: string): string {
  * Comments go first, through `scripts/js-comment-mask.mjs`: the bodies carry
  * doc comments whose prose holds member-shaped lines. `stripComments` because
  * this reader reports member names -- neither a line nor an offset.
+ *
+ * What makes that a live claim rather than a classification argument:
+ * `CommentProjectionForcingSubject` above, whose body carries a member-shaped
+ * row inside an ordinary block comment. Drop the `stripComments` call here and
+ * the pin over that subject reds (objectui#9768).
  */
 function members(body: string): Map<string, Member> {
   const bare = stripComments(body);
@@ -386,8 +431,17 @@ describe.each(FAMILY.map((member) => [member.name, member] as const))('%s.trigge
     expect(zod.safeParse({ type, ...rest, trigger: shipped }).success).toBe(true);
   });
 
-  it('the renderer hands `schema.trigger` to `renderChildren` -- the read site the docblock names', () => {
-    expect(read(`${RENDERERS}/${type}.tsx`)).toMatch(/renderChildren\(schema\.trigger/);
+  it('the renderer hands `schema.trigger` to the render path -- the read site the docblock names', () => {
+    // TWO spellings, one claim. objectui#9710 moved the eight `asChild` triggers
+    // onto a shared seam, so they now hand the slot to `renderTriggerSlot`,
+    // which renders it through `renderChildren` one hop down (pinned as a chain
+    // in `what did NOT move` below). `context-menu` still calls `renderChildren`
+    // directly -- its `asChild` child is a real element, so it was never part of
+    // that repair. What this asserts is unchanged: the renderer READS
+    // `schema.trigger`, which is what licenses the widened declaration.
+    expect(read(`${RENDERERS}/${type}.tsx`)).toMatch(
+      /renderChildren\(\s*schema\.trigger|renderTriggerSlot\([A-Za-z]+Trigger,\s*schema\.trigger\)/,
+    );
   });
 
   it('the docs page publishes the union', () => {
@@ -402,6 +456,16 @@ describe('what did NOT move (objectui#7081)', () => {
     const utils = read(RENDER_CHILDREN);
     expect(utils).toContain('export function renderChildren(');
     expect(utils).toMatch(/if \(Array\.isArray\(children\)\)/);
+    // The other hop of the chain the docblocks now describe: the shared seam
+    // objectui#9710 introduced reaches that same branch. Without this, the
+    // per-member assertion above proves only that the renderer calls the seam,
+    // and the array form's read site would be unpinned.
+    expect(utils).toContain('export function renderTriggerSlot(');
+    // ⚠️ Anchored at the DECLARATION, not at the name: `renderTriggerSlot` and
+    // `renderChildren` both appear in that function's docblock, so an unanchored
+    // match would be satisfied by the prose describing the chain rather than by
+    // the chain.
+    expect(utils).toMatch(/export function renderTriggerSlot\([\s\S]*?renderChildren\(/);
   });
 
   it('the mirror spells the union on all nine overlay `trigger` members -- a census, so a tenth or a ninth cannot slip in or out unnoticed', () => {
@@ -418,7 +482,14 @@ describe('what did NOT move (objectui#7081)', () => {
   it('every widened docblock names its read site and the array branch', () => {
     const source = read(DECLARATION);
     for (const { type } of WIDENED) {
-      expect(source, type).toContain(`packages/components/src/renderers/overlay/${type}.tsx:`);
+      // ⛔ No trailing colon. This used to require `…${type}.tsx:` -- a
+      // cross-file LINE ADDRESS, the form AGENTS.md #11 bans outright because
+      // nothing re-derives it and it rots the first time a line moves above the
+      // thing it cites. objectui#9710's edit moved those lines and made all
+      // seven addresses wrong, which is the rot that rule describes. The claim
+      // this test makes -- every widened docblock NAMES its read site -- is
+      // carried by the file path; the line number never carried any of it.
+      expect(source, type).toContain(`packages/components/src/renderers/overlay/${type}.tsx`);
     }
     expect(source.match(/`Array\.isArray` branch/g)).toHaveLength(WIDENED.length);
   });
@@ -449,5 +520,27 @@ describe('counter-probes: the readers above can still fail (objectui#7081)', () 
     for (const { name } of FAMILY) {
       expect(members(interfaceBody(read(DECLARATION), `export interface ${name} extends BaseSchema {`, DECLARATION)).size).toBeGreaterThan(1);
     }
+  });
+});
+
+describe('the comment projection has a subject that FORCES it (objectui#9768)', () => {
+  const OWN = fileURLToPath(import.meta.url);
+  const OPENER = 'export interface CommentProjectionForcingSubject {';
+  const subject = (): string => interfaceBody(readFileSync(OWN, 'utf8'), OPENER, OWN);
+
+  it('the subject really carries a member-shaped row inside a block comment -- read off the UNPROJECTED text', () => {
+    // A lookup, not a projection. Without this leg the pin below passes just as
+    // well against a subject that lost the row, and an empty guard reads
+    // exactly like a live one.
+    expect(subject()).toMatch(/\n {2}phantom\?: SchemaNode;\n/);
+  });
+
+  it('`members()` reads the two DECLARED rows and not the row in the comment', () => {
+    // ⭐ The leg that reds: drop `stripComments` from `members()` and `phantom`
+    // joins this map, so the member list -- and the count -- is wrong.
+    const rows = members(subject());
+    expect([...rows.keys()]).toEqual(['real', 'label']);
+    expect(rows.get('real')).toEqual({ optional: true, typeText: 'SchemaNode' });
+    expect(rows.get('label')).toEqual({ optional: false, typeText: 'string' });
   });
 });

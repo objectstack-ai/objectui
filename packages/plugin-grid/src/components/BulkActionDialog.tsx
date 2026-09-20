@@ -55,9 +55,14 @@ export interface BulkActionDialogProps {
       resource: string,
       query?: Record<string, unknown>,
     ) => Promise<{ data?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>;
+    // ⚠️ The id is a `string`, not `string | number` (objectui#9511). This is a
+    // hand-restated face, so it does not follow `DataSource` on its own — and
+    // because it declares `findOne` as a PROPERTY rather than a method, it is
+    // checked contravariantly, which is why narrowing the protocol reddened
+    // here while the bivariant method declarations upstream stayed quiet.
     findOne?: (
       resource: string,
-      id: string | number,
+      id: string,
       params?: Record<string, unknown>,
     ) => Promise<Record<string, unknown> | null>;
   };
@@ -680,19 +685,19 @@ const ParamField: React.FC<ParamFieldProps> = ({ param, multiple, value, onChang
   // are resolved against (objectui#4757 — the bulk landing site of the ruling
   // taken on objectui#3765, "the dialog is a small form", implemented for the
   // single-record dialog in PR objectui#4756). Until this prop existed the bulk
-  // dialog passed nothing, so `useCascadingOptions` fell through its chain
-  // (`dependentValues ?? ctx.formValues ?? ctx.data ?? {}`) to the EMPTY record
+  // dialog passed nothing, so `useCascadingOptions` resolved the EMPTY record
   // — and a `visibleWhen` written against a sibling PARAM could never see the
   // value the user had just picked in this same dialog. The shared evaluator is
-  // untouched: it already reads that chain; this is the supply half that was
-  // missing.
+  // untouched: this is the supply half that was missing.
   //
-  // ⚠️ This used to say the fall-through reached "whatever record the HOST GRID
-  // PAGE happened to publish". No page publishes one, and none can:
+  // ⚠️ That fall-through used to be written here as reaching "whatever record
+  // the HOST GRID PAGE happened to publish". No page published one, and none
+  // could: the chain ended `?? ctx.formValues ?? ctx.data` while
   // `SchemaRendererContextType` declares exactly `dataSource` / `debug` /
-  // `debugFlags` / `apiFetch`, so the last two links of that chain are
-  // unconditionally empty — unsettable, not merely unset (objectui#7206).
-  // `dependentValues` is today the only channel that can carry a record.
+  // `debugFlags` / `apiFetch`, so those two links were unsettable rather than
+  // merely unset. They were retired under ADR-0049 enforce-or-remove
+  // (objectui#7206): `useCascadingOptions` now reads `dependentValues ?? {}`,
+  // and this prop is the only channel that can carry a record.
   //
   // Bulk is where the ruling costs least, which is why it needed no separate
   // decision. An action dialog over N selected rows has NO single row record to

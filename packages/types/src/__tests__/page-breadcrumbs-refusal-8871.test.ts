@@ -128,7 +128,8 @@ describe('objectui#8871 — the `page` node refuses `breadcrumbs` (contract half
     // copy).
     expect(message).toContain('breadcrumbs');
     expect(message).toContain('breadcrumb');
-    expect(message).toContain('body');
+    // The remedy key, which objectui#6771 moved from `body` to `children`.
+    expect(message).toContain('children');
     expect(message).toContain('page:header');
     // Zod's own default for a `never` arm says none of this.
     expect(message).not.toBe('Invalid input: expected never, received array');
@@ -142,11 +143,11 @@ describe('objectui#8871 — the `page` node refuses `breadcrumbs` (contract half
     expect(PageNodeSchema.safeParse(withoutBreadcrumbs).success).toBe(true);
   });
 
-  it('the remedy the message names actually parses — a `breadcrumb` node in `body`', () => {
+  it('the remedy the message names actually parses — a `breadcrumb` node in `children`', () => {
     const r = PageNodeSchema.safeParse({
       type: 'page',
       title: 'Acme Corporation',
-      body: [
+      children: [
         {
           type: 'breadcrumb',
           items: [
@@ -235,7 +236,7 @@ describe('objectui#8871 — the guide teaches the node, not the key', () => {
     // A deletion that leaves no trace teaches the next author nothing — they
     // rewrite the key from memory. The guide must name the card and the remedy.
     expect(guide).toContain('objectui#8871');
-    expect(guide).toMatch(/breadcrumb.*node.*`body`|`body`.*breadcrumb.*node/s);
+    expect(guide).toMatch(/breadcrumb.*node.*`children`|`children`.*breadcrumb.*node/s);
   });
 });
 

@@ -290,7 +290,12 @@
  *     and 37 / 53 until objectui#7344 swept the string / `z.any()` handler mirrors:
  *     `DetailSchema` and `DetailViewSchema` entered (one `onBack` each) and
  *     `CalendarViewSchema` grew by `onEventClick`.
- *   - **14 entries** in `UnmirroredDeclared`, **86 keys** across them — 14 / 87 until
+ *   - **13 entries** in `UnmirroredDeclared`, **85 keys** across them — 14 / 86 until
+ *     objectui#8072 MIRRORED `InputSchema.wrapperClass`, the LAST `schema.wrapperClass`
+ *     reader whose value the mirror admitted unexamined; it was that entry's ONLY key,
+ *     so the entry emptied and BOTH figures moved together — read it against the next
+ *     clause, where one key off a fifteen-key entry moved only the key total: 14 / 87
+ *     until
  *     objectui#7762 MIRRORED `ObjectGridSchema.exportOptions` (the entry kept its other
  *     fourteen keys, so the entry count held); 14 / 96 until
  *     objectui#7779 closed nine of `ObjectViewSchema`'s ten keys (maintainer ruling
@@ -372,8 +377,8 @@
  *     two. ⭐ The direction is the one this ledger is meant to drain in: a
  *     runtime-only key leaves by being declared on the mirror, never by being
  *     quietly refiled.
- *     **3 of the 3** are a subset of the **14** pairs above, so
- *     the union of the two unmirrored ledgers is **14** pairs — `UnmirroredDeclared`
+ *     **3 of the 3** are a subset of the **13** pairs above, so
+ *     the union of the two unmirrored ledgers is **13** pairs — `UnmirroredDeclared`
  *     itself, exactly. ⭐ This sentence read `3 of the 4` / `15 pairs and not 14`
  *     until objectui#7804's `TreeViewSchema` slice, and the pair it named as the
  *     exception was the whole content of the difference: objectui#6150 had declared
@@ -2222,7 +2227,7 @@ interface KnownDrift {
  *
  * objectui#6058 seeded this ledger at **121 keys**, and — on ONE line, because the
  * pin below reads this sentence off disk —
- * **86 keys** is what this ledger records today.
+ * **85 keys** is what this ledger records today.
  * The movements between the two are different facts. objectui#6152 measured the 23
  * callback-shaped (`on*`) keys and ruled that mirroring is the wrong remedy for every
  * one of them;
@@ -2384,7 +2389,12 @@ interface KnownDrift {
  *     spec schema does not model, which is objectui#2231's unification question and
  *     NOT a local mirror edit. They are marked, not exempted: exempting them in the
  *     instrument would re-blind exactly the pairs objectui#5927 leaned on hardest.
- *   - **LOCAL (11 entries, 69 keys)** — plain omissions from a hand-written mirror.
+ *   - **LOCAL (10 entries, 68 keys)** — plain omissions from a hand-written mirror.
+ *     It was 11 / 69 until objectui#8072 MIRRORED `InputSchema.wrapperClass`: the entry's
+ *     ONLY key, so the entry left this half with it and no entry crossed to the
+ *     SPEC-DERIVED half — `form.zod.ts#InputSchema` is not in `SPEC_DERIVED_PAIRS`, so
+ *     that half did not move at all. A plain LOCAL repair of the kind objectui#6152's
+ *     worklist is made of — ⛔ no reclassification, no retirement, no spec reference.
  *     It was 12 / 84 until objectui#7762 MIRRORED `ObjectGridSchema.exportOptions`: one key
  *     REPAIRED and the entry's other fourteen carried out of this half with it, because the
  *     spec reference that repair introduced re-derives the pair into the SPEC-DERIVED half
@@ -2423,10 +2433,13 @@ interface KnownDrift {
  * `ObjectGridSchema` with ONE key: mirroring `exportOptions` as the spec's object arm by
  * reference shrank the ledger 87 → 86 and re-derived the entry (fourteen keys) from the
  * LOCAL half into the SPEC-DERIVED one, so the entry count held while BOTH split figures
- * moved. The seeded pair is no longer
+ * moved. objectui#8072 then MIRRORED `InputSchema.wrapperClass` — the opposite shape on
+ * every axis: one key that was its entry's WHOLE key set, on a pair no spec reference
+ * touches, so the entry emptied, the LOCAL half lost an entry and a key, and the
+ * SPEC-DERIVED half did not move. The seeded pair is no longer
  * among them, and the ledger now totals — on ONE line, because the pin below reads
  * this sentence off disk —
- * **14 entries / 86 keys** — 3 / 17 spec-derived, 11 / 69 local.
+ * **13 entries / 85 keys** — 3 / 17 spec-derived, 10 / 68 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -2524,11 +2537,12 @@ interface UnmirroredDeclared {
   'form.zod.ts#FormSchema':
     | 'defaultFieldTab' | 'fieldContainerClass' | 'fieldPanes' | 'fieldPanesOrientation'
     | 'fieldPanesResizable' | 'fieldTabs' | 'fieldTabsPosition' | 'mobileStickyActions';
-  /**
-   * LOCAL. Verified by hand against both sources while measuring: declared once in
-   * `../form.ts`, zero occurrences in the mirror.
-   */
-  'form.zod.ts#InputSchema': 'wrapperClass';
+  // `form.zod.ts#InputSchema` recorded `wrapperClass` here (LOCAL) — the entry's
+  // ONLY key, so objectui#8072 MIRRORING it took the whole entry with it. The pair
+  // keeps its `KnownDrift` entry above (`onChange`, a runtime slot the mirror
+  // refuses by name) and records nothing here. ⭐ That is why this move shrank the
+  // entry count and the key total together where objectui#7762's did not: one key
+  // off a one-key entry empties it, one key off a fifteen-key entry does not.
   /** LOCAL. */
   'form.zod.ts#LabelSchema': 'content';
   /** LOCAL. */
@@ -2647,7 +2661,7 @@ interface UnmirroredDeclared {
  *
  * `UnmirroredDeclared` above was seeded at **121 keys** by objectui#6058, and — on
  * ONE line, because the pin below reads this sentence off disk —
- * `UnmirroredDeclared` records **86 keys** today.
+ * `UnmirroredDeclared` records **85 keys** today.
  * These 23 moved here whole. Keys have since left that ledger by MIRRORING and by
  * RETIREMENT, but the move recorded HERE is neither and repaired nothing. ⛔ Nothing
  * was mirrored by it, no declaration was removed, no defect was repaired and nothing was
@@ -3353,11 +3367,23 @@ export const assertionDriftMatchesLedger: never = 0 as unknown as LedgerMismatch
  *
  * ⚠️ And it is a COMPILE-TIME assertion. The `describe` block at the bottom of this
  * file is a population census — it checks that the registry is closed and that
- * `SPEC_DERIVED_PAIRS` re-derives, and it never compares keys at all. Its
- * `Tests 12 passed (12)` line does not move when this half reddens, correctly, and
+ * `SPEC_DERIVED_PAIRS` re-derives, and it never compares keys at all. Its passing
+ * test count does not move when this half reddens, correctly, and
  * it did not move under the ablation either. (It read `5 passed (5)` until
  * objectui#6705 added the seven-fixture suite pinning the re-check's scanner.) Reading the runtime half for evidence
  * about drift measures the wrong instrument and concludes the guard does nothing.
+ *
+ * ⛔ The count this clause used to RESTATE is GONE, not refreshed (objectui#9603 —
+ * a GUIDANCE clause, so the header's LIVE / HISTORICAL split obliges a later card to
+ * amend it and to name itself doing so; the two RECORD clauses beside it are left
+ * byte-identical). It said 12, true when objectui#6705 wrote it; the card measured
+ * 32 on `origin/main` when it was filed; `vitest run` printed `37 passed (37)` at
+ * `4b577229` two days later when it was worked. ⭐ Refreshing it would have bought
+ * about one merge, and the reason generalises: this suite grows whenever a pin is
+ * added, which is this file WORKING, so a restated case count rots ON GOOD NEWS and
+ * nothing short of deleting it makes the sentence durable. ⛔ Do not put a number
+ * back — the figure-free spelling is already here, in `WiderLedgerMismatch` below
+ * ("their passing test counts do not move when this reddens"), which never rotted.
  *
  * When it fires, fix it by MEASURING (the compiler-API recipe and the
  * error-printing trap are in the ledger's header above):
@@ -3438,10 +3464,16 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  * Exact MIRRORED-BUT-UNDECLARED key set per pair — the seed of the direction
  * objectui#9711 opened, measured on the tree this ledger landed on.
  *
- * `this ledger seeds **8 entries** carrying **102 keys**` — and ⛔ read that off the
+ * `this ledger seeds **7 entries** carrying **101 keys**` — and ⛔ read that off the
  * census at the bottom of this file, not off this sentence: both figures are pinned
  * to this ledger's own AST by 'the fourth direction is enumerated and sized at test
  * time', so an entry or an arm added here moves them or the file reddens.
+ *
+ * ⭐ Both figures moved DOWN by one when objectui#9738 retired the
+ * `views.zod.ts#DetailViewFieldSchema` row — the ratchet's only permitted
+ * direction, and the first time this seed has shrunk. The comment left where that
+ * row stood says which ruling took it and why the neighbouring `operators` row
+ * stayed after a ruling of its own.
  *
  * ## ⛔ What this ledger is NOT
  *
@@ -3645,45 +3677,51 @@ interface MirroredUndeclared {
     | "requires";
 
   /**
-   * LOCAL, one key. `operators` is mirrored with a comment on its own line saying it
-   * was missing from an earlier TypeScript scan — so the gap was NOTICED at authoring
-   * time, written down in a comment, and then measured by nothing for as long as the
-   * fourth direction did not exist. That is this card's thesis in one key.
+   * LOCAL, one key — and the row STAYS after its ruling, which is the thing to
+   * read here before assuming it should have gone.
    *
-   * ⚠️ The twin is NOT silent about the neighbouring name: `ObjectGridSchema`
-   * declares `operations` (the CRUD-affordance toggles the block's authoring
-   * vocabulary and `@objectstack/spec`'s `object-grid` surface both spell that
-   * way), and it is `BaseSchema`'s index signature — not a declaration — that
-   * lets an authored `operators` type-check. Per-key consequences, including
-   * which face judges the key and which merely absorbs it, are measured by
-   * `mirror-only-published-keys-9729.test.ts` for objectui#9729's contract
-   * review. ⛔ Neither remedy is taken there and none is implied here.
+   * `operators` was mirrored with a comment on its own line saying it was missing
+   * from an earlier TypeScript scan — so the gap was NOTICED at authoring time,
+   * written down in a comment, and then measured by nothing for as long as the
+   * fourth direction did not exist. That was objectui#9729's thesis in one key.
+   *
+   * ⭐ objectui#9739 (maintainer, 2026-09-18, letter C) ruled it: the mirror no
+   * longer ACCEPTS the key, it REFUSES it by name and prints the spelling
+   * `@objectstack/spec` declares on `object-grid` — `operations`, re-derived
+   * against the installed pin by `object-grid-operators-tombstone-9739.test.ts`,
+   * not copied from prose. The twin is deliberately untouched (declaring the key
+   * was the refused option), so `BaseSchema`'s index signature still absorbs an
+   * authored `operators` as `any`.
+   *
+   * ⚠️ WHY THE ROW DOES NOT LEAVE THIS LEDGER. This direction measures "the zod
+   * mirror STATES a key the TypeScript twin does not", and a retirement tombstone
+   * is still a stated member — that is precisely what lets it refuse rather than
+   * be passed through unexamined. The same is true of the `aria` entry above,
+   * which has been a tombstone all along. ⇒ ⛔ Do not read a row here as an
+   * unrepaired defect; the ledger reports SHAPE, and the per-key consequence —
+   * silently absorbed, or loudly refused — is measured elsewhere and differs
+   * between rows that look identical from here.
    */
   "objectql.zod.ts#ObjectGridSchema":
     | "operators";
 
-  /**
-   * LOCAL, one key. An author writing `dueLike` on a detail-view field gets a green
-   * `safeParse` from a published validator for a key the published `DetailViewField`
-   * never invited — and, because that twin carries no index signature, the SAME
-   * document is refused by the compiler (`TS2353`). The two published faces
-   * contradict each other rather than one of them being merely quiet.
-   *
-   * ⛔ This entry once justified itself with "a `git grep` finds it in the mirror and
-   * nowhere in this package's TypeScript declarations", which is FALSE as written and
-   * is corrected here rather than repeated: `field-types.ts` declares `dueLike` on
-   * `DateFieldMetadata` and on `DateTimeFieldMetadata`, both in this package. ⭐ A
-   * NAME is not a KEY — a key is (interface, name) — and a package-wide grep for the
-   * name answers a question this ledger is not asking. What the operator measures,
-   * and what stays true, is that the key is absent from THIS PAIR'S twin.
-   *
-   * The per-key consequences — that the mirror judges the key rather than merely
-   * passing it, and that objectui's own detail-view path READS it at runtime — are
-   * measured by `mirror-only-published-keys-9729.test.ts` and by the two probes
-   * objectui#9729 landed beside the renderers that read it. ⛔ No remedy is implied.
-   */
-  "views.zod.ts#DetailViewFieldSchema":
-    | "dueLike";
+  // `views.zod.ts#DetailViewFieldSchema` HAD a row here, for `dueLike`, and its
+  // DELETION is the ratchet moving in the only direction this seed may move in
+  // — ⛔ not an entry lost in an edit. objectui#9738 (maintainer, 2026-09-18,
+  // letter A) declared `dueLike?: boolean` on the `DetailViewField` twin, so the
+  // mirror no longer states a key the twin does not and the pair measures
+  // `never`. Re-adding the row without re-adding the defect reddens the
+  // reconciliation below, which is the guard against exactly that.
+  //
+  // ⚠️ Read this beside the `objectql.zod.ts#ObjectGridSchema` row above, which
+  // STAYED after its own ruling: a retirement tombstone is still a stated
+  // member, a declaration on the twin is not. The two rulings landed the same
+  // day and moved this ledger in opposite directions.
+  //
+  // The per-key consequences — that the mirror judges the key rather than merely
+  // passing it, and that objectui's own detail-view path READS it at runtime —
+  // are measured by `mirror-only-published-keys-9729.test.ts` and by the two
+  // probes objectui#9729 landed beside the renderers that read it.
 }
 
 /**

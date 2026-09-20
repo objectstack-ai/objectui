@@ -296,6 +296,9 @@ const en = {
       selectBusinessUnit: 'Select a business unit',
       selectPosition: 'Select a position',
       selectUnitAndSubordinates: 'Select a business unit',
+      selectField: 'Select a user field',
+      noUserFields: 'No user fields on this object',
+      fieldNotUserTyped: '{{name}} — not a user field',
     },
     filterCondition: {
       selectObjectFirst: 'Select an object first.',
@@ -344,6 +347,30 @@ const en = {
         'Not saved: {{name}} "{{text}}" is not a number. Enter plain decimals (example: 30.2741, 120.1551).',
       refusedResidue:
         'Not saved: {{name}} "{{text}}" and {{otherName}} "{{otherText}}" are not numbers. Enter plain decimals (example: 30.2741, 120.1551).',
+    },
+    // objectui#8148 — the FIFTH refusal sentence of objectui#6755's class, and
+    // the only SHARED one. The four above are each ONE widget's; this one is
+    // produced by `numberBadInput.tsx` for `NumberField`, `CurrencyField`,
+    // `PercentField` and both of `GeolocationField`'s boxes. That last is the
+    // sharpest case: it sits beside `LocationField`, whose refusals are keyed
+    // right above, so two adjacent coordinate widgets refused bad input in two
+    // different languages on the same form.
+    //
+    // ⭐ `{{example}}` is a HOLE, and that is what keeps decimal numerals out
+    // of every pack. Five different values reach this one sentence (`1234`,
+    // `1234.56`, `12.5`, `30.2741`, `120.1551`), so keying the example per
+    // widget would be five keys times ten packs — and each pack would then
+    // hold a decimal it could legitimately re-punctuate, where `1234,56` reads
+    // as the `latitude, longitude` PAIR `refusedFormat` above asks for. The
+    // widget fills the hole in ASCII; no pack spells a digit.
+    //
+    // The English value is byte-identical to the literal it replaces
+    // (`FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
+    // carries the same one), so English and provider-less rendering are
+    // unchanged.
+    number: {
+      badInput:
+        'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
     },
     // objectui#3342 — the tags widget's input hint, shown while the tag list
     // is empty. The author-declared `field.placeholder` always wins over this.
@@ -678,6 +705,33 @@ const en = {
     newEvent: 'New event',
     moreEvents: '+{{count}} more',
     unscheduled: 'Unscheduled ({{count}})',
+    loading: 'Loading calendar…',
+    loadError: 'Error: {{message}}',
+    configRequired: 'Calendar configuration required. Please specify startDateField, the calendar\'s one required key; the event title resolves without titleField.',
+    configRequiredHint: 'It belongs on the view\'s calendar block. An interface page has no calendar slot of its own: point its sourceView at a view that declares one.',
+    eventDetails: 'Event Details',
+    pullToRefresh: 'Pull to refresh',
+    refreshing: 'Refreshing…',
+    onDate: 'On {{date}}',
+    eventTitle: 'Title',
+    eventTitlePlaceholder: 'What\'s this event about?',
+    creating: 'Creating…',
+    titleRequired: 'Title is required',
+    a11y: {
+      region: 'Calendar',
+      grid: 'Calendar grid',
+      goToToday: 'Go to today',
+      previousPeriod: 'Previous period',
+      nextPeriod: 'Next period',
+      currentDate: 'Current date: {{date}}',
+      dayCell: '{{date}}, {{count}} events',
+      dayCell_one: '{{date}}, {{count}} event',
+      dayCell_other: '{{date}}, {{count}} events',
+      resizeEventEnd: 'Resize event end',
+      resizeEventEndHint: 'Drag to change end date',
+      resizeStart: 'Resize start',
+      resizeEnd: 'Resize end',
+    },
   },
   list: {
     loading: 'Loading records…',
@@ -1686,6 +1740,12 @@ const en = {
     },
   },
   console: {
+    // The Studio front door's wordmark (objectui#10043). Its sibling one
+    // route away -- `StudioDesignSurface`'s header Home button -- walks back
+    // to the same place, so both read as the same affordance.
+    studio: {
+      backToHome: 'Back to home',
+    },
     saveAdvisoryTitle: 'Saved — the authoring check raised {{count}} advisory finding(s)',
     publishAdvisoryTitle: 'Published — the authoring check raised {{count}} advisory finding(s)',
     importMappingsUnavailable: 'Saved import mappings for {{object}} could not be loaded',
@@ -2130,6 +2190,18 @@ const en = {
         older: 'Older',
       },
     },
+    // objectui#9954 — the environment admin's read-rate report (cloud#2333).
+    // Two anomalous cases, two sets of words: an ABSENT `readsPerWrite` means the
+    // environment wrote nothing at all, so the ratio is unbounded — the most
+    // severe reading, and never a missing number. `{{threshold}}` always comes
+    // from the wire; this repo holds no copy of the line. Report only — the copy
+    // states that nothing is limited or blocked, and must keep doing so.
+    readRate: {
+      ratioTitle: 'Unusual read volume in this environment',
+      ratio: 'Reads are running at {{ratio}} rows for every row written. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
+      noWritesTitle: 'Reads with no writes at all in this environment',
+      noWrites: 'Rows are being read while none at all are being written, so the read rate has no upper bound. This is the most severe reading. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
+    },
     errors: {
       somethingWentWrong: 'Something went wrong',
       unexpectedError: 'An unexpected error occurred while rendering this view.',
@@ -2568,6 +2640,15 @@ const en = {
       role: 'Role',
       save: 'Save Changes',
     },
+    language: {
+      title: 'Language',
+      description: 'The language used for notifications and messages sent to you. The interface language is chosen separately, from the globe menu.',
+      label: 'Preferred language',
+      systemDefault: 'Use the deployment default',
+      save: 'Save',
+      saved: 'Language preference updated.',
+      readOnly: 'Your administrator manages the language for your account.',
+    },
     password: {
       changeTitle: 'Change Password',
       setTitle: 'Set Local Password',
@@ -2811,6 +2892,7 @@ const en = {
     resultsCount: '{{count}} result for "{{query}}"',
     resultsCountPlural: '{{count}} results for "{{query}}"',
     itemsAvailable: '{{count}} items available',
+    itemsAvailableOne: '{{count}} item available',
     noResults: 'No results found',
     noResultsHint: 'Try adjusting your search terms',
     typeObjects: 'Objects',
@@ -2949,6 +3031,7 @@ const en = {
     requiredError: '{{label}} is required',
     lookupPlaceholder: 'Record id for {{label}}',
     lookupHelpText: 'No reference object is configured for this parameter, so the record picker is unavailable. Enter a record id, or ask an administrator to fix the action parameter.',
+    unresolvedParam: 'This parameter cannot be shown: the field it is backed by is missing from the object metadata, so the control it needs cannot be built. Ask an administrator to fix the action definition.',
     cancel: 'Cancel',
     confirm: 'Confirm',
     uploading: 'Uploading…',

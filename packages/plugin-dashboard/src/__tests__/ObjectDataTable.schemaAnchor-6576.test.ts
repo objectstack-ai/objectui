@@ -53,7 +53,13 @@ export type assertionSchemaExtendsBase = Expect<[Schema] extends [BaseSchema] ? 
  * a one-way check. These were RED on the unmodified tree for exactly that reason.
  */
 export type assertionDrillDownDeclared = Expect<Equal<Schema['drillDown'], DrillDownConfig | undefined>>;
-export type assertionOnRowClickDeclared = Expect<Equal<Schema['onRowClick'], ((row: any) => void) | undefined>>;
+/**
+ * objectui#9799 widened the anchor's own declaration to an OPTIONAL second
+ * parameter; this pin reads through `ObjectDataTableProps['schema']`, so it is
+ * the consumer-side half of that measurement — the widget's prop type sees the
+ * widened slot, not a stale copy.
+ */
+export type assertionOnRowClickDeclared = Expect<Equal<Schema['onRowClick'], ((row: any, event?: any) => void) | undefined>>;
 export type assertionTypeIsRegistryKey = Expect<Equal<Schema['type'], 'object-data-table'>>;
 /** The pin can fail: the pre-#6576 literal shape is NOT the anchor. */
 export type assertionAnchorPinCanFail = Expect<Equal<Equal<{ type: string; [key: string]: any }, ObjectDataTableSchema>, false>>;

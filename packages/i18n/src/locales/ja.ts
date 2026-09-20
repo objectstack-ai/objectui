@@ -260,6 +260,9 @@ const ja = {
       selectBusinessUnit: "事業単位を選択",
       selectPosition: "役職を選択",
       selectUnitAndSubordinates: "事業単位を選択",
+      selectField: "ユーザーフィールドを選択",
+      noUserFields: "このオブジェクトにユーザーフィールドはありません",
+      fieldNotUserTyped: "{{name}} — ユーザーフィールドではありません",
     },
     filterCondition: {
       selectObjectFirst: "先にオブジェクトを選択してください。",
@@ -283,6 +286,10 @@ const ja = {
         "保存されていません: {{name}}「{{text}}」は数値ではありません。通常の小数で入力してください（例: 30.2741, 120.1551）。",
       refusedResidue:
         "保存されていません: {{name}}「{{text}}」と{{otherName}}「{{otherText}}」は数値ではありません。通常の小数で入力してください（例: 30.2741, 120.1551）。",
+    },
+    number: {
+      badInput:
+        "保存されていません: このボックスのテキストは数値ではありません。通常の小数で入力してください（例: {{example}}）。",
     },
     tags: {
       placeholder: "入力してEnterキーで追加…",
@@ -566,6 +573,33 @@ const ja = {
     newEvent: "新しい予定",
     moreEvents: "+{{count}} 件",
     unscheduled: "日時未定 ({{count}})",
+    loading: "カレンダーを読み込み中…",
+    loadError: "エラー: {{message}}",
+    configRequired: "カレンダーの設定が必要です。startDateField を指定してください。これはカレンダー唯一の必須キーです。予定のタイトルは titleField がなくても解決されます。",
+    configRequiredHint: "これはビューの calendar ブロックに属します。インターフェースページには独自のカレンダースロットがありません。sourceView をカレンダーを宣言しているビューに向けてください。",
+    eventDetails: "予定の詳細",
+    pullToRefresh: "引っ張って更新",
+    refreshing: "更新中…",
+    onDate: "{{date}}",
+    eventTitle: "タイトル",
+    eventTitlePlaceholder: "この予定の内容は？",
+    creating: "作成中…",
+    titleRequired: "タイトルは必須です",
+    a11y: {
+      region: "カレンダー",
+      grid: "カレンダーグリッド",
+      goToToday: "今日に移動",
+      previousPeriod: "前の期間",
+      nextPeriod: "次の期間",
+      currentDate: "現在の日付: {{date}}",
+      dayCell: "{{date}}、予定 {{count}} 件",
+      dayCell_one: "{{date}}、予定 {{count}} 件",
+      dayCell_other: "{{date}}、予定 {{count}} 件",
+      resizeEventEnd: "予定の終了日を変更",
+      resizeEventEndHint: "ドラッグして終了日を変更",
+      resizeStart: "開始時刻を変更",
+      resizeEnd: "終了時刻を変更",
+    },
   },
   list: {
     firstRunTitle: "まだ何もありません",
@@ -1460,6 +1494,9 @@ const ja = {
     },
   },
   console: {
+    studio: {
+      backToHome: "ホームに戻る",
+    },
     saveAdvisoryTitle: "保存しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",
     publishAdvisoryTitle: "公開しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",
     importMappingsUnavailable: "{{object}} の保存済みインポートマッピングを読み込めませんでした",
@@ -1845,6 +1882,13 @@ const ja = {
       searching: "検索中…",
       records: "レコード",
       recentRecords: "最近閲覧",
+    },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'この環境の読み取り量が異常です',
+      ratio: '書き込み 1 行あたり {{ratio}} 行を読み取っています。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
+      noWritesTitle: 'この環境は読み取りのみで書き込みがまったくありません',
+      noWrites: '行の読み取りはある一方で書き込みがまったくないため、読み取り比率に上限がありません。これは最も深刻な読み取り値です。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
     },
     errors: {
       somethingWentWrong: "問題が発生しました",
@@ -2242,6 +2286,15 @@ const ja = {
       role: "ロール",
       save: "変更を保存",
     },
+    language: {
+      title: "言語",
+      description: "あなた宛ての通知やメッセージに使用される言語です。画面の表示言語は地球アイコンのメニューで別途切り替えます。",
+      label: "優先する言語",
+      systemDefault: "デプロイメントの既定値を使用",
+      save: "保存",
+      saved: "言語の設定を更新しました。",
+      readOnly: "このアカウントの言語は管理者が管理しています。",
+    },
     password: {
       changeTitle: "パスワードを変更",
       setTitle: "ローカルパスワードを設定",
@@ -2482,6 +2535,7 @@ const ja = {
     resultsCount: "\"{{query}}\" の結果 {{count}} 件",
     resultsCountPlural: "\"{{query}}\" の結果 {{count}} 件",
     itemsAvailable: "{{count}} 件利用可能",
+    itemsAvailableOne: "{{count}} 件利用可能",
     noResults: "結果が見つかりません",
     noResultsHint: "検索語句を調整してみてください",
     typeObjects: "オブジェクト",
@@ -2525,6 +2579,7 @@ const ja = {
     description: "続行するために必要な情報を入力してください。",
     selectPlaceholder: "{{label}} を選択",
     requiredError: "{{label}} は必須です",
+    unresolvedParam: 'このパラメーターは表示できません。参照元のフィールドがオブジェクトのメタデータに存在しないため、必要なコントロールを生成できません。管理者にアクション定義の修正を依頼してください。',
     cancel: "キャンセル",
     confirm: "確認",
     uploading: "アップロード中…",

@@ -264,6 +264,9 @@ const ar = {
       selectBusinessUnit: "اختر وحدة عمل",
       selectPosition: "اختر منصباً",
       selectUnitAndSubordinates: "اختر وحدة عمل",
+      selectField: "اختر حقل مستخدم",
+      noUserFields: "لا توجد حقول مستخدم في هذا الكائن",
+      fieldNotUserTyped: "{{name}} — ليس حقل مستخدم",
     },
     filterCondition: {
       selectObjectFirst: "اختر كائناً أولاً.",
@@ -287,6 +290,10 @@ const ar = {
         "لم يتم الحفظ: {{name}} «{{text}}» ليس رقمًا. أدخل أرقامًا عشرية عادية (مثال: 30.2741, 120.1551).",
       refusedResidue:
         "لم يتم الحفظ: {{name}} «{{text}}» و{{otherName}} «{{otherText}}» ليسا رقمين. أدخل أرقامًا عشرية عادية (مثال: 30.2741, 120.1551).",
+    },
+    number: {
+      badInput:
+        "لم يتم الحفظ: النص في هذا المربع ليس رقمًا. أدخل رقمًا عشريًا عاديًا (مثال: {{example}}).",
     },
     tags: {
       placeholder: "اكتب واضغط Enter للإضافة…",
@@ -570,6 +577,33 @@ const ar = {
     newEvent: "حدث جديد",
     moreEvents: "+{{count}} المزيد",
     unscheduled: "غير مجدولة ({{count}})",
+    loading: "جارٍ تحميل التقويم…",
+    loadError: "خطأ: {{message}}",
+    configRequired: "إعداد التقويم مطلوب. يُرجى تحديد startDateField، وهو المفتاح المطلوب الوحيد للتقويم؛ ويُحلّ عنوان الحدث دون titleField.",
+    configRequiredHint: "هو ينتمي إلى كتلة calendar في العرض. صفحة الواجهة ليس لها فتحة تقويم خاصة بها: وجّه sourceView الخاص بها إلى عرض يعلن واحدة.",
+    eventDetails: "تفاصيل الحدث",
+    pullToRefresh: "اسحب للتحديث",
+    refreshing: "جارٍ التحديث…",
+    onDate: "في {{date}}",
+    eventTitle: "العنوان",
+    eventTitlePlaceholder: "ما موضوع هذا الحدث؟",
+    creating: "جارٍ الإنشاء…",
+    titleRequired: "العنوان مطلوب",
+    a11y: {
+      region: "التقويم",
+      grid: "شبكة التقويم",
+      goToToday: "الانتقال إلى اليوم",
+      previousPeriod: "الفترة السابقة",
+      nextPeriod: "الفترة التالية",
+      currentDate: "التاريخ الحالي: {{date}}",
+      dayCell: "{{date}}، عدد الأحداث: {{count}}",
+      dayCell_one: "{{date}}، {{count}} حدث",
+      dayCell_other: "{{date}}، عدد الأحداث: {{count}}",
+      resizeEventEnd: "تغيير نهاية الحدث",
+      resizeEventEndHint: "اسحب لتغيير تاريخ الانتهاء",
+      resizeStart: "تغيير وقت البدء",
+      resizeEnd: "تغيير وقت الانتهاء",
+    },
   },
   list: {
     firstRunTitle: "لا يوجد شيء هنا بعد",
@@ -1467,6 +1501,9 @@ const ar = {
     },
   },
   console: {
+    studio: {
+      backToHome: "العودة إلى الرئيسية",
+    },
     saveAdvisoryTitle: "تم الحفظ — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
     publishAdvisoryTitle: "تم النشر — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
     importMappingsUnavailable: "تعذّر تحميل تعيينات الاستيراد المحفوظة لـ {{object}}",
@@ -1850,6 +1887,13 @@ const ar = {
       searching: "جارٍ البحث…",
       records: "السجلات",
       recentRecords: "شوهد مؤخراً",
+    },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'حجم قراءة غير معتاد في هذه البيئة',
+      ratio: 'تتم قراءة {{ratio}} صف مقابل كل صف مكتوب. تُعلِّم المنصة كل ما يتجاوز {{threshold}}. لا يتم تقييد أو حظر أي شيء؛ هذا تقرير لمراجعة نمط القراءة.',
+      noWritesTitle: 'قراءات بدون أي كتابة في هذه البيئة',
+      noWrites: 'تتم قراءة صفوف دون كتابة أي صف على الإطلاق، لذا لا يوجد حد أعلى لمعدل القراءة. هذه هي أخطر قراءة. تُعلِّم المنصة كل ما يتجاوز {{threshold}}. لا يتم تقييد أو حظر أي شيء؛ هذا تقرير لمراجعة نمط القراءة.',
     },
     errors: {
       somethingWentWrong: "حدث خطأ ما",
@@ -2247,6 +2291,15 @@ const ar = {
       role: "الدور",
       save: "حفظ التغييرات",
     },
+    language: {
+      title: "اللغة",
+      description: "اللغة المستخدمة في الإشعارات والرسائل المرسلة إليك. أما لغة الواجهة فتُختار بشكل منفصل من قائمة الكرة الأرضية.",
+      label: "اللغة المفضلة",
+      systemDefault: "استخدام الإعداد الافتراضي للنشر",
+      save: "حفظ",
+      saved: "تم تحديث تفضيل اللغة.",
+      readOnly: "يدير المسؤول لغة حسابك.",
+    },
     password: {
       changeTitle: "تغيير كلمة المرور",
       setTitle: "تعيين كلمة مرور محلية",
@@ -2486,7 +2539,8 @@ const ar = {
     inputAriaLabel: "ابحث في الكائنات، لوحات التحكم، الصفحات، التقارير",
     resultsCount: "{{count}} نتيجة لـ \"{{query}}\"",
     resultsCountPlural: "{{count}} نتيجة لـ \"{{query}}\"",
-    itemsAvailable: "{{count}} عنصر(عناصر) متاح(ة)",
+    itemsAvailable: "{{count}} عناصر متاحة",
+    itemsAvailableOne: "{{count}} عنصر متاح",
     noResults: "لم يتم العثور على نتائج",
     noResultsHint: "جرب تعديل مصطلحات البحث",
     typeObjects: "الكائنات",
@@ -2530,6 +2584,7 @@ const ar = {
     description: "يرجى إدخال المعلومات المطلوبة للمتابعة.",
     selectPlaceholder: "تحديد {{label}}",
     requiredError: "{{label}} مطلوب",
+    unresolvedParam: 'تعذّر عرض هذه المَعلمة: الحقل الذي تستند إليه غير موجود في بيانات تعريف الكائن، لذا يتعذّر إنشاء عنصر التحكم المطلوب. اطلب من المسؤول تصحيح تعريف الإجراء.',
     cancel: "إلغاء",
     confirm: "تأكيد",
     uploading: "جارٍ الرفع…",

@@ -23,6 +23,7 @@ import { Loader2 } from 'lucide-react';
 import type { ActionDef, ActionLocation } from '@object-ui/core';
 import { resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
+import { useRecordAriaProps, type AuthoredRecordAria } from './recordComponentAria';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -79,8 +80,19 @@ export interface RecordQuickActionsRendererProps {
      * `@objectstack/spec`'s `AriaPropsSchema` accepts; `label` is that shape's
      * alias entry — refused on parse — and is kept here as a back-compat read
      * for documents written before the contract closed (objectui#4663).
+     *
+     * ⚠️ `RecordQuickActionsProps` in `@objectstack/spec` declares NO `aria`
+     * key at all — measured, not recalled, by
+     * `__tests__/recordComponentAria-9556.test.tsx`, whose census reads the
+     * installed artifact. So the contract REFUSES this bag on this block
+     * (`unrecognized_keys`), and no contract-valid document reaches the read
+     * below. The read is kept, and typed as the family's bag rather than
+     * re-spelled, because the protocol's own refusal message names objectui's
+     * renderer as the thing that has to move first. ⛔ Do not mirror this key
+     * onto a published `@object-ui/types` face: that would declare, on this
+     * repo's contract face, a key the protocol refuses.
      */
-    aria?: { ariaLabel?: string; label?: string };
+    aria?: AuthoredRecordAria;
     properties?: Record<string, any>;
     [k: string]: any;
   };
@@ -95,6 +107,36 @@ export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProp
 }) => {
   const ctx = useRecordContext();
   const { designer } = splitDesigner(props);
+  /**
+   * The toolbar's ARIA, through the family's ONE read point (objectui#9556).
+   *
+   * Called up here with the other hooks because two early returns sit below
+   * (the permission gate and the empty-bar placeholder).
+   *
+   * objectui#4663 established the read ORDER this now shares with the rest of
+   * the `record:*` family — canonical `aria.ariaLabel` first, the refused
+   * `aria.label` alias behind it, the built-in name when neither resolves. It
+   * used to be spelled here and only here, which is how five sibling blocks
+   * came to read nothing and `record:path` came to read only the alias.
+   *
+   * `SchemaRenderer`'s generic ARIA channel is no escape hatch on this surface:
+   * it reads the FLAT `schema.ariaLabel` and injects `aria-label` as a
+   * component PROP, which `splitDesigner` above drops with every other
+   * non-designer prop. The nested bag is the only live path for an authored
+   * name here.
+   *
+   * `role="toolbar"` is passed as the DEFAULT rather than written on the
+   * element, so an author's `aria.role` can override it — the precedence
+   * `ListView` ships — while a document that declares no `aria` still renders
+   * the toolbar role this bar has always had.
+   */
+  const toolbarAria = useRecordAriaProps(schema.aria, {
+    defaultRole: 'toolbar',
+    defaultLabel: 'Quick actions',
+    // ⛔ The other of the two callers that opt in — objectui#4663 installed this
+    // fold here deliberately, for documents written before the shape closed.
+    legacyLabelFold: true,
+  });
   const perms = usePermissions();
   // The ONE resolver for a declared action's authored strings (objectui#4265).
   // This bar used to localize the button `label` only, while `executeAction`
@@ -182,19 +224,50 @@ export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProp
     } as any,
   });
 
-  // Object-level permission gate — evaluated AFTER all hooks (useActionEngine
-  // above must run every render) so hook order stays stable.
-  if (required.length > 0 && objectName) {
-    const ok = required.every((p) => perms.can(objectName, p as any));
-    if (!ok) {
-      return (
-        <div className={className} {...designer} role="status" aria-live="polite">
-          <p className="text-sm text-muted-foreground italic">
-            Insufficient permissions to view quick actions.
-          </p>
-        </div>
-      );
-    }
+  /**
+   * Block-level ADR-0066 CAPABILITY gate — evaluated AFTER all hooks
+   * (`useActionEngine` above must run every render) so hook order stays
+   * stable.
+   *
+   * `requiredPermissions` on a record block is a **system capability set** —
+   * the one meaning the word carries on `action`, `app`, `field` and
+   * `bulkAction` — so it is read through the permission context's capability
+   * path (`hasCapabilities` over the reported `systemPermissions`) and gates
+   * **fail-closed**: an unheld or unrecognised capability hides the whole bar
+   * (objectui#10058, ruling batch #192 item 5 letter B).
+   *
+   * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
+   * closed object-action enum, and the stock `/me/permissions` provider maps
+   * only eight verbs (`read`, `view`, `create`, `update`, `edit`, `delete`,
+   * `import`, `export`) before its `?? 'allowRead'` tail sends everything
+   * else to the object's read bit. Measured on the stock provider with an
+   * empty capability set and `allowRead: true`: `crm.manage`, `manage_users`,
+   * and the enum's own `manage` / `admin` / `share` / `configure` / `execute`
+   * all answered `true` — a declared permission gate that passed for every
+   * reader of the object, with no refusal, no warning and no log. The lit
+   * control in the same reading: `create` and `delete` answered `false` off
+   * their own bits, so that tail is a live fallback rather than an artefact.
+   *
+   * ⛔ The object name is deliberately ABSENT from the verdict. A system
+   * capability is not object-scoped, and the old `&& objectName` guard was a
+   * second silent fail-open: a bar rendered outside a record context skipped
+   * its declared gate entirely.
+   *
+   * ⚠️ A provider that never REPORTS capabilities (`systemPermissions`
+   * `undefined` — the role-based `PermissionProvider`, a backend predating
+   * ADR-0066, or no provider at all) still opens this gate. That is
+   * `hasCapabilities`'s own ruled doctrine for unreported-vs-empty, shared
+   * with every other capability gate in the tree; "reported, holds nothing"
+   * (`[]`) is a real answer and gates strictly.
+   */
+  if (required.length > 0 && !perms.hasCapabilities(required)) {
+    return (
+      <div className={className} {...designer} role="status" aria-live="polite">
+        <p className="text-sm text-muted-foreground italic">
+          Insufficient permissions to view quick actions.
+        </p>
+      </div>
+    );
   }
 
   const visibleActions = actions.length > 0 ? getActionsForLocation(location) : [];
@@ -221,36 +294,6 @@ export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProp
   // (the `inline` flag is set by PageHeader's first-class `actions` prop).
   const inlineWithHeader = location === 'record_header' && !schema.inline;
 
-  /**
-   * The toolbar's accessible name, read under the spelling the platform ARIA
-   * contract actually accepts (objectui#4663).
-   *
-   * This line used to read `aria.label` and nothing else — the ONE spelling
-   * `@objectstack/spec`'s `AriaPropsSchema` refuses. `label` is that closed
-   * shape's ALIAS ENTRY, a rename prescription pointing at `ariaLabel`, so it
-   * exists to produce a better rejection message and is never accepted. The
-   * result was a dead read point in both directions: a spec-valid
-   * `aria: { ariaLabel: … }` was discarded, and the spelling honoured was one no
-   * author can write without the contract rejecting the document.
-   *
-   * `SchemaRenderer`'s generic ARIA channel does not cover this: it reads the
-   * FLAT `schema.ariaLabel` and injects `aria-label` as a component PROP, which
-   * `splitDesigner` above drops with every other non-designer prop. The nested
-   * bag is the live path here.
-   *
-   * `??` between the two spellings, `||` for the built-in default — both halves
-   * follow how this repo already handles this key:
-   *
-   *   - `normalizeListViewSchema`'s aria fold (`ARIA_KEY_ALIASES`, objectui#2890)
-   *     copies the legacy key onto the canonical one only when the canonical is
-   *     `undefined`, so a declared `ariaLabel: ''` shadows a stale `label` there
-   *     — and does here;
-   *   - `ListView`'s own read point treats an empty string as no accessible name
-   *     at all. `role="toolbar"` needs a name, so "no name" resolves to the
-   *     built-in default here rather than to ListView's omitted attribute.
-   */
-  const ariaLabel = (schema.aria?.ariaLabel ?? schema.aria?.label) || 'Quick actions';
-
   return (
     <div
       className={cn(
@@ -259,8 +302,7 @@ export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProp
         justify,
         className,
       )}
-      role="toolbar"
-      aria-label={ariaLabel}
+      {...toolbarAria}
       {...designer}
     >
       {visibleActions.map((action, idx) => (

@@ -27,7 +27,7 @@ import {
 } from './submitRedirectNavigation';
 import { usePermissions } from '@object-ui/permissions';
 import { sectionPredicateUnsupportedWarning } from './sectionPredicateDiagnostic';
-import { warnUnresolvedTopLevelField } from './sectionFields';
+import { warnUnresolvedTopLevelField, warnSectionMemberExcludedByFields } from './sectionFields';
 import { TabbedForm } from './TabbedForm';
 import { WizardForm, NAVIGATE_ON_SUCCESS_REFUSED_NOTE } from './WizardForm';
 import { SplitForm } from './SplitForm';
@@ -42,9 +42,11 @@ import {
   filterSystemFields,
   inferColumns,
 } from './autoLayout';
-import { deriveFieldGroupSections } from './fieldGroups';
+import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
 import { hasSectionGroupReference, resolveSectionGroupReferences } from './sectionGroups';
 import { sanitizeFormData } from './sanitize';
+import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
+import { resolveInitialRecord } from './initialRecord';
 import { noSubmitTargetError } from './submitTarget';
 import {
   schemaDefaultValues,
@@ -223,18 +225,11 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
       return resolved === (s.sections as any) ? s : { ...s, sections: resolved as any };
     };
     if (!perms?.isLoaded) return withGroups(base);
-    const gateField = (f: any) => {
-      if (!f?.name) return f;
-      const canRead = perms.checkField(base.objectName, f.name, 'read');
-      if (!canRead) return null;
-      const canWrite = perms.checkField(base.objectName, f.name, 'write');
-      if (!canWrite && base.mode !== 'view') {
-        return { ...f, readOnly: true, disabled: true };
-      }
-      return f;
-    };
+    // ONE render gate, shared with `ModalForm` and `DrawerForm` — see
+    // `fieldWriteGate.ts` for why the copy each container used to carry is the
+    // defect rather than the style (objectui#10120).
     const filterArr = (arr?: any[]) =>
-      Array.isArray(arr) ? arr.map(gateField).filter(Boolean) : arr;
+      applyFieldPermissions(arr, { perms, objectName: base.objectName, mode: base.mode });
     return withGroups({
       ...base,
       fields: filterArr(base.fields as any[]),
@@ -549,26 +544,13 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // remain backward-compatible.
   const perms = usePermissions();
   const applyFieldPerms = useCallback(
-    (fields: FormField[]): FormField[] => {
-      if (!perms?.isLoaded) return fields;
-      const out: FormField[] = [];
-      for (const f of fields) {
-        const canRead = perms.checkField(schema.objectName, f.name, 'read');
-        if (!canRead) continue; // omit hidden fields entirely
-        const canWrite = perms.checkField(schema.objectName, f.name, 'write');
-        if (!canWrite && schema.mode !== 'view') {
-          out.push({
-            ...f,
-            readOnly: true,
-            disabled: true,
-            description: f.description ?? 'You do not have edit access to this field.',
-          });
-        } else {
-          out.push(f);
-        }
-      }
-      return out;
-    },
+    (fields: FormField[]): FormField[] =>
+      applyFieldPermissions(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+        deniedDescription: 'You do not have edit access to this field.',
+      }) as FormField[],
     [perms, schema.objectName, schema.mode],
   );
 
@@ -635,13 +617,27 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // Initialize with inline data if provided
   useEffect(() => {
     if (hasInlineFields) {
-      setInitialData(schema.initialData || schema.initialValues || {});
-      setLoading(false);
+      setInitialData(resolveInitialRecord(schema));
+      // objectui#9778: inline members no longer short-circuit the metadata
+      // read — they MERGE over it — so the loading flag can only drop here
+      // when nothing is going to be fetched. Dropping it unconditionally put
+      // an empty `<form>` on screen for the duration of `getObjectSchema`.
+      // The metadata branch's own tail (`willFetchData`) clears it otherwise.
+      if (!(schema.objectName && dataSource)) {
+        setLoading(false);
+      }
     }
-  }, [hasInlineFields, schema.initialData, schema.initialValues]);
+  }, [hasInlineFields, schema.initialData, schema.initialValues, schema.objectName, dataSource]);
 
-  // Fetch object schema from ObjectQL/ObjectStack (skip if using inline fields)
+  // Fetch object schema from ObjectQL/ObjectStack (inline members merge OVER it)
   useEffect(() => {
+    // The field source when no object metadata is reachable: an object with no
+    // fields, over which the authored members are the whole set.
+    const inlineOnlySchema = {
+      name: schema.objectName,
+      fields: {} as Record<string, any>,
+    };
+
     const fetchObjectSchema = async () => {
       try {
         if (!dataSource) {
@@ -653,21 +649,34 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         }
         setObjectSchema(schemaData);
       } catch (err) {
+        // objectui#9778: for the inline path the metadata is an OVERLAY, not a
+        // prerequisite. A form that renders its authored members today must not
+        // become an error panel because the adapter cannot describe the object —
+        // fall back to the members-only source the registration promises for the
+        // no-data-source case.
+        if (hasInlineFields) {
+          setObjectSchema(inlineOnlySchema);
+          setLoading(false);
+          return;
+        }
         setError(err as Error);
         setLoading(false);
       }
     };
 
-    // Skip fetching if we have inline fields
-    if (hasInlineFields) {
-      // Use a minimal schema for inline fields
-      setObjectSchema({
-        name: schema.objectName,
-        fields: {} as Record<string, any>,
-      });
-    } else if (schema.objectName && dataSource) {
+    // objectui#9778: inline members are "merged over the set generated from
+    // object metadata" (the registered description of `customFields`), so the
+    // fetch is no longer skipped when they are present — without the generated
+    // set there is nothing to merge over and the merge lookup further down
+    // stays the dead code objectui#8071 measured. The members-only schema is
+    // what the registration's second sentence describes ("with inline
+    // definitions and no data source, this becomes the only field source"), so
+    // it is now the FALLBACK rather than the inline path's fixed answer.
+    if (schema.objectName && dataSource) {
       fetchObjectSchema();
-    } else if (!hasInlineFields) {
+    } else if (hasInlineFields) {
+      setObjectSchema(inlineOnlySchema);
+    } else {
       // No objectName or dataSource and no inline fields — cannot proceed
       setLoading(false);
     }
@@ -677,7 +686,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!schema.recordId || schema.mode === 'create') {
-        setInitialData(schema.initialData || schema.initialValues || {});
+        setInitialData(resolveInitialRecord(schema));
         setLoading(false);
         return;
       }
@@ -718,15 +727,26 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // matcher, which is not a CEL evaluator and was never called downstream.
   const normalizeVisibility = useCallback((f: any): any => f, []);
 
-  // Generate form fields from object schema or inline fields
+  // Generate form fields from object schema, with inline members merged over it
+  //
+  // objectui#9778 — `customFields` MERGES, it does not replace. The registered
+  // description of the member ("Field definitions merged over the set generated
+  // from object metadata. With inline definitions and no data source, this
+  // becomes the only field source.") is the contract, and the per-member merge
+  // below (`schema.customFields?.find(...)`) was written for it — but a
+  // non-empty `customFields` used to return from here with
+  // `setFormFields(schema.customFields.map(normalizeVisibility))` BEFORE the
+  // generated set existed, so that lookup only ever ran over an empty array.
+  // The three directions the merge now takes, one case each in
+  // `objectFormCustomFieldsMembers-8071.test.tsx`:
+  //   override — a member naming a declared field replaces that field's
+  //              generated definition, in the generated set's position;
+  //   keep     — a declared field no member names still renders;
+  //   append   — a member naming a field the metadata never declares is added
+  //              after the generated set, in authored order.
+  // With no data source the generated set is empty, so the members remain the
+  // only field source (the registration's second sentence) — unchanged.
   useEffect(() => {
-    // For inline fields, use them directly
-    if (hasInlineFields && schema.customFields) {
-      setFormFields(schema.customFields.map(normalizeVisibility));
-      setLoading(false);
-      return;
-    }
-
     if (!objectSchema) return;
 
     const generatedFields: FormField[] = [];
@@ -844,7 +864,40 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           formField.inputType = 'number';
           formField.min = field.min;
           formField.max = field.max;
-          formField.step = field.precision ? Math.pow(10, -field.precision) : undefined;
+          // Step is DECIMAL PLACES (`scale`), never the total digit count
+          // (`precision`). The two are separate members with separate meanings
+          // in the installed `@objectstack/spec` — "Decimal places
+          // (non-negative integer)" against "Total digits (non-negative
+          // integer)" — and `NumberField` already states the rule verbatim one
+          // layer down: "Step follows `scale` (decimal places), not
+          // `precision` (total digit count)". Deriving granularity from
+          // `precision` gave a `decimal(10, 0)` field a step of `1e-10`.
+          //
+          // `typeof`, not truthiness: `scale: 0` is a valid declaration (the
+          // spec's own example is an ordinal integer declared with `scale: 0`)
+          // and it means "steps by 1".
+          //
+          // The undeclared case resolves to `'any'`, matching `NumberField`'s
+          // tail, and NOT to `undefined`: an absent `step` attribute is HTML's
+          // default of 1, which refuses every decimal the author never said
+          // anything about. A field that declares no `scale` claims no
+          // granularity, so the control must not invent one.
+          //
+          // ⚠️ WHERE THIS KEY IS ACTUALLY READ — measured on this branch's
+          // base, through a real ObjectForm render, because the same file's
+          // `formField.maxLength` tombstone below shows how easily a key
+          // written here reaches nothing. The registered `field:*` widgets
+          // DROP it: their metadata carrier is `formField.field` (the raw
+          // object-schema field, assigned above) and their `toDomProps`
+          // whitelist does not forward `step`, so `NumberField`,
+          // `CurrencyField` and `PercentField` each derive their own. What
+          // this key does reach is the form renderer's unregistered-widget
+          // fallback — a field whose declared `widget` names a component the
+          // app never registered — where the leftover props are spread onto
+          // the `<input>`. Both halves are pinned by
+          // `objectFormNumericStep-9574.test.tsx`, which measures the two
+          // routes side by side.
+          formField.step = typeof field.scale === 'number' ? Math.pow(10, -field.scale) : 'any';
         }
 
         if (field.type === 'date') {
@@ -940,6 +993,20 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       }
     });
 
+    // objectui#9778 — the APPEND direction. A member naming a field the
+    // generated set does not carry (an object metadata never declared, or one
+    // the `fields` whitelist left out) is added after it, in authored order;
+    // members that already overrode a generated field above are not repeated.
+    if (hasInlineFields && schema.customFields) {
+      const alreadyDrawn = new Set(generatedFields.map((f) => f.name));
+      schema.customFields.forEach((customField: any) => {
+        const name = customField?.name;
+        if (!name || alreadyDrawn.has(name)) return;
+        alreadyDrawn.add(name);
+        generatedFields.push(normalizeVisibility(customField));
+      });
+    }
+
     setFormFields(generatedFields);
 
     // Only set loading to false if we are not going to fetch data
@@ -1000,7 +1067,15 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     // unknown or non-writable fields. Mirrors ModalForm/DrawerForm. For inline
     // forms `objectSchema` is a field-less stub, so pass null to strip only the
     // server-managed keys rather than dropping every (schema-less) value.
-    let payload = sanitizeFormData(formData, hasInlineFields ? null : objectSchema);
+    // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
+    // retains state for unmounted/disabled fields, so a field the caller may
+    // read but not edit is in `formData` even though the gate above rendered
+    // it non-editable. The verdict is the resolver's, adapted by
+    // `fieldWriteGate` — ⛔ never a second implementation of it, and ⛔ never a
+    // strip loop beside this call (objectui#10120).
+    let payload = sanitizeFormData(formData, hasInlineFields ? null : objectSchema, {
+      canEdit: fieldWriteGate(perms, schema.objectName),
+    });
     // A CREATE payload omits the fields the producer owns (#4069): a rendered
     // control registers even when nothing seeded it, so an untouched
     // runtime-default field would ride along as `undefined`/`''` and defeat
@@ -1008,17 +1083,6 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     // null. Create only — on an edit form a cleared column is a real removal.
     if (isCreateFormMode(schema)) {
       payload = omitServerResolvedDefaults(payload, hasInlineFields ? null : objectSchema);
-    }
-    // FLS defence-in-depth: never trust the client to include a field the user
-    // lacked edit access to — drop any that fail the write check.
-    if (perms?.isLoaded && payload && typeof payload === 'object') {
-      const stripped: Record<string, unknown> = {};
-      for (const k of Object.keys(payload)) {
-        if (perms.checkField(schema.objectName, k, 'write')) {
-          stripped[k] = (payload as Record<string, unknown>)[k];
-        }
-      }
-      payload = stripped;
     }
 
     try {
@@ -1384,6 +1448,50 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         (section.fields ?? []).map(f => [typeof f === 'string' ? f : ((f as any).field ?? f.name), f]),
       );
       const sectionFieldNames = Array.from(sectionDefByName.keys());
+
+      // objectui#9884 — make the INTERSECTION audible.
+      //
+      // The filter below resolves a section's members against the parent field
+      // POOL, and that pool was built from `schema.fields` (`fieldsToShow`
+      // above). So top-level `fields` and `sections` intersect: a member this
+      // section names, that the object really declares, is dropped for the one
+      // reason that `fields` does not list it — and when it was the section's
+      // last surviving member, `sectionFields.length === 0` below drops the
+      // section whole, heading included.
+      //
+      // ⛔ The intersection itself is NOT the defect and is deliberately left
+      // standing: `fields` is the parent field pool for values, create
+      // defaults and the submitted set as well as for layout, so resolving
+      // these members here would change what a landed schema writes. What WAS
+      // the defect is that the loss was silent, plus this block's registration
+      // claiming `fields` is "Ignored when `sections` is given" — a claim its
+      // three sibling `fields` registrations never made and the one shared
+      // renderer never honoured. objectui#9884 corrected the sentence and
+      // added this warning; see `warnSectionMemberExcludedByFields`.
+      //
+      // Measured BEFORE `applyFieldPerms`, on purpose: a field the pool holds
+      // and per-caller permissions then remove is not an authoring mistake and
+      // must not be reported as one.
+      if (schema.fields != null && schema.sections?.length) {
+        const pooled = new Set(sourceFields.map(f => f.name));
+        sectionFieldNames.forEach(memberName => {
+          if (typeof memberName !== 'string' || pooled.has(memberName)) return;
+          // Only when the member WOULD have resolved without the `fields`
+          // narrowing. A member naming nothing the form could ever draw is the
+          // sibling silence pinned by row 2 of both `sections` member pins, and
+          // it has a different remedy.
+          const declared =
+            objectSchema?.fields?.[memberName] != null ||
+            (schema.customFields ?? []).some((f: any) => f?.name === memberName);
+          if (!declared) return;
+          warnSectionMemberExcludedByFields(
+            memberName,
+            schema.objectName,
+            section.name || section.label,
+          );
+        });
+      }
+
       const sectionFields = applyFieldPerms(sourceFields.filter(f => sectionFieldNames.includes(f.name)))
         .map(f => {
           const def = sectionDefByName.get(f.name);
@@ -1407,34 +1515,76 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         ? sectionLabel(schema.objectName, section.name, section.label || section.name)
         : section.label;
       const isCollapsed = collapsedSections[sectionKey] ?? (section.collapsed ?? false);
+      // `collapsed` IMPLIES `collapsible` (objectui#9780, maintainer ruling
+      // 2026-09-18, letter A). The state read above is unconditional, while
+      // the disclosure control below used to be installed only for
+      // `collapsible` — so `collapsed: true` written ALONE (two independent
+      // members, both accepted by every declaration face) produced a section
+      // that starts closed, keeps its fields out of the DOM, and offers
+      // nothing on the page that can bring them back, with no error, warning
+      // or degradation. "Collapsed by default" is an everyday intent and
+      // `collapsed: true` is its most natural spelling, which is why the
+      // ruling made that spelling correct: refusing the combination at the
+      // declaration (letter B) and a dev-only warning (letter C) were both
+      // REFUSED — nobody can depend on a section that cannot be opened, so
+      // widening the behaviour has no loser.
+      //
+      // Read from the DECLARATION, never from `isCollapsed`: the latter is
+      // the live state, so deriving the control from it would delete the
+      // control the moment the user opened the section. `collapsible: false`
+      // together with `collapsed: true` is the same contradiction and the
+      // ruling resolves it the same way — collapsed wins, the toggle is
+      // present. A section that declares neither member is untouched.
+      const isCollapsible = Boolean(section.collapsible) || Boolean(section.collapsed);
 
-      if (label) {
-        groupedFields.push({
-          name: `__section_${sectionKey}`,
-          label,
-          type: 'section-divider',
-          // ADR-0089 `FormSection.visibleWhen` (#6111). The renderer evaluates
-          // a `visibleWhen` on this pseudo-field with the host predicate scope
-          // bound (#6010), so copying it here is what makes the authored
-          // section predicate reach an evaluator at all.
-          visibleWhen: (section as any).visibleWhen,
-          // The membership claim (#6236): the RESOLVED member names — the same
-          // strings the renderer's flat list carries — so the section
-          // predicate gates the whole group, not just this heading. Resolved
-          // rather than authored on purpose: the authored `section.fields`
-          // entries can be spec field-defs, and a perms-filtered field is not
-          // in the form at all.
-          fields: sectionFields.map(f => f.name),
-          colSpan: 4,
-          collapsible: section.collapsible,
-          collapsed: isCollapsed,
-          onToggle: section.collapsible
-            ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
-            : undefined,
-          // `className`: deliberately not read — see the tabbed arm above
-          // (objectstack#13626, ruled 2026-09-01 "retire the reads").
-        } as FormField);
-      }
+      // The ONE path from a section configuration to its divider row
+      // (objectui#9849, triage ruling 「让 section 配置到 divider 的投影只有一条
+      // 路径」). `projectSectionDivider` owns every key both rows carry — the
+      // blurb (objectui#9779), the ADR-0089 predicate (#6111), the
+      // objectui#6236 membership claim and the collapse pair — so no arm can
+      // copy a different set than its siblings, which is the failure mode that
+      // produced three consecutive one-key cards.
+      //
+      // ⚠️ This arm's gate is objectui#9835 letter B and is UNCHANGED: a
+      // member that yields a heading gets the full row, a headingless member
+      // that authored a `description` gets a BLURB-ONLY row carrying the blurb
+      // and nothing else — no `visibleWhen`, no membership claim, no collapse
+      // pair — and a member with neither draws nothing. Letter A (spelling the
+      // gate `label || section.description`, which the modal's stacked arm and
+      // the split arm do) was REFUSED there, because that one condition also
+      // decides the predicate row and the membership claim that gates the
+      // WHOLE group, plus the collapse pair whose "an untitled bucket is never
+      // collapsible" rule it implements. ⇒ the gate union in
+      // `SectionDividerGate` is the residual this card hands back, ⛔ not
+      // something decided here.
+      //
+      // The collapse pair is resolved ABOVE (objectui#9780: `collapsed`
+      // implies `collapsible`, read from the DECLARATION and never from the
+      // live `isCollapsed`) and handed over resolved — `DrawerForm` resolves
+      // the same two keys two other ways, and picking a winner is the fenced
+      // decision.
+      groupedFields.push(
+        ...projectSectionDivider(
+          {
+            key: sectionKey,
+            title: label,
+            description: section.description,
+            visibleWhen: (section as any).visibleWhen,
+            // RESOLVED rather than authored on purpose: the authored
+            // `section.fields` entries can be spec field-defs, and a
+            // perms-filtered field is not in the form at all.
+            members: sectionFields.map(f => f.name),
+            collapse: {
+              collapsible: isCollapsible,
+              collapsed: isCollapsed,
+              onToggle: isCollapsible
+                ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
+                : undefined,
+            },
+          },
+          'headingOrBlurb',
+        ),
+      );
 
       // #2578: lay THIS section's fields out at its declared column density
       // within the shared form grid (span-aware; wide fields still full-row).

@@ -794,6 +794,60 @@ describe('an anchored first-party map', () => {
     expect(result.counters.anchoredJudged).toBe(0);
   });
 
+  // ── objectui#9943 — the wrapped-literal spellings ─────────────────────────
+  // A table keyed on a union the upstream spec can RETIRE a member from cannot
+  // carry an exact target: `const X: Record<ViewType, …>` (and `satisfies
+  // Record<ViewType, …>`) makes the retired row an excess property, TS2353. The
+  // repair moves the constraint onto `} satisfies Record<string, …>;` — which
+  // wraps the object literal in a `SatisfiesExpression`, so an extractor
+  // matching the initializer directly finds NOTHING. Two of the shipped anchors
+  // are on that spelling now. The `min` precondition above would have caught it
+  // loudly, and that is not good enough: the map is perfectly readable, so the
+  // reader must read it.
+  const wrappedMapModule = (name: string, first: string, wrapper: string): string => [
+    "import type { LucideIcon } from 'lucide-react';",
+    `const ${name} = {`,
+    `  a: ${first},`,
+    '  b: ChartColumn,',
+    '  c: SquarePen,',
+    `} ${wrapper} Record<string, LucideIcon>;`,
+    `export default ${name};`,
+  ].join('\n');
+
+  it.each([['satisfies'], ['as']])('reads a literal closed on `%s` — and still flags what is in it', (wrapper) => {
+    const result = judge(`anchor-${wrapper}`, {
+      files: { 'packages/app/src/icons.ts': wrappedMapModule('VIEW_ICONS', 'BarChart3', wrapper) },
+      anchors: [{ file: 'packages/app/src/icons.ts', anchor: 'VIEW_ICONS', kind: 'identifiers', min: 3, why: 'fixture' }],
+    });
+
+    // The violation is what proves the unwrap READ the map. A reader that
+    // merely stopped erroring would report zero violations off zero entries —
+    // the exact shape `min` exists to refuse — so the count is asserted too.
+    expect(result.errors).toEqual([]);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0].detail).toContain('write `chart-column`');
+    expect(result.counters.anchoredJudged).toBe(3);
+  });
+
+  it('still refuses an initializer that is no object literal under the wrapper', () => {
+    // The unwrap is not a blanket "look inside anything": a declaration whose
+    // initializer never bottoms out in an object literal yields nothing, and
+    // the `min` precondition fires exactly as before.
+    const result = judge('anchor-not-a-literal', {
+      files: {
+        'packages/app/src/icons.ts': [
+          "import type { LucideIcon } from 'lucide-react';",
+          'const VIEW_ICONS = buildIcons() satisfies Record<string, LucideIcon>;',
+          'export default VIEW_ICONS;',
+        ].join('\n'),
+      },
+      anchors: [{ file: 'packages/app/src/icons.ts', anchor: 'VIEW_ICONS', kind: 'identifiers', min: 3, why: 'fixture' }],
+    });
+
+    expect(result.violations).toEqual([]);
+    expect(result.errors.join('\n')).toContain('yielded 0 entries, fewer than the 3');
+  });
+
   it('ERRORS when the anchored source is gone entirely', () => {
     const result = judge('anchor-missing', {
       files: {},

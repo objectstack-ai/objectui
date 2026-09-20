@@ -280,7 +280,41 @@ export const ObjectGridSchema = BaseSchema.extend({
   // metadata, the #6424 family form: the gain is the typed refusal, since the
   // `.passthrough()` base was already admitting ANY `title` unexamined.
   title: z.string().optional().describe('DEPRECATED, write label instead: legacy caption/export-file-title fallback, read only when label is absent'),
-  operators: z.record(z.string(), z.any()).optional(), // Missing in previous TS scan but common
+  // ⭐ objectui#9739 (maintainer ruling 2026-09-18, letter C) — the mirror stops
+  // accepting a key the upstream protocol refuses BY NAME, and says so.
+  //
+  // What this key was: a scan artefact. The line it replaces carried its own
+  // provenance in a trailing comment — "Missing in previous TS scan but common"
+  // — so the gap was noticed at authoring time, written down, and then measured
+  // by nothing. objectui#9729 measured it four ways and every one read zero: no
+  // render path consumes it (a byte ruler drew the same `object-grid` document
+  // twice, with the filter surface off AND on, and the bytes were identical —
+  // `ObjectGrid.operatorsInert-9729.test.tsx`, lit control included), no doc or
+  // example in this repo writes it, the block's author vocabulary never listed
+  // it, and `@objectstack/spec` refuses it.
+  //
+  // Why `operations` is the remedy named here, and not a guess: the pinned
+  // upstream (`@objectstack/spec` 17.4.0, `ObjectGridPropsSchema`) is a
+  // `strictObject`, and parsing `{ objectName, operators }` through it returns
+  // `unrecognized_keys` whose message prescribes the rename in the protocol's
+  // own words — "Did you mean `operators` → `operations`?" — while the same
+  // document spelled `operations` parses green. The twin `ObjectGridSchema`
+  // interface declares `operations` too (the `{ create, read, update, delete }`
+  // affordance toggles). ⇒ the correct spelling is MEASURED upstream, not
+  // inherited from this comment; `object-grid-operators-tombstone-9739.test.ts`
+  // re-derives both halves against the installed package.
+  //
+  // ⛔ NOT declared on the TypeScript twin — the ruling says so in as many
+  // words. `ObjectGridSchema` extends `BaseSchema`, whose index signature
+  // absorbs an authored `operators` as `any`; adding a `?: never` half would
+  // write the misspelling INTO the published interface, which is the ruling's
+  // letter A and was refused.
+  operators: retirementTombstone(
+    'RETIRED (objectui#9739, ADR-0049) — `operators` is not a key of this component; you meant `operations`. '
+    + 'The upstream protocol refuses `operators` by name on `object-grid` and prescribes that rename itself; '
+    + 'nothing in this renderer ever read the key, so an authored value parsed green and drew nothing. '
+    + '`operations` is the CRUD-affordance toggle object ({ create, read, update, delete }).',
+  ),
   rowActions: z.array(z.string()).optional(),
   batchActions: z.array(z.string()).optional(),
   editable: z.boolean().optional(),
@@ -319,13 +353,30 @@ export const ObjectGridSchema = BaseSchema.extend({
 });
 
 /**
+ * The prescription an author gets when a record id arrives as a number.
+ *
+ * ⚠️ Declared file-locally in each of the three mirrors that carry a record id
+ * rather than shared from one module, and PINNED BY CONTENT — not by line — in
+ * `../__tests__/authorable-record-id-string-9511.test.ts`, which asserts that
+ * every one of the three refusals names the quoted form. So this text drifting
+ * out of one mirror turns that pin red instead of going quiet.
+ */
+const RECORD_ID_IS_A_STRING_GUIDANCE =
+  "A record id is a string on every boundary (objectui#9511): write it quoted \u2014 42 becomes '42'. "
+  + 'A backend whose primary keys are numeric converts at its OWN adapter boundary, in one typed '
+  + 'place, so every author, every caller and every adapter sees one shape.';
+
+/**
  * ObjectForm Schema
  */
 export const ObjectFormSchema = BaseSchema.extend({
   type: z.literal('object-form'),
   objectName: z.string().describe('ObjectQL object name'),
   mode: z.enum(['create', 'edit', 'view']).describe('Form mode'),
-  recordId: z.union([z.string(), z.number()]).optional().describe('Record ID'),
+  recordId: z
+    .string({ error: (issue) => (issue.code === 'invalid_type' ? RECORD_ID_IS_A_STRING_GUIDANCE : undefined) })
+    .optional()
+    .describe('Record ID \u2014 a string, never a number (objectui#9511)'),
   title: z.string().optional().describe('Form title'),
   description: z.string().optional().describe('Form description'),
   fields: z.array(z.string()).optional().describe('Included fields'),
@@ -2059,13 +2110,14 @@ function requireKanbanRecordSource(
 }
 
 // objectui#7322 — `groupBy` and `limit` are the keys `ObjectKanban.tsx` reads
-// (thirteen `schema.groupBy` sites; `$top: schema.limit ?? DEFAULT_KANBAN_LIMIT`
-// at `:264`); until this card neither was declared and both rode `BaseSchema`'s
-// `.passthrough()` unexamined, while the REQUIRED `groupField` had zero read
-// sites. `groupField` is now a `retirementTombstone()` — still a member, so
-// the parity ratchet's key sets stay equal and an authored value is refused
-// BY NAME rather than stripped — and it is node-local: the VIEW-LEVEL alias
-// `KanbanConfig.groupField` above is live and untouched.
+// (thirteen `schema.groupBy` sites; the row cap lowered into the query as
+// `$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`, re-spelled by
+// objectui#9925); until this card neither was declared and both rode
+// `BaseSchema`'s `.passthrough()` unexamined, while the REQUIRED `groupField`
+// had zero read sites. `groupField` is now a `retirementTombstone()` — still
+// a member, so the parity ratchet's key sets stay equal and an authored value
+// is refused BY NAME rather than stripped — and it is node-local: the
+// VIEW-LEVEL alias `KanbanConfig.groupField` above is live and untouched.
 export const ObjectKanbanSchema = BaseSchema.extend({
   type: z.literal('object-kanban'),
   objectName: z.string().optional().describe('ObjectQL object name — the LAST rung of the board ladder, after the pre-fetched data prop, bind and the inline row array on data; one of bind, data, objectName must be present (objectui#7780)'),
@@ -2312,7 +2364,24 @@ export const ObjectChartSchema = BaseSchema.extend({
 export const ObjectGallerySchema = BaseSchema.extend({
   type: z.literal('object-gallery'),
   objectName: z.string().optional().describe('ObjectQL object name'),
-  filter: z.unknown().optional().describe('Query filter, forwarded verbatim as $filter'),
+  // ⭐ NARROWED from `z.unknown()` (objectui#9309), in step with the twin
+  // declaration in `../objectql.ts`, which is now `QueryParams['$filter']` —
+  // the destination this key's own description names. `z.unknown()` left the
+  // runtime door wider than the type: `filter: 'stage=won'` and `filter: 42`
+  // parsed clean here while `tsc` refused them one file over, which is the
+  // two-dialects-of-one-key shape AGENTS.md #0.1 forbids.
+  // ⚠️ It also sat in `zod-mirror-parity`'s DOCUMENTED BLIND SPOT: that file's
+  // `Unconstrained< T >` excludes an `unknown` mirror slot from the
+  // `WiderThanDeclared` comparison by definition, so nothing would have
+  // reported the split. Measured, not assumed — see the ledger note there.
+  // Spelled as the two arms `QueryParams['$filter']` resolves to, in the
+  // ARRAY-FIRST order `ObjectChartSchema.filter` above already uses: a
+  // `z.record` arm placed first would have to be trusted to refuse an array,
+  // and the ordering is the cheaper guarantee.
+  filter: z.union([
+    z.array(z.any()),
+    z.record(z.string(), z.any()),
+  ]).optional().describe('Query filter, forwarded verbatim as $filter. FilterArray (the spec array sugar) OR the ObjectQL $filter object — the two arms of QueryParams[$filter]'),
   data: z.array(z.record(z.string(), z.unknown())).optional().describe('Inline records'),
   gallery: stripImportedDefaults(SpecGalleryConfigSchema).optional().describe('Gallery configuration (@objectstack/spec GalleryConfig)'),
   navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Record navigation behaviour (drawer/dialog/page)'),

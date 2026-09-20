@@ -23,7 +23,22 @@ import { render, cleanup } from '@testing-library/react';
 
 const stub = {
   recordCtx: undefined as any,
-  can: true,
+  /**
+   * The BLOCK-LEVEL gate's verdict, and nothing else.
+   *
+   * `record:details.requiredPermissions` is an ADR-0066 system capability set
+   * read through the permission context's `hasCapabilities`, fail-closed
+   * (objectui#10155). This suite only needs that verdict to FLIP under a
+   * mounted renderer, which is what produced React error #310.
+   *
+   * ⛔ It pins nothing about the gate's SEMANTICS. A mocked
+   * `usePermissions` IS whichever reading path the mock implements, so it
+   * cannot discriminate the capability path from the object-action path —
+   * which is exactly how this family's earlier pins came to pass on a gate
+   * that did not gate. Those semantics are pinned on real stock providers, in
+   * `record-blocks.requiredPermissions-gate.test.tsx`.
+   */
+  capabilities: true,
 };
 
 // Each stubbed hook consumes exactly ONE real React hook slot (via useRef) so
@@ -52,7 +67,10 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
   const React = await import('react');
   return {
     ...actual,
-    usePermissions: () => (React.useRef(0), { can: () => stub.can }),
+    usePermissions: () => (React.useRef(0), {
+      can: () => true,
+      hasCapabilities: () => stub.capabilities,
+    }),
     useFieldPermissions: (_objectName: string) => (React.useRef(0), {
       readableFields: (names: string[]) => names,
     }),
@@ -87,7 +105,7 @@ const BOUND_CTX = {
 
 beforeEach(() => {
   stub.recordCtx = BOUND_CTX;
-  stub.can = true;
+  stub.capabilities = true;
   cleanup();
 });
 
@@ -112,7 +130,7 @@ describe('RecordDetailsRenderer — rules of hooks', () => {
 
     // Permissions (re)load and now deny — the permission-denied branch used to
     // return before several hooks, changing the hook count → React #310.
-    stub.can = false;
+    stub.capabilities = false;
     expect(() => rerender(<RecordDetailsRenderer schema={schema} />)).not.toThrow();
     expect(queryByTestId('detail-view')).toBeNull();
   });

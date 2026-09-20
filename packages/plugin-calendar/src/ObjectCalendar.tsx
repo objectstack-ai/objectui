@@ -23,7 +23,7 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import type { ObjectCalendarSchema, DataSource, CalendarConfig, ViewData } from '@object-ui/types';
+import type { ObjectCalendarSchema, DataSource, CalendarConfig } from '@object-ui/types';
 import { CalendarView, type CalendarViewEvent } from './CalendarView';
 import { usePullToRefresh } from '@object-ui/mobile';
 import {
@@ -201,10 +201,13 @@ export interface ObjectCalendarComponentProps {
  *   reached the retired arm.
  * - A schema whose only configuration lived under the retired spelling now
  *   returns null from here, and the early return answers null with the
- *   existing "Calendar configuration required. Please specify startDateField
- *   and titleField." refusal screen. The map fell back to DEFAULT field names,
- *   which looks like bad data and is why it had to warn; the calendar names
- *   what is missing on screen. Nothing is dropped without a trace.
+ *   existing "Calendar configuration required" refusal screen. The map fell
+ *   back to DEFAULT field names, which looks like bad data and is why it had
+ *   to warn; the calendar names what is missing on screen. Nothing is dropped
+ *   without a trace. (That screen's SECOND clause was reworded by
+ *   objectui#8170 — it names `startDateField` and the view's `calendar` block
+ *   now, and no longer demands the optional `titleField`. This citation is
+ *   deliberately clipped to the clause that did not move.)
  *
  * ⛔ No compatibility rung and no deprecation window, per AGENTS.md #0.1: a
  * tolerant fallback fossilizes the wrong convention into a second de-facto
@@ -421,26 +424,28 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // `data` PROP through `index.tsx`'s `resolveExternalData`, which is what
   // actually draws it.
   //
-  // ⚠️ NAMED SEAM, and the reason the three members are passed one by one
-  // instead of handing the whole node over (objectui#8651). The shared
-  // resolver's PARAMETER declares `data?: ViewData`, but its own `dataArm`
-  // contract — and its `authoredDataIsOnTheDeclaredArm` predicate, which takes
-  // `unknown` — admit an ARRAY on the `'array'` arm, which is exactly the arm
-  // this block declares (`ObjectCalendarSchema.data`, objectui#9239/#8348). So
-  // the signature contradicts the function's own documented contract, and the
-  // retired union hid it: `ObjectGridSchema.data` is `ViewData`, so the call
-  // type-checked while saying something this block does not mean.
+  // ⚠️ The three members are passed one by one instead of handing the whole
+  // node over (objectui#8651): they are exactly what the resolver documents
+  // itself as reading, so the call site cannot come to depend on a key the
+  // ladder does not read.
   //
-  // ⛔ That is an upstream defect in `@object-ui/core`, NOT a licence to widen
-  // anything here (AGENTS.md #0.1) — and `packages/core/` is outside this
-  // card's file surface. Reported rather than patched. This spelling passes
-  // only the three members the resolver documents itself as reading, with the
-  // `data` member named at the arm this block declares, so the RUNTIME value
-  // reaching the predicate is byte-for-byte the one `schema.data` held before.
+  // ⭐ THE CAST HERE IS GONE (objectui#9473), and its absence is the assertion.
+  // `data` used to be spelled `schema.data as ViewData | undefined` because the
+  // shared resolver's PARAMETER declared a flat `data?: ViewData` while its own
+  // `dataArm` contract — and its `authoredDataIsOnTheDeclaredArm` predicate,
+  // which takes `unknown` — admit an ARRAY on the `'array'` arm, the arm this
+  // block declares (`ObjectCalendarSchema.data`, objectui#9239/#8348). The
+  // signature contradicted the function's own documented contract, and the
+  // retired props union had hidden it: `ObjectGridSchema.data` is `ViewData`,
+  // so the call type-checked while saying something this block does not mean.
+  // That parameter is now arm-indexed (`AuthoredRecordSourceData<'array'>` is
+  // `unknown[]`), so the compiler reads the arm this site already passes and a
+  // cast is no longer load-bearing — ⛔ do not reintroduce one here, where it
+  // would silence the next such disagreement instead of reporting it.
   const dataConfig = useMemo(() => resolveRecordSourceConfig(
     {
       objectName: schema.objectName,
-      data: schema.data as ViewData | undefined,
+      data: schema.data,
       staticData: schema.staticData,
     },
     'array',
@@ -1018,6 +1023,12 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // For month-cell click, `end` equals `start` and the dialog shows date-only.
   const [quickCreate, setQuickCreate] = useState<{ start: Date; end?: Date; title: string; submitting: boolean; error?: string } | null>(null);
 
+  // Read at render rather than inside the callback below: `tt` is a fresh
+  // closure on every render, so taking IT as a dependency would rebuild
+  // `submitQuickCreate` every time. A string is stable by value and moves only
+  // when the language does.
+  const titleRequiredMessage = tt('calendar.titleRequired', 'Title is required');
+
   const handleDateClickDefault = useCallback((day: Date) => {
     if (!calendarConfig || !schema.objectName || !dataSource?.create) return;
     setQuickCreate({ start: day, title: '', submitting: false });
@@ -1032,7 +1043,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     if (!quickCreate || !calendarConfig) return;
     const title = quickCreate.title.trim();
     if (!title) {
-      setQuickCreate(qc => qc ? { ...qc, error: 'Title is required' } : qc);
+      setQuickCreate(qc => qc ? { ...qc, error: titleRequiredMessage } : qc);
       return;
     }
     if (!schema.objectName || !dataSource?.create) return;
@@ -1095,13 +1106,13 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       setQuickCreate(qc => qc ? { ...qc, submitting: false, error: msg } : qc);
       console.error('[ObjectCalendar] Quick-create failed:', err);
     }
-  }, [quickCreate, calendarConfig, schema.objectName, dataSource, objectSchema]);
+  }, [quickCreate, calendarConfig, schema.objectName, dataSource, objectSchema, titleRequiredMessage]);
 
   if (loading) {
     return (
       <div className={className}>
         <div className="flex items-center justify-center h-96">
-          <div className="text-muted-foreground">Loading calendar...</div>
+          <div className="text-muted-foreground">{tt('calendar.loading', 'Loading calendar…')}</div>
         </div>
       </div>
     );
@@ -1111,18 +1122,98 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     return (
       <div className={className}>
         <div className="flex items-center justify-center h-96">
-          <div className="text-destructive">Error: {error.message}</div>
+          <div className="text-destructive">
+            {/* `t`, not `tt`: the prefix carries a hole, and `useSafeTranslate`
+                passes no options. The MESSAGE itself stays untranslated on
+                purpose — it is the thrower's own text, not this component's
+                copy. */}
+            {t('calendar.loadError', {
+              message: error.message,
+              defaultValue: 'Error: {{message}}',
+            })}
+          </div>
         </div>
       </div>
     );
   }
 
+  /**
+   * THE REFUSAL SCREEN — honest about the binding, and now honest about the
+   * REMEDY too (objectui#8170).
+   *
+   * It used to read "Calendar configuration required. Please specify
+   * startDateField and titleField." Two independent halves of that were wrong,
+   * and the measurements are recorded here because the sentence is quoted in
+   * several other files and a future reader has to be able to tell a
+   * deliberate wording from a drifted one.
+   *
+   * ## ① `titleField` is not required, and this file is why
+   *
+   * `@objectstack/spec`'s `CalendarConfigSchema` is a `strictObject` whose ONE
+   * required key is `startDateField`; `titleField` is optional. Re-measured on
+   * the installed 17.4.0, three legs: `{}` and `{ titleField: 't' }` both fail
+   * `invalid_type` at `startDateField`, and `{ startDateField: 'd' }` parses
+   * CLEAN. The spec's own note on that schema names THIS renderer as the
+   * reason — `resolveTitle` above takes an explicit `titleField` when present
+   * and otherwise resolves through the ADR-0079 record display-name chain, so
+   * demanding the key here asked the author for something the component does
+   * not need and already handles.
+   *
+   * ## ② The remedy has to hold on BOTH doors, because this screen cannot see
+   * which one it was reached through
+   *
+   * Measured, and it is the reason this is a WORDING change rather than a
+   * door-aware one. Two producers emit an `object-calendar` node — the
+   * calendar branch of `plugin-list`'s `ListView` and the one in
+   * `plugin-view`'s `ObjectView` — and app-shell reaches the first from two
+   * faces, `ObjectView` (the object-view door) and `InterfaceListPage` (the
+   * interface-page door). Every one of them hands this component the same
+   * shape: the shared `baseProps` bag plus whichever of `startDateField` /
+   * `endDateField` / `titleField` the author declared. NOTHING on the node
+   * names the door, so there is nothing to infer from, and a door PROP would
+   * have to be declared on the node's published schema and threaded through
+   * four packages.
+   *
+   * ⛔ And it must not be guessed from the object either. The temptation is to
+   * ask whether `objectSchema` carries a date field, since
+   * `InterfaceListPage.defaultCalendarFromObject` derives a binding from the
+   * first one it finds and this screen is therefore only reachable on that
+   * door when the derivation came back empty. That correlation is not an
+   * identity — the deriver only runs when `calendar` is whitelisted in
+   * `appearance.allowedVisualizations` — and pinning the copy to a predicate
+   * living in another package is the "the gate and the seam must answer one
+   * question" hazard this repo has now recorded on `map`, `chart` and `kanban`.
+   *
+   * ⇒ so the screen names the one place BOTH doors read the binding from — the
+   * view's `calendar` block — and then states the page door's indirection
+   * plainly, because that door genuinely has no slot of its own:
+   * `InterfaceListPage` reads `columns`, `sort`, `filterBy`, `userFilters`,
+   * `appearance`, `addRecord`, `userActions`, `showRecordCount`, `source`,
+   * `sourceView`, `buttons` and `recordAction` off `interfaceConfig`, and NO
+   * calendar key at all.
+   *
+   * ⛔ The first clause is unchanged ON PURPOSE. Five suites pin this screen
+   * with `/Calendar configuration required/i` and `@object-ui/types`' alias
+   * tombstones assert on the same phrase; the clause that was wrong is the
+   * second one, and only the second one moves.
+   */
   if (!calendarConfig) {
     return (
       <div className={className}>
         <div className="flex items-center justify-center h-96">
-          <div className="text-muted-foreground">
-            Calendar configuration required. Please specify startDateField and titleField.
+          <div className="text-muted-foreground max-w-md text-center space-y-2">
+            <p>
+              {tt(
+                'calendar.configRequired',
+                'Calendar configuration required. Please specify startDateField, the calendar\'s one required key; the event title resolves without titleField.',
+              )}
+            </p>
+            <p className="text-sm">
+              {tt(
+                'calendar.configRequiredHint',
+                'It belongs on the view\'s calendar block. An interface page has no calendar slot of its own: point its sourceView at a view that declares one.',
+              )}
+            </p>
           </div>
         </div>
       </div>
@@ -1149,9 +1240,12 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     const rec = navigation.selectedRecord as Record<string, any>;
     const recordId = rec.id ?? rec._id;
     if (!objectName || recordId == null) return null;
+    // ONE reading of the key for BOTH arms — the two spellings of this
+    // fallback used to be able to drift apart independently.
+    const eventDetailsTitle = tt('calendar.eventDetails', 'Event Details');
     const titleText = calendarConfig?.titleField
-      ? String(rec[calendarConfig.titleField] ?? 'Event Details')
-      : 'Event Details';
+      ? String(rec[calendarConfig.titleField] ?? eventDetailsTitle)
+      : eventDetailsTitle;
     return (
       <NavigationOverlay
         {...navigation}
@@ -1208,7 +1302,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           className="flex items-center justify-center text-xs text-muted-foreground"
           style={{ height: pullDistance }}
         >
-          {isRefreshing ? 'Refreshing…' : 'Pull to refresh'}
+          {isRefreshing
+            ? tt('calendar.refreshing', 'Refreshing…')
+            : tt('calendar.pullToRefresh', 'Pull to refresh')}
         </div>
       )}
       <div className="bg-background h-[calc(100vh-120px)] sm:h-[calc(100vh-160px)] md:h-[calc(100vh-200px)] min-h-[400px] sm:min-h-[600px]">
@@ -1316,7 +1412,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>New event</DialogTitle>
+            <DialogTitle>{tt('calendar.newEvent', 'New event')}</DialogTitle>
             <DialogDescription>
               {quickCreate && (() => {
                 const hasRange = quickCreate.end && quickCreate.end.getTime() !== quickCreate.start.getTime();
@@ -1325,12 +1421,12 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
                   const fmt = (d: Date) => d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
                   return <>{datePart} · {fmt(quickCreate.start)} – {fmt(quickCreate.end!)}</>;
                 }
-                return <>On {datePart}</>;
+                return <>{t('calendar.onDate', { date: datePart, defaultValue: 'On {{date}}' })}</>;
               })()}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="quick-create-title">Title</Label>
+            <Label htmlFor="quick-create-title">{tt('calendar.eventTitle', 'Title')}</Label>
             <Input
               id="quick-create-title"
               autoFocus
@@ -1342,7 +1438,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
                   void submitQuickCreate();
                 }
               }}
-              placeholder="What's this event about?"
+              placeholder={tt('calendar.eventTitlePlaceholder', "What's this event about?")}
               disabled={quickCreate?.submitting}
             />
             {quickCreate?.error && (
@@ -1355,13 +1451,15 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
               onClick={() => setQuickCreate(null)}
               disabled={quickCreate?.submitting}
             >
-              Cancel
+              {tt('common.cancel', 'Cancel')}
             </Button>
             <Button
               onClick={() => void submitQuickCreate()}
               disabled={quickCreate?.submitting || !quickCreate?.title.trim()}
             >
-              {quickCreate?.submitting ? 'Creating…' : 'Create'}
+              {quickCreate?.submitting
+                ? tt('calendar.creating', 'Creating…')
+                : tt('common.create', 'Create')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -527,7 +527,8 @@ export function appDocsDirs(root) {
  * Pages at the repository ROOT that join the scan set by name.
  *
  * objectui#7115. Between this gate's surface (`content/docs` + the package
- * READMEs) and `check-doc-component-types.mjs`'s (`content/docs` alone), the
+ * READMEs) and `check-doc-component-types.mjs`'s (`content/docs` alone AT THE
+ * TIME — it has since taken the package-README leg too, objectui#8115), the
  * root `README.md` fell through: the most-read authored file in the repository —
  * the GitHub landing page and the npm page for the workspace — was read by NO
  * doc gate at all. It taught the unregistered type `stat-card` four times in its
@@ -821,7 +822,7 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  *   content/docs/**                 ✓        ✓       ✓
  *   apps/<app>/docs/**              ✓        ✓       ✓     objectui#6600
  *   README.md                       ✓        ✓       ✓     objectui#7115
- *   packages/<name>/README.md       ✓        ✓       ✗     ships inside `files`
+ *   packages/<name>/README.md       ✓        ✓       ✓     objectui#7896 / #8115
  *   nested packages README.md       ✗        ✓       ✗     objectui#7308
  *   docs/*.md (top level only)      ✗        ✓       ✗     objectui#7856 card 1
  *   docs/adr/**                     ✗        ✓       ✗     objectui#7856 card 2
@@ -847,11 +848,19 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * surface is not this card's to do, so the divergence is NAMED and every OTHER
  * drift between the two walks still fails that pin.
  *
- * `check-doc-component-types` does not read the package READMEs — it asks
- * whether a documented `type` literal is a registered component key, and a
- * package README teaches its own package's API rather than the schema vocabulary.
- * That is the ONE deliberate asymmetry, and it is why that gate cannot join the
- * document-list equality pin the other two share.
+ * ⚠️ This paragraph used to state the opposite of the row above, and the reason
+ * it gave was measured FALSE rather than merely going stale: it said
+ * `check-doc-component-types` does not read the package READMEs because "a
+ * package README teaches its own package's API rather than the schema
+ * vocabulary". Those READMEs teach `type` literals in the schema vocabulary by
+ * the hundred, they ship to npm inside each package's `files`, and until
+ * objectui#7896's fourth leg landed (objectui#8115) their `type` literals were
+ * read twice by this gate and `check-doc-fence-languages` and judged by neither
+ * — objectui#7115's geometry one directory over, which that gate's own
+ * `PACKAGE_READMES` docblock records with the measurement that proved it.
+ *
+ * ⇒ The remaining asymmetries are the four rows carrying a `✗`, and they are
+ * legs THIS gate holds alone rather than a question about vocabularies.
  *
  * ⚠️ EVERYTHING ELSE authored in markdown is read by no doc gate at all. That is
  * a statement of what the roots are today, ⛔ not a plan and not a promise. In

@@ -25,6 +25,16 @@
  * findings via the shared {@link publishHealthFromResponse} instead of a blind
  * "Published!", and disappears when the count reaches zero.
  *
+ * objectui#10039 — that publish now goes through `MetadataClient`, not a bare
+ * `fetch`. The route answers the runtime authoring gate's per-draft advisories
+ * on each `published[]` element (objectstack#9343) and the client is the seam
+ * that reports them: it emits one advisory event per advised item into the
+ * same sink, renderer and wording every other write door uses. A bare fetch
+ * had nothing to report THROUGH, so every one of those findings was parsed by
+ * nobody — while the probe findings a few lines below were already shouting.
+ * objectui#6965 / PR objectui#10038 did this for the two sibling call sites;
+ * this is the same move, not a second mechanism.
+ *
  * Count freshness: re-read when the package binding changes and whenever the
  * turn goes idle (`idle` flips true) — tool results that stage or publish
  * drafts land inside a turn, so idle edges are exactly when the count can
@@ -41,8 +51,10 @@ import { Button } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { publishHealthFromResponse } from '@object-ui/plugin-chatbot';
 import { useMetadata } from '../../providers/MetadataProvider.js';
+import { useMetadataClient } from '../../views/metadata-admin/useMetadata.js';
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
+import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 
 export interface PendingDraftsBarProps {
   /** The conversation's bound package (ADR-0057 A1.a); undefined = not bound yet. */
@@ -53,6 +65,11 @@ export interface PendingDraftsBarProps {
 
 export function PendingDraftsBar({ packageId, idle }: PendingDraftsBarProps) {
   const { refresh } = useMetadata();
+  // The advisory seam. `useMetadataClient` is the layer that hands the
+  // console's toast renderer to the client, so taking the client from here —
+  // rather than firing the route by hand — is what makes the gate's findings
+  // reach the author at all (objectui#10039).
+  const client = useMetadataClient();
   const { t } = useObjectTranslation();
   const [publishing, setPublishing] = useState(false);
   // objectui#5801 — the shared pending-drafts source. The hook's bus
@@ -74,16 +91,19 @@ export function PendingDraftsBar({ packageId, idle }: PendingDraftsBarProps) {
     if (!packageId || publishing) return;
     setPublishing(true);
     try {
-      const res = await fetch(`/api/v1/packages/${encodeURIComponent(packageId)}/publish-drafts`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: '{}',
-      });
-      const body = await res.json().catch(() => undefined);
-      if (!res.ok) {
+      let body: unknown;
+      try {
+        body = await client.publishPackageDrafts(packageId);
+      } catch (e) {
+        // A non-2xx now throws inside the client, carrying the server's own
+        // message and the parsed body. Same sentence the bare `fetch` showed
+        // (`parseError` reads it off `error.message`), with the ADR-0112
+        // producer-marked `userMessage` preferred when the refusal carries
+        // one — the rule objectui#7959 landed on the sibling call site.
+        const marked = readEnvelopeFailureText((e as { body?: unknown } | null)?.body);
         const message =
-          (body as { error?: { message?: string } } | undefined)?.error?.message ??
+          marked ||
+          (e instanceof Error && e.message ? e.message : '') ||
           t('console.ai.pendingDrafts.failed', { defaultValue: 'Publish failed.' });
         toast.error(message);
         return;
@@ -113,7 +133,7 @@ export function PendingDraftsBar({ packageId, idle }: PendingDraftsBarProps) {
     } finally {
       setPublishing(false);
     }
-  }, [packageId, publishing, refresh, t]);
+  }, [client, packageId, publishing, refresh, t]);
 
   if (!packageId || (count ?? 0) <= 0) return null;
 

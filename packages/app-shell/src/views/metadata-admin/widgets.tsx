@@ -52,6 +52,7 @@ import { usePredicateScope } from '@object-ui/react';
 import { buildPredicateCtx, visibleOptions, type PredicateCtx } from './predicate.js';
 import { foldFilterGroupToSpecRules, FILTER_FOLD_REFUSAL_KEYS } from '../viewFilterFold.js';
 import { ColorVariantPicker } from './color-variant-field.js';
+import type { ConditionScope } from './conditionScope.js';
 import { ConditionBuilder } from './inspectors/ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from './inspectors/expression-envelope.js';
 import { humanizeKey } from './inspectors/json-schema-to-fields.js';
@@ -126,6 +127,81 @@ export interface ObjectActionOption {
  * D3).
  */
 export interface WidgetContext {
+  /**
+   * Which lint scope the schema-driven condition editor may claim on THIS
+   * host's surface — `record`, `flattened`, or `none` for no claim at all
+   * (objectui#8167).
+   *
+   * ## Required, and that is the whole point
+   *
+   * Every other member here is a catalog a host may or may not have fetched, so
+   * absence is a legitimate answer. This one is a VERDICT about the surface the
+   * host is editing, and there is no neutral value: the widget serves every
+   * metadata type by name convention, so before this member existed every
+   * condition field in every generic form fell through to `celAuthoring`'s
+   * `hint.scope ?? 'flattened'` default and linted the retired bare shorthand
+   * CLEAN — on the action and hook tiers, where the runtime binds the row as
+   * the `record` ROOT and the predicate therefore never matches.
+   *
+   * Making it required puts the answer where the question can be answered: the
+   * host knows which metadata type is on screen, the widget never can. A
+   * missing verdict is a compile error at the construction site rather than a
+   * silent `flattened` in front of an author.
+   *
+   * ⛔ This is NOT the widget's own knob and ⛔ not a hard-coded value. A host
+   * editing one fixed surface states its verdict; a host editing many derives
+   * it from the metadata type with `conditionScopeForMetadataType`, whose table
+   * carries the per-tier rulings and the reading behind each one.
+   */
+  conditionScope: ConditionScope;
+  /**
+   * The context subjects a condition editor at this host may offer
+   * (objectui#9953) — `undefined` to declare no narrowing.
+   *
+   * ## Why this is a SECOND member and not a widening of `conditionScope`
+   *
+   * `conditionScope` is a claim about how the CEL is LINTED; it is not a claim
+   * about what the host BINDS, and the two come apart on exactly the tiers this
+   * widget serves. `action`, `hook` and `validation` all rule `'record'`, yet a
+   * hook's condition is evaluated by a server host binding `record` and
+   * `previous` alone while an action's `visible` is evaluated in the browser,
+   * where `user` really is bound. One value could not have carried both
+   * answers, which is why `RECORD_CONDITION_SUBJECTS` refuses to derive itself
+   * from `scope === 'record'`.
+   *
+   * ⛔ Not this widget's own knob, for the same reason `conditionScope` is not:
+   * a host editing one fixed surface states its verdict, and a host editing
+   * many derives it with `conditionSubjectsForMetadataType`.
+   *
+   * `undefined` changes nothing — `ConditionBuilder` keeps `CONTEXT_SUBJECTS`,
+   * so a host that declares no narrowing offers what it always offered. That is
+   * why this member is optional where `conditionScope` is required: a missing
+   * scope silently claimed `flattened`, a missing vocabulary claims nothing.
+   */
+  conditionSubjects?: ReadonlyArray<{ value: string; label?: string }>;
+  /**
+   * The scope roots a condition editor at this host may OFFER (objectui#9856) —
+   * `undefined` to declare no narrowing.
+   *
+   * ## Why a THIRD member, and not a widening of either of the two above
+   *
+   * `conditionScope` is how the predicate is LINTED and `conditionSubjects` is
+   * what the row builder's dropdown may offer. This is what the RAW editor's
+   * autocomplete may offer, and it is the only one of the three whose default
+   * is already a narrowing: `ConditionBuilder` answers a `scope="record"` mount
+   * with `RECORD_CONDITION_ROOTS` — the set every host of a record-scoped
+   * condition binds — so the tier that needs a declaration here is the CLIENT
+   * one, the mirror of the tier `conditionSubjects` narrows. One member could
+   * not have carried both directions.
+   *
+   * ⛔ Not this widget's own knob, for the reason the two above give: a host
+   * editing one fixed surface states its verdict, and a host editing many
+   * derives it with `conditionRootsForMetadataType`.
+   *
+   * `undefined` changes nothing — the builder keeps the default its `scope`
+   * implies, which is what every mount here offered before this member existed.
+   */
+  conditionRoots?: string[];
   /** Names of all object metadata records (for `ref:object`, `object-selector`). */
   objectNames?: LoadState<string[]>;
   /**
@@ -186,18 +262,28 @@ export interface WidgetProps {
    * `<Label htmlFor>` points at it, so the widget must put it on the LABELABLE
    * element that is the field's primary control (objectui#4871).
    *
-   * A `'group'` widget receives `undefined` here on purpose: `<label for>` is
-   * inert on a container, and taking the id anyway would make the IDREF resolve
-   * while still naming nobody — the cosmetic half-fix objectui#4010 refused.
+   * From `FieldRow` a `'group'` widget receives `undefined` here on purpose:
+   * `<label for>` is inert on a container, and taking the id anyway would make
+   * the `for` resolve while still naming nobody — the cosmetic half-fix
+   * objectui#4010 refused. A grid CELL has no `<label>` that could dangle, so it
+   * hands its cell id to EVERY widget as a plain anchor; a `'group'` widget has
+   * nowhere to put it and the cell's name arrives by IDREF either way.
    */
   id?: string;
   /**
-   * The host label's own `id`, handed down ONLY to a widget declared
-   * `labelling: 'group'`. The widget answers it with `aria-labelledby` on the
-   * surface that IS the field (a `role="group"` / `role="radiogroup"`
-   * container), which is the one naming channel that works on a non-labelable
-   * element. `undefined` for `'control'` widgets — one label, one channel
-   * (objectui#3978).
+   * An IDREF naming whatever this widget renders. Every widget answers it on the
+   * surface that IS the field, in BOTH declared labellings (objectui#9889) —
+   * `'group'` on its `role="group"` / `role="radiogroup"` container, `'control'`
+   * on its primary labelable element through {@link controlNaming}.
+   *
+   * From `FieldRow` this is the host label's own `id` and it reaches a
+   * `'group'` widget only: an IDREF is the one channel that works on a
+   * non-labelable surface, while a `'control'` widget is already named by the
+   * `<label for>` — one label, one channel (objectui#3978). ⚠️ That mutual
+   * exclusion is `FieldRow`'s rule about A LABEL, ⛔ not a rule about a widget.
+   * A grid/table repeater cell has no `<label>` at all and passes BOTH
+   * (objectui#5063); a widget that treats them as alternatives renders unnamed
+   * there.
    */
   ariaLabelledBy?: string;
   schema: Record<string, any>;
@@ -218,6 +304,55 @@ export interface WidgetProps {
 }
 
 export type WidgetRenderer = (props: WidgetProps) => React.ReactElement;
+
+/**
+ * The naming props a `labelling: 'control'` widget puts on the ONE labelable
+ * element that is the field's primary control — BOTH channels together, never
+ * one or the other (objectui#9889).
+ *
+ * `labelling` answers exactly one question: can the host's `<label for>` reach a
+ * labelable element? `'control'` says yes, which is why the host hands such a
+ * widget an `id`. It has never answered a SECOND question — which naming
+ * channel the widget consumes — and reading it as though it did is the defect
+ * this helper closes. `FieldRow`'s "exactly one of `id` / `ariaLabelledBy`" is a
+ * rule about A HOST THAT HAS A LABEL, ⛔ not a rule about a widget: a grid/table
+ * repeater CELL has no `<label>` at all (objectui#5063). It writes the column
+ * name once in the `<th>`, names every cell from it by IDREF, keeps the cell id
+ * on the control as a plain anchor — and so hands down BOTH. A widget that reads
+ * only `id` is therefore an UNNAMED edit box in every grid row.
+ *
+ * The two channels cannot both be live, so emitting both is safe rather than a
+ * second association beside a working one (the objectui#3978 hazard):
+ * `aria-labelledby` wins the accessible-name computation over a native
+ * `<label>`, and a host that has a label sends `id` alone while a grid cell that
+ * sends both has no label to compete with.
+ *
+ * ⛔ NOT for the auxiliary affordances beside that control — a chip's remove
+ * button, a reveal toggle, the hex mirror beside a colour swatch. Those carry
+ * their OWN names and are not what the field's label names (the `'control'`
+ * contract in {@link WIDGET_LABELLING}); spreading this over them would rename
+ * every button in a cell after the column and bury the one name that identifies
+ * the control.
+ *
+ * Historical reading, ⛔ not re-derived here: at baseline `fc12bc8c6`, on real
+ * `SchemaForm` renders, every `'group'` widget in {@link WIDGET_LABELLING}
+ * consumed the IDREF and ⛔ no `'control'` widget did. The instrument that
+ * re-derives it is `SchemaForm.controlWidgetGridNaming-9889.test.tsx`, which
+ * drives each registered widget into a grid cell and reads the accessible name.
+ *
+ * File-local on purpose: every widget in this registry lives in this module,
+ * and the package barrel re-exports named symbols one by one — so exporting
+ * this would enlarge a published surface that nothing outside can use.
+ */
+function controlNaming({
+  id,
+  ariaLabelledBy,
+}: Pick<WidgetProps, 'id' | 'ariaLabelledBy'>): {
+  id?: string;
+  'aria-labelledby'?: string;
+} {
+  return { id, 'aria-labelledby': ariaLabelledBy };
+}
 
 /* -------------------------------------------------------------------------- */
 /* Shared failure state for every option picker (objectui#5170)               */
@@ -291,6 +426,7 @@ function PickerLoadFailure({
 
 function RefObjectWidget({
   id,
+  ariaLabelledBy,
   value,
   onChange,
   readOnly,
@@ -312,7 +448,7 @@ function RefObjectWidget({
       <div className="space-y-1.5">
         <PickerLoadFailure message={objectsState.message} testId="ref-object-load-failed" />
         <Input
-          id={id}
+          {...controlNaming({ id, ariaLabelledBy })}
           value={v}
           disabled={readOnly}
           onChange={(e) => onChange(e.target.value || undefined)}
@@ -323,7 +459,7 @@ function RefObjectWidget({
   if (isLoading(objectsState)) {
     return (
       <Input
-        id={id}
+        {...controlNaming({ id, ariaLabelledBy })}
         value={v}
         disabled
         placeholder={t('engine.form.loadingObjects', locale)}
@@ -336,7 +472,7 @@ function RefObjectWidget({
   if (names.length === 0) {
     return (
       <Input
-        id={id}
+        {...controlNaming({ id, ariaLabelledBy })}
         value={v}
         disabled={readOnly}
         onChange={(e) => onChange(e.target.value || undefined)}
@@ -350,7 +486,7 @@ function RefObjectWidget({
       onValueChange={(next) => onChange(next || undefined)}
       disabled={readOnly}
     >
-      <SelectTrigger id={id}>
+      <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
         <SelectValue placeholder={t('engine.form.selectObject', locale)} />
       </SelectTrigger>
       <SelectContent>
@@ -430,7 +566,7 @@ export function collectPageComponentIds(
  * page has no components yet, degrades to a free-text input so the field stays
  * editable. Mirrors {@link RefObjectWidget} / {@link ViewRefWidget}.
  */
-function RefComponentWidget({ id, value, onChange, readOnly, context }: WidgetProps) {
+function RefComponentWidget({ id, ariaLabelledBy, value, onChange, readOnly, context }: WidgetProps) {
   const locale = useMetadataLocale();
   const components = context?.componentIds ?? [];
   const current = value == null ? '' : String(value);
@@ -438,7 +574,7 @@ function RefComponentWidget({ id, value, onChange, readOnly, context }: WidgetPr
   if (components.length === 0) {
     return (
       <Input
-        id={id}
+        {...controlNaming({ id, ariaLabelledBy })}
         value={current}
         disabled={readOnly}
         onChange={(e) => onChange(e.target.value || undefined)}
@@ -453,7 +589,7 @@ function RefComponentWidget({ id, value, onChange, readOnly, context }: WidgetPr
       onValueChange={(v) => onChange(v === NO_FIELD ? undefined : v)}
       disabled={readOnly}
     >
-      <SelectTrigger id={id}>
+      <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
         <SelectValue placeholder={t('engine.form.selectComponent', locale)} />
       </SelectTrigger>
       <SelectContent>
@@ -489,6 +625,7 @@ function RefComponentWidget({ id, value, onChange, readOnly, context }: WidgetPr
 
 function ObjectSelectorWidget({
   id,
+  ariaLabelledBy,
   value,
   onChange,
   readOnly,
@@ -527,8 +664,25 @@ function ObjectSelectorWidget({
     onChange(multiple ? newSelection : '');
   };
 
+  /* The freeform entry the FAILURE arm below renders in place of the picker
+     (objectui#9931). Declared with the other hooks so it is unconditional —
+     the arms below return early. It writes the SAME value shape the picker
+     writes (an array when `multiple`, a bare name otherwise), so a name typed
+     while the catalog is unknown round-trips exactly like a picked one. */
+  const [draft, setDraft] = React.useState('');
+  const commitDraft = (raw: string) => {
+    const name = raw.trim();
+    setDraft('');
+    if (readOnly || !name) return;
+    if (!multiple) {
+      onChange(name);
+      return;
+    }
+    if (!selectedValues.includes(name)) onChange([...selectedValues, name]);
+  };
+
   if (isLoading(objectsState)) {
-    return <Input id={id} value={t('engine.form.loadingObjects', locale)} readOnly disabled />;
+    return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.loadingObjects', locale)} readOnly disabled />;
   }
 
   // The object list FAILED to load (objectui#5170). The picker below would
@@ -560,11 +714,33 @@ function ObjectSelectorWidget({
     </div>
   );
 
+  // objectui#9931 — until this card the arm rendered chips plus the banner and
+  // NOTHING labelable, so the host's `<label for>` dangled and the field had no
+  // accessible name (in the card layout too, where the visible label is right
+  // there). The chips answer "see and remove"; the freeform box is the arm's
+  // primary control — the only way left to ADD a value — and it carries the
+  // host naming. The in-file shape is `string-tags`: chips beside one entry box
+  // that takes {@link controlNaming}. ⛔ Never the picker itself, disabled: see
+  // the comment above.
   if (objectsState.status === 'error') {
     return (
       <div className="space-y-2">
         {selectedChips}
         <PickerLoadFailure message={objectsState.message} testId="object-selector-load-failed" />
+        <Input
+          {...controlNaming({ id, ariaLabelledBy })}
+          data-testid="object-selector-freeform"
+          value={draft}
+          disabled={readOnly}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitDraft(draft);
+            }
+          }}
+          onBlur={() => commitDraft(draft)}
+        />
       </div>
     );
   }
@@ -582,7 +758,7 @@ function ObjectSelectorWidget({
         onValueChange={handleToggle}
         disabled={readOnly || names.length === 0}
       >
-        <SelectTrigger id={id}>
+        <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
           <SelectValue placeholder={multiple ? t('engine.form.addObjects', locale) : t('engine.form.selectObject', locale)} />
         </SelectTrigger>
         <SelectContent>
@@ -661,6 +837,7 @@ async function fetchFieldSelectorOptions(objectName: string): Promise<FieldSelec
 
 function FieldSelectorWidget({
   id,
+  ariaLabelledBy,
   value,
   onChange,
   readOnly,
@@ -716,12 +893,28 @@ function FieldSelectorWidget({
     onChange(multiple ? newSelection : '');
   };
 
+  /* The freeform entry the FAILURE arm below renders in place of the picker
+     (objectui#9931), in the same shape {@link ObjectSelectorWidget} uses.
+     Declared with the other hooks so it is unconditional — the arms below
+     return early. */
+  const [draft, setDraft] = React.useState('');
+  const commitDraft = (raw: string) => {
+    const name = raw.trim();
+    setDraft('');
+    if (readOnly || !name) return;
+    if (!multiple) {
+      onChange(name);
+      return;
+    }
+    if (!selectedValues.includes(name)) onChange([...selectedValues, name]);
+  };
+
   if (!objectName) {
-    return <Input id={id} value={t('engine.form.selectObjectFirst', locale)} readOnly disabled />;
+    return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.selectObjectFirst', locale)} readOnly disabled />;
   }
 
   if (isLoading(fieldsState)) {
-    return <Input id={id} value={t('engine.form.loadingFields', locale)} readOnly disabled />;
+    return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.loadingFields', locale)} readOnly disabled />;
   }
 
   /* Whatever is already stored, kept visible and removable in EVERY completed
@@ -757,11 +950,33 @@ function FieldSelectorWidget({
   // `field-ref` uses): with no options it could only render as a dead,
   // disabled dropdown next to a banner saying the options are unknown, which
   // is the very conflation this arm exists to end.
+  //
+  // objectui#9931 — replacing the picker left this arm with no labelable
+  // element at all, so the host's `<label for>` dangled and the field lost its
+  // accessible name. The replacement stands; what is added is the one control
+  // the `'control'` declaration requires in EVERY branch — a freeform entry
+  // that carries {@link controlNaming} and is the arm's only way to add a
+  // field name while the catalog is unknown. ⛔ Still not the dropdown: the
+  // paragraph above is why.
   if (loadError) {
     return (
       <div className="space-y-2">
         {selectedChips}
         <PickerLoadFailure message={loadError} testId="field-selector-load-failed" />
+        <Input
+          {...controlNaming({ id, ariaLabelledBy })}
+          data-testid="field-selector-freeform"
+          value={draft}
+          disabled={readOnly}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitDraft(draft);
+            }
+          }}
+          onBlur={() => commitDraft(draft)}
+        />
       </div>
     );
   }
@@ -779,7 +994,7 @@ function FieldSelectorWidget({
         onValueChange={handleToggle}
         disabled={readOnly || fields.length === 0}
       >
-        <SelectTrigger id={id}>
+        <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
           <SelectValue placeholder={multiple ? t('engine.form.addFields', locale) : t('engine.form.selectField', locale)} />
         </SelectTrigger>
         <SelectContent>
@@ -1066,6 +1281,7 @@ function RowCell({
 
 function StringTagsWidget({
   id,
+  ariaLabelledBy,
   value,
   onChange,
   readOnly,
@@ -1113,7 +1329,7 @@ function StringTagsWidget({
           </span>
         ))}
         <input
-          id={id}
+          {...controlNaming({ id, ariaLabelledBy })}
           type="text"
           value={draft}
           disabled={readOnly}
@@ -1275,7 +1491,7 @@ const NO_FIELD = '__none__';
  * xAxisField, …). Field list comes from `context.objectFields`; a value not
  * present in the catalog is still shown so stale/custom values survive.
  */
-function FieldRefWidget({ id, value, onChange, readOnly, context }: WidgetProps) {
+function FieldRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context }: WidgetProps) {
   const locale = useMetadataLocale();
   const fieldsState = context?.objectFields ?? NOT_ASKED;
   const current = value == null ? '' : String(value);
@@ -1285,13 +1501,36 @@ function FieldRefWidget({ id, value, onChange, readOnly, context }: WidgetProps)
   // that sentence names a cause that is not the real one, which is why the
   // failure arm replaces the picker rather than decorating it (the shape #5110
   // landed for the References panel).
+  //
+  // objectui#9931 — the failure arm is a branch this widget can render, so the
+  // `'control'` declaration in {@link WIDGET_LABELLING} governs it like every
+  // other: the host's `<label for>` must land on a labelable element here too.
+  // `PickerLoadFailure` is a `div[role="status"]`, which no `for` can address,
+  // so the banner is rendered BESIDE a freeform box that carries the naming and
+  // keeps the stored field name visible and editable. That is the shape
+  // `ref:object` already uses on this same arm, and the one
+  // {@link PickerLoadFailure}'s own contract states for every picker — "keeps
+  // whatever control lets the author see and edit the value already stored,
+  // because a failed catalog must not also block authoring". ⛔ NOT the picker
+  // itself: rendering a dead, option-less dropdown is the conflation this arm
+  // exists to end.
   if (fieldsState.status === 'error') {
-    return <PickerLoadFailure message={fieldsState.message} testId="field-ref-load-failed" />;
+    return (
+      <div className="space-y-1.5">
+        <PickerLoadFailure message={fieldsState.message} testId="field-ref-load-failed" />
+        <Input
+          {...controlNaming({ id, ariaLabelledBy })}
+          value={current}
+          disabled={readOnly}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </div>
+    );
   }
   // Same in-file precedent as `ref:object` / `object-selector`: an unanswered
   // question renders as "asking", never as an answer of none.
   if (isLoading(fieldsState)) {
-    return <Input id={id} value={t('engine.form.loadingOptions', locale)} readOnly disabled />;
+    return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.loadingOptions', locale)} readOnly disabled />;
   }
   const fields = offeredOptions(fieldsState, NO_OBJECT_FIELDS);
   const inCatalog = !current || fields.some((f) => f.name === current);
@@ -1301,7 +1540,7 @@ function FieldRefWidget({ id, value, onChange, readOnly, context }: WidgetProps)
       onValueChange={(v) => onChange(v === NO_FIELD ? '' : v)}
       disabled={readOnly}
     >
-      <SelectTrigger id={id}>
+      <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
         <SelectValue
           placeholder={fields.length ? t('engine.form.selectField', locale) : t('engine.form.noObjectBound', locale)}
         />
@@ -1355,18 +1594,33 @@ export function resolveStoredViewRef(
  * field, which the protocol treats as the object's default view. Replaces the
  * free-text input where an author could type a non-existent view name.
  */
-function ViewRefWidget({ id, value, onChange, readOnly, context }: WidgetProps) {
+function ViewRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context }: WidgetProps) {
   const locale = useMetadataLocale();
   const viewsState = context?.objectViews ?? NOT_ASKED;
   const current = value == null ? '' : String(value);
   // objectui#5170 — same four arms as {@link FieldRefWidget}. The empty
   // placeholder says "No object bound", which is false when the object IS bound
   // and only its view catalog could not be fetched.
+  //
+  // objectui#9931 — same reading as {@link FieldRefWidget}'s failure arm: a
+  // branch this widget can render is a branch the `'control'` declaration
+  // covers, so the freeform box beside the banner carries the host naming and
+  // keeps the stored view name editable while the catalog is unknown.
   if (viewsState.status === 'error') {
-    return <PickerLoadFailure message={viewsState.message} testId="view-ref-load-failed" />;
+    return (
+      <div className="space-y-1.5">
+        <PickerLoadFailure message={viewsState.message} testId="view-ref-load-failed" />
+        <Input
+          {...controlNaming({ id, ariaLabelledBy })}
+          value={current}
+          disabled={readOnly}
+          onChange={(e) => onChange(e.target.value || undefined)}
+        />
+      </div>
+    );
   }
   if (isLoading(viewsState)) {
-    return <Input id={id} value={t('engine.form.loadingOptions', locale)} readOnly disabled />;
+    return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.loadingOptions', locale)} readOnly disabled />;
   }
   const views = offeredOptions(viewsState, NO_OBJECT_VIEWS);
   // Mirror the runtime resolver (InterfaceListPage.resolveSourceView): a stored
@@ -1381,7 +1635,7 @@ function ViewRefWidget({ id, value, onChange, readOnly, context }: WidgetProps) 
       onValueChange={(v) => onChange(v === NO_FIELD ? undefined : v)}
       disabled={readOnly}
     >
-      <SelectTrigger id={id}>
+      <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
         <SelectValue
           placeholder={views.length ? t('engine.form.selectEllipsis', locale) : t('engine.form.noObjectBound', locale)}
         />
@@ -1575,7 +1829,7 @@ const ICON_RESULT_LIMIT = 120;
  * Built inline (no Radix portal) so the search + grid render eagerly — the same
  * jsdom-friendly choice the other pickers' tests rely on.
  */
-export function IconPickerWidget({ id, value, onChange, readOnly }: WidgetProps) {
+export function IconPickerWidget({ id, ariaLabelledBy, value, onChange, readOnly }: WidgetProps) {
   const locale = useMetadataLocale();
   const current = value == null ? '' : String(value);
   const [open, setOpen] = React.useState(false);
@@ -1601,7 +1855,7 @@ export function IconPickerWidget({ id, value, onChange, readOnly }: WidgetProps)
   return (
     <>
       <button
-        id={id}
+        {...controlNaming({ id, ariaLabelledBy })}
         type="button"
         role="combobox"
         aria-haspopup="dialog"
@@ -2125,7 +2379,7 @@ const SPEC_TO_FB: Record<string, string> = {
 
 interface FilterRuleLite { field: string; operator: string; value?: unknown }
 
-function FilterBuilderField({ value, onChange, fields, readOnly, id, loadError }: {
+function FilterBuilderField({ value, onChange, fields, readOnly, id, ariaLabelledBy, loadError }: {
   value?: FilterRuleLite[];
   onChange: (rules: FilterRuleLite[]) => void;
   fields: Array<{ name: string; label?: string; type?: string }>;
@@ -2144,6 +2398,12 @@ function FilterBuilderField({ value, onChange, fields, readOnly, id, loadError }
    * carries its own name instead.
    */
   id?: string;
+  /**
+   * An IDREF naming the trigger button, for a host with no `<label>` to point
+   * at it — a grid/table repeater cell (objectui#5063/#9889). Passed by the
+   * standalone widget only, for the same reason as `id`.
+   */
+  ariaLabelledBy?: string;
 }) {
   const locale = useMetadataLocale();
   // The metadata-admin `t` above is a static engine-string table; refusal
@@ -2182,7 +2442,7 @@ function FilterBuilderField({ value, onChange, fields, readOnly, id, loadError }
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button id={id} variant="outline" size="sm" disabled={readOnly}
+        <Button {...controlNaming({ id, ariaLabelledBy })} variant="outline" size="sm" disabled={readOnly}
           className="h-8 w-full justify-between text-xs font-normal" data-testid="filter-builder-trigger">
           <span className="truncate text-left">{summary || <span className="text-muted-foreground">+ Add filter…</span>}</span>
           <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
@@ -2201,7 +2461,7 @@ function FilterBuilderField({ value, onChange, fields, readOnly, id, loadError }
   );
 }
 
-function FilterBuilderWidget({ id, value, onChange, readOnly, context }: WidgetProps) {
+function FilterBuilderWidget({ id, ariaLabelledBy, value, onChange, readOnly, context }: WidgetProps) {
   const fieldsState = context?.objectFields ?? NOT_ASKED;
   const loadError = loadErrorOf(fieldsState);
   const fields = fieldsState.status === 'error'
@@ -2213,6 +2473,7 @@ function FilterBuilderWidget({ id, value, onChange, readOnly, context }: WidgetP
     // the id the host hands down (objectui#4871: measured DANGLING before).
     <FilterBuilderField
       id={id}
+      ariaLabelledBy={ariaLabelledBy}
       value={value as FilterRuleLite[] | undefined}
       onChange={(rules) => onChange(rules.length ? rules : undefined)}
       fields={fields}
@@ -2345,13 +2606,13 @@ function ColorSwatchGroupWidget({ value, onChange, readOnly, schema, fieldSpec, 
  * `<label for>` names it. The hex box beside it edits the same value and carries
  * its own name — before objectui#4871 it had none at all.
  */
-function ColorInputWidget({ id, value, onChange, readOnly }: WidgetProps) {
+function ColorInputWidget({ id, ariaLabelledBy, value, onChange, readOnly }: WidgetProps) {
   const locale = useMetadataLocale();
   const v = value == null ? '' : String(value);
   return (
     <div className="flex items-center gap-2">
       <input
-        id={id}
+        {...controlNaming({ id, ariaLabelledBy })}
         type="color"
         value={/^#([0-9a-f]{6})$/i.test(v) ? v : '#000000'}
         disabled={readOnly}
@@ -2361,7 +2622,7 @@ function ColorInputWidget({ id, value, onChange, readOnly }: WidgetProps) {
         // the accessible-name computation, so keeping the old constant here
         // would have overridden the field's visible label with "Color" — one
         // label, two channels, the broken one louder (objectui#3978).
-        aria-label={id ? undefined : t('engine.form.color', locale)}
+        aria-label={id || ariaLabelledBy ? undefined : t('engine.form.color', locale)}
       />
       <Input
         value={v}
@@ -2398,18 +2659,58 @@ function ConditionWidget({ value, onChange, readOnly, context, ariaLabelledBy }:
   const fieldsState = context?.objectFields ?? NOT_ASKED;
   const conditionFields =
     fieldsState.status === 'loaded' ? fieldsState.data : undefined;
+  // objectui#8167 — the host's verdict about its own surface, never this
+  // widget's guess. `undefined` is the one case this widget decides, and it
+  // decides it by changing NOTHING: a host that hands down no `WidgetContext`
+  // at all has made no claim, so the builder keeps forwarding no scope and
+  // `celAuthoring`'s `hint.scope ?? 'flattened'` answers exactly what it
+  // answered before this member existed. ⛔ Not `'none'`: that is a decision,
+  // and swapping the editor under a host that never asked for it would be this
+  // change reaching mounts nobody ruled on.
+  const conditionScope = context?.conditionScope;
+  // objectui#9953 — the OTHER half of the host's verdict, and a separate one:
+  // the scope above says how this predicate is linted, this says which subjects
+  // its evaluator actually binds. `undefined` is the unchanged case by
+  // construction — an omitted `subjects` leaves `ConditionBuilder` on
+  // `CONTEXT_SUBJECTS`, exactly what every mount here offered before.
+  const conditionSubjects = context?.conditionSubjects;
+  // objectui#9856 — the THIRD half, and the one that widens rather than
+  // narrows: the builder already answers `scope="record"` with the roots every
+  // host of a record-scoped condition binds, so a client-evaluated tier is the
+  // one that has to say it binds more. `undefined` is the unchanged case by
+  // construction — it leaves that default exactly where objectui#9645 put it.
+  const conditionRoots = context?.conditionRoots;
   return (
     // `ConditionBuilder` is a multi-control composite (field / operator / value
     // rows plus add-condition buttons) shared with the curated inspectors, so
     // the naming wrapper lives HERE — the widget owns the host contract, the
-    // shared builder stays host-agnostic (objectui#4871).
+    // shared builder stays host-agnostic (objectui#4871). The wrapper stays put
+    // on both arms: `WIDGET_LABELLING` declares this key `'group'`, so the host
+    // sends a label id and no control id, and that contract cannot vary with
+    // the scope.
     <div role="group" aria-labelledby={ariaLabelledBy}>
-      <ConditionBuilder
-        value={expressionSource(value)}
-        onCommit={(cel) => onChange(writeExpressionSource(value, cel))}
-        fields={conditionFields}
-        disabled={readOnly}
-      />
+      {conditionScope === 'none' ? (
+        // No lint claim is honest on this surface, so the field gets the plain
+        // string editor every non-predicate field gets — no builder, no scope,
+        // no verdict. The read/write pair still runs, so an ADR-0089 envelope
+        // round-trips here exactly as it does through the builder.
+        <Input
+          aria-labelledby={ariaLabelledBy}
+          value={expressionSource(value)}
+          onChange={(e) => onChange(writeExpressionSource(value, e.target.value))}
+          disabled={readOnly}
+        />
+      ) : (
+        <ConditionBuilder
+          value={expressionSource(value)}
+          onCommit={(cel) => onChange(writeExpressionSource(value, cel))}
+          fields={conditionFields}
+          disabled={readOnly}
+          scope={conditionScope}
+          subjects={conditionSubjects ? { context: conditionSubjects } : undefined}
+          roots={conditionRoots}
+        />
+      )}
     </div>
   );
 }
@@ -2453,7 +2754,7 @@ export const OBJECTUI_SECRET_MASK = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\
  * value (new secret), `OBJECTUI_SECRET_MASK` (blank + existing = keep, a no-op on write),
  * `null` (Clear), or `undefined` (blank + none).
  */
-function SecretWidget({ value, onChange, readOnly, schema, id }: WidgetProps) {
+function SecretWidget({ value, onChange, readOnly, schema, id, ariaLabelledBy }: WidgetProps) {
   const locale = useMetadataLocale();
   const stored = value === OBJECTUI_SECRET_MASK;
   const [reveal, setReveal] = React.useState(false);
@@ -2466,7 +2767,7 @@ function SecretWidget({ value, onChange, readOnly, schema, id }: WidgetProps) {
   return (
     <div className="flex items-center gap-2">
       <Input
-        id={id}
+        {...controlNaming({ id, ariaLabelledBy })}
         type={reveal ? 'text' : 'password'}
         value={draft}
         disabled={readOnly}
@@ -2481,7 +2782,7 @@ function SecretWidget({ value, onChange, readOnly, schema, id }: WidgetProps) {
         // visible field label ("API Key", "Client Secret") replaced by the
         // constant "Secret value" on every SchemaForm render. Kept only for a
         // caller that renders this widget with no host label at all.
-        aria-label={id ? undefined : t('engine.form.secretValue', locale)}
+        aria-label={id || ariaLabelledBy ? undefined : t('engine.form.secretValue', locale)}
       />
       <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" disabled={readOnly} aria-label={reveal ? t('engine.form.hideValue', locale) : t('engine.form.revealValue', locale)} onClick={() => setReveal((r) => !r)}>
         {reveal ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -2666,12 +2967,34 @@ export type WidgetLabelling = Exclude<NonNullable<ComponentMeta['labelling']>, '
  * ## `'control'` — the host's `<label for>` reaches a real labelable element
  *
  * The widget puts `id` on the ONE labelable element that is the field's primary
- * control, in EVERY branch it can render (loading, empty-catalog, read-only).
- * Auxiliary affordances beside it — a chip's remove button, a reveal toggle —
- * keep their own names; they are not what the field's label names. "In every
+ * control, in EVERY branch it can render (loading, FAILED-catalog,
+ * empty-catalog, read-only) —
+ * and, on that SAME element, any `ariaLabelledBy` the host hands down
+ * ({@link controlNaming}, objectui#9889). The id is the `<label for>` channel
+ * and the IDREF is the channel a host with NO label uses; a grid/table cell is
+ * that host, so declaring `'control'` has never meant "reads no IDREF".
+ * ⛔ Auxiliary affordances beside that control — a chip's remove button, a
+ * reveal toggle, the hex mirror beside a colour input — are EXEMPT and keep
+ * their own names; they are not what the field's label names, and re-naming
+ * them after the column would leave a grid row full of controls that all
+ * announce the same thing. "In every
  * branch" is the load-bearing half: `field-multi` and `action-multi` look like
  * this in the editable state and were measured DANGLING in the read-only one,
  * which is why they are NOT here.
+ *
+ * ⭐ The parenthetical is EXAMPLES, and the quantifier before it is the rule —
+ * settled on the record by objectui#9931, which read the two apart because the
+ * catalog-FAILURE arm was not in the list. Read as exhaustive, the list would
+ * make this table's own declaration false about widgets it names, and it would
+ * contradict the membership test the paragraph above applies: `field-multi` and
+ * `action-multi` are excluded for dangling in ONE arm — whichever arm that
+ * happens to be, not one of three enumerated ones. The failure branch is named
+ * in the list now so no later reader has to re-derive that; the rule it glosses
+ * is unchanged, and no widget's declaration moved. ⛔ The list is still not the
+ * scope — the instrument that re-derives which branches every `'control'`
+ * widget actually names is
+ * `SchemaForm.controlWidgetFailureArmNaming-9931.test.tsx`, which takes its
+ * population from this table rather than from any list in prose.
  *
  * ## `'group'` — no `<label for>` can reach it; the WIDGET answers by IDREF
  *

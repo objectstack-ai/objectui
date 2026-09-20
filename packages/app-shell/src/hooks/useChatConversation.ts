@@ -477,8 +477,10 @@ export function sanitizeChatMessagesForCache(
           //
           //   * `output` is the only carrier that survives API mode's SDK
           //     store, because `useObjectChat`'s `aiInitialMessages` rebuilds
-          //     each part from `{type,toolCallId,toolName,input,output,
-          //     errorText,state}` and drops every other key, after which
+          //     each part through `toSdkToolPart`, which constructs the chat
+          //     runtime's own discriminated tool part — a per-state key set
+          //     that carries `output` and has no place for a cache-side key —
+          //     and drops every other key, after which
           //     `extractToolInvocations` re-derives the id by re-parsing the
           //     result. A pending-only turn — the only shape API mode can
           //     actually produce, since `detectDraftResult` and

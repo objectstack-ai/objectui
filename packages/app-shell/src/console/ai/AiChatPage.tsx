@@ -22,6 +22,8 @@ import { Package as PackageIcon, Sparkles as SparklesIcon } from 'lucide-react';
 import { useAdapter } from '../../providers/AdapterProvider.js';
 import { useMetadata } from '../../providers/MetadataProvider.js';
 import { formatPublishFailures, type PublishFailure } from '../../views/studio-design/metadataError.js';
+import { useMetadataClient } from '../../views/metadata-admin/useMetadata.js';
+import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { resolveKeyedI18nLabel } from '../../utils/index.js';
 import { resolvePublicShareBase } from '../organizations/resolveHomeUrl.js';
 import { ExcelImportBar } from './ExcelImportBar.js';
@@ -108,6 +110,7 @@ import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
 import { getRuntimeConfig, isAiStudioEnabled } from '../../runtime-config.js';
 import { makerConvergedOnBuild, makerVisibleAgents } from '../../hooks/surfaceAgent.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
+import { useHomePath } from '../../hooks/useHomePath.js';
 import { cloudConsoleUrl } from '../marketplace/marketplaceApi.js';
 import { useNavigationContext } from '../../context/NavigationContext.js';
 import {
@@ -682,7 +685,13 @@ export function matchAiChatShortcut(e: {
  *  2. History back, when react-router has an in-app entry to return to
  *     (`window.history.state.idx > 0` — the router stamps a monotonically
  *     increasing `idx` on entries it creates).
- *  3. `/home` — the page was the entry point (deep link, fresh tab).
+ *  3. `homePath` — the page was the entry point (deep link, fresh tab).
+ *
+ * `homePath` is a PARAMETER, not a literal, since objectui#7373: home is
+ * whatever the deployment declared (`useHomePath()` at the call site), and on a
+ * control plane the environment launcher is the wrong screen to land a customer
+ * on. Required rather than defaulted, so a new call site cannot silently
+ * reintroduce the literal this card removed.
  *
  * The dock itself is armed to open expanded separately
  * ({@link armChatDockExpanded}); this only picks the landing. Pure + exported
@@ -690,10 +699,11 @@ export function matchAiChatShortcut(e: {
  */
 export function resolveCollapseToDockTarget(
   historyIdx: unknown,
-  storedPath?: string,
+  storedPath: string | undefined,
+  homePath: string,
 ): string | -1 {
   if (storedPath) return storedPath;
-  return typeof historyIdx === 'number' && historyIdx > 0 ? -1 : '/home';
+  return typeof historyIdx === 'number' && historyIdx > 0 ? -1 : homePath;
 }
 
 /** A composer submission held until the conversation id that will carry it exists. */
@@ -833,6 +843,10 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
   const handoffParentConversationId =
     searchParams.get('parentConversationId')?.trim() || undefined;
   const navigate = useNavigate();
+  // objectui#7373 — both exits out of this page (the "no agent here" screen's
+  // Home button, and the collapse-to-dock landing on a cold deep link) follow
+  // the DECLARED landing. Undeclared deployments get the launcher, unchanged.
+  const homePath = useHomePath();
   const { setContext } = useNavigationContext();
 
   useEffect(() => {
@@ -1258,7 +1272,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
             surface back into the dock. Arms the dock to mount expanded, then
             returns to the exact page the user maximized from (remembered by
             the dock's own maximize handlers; falls back to history-back, then
-            /home on a cold deep link) — the dock resolves the same
+            the declared home on a cold deep link) — the dock resolves the same
             (user, product) conversation scope, so it shows THE SAME THREAD.
             Visible on mobile too: under `md` the dock presents as a bottom
             sheet. */}
@@ -1275,6 +1289,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
               const target = resolveCollapseToDockTarget(
                 (window.history.state as { idx?: unknown } | null)?.idx,
                 readDockReturnLocation(),
+                homePath,
               );
               if (target === -1) navigate(-1);
               else navigate(target);
@@ -1288,7 +1303,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
         <AiUnavailable
           hasError={Boolean(agentsError)}
           onRetry={refetchAgents}
-          onHome={() => navigate('/home')}
+          onHome={() => navigate(homePath)}
           t={t}
         />
       ) : (
@@ -1533,6 +1548,12 @@ export function ChatPane({
 }: ChatPaneProps) {
   const { t } = useObjectTranslation();
   const navigate = useNavigate();
+  // The advisory seam for this pane's draft-card publish. `useMetadataClient`
+  // is the layer that hands the console's advisory toast renderer to the
+  // client, so taking the client from here — rather than firing the route by
+  // hand — is what makes the runtime authoring gate's per-draft findings reach
+  // the author at all (objectui#10039).
+  const metadataClient = useMetadataClient();
   // The agent dropdown is a LAUNCHER now (not an in-surface mode toggle): it
   // navigates to `/ai/:agent`, so it naturally lists custom agents and can stay
   // always-available. Shown only when there's more than one agent to switch to.
@@ -2417,34 +2438,57 @@ export function ChatPane({
         onPublishDrafts={async (packageId) => {
           // Promote the conversation's staged drafts to live (ADR-0033 gate —
           // the human still clicks). Same call as the floating chat + PackagesPage.
+          //
+          // objectui#10039 — through `MetadataClient`, not a bare `fetch`. The
+          // route answers the runtime authoring gate's per-draft advisories on
+          // each `published[]` element (objectstack#9343), and the client is
+          // the seam that reports them: one advisory event per advised item,
+          // into the same sink, renderer and wording every other write door
+          // uses. A bare fetch had nothing to report THROUGH — so on the one
+          // surface where the author never sees the metadata they are
+          // publishing, the gate's findings were the thing that vanished.
+          // Same move objectui#6965 / PR objectui#10038 made for the two
+          // sibling call sites.
           try {
-            const res = await fetch(
-              `/api/v1/packages/${encodeURIComponent(packageId)}/publish-drafts`,
-              {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                body: '{}',
-              },
-            );
-            const payload = await res.json().catch(() => null);
-            if (!res.ok || payload?.success === false) {
-              throw new Error(payload?.error?.message || `HTTP ${res.status}`);
+            const payload = (await metadataClient.publishPackageDrafts(packageId)) as
+              | (Record<string, unknown> & {
+                  success?: boolean;
+                  error?: { message?: string };
+                  failedCount?: number;
+                  failed?: PublishFailure[];
+                  seedApplied?: { success?: boolean; error?: string; errors?: unknown[] };
+                })
+              | null;
+            // A non-2xx now throws inside the client with the server's own
+            // message, caught below like any other failure. What is left here
+            // is the 2xx batch verdict.
+            if (payload?.success === false) {
+              // The status is no longer in hand — a non-2xx threw above — so
+              // the last rung is a sentence rather than "HTTP 200".
+              throw new Error(
+                readEnvelopeFailureText(payload) ||
+                  t('console.ai.publishFailed', { defaultValue: 'Publish failed' }),
+              );
             }
-            const failedCount = payload?.data?.failedCount ?? payload?.failedCount ?? 0;
+            // One spelling for `failedCount` / `failed[]` / `seedApplied`: the
+            // client unwraps the dispatcher's `{ success, data }` for this
+            // route (the one route whose spec declaration says it arrives
+            // inside one), so the enveloped and unenveloped compositions are
+            // already reconciled before they get here.
+            const failedCount = payload?.failedCount ?? 0;
             if (failedCount) {
               // framework 15.1+ (ADR-0067 D2): a failed batch is ALL-OR-NOTHING
               // (rolled back, nothing landed); `failed[]` carries the causal
               // item plus batch_aborted markers. Surface the reason — the old
               // `String(failedCount)` produced a toast that read just "3".
-              const failedList = (payload?.data?.failed ?? payload?.failed ?? []) as PublishFailure[];
+              const failedList = (payload?.failed ?? []) as PublishFailure[];
               throw new Error(
                 failedList.length > 0 ? formatPublishFailures(failedList) : String(failedCount),
               );
             }
             // Surface a seed-load problem (reported under `seedApplied`, never
             // thrown) so "Published!" can't hide silently empty tables.
-            const seedApplied = payload?.data?.seedApplied ?? payload?.seedApplied;
+            const seedApplied = payload?.seedApplied;
             if (seedApplied && seedApplied.success === false) {
               toast.warning(
                 t('console.ai.seedWarn', { defaultValue: 'Published, but some sample data failed to load.' }),

@@ -260,6 +260,9 @@ const fr = {
       selectBusinessUnit: "Sélectionner une unité opérationnelle",
       selectPosition: "Sélectionner un poste",
       selectUnitAndSubordinates: "Sélectionner une unité opérationnelle",
+      selectField: "Sélectionner un champ utilisateur",
+      noUserFields: "Cet objet n'a aucun champ utilisateur",
+      fieldNotUserTyped: "{{name}} — pas un champ utilisateur",
     },
     filterCondition: {
       selectObjectFirst: "Sélectionnez d'abord un objet.",
@@ -283,6 +286,10 @@ const fr = {
         "Non enregistré : {{name}} « {{text}} » n'est pas un nombre. Saisissez des décimales simples (exemple : 30.2741, 120.1551).",
       refusedResidue:
         "Non enregistré : {{name}} « {{text}} » et {{otherName}} « {{otherText}} » ne sont pas des nombres. Saisissez des décimales simples (exemple : 30.2741, 120.1551).",
+    },
+    number: {
+      badInput:
+        "Non enregistré : le texte de ce champ n'est pas un nombre. Saisissez une décimale simple (exemple : {{example}}).",
     },
     tags: {
       placeholder: "Saisissez puis appuyez sur Entrée pour ajouter…",
@@ -566,6 +573,33 @@ const fr = {
     newEvent: "Nouvel événement",
     moreEvents: "+{{count}} de plus",
     unscheduled: "Non planifié ({{count}})",
+    loading: "Chargement du calendrier…",
+    loadError: "Erreur : {{message}}",
+    configRequired: "Configuration du calendrier requise. Veuillez indiquer startDateField, la seule clé obligatoire du calendrier ; le titre de l'événement se résout sans titleField.",
+    configRequiredHint: "Elle appartient au bloc calendar de la vue. Une page d'interface n'a pas d'emplacement de calendrier propre : pointez son sourceView vers une vue qui en déclare un.",
+    eventDetails: "Détails de l'événement",
+    pullToRefresh: "Tirer pour actualiser",
+    refreshing: "Actualisation…",
+    onDate: "Le {{date}}",
+    eventTitle: "Titre",
+    eventTitlePlaceholder: "De quoi s'agit-il ?",
+    creating: "Création…",
+    titleRequired: "Le titre est obligatoire",
+    a11y: {
+      region: "Calendrier",
+      grid: "Grille du calendrier",
+      goToToday: "Aller à aujourd'hui",
+      previousPeriod: "Période précédente",
+      nextPeriod: "Période suivante",
+      currentDate: "Date actuelle : {{date}}",
+      dayCell: "{{date}}, {{count}} événements",
+      dayCell_one: "{{date}}, {{count}} événement",
+      dayCell_other: "{{date}}, {{count}} événements",
+      resizeEventEnd: "Modifier la fin de l'événement",
+      resizeEventEndHint: "Faites glisser pour modifier la date de fin",
+      resizeStart: "Modifier le début",
+      resizeEnd: "Modifier la fin",
+    },
   },
   list: {
     firstRunTitle: "Rien pour l'instant",
@@ -1462,6 +1496,9 @@ const fr = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Retour à l'accueil",
+    },
     saveAdvisoryTitle: "Enregistré — le contrôle de création a signalé {{count}} recommandation(s)",
     publishAdvisoryTitle: "Publié — le contrôle de création a signalé {{count}} recommandation(s)",
     importMappingsUnavailable: "Impossible de charger les mappages d’import enregistrés pour {{object}}",
@@ -1845,6 +1882,13 @@ const fr = {
       searching: "Recherche…",
       records: "Enregistrements",
       recentRecords: "Récemment consultés",
+    },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'Volume de lecture inhabituel dans cet environnement',
+      ratio: '{{ratio}} lignes sont lues pour chaque ligne écrite. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
+      noWritesTitle: 'Lectures sans aucune écriture dans cet environnement',
+      noWrites: 'Des lignes sont lues alors qu’aucune n’est écrite, de sorte que le taux de lecture n’a aucune limite supérieure. C’est la mesure la plus grave. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
     },
     errors: {
       somethingWentWrong: "Quelque chose s'est mal passé",
@@ -2242,6 +2286,15 @@ const fr = {
       role: "Rôle",
       save: "Enregistrer les modifications",
     },
+    language: {
+      title: "Langue",
+      description: "La langue utilisée pour les notifications et les messages qui vous sont envoyés. La langue de l'interface se choisit séparément, dans le menu du globe.",
+      label: "Langue préférée",
+      systemDefault: "Utiliser la valeur par défaut du déploiement",
+      save: "Enregistrer",
+      saved: "Préférence de langue mise à jour.",
+      readOnly: "La langue de votre compte est gérée par votre administrateur.",
+    },
     password: {
       changeTitle: "Changer le mot de passe",
       setTitle: "Définir un mot de passe local",
@@ -2482,6 +2535,7 @@ const fr = {
     resultsCount: "{{count}} résultat pour \"{{query}}\"",
     resultsCountPlural: "{{count}} résultats pour \"{{query}}\"",
     itemsAvailable: "{{count}} éléments disponibles",
+    itemsAvailableOne: "{{count}} élément disponible",
     noResults: "Aucun résultat trouvé",
     noResultsHint: "Essayez d'ajuster vos termes de recherche",
     typeObjects: "Objets",
@@ -2525,6 +2579,7 @@ const fr = {
     description: "Veuillez saisir les informations requises pour continuer.",
     selectPlaceholder: "Sélectionner {{label}}",
     requiredError: "{{label}} est obligatoire",
+    unresolvedParam: 'Ce paramètre ne peut pas être affiché : le champ dont il dépend est absent des métadonnées de l’objet, le contrôle nécessaire ne peut donc pas être construit. Demandez à un administrateur de corriger la définition de l’action.',
     cancel: "Annuler",
     confirm: "Confirmer",
     uploading: "Téléversement…",

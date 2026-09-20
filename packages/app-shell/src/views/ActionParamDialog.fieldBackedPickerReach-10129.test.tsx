@@ -318,21 +318,19 @@ const metadataWith = (objects: unknown[]) => ({
  */
 function ConsoleHarness({ dataSource, onReady }: { dataSource: unknown; onReady: (fn: any) => void }) {
   const runtime = useConsoleActionRuntime({ dataSource } as never);
-  const ready = React.useRef(false);
-  if (!ready.current) {
-    ready.current = true;
-    onReady(runtime.paramCollectionHandler);
-  }
+  const handler = runtime.paramCollectionHandler;
+  React.useEffect(() => { onReady(handler); }, [onReady, handler]);
   return <>{runtime.dialogs}</>;
 }
 
 async function openViaConsoleRuntime(objects: unknown[], dataSource: unknown) {
   let handler: any;
+  const onReady = (fn: any) => { handler = fn; };
   render(
     <MemoryRouter initialEntries={['/app/demo']}>
       <MetadataCtx.Provider value={metadataWith(objects)}>
         <SchemaRendererProvider dataSource={dataSource as never}>
-          <ConsoleHarness dataSource={dataSource} onReady={(fn) => { handler = fn; }} />
+          <ConsoleHarness dataSource={dataSource} onReady={onReady} />
         </SchemaRendererProvider>
       </MetadataCtx.Provider>
     </MemoryRouter>,

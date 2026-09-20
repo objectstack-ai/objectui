@@ -146,9 +146,16 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   const { t, language } = useObjectTranslation();
 
   /**
-   * The console's own metadata store, read through a ref so nothing here rests
-   * on the IDENTITY of a context value (AGENTS.md #10) and no dep list has to
-   * carry the `objects` getter, which builds a fresh array on every read.
+   * The console's own metadata store.
+   *
+   * ⛔ The CONTEXT VALUE is what this closes over — never its `objects` getter,
+   * which builds a fresh array on every read, and never a snapshot of that
+   * array. The getter and `ensureType` both read the provider's live cache
+   * through refs, so a value captured at any render answers with today's data
+   * at CALL time. Nothing below therefore rests on the identity of a memoised
+   * result (AGENTS.md #10): the dep carries the value only so the lint rule can
+   * see it, and a discarded-and-recomputed context value would rebuild this
+   * callback with no change in what it reads.
    *
    * ⭐ Why this hook reaches for it at all (objectui#10129). Field-backed action
    * params resolve against `ctx.objects`, and the `objects` OPTION is whatever
@@ -164,8 +171,6 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
    * preview/draft world stays authoritative for the objects it carries.
    */
   const metadata = useMetadata();
-  const metadataRef = useRef(metadata);
-  metadataRef.current = metadata;
 
   const objectDef = useMemo(
     () => (objectName ? objects?.find((o: any) => o.name === objectName) : undefined),
@@ -232,8 +237,8 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
       // The refusal below is only sound if the metadata had its chance to
       // arrive; resolving against a store that simply had not fetched yet would
       // refuse a perfectly good param the instant a console booted cold.
-      await metadataRef.current.ensureType('object').catch(() => []);
-      const knownObjects = withKnownObjects(objects, metadataRef.current.objects);
+      await metadata.ensureType('object').catch(() => []);
+      const knownObjects = withKnownObjects(objects, metadata.objects);
       // List_item actions stash the row record under params._rowRecord (see
       // ObjectGrid → onRowAction). Pull it out so resolveActionParams can
       // pre-fill `defaultFromRow` params from the row's current values.
@@ -309,7 +314,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         resolve,
       });
     })(); });
-  }, [objectName, objectDef, objects, fieldLabel, fieldOptionLabel, actionParamText, actionParamOptionLabel]);
+  }, [objectName, objectDef, objects, metadata, fieldLabel, fieldOptionLabel, actionParamText, actionParamOptionLabel]);
 
   const currentUser = user
     ? { id: user.id, name: user.name, avatar: user.image, isPlatformAdmin: (user as any)?.isPlatformAdmin ?? false, systemPermissions }

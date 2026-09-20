@@ -356,32 +356,35 @@ export interface DeleteViewResult {
  * because `@objectstack/spec` declares every record door as `z.string()`. An
  * adapter for a backend whose primary keys are numeric converts at its OWN
  * boundary, in one typed place, rather than widening this contract for every
- * caller. `update` narrowed at objectui#9333; `delete`, `bulkUpdate` and
- * `bulkDelete` narrowed at objectui#9511 — none of the three had a single
- * call site in this monorepo that had to change.
+ * caller. **All five doors say it**, and there is ⛔ no exception to go
+ * looking for: a reader who meets one method has learned the rule for all of
+ * them. `update` narrowed at objectui#9333; `delete`, `bulkUpdate` and
+ * `bulkDelete` at objectui#9712; `findOne` — the last door, and the only one
+ * with call sites to pay for — at objectui#9511.
  *
- * ⚠️ ONE door is still wide, and it is wide for a reason that is written down
- * rather than left to be rediscovered: `findOne`. Narrowing it is ruled
- * (director batch #136 item 5, letter B) but not yet landed, because of what
- * its remaining call sites turn out to read:
+ * ## Why `findOne` cost more than the other four
  *
- * - `ObjectForm` reads `ObjectFormSchema.recordId`, and `DetailView` reads
- *   `DetailViewSchema.resourceId`. Both are AUTHORABLE metadata keys whose zod
- *   mirrors accept a number today, so narrowing either one refuses author JSON
- *   that validates now — an accept-set change this ruling does not name.
- * - `DrawerForm`, `ModalForm`, `SplitForm`, `TabbedForm` and `WizardForm` each
- *   read their OWN `recordId`, declared on their own exported schema face.
- *   Those faces carry no zod mirror and no registered node type, so they are
- *   TypeScript-only — the same class as `UseViewDataResult.fetchOne`, which
- *   narrowed with this card. ⛔ They still cannot narrow ahead of the decision:
+ * Kept because the SHAPE of the cost is the reusable part, not the repair.
+ * `delete`, `bulkUpdate` and `bulkDelete` had ZERO in-tree call sites to
+ * change. `findOne`'s readers are AUTHORABLE metadata keys, so narrowing it
+ * narrowed an accept set that authors write by hand:
+ *
+ * - `ObjectFormSchema.recordId`, `DetailViewSchema.resourceId` and
+ *   `DetailSchema.resourceId` each moved on BOTH published faces — the
+ *   TypeScript declaration and the hand-written zod mirror. A declaration
+ *   alone would not have been enough: it does not run at parse time, so the
+ *   mirror is the only face that can refuse an authored number.
+ * - `DrawerForm`, `ModalForm`, `SplitForm`, `TabbedForm` and `WizardForm`
+ *   followed on their own TypeScript-only faces, which carry no zod mirror and
+ *   no registered node type. They had to move together with the key above:
  *   `ObjectForm` BUILDS all five of those schemas from its own (authorable)
- *   `ObjectFormSchema`, so narrowing them alone only moves the same refusal
- *   onto those hand-off sites.
+ *   `ObjectFormSchema`, so narrowing one without the others only relocates the
+ *   refusal onto the hand-off site.
  *
- * ⇒ closing this door means either narrowing an authoring face or converting
- * at a reader, and the choice is carried to the decision inbox on
- * objectui#9511 rather than picked here. ⛔ Do not narrow `findOne` without
- * that decision.
+ * ⇒ an author who wrote `resourceId: 42` is refused AT PARSE with the quoted
+ * form prescribed in the message; ⛔ nothing converts it silently, in either
+ * direction. Ruled as one rule with no exception — director batch #195 item 1,
+ * letter A on objectui#9511, standing on batch #136 item 5 letter B.
  *
  * ⚠️ Narrowing a parameter here does NOT reach implementors — TypeScript
  * compares method parameters bivariantly, so an adapter that still declares
@@ -426,14 +429,14 @@ export interface DataSource<T = any> {
    * Fetch a single record by ID.
    *
    * @param resource - Resource name
-   * @param id - Record identifier. ⚠️ The one id parameter on this interface
-   *   still declared `string | number` — see the record-id rule on
-   *   {@link DataSource} for why this door is held open and what has to be
-   *   decided before it closes (objectui#9511).
+   * @param id - Record identifier. A `string`, per the one record-id rule on
+   *   {@link DataSource} — the last door to adopt it (objectui#9511). A
+   *   backend whose primary keys are numeric converts at its own adapter
+   *   boundary, ⛔ not here and ⛔ not at each caller.
    * @param params - Additional query parameters
    * @returns Promise resolving to the record or null
    */
-  findOne(resource: string, id: string | number, params?: QueryParams): Promise<T | null>;
+  findOne(resource: string, id: string, params?: QueryParams): Promise<T | null>;
 
   /**
    * Create a new record.

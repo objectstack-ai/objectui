@@ -13,8 +13,10 @@
  * Two inputs decide this:
  *
  *  1. Whether the consumer wired the affordance at all — i.e. the view's
- *     `operations.update` / `operations.delete` (or an explicit `'edit'` /
- *     `'delete'` in `rowActions`) AND an `onEdit` / `onDelete` callback exists.
+ *     `operations.update` / `operations.delete` AND an `onEdit` / `onDelete`
+ *     callback exists. [objectui#9819] `operations` is the CEILING of this
+ *     input, not one half of a union with `rowActions` — see "`operations` is
+ *     the ceiling" below.
  *
  *  2. The OBJECT's resolved CRUD affordance — the SAME shared policy the
  *     toolbar, the record header, the form and the related lists run
@@ -66,6 +68,50 @@
  * absent `managedBy` resolves to the `platform` bucket, so every main list on
  * an ordinary object keeps its Edit/Delete kebab out of the box.
  *
+ * ## [objectui#9819] `operations` is the ceiling
+ *
+ * Input 1 above used to be a UNION — `(operations.update OR rowActions names
+ * 'edit') AND onEdit` — so `operations: { update: false }`, a block whose very
+ * name reads as "which operations this grid allows", could not close what
+ * `rowActions: ['edit']` opened. An author who turned an operation off got the
+ * button anyway: no error, no warning, no degraded state, and nothing to
+ * observe but a button they believed was gone. The delete gate carried the same
+ * `||`, so `operations: { delete: false }` failed identically.
+ *
+ * Maintainer ruling of 2026-09-18 (batch #162 item 1, letter A), operative
+ * words quoted: "`object-grid`'s `operations` is the CEILING: the edit gate and
+ * the delete gate … become intersections — `rowActions` can only select an
+ * action `operations` allows; `operations: { update: false }` turns row editing
+ * off whatever `rowActions` says".
+ *
+ * So the row-wiring input is now an intersection like every layer above it:
+ *
+ *  - A truthy `operationsUpdate` / `operationsDelete` is REQUIRED. Falsy covers
+ *    both spellings of "not allowed": an explicit `false`, and a member an
+ *    authored block does not name — a present `operations` block REPLACES the
+ *    wired-callback default instead of merging under it, so a block naming
+ *    neither `update` nor `delete` allows neither. That replacement is decided
+ *    at the call site and pinned by `__tests__/gridOperationsMembers-8071.test.tsx`;
+ *    this gate only reads the member it is handed.
+ *  - `wantEditAction` / `wantDeleteAction` can no longer OPEN anything. The
+ *    ruling also leaves `rowActions` the power to NARROW ("chooses among what
+ *    `operations` allows"), and that half is deliberately NOT implemented here,
+ *    because this gate cannot observe it: the call site collapses "`rowActions`
+ *    absent" and "`rowActions` present without this name" into the same
+ *    `false`. Narrowing on that `false` would close the generic Edit/Delete on
+ *    every grid that declares no `rowActions` at all — precisely the outcome
+ *    the same ruling forbids ("`operations` absent ⇒ today's defaults").
+ *    Telling the two apart needs a caller-side signal only the call site can
+ *    produce, so the ruling's `(wantEditAction OR
+ *    DEFAULT-WHEN-ROWACTIONS-ABSENT)` conjunct is unconditionally its default
+ *    arm — which is why no `rowActions` term appears in the gates below.
+ *
+ * ⚠️ The direction is a NARROWING of published behaviour: a page that wrote
+ * `operations.<op>: false` together with a `rowActions` entry for that same op
+ * rendered the button before and hides it now. That is the ruled intent. ⛔ No
+ * tolerant `??` / alias fallback softens it — a fallback here would rebuild the
+ * second de-facto contract this ruling closed.
+ *
  * Since objectui#2614, `userActions.edit` / `delete` also accept an object
  * form `{ enabled?, visibleWhen?, disabledWhen? }`: `enabled` carries the
  * boolean opt-out, and the two CEL predicates gate the affordance
@@ -105,7 +151,15 @@ export type RowCrudUserAction = UserActionOverride;
 export function resolveRowCrudAffordances(opts: {
   operationsUpdate?: boolean;
   operationsDelete?: boolean;
+  /**
+   * [objectui#9819] Whether `rowActions` names the canonical `'edit'`. A
+   * SELECTION inside what `operations` allows, ⛔ never a grant: since
+   * `operations` became the ceiling this can no longer open the entry. See
+   * "`operations` is the ceiling" in this module's header for why it does not
+   * narrow either, yet.
+   */
   wantEditAction?: boolean;
+  /** [objectui#9819] The `'delete'` half of {@link wantEditAction}, same rule. */
   wantDeleteAction?: boolean;
   hasOnEdit?: boolean;
   hasOnDelete?: boolean;
@@ -178,10 +232,14 @@ export function resolveRowCrudAffordances(opts: {
   // this the row kebab fails open for every account with no write grant.
   const objectCanEdit = aff.edit && opts.permissionUpdate !== false;
   const objectCanDelete = aff.delete && opts.permissionDelete !== false;
-  const canEdit =
-    !!((opts.operationsUpdate || opts.wantEditAction) && opts.hasOnEdit) && objectCanEdit;
-  const canDelete =
-    !!((opts.operationsDelete || opts.wantDeleteAction) && opts.hasOnDelete) && objectCanDelete;
+  // [objectui#9819] `operations` is the CEILING — an INTERSECTION, like every
+  // layer above. `rowActions` (`wantEditAction` / `wantDeleteAction`) can no
+  // longer re-open what the block withheld, and a member the authored block
+  // does not name is withheld too. The ruling and the reason no `rowActions`
+  // term appears here are in this module's header under "`operations` is the
+  // ceiling".
+  const canEdit = !!(opts.operationsUpdate && opts.hasOnEdit) && objectCanEdit;
+  const canDelete = !!(opts.operationsDelete && opts.hasOnDelete) && objectCanDelete;
   return {
     canEdit,
     canDelete,

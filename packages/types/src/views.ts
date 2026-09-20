@@ -511,8 +511,8 @@ export interface CommentEntry {
   mentions?: string[];
   /** Object/record this comment belongs to (for cross-record search) */
   objectName?: string;
-  /** Record ID this comment belongs to (for cross-record search) */
-  recordId?: string | number;
+  /** Record ID this comment belongs to (for cross-record search). A string, per the one record-id rule (objectui#9511). */
+  recordId?: string;
 }
 
 /**
@@ -533,8 +533,8 @@ export interface MentionNotification {
   commentText: string;
   /** Object name the comment belongs to */
   objectName?: string;
-  /** Record ID the comment belongs to */
-  recordId?: string | number;
+  /** Record ID the comment belongs to. A string, per the one record-id rule (objectui#9511). */
+  recordId?: string;
   /** When the mention was created */
   createdAt: string;
   /** Whether the notification has been read */
@@ -750,9 +750,12 @@ export interface DetailViewSchema extends BaseSchema {
    */
   api?: string;
   /**
-   * Resource ID to display
+   * Resource ID to display. A record id is a `string` on every
+   * boundary (objectui#9511) — a numeric primary key is converted at the
+   * adapter's own boundary, so an authored `42` is refused with `'42'`
+   * prescribed.
    */
-  resourceId?: string | number;
+  resourceId?: string;
   /**
    * Object name (for ObjectQL integration)
    */

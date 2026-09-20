@@ -12,6 +12,7 @@ import {
   PINNED_CONTEXTS,
   WATCHED_CONTEXTS,
   evaluate,
+  exitCodeFor,
   selfTest,
 } from '../check-required-check-set.mjs';
 import { REQUIRED_CONTEXTS } from '../dependabot-merge-gate.mjs';
@@ -20,7 +21,22 @@ const ROOT = path.resolve(fileURLToPath(import.meta.url), '../../..');
 const GATE = 'scripts/check-required-check-set.mjs';
 const WORKFLOW = '.github/workflows/required-check-set-patrol.yml';
 const FIXTURES = 'scripts/__tests__/fixtures/required-check-set';
-const LIVE_FIXTURE = `${FIXTURES}/live-2026-09-14.json`;
+/**
+ * The set objectui#9499's ruling installs: the four `Test (shard N/4)` contexts
+ * replaced by the one aggregator context `Test`. It is the CONTROL fixture —
+ * the answer the patrol is expected to read once the maintainer's third
+ * ruleset step is clicked.
+ */
+const RULING_FIXTURE = `${FIXTURES}/ruling-9499.json`;
+/**
+ * The verbatim live answer of 2026-09-14, kept because it is a real reading and
+ * because the window objectui#9499 opens is worth pinning: between this pull
+ * request merging and the maintainer adding `Test` to the ruleset, the live set
+ * is exactly this one and the declaration is `RULING_FIXTURE`. The case below
+ * asserts the evaluator calls that `drifted` — reported, exit 0, never red.
+ */
+const LIVE_2026_09_14_FIXTURE = `${FIXTURES}/live-2026-09-14.json`;
+const LIVE_FIXTURE = RULING_FIXTURE;
 const ABLATED_FIXTURE = `${FIXTURES}/type-check-removed.json`;
 
 /**
@@ -152,9 +168,9 @@ describe('check-required-check-set — the committed fixture is the live shape',
     );
   });
 
-  it('declares exactly the nine contexts the patrol pins and watches', () => {
+  it('declares exactly the contexts the patrol pins and watches', () => {
     const reading = evaluate({ rules: live(), branch: 'main', repository: 'objectstack-ai/objectui' });
-    expect(reading.contexts).toHaveLength(9);
+    expect(reading.contexts).toHaveLength(PINNED_CONTEXTS.length + WATCHED_CONTEXTS.length);
     expect(reading.verdict).toBe('intact');
     // Positive control and nonsense control in the same assertion block, so a
     // membership test that stopped discriminating cannot read as agreement.
@@ -164,6 +180,38 @@ describe('check-required-check-set — the committed fixture is the live shape',
 
   it('is a fixture and not the gate itself: emptying it does not read as intact', () => {
     expect(evaluate({ rules: [], branch: 'main' }).verdict).toBe('breached');
+  });
+
+  /**
+   * objectui#9499's three-step change, pinned at its middle step.
+   *
+   * The ruling replaces four required contexts with one, and the maintainer's
+   * clicks bracket the merge: remove the four, merge this, add `Test`. The old
+   * and the new names are never both satisfiable, so while the window is open
+   * the live answer is the 2026-09-14 one above and the declaration is the
+   * ruling's. This asserts what the patrol does with that — and the direction
+   * is the whole point of objectui#9422's two tiers: a rename is REPORTED, at
+   * exit 0, and never manufactures a red on healthy work.
+   */
+  it('reads the pre-ruling live answer as DRIFTED, naming both halves', () => {
+    const reading = evaluate({
+      rules: readFixture(LIVE_2026_09_14_FIXTURE),
+      branch: 'main',
+      repository: 'objectstack-ai/objectui',
+    });
+
+    expect(reading.verdict).toBe('drifted');
+    expect(exitCodeFor(reading.verdict)).toBe(EXIT_OK);
+    expect(reading.missingWatched).toEqual(['Test']);
+    expect(reading.unexpected).toEqual([
+      'Test (shard 1/4)',
+      'Test (shard 2/4)',
+      'Test (shard 3/4)',
+      'Test (shard 4/4)',
+    ]);
+    // The pinned tier is untouched by the rename, which is why this is drift
+    // and not a breach.
+    expect(reading.missingPinned).toEqual([]);
   });
 });
 

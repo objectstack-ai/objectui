@@ -101,7 +101,8 @@ export interface ModalFormSchema {
   formType: 'modal';
   objectName: string;
   mode: 'create' | 'edit' | 'view';
-  recordId?: string | number;
+  /** Record ID (for edit/view modes). A string, per the one record-id rule on `DataSource` (objectui#9511) — `ObjectForm` builds this schema from the authorable `ObjectFormSchema.recordId`, which is a string, and `findOne` takes a string. */
+  recordId?: string;
   title?: string;
   description?: string;
   sections?: ModalFormSectionConfig[];

@@ -26,7 +26,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useObjectLabel, useObjectTranslation } from '@object-ui/i18n';
-import { ActionProvider, useGlobalUndo, type ActionProviderProps } from '@object-ui/react';
+import { ActionProvider, useGlobalUndo, useMetadata, type ActionProviderProps } from '@object-ui/react';
 import { toast } from 'sonner';
 import type {
   ActionContext,
@@ -45,7 +45,7 @@ import { ActionConfirmDialog, type ConfirmDialogState } from '../views/ActionCon
 import { ActionParamDialog, type ParamDialogState } from '../views/ActionParamDialog.js';
 import { ActionResultDialog, type ResultDialogState } from '../views/ActionResultDialog.js';
 import { FlowRunner, type ScreenFlowState, type ScreenSpec } from '../views/FlowRunner.js';
-import { resolveActionParams } from '../utils/resolveActionParams.js';
+import { resolveActionParams, withKnownObjects } from '../utils/resolveActionParams.js';
 import { EnvironmentEntitlementDialog, type EntitlementDialogState } from '../environment/EnvironmentEntitlementDialog.js';
 import { entitlementDialogFromError, type EntitlementDialogSpec } from '../environment/entitlements.js';
 import { resolvePageVarTokens } from '../utils/resolvePageVarTokens.js';
@@ -145,6 +145,33 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // `language` also resolves inline per-locale action-param labels below.
   const { t, language } = useObjectTranslation();
 
+  /**
+   * The console's own metadata store.
+   *
+   * ⛔ The CONTEXT VALUE is what this closes over — never its `objects` getter,
+   * which builds a fresh array on every read, and never a snapshot of that
+   * array. The getter and `ensureType` both read the provider's live cache
+   * through refs, so a value captured at any render answers with today's data
+   * at CALL time. Nothing below therefore rests on the identity of a memoised
+   * result (AGENTS.md #10): the dep carries the value only so the lint rule can
+   * see it, and a discarded-and-recomputed context value would rebuild this
+   * callback with no change in what it reads.
+   *
+   * ⭐ Why this hook reaches for it at all (objectui#10129). Field-backed action
+   * params resolve against `ctx.objects`, and the `objects` OPTION is whatever
+   * the caller happened to hold: `ConsoleShell`'s root runtime passes NONE, and
+   * `DeclaredActionsBar` passes exactly ONE object (and none at all when it is
+   * driven by an `actions` prop). A param whose owner is not in that list
+   * resolves to nothing — and, because a field-backed param carries no inline
+   * `type`, silently becomes a `text` param: an empty box with no dropdown and
+   * no request for the referenced object on the wire, while the SAME field
+   * renders a real picker on a record form in the same build, off the same
+   * store. The binding was never missing from the client; this seam just never
+   * asked for it. The caller's list still WINS (see `withKnownObjects`) — a
+   * preview/draft world stays authoritative for the objects it carries.
+   */
+  const metadata = useMetadata();
+
   const objectDef = useMemo(
     () => (objectName ? objects?.find((o: any) => o.name === objectName) : undefined),
     [objects, objectName],
@@ -202,7 +229,16 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // `ActionDef` field, and the one that was not is the reason objectui#4282
   // backed the narrowing out.
   const paramCollectionHandler = useCallback<ParamCollectionHandler>((params: ActionParamDef[], action?: ConsoleActionDispatch) => {
-    return new Promise<Record<string, any> | null>((resolve) => {
+    return new Promise<Record<string, any> | null>((resolve) => { void (async () => {
+      // ⭐ Ask the store for the object type BEFORE resolving (objectui#10129).
+      // `ensureType` is idempotent and answers from cache in a microtask once
+      // warm, so the cost is nil on the path a user actually takes — but it is
+      // what makes "this field does not exist" an ANSWER rather than a race.
+      // The refusal below is only sound if the metadata had its chance to
+      // arrive; resolving against a store that simply had not fetched yet would
+      // refuse a perfectly good param the instant a console booted cold.
+      await metadata.ensureType('object').catch(() => []);
+      const knownObjects = withKnownObjects(objects, metadata.objects);
       // List_item actions stash the row record under params._rowRecord (see
       // ObjectGrid → onRowAction). Pull it out so resolveActionParams can
       // pre-fill `defaultFromRow` params from the row's current values.
@@ -220,7 +256,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         : undefined;
       const resolved = resolveActionParams(params as any, {
         objectName: actionObject || objectName || (objectDef as any)?.name || '',
-        objects: objects || [],
+        objects: knownObjects,
         fieldLabel,
         fieldOptionLabel,
         row,
@@ -277,8 +313,8 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
           : declaredDescription,
         resolve,
       });
-    });
-  }, [objectName, objectDef, objects, fieldLabel, fieldOptionLabel, actionParamText, actionParamOptionLabel]);
+    })(); });
+  }, [objectName, objectDef, objects, metadata, fieldLabel, fieldOptionLabel, actionParamText, actionParamOptionLabel]);
 
   const currentUser = user
     ? { id: user.id, name: user.name, avatar: user.image, isPlatformAdmin: (user as any)?.isPlatformAdmin ?? false, systemPermissions }

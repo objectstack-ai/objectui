@@ -353,13 +353,30 @@ export const ObjectGridSchema = BaseSchema.extend({
 });
 
 /**
+ * The prescription an author gets when a record id arrives as a number.
+ *
+ * ⚠️ Declared file-locally in each of the three mirrors that carry a record id
+ * rather than shared from one module, and PINNED BY CONTENT — not by line — in
+ * `../__tests__/authorable-record-id-string-9511.test.ts`, which asserts that
+ * every one of the three refusals names the quoted form. So this text drifting
+ * out of one mirror turns that pin red instead of going quiet.
+ */
+const RECORD_ID_IS_A_STRING_GUIDANCE =
+  "A record id is a string on every boundary (objectui#9511): write it quoted \u2014 42 becomes '42'. "
+  + 'A backend whose primary keys are numeric converts at its OWN adapter boundary, in one typed '
+  + 'place, so every author, every caller and every adapter sees one shape.';
+
+/**
  * ObjectForm Schema
  */
 export const ObjectFormSchema = BaseSchema.extend({
   type: z.literal('object-form'),
   objectName: z.string().describe('ObjectQL object name'),
   mode: z.enum(['create', 'edit', 'view']).describe('Form mode'),
-  recordId: z.union([z.string(), z.number()]).optional().describe('Record ID'),
+  recordId: z
+    .string({ error: (issue) => (issue.code === 'invalid_type' ? RECORD_ID_IS_A_STRING_GUIDANCE : undefined) })
+    .optional()
+    .describe('Record ID \u2014 a string, never a number (objectui#9511)'),
   title: z.string().optional().describe('Form title'),
   description: z.string().optional().describe('Form description'),
   fields: z.array(z.string()).optional().describe('Included fields'),

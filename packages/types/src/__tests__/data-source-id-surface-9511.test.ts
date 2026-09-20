@@ -16,14 +16,17 @@
  * saying two different things about the same value depending on which method
  * you read. The ruling on this card (director batch #136 item 5, letter B)
  * extends the rule to the rest of the surface; `delete`, `bulkUpdate` and
- * `bulkDelete` are the doors that close here, and their sibling
+ * `bulkDelete` closed at objectui#9712, and their sibling
  * `data-source-update-id-9333.test.ts` pins the first one.
  *
- * ⚠️ `findOne` is deliberately NOT asserted below. It is the one door still
- * declared `string | number`, held open pending a decision recorded on
- * objectui#9511 and in the `DataSource` docblock itself. Asserting its current
- * width here would pin the defect; the docblock census at the bottom is what
- * keeps the reason from evaporating instead.
+ * ⭐ `findOne` — the fifth and last door — is asserted here TOO, as of the
+ * ruling that closed it (director batch #195 item 1, letter A). It is the
+ * expensive one: its readers are AUTHORABLE metadata keys, so it could not
+ * narrow until those keys narrowed on BOTH published faces. The parse half of
+ * that move lives in `authorable-record-id-string-9511.test.ts`; this file
+ * keeps the TypeScript half. ⛔ There is no longer a door held open, and the
+ * docblock census at the bottom is what stops the old exception from being
+ * re-introduced as prose.
  *
  * ## Where each row lives - these two halves measure different things
  *
@@ -52,6 +55,12 @@ import type { DataSource } from '../data';
 type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2) ? true : false;
 type Expect<T extends true> = T;
+
+/** `findOne` takes the protocol's string id — the fifth door (objectui#9511). */
+type _FindOneIdIsTheProtocolString = Expect<Equal<Parameters<DataSource['findOne']>[1], string>>;
+
+/** Stated separately so a degradation to `any` cannot pass the row above. */
+type _FindOneIdIsNotAny = Expect<Equal<Equal<Parameters<DataSource['findOne']>[1], any>, false>>;
 
 /** `delete` takes the protocol's string id. */
 type _DeleteIdIsTheProtocolString = Expect<Equal<Parameters<DataSource['delete']>[1], string>>;
@@ -83,6 +92,8 @@ declare const adapter: DataSource;
  * stay legal, or the refusals above would prove nothing.
  */
 function recordIdCallSiteControls(): void {
+  // @ts-expect-error a numeric primary key is no longer a `DataSource.findOne` id
+  void adapter.findOne('account', 7);
   // @ts-expect-error a numeric primary key is no longer a `DataSource.delete` id
   void adapter.delete('account', 7);
   // @ts-expect-error nor a `bulkUpdate` id
@@ -90,6 +101,7 @@ function recordIdCallSiteControls(): void {
   // @ts-expect-error nor a `bulkDelete` id
   void adapter.bulkDelete?.('account', [7]);
 
+  void adapter.findOne('account', 'rec_1');
   void adapter.delete('account', 'rec_1');
   void adapter.bulkUpdate?.('account', ['rec_1'], {});
   void adapter.bulkDelete?.('account', ['rec_1']);
@@ -105,6 +117,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.resolve(here, '..');
 const DATA_TS = path.join(SRC, 'data.ts');
 
+/** `findOne(resource: string, id: <TYPE>,` - whitespace and newlines tolerated. */
+const FIND_ONE_ID = /\bfindOne\s*\(\s*resource\s*:\s*string\s*,\s*id\s*:\s*([^,\n]+?)\s*,/s;
 /** `delete(\n resource: string,\n id: <TYPE>,` - whitespace and newlines tolerated. */
 const DELETE_ID = /\bdelete\s*\(\s*resource\s*:\s*string\s*,\s*id\s*:\s*([^,\n]+?)\s*,/s;
 /** `bulkUpdate?(\n resource: string,\n ids: <TYPE>,` */
@@ -120,6 +134,7 @@ function typeOf(re: RegExp, source: string): string | null {
 const DATA_SOURCE_TEXT = readFileSync(DATA_TS, 'utf8');
 
 const DOORS: ReadonlyArray<readonly [string, RegExp, string]> = [
+  ['findOne', FIND_ONE_ID, 'string'],
   ['delete', DELETE_ID, 'string'],
   ['bulkUpdate', BULK_UPDATE_IDS, 'ReadonlyArray<string>'],
   ['bulkDelete', BULK_DELETE_IDS, 'ReadonlyArray<string>'],
@@ -129,6 +144,11 @@ describe('the census instrument can fire (controls)', () => {
   it('anchors on this file, not on the cwd', () => {
     expect(DATA_SOURCE_TEXT.length).toBeGreaterThan(0);
     expect(DATA_SOURCE_TEXT).toContain('export interface DataSource');
+  });
+
+  it('reads the wide spelling back off a synthetic `findOne`', () => {
+    const wide = 'findOne(resource: string, id: string | number, params?: X): Y;';
+    expect(typeOf(FIND_ONE_ID, wide)).toBe('string | number');
   });
 
   it('reads the wide spelling back off a synthetic `delete`', () => {
@@ -180,6 +200,24 @@ describe('the rule is stated where the next reader will be (objectui#9511)', () 
     expect(doc).toContain('findOne');
     expect(doc, 'the docblock has to say WHY the last door is still open, or the next reader re-derives it')
       .toContain('objectui#9511');
+  });
+
+  it('the docblock carries NO held-open exception any more (objectui#9511)', () => {
+    // The old prose described `findOne` as deliberately wide and told the next
+    // reader not to narrow it. That instruction is now false, and prose that is
+    // false is worse than prose that is missing - a reader who finds it will
+    // re-open a decision that has been made. Asserted as an ABSENCE, which is
+    // only meaningful next to the slice control below: that row proves this
+    // string is read off the docblock and not off an empty accidental slice.
+    const docStart = DATA_SOURCE_TEXT.lastIndexOf('/**', DATA_SOURCE_TEXT.indexOf('export interface DataSource'));
+    const doc = DATA_SOURCE_TEXT.slice(docStart, DATA_SOURCE_TEXT.indexOf('export interface DataSource'));
+    for (const retired of ['ONE door is still wide', 'Do not narrow `findOne`', 'held open']) {
+      expect(doc, `the docblock still describes the fifth door as open: "${retired}"`)
+        .not.toContain(retired);
+    }
+    // ...and the positive half, so the absence above cannot pass by the docblock
+    // having lost its content altogether.
+    expect(doc).toContain('All five doors');
   });
 
   it('the census reads the docblock and not the whole file (control)', () => {

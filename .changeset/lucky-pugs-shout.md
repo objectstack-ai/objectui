@@ -4,6 +4,12 @@
 
 fix(console): mint a `sys_file` id for files picked in the global action dialogs
 
+`Clause-②: no` — no exported symbol is added, removed or renamed, no accept set
+moves, and no key on a published payload changes. This package's published barrel
+is `plugin.ts` (`ConsolePlugin`, `staticPath`), which this diff does not touch; the
+`App` and `AppContent` exports of the SPA source are unchanged in name and type.
+What moves is WHERE a provider is mounted inside the console's own React tree.
+
 The console's `UploadProvider` was mounted inside `AppContent`, the element of
 a single route (`/apps/:appName/*`). But `ConnectedShell`'s
 `GlobalActionRuntimeProvider` renders the action-param dialog and the

@@ -45,6 +45,51 @@ export interface RecordHistoryRendererProps {
  *  history (comments/mentions/logins are not record-history). */
 const HISTORY_TYPES = new Set(['created', 'updated', 'assigned', 'shared', 'deleted']);
 
+/**
+ * Rows this block shows when the author declared no usable cap.
+ *
+ * Named because `50` was spelled TWICE in the old derivation (`?? 50` and the
+ * `|| 50` behind it), and the spec states the same number a third time:
+ * `RecordHistoryProps.limit` is described there as "Maximum history entries
+ * displayed, and the `$top` of the self-fetch query (renderer default: 50)".
+ *
+ * ⛔ Deliberately NOT `record:activity`'s 20. The two blocks default
+ * differently on purpose; unifying them is a product decision and objectui#10005
+ * is not it.
+ */
+const DEFAULT_HISTORY_LIMIT = 50;
+
+/**
+ * The ONE resolver for this block's row cap (objectui#10005).
+ *
+ * `@objectstack/spec` declares the member a POSITIVE INTEGER
+ * (`RecordHistoryProps.limit`: `z.number().int().positive().optional()`), so a
+ * negative and a fractional cap are values the contract REFUSES — not
+ * spellings this renderer may interpret. A refused value is therefore dropped
+ * for this block's own default.
+ *
+ * ⛔ Not `Math.max(1, …)`, which is what this replaces: that REPAIRED a
+ * refused `-5` into a one-row window (a wrong result the author never asked
+ * for and no channel named) and forwarded a fractional `2.5` to the adapter
+ * untouched. Refusing and defaulting is the answer the sibling `record:activity`
+ * already gives through `normalizeLimit`, and the answer objectui#9925 landed
+ * at three further read points.
+ *
+ * ⚠️ FAIL-SOFT and SILENT, both on purpose. Fail-soft because throwing would
+ * take out a record page over one declaration. Silent because the sibling this
+ * block is matched to refuses silently too — the three objectui#9925 read points
+ * warn instead, so the family holds two answers on loudness and that question
+ * is ruled elsewhere, not decided here by accident. The silence is pinned.
+ *
+ * Coercion is kept exactly where the sibling keeps it: a numeric STRING still
+ * resolves (`normalizeLimit('5')` is pinned to `5`). What narrows is the
+ * admitted value set, not how a node's value is read.
+ */
+function normalizeHistoryLimit(value: unknown): number {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_HISTORY_LIMIT;
+}
+
 export const RecordHistoryRenderer: React.FC<RecordHistoryRendererProps> = ({
   schema = {} as any,
   className,
@@ -63,7 +108,7 @@ export const RecordHistoryRenderer: React.FC<RecordHistoryRendererProps> = ({
   const hostLoading = schema.loading ?? schema.properties?.loading;
   const emptyText = schema.emptyText ?? schema.properties?.emptyText;
   const unknownUserText = schema.unknownUserText ?? schema.properties?.unknownUserText;
-  const limit: number = Number(schema.limit ?? schema.properties?.limit ?? 50) || 50;
+  const limit: number = normalizeHistoryLimit(schema.limit ?? schema.properties?.limit);
 
   // Self-fetch only when the host did not supply entries.
   const objectName: string | undefined = ctx?.objectName;
@@ -82,7 +127,7 @@ export const RecordHistoryRenderer: React.FC<RecordHistoryRendererProps> = ({
       dataSource.find('sys_activity', {
         $filter: { object_name: objectName, record_id: recordId },
         $orderby: { timestamp: 'desc' },
-        $top: Math.max(1, limit),
+        $top: limit,
       }),
     )
       .then((res: any) => {

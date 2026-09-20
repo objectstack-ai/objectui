@@ -22,7 +22,22 @@ import { PendingDraftsBar } from '../PendingDraftsBar.js';
 const refresh = vi.fn();
 // objectui#5801 — the bar reads its count from the shared `_drafts` fetch;
 // the stub routes by URL: drafts reads answer `draftRows`, publish POSTs 200.
+//
+// ⚠️ The answers are REAL `Response` objects, and that is load-bearing since
+// objectui#10039 routed the publish through `MetadataClient`: the console's
+// authenticated fetch reads `response.headers` on every `/api/` call (the
+// `set-auth-token` session rotation). A hand-rolled `{ ok, status, json }`
+// literal has no `headers`, so it threw inside the wrapper — which the bar
+// reports as a failed publish and then skips the bus pulse, leaving this
+// file's "then hides" pin failing for a reason that is entirely the fixture's.
 let draftRows: Array<Record<string, unknown>> = [];
+
+function json(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+}
 
 vi.mock('../../../providers/MetadataProvider.js', () => ({
   useMetadata: () => ({ refresh }),
@@ -39,9 +54,9 @@ beforeEach(() => {
     'fetch',
     vi.fn(async (url: unknown) => {
       if (String(url).includes('/meta/_drafts')) {
-        return { ok: true, status: 200, json: async () => draftRows };
+        return json(draftRows);
       }
-      return { ok: true, status: 200, json: async () => ({ success: true }) };
+      return json({ success: true });
     }),
   );
 });

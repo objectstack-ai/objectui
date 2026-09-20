@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, afterEach } from 'vitest';
-import { ObjectTree } from './ObjectTree';
+import { ObjectTree, type ObjectTreeProps } from './ObjectTree';
 
 afterEach(cleanup);
 
@@ -82,19 +82,30 @@ describe('ObjectTree', () => {
   it('accepts field entries as objects (host columns), not just strings', async () => {
     // ListView passes columns as field *objects*; feeding those straight into
     // `.replace()` threw "e.replace is not a function" and failed to render.
+    //
+    // ⚠️ OFF-DECLARATION ON PURPOSE, and the double assertion says so out loud
+    // (objectui#8655). The published node declares `labelField?: string` and
+    // `fields?: string[]`; this row exists to exercise the READER'S TOLERANCE
+    // for host column OBJECTS, which `@object-ui/types` documents as a reader's
+    // resilience and ⛔ not as authoring surface. Typing the prop at the node
+    // made that mismatch visible for the first time — it compiled silently
+    // while the prop was `any`. ⛔ The remedy is NOT to widen the declaration so
+    // this literal type-checks (AGENTS.md #0.1); it is to say at the mount that
+    // the shape is off-contract, which is what this cast does.
+    const hostColumnObjectsNode = {
+      type: 'object-tree',
+      objectName: 'business_unit',
+      parentField: 'parent_id',
+      labelField: { name: 'name', label: 'Name' },
+      fields: [
+        { name: 'name', label: 'Name' },
+        { fieldName: 'head', label: 'Head' },
+      ],
+      data: orgUnits,
+    } as unknown as ObjectTreeProps['schema'];
     render(
       <ObjectTree
-        schema={{
-          type: 'object-tree',
-          objectName: 'business_unit',
-          parentField: 'parent_id',
-          labelField: { name: 'name', label: 'Name' },
-          fields: [
-            { name: 'name', label: 'Name' },
-            { fieldName: 'head', label: 'Head' },
-          ],
-          data: orgUnits,
-        }}
+        schema={hostColumnObjectsNode}
         data={orgUnits}
       />,
     );

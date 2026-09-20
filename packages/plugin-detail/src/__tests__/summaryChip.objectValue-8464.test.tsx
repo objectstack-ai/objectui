@@ -67,6 +67,19 @@
  *
  * ## Instruments
  *
+ * ⚠️ **Four expected NAMES here moved in objectui#8729, and the reason is
+ *   worth keeping.** That card made this chip resolve the field's label through
+ *   `fieldLabel` — the call `HeaderHighlight` and `DetailSection` already make —
+ *   instead of printing the raw stored column. So a fixture whose authored
+ *   label differs from its stored name now announces the label:
+ *   `status: Negotiation` → `Status: Negotiation`, `owner:` → `Owner:`,
+ *   `stage:` → `Stage:`, `ratio:` → `Ratio:`. ⭐ THIS CARD'S SUBJECT DID NOT
+ *   MOVE: the VALUE half of every one of those strings is byte-identical, and
+ *   the whole `RENDERER_BACKED` table below is untouched down to the byte
+ *   because it declares `label: field` — the two spellings coincide there, so
+ *   the naming change is invisible to it, which is itself the measurement that
+ *   the change is confined to the name.
+ *
  * - Chips are navigated by `[data-summary-chip="<field>"]`, added by this change
  *   so a renderer-backed chip (which carries no `aria-label` — see below) has the
  *   same handle as a string one. ⚠️ NOT by `queryByText`, which throws on
@@ -133,7 +146,9 @@ const nestedPills = (chip: HTMLElement) =>
 
 describe('objectui#8464 — an object-valued summary chip beside the H1', () => {
   /**
-   * The four object-valued kinds whose renderer was MEASURED to fit the pill.
+   * The object-valued kinds whose renderer was MEASURED to fit the pill.
+   * ⚠️ `file` was a fourth row here until objectui#9161; it is now its own case
+   * below, on the REFUSED side, for the reason stated there.
    * `expected` is the whole chip: the `sr-only` field-name prefix that carries
    * the accessible name plus the value the renderer drew. Asserting the exact
    * string pins BOTH halves the defect broke.
@@ -167,12 +182,6 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
       // expectation cannot be satisfied by echoing the input back.
       value: { latitude: 30.2741567, longitude: 120.1551234 },
       expected: 'office_location: 30.2742, 120.1551',
-    },
-    {
-      field: 'contract',
-      type: 'file',
-      value: { name: 'contract.pdf', url: 'https://cdn.example.com/contract.pdf' },
-      expected: 'contract: contract.pdf',
     },
     {
       field: 'payload',
@@ -253,7 +262,7 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
       '[object Object]',
     );
     expect(textOf(chip), 'the auto-detected chip reads the record name').toBe(
-      'status: Negotiation',
+      'Status: Negotiation',
     );
   });
 
@@ -281,7 +290,7 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
     expect(
       chip.getAttribute('aria-label'),
       'a string-path chip keeps the accessible name it always had, now true',
-    ).toBe('owner: Ada Lovelace');
+    ).toBe('Owner: Ada Lovelace');
   });
 
   it('OPTION FAMILY — a select field holding an object reads the coerced text, not a pill in a pill', () => {
@@ -297,8 +306,47 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
     expect(nestedPills(chip).length, 'the option renderer is not nested inside the chip').toBe(0);
     expect(textOf(chip), 'the chip reads the coerced text').toBe('Negotiation');
     expect(chip.getAttribute('aria-label'), 'and its accessible name says the same').toBe(
-      'stage: Negotiation',
+      'Stage: Negotiation',
     );
+  });
+
+  it('FILE — a file value reads its coerced name; the download link does not enter the pill', () => {
+    // ⚠️ MOVED here from `RENDERER_BACKED` by objectui#9161, and the move is the
+    // finding. That card gave `FileCellRenderer` a view/download `<a href>` per
+    // file — its whole subject: a read-only `file` field named its attachments
+    // and offered no way to open one, while the record read, the signing
+    // endpoint and the signed URL all answered 200. This chip's own rule is
+    // unchanged and is what moves `file` across it: "the pill hosts text, not a
+    // control", beside the page H1.
+    //
+    // ⭐ The VALUE half of the old expectation is asserted unchanged below:
+    // `coerceToSafeValue` reads the same `name` the cell renderer reads, so the
+    // reader sees the same word they saw before. What this case adds is the
+    // absence of the control — the fact the move is about. The file itself
+    // stays reachable one band down, in the field's own cell.
+    const { container } = renderPage({
+      summaryFields: ['contract'] as any,
+      fields: [{ name: 'contract', label: 'contract', type: 'file' }] as any,
+      data: {
+        id: 'A5',
+        name: 'Acme',
+        contract: { name: 'contract.pdf', url: 'https://cdn.example.com/contract.pdf' },
+      },
+    });
+
+    const chip = requireChip(container, 'contract');
+    expect(textOf(chip), 'the chip must not carry the String() placeholder').not.toContain(
+      '[object Object]',
+    );
+    expect(textOf(chip), 'the chip reads the coerced file name').toBe('contract.pdf');
+    expect(
+      chip.querySelectorAll('a[href],button,[role="button"],input').length,
+      'no view/download control inside the page title row',
+    ).toBe(0);
+    expect(
+      chip.getAttribute('aria-label'),
+      'a string-path chip keeps the accessible name it always had',
+    ).toBe('contract: contract.pdf');
   });
 
   it('UNNAMEABLE OBJECT — an object with no name reads the page\'s own word for it', () => {
@@ -404,6 +452,24 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
       },
     );
 
+    /**
+     * ⚠️ The expected text has now moved TWICE, and the pin is still doing its
+     * job both times, because its subject is ROUTING — that a percent keeps the
+     * chip's own text path and its own single bar instead of being handed to a
+     * cell renderer — and the routing is unchanged by either card.
+     *
+     *  - objectui#8728: `0.123%` → `12.3%`. That card found the chip's two
+     *    halves scaling the same stored number by two different rules, so the
+     *    `0.123%` this line used to require was the text disagreeing with the
+     *    bar drawn beside it. The agreement itself is pinned in
+     *    `summaryChip.percentOneRule-8728.test.tsx`.
+     *  - objectui#9167: `12.3%` → `12%`. The chip's text now goes through
+     *    `formatPercent`, the list cell's own call, so it rounds to the field's
+     *    declared precision (`0` here, undeclared) and renders the locale's own
+     *    affix. ⭐ Note what did NOT move: the bar-span count below, which is
+     *    the actual assertion of this case. The spelling is pinned across both
+     *    surfaces in `summaryChip.percentConvention-9167.test.tsx`.
+     */
     it('PERCENT — keeps its own text AND its single decorative bar', () => {
       const { container } = renderPage({
         summaryFields: ['ratio'] as any,
@@ -412,14 +478,14 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
       });
 
       const chip = requireChip(container, 'ratio');
-      expect(textOf(chip), 'the percent chip keeps its own text').toBe('0.123%');
+      expect(textOf(chip), 'the percent chip keeps its own text').toBe('12%');
       // The chip's OWN bar is two `rounded-full` spans — track and fill. A cell
       // renderer routed in here would add its own, so the exact count is the pin.
       expect(nestedPills(chip).length, 'exactly the chip\'s own two-span bar, no renderer bar').toBe(2);
       expect(
         chip.getAttribute('aria-label'),
-        'and the accessible name is unchanged',
-      ).toBe('ratio: 0.123%');
+        'and the accessible name still comes from that same string',
+      ).toBe('Ratio: 12%');
     });
   });
 

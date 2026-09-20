@@ -55,13 +55,13 @@
           {
             "id": "1",
             "field": "published",
-            "operator": "eq",
+            "operator": "equals",
             "value": "true"
           },
           {
             "id": "2",
             "field": "views",
-            "operator": "gt",
+            "operator": "greater_than",
             "value": "1000"
           }
         ]

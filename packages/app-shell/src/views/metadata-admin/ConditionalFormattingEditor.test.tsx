@@ -177,23 +177,33 @@ describe('ConditionalFormattingEditor · CEL authoring scope (#2571 follow-up)',
     expect(await screen.findByText('perm.cel.valid', {}, { timeout: 3000 })).toBeTruthy();
   });
 
-  it('KNOWN GAP — a `data.*` condition still lints CLEAN although the row is not bound under it', async () => {
-    // NOT desired behaviour, and it is the half of the retirement this card
-    // does NOT close. Dropping `'data'` from ROW_PREDICATE_ROOTS stops
-    // RECOMMENDING it; it does not stop the lint ACCEPTING it, because
-    // `@objectstack/formula`'s `SCOPE_ROOTS` lists `data` and so the
-    // record-scope bare-reference check waves it through. `rowPredicateCanon.ts`
-    // already records exactly this for the server oracle: `data.status` is
-    // "⚠️ silently accepted" while the runtime faults on it.
+  it('a `data.*` condition is ACCEPTED but no longer SILENT — the author gets a warning (objectui#8972)', async () => {
+    // This pin used to assert an unbroken silence, and said it would redden
+    // "when the acceptance is fixed". Read that literally: the acceptance is
+    // NOT fixed here. `@objectstack/formula`'s `SCOPE_ROOTS` still lists
+    // `data`, so the engine still waves this through with zero findings, and
+    // narrowing that set remains the producer-side half (objectui#8166's
+    // ruling). What objectui#8972 changed is the other half of the defect —
+    // the ABSENCE of any diagnostic — by wiring `@object-ui/core`'s
+    // `detectNonCanonicalRowSpelling` into `celAuthoring` as a WARNING.
     //
-    // The runtime half is pinned in the contract suite below, where the same
-    // predicate against the same host bag evaluates to FALSE. Green here plus
-    // false there IS the defect. This test REDDENS when the acceptance is
-    // fixed, at which point objectui#8166 can be closed.
+    // So the two halves are now asserted separately, and the split is the
+    // point: the accept set is untouched (no error, `aria-invalid` unset, the
+    // editor's own error count unchanged, save open), while the author is told
+    // at typing time instead of at misbehaviour time. The runtime half is
+    // pinned in the contract suite below, where the same predicate against the
+    // same host bag evaluates to FALSE.
     render(<Harness initial={[{ condition: "data.status == 'overdue'", style: {} }]} />);
-    expect(await screen.findByText('perm.cel.valid', {}, { timeout: 3000 })).toBeTruthy();
+    expect(
+      await screen.findByText(/Re-root the reference on/, {}, { timeout: 3000 }),
+    ).toBeTruthy();
+    // ACCEPT SET UNCHANGED — the falsifiable half. Promoting the advisory to
+    // an error reddens both of these.
     const ta = document.getElementById('cf-condition-0') as HTMLTextAreaElement;
     expect(ta.getAttribute('aria-invalid')).not.toBe('true');
+    // `border-destructive` is applied from the same `errors.length > 0` the
+    // Save gate counts, so its absence is the editor's own "no blocking issue".
+    expect(ta.className).not.toMatch(/border-destructive/);
   });
 
   it('ALIGNED (objectui#8155) — `app` is neither advertised nor bound, and the lint refuses it', async () => {
@@ -285,26 +295,42 @@ describe('ROW_PREDICATE_ROOTS ↔ evalRowPredicate runtime contract', () => {
    * returned bag, so passing one is a COMPILE error (TS2353, "'app' does not
    * exist in type 'ExpressionScopeInput'"). That is a third fence on the same
    * fact, and the only one that holds without the suite being run.
+   *
+   * ⭐ And no `data`, on the same terms, since objectui#8166 — this block
+   * passed `data: {}` until that card, and the argument is now the same
+   * compile error. See {@link CURATED_EXCLUSIONS} for what that closed.
    */
   const fullHostScope = buildExpressionScope({
     user: u,
-    data: {},
     features: { beta: true },
   });
   /**
-   * The ONE root the host binds that this editor deliberately does not
-   * advertise: `data`, retired on row surfaces (objectui#5741). It gets its own
-   * pin below, against `fullHostScope`, which does carry it.
+   * Roots the host binds that this editor deliberately does not advertise —
+   * **empty since objectui#8166**, and that emptiness is the finding rather
+   * than a tidy-up.
+   *
+   * It held exactly one member, `data`: retired on row surfaces by
+   * objectui#5741 and therefore unadvertised here, yet still BOUND by
+   * `buildExpressionScope`, so an authored `data.*` resolved against the host's
+   * object instead of the row. objectui#8166 unbound it, so there is no longer
+   * a root that this editor withholds while the host still answers it — the
+   * advertised list and the host bag now describe the same set, which is what
+   * the closing assertion of the next test measures.
    *
    * `os` used to sit here too. objectui#8155 ruled it back onto the advertised
    * list in the same patch that removed `app`: it is bound here, ACCEPTED by
    * the engine, and the measured in-tree identity spelling
    * (`record.owner == os.user.id`), so withholding it was curation with
    * nothing behind it.
+   *
+   * ⛔ Kept as a (now empty) list rather than deleted, deliberately: the
+   * derivation below is the fence that catches a NEW host root arriving
+   * unadvertised, and collapsing it to `hostScope = fullHostScope` would
+   * quietly retire that fence along with its last entry.
    */
-  const CURATED_EXCLUSIONS = ['data'];
+  const CURATED_EXCLUSIONS: string[] = [];
   /**
-   * The same bag with those two removed. Probes for the ADVERTISED roots run
+   * The same bag with those removed. Probes for the ADVERTISED roots run
    * against this one, so no probe can pass off a host binding as a row binding.
    */
   const hostScope = Object.fromEntries(
@@ -358,20 +384,30 @@ describe('ROW_PREDICATE_ROOTS ↔ evalRowPredicate runtime contract', () => {
     expect(evalRowPredicate("status == 'overdue'", row, { fallback: false, scope: hostScope })).toBe(false);
   });
 
-  it('`data` is RETIRED: unadvertised, and an ambient host `data` never names the row', () => {
+  it('`data` is RETIRED: unadvertised HERE and no longer bound by the host either', () => {
     expect(ROW_PREDICATE_ROOTS).not.toContain('data');
-    // A host may still legitimately carry its own ambient `data` — app-shell's
-    // `buildExpressionScope` does, and this is that bag rather than a model of
-    // it. That is what made the old probe useless...
+    // ⭐ objectui#8166 flipped this reading, and the flip is the point.
+    //
+    // Until that card the host DID carry an ambient `data`, so this probe
+    // answered TRUE: the root resolved, against the host's own object, while
+    // the row was not reachable through it at all. An author got a green lint,
+    // a resolving predicate, and an answer from the wrong layer.
+    //
+    // This is `buildExpressionScope`'s own output rather than a model of it, so
+    // the assertion tracks the producer: `data` restored to that bag reddens
+    // here.
     const ambient = fullHostScope;
-    expect(evalRowPredicate('size(data) >= 0', row, { fallback: false, scope: ambient })).toBe(true);
-    // ...while the ROW is not reachable through it at all. Canonical spelling
-    // against the same scope, so the two differ only in the spelling.
+    expect(evalRowPredicate('size(data) >= 0', row, { fallback: false, scope: ambient })).toBe(false);
+    // The canonical spelling against the SAME scope, so the two differ only in
+    // the spelling — and it is the one that reaches the row.
     expect(evalRowPredicate("record.status == 'overdue'", row, { fallback: false, scope: ambient })).toBe(true);
     expect(evalRowPredicate("data.status == 'overdue'", row, { fallback: false, scope: ambient })).toBe(false);
-    // ⚠️ The line above is FALSE at runtime while the authoring pin above
-    // ("a `data.*` condition still lints CLEAN") is green. That pair is the
-    // half of the retirement this card does not close — objectui#8166.
+    // ⚠️ What objectui#8166 did NOT close: the authoring pin above (a `data.*`
+    // condition still lints CLEAN at `scope: 'record'`) is still green, because
+    // the accept set is `@objectstack/formula`'s `SCOPE_ROOTS` and splitting it
+    // per scope is the producer-side half, in another repo. The consumer half
+    // is what changed: the predicate no longer RESOLVES, it faults with the
+    // engine's own `Unknown variable: data`.
   });
 
   it('the engine-default extras stay unadvertised because they are NOT bound', () => {

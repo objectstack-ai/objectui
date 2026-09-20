@@ -73,6 +73,24 @@
  * back to the index signature reads as `any` and therefore as a failure. And
  * every claim carries a CONTROL asserted to hold the opposite verdict, so no
  * assertion can pass vacuously.
+ *
+ * ## What an off-disk assertion may anchor to (objectui#8832)
+ *
+ * Three of the off-disk assertions below used to anchor to FORMATTING rather
+ * than to behaviour: the renderer's `(schema as any).KEY` cast SPELLING, a regex
+ * over a `useMemo` dependency list's TEXT, and the README's LINE WRAP. A fourth
+ * `it` asserted a record literal it had written three lines earlier, which
+ * cannot fail at all. The cast pin was the sharpest: dropping that cast is the
+ * cleanup declaring these keys makes possible, so the pin reddened on the
+ * improvement it existed to enable.
+ *
+ * The rule they now follow: read the FACT off disk — this key is read off the
+ * node; this key is in that memo's dependency list; these five are taught in one
+ * block — never the shape the fact happens to be written in. Casts, whitespace,
+ * dep ordering and fill width are all formatting, and each helper below is built
+ * so none of them can move a verdict. Each carries a control known to fire in
+ * the same region, because a re-anchor that can no longer go red has not fixed
+ * the assertion, it has deleted it.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -106,8 +124,10 @@ const NEWLY_DECLARED = ['colorField', 'allDayField'] as const;
  * pinned rather than claimed away.
  */
 const CONTROL_KEY = 'swatchField';
-/** A declared-and-read control for the off-disk read census. */
+/** A declared-and-read control for the off-disk read census, read BARE. */
 const READ_CONTROL_KEY = 'objectName';
+/** The same, read through a CAST — the census must see both forms, not one. */
+const CAST_READ_CONTROL_KEY = 'defaultView';
 /** The misspelling the ceiling still admits. Pinned, not fixed here. */
 const MISSPELLING = 'colourField';
 
@@ -175,9 +195,79 @@ function readRepo(rel: string): string {
   return readFileSync(join(REPO_ROOT, rel), 'utf8');
 }
 
-/** Every `schema.KEY` read in a renderer, off disk. */
+/**
+ * Every key read off the schema node, in EITHER form: the bare `schema.KEY` and
+ * the cast `(schema as any).KEY`. Both spell the same FACT — the renderer reads
+ * this key — and only one of them spells it through a cast that a future cleanup
+ * deletes once the key is declared. Reading the fact rather than the spelling is
+ * what stops the verdicts below reddening on that cleanup (objectui#8832).
+ */
+const SCHEMA_READ = /(?:\bschema\b|\(\s*schema\s+as\s+[^)]*\))\s*\.\s*([A-Za-z_$][\w$]*)/g;
+
+function schemaReads(source: string): Set<string> {
+  return new Set([...source.matchAll(SCHEMA_READ)].map((m) => m[1]));
+}
+
+/** Every key a renderer reads off the node, off disk. */
 function rendererReads(rel: string): Set<string> {
-  return new Set([...readRepo(rel).matchAll(/\bschema\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
+  return schemaReads(readRepo(rel));
+}
+
+/**
+ * Everything `getCalendarConfig` ITSELF reads off the node, sliced out of the
+ * renderer by brace matching so the verdict is about that function and not about
+ * the file that happens to contain it. Throws rather than returning empty when
+ * the function is gone, so a vanished anchor reads as a failure, never a pass.
+ */
+function configReaderReads(source: string): Set<string> {
+  const open = /function\s+getCalendarConfig\s*\([^)]*\)\s*:\s*[^{]*\{/.exec(source);
+  if (!open) {
+    throw new Error(`${CALENDAR_READER}: \`getCalendarConfig\` is gone; the reads it records moved somewhere else`);
+  }
+  const from = open.index + open[0].length;
+  let depth = 1;
+  let i = from;
+  for (; i < source.length && depth > 0; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') depth -= 1;
+  }
+  return schemaReads(source.slice(from, i - 1));
+}
+
+/**
+ * The dependency list of the memo that recomputes the calendar config, sliced
+ * out by bracket matching and then read with the same census. The locator
+ * tolerates any whitespace and the census ignores order, so a formatter run, a
+ * reordered dep or a changed print width cannot move the verdict — only the memo
+ * ceasing to depend on a key can. Throws rather than returning empty when the
+ * memo is gone, so a vanished anchor reads as a failure and never as a pass.
+ */
+function configMemoDeps(source: string): Set<string> {
+  const open = /useMemo\s*\(\s*\(\s*\)\s*=>\s*getCalendarConfig\s*\(\s*schema\s*\)\s*,\s*\[/.exec(source);
+  if (!open) {
+    throw new Error(`${CALENDAR_READER}: the calendar config is no longer memoised on the node's keys`);
+  }
+  const from = open.index + open[0].length;
+  let depth = 1;
+  let i = from;
+  for (; i < source.length && depth > 0; i += 1) {
+    if (source[i] === '[') depth += 1;
+    else if (source[i] === ']') depth -= 1;
+  }
+  return schemaReads(source.slice(from, i - 1));
+}
+
+/**
+ * The markdown blocks that teach every one of `keys`, each block's internal
+ * whitespace collapsed first. A blank line between blocks is STRUCTURE; where
+ * the lines break inside one is formatting — which is why pinning the literal
+ * wrap `'at your own\nfields when they differ.'` reddened on a re-wrap.
+ */
+function blocksTeachingAll(markdown: string, keys: readonly string[]): string[] {
+  return markdown
+    .split(/\n\s*\n/)
+    .map((block) => block.replace(/\s+/g, ' ').trim())
+    .filter((block) => keys.every((key) => block.includes(`\`${key}\``)));
 }
 
 function shapeKeys(schema: unknown): string[] {
@@ -213,35 +303,79 @@ function specShapeKeys(type: string): string[] {
 
 describe('objectui#8466 — the renderer reads these keys, which is what the declarations record', () => {
   it('`getCalendarConfig` reads all five flat keys off the node', () => {
-    const src = readRepo(CALENDAR_READER);
+    // The FACT, not the spelling. This used to assert the source contained the
+    // literal `(schema as any).KEY` — the very cast a cleanup deletes once the
+    // key is declared, which this card is what makes possible. So the pin went
+    // red on the improvement it existed to enable (objectui#8832; PR #8799 is
+    // the precedent, dropping `(schema as any).navigation` once `navigation`
+    // was declared). The census reads both forms, so the cleanup lands green.
+    const reads = configReaderReads(readRepo(CALENDAR_READER));
     for (const key of FLAT_KEYS) {
-      expect(src, `${CALENDAR_READER} no longer reads the flat ${key}`).toContain(`(schema as any).${key}`);
+      expect([...reads], `getCalendarConfig no longer reads the flat ${key}`).toContain(key);
     }
+    // Controls, both fired in THIS slice: `calendar` is the config container the
+    // function prefers over the flat five and is not one of them, so the slice is
+    // not empty by accident; `objectName` is read all over the same FILE and
+    // never inside this function, so a slice that had swallowed the file — which
+    // is what would make the five verdicts above cheap — fails here instead.
+    expect([...reads]).toContain('calendar');
+    expect(reads.has(READ_CONTROL_KEY)).toBe(false);
   });
 
   it('…and `allDayField` is LOAD-BEARING, not merely resolved (objectui#8026)', () => {
     // The premise that removed triage's "declaring an inert key would be worse"
     // objection. If the renderer ever stops honouring the key, this reddens
     // BEFORE anyone trusts the declaration to mean something.
-    const src = readRepo(CALENDAR_READER);
-    expect(src).toContain('allDayField');
-    // It is in the config memo's dependency list, which is what makes an
-    // authored change reach the screen.
-    expect(src).toMatch(/useMemo\(\(\) => getCalendarConfig\(schema\), \[[\s\S]*?allDayField[\s\S]*?\]\)/);
+    //
+    // The fact: the key is in the dependency list of the memo that recomputes
+    // the config, which is what makes an authored change reach the screen. That
+    // used to be a regex over the list's TEXT, so a formatter run, a reordered
+    // dep or a changed print width moved the verdict with no behaviour moving
+    // (objectui#8832). The list is sliced out structurally instead, and read
+    // with the same census, so only the dependency itself can move it.
+    const deps = configMemoDeps(readRepo(CALENDAR_READER));
+    for (const key of FLAT_KEYS) {
+      expect([...deps], `${key} left the config memo's dependency list`).toContain(key);
+    }
+    // Controls in both directions, each known to fire in THIS region: `calendar`
+    // is in this very list and is not one of the five, so the slice is not empty
+    // by accident; `objectName` and `filter` are read elsewhere in the same file
+    // — `objectName` in the sibling `dataConfig` memo — and are deliberately out
+    // of this one, so a slice that had swallowed the file, or caught the wrong
+    // memo, fails here instead of passing.
+    expect([...deps]).toContain('calendar');
+    expect(deps.has(READ_CONTROL_KEY)).toBe(false);
+    expect(deps.has('filter')).toBe(false);
   });
 
   it('the reads census returns a firing control, so the verdicts above are readings', () => {
     const reads = rendererReads(CALENDAR_READER);
+    // One control per read FORM, because the census now claims to see both and a
+    // single bare-form control would leave the cast form unmeasured: the renderer
+    // reads `schema.objectName` bare and `(schema as any).defaultView` through a
+    // cast, and neither is one of the five under test.
     expect(reads.has(READ_CONTROL_KEY)).toBe(true);
+    expect(reads.has(CAST_READ_CONTROL_KEY)).toBe(true);
     expect(reads.has(CONTROL_KEY)).toBe(false);
   });
 
-  it('the README still teaches all five in one sentence, which is what makes them authorable', () => {
-    // The card's second half: the published prose. If this sentence is ever
+  it('the README still teaches all five together, which is what makes them authorable', () => {
+    // The card's second half: the published prose. If this teaching is ever
     // rewritten, the declaration set it justifies has to be revisited.
+    //
+    // NOT the sentence's LINE WRAP: this used to pin the literal
+    // `'at your own\nfields when they differ.'`, so re-wrapping a prose
+    // paragraph in another package reddened a types test with no behaviour
+    // moving (objectui#8832). One markdown block is structure; where the lines
+    // break inside it is formatting.
     const readme = readRepo(CALENDAR_README);
     for (const key of FLAT_KEYS) expect(readme).toContain(`\`${key}\``);
-    expect(readme).toContain('at your own\nfields when they differ.');
+    const teaching = blocksTeachingAll(readme, FLAT_KEYS);
+    expect(teaching.length, 'the five flat keys are no longer taught in one block').toBeGreaterThan(0);
+    // Control, fired in the same region: the same search over the same README
+    // returns nothing once a key the README does not teach joins the set, so the
+    // reading above is a reading and not "every block matches".
+    expect(blocksTeachingAll(readme, [...FLAT_KEYS, CONTROL_KEY])).toHaveLength(0);
   });
 });
 
@@ -312,20 +446,24 @@ describe('objectui#8466 — `calendar-view` already declared all five, and the t
     expect(src).toContain("ComponentRegistry.register('calendar', ObjectCalendarRenderer");
   });
 
-  it('the sibling `CalendarViewSchema` declares all five — including the two this card adds', () => {
-    // Measured, and the reason declaring `allDayField` is not a new precedent:
-    // this package has ALREADY shipped it declared on a published interface, for
-    // a sibling renderer that reads exactly the same five flat keys.
-    // `ObjectCalendarSchema` was the odd one out, not the pioneer.
-    const declaredOnSibling: Record<(typeof FLAT_KEYS)[number], true> = {
-      titleField: true,
-      startDateField: true,
-      endDateField: true,
-      allDayField: true,
-      colorField: true,
-    };
-    expect(Object.keys(declaredOnSibling).sort()).toEqual([...FLAT_KEYS].sort());
-    expect(siblingPins).toHaveLength(5);
+  it('the sibling five are pinned at COMPILE time; this keeps that tuple referenced and its arity honest', () => {
+    // READ THE TITLE. The pin that `CalendarViewSchema` declares all five — the
+    // reason declaring `allDayField` is not a new precedent — is the
+    // `siblingPins` tuple above: five `Expect<Declared<…>>` slots that only
+    // type-check while the sibling declares all five, enforced by Type Check.
+    //
+    // This `it` cannot fail for that reason, and it used to read as though it
+    // could: it asserted a record literal it had written three lines earlier,
+    // and counted the tuple against a hard-coded 5 — both vacuous at runtime
+    // (objectui#8832). A future reader trusting a green runtime test that never
+    // had teeth is the failure mode, so the title now says what this is.
+    //
+    // What it does check, and the one way it goes red: the tuple carries one
+    // slot per flat key, so a sixth key added to `FLAT_KEYS` without a sixth
+    // slot would leave that key unpinned on the sibling — silently, because a
+    // shorter tuple still type-checks. That arity is the runtime-checkable half.
+    expect(siblingPins, 'a flat key has no `siblingPins` slot, so the sibling interface is unpinned for it')
+      .toHaveLength(FLAT_KEYS.length);
   });
 });
 

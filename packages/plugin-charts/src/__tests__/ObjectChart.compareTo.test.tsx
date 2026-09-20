@@ -32,6 +32,7 @@ vi.mock('../ChartRenderer', () => ({
 }));
 
 import { ObjectChart } from '../ObjectChart';
+import type { DashboardWidget as SpecDashboardWidget } from '@objectstack/spec/ui';
 
 /**
  * objectui#4106 — answer ObjectChart's option-color probe from a double.
@@ -94,10 +95,32 @@ const comparisonFromOf = (src: { aggregate: any }) =>
     .map((c: any[]) => String(c[1].filter.close_date.$gte))
     .find((from: string) => from !== CURRENT_FROM);
 
-const renderChart = (compareTo: unknown, dataSource: unknown) =>
+/**
+ * ⚠️ `compareTo` is typed at the PRODUCER's own declaration rather than
+ * `unknown`, and the reason is a measurement rather than tidiness.
+ *
+ * `DashboardRenderer` composes this node with `compareTo: widget.compareTo`,
+ * forwarding the dashboard widget's key verbatim — so
+ * `DashboardWidget['compareTo']` is literally where every value that reaches
+ * this prop comes from. All four call sites below already pass exactly that
+ * shape (`{ kind }`, `{ kind, dimension }`, or nothing), so nothing this file
+ * expresses is lost.
+ *
+ * What it buys: objectui#8885 (PR objectui#8895) declares `compareTo` on
+ * `ObjectChartSchema` bound to that same symbol. With `unknown` here, the
+ * literal below stops compiling the moment the two PRs are UNIONISED — a defect
+ * neither branch can see alone, because on this branch the key still rides
+ * `BaseSchema`'s index signature. Measured on the merge of the two heads: the
+ * union's `tsc -p tsconfig.test.json` reported this line, and it was masked in
+ * the obvious reading because `type-check` is `tsc --noEmit && tsc -p
+ * tsconfig.test.json` — the `&&` short-circuits, so the first error hides every
+ * error the TEST project would have reported.
+ */
+const renderChart = (compareTo: SpecDashboardWidget['compareTo'], dataSource: unknown) =>
   render(
     <ObjectChart
       schema={{
+        type: 'object-chart',
         objectName: 'deal',
         chartType: 'bar',
         aggregate: { field: 'amount', function: 'sum', groupBy: 'stage' },

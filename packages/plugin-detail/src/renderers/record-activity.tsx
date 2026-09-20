@@ -70,6 +70,7 @@ import {
   normalizeLimit,
   type SysActivityRow,
 } from './recordActivityFeed';
+import { useRecordAriaProps } from './recordComponentAria';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -96,7 +97,19 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
   ...props
 }) => {
   const { designer } = splitDesigner(props);
-  const ctx = useRecordContext() as any;
+  /**
+   * The block's authored `aria` bag, honoured through the family's ONE read
+   * point (objectui#9556). Called here, with the other hooks, because every
+   * renderer below it has early returns.
+   *
+   * ⛔ No `defaultRole`: with nothing authored this container stays the bare
+   * `div` it has always been, so a page that never wrote `aria` renders
+   * byte-identical DOM. An author who does write one gets a `region` to carry
+   * it — see `recordComponentAria.ts` for why the attribute alone would reach
+   * nobody.
+   */
+  const ariaProps = useRecordAriaProps(schema.aria);
+  const ctx = useRecordContext();
   const discussion = useDiscussionContext();
   const tt = useSafeTranslate();
 
@@ -135,10 +148,7 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
 
   const objectName: string | undefined = ctx?.objectName;
   const recordId = ctx?.data?.id ?? ctx?.data?._id ?? ctx?.recordId;
-  // `RecordContextValue.dataSource` is typed `string` (a datasource id) while
-  // every host passes the object; `record:history` / `record:reference_rail`
-  // cast the same way. Matching the runtime beats matching the declaration.
-  const dataSource = ctx?.dataSource as any;
+  const dataSource = ctx?.dataSource;
 
   // Self-fetch only when nobody else owns the feed. A mounted DiscussionContext
   // has already merged `sys_comment` + `sys_activity` for this record; fetching
@@ -240,7 +250,7 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
   const mentionsEnabled = config.enableMentions !== false;
 
   return (
-    <div className={className} {...designer}>
+    <div className={className} {...designer} {...ariaProps}>
       <RecordActivityTimeline
         items={items}
         config={config}

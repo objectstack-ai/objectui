@@ -14,6 +14,10 @@
  *     are skipped — the response shape varies per request (e.g. no
  *     `temporaryPassword` when the admin typed one), and a labelled
  *     `undefined` row would be noise.
+ *   - `title`, `description`, `acknowledge` and each `fields[].label` are
+ *     `I18nLabel` on the contract — a plain string OR an inline per-locale map
+ *     — and every one is resolved against the display language before it
+ *     reaches the DOM (objectui#9542).
  *   - The dialog has NO close button — the user must click acknowledge.
  *     This is the whole point: a toast would let them dismiss the value
  *     before reading it.
@@ -33,6 +37,12 @@ import {
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Copy, Eye, EyeOff, Check } from 'lucide-react';
 import { toCanvas } from 'qrcode';
+// Aliased per PR #4169's convention — app-shell has its OWN `resolveI18nLabel`
+// for the KEYED vocabulary, which does not accept the inline per-locale map
+// this resolves. ⛔ Not `resolveKeyedI18nLabel`: the two are structurally
+// confusable and answer wrongly for each other's input (objectui#4167), and
+// `resultDialog`'s label members are the INLINE form.
+import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
 import type { ResultDialogSpec, ResultDialogFieldSpec } from '@object-ui/core';
 
 export interface ResultDialogState {
@@ -58,8 +68,25 @@ function readPath(root: unknown, path: string): unknown {
 }
 
 export function ActionResultDialog({ state, onAcknowledge }: ActionResultDialogProps) {
-  const { t } = useObjectTranslation();
+  // `language` is the display locale every other inline-`I18nLabel` caller in
+  // this package resolves against — `AppSidebar` and `UnifiedSidebar` read it
+  // off this same hook, `resolveActionParams` takes it threaded in by both its
+  // callers, and metadata-admin's `useMetadataLocale` narrows this same value
+  // to that designer's two bundled locales. One source, so a title and the
+  // surrounding chrome cannot disagree about the user's language.
+  const { t, language } = useObjectTranslation();
   const { spec, data } = state;
+
+  // Each of these three is an `I18nLabel` on the contract: a plain string, or
+  // an inline per-locale map. Resolved here, once, on the way INTO JSX — an
+  // unresolved map is an object, and React refuses an object as a child, so the
+  // dialog threw rather than mis-rendering and the one-shot value it exists to
+  // reveal was lost on an action that had already succeeded (objectui#9542).
+  // `|| fallback` is kept over `??`: the resolver answers `undefined` for a map
+  // with no usable entry, and an empty string must reach the default too.
+  const title = resolveInlineI18nLabel(spec?.title, language);
+  const description = resolveInlineI18nLabel(spec?.description, language);
+  const acknowledge = resolveInlineI18nLabel(spec?.acknowledge, language);
 
   // Synthesise a single-field render plan when the action did not declare
   // explicit fields — keeps the dialog body uniform. Declared fields whose
@@ -93,10 +120,10 @@ export function ActionResultDialog({ state, onAcknowledge }: ActionResultDialogP
       >
         <DialogHeader>
           <DialogTitle>
-            {spec?.title || t('actions.resultDialog.defaultTitle') || 'Save this value now'}
+            {title || t('actions.resultDialog.defaultTitle') || 'Save this value now'}
           </DialogTitle>
-          {spec?.description ? (
-            <DialogDescription>{spec.description}</DialogDescription>
+          {description ? (
+            <DialogDescription>{description}</DialogDescription>
           ) : null}
         </DialogHeader>
 
@@ -113,7 +140,7 @@ export function ActionResultDialog({ state, onAcknowledge }: ActionResultDialogP
 
         <DialogFooter>
           <Button onClick={onAcknowledge}>
-            {spec?.acknowledge || t('actions.resultDialog.acknowledge') || 'I have saved this'}
+            {acknowledge || t('actions.resultDialog.acknowledge') || 'I have saved this'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -130,8 +157,11 @@ function ResultField({
   value: unknown;
   defaultFormat?: FieldFormat;
 }) {
+  const { language } = useObjectTranslation();
   const format: FieldFormat = field.format ?? defaultFormat ?? 'json';
-  const label = field.label;
+  // Same `I18nLabel` contract as the dialog's own three label members, same
+  // resolution — a field label is the fourth member the block declares as one.
+  const label = resolveInlineI18nLabel(field.label, language);
 
   // Type-guard each renderer rather than crash if the server returned an
   // unexpected shape (e.g. format=qrcode but value is undefined). We

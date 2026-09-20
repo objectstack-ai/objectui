@@ -8,8 +8,18 @@
 
 /**
  * objectui#8285 — what a REAL author is told when they write `quickAdd` on an
- * `object-kanban` / `kanban` page (director-seat ruling of 2026-09-08, batch
- * #91, slice C).
+ * `object-kanban` page (director-seat ruling of 2026-09-08, batch #91, slice
+ * C).
+ *
+ * ⚠️ This file landed while `ObjectKanbanRenderer` still answered to TWO keys.
+ * objectui#8802 / objectui#8257 retired `kanban`, `kanban-ui` and
+ * `kanban-enhanced`, and this file is the importer that retirement had to
+ * carry: it re-derives its host set from the registration calls and reads the
+ * LIVE registry, so it goes red on the merged tree the day the registrations
+ * go — which is the point of writing it this way. Its SUBJECT is unchanged and
+ * still pinned: the html tier NAMES the Quick Add pair instead of dropping the
+ * key. Only the set of tags that subject holds over has shrunk to the one key
+ * that resolves.
  *
  * The rule itself is pinned next door, over a fixture manifest
  * (`packages/sdui-parser/src/__tests__/kanban-quick-add-8285.test.ts`). THIS
@@ -27,8 +37,9 @@
  *
  *   3. THE TAG SET — `QUICK_ADD_HOST_TYPES` is restated data in a package that
  *      must not depend on this one, so it is re-derived HERE from the
- *      registration calls. A third `ObjectKanbanRenderer` tag, or a rename,
- *      reddens this row rather than silently narrowing the diagnostic.
+ *      registration calls. A second `ObjectKanbanRenderer` tag, or a rename,
+ *      reddens this row rather than silently narrowing the diagnostic — and it
+ *      is what caught the retirement.
  *   4. STILL NOT DECLARED — the ruling DIAGNOSES, it does not widen. A "fix"
  *      that added `quickAdd` to `OBJECT_KANBAN_INPUTS` would publish a key the
  *      renderer cannot honour, which is what objectui#8201 escalated rather
@@ -90,9 +101,19 @@ const codesFor = (type: string, props: Record<string, unknown>, key: string): st
 const declaredInputNames = (type: string, namespace?: string): string[] =>
   ((ComponentRegistry.getConfig(type, namespace) as any)?.inputs ?? []).map((i: any) => i.name);
 
+/**
+ * ⚠️ ONE entry since objectui#8802 retired the bare `kanban` key (and with it
+ * `view:kanban`, its namespaced twin). ⛔ Do not re-add a row here to "restore
+ * coverage": a tag no registration produces is not in the manifest, so
+ * `validate.ts` answers it with `unknown-component` and never walks its props
+ * — every row below would assert an empty diagnostic list for the wrong reason.
+ * The retired spellings are pinned as gone in
+ * `kanban-family-registry-keys-retired-8257.test.ts`, and the non-host half of
+ * the rule is pinned over a hand-built manifest in
+ * `packages/sdui-parser/src/__tests__/kanban-quick-add-8285.test.ts`.
+ */
 const KANBAN_TAGS = [
   { label: 'object-kanban', type: 'object-kanban', namespace: 'plugin-kanban' },
-  { label: 'view:kanban', type: 'kanban', namespace: 'view' },
 ] as const;
 
 /** The key names a strict parse of the block's spec schema refuses BY NAME. */
@@ -115,12 +136,19 @@ describe('objectui#8285 — the html tier names the Quick Add pair instead of dr
   it('the diagnostic covers exactly the tags `index.tsx` registers this renderer under', () => {
     expect(registeredKeys()).toEqual([...QUICK_ADD_HOST_TYPES].sort());
     // Anti-vacuity + discrimination: a regex that matched nothing would return
-    // `[]`, and the two blocks registered in the SAME file to OTHER renderers
-    // must not be in the set — `kanban-ui` is the one the ruling keeps.
-    expect(registeredKeys().length).toBe(2);
+    // `[]`, so the count is asserted separately from the equality above.
+    expect(registeredKeys().length).toBe(1);
+    expect(registeredKeys()).not.toContain('kanban');
     expect(registeredKeys()).not.toContain('kanban-ui');
     expect(registeredKeys()).not.toContain('kanban-enhanced');
-    expect(ComponentRegistry.has('kanban-ui')).toBe(true);
+    // ⚠️ Was `true`: the ruling this file landed under kept `kanban-ui`'s pair
+    // reachable as a TAG. objectui#8257 retired that registration, so the pair
+    // now survives only on the exported `KanbanRenderer` COMPONENT — which is
+    // what the diagnostic's message names. Kept as a reading rather than
+    // deleted: it is the discrimination that stops a future "restore the
+    // kanban-ish tags" fix from passing silently, and the retirement itself is
+    // pinned next door in `kanban-family-registry-keys-retired-8257.test.ts`.
+    expect(ComponentRegistry.has('kanban-ui')).toBe(false);
     for (const key of registeredKeys()) expect(ComponentRegistry.get(key)).toBe(ObjectKanbanRenderer);
   });
 

@@ -1,5 +1,5 @@
 /**
- * ObjectUI — `quickAdd` on the two `ObjectKanbanRenderer` tags is DIAGNOSED,
+ * ObjectUI — `quickAdd` on the `ObjectKanbanRenderer` tag is DIAGNOSED,
  * and diagnosed truthfully (objectui#8285, ruling of 2026-09-08, batch #91)
  *
  * The mechanism, over a hand-built manifest that mirrors the real
@@ -23,9 +23,11 @@
  *
  *   - the unknown-prop control — a fix that suppressed the generic walk for
  *     this block rather than for this one key;
- *   - `kanban-ui` — a fix scoped to "a kanban-ish tag", which would hit the one
- *     block the ruling explicitly keeps untouched (a React host there CAN pass
- *     the function);
+ *   - the two RETIRED kanban-ish tags (`kanban`, `kanban-ui`) — a fix scoped
+ *     to "a kanban-ish tag" rather than to the one registration that serves
+ *     `ObjectKanbanRenderer`. Both left the registry with objectui#8802 /
+ *     objectui#8257, so neither is a host any more; they stay declared in the
+ *     hand-built manifest below precisely so this row can still discriminate;
  *   - `quickAdd: false` — a fix keyed on the KEY's presence rather than on the
  *     author asking for the control, which would warn about a value that got
  *     exactly what it asked for;
@@ -46,9 +48,17 @@ import {
 import type { Diagnostic, Manifest } from '../types.js';
 
 /**
- * The three kanban blocks, carrying the inputs their real registrations
- * declare — `quickAdd` on NONE of them, which is the state this change leaves
- * untouched. `card` is a non-kanban control block.
+ * The three kanban blocks, carrying the inputs their registrations declared —
+ * `quickAdd` on NONE of them, which is the state this change leaves untouched.
+ * `card` is a non-kanban control block.
+ *
+ * ⚠️ `kanban` and `kanban-ui` are RETIRED registrations (objectui#8802,
+ * objectui#8257) and are kept here ON PURPOSE, as the discrimination controls
+ * below: a manifest is an argument to `validateTree`, so this file can still
+ * ask what the rule says about a tag the live registry no longer produces —
+ * and the answer must be "not a host". ⛔ Do not read their presence as a
+ * claim that either tag resolves; the live-registry half of that question is
+ * the sibling test's, and it answers `unknown-component`.
  */
 const manifest: Manifest = manifestFromConfigs([
   {
@@ -80,10 +90,19 @@ const codesFor = (node: Record<string, unknown>, key: string): string[] =>
 const HOST_TAGS = [...QUICK_ADD_HOST_TYPES].sort();
 
 describe('objectui#8285 — an authored `quickAdd` is diagnosed on the ObjectKanban tags', () => {
-  it('the host set is the two ObjectKanbanRenderer tags, and is not empty', () => {
+  it('the host set is the one surviving ObjectKanbanRenderer tag, and is not empty', () => {
     // Anti-vacuity for every row below: an empty set would make the negative
     // rows trivially true and the positive rows unreachable.
-    expect(HOST_TAGS).toEqual(['kanban', 'object-kanban']);
+    //
+    // ⚠️ This row is the ONLY thing in this package that a change to
+    // `QUICK_ADD_HOST_TYPES` reddens — every other row is `it.each(HOST_TAGS)`
+    // and re-derives itself from the constant, so a narrowing would otherwise
+    // just delete cases silently. `kanban` left the set with its registration
+    // (objectui#8802): `checkKanbanQuickAdd` is reached only from
+    // `validate.ts`'s prop walk, which runs only for a tag the manifest
+    // RESOLVED, so a tag no registration produces is answered by
+    // `unknown-component` one level up and never reaches this module.
+    expect(HOST_TAGS).toEqual(['object-kanban']);
   });
 
   it.each(HOST_TAGS)('<%s> — an authored `quickAdd: true` draws exactly one warning', (tag) => {
@@ -109,7 +128,12 @@ describe('objectui#8285 — an authored `quickAdd` is diagnosed on the ObjectKan
     // to the contract with no explanation, which is the state being fixed.
     const [{ message }] = diagnose({ type: tag, objectName: 'task', quickAdd: true });
     expect(message).toContain('onQuickAdd');
-    expect(message).toContain('kanban-ui');
+    // ⚠️ The remedy names the COMPONENT, not the `kanban-ui` TAG it used to
+    // name: objectui#8257 retired that registration, so a page written to the
+    // old advice would now draw `unknown-component` — an ERROR. `KanbanRenderer`
+    // is still exported from `@object-ui/plugin-kanban` and still forwards both
+    // halves by identity, so it is the surviving way to get the pair.
+    expect(message).toContain('KanbanRenderer');
   });
 
   it.each(HOST_TAGS)('<%s> — control: a genuinely unknown prop is still reported', (tag) => {
@@ -139,16 +163,21 @@ describe('objectui#8285 — an authored `quickAdd` is diagnosed on the ObjectKan
     ).toEqual(['unknown-prop']);
   });
 
-  it('control: `kanban-ui` is untouched — the ruling keeps its pair, a React host can supply it', () => {
-    // The one block where `quickAdd` / `onQuickAdd` is honoured, because
-    // `KanbanRenderer` forwards both halves by identity. Green in both worlds;
-    // guards a fix scoped to "a kanban-ish tag".
-    const diagnostics = diagnose({ type: 'kanban-ui', columns: [], quickAdd: true });
-    expect(diagnostics.map((d) => d.code)).not.toContain(INERT_QUICK_ADD);
-    expect(codesFor({ type: 'kanban-ui', columns: [], quickAdd: true }, QUICK_ADD_KEY)).toEqual([
-      'unknown-prop',
-    ]);
-  });
+  it.each(['kanban-ui', 'kanban'])(
+    'control: `%s` is NOT a host — a kanban-ish tag alone does not arm this diagnostic',
+    (tag) => {
+      // Guards a fix scoped to "a kanban-ish tag". Both spellings are RETIRED
+      // registrations (objectui#8257, objectui#8802), so neither can reach this
+      // module through a manifest built from the live registry at all — they are
+      // declared in this file's hand-built manifest so the discrimination is
+      // still measurable here, which is the one thing a synthetic manifest can
+      // do that the live one cannot. `kanban-ui`'s pair itself survives on the
+      // exported `KanbanRenderer` component, which no tag resolves to.
+      const node = { type: tag, columns: [], quickAdd: true };
+      expect(diagnose(node).map((d) => d.code)).not.toContain(INERT_QUICK_ADD);
+      expect(codesFor(node, QUICK_ADD_KEY)).toEqual(['unknown-prop']);
+    },
+  );
 
   it('control: a non-kanban block is untouched', () => {
     expect(diagnose({ type: 'card', quickAdd: true }).map((d) => d.code)).toEqual(['unknown-prop']);

@@ -190,7 +190,13 @@ function TextareaStub({ placeholder, mono }: FieldStubProps & { mono?: boolean }
 
 function PicklistStub({ options, placeholder, single, locale }: FieldStubProps & { single: boolean }) {
   const opts = options ?? [];
-  const visible = opts.slice(0, single ? 1 : 3).filter((o) => o.value || o.label);
+  // Filter BEFORE slicing. An entry with neither a value nor a label renders
+  // as nothing, so letting it consume the display budget hid a well-formed
+  // option sitting behind it, and made the overflow counter below promise
+  // badges no wider card could ever show (objectui#9074). `renderable` is the
+  // population for both: what fits is rendered, what does not is counted.
+  const renderable = opts.filter((o) => o.value || o.label);
+  const visible = renderable.slice(0, single ? 1 : 3);
   if (single) {
     return (
       <div className="h-8 px-2 flex items-center justify-between text-sm border rounded bg-background text-muted-foreground">
@@ -208,8 +214,8 @@ function PicklistStub({ options, placeholder, single, locale }: FieldStubProps &
           <Badge key={i} variant="secondary" className="text-[10px]">{o.label || o.value}</Badge>
         ))
       )}
-      {opts.length > visible.length && (
-        <span className="text-[10px] text-muted-foreground">+{opts.length - visible.length}</span>
+      {renderable.length > visible.length && (
+        <span className="text-[10px] text-muted-foreground">+{renderable.length - visible.length}</span>
       )}
     </div>
   );

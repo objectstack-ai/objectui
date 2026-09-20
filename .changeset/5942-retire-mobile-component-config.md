@@ -25,12 +25,12 @@ could reach a renderer. objectui#4919 removed its last member
 (`mobileOverrides`), which is what left the container itself inert.
 
 Removed outright rather than kept as a `?: never` tombstone, on this package's
-own discriminator: a tombstone steers authors to a named live replacement key
-(`crud.ts` `confirm` to `confirmText`; `data-display.ts` `hoverable`/`striped`
-to `data-table`), or keeps loud a key the docs taught as working. Neither
-applies — the whole interface goes, so there is no surviving object to hang a
-`never` key on, and no documentation ever described it
-(`skills/objectui/guides/mobile.md` teaches the hooks, never this type). Same
+own retire-vs-remove discriminator, in the form objectui#7678 amended it to.
+That rule is cited here and not restated: it is stated once, and a second copy
+carried in a release note could only drift out of agreement with it. Measured
+against it the route is removal — the whole interface goes, so there is no
+surviving object to hang a `never` key on, and no documentation ever described
+it (`skills/objectui/guides/mobile.md` teaches the hooks, never this type). Same
 zero-pull, no-successor shape as `MobileOverrides` (objectui#4919) and
 `AccordionItem.icon` / `ToggleGroupItem.icon`.
 

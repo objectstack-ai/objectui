@@ -58,13 +58,26 @@ import React from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 
 // The REAL renderers, at module scope so `data-table` / `card` are registered
 // before the first render (AGENTS.md §测试纪律). Relative, not the bare
 // specifier: this file lives inside `@object-ui/components`
 // (`scripts/check-package-self-import.mjs`).
 import '../renderers';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are the `data` ROOT of the expression scope — the renderer binds
+ * `SchemaRendererContext.dataSource` as `data` for every predicate, which is
+ * the second meaning this one key carries.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../../../..');
@@ -90,9 +103,11 @@ const EMPTY_STATE = 'No results foundTry adjusting your filters or search query.
 
 function renderNode(schema: unknown) {
   return render(
-    <SchemaRendererProvider dataSource={PROVIDER}>
+    <PredicateScopeProvider scope={{ data: PROVIDER }}>
+      <SchemaRendererProvider dataSource={PROVIDER as unknown as DataSource}>
       <SchemaRenderer schema={schema as never} />
-    </SchemaRendererProvider>,
+    </SchemaRendererProvider>
+    </PredicateScopeProvider>,
   );
 }
 

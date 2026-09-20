@@ -15,6 +15,38 @@
  *
  * Used by plugin-grid, plugin-list, plugin-detail and any component that needs
  * NavigationConfig support.
+ *
+ * ## The RETIRED `view` key (objectui#9874)
+ *
+ * `view.list.navigation.view` was removed in `@objectstack/spec` 17.5.0 under
+ * ADR-0049 (enforce-or-remove). This hook was its one shipped consumer, and the
+ * spec's own tombstone describes THIS file: the authored value "was passed
+ * straight into the navigation-MODE argument of the console's `onNavigate`,
+ * where anything other than `edit` or `view` matched no branch, so the key
+ * selected nothing and could silently deaden the row click."
+ *
+ * ⭐ The point that is one character wide in the source and total in meaning:
+ * `onNavigate`'s second argument is the navigation MODE token, not a view name.
+ * An authored `view` did not SELECT a view, it SUBSTITUTED for the mode — so
+ * `{ mode: 'page', view: 'summary_view' }` dispatched `'summary_view'` into the
+ * slot a host reads against its closed `edit`/`view` vocabulary, matching
+ * neither branch. Two reads (`view ?? 'view'`, in the no-config and the `page`
+ * branch) are now the literal `'view'`, which is what every config without the
+ * key already dispatched and what every config dispatches now.
+ *
+ * The replacement route is NOT in this hook and no fallback belongs here. Per
+ * the same tombstone: to choose what opens for a record, assign a `record` page
+ * to the object and let `isDefault` pick the one that opens — page assignment
+ * is the machinery that resolves a detail layout, and a list view's
+ * `navigation` block only decides HOW the detail is surfaced (`mode`, `size`).
+ *
+ * ⚠️ `NavigationOverlayState` lost its `view` member with the read. It could
+ * only ever carry the retired key, so keeping it would publish a field that is
+ * permanently `undefined` — the same "declared, consumed, and wrong" state the
+ * retirement exists to end. Measured before removing it: zero readers of that
+ * member in this repository (`(navOverlay|nav|state).view` → no lines, against
+ * a lit control on its sibling members in the same command). Hosts outside this
+ * repository were NOT measured.
  */
 
 import { useState, useCallback, useMemo } from 'react';
@@ -37,8 +69,10 @@ import type { SpecAuthoredInput } from '../spec-input.js';
  * `mode` is OPTIONAL, because the spec says so and this hook agrees.
  * `packages/spec/src/ui/view.zod.ts` declares
  * `mode: NavigationModeSchema.default('page')`, and a `.default()` lands on the
- * AUTHORING side as `| undefined` — so `navigation: { view: 'summary_view' }`
- * is legal authored metadata that lets the mode default.
+ * AUTHORING side as `| undefined` — so `navigation: { size: 'lg' }` is legal
+ * authored metadata that lets the mode default. ⛔ This sentence used to make
+ * the same point with a `view` member; see "The RETIRED `view` key" below for
+ * why no example in this file may spell that key again.
  *
  * Until objectui#4550 this alias `Omit`ted `mode` and re-added it as
  * `NonNullable<…>`, on the stated reasoning that "this hook dispatches on
@@ -139,8 +173,33 @@ export interface UseNavigationOverlayOptions {
   objectName?: string;
   /** External onNavigate callback (e.g., from ActionProvider or parent) */
   onNavigate?: (recordId: string | number, action?: string) => void;
-  /** External onRowClick callback — if set, takes full priority */
-  onRowClick?: (record: Record<string, unknown>) => void;
+  /**
+   * External onRowClick callback — if set, takes full priority.
+   *
+   * Declares BOTH arguments `handleClick` hands it: the record, and the
+   * optional modifier payload (`HandleClickModifiers`, declared just below)
+   * that lets a host implement Cmd/Ctrl/middle-click for itself. The second
+   * argument was always delivered; until objectui#9357 this line declared only
+   * the first and `handleClick` asserted the declaration away in order to make
+   * the call — so the payload was invisible on the one line a host reads, and
+   * every consumer that passes its own handler through copied the understated
+   * spelling outward.
+   *
+   * A one-parameter handler stays assignable here, and so does one that leaves
+   * its second parameter unannotated. The exception, and the one class that has
+   * to change: a handler whose second parameter is annotated NARROWER than
+   * `HandleClickModifiers` — React's `MouseEvent` is the shape this hits in
+   * practice, because the payload used to be discoverable only from the
+   * implementation — is refused from this card on with TS2322. The parameter is
+   * checked contravariantly, so the annotation has to ADMIT
+   * `HandleClickModifiers`. The fix is one line at that call site: annotate the
+   * parameter `HandleClickModifiers` (exported from this module, and from
+   * `@object-ui/react`), or drop the annotation and let it be inferred; either
+   * way the handler keeps receiving exactly what it received before. What the
+   * widening buys everyone else is that a caller who WANTS the payload can now
+   * see, from the published type, that it exists.
+   */
+  onRowClick?: (record: Record<string, unknown>, event?: HandleClickModifiers) => void;
 }
 
 /**
@@ -183,8 +242,6 @@ export interface NavigationOverlayState {
   width: string | number | undefined;
   /** Whether navigation is an overlay mode (drawer/modal/split/popover) */
   isOverlay: boolean;
-  /** The target view/form name from NavigationConfig */
-  view: string | undefined;
 }
 
 /**
@@ -247,7 +304,6 @@ export function useNavigationOverlay(
 
   const mode: NavigationMode = navigation?.mode ?? 'page';
   const width = resolveOverlayWidth(navigation);
-  const view = navigation?.view;
   const isOverlay = mode === 'drawer' || mode === 'modal' || mode === 'split' || mode === 'popover';
 
   const close = useCallback(() => {
@@ -265,8 +321,14 @@ export function useNavigationOverlay(
       // External onRowClick takes full priority. Forward the modifier event
       // so parent handlers (e.g. ObjectView) can still implement Cmd/Ctrl/
       // middle-click → open in new tab.
+      //
+      // Called straight through the declaration (objectui#9357). This used to
+      // carry a type assertion widening the option to two parameters at the
+      // call — the producer paying for its own understated declaration, which
+      // AGENTS.md #0.1 sends back to the producer. The producer is this file,
+      // and the option above now declares what this line passes.
       if (onRowClick) {
-        (onRowClick as (r: Record<string, unknown>, e?: HandleClickModifiers) => void)(record, event);
+        onRowClick(record, event);
         return;
       }
 
@@ -289,7 +351,7 @@ export function useNavigationOverlay(
       if (!navigation) {
         const recordId = record.id || record._id;
         if (onNavigate && recordId != null) {
-          onNavigate(recordId as string | number, view ?? 'view');
+          onNavigate(recordId as string | number, 'view');
         }
         return;
       }
@@ -322,7 +384,7 @@ export function useNavigationOverlay(
       if (mode === 'page') {
         const recordId = record.id || record._id;
         if (onNavigate && recordId != null) {
-          onNavigate(recordId as string | number, view ?? 'view');
+          onNavigate(recordId as string | number, 'view');
         }
         return;
       }
@@ -334,7 +396,7 @@ export function useNavigationOverlay(
         return;
       }
     },
-    [onRowClick, navigation, mode, objectName, onNavigate, isOverlay, view]
+    [onRowClick, navigation, mode, objectName, onNavigate, isOverlay]
   );
 
   return useMemo(
@@ -347,9 +409,8 @@ export function useNavigationOverlay(
       setIsOpen,
       handleClick,
       width,
-      view,
       isOverlay,
     }),
-    [isOpen, selectedRecord, mode, close, open, handleClick, width, view, isOverlay]
+    [isOpen, selectedRecord, mode, close, open, handleClick, width, isOverlay]
   );
 }

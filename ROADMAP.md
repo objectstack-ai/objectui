@@ -34,7 +34,7 @@
 
 ObjectUI is a universal Server-Driven UI (SDUI) engine built on React + Tailwind + Shadcn. It renders JSON metadata from the @objectstack/spec protocol into pixel-perfect, accessible, and interactive enterprise interfaces.
 
-**Where We Are:** Foundation is **solid and shipping** — 39 packages published on npm, 99+ components, 6,700+ tests, 80 Storybook stories, 43/43 builds passing, ~85% protocol alignment. SpecBridge, Expression Engine, Action Engine, data binding, all view plugins (Grid/Kanban/Calendar/Gantt/Timeline/Map/Gallery), Record components, Report engine, Dashboard BI features, mobile UX, i18n (11 locales), WCAG AA accessibility, Console through Phase 20 (L3), **AppShell Navigation Renderer** (P0.1), **Flow Designer** (P2.4), **Feed/Chatter UI** (P1.5), **App Creation & Editing Flow** (P1.11), **System Settings & App Management** (P1.12), **Page/Dashboard Editor Console Integration** (P1.11), **Right-Side Visual Editor Drawer** (P1.11), **Console Engine Schema Integration** (P1.14), and **Unified Home Dashboard** (P1.7.1) — all ✅ complete. **ViewDesigner** has been removed — its capabilities (drag-to-reorder, undo/redo) are now provided by the ViewConfigPanel (right-side config panel).
+**Where We Are:** Foundation is **solid and shipping** — 39 packages published on npm, 99+ components, 6,700+ tests, 80 Storybook stories, 43/43 builds passing, ~85% protocol alignment. SpecBridge, Expression Engine, Action Engine, data binding, all view plugins (Grid/Kanban/Calendar/Gantt/Timeline/Map/Gallery), Record components, Report engine, Dashboard BI features, mobile UX, i18n (10 locales), WCAG AA accessibility, Console through Phase 20 (L3), **AppShell Navigation Renderer** (P0.1), **Flow Designer** (P2.4), **Feed/Chatter UI** (P1.5), **App Creation & Editing Flow** (P1.11), **System Settings & App Management** (P1.12), **Page/Dashboard Editor Console Integration** (P1.11), **Right-Side Visual Editor Drawer** (P1.11), **Console Engine Schema Integration** (P1.14), and **Unified Home Dashboard** (P1.7.1) — all ✅ complete. **ViewDesigner** has been removed — its capabilities (drag-to-reorder, undo/redo) are now provided by the ViewConfigPanel (right-side config panel).
 
 **What Remains:** The gap to **Airtable-level UX** is primarily in:
 1. ~~**AppShell** — No dynamic navigation renderer from spec JSON (last P0 blocker)~~ ✅ Complete
@@ -305,7 +305,7 @@ ObjectUI is a universal Server-Driven UI (SDUI) engine built on React + Tailwind
 - [x] Appearance section: Color, Field text color, Row height (icon toggle), Wrap headers, Show field descriptions, Collapse all by default
 - [x] User actions section: Edit records inline (→ inlineEdit), Add/delete records inline, Navigation mode (page/drawer/modal/split/popover/new_window/none)
 - [x] Calendar endDateField support
-- [x] i18n for all 11 locales (en, zh, ja, de, fr, es, ar, ru, pt, ko)
+- [x] i18n for all 10 locales (en, zh, ja, de, fr, es, ar, ru, pt, ko)
 - [x] **Live preview: ViewConfigPanel changes sync in real-time to all list types (Grid/Kanban/Calendar/Timeline/Gallery/Map)** _(all 7 phases complete — see P1.8.1 gap analysis below)_
   - ✅ `showSort` added to `ObjectViewSchema` and propagated through plugin-view (Grid only)
   - ✅ Appearance properties (`rowHeight`, `densityMode`) flow through `renderListView` schema for all view types
@@ -601,7 +601,7 @@ ObjectUI is a universal Server-Driven UI (SDUI) engine built on React + Tailwind
 - [x] Add `description` field to `NamedListView` protocol interface (spec alignment)
 - [x] Add `disabledWhen` predicate to `ConfigField` type — grid-only fields (striped/bordered/wrapHeaders/resizable) disabled for non-grid views
 - [x] Add `expandedSections` prop to `ConfigPanelRenderer` for external section collapse control (auto-focus/highlight)
-- [x] Add `helpText` to navigation-dependent fields (width/openNewTab) with i18n hints (all 11 locales)
+- [x] Add `helpText` to navigation-dependent fields (width/openNewTab) with i18n hints (all 10 locales)
 - [x] 24 new tests: expandedSections override (3), disabledWhen evaluation (2), grid-only disabledWhen predicates (16), helpText validation (2), description spec alignment (1)
 
 **Phase 6 — Config Panel Cleanup (Invalid Items Fix):**
@@ -629,7 +629,7 @@ ObjectUI is a universal Server-Driven UI (SDUI) engine built on React + Tailwind
 - [x] Records section: selection mode, addRecord sub-editor (collapsible)
 - [x] Export & Print section: allowExport + sub-config, showRecordCount, allowPrinting (collapsible, defaultCollapsed)
 - [x] Field selector upgrade: eye/eye-off toggle for visibility (replacing checkboxes), search input for field filtering, Show All/Hide All batch operations, grip handles for visual reorder hints
-- [x] i18n keys added for all 11 locales (en, zh, ja, de, fr, es, ar, ru, pt, ko, + ar)
+- [x] i18n keys added for all 10 locales (en, zh, ja, de, fr, es, ar, ru, pt, ko)
 - [x] 110 schema tests pass (+7 new section tests)
 - [x] 136 ViewConfigPanel interaction tests pass (updated for eye toggles, section expansion)
 - [x] 31 ObjectView integration tests pass (updated for section expansion)
@@ -1348,7 +1348,7 @@ The `FlowDesigner` is a canvas-based flow editor that bridges the gap between th
 
 **Header & Breadcrumb i18n:**
 - [x] AppHeader breadcrumb labels (`Dashboards`, `Pages`, `Reports`, `System`) now use `t()` translation via `useObjectTranslation`.
-- [x] `console.breadcrumb` i18n keys added to all 11 locales (en, zh, ja, ko, de, fr, es, pt, ru, ar).
+- [x] `console.breadcrumb` i18n keys added to all 10 locales (en, zh, ja, ko, de, fr, es, pt, ru, ar).
 - [x] `header-bar` renderer: `resolveCrumbLabel()` handles both string and `I18nLabel` objects for breadcrumb labels.
 - [x] `breadcrumb` renderer: `resolveItemLabel()` handles both string and `I18nLabel` objects for item labels.
 
@@ -1848,7 +1848,7 @@ All 313 `@object-ui/fields` tests pass.
 > **Goal:** Salesforce-style detail page enhancements: i18n for all detail page UI elements, improved empty value display, related list actions, and auto-discovery of related lists.
 
 **i18n Integration:**
-- [x] Add `detail.*` translation keys to all 11 locale files (en, zh, ja, de, fr, es, ar, ru, pt, ko)
+- [x] Add `detail.*` translation keys to all 10 locale files (en, zh, ja, de, fr, es, ar, ru, pt, ko)
 - [x] `useDetailTranslation` safe wrapper hook with English fallback (follows existing useGridTranslation/useListViewTranslation pattern)
 - [x] DetailView fully i18n-integrated (Back, Edit, Share, Delete, Duplicate, Export, View history, Record not found, Related heading, favorites, navigation)
 - [x] DetailSection copy tooltip i18n via `useSectionTranslation`

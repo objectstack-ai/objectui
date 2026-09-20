@@ -38,7 +38,7 @@ export { useGroupReorder } from './useGroupReorder';
 export { useColumnSummary } from './useColumnSummary';
 export { FormulaBar } from './FormulaBar';
 export { SplitPaneGrid } from './SplitPaneGrid';
-export type { ObjectGridComponentProps, ObjectGridExternalPaginationProps, ObjectGridColumnState } from './ObjectGrid';
+export type { ObjectGridComponentProps, ObjectGridExternalPaginationProps, ObjectGridColumnState, ObjectGridRowOperations } from './ObjectGrid';
 
 /**
  * @deprecated Use `ObjectGridComponentProps`. Renamed in objectui#4650 because
@@ -85,16 +85,34 @@ const OBJECT_GRID_DATA_SOURCE: ElementDataSourceMapping = {
  *
  * Every escape hatch `ObjectGrid` itself honours is enumerated here, and the
  * list is the reason this predicate lives at the call site rather than in the
- * gate. `getDataConfig` folds an array `data`, a `ViewData` with
- * `provider: 'value'` and the legacy `staticData` into inline rows and never
- * reaches the fetch effect; `bind` resolves rows from the surrounding data
- * scope; and a HOST that owns the fetch — `plugin-list`'s `ListView` is the one
- * in this repo — hands the window down as a `data` REACT PROP, which is why the
- * prop is read here too. It is tested with `Array.isArray` because that is the
- * exact test `ObjectGrid` applies to it (`passedData && Array.isArray(…)`) —
- * and because `SchemaRenderer` spreads EVERY unstripped schema key as a React
- * prop, so a mere `'data' in props` would also be true of the schema's own
- * `data` object and would wave through a grid that really has nowhere to look.
+ * gate. `getDataConfig` folds a `ViewData` with `provider: 'value'` and the
+ * legacy `staticData` into inline rows and never reaches the fetch effect;
+ * `bind` resolves rows from the surrounding data scope; and a HOST that owns
+ * the fetch — `plugin-list`'s `ListView` is the one in this repo — hands the
+ * window down as a `data` REACT PROP, which is why the prop is read here too.
+ * The PROP is tested with `Array.isArray` because that is the exact test
+ * `ObjectGrid` applies to it (`passedData && Array.isArray(…)`), and never with
+ * `'data' in props`, which would be true of shapes this block cannot draw from
+ * and would wave through a grid that really has nowhere to look.
+ *
+ * ## ⛔ A bare `data` ARRAY on the SCHEMA is NOT one of them (objectui#9580)
+ *
+ * It was on this list until objectui#9580, by which point it described a
+ * carrier that had been retired on both sides. objectui#8348 (「8348 以协议为准」,
+ * decision batch #83) retired the bare-array shorthand at the shared
+ * record-source ladder — this block's published `data` row is the `ViewData`
+ * OBJECT arm — and objectui#9571 (ruling objectui#8348 Q2-C, batch #136 item 3,
+ * maintainer 「同意」) retired the second carrier, so `SchemaRenderer` no longer
+ * spreads an authored `data` as a React prop for a block on that arm.
+ *
+ * ⇒ an authored array draws NOTHING, and while this line stood it also told
+ * the gate that this placement needed no adapter — so the author got the empty
+ * shell objectui#5378 item 2 exists to replace, with the one diagnostic that
+ * addresses exactly this silent. The `__DEV__` warn-once objectui#9571 added at
+ * the strip site does not reach a production build, which is where this gate
+ * speaks. ⛔ Restoring the CARRIER is not the repair and was ruled out twice
+ * (objectui#8348, objectui#9571); what moves here is only what the gate SAYS.
+ * Pinned in `__tests__/gridNeedsDataSourceBareArray-9580.test.tsx`.
  *
  * `objectName` is required last: a grid with no object named it is a different
  * defect with a different answer, and "no data source" would be the wrong
@@ -103,7 +121,6 @@ const OBJECT_GRID_DATA_SOURCE: ElementDataSourceMapping = {
 const gridNeedsDataSource = (schema: any, hostRows: unknown): boolean => {
   if (Array.isArray(hostRows)) return false;
   if (schema?.bind != null) return false;
-  if (Array.isArray(schema?.data)) return false;
   if (schema?.data?.provider === 'value') return false;
   if (schema?.staticData != null) return false;
   return typeof schema?.objectName === 'string' && schema.objectName.length > 0;

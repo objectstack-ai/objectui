@@ -7,60 +7,65 @@
  */
 
 /**
- * objectui#8672 — MEASUREMENT PINS for a `dependsOn` lookup ACTION PARAM.
+ * objectui#8672 — a `dependsOn` lookup ACTION PARAM gates, UNGATES, and filters.
  *
- * ⭐⭐ **CURRENT SHAPE, NOT CONTRACT.** ⭐⭐ Read this before changing anything
- * below. The card names three dispositions — wire it · refuse it · declare the
- * limit — and **none of them is chosen here**. This file exists so that the
- * ruling is made against a measured, stable behaviour instead of a guess; every
- * `expect` in legs A and C records what the code does TODAY and endorses none of
- * it. Whoever implements a disposition should expect these to go red and should
- * **rewrite them**, not trust them: a red here is the pin doing its job, not a
- * regression. Leg B is the exception and says so on its own describe block.
+ * ⭐ These were MEASUREMENT pins and are now CONTRACT pins. The file that stood
+ * here recorded today's behaviour and endorsed none of it: legs A and C were
+ * labelled "CURRENT SHAPE, NOT CONTRACT" and told whoever implemented one of the
+ * card's three dispositions to expect them red and rewrite them. The maintainer
+ * ruled **A — wire it** (director seat, decision batch #115, 2026-09-11), so
+ * that is what happened: every `expect` below now states what the code MUST do.
  *
- * ## What the three legs measure
+ * ## What ruling A settled, and what each leg holds to it
  *
- * - **Leg A (current shape)** — the behaviour the card reports, made permanent:
- *   a lookup param declaring `dependsOn` renders GATED and a keystroke in the
- *   named parent does not lift the gate. `CASCADE_OPTION_WIDGET_TYPES` (the
- *   dialog's `dependentValues` supply set in `ActionParamDialog.tsx`) does not
- *   contain `lookup`, so `LookupField` resolves its record through the context
- *   tail that is unconditionally `{}` (objectui#7206) and `dependenciesMissing`
- *   can never go false.
- * - **Leg B (contract, version-qualified)** — where the authoring surface is.
- *   `@objectstack/spec`'s `ActionParamSchema` is `.strict()` and REFUSES
- *   `dependsOn` on an action param outright. `@object-ui/types`' `ActionParam`
- *   derives its key set from `z.input<typeof ActionParamSchema>`, so it declares
- *   no `dependsOn` either — which is why leg A has to synthesise the resolved
- *   `ActionParamDef` directly rather than author a param.
- * - **Leg C (current shape)** — the ONE route the repo itself points authors to
- *   (`RESOLVED_ONLY_PARAM_KEYS.dependsOn`: "make the param field-backed … to
- *   pick it up") reads `field.depends_on`, the SNAKE spelling, while the spelling
- *   `FieldSchema` accepts is camel `dependsOn`. So a spec-valid object field
- *   declaring the cascade delivers `undefined` here.
+ * - **Leg A — the dialog.** `ActionParamDialog` supplies its live record to the
+ *   reference-bearing pickers, not only to the option widgets, so a lookup param
+ *   declaring `dependsOn` is gated while the named parent is EMPTY and ungates
+ *   the moment it carries a value. The record is the dialog's own in-progress
+ *   `values`: unlike the grid (`ctx.pendingRow ?? ctx.row`, objectui#7165/#7188)
+ *   this surface holds no row at all — its params ARE the record, which is the
+ *   measurement the ruling left to the implementer.
+ * - **Leg B — the authoring surface. UNCHANGED by the ruling, which says so in
+ *   as many words:** `@objectstack/spec`'s `ActionParamSchema` still refuses
+ *   `dependsOn` written INLINE on a param. The honoured route is the
+ *   field-backed one, so leg A still has to synthesise a resolved
+ *   `ActionParamDef` rather than author a param.
+ * - **Leg C — the resolver.** `resolveActionParams` reads the DECLARED spelling
+ *   `field.dependsOn` and no longer reads snake `field.depends_on`, which
+ *   `FieldSchema` refuses by name. Both halves of that swap are pinned: the
+ *   declared key must arrive, and the refused one must not.
+ * - **Leg D — the two halves meeting.** The end-to-end route the repo's own
+ *   `RESOLVED_ONLY_PARAM_KEYS.dependsOn` message points authors to ("make the
+ *   param field-backed … to pick it up"), driven from an object field def
+ *   through the resolver into the rendered dialog and out to the picker's
+ *   query. ⭐ This is the leg that would have been impossible before the ruling
+ *   and the one that fails if either half is reverted alone.
  *
- * ## Every reading has a lit control beside it
+ * ## Every reading still has a lit control beside it
  *
- * A gated trigger, a refused parse and an `undefined` key are all shapes a
- * broken fixture produces for free, so none of them is asserted alone:
+ * An ungated trigger and a narrowed candidate list are both shapes a broken
+ * fixture produces for free, so neither is asserted alone:
  *
- * - leg A pairs the gated lookup with a CONTROL lookup identical but for
- *   `dependsOn` (asserted enabled), and drives the keystroke through a `radio`
- *   param whose `visibleWhen` DOES react to it — so "the gate did not lift" is
- *   read against a keystroke proven to have reached the dialog and re-rendered
- *   it, not against a dialog that ignored the event;
- * - leg B pairs each refusal with a positive control document that must PARSE,
- *   and with an unknown-key document that must be REFUSED — so an "accept" is a
- *   reading of a live strict schema rather than of a permissive one;
- * - leg C pairs the `undefined` with a sibling key resolved off the SAME field
- *   def in the same call, so an empty reading cannot come from a fixture the
- *   resolver never saw.
+ * - leg A keeps the CONTROL lookup (identical but for `dependsOn`, asserted
+ *   enabled throughout) and the keystroke witness — a `radio` whose `visibleWhen`
+ *   reacts to the same keystroke — so "the gate lifted" is read against a
+ *   keystroke proven to have reached the dialog, and it keeps the NEGATIVE
+ *   control that an empty parent still gates, so the fix cannot be read as
+ *   "the gate was deleted";
+ * - leg B pairs each refusal with a positive control document that must PARSE
+ *   and an unknown-key document that must be REFUSED;
+ * - leg C pairs each reading with a sibling key resolved off the SAME field def
+ *   in the same call;
+ * - leg D offers two records under one reference and asserts the declared param
+ *   sees one while the control param sees both — so a narrowed list cannot be a
+ *   picker that simply failed to load.
  */
-import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import type { ActionParamDef } from '@object-ui/core';
-import { CASCADE_OPTION_WIDGET_TYPES } from '@object-ui/core';
+import { CASCADE_OPTION_WIDGET_TYPES, EXPANDABLE_FIELD_TYPES } from '@object-ui/core';
+import { SchemaRendererProvider } from '@object-ui/react';
 import { ActionParamSchema } from '@objectstack/spec/ui';
 import { FieldSchema } from '@objectstack/spec/data';
 // Module scope, per AGENTS.md 测试纪律: the dialog reaches `LookupField` through
@@ -76,8 +81,12 @@ import {
   type RawActionParam,
 } from '../utils/resolveActionParams';
 
+beforeAll(() => {
+  if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = vi.fn() as never;
+});
+
 /* ────────────────────────────────────────────────────────────────────────── */
-/* Leg A — the dialog's behaviour today                    CURRENT SHAPE      */
+/* Leg A — the dialog supplies the record                  CONTRACT           */
 /* ────────────────────────────────────────────────────────────────────────── */
 
 /** The parent the child lookup names. A plain text param, so it is typable. */
@@ -86,7 +95,8 @@ const ACCOUNT: ActionParamDef = { name: 'account', label: 'Account', type: 'text
 /**
  * The card's shape verbatim: `{ type: 'lookup', referenceTo: 'contacts',
  * dependsOn: ['account'] }`. Synthesised as a RESOLVED `ActionParamDef` on
- * purpose — leg B measures that this cannot be authored as a raw param at all.
+ * purpose — leg B measures that this cannot be authored as a raw param at all,
+ * and leg D drives the route that CAN produce it.
  */
 const GATED_LOOKUP: ActionParamDef = {
   name: 'contact',
@@ -107,8 +117,8 @@ const CONTROL_LOOKUP: ActionParamDef = {
 /**
  * CONTROL for the KEYSTROKE. A `radio` IS in `CASCADE_OPTION_WIDGET_TYPES`, so
  * the dialog threads its in-progress values to it and this option's predicate
- * re-resolves on every change to `account`. Without it, "the gate did not lift"
- * would also be the reading for a dialog that never saw the keystroke.
+ * re-resolves on every change to `account`. Without it, a gate that failed to
+ * lift would be indistinguishable from a dialog that never saw the keystroke.
  */
 const KEYSTROKE_WITNESS: ActionParamDef = {
   name: 'tier',
@@ -120,20 +130,25 @@ const KEYSTROKE_WITNESS: ActionParamDef = {
   ],
 };
 
-function openDialog(params: ActionParamDef[]) {
-  render(
+function openDialog(params: ActionParamDef[], dataSource?: unknown) {
+  const dialog = (
     <ActionParamDialog
       state={{ open: true, params, resolve: () => {} }}
       onOpenChange={() => {}}
-    />,
+    />
+  );
+  return render(
+    dataSource
+      ? <SchemaRendererProvider dataSource={dataSource as never}>{dialog}</SchemaRendererProvider>
+      : dialog,
   );
 }
 
-const typeAccount = (value: string) =>
-  fireEvent.change(screen.getByLabelText('Account'), { target: { value } });
+const typeAccount = (value: string, label = 'Account') =>
+  fireEvent.change(screen.getByLabelText(label), { target: { value } });
 
-describe('objectui#8672 leg A — a `dependsOn` lookup param is gated, permanently (CURRENT SHAPE, NOT CONTRACT)', () => {
-  it('renders the declared lookup GATED while the control lookup beside it is usable', async () => {
+describe('objectui#8672 leg A — a `dependsOn` lookup param gates on an EMPTY parent and ungates when it is filled', () => {
+  it('NEGATIVE CONTROL — with the parent still empty the declared lookup is gated, and the control beside it is not', async () => {
     openDialog([ACCOUNT, GATED_LOOKUP, CONTROL_LOOKUP]);
 
     // CONTROL first: an identical lookup differing only in `dependsOn` renders a
@@ -142,14 +157,15 @@ describe('objectui#8672 leg A — a `dependsOn` lookup param is gated, permanent
     const control = await screen.findByTestId('lookup-trigger-control_contact');
     expect(control).toBeEnabled();
 
-    // SUBJECT: the declared lookup renders the gate — disabled, and prompting
-    // for the very field the user is about to fill.
+    // ⭐ The gate is NOT deleted by ruling A — it is given a way out. An empty
+    // parent must still gate, or the picker would issue the unfiltered query
+    // that the cascade exists to prevent.
     const gated = screen.getByTestId('lookup-trigger-gated');
     expect(gated).toBeDisabled();
     expect(gated).toHaveTextContent('Select account first');
   });
 
-  it('does NOT lift the gate when the named parent is filled — while the same keystroke moves a witness', async () => {
+  it('⭐ LIFTS the gate when the named parent is filled — the assertion ruling A turned around', async () => {
     openDialog([ACCOUNT, GATED_LOOKUP, KEYSTROKE_WITNESS]);
 
     // Both witness options are offered before anything is typed: `record.account`
@@ -160,29 +176,52 @@ describe('objectui#8672 leg A — a `dependsOn` lookup param is gated, permanent
 
     typeAccount('acme');
 
-    // ⭐ The keystroke DID reach the dialog and DID re-render it: the witness's
-    // offered set narrowed. Load-bearing — it converts the assertion after it
-    // from "nothing happened" into "this specific thing did not happen".
+    // The keystroke DID reach the dialog and DID re-render it: the witness's
+    // offered set narrowed. Kept from the measurement pins — it is what makes
+    // the assertion after it a reading of the supply rule and not of the event.
     await waitFor(() => expect(screen.queryByTestId('radio-option-smb')).not.toBeInTheDocument());
     expect(screen.getByTestId('radio-option-ent')).toBeInTheDocument();
 
-    // …and the lookup is still gated on the field that now carries `acme`. This
-    // assertion is the card. ⛔ It is NOT a statement that it should stay this
-    // way — see the file docblock.
-    const stillGated = screen.getByTestId('lookup-trigger-gated');
-    expect(stillGated).toBeDisabled();
-    expect(stillGated).toHaveTextContent('Select account first');
+    // ⭐ THE CARD, INVERTED. Before ruling A this stayed `lookup-trigger-gated`
+    // and `disabled` forever, prompting for the field the user had just filled.
+    // The gated test id is `LookupField`'s own signal, so its disappearance and
+    // the named trigger's arrival are one fact read two ways.
+    const ungated = await screen.findByTestId('lookup-trigger-contact');
+    expect(ungated).toBeEnabled();
+    expect(screen.queryByTestId('lookup-trigger-gated')).not.toBeInTheDocument();
+    expect(ungated).not.toHaveTextContent('Select account first');
   });
 
-  it('records WHY: the dialog\'s `dependentValues` supply set excludes `lookup`', () => {
-    // The mechanism behind the two renders above, stated where it can be found
-    // from them. `ActionParamDialog.tsx` supplies `dependentValues` only to
-    // members of this set, so a lookup is reached without one and falls through
-    // to the context tail that objectui#7206 measured as unconditionally `{}`.
+  it('re-gates when the parent is CLEARED, so the record is read live and not once', async () => {
+    // Guards the shape where a host seeds the record at mount: `values` is read
+    // on every render, so emptying the parent must put the gate back.
+    openDialog([ACCOUNT, GATED_LOOKUP]);
+    expect(await screen.findByTestId('lookup-trigger-gated')).toBeDisabled();
+
+    typeAccount('acme');
+    expect(await screen.findByTestId('lookup-trigger-contact')).toBeEnabled();
+
+    typeAccount('');
+    await waitFor(() => expect(screen.getByTestId('lookup-trigger-gated')).toBeDisabled());
+  });
+
+  it('records WHY: TWO supply rules, and the shared option set was deliberately NOT widened', () => {
+    // The mechanism behind the renders above, stated where it can be found from
+    // them. `ActionParamDialog`'s `paramNeedsDependentValues()` ORs two families
+    // that mean different things, exactly as the object form's two lines do.
+    //
+    // ⛔ This assertion is not a leftover from the measurement pins: it is the
+    // guard against "simplifying" the fix into `CASCADE_OPTION_WIDGET_TYPES.add
+    // ('lookup')`. That set is shared verbatim with the object form's
+    // cascade-CLEAR loop and with `plugin-grid`'s `BulkActionDialog`, so a
+    // member added there changes two surfaces this card never measured and
+    // decides objectui#4771's open boundary for them.
     expect(CASCADE_OPTION_WIDGET_TYPES.has('lookup')).toBe(false);
-    // Lit control on the same read: the members that DO get the record.
+    expect(EXPANDABLE_FIELD_TYPES.has('lookup')).toBe(true);
+    // Lit controls on the same two reads, in both directions: an option widget
+    // is in the first set and not the second.
     expect(CASCADE_OPTION_WIDGET_TYPES.has('radio')).toBe(true);
-    expect(CASCADE_OPTION_WIDGET_TYPES.has('select')).toBe(true);
+    expect(EXPANDABLE_FIELD_TYPES.has('radio')).toBe(false);
   });
 });
 
@@ -191,13 +230,13 @@ describe('objectui#8672 leg A — a `dependsOn` lookup param is gated, permanent
 /* ────────────────────────────────────────────────────────────────────────── */
 
 /**
- * ⚠️ Unlike legs A and C this leg pins a CONTRACT, not a current shape — but a
- * VERSION-QUALIFIED one: it is a reading of the `@objectstack/spec` this repo
- * has installed, and the answer moves if that schema does. It is here because it
- * is the fact the card's disposition turns on: a refusal for `dependsOn` on an
- * action param already exists, and it lives UPSTREAM.
+ * ⚠️ A VERSION-QUALIFIED contract: it is a reading of the `@objectstack/spec`
+ * this repo has installed, and the answer moves if that schema does. Ruling A
+ * left it standing explicitly — "`ActionParamSchema` still refuses `dependsOn`
+ * written inline on a param — that stays; the honoured route is the field-backed
+ * one" — so this leg is the fence that keeps the fix on that route.
  */
-describe('objectui#8672 leg B — `@objectstack/spec` already refuses `dependsOn` on an action param', () => {
+describe('objectui#8672 leg B — `@objectstack/spec` still refuses `dependsOn` INLINE on an action param', () => {
   const param = (over: Record<string, unknown>) => ({
     name: 'contact',
     label: 'Contact',
@@ -226,8 +265,8 @@ describe('objectui#8672 leg B — `@objectstack/spec` already refuses `dependsOn
   });
 
   it('the refusal is not lookup-specific — a `select` param is refused the same way', () => {
-    // Recorded so a disposition author does not read the refusal as a narrow,
-    // type-scoped rule it is not: no action param of any type admits `dependsOn`.
+    // Recorded so a reader does not take the refusal for a narrow, type-scoped
+    // rule it is not: no action param of any type admits `dependsOn` inline.
     const r = ActionParamSchema.safeParse({
       name: 'city', label: 'City', type: 'select', dependsOn: ['country'],
     });
@@ -236,50 +275,175 @@ describe('objectui#8672 leg B — `@objectstack/spec` already refuses `dependsOn
 });
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* Leg C — the field-backed route reads the spelling spec refuses             */
-/*                                                         CURRENT SHAPE      */
+/* Leg C — the field-backed read follows the declared spelling  CONTRACT      */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-describe('objectui#8672 leg C — the field-backed route reads `depends_on`, which `FieldSchema` refuses (CURRENT SHAPE, NOT CONTRACT)', () => {
+const ctx = (field: Record<string, unknown>): ResolveActionParamsContext => ({
+  objectName: 'crm_case',
+  objects: [{ name: 'crm_case', fields: { contact_id: field } }] as never,
+  fieldLabel: (_o, _f, fallback) => fallback,
+});
+
+const FIELD_BACKED: RawActionParam[] = [{ field: 'contact_id' }];
+
+describe('objectui#8672 leg C — the field-backed route reads the spelling `FieldSchema` declares', () => {
   it('CONTROL — `FieldSchema` accepts camel `dependsOn` on a lookup field and refuses the snake twin by name', () => {
     const base = { name: 'contact_id', label: 'Contact', type: 'lookup', reference: 'contacts' };
     // POSITIVE CONTROL: the field def parses at all.
     expect(FieldSchema.safeParse(base).success).toBe(true);
     // The spelling the spec declares (objectui#7357 retired objectui's twin).
     expect(FieldSchema.safeParse({ ...base, dependsOn: ['account_id'] }).success).toBe(true);
-    // …and the spelling `resolveActionParams` actually reads is refused here.
+    // …and the spelling this resolver used to read is refused here. That
+    // asymmetry is the whole reason the read moved rather than gaining a
+    // second arm behind the declared one.
     expect(FieldSchema.safeParse({ ...base, depends_on: ['account_id'] }).success).toBe(false);
   });
 
-  const ctx = (field: Record<string, unknown>): ResolveActionParamsContext => ({
-    objectName: 'crm_case',
-    objects: [{ name: 'crm_case', fields: { contact_id: field } }] as never,
-    fieldLabel: (_o, _f, fallback) => fallback,
-  });
-
-  const FIELD_BACKED: RawActionParam[] = [{ field: 'contact_id' }];
-
-  it('a spec-valid field declaring camel `dependsOn` resolves to `dependsOn: undefined`', () => {
+  it('⭐ a spec-valid field declaring camel `dependsOn` now RESOLVES it', () => {
     const [resolved] = resolveActionParams(
       FIELD_BACKED,
       ctx({ type: 'lookup', label: 'Contact', reference: 'contacts', dependsOn: ['account_id'] }),
     );
-    // ⭐ LIT CONTROL on the same call: a sibling key off the SAME field def DOES
-    // arrive, so the `undefined` below cannot be a fixture the resolver never
-    // read. Without this the assertion would pass against an empty object.
+    // LIT CONTROL on the same call: a sibling key off the SAME field def, so a
+    // reading below cannot come from a fixture the resolver never saw.
     expect(resolved.referenceTo).toBe('contacts');
     expect(resolved.type).toBe('lookup');
-    // SUBJECT — the cascade key does not survive the route the repo's own
-    // `RESOLVED_ONLY_PARAM_KEYS.dependsOn` message points authors to.
-    expect(resolved.dependsOn).toBeUndefined();
+    // SUBJECT — this was `undefined` until ruling A, which is why the route the
+    // repo's own `RESOLVED_ONLY_PARAM_KEYS.dependsOn` message points authors to
+    // reached nothing.
+    expect(resolved.dependsOn).toEqual(['account_id']);
   });
 
-  it('only the snake spelling — the one the spec refuses — reaches the resolved param', () => {
+  it('the snake spelling the spec refuses NO LONGER reaches the resolved param', () => {
     const [resolved] = resolveActionParams(
       FIELD_BACKED,
       ctx({ type: 'lookup', label: 'Contact', reference: 'contacts', depends_on: ['account_id'] }),
     );
+    // Same lit control: the def WAS read, so the `undefined` below is a refusal
+    // and not an unread fixture.
     expect(resolved.referenceTo).toBe('contacts');
+    // ⛔ The retirement half. Keeping this leg behind the declared one would
+    // leave this resolver the last reader of a spelling no parseable document
+    // can carry (AGENTS.md #0.1 — no consumer-side tolerance for metadata the
+    // producer refuses).
+    expect(resolved.dependsOn).toBeUndefined();
+  });
+
+  it('a def declaring BOTH spellings resolves the declared one — no snake fallback survives', () => {
+    const [resolved] = resolveActionParams(
+      FIELD_BACKED,
+      ctx({
+        type: 'lookup', label: 'Contact', reference: 'contacts',
+        dependsOn: ['account_id'], depends_on: ['legacy_id'],
+      }),
+    );
     expect(resolved.dependsOn).toEqual(['account_id']);
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Leg D — end to end, the route the repo points authors to    CONTRACT       */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/** Only the two members these assertions read; the picker passes more. */
+type QueryParams = { $filter?: Record<string, unknown> };
+
+const CONTACTS = [
+  { id: 'k1', name: 'Ada (acme)', account_id: 'acme' },
+  { id: 'k2', name: 'Bo (other)', account_id: 'other' },
+];
+
+/** Honours the `$filter` record, so the cascade is observable as RENDERED ROWS
+ *  and not only as call arguments. */
+function makeDataSource() {
+  const queries: Array<{ objectName: string; params: QueryParams }> = [];
+  return {
+    queries,
+    find: vi.fn(async (objectName: string, params: QueryParams) => {
+      queries.push({ objectName, params });
+      let recs = CONTACTS;
+      const filter = params?.$filter;
+      if (filter && typeof filter === 'object' && filter.account_id) {
+        recs = recs.filter((c) => c.account_id === filter.account_id);
+      }
+      return { data: recs, total: recs.length, hasMore: false, pageSize: 50 };
+    }),
+    findOne: vi.fn(async (_o: string, id: string) => CONTACTS.find((c) => c.id === id) ?? null),
+    getObjectSchema: async (name: string) => ({
+      name,
+      fields: { id: { type: 'text' }, name: { type: 'text' }, account_id: { type: 'text' } },
+    }),
+  };
+}
+
+/** The object def an author really writes — three fields, one declaring the
+ *  cascade and one deliberately not. */
+const CASE_FIELDS: Record<string, Record<string, unknown>> = {
+  account_id: { type: 'text', label: 'Account' },
+  contact_id: {
+    type: 'lookup', label: 'Contact', reference: 'contacts', dependsOn: ['account_id'],
+  },
+  control_contact_id: { type: 'lookup', label: 'Control contact', reference: 'contacts' },
+};
+
+const FIELD_BACKED_PARAMS: RawActionParam[] = [
+  { field: 'account_id' },
+  { field: 'contact_id' },
+  { field: 'control_contact_id' },
+];
+
+describe('objectui#8672 leg D — a field-backed lookup param cascades end to end', () => {
+  const resolveAll = () =>
+    resolveActionParams(FIELD_BACKED_PARAMS, {
+      objectName: 'crm_case',
+      objects: [{ name: 'crm_case', fields: CASE_FIELDS }] as never,
+      fieldLabel: (_o, _f, fallback) => fallback,
+    });
+
+  it('the declared cascade survives the resolver and reaches the rendered dialog', async () => {
+    const params = resolveAll();
+    // The resolver's half, asserted where the render can be read against it.
+    expect(params.map((p) => p.name)).toEqual(['account_id', 'contact_id', 'control_contact_id']);
+    expect(params[1].dependsOn).toEqual(['account_id']);
+    expect(params[2].dependsOn).toBeUndefined();
+
+    openDialog(params, makeDataSource());
+
+    // CONTROL — the sibling param with no cascade is open from the start.
+    expect(await screen.findByTestId('lookup-trigger-control_contact_id')).toBeEnabled();
+    // SUBJECT — gated on the empty parent, then released by it.
+    expect(screen.getByTestId('lookup-trigger-gated')).toBeDisabled();
+
+    typeAccount('acme');
+
+    expect(await screen.findByTestId('lookup-trigger-contact_id')).toBeEnabled();
+  });
+
+  it('⭐ and the parent NARROWS the picker — the control offers the record the subject must not', async () => {
+    const ds = makeDataSource();
+    openDialog(resolveAll(), ds);
+
+    await screen.findByTestId('lookup-trigger-control_contact_id');
+    typeAccount('acme');
+
+    // SUBJECT — `account_id: 'acme'` reaches the query as a hard `$filter`, so
+    // only Ada is a candidate. This is what proves the dialog supplied a
+    // CORRECT record and not merely a non-empty one: an unscoped picker lists Bo.
+    fireEvent.click(await screen.findByTestId('lookup-trigger-contact_id'));
+    await waitFor(() => expect(screen.getByText('Ada (acme)')).toBeInTheDocument());
+    expect(screen.queryByText('Bo (other)')).not.toBeInTheDocument();
+    expect(
+      ds.queries.some((q) => q.objectName === 'contacts' && q.params?.$filter?.account_id === 'acme'),
+    ).toBe(true);
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByText('Ada (acme)')).not.toBeInTheDocument());
+
+    // CONTROL — the sibling param declares no `dependsOn`, so the SAME reference
+    // over the SAME records is unfiltered and Bo IS offered. Without this,
+    // "Bo is absent" could just mean the picker never loaded.
+    fireEvent.click(screen.getByTestId('lookup-trigger-control_contact_id'));
+    await waitFor(() => expect(screen.getByText('Bo (other)')).toBeInTheDocument());
+    expect(within(document.body).getByText('Ada (acme)')).toBeInTheDocument();
   });
 });

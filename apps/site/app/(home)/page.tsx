@@ -1,7 +1,24 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LiveSplitDemo } from '@/app/components/LiveSplitDemo';
 import { ReactVsObjectUI } from '@/app/components/ReactVsObjectUI';
 
+const TITLE = 'Object UI — schema-driven UI engine for React';
+const DESCRIPTION =
+  'AI writes the schema; Object UI renders it — production React from JSON, Tailwind and Shadcn native, any backend.';
+
+// The route had no metadata at all, so the homepage shipped with no <title>,
+// no description and no link-preview fields. Open Graph and Twitter carry no
+// image: the site ships none, and naming one it does not serve would render a
+// broken preview. Nothing here resolves against an origin, so this object needs
+// no `metadataBase` of its own; `app/layout.tsx` sets one for the docs pages,
+// whose OG images are site-relative.
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: { type: 'website', title: TITLE, description: DESCRIPTION },
+  twitter: { card: 'summary', title: TITLE, description: DESCRIPTION },
+};
 
 export default function HomePage() {
   return (
@@ -111,7 +128,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* React vs ObjectUI — line-count contrast */}
+      {/* React vs ObjectUI — the same dashboard, written both ways */}
       <ReactVsObjectUI />
 
       {/* Features Section */}
@@ -138,7 +155,7 @@ export default function HomePage() {
                 Blazing Fast
               </h3>
               <p className="text-fd-muted-foreground">
-                3x faster page loads and 6x smaller bundle sizes compared to traditional low-code platforms. Built on React 18+ with automatic optimizations.
+                Lazy-loaded plugins and tree-shakable packages: a page pays for the components it renders, nothing else.
               </p>
             </div>
 
@@ -183,7 +200,7 @@ export default function HomePage() {
                 Production Ready
               </h3>
               <p className="text-fd-muted-foreground">
-                85%+ test coverage, enterprise security built-in, comprehensive documentation, and active development support.
+                TypeScript end to end, a CI suite on every change, and documentation that is gated against the code.
               </p>
             </div>
 
@@ -198,7 +215,7 @@ export default function HomePage() {
                 Modular Architecture
               </h3>
               <p className="text-fd-muted-foreground">
-                Tree-shakable packages, lazy-loaded plugins, and support for Server Components. Only load what you need.
+                Tree-shakable packages and lazy-loaded plugins. Only load what you need.
               </p>
             </div>
 
@@ -220,72 +237,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-violet-600 py-24 sm:py-32 dark:from-blue-700 dark:to-violet-700">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3 text-center text-white">
-            <div>
-              <div className="text-5xl font-bold mb-2">60+</div>
-              <div className="text-xl opacity-90">Components</div>
-            </div>
-            <div>
-              <div className="text-5xl font-bold mb-2">85%+</div>
-              <div className="text-xl opacity-90">Test Coverage</div>
-            </div>
-            <div>
-              <div className="text-5xl font-bold mb-2">50KB</div>
-              <div className="text-xl opacity-90">Bundle Size</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Use Cases Section */}
-      <section className="py-24 sm:py-32 bg-fd-muted/30">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight text-fd-foreground sm:text-4xl">
-              What Can You Build?
-            </h2>
-            <p className="mt-4 text-lg text-fd-muted-foreground">
-              From admin panels to dashboards, ObjectUI handles it all
-            </p>
-          </div>
-          
-          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { icon: "📊", title: "Dashboards", desc: "Data visualization and analytics" },
-              { icon: "⚙️", title: "Admin Panels", desc: "Complete CRUD interfaces" },
-              { icon: "📝", title: "Forms", desc: "Complex multi-step forms" },
-              { icon: "📄", title: "CMS", desc: "Content management systems" },
-              { icon: "🔧", title: "Internal Tools", desc: "Business applications" },
-            ].map((useCase) => (
-              <div key={useCase.title} className="rounded-xl border border-fd-border bg-fd-card p-6">
-                <div className="text-4xl mb-3">{useCase.icon}</div>
-                <h3 className="text-lg font-semibold text-fd-foreground mb-1">
-                  {useCase.title}
-                </h3>
-                <p className="text-fd-muted-foreground text-sm">
-                  {useCase.desc}
-                </p>
-              </div>
-            ))}
-            <Link 
-              href="/docs/guide/interactive-demos"
-              className="rounded-xl border border-fd-border bg-fd-card p-6 transition-all hover:shadow-lg hover:border-fd-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-primary focus-visible:ring-offset-2"
-            >
-              <div className="text-4xl mb-3">✨</div>
-              <h3 className="text-lg font-semibold text-fd-foreground mb-1">
-                Interactive Examples
-              </h3>
-              <p className="text-fd-muted-foreground text-sm">
-                Explore 30+ components with live demos
-              </p>
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* CTA Section */}
       <section className="py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -297,12 +248,18 @@ export default function HomePage() {
               <p className="mx-auto mt-6 max-w-2xl text-lg text-white/90">
                 Join developers who are building faster with ObjectUI. Get started in minutes with our comprehensive documentation.
               </p>
-              <div className="mt-10 flex items-center justify-center gap-4">
+              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <Link
                   href="/docs"
                   className="rounded-lg bg-fd-background px-8 py-3.5 text-base font-semibold text-fd-foreground shadow-lg transition-all hover:bg-fd-background/90"
                 >
                   Get Started Now
+                </Link>
+                <Link
+                  href="/docs/guide/schema-catalog"
+                  className="rounded-lg border border-white/40 px-8 py-3.5 text-base font-semibold text-white transition-all hover:bg-white/10"
+                >
+                  Browse the schema catalog
                 </Link>
               </div>
             </div>

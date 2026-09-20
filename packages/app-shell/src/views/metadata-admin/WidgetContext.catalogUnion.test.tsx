@@ -95,7 +95,7 @@ const NO_OBJECTS = t('engine.form.noObjects', 'en-US');
  * statement about `tsc`, not about the DOM.
  */
 export function catalogUnionTypePins(): void {
-  const failedFields: WidgetContext = { objectFields: failed(CAUSE) };
+  const failedFields: WidgetContext = { conditionScope: 'flattened', objectFields: failed(CAUSE) };
 
   // ── PIN A — the naive read. This is the exact line objectui#5228 was filed
   // about, and it is the one that must stop compiling. A `LoadState` is not an
@@ -159,7 +159,13 @@ export function catalogUnionTypePins(): void {
   // ── PIN E — absence is the `idle` arm, and it is a value of the union rather
   // than a fabricated empty list. Compiles; it is here so the substitution every
   // migrated picker performs is itself type-checked.
-  const unwiredContext: WidgetContext = {};
+  //
+  // ⚠️ This literal used to be `{}`. It carries `conditionScope` now because
+  // objectui#8167 made that member REQUIRED — the one member of this type that
+  // is a verdict about the host's surface rather than a catalog it may or may
+  // not have fetched. The pin is re-homed, not weakened: its subject is that a
+  // CATALOG may be absent, and every catalog is still absent below.
+  const unwiredContext: WidgetContext = { conditionScope: 'flattened' };
   const unwired: LoadState<ObjectViewOption[]> = unwiredContext.objectViews ?? NOT_ASKED;
   void unwired;
 }
@@ -170,7 +176,12 @@ export function catalogUnionTypePins(): void {
 
 function renderWidget(
   key: RegisteredWidgetKey,
-  context: WidgetContext,
+  // The catalogs are this file's subject, so each case states only those. The
+  // one member that is NOT a catalog — `conditionScope`, required since
+  // objectui#8167 — is supplied here as `'flattened'`, which is the verdict
+  // every mount ran under before that member existed, so no case's rendering
+  // moves. A case that wants a different verdict passes it in `context`.
+  context: Omit<WidgetContext, 'conditionScope'> & Partial<Pick<WidgetContext, 'conditionScope'>>,
   props: Partial<WidgetProps> = {},
 ) {
   const Widget = WIDGETS[key];
@@ -180,7 +191,7 @@ function renderWidget(
       value={undefined}
       onChange={() => {}}
       schema={{ type: 'string' }}
-      context={context}
+      context={{ conditionScope: 'flattened', ...context }}
       {...props}
     />,
   );

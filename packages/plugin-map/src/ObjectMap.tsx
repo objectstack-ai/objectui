@@ -38,6 +38,7 @@ import {
   getRecordDisplayName,
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
+  ValueDataSource,
 } from '@object-ui/core';
 import MapGL, { NavigationControl, Marker, Popup } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
@@ -73,7 +74,21 @@ export interface ObjectMapProps {
    */
   data?: any[];
   onMarkerClick?: (record: any) => void;
-  onRowClick?: (record: any) => void;
+  /**
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (record: any, event?: any) => void;
   onEdit?: (record: any) => void;
   onDelete?: (record: any) => void;
   /** Enable marker clustering for dense data */
@@ -130,49 +145,42 @@ const FLAT_MAP_CONFIG_KEYS = (Object.keys(ObjectMapConfigSchema.shape) as (keyof
  * The ruled three-rung ladder itself (`data`, then `staticData`, then
  * `objectName`) is `resolveRecordSourceConfig` in `@object-ui/core` — ONE
  * implementation of a contract published on both faces (objectui#6939), which
- * this file used to hand-copy (objectui#7632). What stays here is the head
- * above it, unchanged: the array shorthand.
+ * this file used to hand-copy (objectui#7632).
+ *
+ * What used to stay here was the head above it: the array shorthand, which
+ * lifted `data: [...]` to `{ provider: 'value', items }`.
+ * ⛔ IT IS GONE (objectui#8348, decision batch #83, maintainer verbatim
+ * 「8348 以协议为准」 — the contract decides). Its old justification was that the
+ * shorthand is "a deliberate, commented convention across this block family",
+ * i.e. that the other blocks accept it too. The ruling replaces that argument
+ * with the row: a renderer honours the `data` spelling its block's PUBLISHED row
+ * declares and no other.
+ *
+ * MEASURED: `@objectstack/spec` 17.4.0 has NO `ComponentPropsMap['object-map']`
+ * row, so the published row that governs this block is this repo's own
+ * `ObjectMapSchema.data` (`@object-ui/types`), `ViewDataSchema.optional()` —
+ * @objectstack/spec's `z.discriminatedUnion('provider', [...])` over OBJECT
+ * variants, whose `value` member additionally declares
+ * `aliases: { data: 'items', rows: 'items', records: 'items' }`. A bare array
+ * is off that row twice over, and this block's registration declares no `data`
+ * input that could say otherwise.
+ *
+ * ⛔ WHAT THIS REACHES, measured per CARRIER — do NOT read it as "the array is
+ * gone". `SchemaRenderer` spreads every non-metadata node key as a React prop
+ * and `index.tsx` forwards `{...props}`, so an authored `data` array also
+ * arrives on the props channel, which outranks the schema (objectui#5003
+ * order). At the ladder the array is no longer a record source; through
+ * `SchemaRenderer` an authored `data: [ …rows… ]` still draws, from that prop.
+ * Both halves are pinned in `ObjectMap.schemaDataShorthand.test.tsx`.
+ * Collapsing the two carriers would take the host path with it and is outside
+ * objectui#8348's scope — reported on the card, not changed in passing.
+ *
+ * The declared spellings for inline rows are
+ * `data: { provider: 'value', items: [...] }` and `staticData: [...]`, both
+ * unchanged.
  */
 function getDataConfig(schema: ObjectMapSchema): ViewData | null {
-  // Array shorthand -> the declared `value` provider.
-  //
-  // `ObjectMapSchema.data` is declared `ViewData`, and `ViewData` resolves to
-  // @objectstack/spec's `ViewDataSchema` — a `z.discriminatedUnion('provider',
-  // [...])` over OBJECT variants, whose `value` member additionally declares
-  // `aliases: { data: 'items', rows: 'items', records: 'items' }`. So a bare
-  // array under `data` is off-contract twice over, and `staticData` is this
-  // schema's declared door for inline rows.
-  //
-  // It is normalized rather than rejected because the array shorthand is a
-  // deliberate, commented convention across this block family — ObjectGrid's
-  // own `getDataConfig` ("Check if data is an array (shorthand format)"),
-  // ListView ("Also support schema.data as a plain array (shorthand for value
-  // provider)"), ObjectChart, ObjectDataTable and calendar-view-renderer all
-  // accept it. An author (or a generator) that learned the shorthand from
-  // `object-grid` writes it for `object-map` next; dropping it HERE alone would
-  // leave the one block in the family that answers the shorthand with a
-  // silently empty map.
-  //
-  // ObjectTree was named in this list until objectui#7632 measured it: it has
-  // no `Array.isArray(schema.data)` anywhere, so it answers the shorthand with
-  // a silently empty tree today. ObjectGantt and ObjectCalendar do not accept
-  // it either. That divergence is NOT resolved here — it is the reason this
-  // head stays at the site instead of being folded into the shared rung
-  // (AGENTS.md #0.1), and it is filed separately rather than fixed in passing.
-  //
-  // Normalizing at this single boundary — instead of a second short-circuit
-  // inside the fetch effect below — is what lets that effect read `dataConfig`
-  // only, which is already one of its dependencies (objectui#5305).
-  //
-  // Hoisting this check above the shared call is behaviour-neutral: an array is
-  // ALWAYS truthy, `[]` included, so the `if (schema.data)` that used to wrap
-  // it could never have let one fall through to `staticData` or `objectName`.
-  const authored: unknown = schema.data;
-  if (Array.isArray(authored)) {
-    return { provider: 'value', items: authored };
-  }
-
-  return resolveRecordSourceConfig(schema);
+  return resolveRecordSourceConfig(schema, 'view-data');
 }
 
 const isDev = (): boolean =>
@@ -197,8 +205,10 @@ const warnedLegacyFilterMapConfigs = new Set<string>();
  * `{ name: 'map', type: 'object' }` input. That read is gone: the block
  * consumes only what it declares. Authoring the config under `filter.map`
  * therefore has no effect, so say so in dev rather than dropping the author's
- * markers without a trace — the map now renders with the DEFAULT field names,
- * which looks exactly like "the data is wrong".
+ * markers without a trace. Since objectui#8169 there are no default field names
+ * left to fall back on, so such a map renders the refusal state below — which
+ * names the declaration that is missing, but cannot know about the stash this
+ * author actually wrote. This warning is the only thing that can.
  *
  * Deliberately narrow, to stay off legitimate query filters:
  * - OWN property only. `'map' in someArray` is TRUE via `Array.prototype.map`,
@@ -232,8 +242,9 @@ function warnOnLegacyFilterMapConfig(schema: MapConfigSource): void {
   warnedLegacyFilterMapConfigs.add(memo);
 
   console.warn(
-    '[ObjectMap] `filter.map` is no longer read as map configuration, so this map is ' +
-      'rendering with the DEFAULT field names (`latitude` / `longitude` / `name`). `filter` is ' +
+    '[ObjectMap] `filter.map` is no longer read as map configuration, so this map has NO ' +
+      'coordinate binding and renders the "Map configuration required" refusal ' +
+      '(objectui#8169 — the `latitude` / `longitude` / `location` defaults are gone). `filter` is ' +
       'the query filter; the map config belongs under the declared `map` input — move it to ' +
       '`schema.map` (`{ type: \'object-map\', map: { latitudeField, longitudeField, titleField } }`). ' +
       'The old spelling was never documented and could not survive a `dataSource` binding, whose ' +
@@ -399,28 +410,58 @@ function getMapConfig(schema: MapConfigSource): ObjectMapConfig {
     };
   }
 
-  // Default configuration — field names only. No camera is synthesized here
-  // (objectui#4941): this branch is reached precisely when the author declared
-  // nothing, and a fabricated `zoom` / `center` is indistinguishable from a
-  // declared one at the read site. The old defaults (zoom 10 at the origin)
-  // therefore SUPPRESSED the fit for exactly the views that need it most — an
-  // unconfigured object list view of continent-wide records first-painted a
-  // city-block viewport centred on the set's midpoint, showing no markers at
-  // all. With no camera declared, the camera comes from the data.
-  return {
-    latitudeField: 'latitude',
-    longitudeField: 'longitude',
-    locationField: 'location',
-    // Deliberately NO `titleField` (objectui#5953). The coordinate keys above
-    // are conventional guesses this component must make — nothing else can
-    // read a location out of an unconfigured record. A marker TITLE is not in
-    // that position: `getRecordDisplayName` resolves it from the object
-    // definition, and it does so better than any literal here could (declared
-    // `nameField`, `titleFormat`, type-aware derivation, then a name-ish probe
-    // over the record's own keys, of which `name` is only the first).
-    descriptionField: 'description',
-    style,
-  };
+  // 3. NOTHING IS GUESSED (objectui#8169 — maintainer ruling 2026-09-07
+  //    「同意」, decision batch #67, option B).
+  //
+  // This branch used to return four field-name guesses — `latitude`,
+  // `longitude`, `location`, `description` — carried over from before the
+  // declared `map` input existed. objectui#5953 deleted the `titleField` guess
+  // from this very branch and deliberately KEPT the coordinate ones, on the
+  // reasoning that "nothing else can read a location out of an unconfigured
+  // record". The premise held; the ruling reverses its conclusion — that is
+  // exactly why the answer is a REFUSAL rather than a guess. Bindings are
+  // never fabricated; an unbound surface refuses. The same principle as
+  // 「日期轴永不虚构」 behind objectui#7070 (date axes) and
+  // objectui#8168 (the chart category axis), generalised one field over.
+  //
+  // What the guesses actually shipped was the silent-credible-wrong shape
+  // objectstack#13748 ruled against: a record set that happens to spell its
+  // columns `latitude` / `longitude` plotted on a view that declared no map
+  // binding at all, while the same view over any other spelling rendered an
+  // empty map. Neither outcome says what is missing. `hasCoordinateBinding`
+  // below now sends both to the refusal state, which does.
+  //
+  // No camera is synthesized here either, and never was (objectui#4941): a
+  // fabricated `zoom` / `center` is indistinguishable from a declared one at
+  // the read site, and the old defaults (zoom 10 at the origin) SUPPRESSED the
+  // fit for exactly the views that need it most. `style` still travels,
+  // because it is read from a DECLARED spelling above (`mapStyle` or
+  // `map.style`) and forges nothing.
+  return { style };
+}
+
+/**
+ * Is this configuration BOUND to coordinates at all?
+ *
+ * The refusal gate for objectui#8169. Deliberately the same two reads
+ * `extractCoordinates` performs, in the same order, so the question "will any
+ * record ever place a marker" is answered once rather than per record:
+ * a `locationField`, or a COMPLETE `latitudeField` + `longitudeField` pair.
+ * A half pair is not a binding — `extractCoordinates` skips its lat/lng arm
+ * unless both are present — so it refuses, which is also what the refusal
+ * message tells the author to write.
+ *
+ * ⚠️ Keep this in lockstep with `extractCoordinates`: a key that becomes
+ * placeable there and is not named here renders a refusal over records that
+ * would have plotted.
+ *
+ * Applies to EVERY branch above, not only the unconfigured one. A declared
+ * `map` block that names no coordinate field (`map: { titleField: 'name' }`)
+ * is just as unbound as an absent one, and used to render an empty map under
+ * the excluded-records notice.
+ */
+function hasCoordinateBinding(config: ObjectMapConfig): boolean {
+  return Boolean(config.locationField) || Boolean(config.latitudeField && config.longitudeField);
 }
 
 /**
@@ -555,8 +596,14 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
    * Did the platform row ceiling bite, and how large was the whole filtered
    * result set (objectui#7210)? Carried from the response that knew it —
    * `data.length === NON_GRID_ROW_CEILING` cannot tell a capped result set
-   * apart from one that is exactly that size. A host `data` prop and an inline
-   * `value` set are never truncated by us, so both reset it.
+   * apart from one that is exactly that size.
+   *
+   * ⚠️ The exempt path is the HOST `data` prop and only it — rows a host
+   * component handed down are not ours to cap, and we issued no query whose
+   * total a footnote could name. An inline `value` set IS capped
+   * (objectui#9061, porting objectui#8769): it goes through the same adapter
+   * query as every other provider, so the ceiling arrives with the same `$top`
+   * and the same footnote. This docblock used to say both paths were exempt.
    */
   const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
     truncated: false,
@@ -728,8 +775,61 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
         }
 
         if (hasInlineData && dataProvider === 'value') {
-          setData(dataItems as any[]);
-          setRowCeiling({ truncated: false });
+          // THE INLINE PROVIDER NO LONGER EXITS BEFORE THE QUERY
+          // (objectui#9061, porting objectui#8769's repair off `ObjectGantt`).
+          //
+          // This branch used to be `setData(dataItems); return;` — taken
+          // BEFORE the `find` below, which is the ONE site in this file that
+          // lowers `schema.filter` onto `$filter`, `schema.sort` onto
+          // `$orderby` (via `convertSortToQueryParams`) and the objectui#7210
+          // ceiling onto `$top`. So an authored `filter` reached nothing and
+          // every authored row was plotted: the fail-OPEN direction, because
+          // the key that was dropped is the key that NARROWS. Accepting a
+          // declared key one cannot honour is the defect, and `ValueDataSource`
+          // honours all three over its own array, so they are honoured here.
+          //
+          // ⚠️ NOT a literal transplant of the gantt's diff, and the difference
+          // is structural rather than cosmetic. `ObjectGantt` resolves ONE
+          // `effectiveDataSource` for every provider, so its repair was to
+          // delete the branch and let the inline case fall through to the
+          // shared query. This effect's `find` sits INSIDE the
+          // `dataProvider === 'object'` arm, behind an `$expand` projection an
+          // inline set has no metadata to build. Falling through here would
+          // therefore throw `DataSource required for object/api providers` on a
+          // map that needs no DataSource at all. So the adapter is resolved for
+          // the inline provider ONLY — `api` keeps exactly the behaviour it had
+          // — and the same three keys are lowered onto the same query shape.
+          //
+          // Built here rather than memoised at render scope so this effect goes
+          // on reading only the primitive fields objectui#6592 named
+          // (`dataProvider`, `dataObjectName`, `dataItems`): no dependency is
+          // added or removed, so nothing about WHEN this effect re-runs changes
+          // with this repair.
+          //
+          // `ValueDataSource` ignores the resource name — it queries its own
+          // array — so this branch needs none of the object-name ladder the
+          // `object` arm below resolves.
+          const inlineSource = new ValueDataSource<any>({ items: (dataItems as any[]) ?? [] });
+          const result = await inlineSource.find('', {
+            $filter: schema.filter,
+            $orderby: convertSortToQueryParams(schema.sort),
+            // The same platform ceiling the `object` arm sends, on the same
+            // probe-row convention (objectui#7210, ruling a′). The ruling's
+            // budget is measured in DOM elements PER RECORD and its own
+            // measurement table was taken over the inline `value` provider, so
+            // an inline marker costs the browser exactly what a fetched one
+            // costs and the ruling text carves out no provider.
+            // ⛔ Still not authorable: no view key reaches this `$top`.
+            $top: NON_GRID_ROW_CEILING_TOP,
+          });
+          // Filter first, ceiling second — `ValueDataSource` applies `$filter`
+          // before `$top`, which is what the fetching path gets for free from
+          // every backend. A large inline array that an authored `filter` cuts
+          // below the ceiling therefore plots every matching row and stays
+          // quiet.
+          const capped = applyNonGridRowCeiling(result);
+          setData(capped.rows);
+          setRowCeiling({ truncated: capped.truncated, total: capped.total });
           setLoading(false);
           return;
         }
@@ -1016,6 +1116,45 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
       zoom: declaredZoom ?? (markerBounds ? UNFITTED_CENTER_ZOOM : EMPTY_VIEW_ZOOM),
     };
   }, [markerBounds, hasDeclaredCamera, declaredLongitude, declaredLatitude, declaredZoom]);
+
+  /**
+   * REFUSAL — nothing declared where the coordinates live (objectui#8169).
+   *
+   * Placed ABOVE `loading` and `error`, for the reason objectui#8168 placed the
+   * chart's category-axis refusal above its own: this is a static AUTHORING
+   * fact that no fetch outcome can change. A skeleton that resolves into a
+   * refusal, or a network error shown first, both send the author to debug the
+   * wrong layer. The fetch above is left alone deliberately — gating it on the
+   * binding would move which values the query effects read, and this card
+   * changes what is RENDERED, not when data is fetched.
+   *
+   * The copy is the ruling's, verbatim. It names both accepted spellings
+   * because they are alternatives, not a sequence, and it names them under
+   * `map.` because the declared block is the authoring surface — the flat
+   * top-level spelling this component also reads is the internal transport form
+   * ObjectView / ListView produce (see `FlatMapConfigKeys`), which no author
+   * writes. ⛔ Not translated: `@object-ui/plugin-map` carries no i18n
+   * dependency and every user-facing string in this file is a literal, the same
+   * shape as the "Calendar/Gantt configuration required" refusals in the
+   * sibling plugins.
+   */
+  if (!hasCoordinateBinding(mapConfig)) {
+    return (
+      <div className={cn("min-w-0 overflow-hidden", className)}>
+        <div
+          className="flex items-center justify-center h-96 bg-muted rounded-lg border p-4 text-center"
+          data-testid="map-missing-location-binding"
+          role="alert"
+        >
+          <div className="text-destructive">
+            Map configuration required — declare <code className="font-mono">map.locationField</code>{' '}
+            or <code className="font-mono">map.latitudeField</code> +{' '}
+            <code className="font-mono">map.longitudeField</code>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

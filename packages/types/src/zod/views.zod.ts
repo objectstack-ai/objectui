@@ -18,7 +18,7 @@
 
 import { z } from 'zod';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
-import { handlerKeyRefusal } from './tombstone.zod.js';
+import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import { ListViewSchema as SpecListViewSchema } from '@objectstack/spec/ui';
 
 /**
@@ -102,6 +102,16 @@ export const DetailViewSectionSchema = z.object({
   columns: z.number().optional().describe('Grid columns for field layout'),
   visible: z.union([z.boolean(), z.string()]).optional().describe('Section visibility condition'),
   showBorder: z.boolean().optional().describe('Show border around section'),
+  // Mirrors `DetailViewSection.hideEmpty`, restored under objectui#8603
+  // (director seat batch #137 item 3, maintainer 2026-09-15) after
+  // objectui#7129 retired it on a premise `@objectstack/spec` had already
+  // reversed upstream. The key decides the ALL-EMPTY section only; empty rows
+  // inside a partly-filled section stay `DetailSection`'s heuristic (#7129
+  // Q2-C, untouched). The declaration's own docblock carries the full contract.
+  hideEmpty: z
+    .boolean()
+    .optional()
+    .describe('Hide an all-empty section entirely; `false` keeps its heading and label skeleton'),
   // Closed vocabulary — the six design-system tint tokens
   // `@object-ui/plugin-detail`'s `HEADER_COLOR_CLASSES` resolves, and the six
   // `@objectstack/spec` declares on its strict `record:details` section schema
@@ -153,6 +163,63 @@ export const DetailViewSchema = BaseSchema.extend({
   // `handleBack` CALLS `onBack()` — a host-supplied function, never the string
   // this mirror used to accept (which threw `onBack is not a function` at click).
   onBack: handlerKeyRefusal('onBack', 'runtime-slot', 'Custom back action'),
+  /**
+   * RUNTIME SLOT (objectui#9447, the objectui#6124 shape) — DECLARED on this
+   * arm for the first time. The `detail` twin refused this key by name with
+   * objectui#7804; this arm did not, so `BaseSchemaCore`'s `.passthrough()`
+   * KEPT an authored value instead of refusing it and handed it to a call site
+   * expecting a function — the same two keys with two different fates decided
+   * only by which `type` literal an author wrote.
+   *
+   * ## The read path, re-derived — there IS a wrapper, and it changes nothing
+   *
+   * Unlike `'detail'`, which registers `DetailView` RAW, the registration here
+   * is `ComponentRegistry.register('detail-view', DetailViewRenderer)`, which
+   * interposes a data-source gate. That gate does NOT strip the key:
+   * `useElementDataSourceSchema` returns the node UNCHANGED when there is no
+   * composed binding, and otherwise returns `{ ...base }` — a shallow spread
+   * whose only overwrites are the binding keys (`objectName`, `columns`,
+   * `filter`, `sort`, `limit`, `viewType`). `onNavigate` survives BOTH
+   * branches, so the authored value reaches `DetailView`'s `schema.onNavigate`
+   * BY IDENTITY exactly as under the raw registration, and `handleBack`,
+   * `handleEdit` and the post-delete redirect CALL it. Driven end to end
+   * through the real `SchemaRenderer` in
+   * `detail-view-handler-slots-9447.test.tsx`.
+   *
+   * ⚠️ `check-handler-key-read-sites.mjs` was GREEN on this key for a reason
+   * that said nothing about it, and objectui#9700 ended that. Its walk stopped
+   * at the data-source gate — the render-prop child is handed `bound as
+   * DetailViewSchema`, and a type-only cast on that attribute closed the hop —
+   * so the read site it derives for the `'detail'` registration had no
+   * counterpart here and this key was never among its findings, its census or
+   * its ledger. It is now: the cast is peeled, `DetailView`'s reads are scored
+   * under this arm too, and this declaration is what the gate reads as
+   * satisfying them. ⛔ The history still matters when reading an OLD green:
+   * before objectui#9700 the gate was not an instrument for this arm at all, and
+   * the probe named above is what measured the channel.
+   *
+   * ⚠️ NOT the nested `recordNavigation.onNavigate`, which is a DIFFERENT key
+   * at a different path with a different signature — `(recordId) => void`, the
+   * prev/next result-set walker. This refusal is about the MEMBER; the nested
+   * one is untouched on both faces and stays authorable where it lives.
+   */
+  onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'SPA navigation callback'),
+  /**
+   * RUNTIME SLOT (objectui#9447), and a DIFFERENT channel from `onNavigate`
+   * above — which is why the disposition is read per key rather than per
+   * prefix, the same reading objectui#7804 demanded on the twin.
+   *
+   * `DetailView` never calls this one. It FORWARDS it as a React prop into the
+   * `<RecordComments>` it renders, whose submit handler awaits it; the forward
+   * is itself gated by `schema.comments`, an undeclared key the same
+   * passthrough keeps alive. Both legs — the forward and the call at the far
+   * end — are driven in the probe named above.
+   *
+   * ⚠️ `comments` is deliberately NOT declared here, for the reason its twin
+   * records: it is not a handler key, declaring it is an accept-set decision of
+   * its own, and this card's rows are the handler keys.
+   */
+  onAddComment: handlerKeyRefusal('onAddComment', 'runtime-slot', 'New comment callback'),
   showEdit: z.boolean().optional().describe('Show edit button'),
   editUrl: z.string().optional().describe('Edit button URL'),
   showDelete: z.boolean().optional().describe('Show delete button'),
@@ -160,16 +227,61 @@ export const DetailViewSchema = BaseSchema.extend({
   loading: z.boolean().optional().describe('Whether to show loading state'),
   header: SchemaNodeSchema.optional().describe('Custom header content'),
   footer: SchemaNodeSchema.optional().describe('Custom footer content'),
-  related: z.array(z.object({
-    title: z.string().describe('Relation title'),
-    type: z.enum(['list', 'grid', 'table']).describe('Relation type'),
-    api: z.string().optional().describe('API endpoint for related data'),
-    data: z.array(z.any()).optional().describe('Static data'),
-    columns: z.array(z.any()).optional().describe('Columns for table view'),
-    fields: z.array(z.string()).optional().describe('Fields for list view'),
-    referenceField: z.string().optional().describe('Foreign-key field on the child object pointing back to the parent record. The renderer hides this column from the related-list table by default since the parent is implicit context.'),
-    icon: z.string().optional().describe('Optional Lucide-style icon name to render next to the section title'),
-  })).optional().describe('Related records section'),
+  /**
+   * The DETAIL-VIEW RELATED-LIST REFUSAL (objectui#7997) — `related` retires
+   * from `DetailViewSchema` on BOTH faces under ADR-0049 enforce-or-remove
+   * (maintainer ruling 2026-09-10; the direction is not re-opened by a later
+   * card).
+   *
+   * ## Why a REFUSAL and not a deletion
+   *
+   * `BaseSchemaCore` ends `.passthrough()` and the TypeScript `BaseSchema`
+   * closes with an any-valued index signature, so a dropped MEMBER key is
+   * KEPT, not refused — deleting this declaration would have left the silent
+   * accept exactly as it was and thrown the diagnostic away with it.
+   * `retirementTombstone` keeps the key DECLARED and unwritable, which is what
+   * makes the refusal loud. Same mechanism and same reasoning as the
+   * alert-dialog footer refusals (`./overlay.zod.ts`, objectui#7963) and the
+   * `PageNodeSchema` arms (`./layout.zod.ts`, objectui#7926 / objectui#8871).
+   *
+   * ## What was measured — the frame is BASE `efead6c60`, stated out loud
+   *
+   * ZERO PULL, which is the axis that carried the ruling. No application code
+   * authored this member. Both internal producers of a `detail-view` node —
+   * `RecordDetailDrawer` and `renderers/record-details.tsx` in
+   * `@object-ui/plugin-detail` — synthesize the node WITHOUT `related`. The
+   * only in-tree authorings carrying real columns were `packages/plugin-detail`'s
+   * README and `content/docs/api/schema-reference.md`, both rewritten by the
+   * same change to teach `record:related_list`.
+   *
+   * ⛔ The bare word `related` is worthless as a probe here and fails towards
+   * "live": `relatedListColumns`, `autoDiscoverRelated`, `RelatedList`,
+   * `record:related_list` and `RelatedRecordActionsContext` are all live and
+   * all untouched. The reading is a MEMBER-ACCESS one, and it is the two
+   * producers above that make the zero a measurement rather than a miss.
+   *
+   * ## What did NOT retire
+   *
+   * The capability. `record:related_list` is the protocol-governed entry
+   * (`@objectstack/spec` `RecordRelatedListProps`), it always rendered through
+   * the SAME `RelatedList` component this member fed, and it is unchanged here.
+   *
+   * ⚠️ It is the only DECLARED / protocol-governed entry, ⛔ not the only entry
+   * full stop: `plugin-detail/src/index.tsx` still registers a bare
+   * `related-list` node against the same component, with untyped `columns`.
+   * That registration is out of this card's scope and is untouched.
+   */
+  related: retirementTombstone(
+    '`related` is RETIRED on `detail-view` (objectui#7997, ADR-0049 '
+    + 'enforce-or-remove). It was a second, unmirrored entry to a capability the '
+    + 'protocol already governs: @objectstack/spec declares no DetailView schema, '
+    + 'so this array mirrored nothing and drifted — it declared `columns` as '
+    + 'TableColumn objects while the renderer it fed also took bare field names. '
+    + 'Author a `record:related_list` block instead: it is the protocol-governed '
+    + 'entry (RecordRelatedListProps), its `columns` is an array of field-name '
+    + 'strings, and it renders through the same component, so nothing about the '
+    + 'result is lost — only the second door.',
+  ),
 });
 
 /**
@@ -196,6 +308,22 @@ export const ViewSwitcherSchema = BaseSchema.extend({
     type: z.enum(['share', 'settings', 'duplicate', 'delete']).describe('Action type'),
     icon: z.string().optional().describe('Action icon'),
   })).optional().describe('Per-view action icons'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `view-switcher` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `activeView`, `allowCreateView`, `defaultView`, `id`, `onViewChange`, '
+    + '`persistPreference`, `position`, `storageKey`, `variant`, `viewActions`, `views`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `view-switcher` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `activeView`, `allowCreateView`, `defaultView`, `id`, `onViewChange`, '
+    + '`persistPreference`, `position`, `storageKey`, `variant`, `viewActions`, `views`.',
+  ),
 });
 
 /**
@@ -217,6 +345,20 @@ export const FilterUISchema = BaseSchema.extend({
   showClear: z.boolean().optional().describe('Show clear button'),
   showApply: z.boolean().optional().describe('Show apply button'),
   layout: z.enum(['inline', 'popover', 'drawer']).optional().describe('Filter layout'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `filter-ui` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `filters`, `layout`, `onChange`, `showApply`, `showClear`, `values`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `filter-ui` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `filters`, `layout`, `onChange`, `showApply`, `showClear`, `values`.',
+  ),
 });
 
 /**
@@ -236,6 +378,20 @@ export const SortUISchema = BaseSchema.extend({
     .describe('Event name dispatched on window when the sort changes (detail: { sort }) — an event NAME, not a callback or a handler expression'),
   multiple: z.boolean().optional().describe('Allow multiple sort fields'),
   variant: z.enum(['dropdown', 'buttons']).optional().describe('UI variant'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `sort-ui` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `fields`, `multiple`, `onChange`, `sort`, `variant`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `sort-ui` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `fields`, `multiple`, `onChange`, `sort`, `variant`.',
+  ),
 });
 
 /**

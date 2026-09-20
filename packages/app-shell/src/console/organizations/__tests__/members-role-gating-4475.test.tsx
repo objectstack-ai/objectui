@@ -182,7 +182,7 @@ vi.mock('lucide-react', async (importOriginal) => {
   };
 });
 
-import { builtInLocales } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 import { MembersPage } from '../manage/MembersPage';
 import { InvitationsPage } from '../manage/InvitationsPage';
 

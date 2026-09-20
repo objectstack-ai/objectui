@@ -189,18 +189,20 @@ export function paramToField(param: ActionParamDef): Record<string, any> {
       // leaving it would have handed `LookupField` a key it no longer reads.
       //
       // ⚠️ What that would have changed, stated as MEASURED and not larger:
-      // this dialog supplies `dependentValues` only to
-      // `CASCADE_OPTION_WIDGET_TYPES` (`select` / `multiselect` / `radio` /
-      // `checkboxes`, the supply site being `ActionParamDialog.tsx`'s
-      // `cascadeProps`), and `LookupField`'s context fallback resolves to `{}`
-      // here, so a lookup param's cascade gate in this dialog is PERMANENT:
-      // it never lifts, whatever the user types into the parent. Dropping the
-      // read arm without moving this emit would therefore have flipped that
-      // permanent gate into an UNGATED, UNFILTERED picker — a silent behaviour
-      // change, and the reason the emit moves with the reader; ⛔ not a
-      // working cascade that would have died. That the gate never lifts here
-      // is a PRE-EXISTING residue of its own, not something this card
-      // introduced or fixes.
+      // dropping the read arm without moving this emit would have flipped the
+      // gate this key raises into an UNGATED, UNFILTERED picker — a silent
+      // behaviour change, and the reason the emit moves with the reader.
+      //
+      // ⭐ objectui#8672, ruling A — the residue that note recorded is gone.
+      // When it was written, this dialog supplied `dependentValues` only to
+      // `CASCADE_OPTION_WIDGET_TYPES` (no `lookup` member), so `LookupField`
+      // resolved `{}` and the gate this emit raises NEVER lifted, whatever the
+      // user typed into the parent. `ActionParamDialog` now feeds the
+      // reference-bearing family its live `values` as well — see
+      // `paramNeedsDependentValues()` there — so the key this line emits does
+      // what its author meant: the trigger ungates once the named parent
+      // carries a value, and the picker is narrowed by it on every surface.
+      // ⛔ Do not restate the supply rule here; it is asked of that predicate.
       //
       // The remaining snake members above are a different question
       // (objectui#7155's ruling covered four keys and this was not one of them).

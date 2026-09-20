@@ -37,7 +37,8 @@
 
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { I18nProvider, builtInLocales } from '@object-ui/i18n';
+import { I18nProvider } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 import { SchemaRenderer } from '@object-ui/react';
 // Registers the renderers at module scope, NOT inside a `beforeAll` — there the
 // cold transform is billed to `hookTimeout`. See

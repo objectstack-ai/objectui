@@ -74,16 +74,41 @@
  *    `confirmVariant` row demonstrably distinguishes one button variant from
  *    another on this very DOM.
  *
- * ⛔ This file measures. It does not retire anything, it does not teach the
- * renderer a new key, and it does not animate `confirmVariant` — whether a
- * footer button variant is a capability this project wants is the maintainer
- * ruling objectui#7963 asks for, and this reading is that ruling's INPUT.
+ * ⛔ This file measures. It does not teach the renderer a new key and it does not
+ * animate `confirmVariant`.
+ *
+ * ## The ruling this reading fed, and why this file is KEPT
+ *
+ * ⭐ RE-POINTED, ⛔ not deleted. The maintainer ruled on 2026-09-10: retire all
+ * three from `AlertDialogSchema`, both faces, ADR-0049 enforce-or-remove, with
+ * `cancelText` / `actionText` as the surviving spellings and NO survivor for
+ * `confirmVariant`. This file is the measurement that ruling was taken on — a
+ * retirement does not retire its own evidence, so every reading below stays,
+ * and every one of them must go on reading the same after the change as before.
+ *
+ * ⚠️ Read what did and did not move, because it is easy to get backwards:
+ *
+ *  - the RENDERER is untouched. It never read the three keys and still does not,
+ *    so the DOM readings below are unchanged BY CONSTRUCTION. If one of them
+ *    ever flips, something taught the renderer a retired key.
+ *  - the SCHEMA changed, and this package does not validate. `SchemaRenderer`
+ *    renders a node; it does not `safeParse` one. So the "renders an EMPTY
+ *    footer" reading at the bottom is STILL TRUE of a raw node handed straight
+ *    to the renderer — what the retirement moved is the gate one step earlier,
+ *    where an author is now refused BY NAME instead of silently drawing nothing.
+ *    That is asserted at the bottom of this file against the mirror, so the two
+ *    halves of the card are tied together in one place; its full contract lives
+ *    in `packages/types/src/__tests__/alert-dialog-footer-keys-refusal-7963.test.ts`.
  */
 
 import { describe, expect, it } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer } from '@object-ui/react';
+// The schema half of this card. Imported for the closure leg at the bottom
+// only — nothing above validates, and that asymmetry is the point of the note
+// in this file's header.
+import { AlertDialogSchema as AlertDialogMirror } from '@object-ui/types/zod';
 // Registers the renderers at module scope, NOT inside a `beforeAll` — there the
 // cold transform is billed to `hookTimeout` (objectui#3010/#3021).
 import '../renderers';
@@ -283,28 +308,57 @@ describe('objectui#7963 — the three declared footer keys, one varied per fixtu
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
- * The user-visible consequence the card reported
+ * The user-visible consequence the card reported — and where it is caught now
  * ───────────────────────────────────────────────────────────────────────── */
 
-describe('objectui#7963 — a document written strictly against the declared keys', () => {
-  it('renders an EMPTY footer', () => {
-    // The card's headline claim, measured rather than reasoned: an author who
-    // writes only what `AlertDialogSchema` declares for the footer gets no
-    // footer buttons at all. Paired with `WIRED` above, which is the same node
-    // in the read dialect drawing two.
-    const declaredOnly = {
-      type: 'alert-dialog',
-      title: 'Delete this account?',
-      trigger: { type: 'button', label: 'Delete account' },
-      cancelLabel: 'Keep it',
-      confirmLabel: 'Delete',
-      confirmVariant: 'destructive',
-      defaultOpen: true,
-    };
+/** The footer an author used to write against the three keys the type declared. */
+const RETIRED_ONLY = {
+  type: 'alert-dialog',
+  title: 'Delete this account?',
+  trigger: { type: 'button', label: 'Delete account' },
+  cancelLabel: 'Keep it',
+  confirmLabel: 'Delete',
+  confirmVariant: 'destructive',
+  defaultOpen: true,
+};
 
-    const reading = probe(declaredOnly);
+describe('objectui#7963 — a document written strictly against the three retired keys', () => {
+  it('STILL renders an EMPTY footer — the renderer does not validate, and it did not change', () => {
+    // The card's headline claim, measured rather than reasoned: an author who
+    // wrote only what `AlertDialogSchema` used to declare for the footer got no
+    // footer buttons at all. Paired with `WIRED` above, which is the same node in
+    // the surviving dialect drawing two.
+    //
+    // ⚠️ This reading is UNCHANGED by the retirement, and that is the point.
+    // `SchemaRenderer` renders a node, it never `safeParse`s one, so a raw node
+    // reaching this renderer still draws nothing. The retirement did not repair
+    // the render — it moved the failure one step earlier, to a place where the
+    // author is told why (the leg below).
+    const reading = probe(RETIRED_ONLY);
 
     expect(reading.dialogHtml).not.toBeNull(); // the dialog itself DID mount
     expect(reading.footerLabels).toEqual([]); // …with nothing in its footer
+  });
+
+  it('and is now REFUSED BY NAME at the schema, instead of being accepted in silence', () => {
+    // The closure objectui#7963 landed, asserted here beside the reading that
+    // justified it so the two halves cannot drift apart. Before the retirement
+    // this document parsed GREEN — `BaseSchemaCore` ends `.passthrough()`, so an
+    // authored value was KEPT, not refused, which is why a bare deletion of the
+    // declarations would have changed nothing an author could see.
+    const result = AlertDialogMirror.safeParse(RETIRED_ONLY);
+
+    expect(result.success).toBe(false);
+    const paths = (result.success ? [] : result.error.issues).map((issue) => issue.path.join('.'));
+    for (const key of ['cancelLabel', 'confirmLabel', 'confirmVariant']) {
+      expect(paths, key).toContain(key);
+    }
+  });
+
+  it('CONTROL — the surviving dialect, the node `WIRED` draws two buttons from, parses green', () => {
+    // Without this the leg above would pass just as well against a mirror that
+    // refused every alert-dialog document, and the refusal would read as working
+    // while it had in fact taken the whole node down.
+    expect(AlertDialogMirror.safeParse(baseNode()).success).toBe(true);
   });
 });

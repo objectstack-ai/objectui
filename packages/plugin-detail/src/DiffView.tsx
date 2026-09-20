@@ -9,6 +9,7 @@
 import * as React from 'react';
 import { cn, Button, Card, CardHeader, CardTitle, CardContent } from '@object-ui/components';
 import { Columns2, Rows3 } from 'lucide-react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useDetailTranslation } from './useDetailTranslation';
 
 export type DiffFieldType = 'string' | 'number' | 'boolean' | 'json' | 'date';
@@ -28,8 +29,13 @@ export interface DiffViewProps {
   className?: string;
 }
 
-/** Convert a value to diffable string lines based on its type. */
-function valueToLines(value: any, fieldType: DiffFieldType): string[] {
+/**
+ * Convert a value to diffable string lines based on its type.
+ *
+ * `locale` is threaded in rather than read from a hook: this is a plain
+ * function called from a `React.useMemo` body (objectui#9786).
+ */
+function valueToLines(value: any, fieldType: DiffFieldType, locale: string): string[] {
   if (value == null) return ['(empty)'];
 
   switch (fieldType) {
@@ -46,7 +52,9 @@ function valueToLines(value: any, fieldType: DiffFieldType): string[] {
       return [String(value)];
     case 'date':
       try {
-        return [new Date(value).toLocaleString()];
+        // The tag is DECLARED (objectui#9786) — a bare call formats in the
+        // machine's locale, which is neither channel `useDisplayLocale` composes.
+        return [new Date(value).toLocaleString(locale)];
       } catch {
         return [String(value)];
       }
@@ -100,10 +108,18 @@ export const DiffView: React.FC<DiffViewProps> = ({
   className,
 }) => {
   const { t } = useDetailTranslation();
+  // The BCP-47 tag a `date` field's diff lines are formatted with (objectui#9786).
+  const displayLocale = useDisplayLocale();
   const [mode, setMode] = React.useState<DiffMode>(initialMode);
 
-  const oldLines = React.useMemo(() => valueToLines(oldValue, fieldType), [oldValue, fieldType]);
-  const newLines = React.useMemo(() => valueToLines(newValue, fieldType), [newValue, fieldType]);
+  const oldLines = React.useMemo(
+    () => valueToLines(oldValue, fieldType, displayLocale),
+    [oldValue, fieldType, displayLocale],
+  );
+  const newLines = React.useMemo(
+    () => valueToLines(newValue, fieldType, displayLocale),
+    [newValue, fieldType, displayLocale],
+  );
   const diffLines = React.useMemo(() => computeDiff(oldLines, newLines), [oldLines, newLines]);
 
   const hasChanges = diffLines.some((l) => l.type !== 'unchanged');

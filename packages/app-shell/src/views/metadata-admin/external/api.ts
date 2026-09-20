@@ -21,6 +21,11 @@
  */
 
 import { createAuthenticatedFetch } from '@object-ui/auth';
+// objectui#8676 - this module is the SECOND of the three in-repo doors that PUT
+// `/meta/:type/:name`, and the one no `client.save(` or `.saveItem(` sweep can
+// see: it is a hand-rolled fetch. It writes `object` metadata, so it applies the
+// same invariant `MetadataClient.save` applies, from the same module.
+import { assertObjectMetadataWritable } from '@object-ui/data-objectstack';
 import type {
   GenerateDraftOpts,
   ObjectDraft,
@@ -187,6 +192,7 @@ export async function validateDatasource(
  * draft's `definition` is the parseable ObjectSchema body.
  */
 export async function importObjectDraft(draft: ObjectDraft): Promise<void> {
+  assertObjectMetadataWritable('object', draft.definition, 'importObjectDraft');
   const res = await authFetch(
     `${serverBase()}/api/v1/meta/object/${encodeURIComponent(draft.name)}`,
     {

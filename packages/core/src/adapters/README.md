@@ -56,6 +56,17 @@ For `provider: 'value'`. Everything runs against an in-memory array, which is
 deep-cloned on construction so the caller's array is never mutated. Useful for
 static content, fixtures, and previews.
 
+The clone is a **`structuredClone`**, not a JSON round-trip (objectui#9175). It
+is an aliasing barrier and nothing more: `ViewData.items` is
+`z.array(z.unknown())` in `@objectstack/spec`, so **an inline row does not have
+to be serializable** (objectui#6018). A `Date` arrives as a `Date`, a key whose
+value is `undefined` keeps its key, `Map` / `Set` / `RegExp` / `BigInt` /
+`NaN` / a cyclic record graph all survive as themselves. What
+`structuredClone` cannot copy — a function, a DOM node — throws
+`DataCloneError` at construction: **loud, on purpose**, and there is no
+fallback to the round-trip, because a fallback would restore the silent
+flattening this replaced.
+
 ```typescript
 import { ValueDataSource } from '@object-ui/core';
 
@@ -75,8 +86,9 @@ const { data, total } = await dataSource.find('people', {
 
 It implements `$filter` (both MongoDB-style objects and FilterNode AST arrays),
 `$search`, `$orderby`, `$skip`, `$top` and `$select` locally, plus `bulk()`,
-`aggregate()` and `onMutation()`. `getAll()` returns a cloned snapshot and
-`count` the current length.
+`aggregate()` and `onMutation()`. `getAll()` returns a cloned snapshot — the
+same `structuredClone` rule as the constructor — and `count` the current
+length.
 
 #### What `$filter` executes, and what it refuses
 
@@ -178,6 +190,11 @@ renderer calls; components do not branch on `provider` themselves.
 
 ```typescript
 import { resolveDataSource } from '@object-ui/core';
+import type { DataSource } from '@object-ui/types';
+
+// The `DataSource` the renderer already holds from context. It is what
+// `provider: 'object'` resolves to, and the fallback for every other case.
+declare const contextDataSource: DataSource;
 
 const dataSource = resolveDataSource(
   { provider: 'api', read: { url: '/api/users' } },
@@ -203,6 +220,10 @@ stay ignorant of which one ran.
 
 ```typescript
 import { runBatchTransaction } from '@object-ui/core';
+import type { DataSource } from '@object-ui/types';
+
+// The adapter the view resolved to — see `resolveDataSource` above.
+declare const dataSource: DataSource;
 
 // `{ $ref: 0 }` resolves to the id minted by operation 0 (the parent).
 await runBatchTransaction(dataSource, [
@@ -222,38 +243,78 @@ for the capability negotiation that decides which path is taken.
 
 ## Creating Custom Adapters
 
-To create a custom adapter, implement the `DataSource<T>` interface:
+To create a custom adapter, implement the `DataSource<T>` interface. It requires
+**six** members — `find`, `findOne`, `create`, `update`, `delete` and
+`getObjectSchema` — and everything else on it is optional. `getObjectSchema` is
+easy to miss and is not optional: schema-dependent components call it before they
+render, which is why `ApiDataSource` answers it with a minimal stub rather than
+omitting it.
 
 ```typescript
 import type { DataSource, QueryParams, QueryResult } from '@object-ui/types';
 
 export class MyCustomAdapter<T = any> implements DataSource<T> {
+  // ── The six members `DataSource<T>` requires ───────────────────────────────
+
   async find(resource: string, params?: QueryParams): Promise<QueryResult<T>> {
-    // Your implementation
+    throw new Error(`find(${resource}) is not implemented yet`);
   }
-  
-  async findOne(resource: string, id: string | number): Promise<T | null> {
-    // Your implementation
+
+  async findOne(
+    resource: string,
+    id: string | number,
+    params?: QueryParams,
+  ): Promise<T | null> {
+    throw new Error(`findOne(${resource}, ${id}) is not implemented yet`);
   }
-  
+
   async create(resource: string, data: Partial<T>): Promise<T> {
-    // Your implementation
+    throw new Error(`create(${resource}) is not implemented yet`);
   }
-  
-  async update(resource: string, id: string | number, data: Partial<T>): Promise<T> {
-    // Your implementation
+
+  async update(
+    resource: string,
+    id: string,
+    data: Partial<T>,
+    opts?: { ifMatch?: string },
+  ): Promise<T> {
+    throw new Error(`update(${resource}, ${id}) is not implemented yet`);
   }
-  
-  async delete(resource: string, id: string | number): Promise<boolean> {
-    // Your implementation
+
+  async delete(
+    resource: string,
+    id: string | number,
+    opts?: { ifMatch?: string },
+  ): Promise<boolean> {
+    throw new Error(`delete(${resource}, ${id}) is not implemented yet`);
   }
-  
-  // Optional: bulk operations
-  async bulk?(resource: string, operation: string, data: Partial<T>[]): Promise<T[]> {
-    // Your implementation
+
+  /**
+   * Required. Return the object's metadata, or a minimal stub
+   * (`{ name, fields: {} }`) when your backend exposes none — see
+   * `ApiDataSource` above.
+   */
+  async getObjectSchema(objectName: string): Promise<any> {
+    return { name: objectName, fields: {} };
+  }
+
+  // ── Optional: implement only what your backend actually supports ───────────
+
+  async bulk?(
+    resource: string,
+    operation: 'create' | 'update' | 'delete',
+    data: Partial<T>[],
+  ): Promise<T[]> {
+    throw new Error(`bulk(${resource}, ${operation}) is not implemented yet`);
   }
 }
 ```
+
+The bodies above **throw** rather than fall off the end: a method annotated
+`Promise<QueryResult<T>>` that returns nothing is a type error, and a template
+that does not type-check is one a reader copies into a class that does not
+satisfy the interface it claims to implement. Replace each `throw` as you go and
+the class stays checkable at every step.
 
 ## Related Packages
 

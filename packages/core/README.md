@@ -37,7 +37,7 @@ import type {
 const mySchema: PageNodeSchema = {
   type: 'page',
   title: 'My Page',
-  body: []
+  children: []
 }
 ```
 

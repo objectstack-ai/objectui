@@ -93,7 +93,7 @@ Try changing `"variant"` to `"destructive"`, `"outline"`, `"secondary"`, or `"gh
 
 ### Card
 
-A content card with a header, description, and body:
+A content card with a header, a description, and a `children` content list:
 
 ```json
 {
@@ -101,7 +101,7 @@ A content card with a header, description, and body:
   "title": "Monthly Revenue",
   "description": "Revenue summary for the current month",
   "icon": "dollar-sign",
-  "body": {
+  "children": {
     "type": "stack",
     "direction": "col",
     "gap": 4,
@@ -207,15 +207,15 @@ Schemas can be nested to build complex layouts. Here is a dashboard that combine
 {
   "type": "page",
   "title": "Project Dashboard",
-  "body": {
+  "children": {
     "type": "grid",
     "columns": 3,
     "gap": "md",
-    "items": [
+    "children": [
       {
         "type": "card",
         "title": "Open Issues",
-        "body": {
+        "children": {
           "type": "text",
           "content": "24",
           "className": "text-4xl font-bold text-primary"
@@ -224,7 +224,7 @@ Schemas can be nested to build complex layouts. Here is a dashboard that combine
       {
         "type": "card",
         "title": "Pull Requests",
-        "body": {
+        "children": {
           "type": "text",
           "content": "8",
           "className": "text-4xl font-bold text-primary"
@@ -233,7 +233,7 @@ Schemas can be nested to build complex layouts. Here is a dashboard that combine
       {
         "type": "card",
         "title": "Deployments",
-        "body": {
+        "children": {
           "type": "text",
           "content": "142",
           "className": "text-4xl font-bold text-primary"
@@ -269,7 +269,7 @@ import type { CardSchema } from '@object-ui/types';
 const schema: CardSchema = {
   type: 'card',
   title: 'Hello',
-  body: { type: 'text', content: 'World' },
+  children: { type: 'text', content: 'World' },
 };
 
 // One line to go from JSON to UI

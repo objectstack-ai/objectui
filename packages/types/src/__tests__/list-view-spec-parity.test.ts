@@ -108,6 +108,30 @@ const SANCTIONED_LOCAL = new Set<string>([
   'options',
 ]);
 
+/**
+ * A THIRD category, and deliberately not a row in `SANCTIONED_LOCAL`: members
+ * that are not authorable fields at all (objectui#7804).
+ *
+ * Each of these is a `handlerKeyRefusal` arm — a key a REGISTERED renderer
+ * reads off the authored document, declared here only so that
+ * `BaseSchema.passthrough()` stops KEEPING an authored value and the author
+ * gets a refusal that names the key. Neither branch the docblock above offers
+ * fits one: promoting it into `@objectstack/spec` would ask the protocol to
+ * declare a key JSON cannot express, and calling it a "genuine objectui-only
+ * extension" would say the arm accepts something. It accepts nothing.
+ *
+ * ⚠️ Membership here is still a deliberate act — and it is CHECKED. The test
+ * below refuses a member that is not actually a refusal arm, so this set
+ * cannot be used to park a real authorable field outside the drift guard.
+ */
+const HANDLER_KEY_REFUSALS = new Set<string>([
+  'onAddRecord',
+  'onBulkAction',
+  'onDensityChange',
+  'onNavigate',
+  'onPageSizeChange',
+]);
+
 describe('ListView spec parity (#2231 drift guard)', () => {
   it('covers every @objectstack/spec ListView field (spec cannot grow a field objectui ignores)', () => {
     // Fails when the spec adds a field that objectui neither imports nor envelope-owns —
@@ -126,9 +150,40 @@ describe('ListView spec parity (#2231 drift guard)', () => {
   it('declares no objectui-only field outside the sanctioned-local set', () => {
     // Fails when a new objectui-only field is added without deciding local-vs-upstream.
     const rogue = [...ouiKeys].filter(
-      (k) => !specShape[k] && !ENVELOPE.has(k) && !SANCTIONED_LOCAL.has(k),
+      (k) =>
+        !specShape[k] &&
+        !ENVELOPE.has(k) &&
+        !SANCTIONED_LOCAL.has(k) &&
+        !HANDLER_KEY_REFUSALS.has(k),
     );
     expect(rogue).toEqual([]);
+  });
+
+  it('every HANDLER_KEY_REFUSALS member really refuses — the set cannot hide an authorable field', () => {
+    const node = (extra: Record<string, unknown>) => ({
+      type: 'list-view',
+      objectName: 'accounts',
+      ...extra,
+    });
+
+    // ⭐ CONTROL first: the same probe on a sanctioned-local key that IS
+    // authorable must be accepted, or the loop below proves nothing.
+    expect(OuiListViewSchema.safeParse(node({ viewType: 'grid' })).success).toBe(true);
+
+    for (const key of HANDLER_KEY_REFUSALS) {
+      expect(ouiKeys.has(key), `${key} is listed but not declared on the arm`).toBe(true);
+      // Both faces of "accepts nothing": the authored action object this card
+      // exists for, and a live function, which is the only value a host could
+      // ever have meant.
+      expect(
+        OuiListViewSchema.safeParse(node({ [key]: { action: 'toast' } })).success,
+        `${key} must refuse an authored action object`,
+      ).toBe(false);
+      expect(
+        OuiListViewSchema.safeParse(node({ [key]: () => undefined })).success,
+        `${key} must refuse a function value too`,
+      ).toBe(false);
+    }
   });
 
   it('preserves the component discriminator + required objectName', () => {
@@ -177,8 +232,19 @@ describe('ListView spec parity (#2231 drift guard)', () => {
  */
 describe('per-view-type configs derive from the spec', () => {
   const CONFIGS = {
-    kanban: { spec: SpecKanbanConfigSchema, local: ['groupField', 'cardFields'] },
-    calendar: { spec: SpecCalendarConfigSchema, local: ['defaultView'] },
+    // `groupBy` is local and DECLARED, but it is not a writable member: it is
+    // the objectui#8365 alias-refusal arm (`aliasKeyRefusal`), declared exactly so
+    // the key is refused BY NAME instead of riding this mirror's `.passthrough()`.
+    // It belongs on this list because the list asks which keys the mirror
+    // declares beyond the spec — declaring a refusal is still declaring.
+    kanban: { spec: SpecKanbanConfigSchema, local: ['groupField', 'cardFields', 'groupBy'] },
+    // `dateField` / `endField` are the same shape one config over: objectui#8355
+    // alias-refusal arms, declared exactly so the two retired spellings are
+    // refused BY NAME instead of riding this mirror's `.passthrough()` into
+    // `ListView`'s calendar branch. ⚠️ Their presence here is NOT a widening —
+    // `z.input` of each is `undefined`, so no document that parsed green starts
+    // parsing green, and the TypeScript face carries `?: never`.
+    calendar: { spec: SpecCalendarConfigSchema, local: ['defaultView', 'dateField', 'endField'] },
     gantt: { spec: SpecGanttConfigSchema, local: [] },
     gallery: { spec: SpecGalleryConfigSchema, local: ['imageField'] },
     timeline: { spec: SpecTimelineConfigSchema, local: ['dateField'] },
@@ -224,6 +290,24 @@ describe('per-view-type configs derive from the spec', () => {
       calendar: { startDateField: 'starts_at', defaultView: 'week' },
     });
     expect(result.success).toBe(true);
+  });
+
+  it('⛔ …but the CALENDAR pair is retired — objectui#8355 narrowed exactly those two', () => {
+    // The row above says the deprecated vocabulary still validates, and it is
+    // still true for every alias it names. This row is the exception the
+    // director seat ruled, kept beside it so the two cannot be read as one
+    // blanket promise: `calendar.dateField` / `calendar.endField` are refused
+    // BY NAME now, while `timeline.dateField` one line up is untouched and
+    // stays live. The full refusal contract is pinned in
+    // `calendar-date-alias-refusal-8355.test.ts`.
+    for (const alias of ['dateField', 'endField']) {
+      const result = OuiListViewSchema.safeParse({
+        type: 'list-view',
+        objectName: 'accounts',
+        calendar: { startDateField: 'starts_at', [alias]: 'ends_at' },
+      });
+      expect(result.success, `calendar.${alias} still parses green`).toBe(false);
+    }
   });
 
   it('does not require the spec-required sub-fields the product authors partially', () => {

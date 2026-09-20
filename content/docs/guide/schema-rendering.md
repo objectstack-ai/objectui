@@ -32,7 +32,7 @@ function App() {
   const schema: PageNodeSchema = {
     type: "page",
     title: "My Dashboard",
-    body: [{ type: "text", content: "Hello" }]
+    children: [{ type: "text", content: "Hello" }]
   }
   
   return <SchemaRenderer schema={schema} />
@@ -66,7 +66,7 @@ interface BaseSchema {
   "className": "p-6 shadow-lg",
   "title": "User Statistics",
   "visibleOn": "${user.role === 'admin'}",
-  "body": {
+  "children": {
     "type": "text",
     "content": "Total Users: ${stats.totalUsers}"
   }
@@ -75,21 +75,63 @@ interface BaseSchema {
 
 ## Data Context
 
-The `SchemaRenderer` accepts a `data` prop that provides context for expressions:
+Expression scope does **not** arrive as a prop. `SchemaRenderer` declares exactly one prop,
+`schema`, and forwards every other prop it is handed straight through to the component the
+schema names — so a `data`, `dataSource` or `debug` written on the element is neither read nor
+refused. Nothing throws, and there is one line on the console; the expression simply never
+resolves, and an unresolvable template is returned as its own source text, so the characters
+you typed are what the reader sees. The scope comes from `PredicateScopeProvider`, which
+publishes each name you give it as an expression root:
 
-<!-- doc-snippet: fragment — continues the block above — SchemaRenderer and schema are already in scope there; the closing JSX line is the call shown in place, not a statement that parses on its own -->
 ```tsx
-const data = {
-  user: { name: "John", role: "admin" },
-  stats: { totalUsers: 1234 }
+import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
+import type { BaseSchema } from '@object-ui/types'
+
+// The page schema from the first example on this page.
+declare const schema: BaseSchema
+
+// Every name here becomes a root the schema's expressions can read.
+const scope = {
+  user: { name: 'John', role: 'admin' },
+  stats: { totalUsers: 1234 },
 }
 
-<SchemaRenderer schema={schema} data={data} />
+function App() {
+  return (
+    <PredicateScopeProvider scope={scope}>
+      <SchemaRenderer schema={schema} />
+    </PredicateScopeProvider>
+  )
+}
 ```
+
+An app built on `@object-ui/app-shell` does not mount this provider itself: the shell's
+`ExpressionProvider` already feeds the same channel with `user` (the signed-in user, also
+readable as `current_user`) and `features`.
+
+The scope the evaluator builds is what you published, plus three names the renderer supplies:
+
+| name | what it holds |
+|---|---|
+| every key of `scope` | exactly what you put there — `user`, `stats`, whatever the page needs |
+| `page` | page-local variables, for predicates that gate on another component's state |
+| `record` | the row a record surface is bound to, when there is one |
+| `current_user` | an alias of whatever you published as `user`; the host's `ExpressionProvider` publishes the signed-in user there |
+
+A name outside that set resolves to nothing, and an unresolvable template is not an error:
+the evaluator hands back its own source text and writes one line to the console, so the
+characters you typed are what the reader sees.
+
+> **`dataSource` is not an expression root.** `SchemaRendererProvider`'s `dataSource` carries
+> the host's `DataSource` *adapter* — the object renderers call `find()` on. The renderer used
+> to publish that adapter under the name `data`; an adapter answers no `data.*` path, so the
+> root was constant for every conformant host, and objectui#9308 removed it. A `${data.…}`
+> expression now reads whatever *you* published under `data`, and nothing if you published
+> none. At the runtime layer the row is `record` (ADR-0089).
 
 ### Accessing Data in Schemas
 
-Use expression syntax `${}` to reference data:
+Use expression syntax `${}` to reference the scope, by the name you published it under:
 
 ```json
 {
@@ -125,14 +167,14 @@ Schemas can be nested to create complex UIs:
 {
   "type": "page",
   "title": "Dashboard",
-  "body": {
+  "children": {
     "type": "grid",
     "columns": 2,
-    "items": [
+    "children": [
       {
         "type": "card",
         "title": "Card 1",
-        "body": {
+        "children": {
           "type": "text",
           "content": "Nested content"
         }
@@ -140,7 +182,7 @@ Schemas can be nested to create complex UIs:
       {
         "type": "card",
         "title": "Card 2",
-        "body": {
+        "children": {
           "type": "chart",
           "chartType": "bar",
           "xAxisKey": "month",
@@ -172,7 +214,7 @@ Use arrays for multiple items:
 ```json
 {
   "type": "container",
-  "body": [
+  "children": [
     { "type": "text", "content": "First item" },
     { "type": "text", "content": "Second item" },
     { "type": "text", "content": "Third item" }
@@ -198,10 +240,16 @@ Object UI includes a powerful expression system for dynamic behavior:
 ```json
 {
   "type": "card",
-  "title": "${status === 'active' ? 'Active' : 'Inactive'}",
-  "description": "${status === 'active' ? 'This record is in use.' : 'This record is archived.'}"
+  "title": "${record.status === 'active' ? 'Active' : 'Inactive'}",
+  "description": "${record.status === 'active' ? 'This record is in use.' : 'This record is archived.'}"
 }
 ```
+
+`record.status` rather than a bare `status`, because this example is about a row: `record` is
+the row a record surface is bound to, and it is the only spelling a row field has — the bare
+shorthand and the wrong-layer `data.status` were both retired on runtime record surfaces
+(objectui#5330 phase 2). A head name the host publishes itself stays bare; this one is not
+one of those.
 
 `card` here rather than `badge`, because an expression is evaluated only on a key the
 node's own type carries. `expressionBindableTextKeysFor` — the lookup `SchemaRenderer`
@@ -227,7 +275,7 @@ it on `label`: `text` is not a `BadgeSchema` key.
   "type": "alert",
   "variant": "default",
   "title": "Welcome!",
-  "body": {
+  "children": {
     "type": "text",
     "content": "${
       user.isNew ? 'Start with the quick tour.' :
@@ -336,6 +384,44 @@ The renderer includes built-in error boundaries:
 />
 ```
 
+## Render is not a validation door
+
+`SchemaRenderer` does **not** parse your document against the published Zod schema before it
+draws. The one document check on the render path is `validateSchema` from `@object-ui/core` —
+a hand-written structural walker — and it runs **in development only**: the call sits behind a
+`process.env.NODE_ENV !== 'production'` guard, warns to the console, and marks the offending
+host element with `data-obj-schema-invalid` so an app can hang a visual cue off it. In a
+production build that pass is skipped entirely — the document is not checked at all before it
+is drawn, and `data-obj-schema-invalid` is never emitted.
+
+The walker and the schema do not share an accept set, so neither one's verdict tells you
+anything about the other's. The walker judges node *structure* — is the root an object, does
+every node carry a `type`, recursing through `children` — plus a few rules of its own, such as
+a short hand-written table of retired node-type spellings. The rest of the published contract
+is outside it. Take a `chatbot` node carrying a key the schema has retired: the walker is
+silent, whether that key holds a node, an array of nodes, a string, a number or a record, while
+`safeValidateSchema` refuses the same document with the retirement's own message. So a document
+that renders without a warning has **not** thereby passed the contract, and a warning that does
+appear is a report about node structure, not about the schema.
+
+Validation happens at three doors, all of them outside the render path:
+
+1. **Load time — the framework's Zod parse.** Every metadata item a package ships is validated
+   against its Zod schema when the framework loads it; the result travels with the item as a
+   `_diagnostics` envelope, which Studio surfaces. See
+   [Metadata Diagnostics](./metadata-diagnostics.md).
+2. **Authoring time — the CLI.** `objectui validate` parses one document against the published
+   schema and prints the schema's own errors when it fails. `objectui check` sweeps a project
+   and lists the files that carry a registered component type but did not validate, pointing at
+   `objectui validate` for the reason.
+3. **Wherever else you need it — `safeValidateSchema`.** Exported from `@object-ui/types/zod`,
+   it is the same parse both CLI commands run, so a build step, a CI job or a save handler can
+   apply the identical contract.
+
+Put the check where documents are authored, saved or loaded — not in the paint. A document that
+reaches the browser without passing one of those doors is drawn as best the renderer can, in
+development and in production alike.
+
 ## TypeScript Support
 
 Full type safety for your schemas:
@@ -352,7 +438,7 @@ const form: FormSchema = {
 const schema: PageNodeSchema = {
   type: "page",
   title: "Typed Page",
-  body: [form]
+  children: [form]
 }
 ```
 
@@ -373,24 +459,39 @@ const footerSchema = { /* ... */ }
 
 const pageSchema = {
   type: "page",
-  body: [headerSchema, contentSchema, footerSchema]
+  children: [headerSchema, contentSchema, footerSchema]
 }
 ```
 
 ### 2. Use Data Context Effectively
 
-Pass all necessary data upfront:
+Put everything the schema's expressions need on one scope, mounted above the tree — not on
+the renderer, which does not read it:
 
-<!-- doc-snippet: fragment — best-practice excerpt: userData, userSettings and dashboardStats are the reader's own values, and the closing JSX line is shown in place rather than as a parseable statement -->
 ```tsx
-// ✅ Good
-const data = {
+import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
+import type { BaseSchema } from '@object-ui/types'
+
+// The reader's own values.
+declare const schema: BaseSchema
+declare const userData: { name: string }
+declare const userSettings: { theme: string }
+declare const dashboardStats: { totalUsers: number }
+
+// ✅ Good — one provider, and every expression reads a name published on it
+const scope = {
   user: userData,
   settings: userSettings,
-  stats: dashboardStats
+  stats: dashboardStats,
 }
 
-<SchemaRenderer schema={schema} data={data} />
+function Dashboard() {
+  return (
+    <PredicateScopeProvider scope={scope}>
+      <SchemaRenderer schema={schema} />
+    </PredicateScopeProvider>
+  )
+}
 ```
 
 ### 3. Leverage Expressions
@@ -405,7 +506,7 @@ const schema = user.isAdmin ? adminSchema : userSchema
 // ✅ Good
 const schema = {
   type: "page",
-  body: [
+  children: [
     { 
       type: "admin-panel",
       visibleOn: "${user.isAdmin}"
@@ -429,7 +530,7 @@ Always type your schemas for better IDE support and fewer runtime errors.
 ```json
 {
   "type": "container",
-  "body": {
+  "children": {
     "type": "spinner",
     "visibleOn": "${loading}"
   }
@@ -458,14 +559,14 @@ Always type your schemas for better IDE support and fewer runtime errors.
   "variant": "destructive",
   "visibleOn": "${error}",
   "title": "Something went wrong",
-  "body": { "type": "text", "content": "${error.message}" }
+  "children": { "type": "text", "content": "${error.message}" }
 }
 ```
 
 `visibleOn` is a condition key and is evaluated on every node type. The message text is a
 nested `text` node because `alert` carries no expression rows — and `message` is not an
 `AlertSchema` key at all: the alert's own text keys are `title` and `description`, and the
-renderer falls back from `description` to `body`. `destructive` is the variant this state
+renderer falls back from `description` to `children`. `destructive` is the variant this state
 wants; `error` is not in the closed set.
 
 ## Next Steps

@@ -10,9 +10,13 @@ on:
       # This file itself (objectui#6245). Without it a change to this gate ships
       # to `main` having never run once: the PR that edits it touches no
       # `packages/**` path, so `Bundle Analysis` never appears on it, and a
-      # wiring bug surfaces on the NEXT `packages/**` PR — a required context
-      # turning red on someone else's diff, reading to them as a bundle problem
-      # of their own. Self-inclusion is this repo's convention for a
+      # wiring bug surfaces on the NEXT `packages/**` PR — a red check on
+      # someone else's diff, reading to them as a bundle problem of their own.
+      # ⚠️ This argument does not turn on how the check is CLASSIFIED. It said
+      # otherwise until objectui#9155, and the conclusion survives losing that
+      # premise untouched: a gate that never runs on its own pull request ships
+      # its wiring bugs to the next person either way.
+      # Self-inclusion is this repo's convention for a
       # path-filtered gate: measured on `origin/main`, 5 of the 7 workflows
       # carrying a `paths:` filter list their own file, and this was one of the
       # two that did not. The cost is honest and accepted — every edit of this
@@ -39,6 +43,10 @@ on:
       # the root vitest `unit` project. `published-dist-gate.yml` and
       # `spec-range-floors.yml` draw the same line.
       - 'scripts/check-eager-closure-budget.mjs'
+      # The COMPOSITION half (objectui#7479). Same rule as its neighbour: this
+      # job runs it, so an edit to it must be able to red this gate on its own
+      # pull request rather than on somebody else's next `packages/**` change.
+      - 'scripts/check-eager-locale-catalogues.mjs'
       - 'scripts/render-budget-comment.mjs'
       - 'scripts/invoked-as.mjs'
       # The SDUI registration pins (objectui#6683) and their two dependencies.
@@ -58,9 +66,13 @@ on:
       # This file itself (objectui#6245). Without it a change to this gate ships
       # to `main` having never run once: the PR that edits it touches no
       # `packages/**` path, so `Bundle Analysis` never appears on it, and a
-      # wiring bug surfaces on the NEXT `packages/**` PR — a required context
-      # turning red on someone else's diff, reading to them as a bundle problem
-      # of their own. Self-inclusion is this repo's convention for a
+      # wiring bug surfaces on the NEXT `packages/**` PR — a red check on
+      # someone else's diff, reading to them as a bundle problem of their own.
+      # ⚠️ This argument does not turn on how the check is CLASSIFIED. It said
+      # otherwise until objectui#9155, and the conclusion survives losing that
+      # premise untouched: a gate that never runs on its own pull request ships
+      # its wiring bugs to the next person either way.
+      # Self-inclusion is this repo's convention for a
       # path-filtered gate: measured on `origin/main`, 5 of the 7 workflows
       # carrying a `paths:` filter list their own file, and this was one of the
       # two that did not. The cost is honest and accepted — every edit of this
@@ -87,6 +99,10 @@ on:
       # the root vitest `unit` project. `published-dist-gate.yml` and
       # `spec-range-floors.yml` draw the same line.
       - 'scripts/check-eager-closure-budget.mjs'
+      # The COMPOSITION half (objectui#7479). Same rule as its neighbour: this
+      # job runs it, so an edit to it must be able to red this gate on its own
+      # pull request rather than on somebody else's next `packages/**` change.
+      - 'scripts/check-eager-locale-catalogues.mjs'
       - 'scripts/render-budget-comment.mjs'
       - 'scripts/invoked-as.mjs'
       # The SDUI registration pins (objectui#6683) and their two dependencies.
@@ -113,7 +129,12 @@ jobs:
 
     # ── The job ceiling, DERIVED FOR THIS JOB (objectui#7270) ────────────
     # Before this line the only backstop was GitHub's 360-minute default, on a
-    # job this repository treats as a required context (objectui#6245). Two
+    # job that BLOCKS WHENEVER IT RUNS: `scripts/dependabot-merge-gate.mjs`
+    # lists `Bundle Analysis` under `OPTIONAL_CONTEXTS`, whose rule is present
+    # => must be `success`, absent => ignored. The word "optional" there is
+    # about this workflow's trigger-level path filter, NOT about the check being
+    # advisory, and that gate's own docblock says so (objectui#6245,
+    # objectui#9155). Two
     # incidents put a number on that exposure: objectui#5304 (`apt-get` hang)
     # and objectui#6577 (cache-save stall), both of which turned a transient
     # fault into a `cancelled` check — a gate that reports nothing.
@@ -194,8 +215,10 @@ jobs:
       # ⚠️ This job's ceiling is `timeout-minutes: 25`, DERIVED at the job
       # header above from this job's own run distribution (objectui#7270).
       # Until that line existed the ceiling was GitHub's 360-minute default on
-      # a required context (objectui#6245), so a stalled save would have held
-      # that check open for up to six hours before reporting `cancelled`. The
+      # a check that blocks whenever it runs (objectui#6245; the classification
+      # is cited once, at the job header above — objectui#9155), so a stalled
+      # save would have held that check open for up to six hours before
+      # reporting `cancelled`. The
       # bound below is still on the bookkeeping step alone, and both numbers
       # are needed: 25 minutes is the backstop, 5 minutes is what a healthy
       # save is allowed.
@@ -222,10 +245,13 @@ jobs:
       - name: Build Console
         run: pnpm --filter @object-ui/console build
 
-      # objectui#6245: `Bundle Analysis` is a required context, and GitHub does
-      # not re-run a PR's checks when the base branch moves — so a green verdict
-      # can be computed against ceiling constants `main` has since replaced, and
-      # the merge is then gated on a ceiling that no longer exists. Observed
+      # objectui#6245: GitHub does not re-run a PR's checks when the base branch
+      # moves — so a green verdict can be computed against ceiling constants
+      # `main` has since replaced, and what this job publishes is a verdict about
+      # a ceiling that no longer exists. ⛔ Nothing is claimed here about the
+      # branch-protection set (objectui#9155); `evaluateCeilingFreshness`'s
+      # docblock in `scripts/check-eager-closure-budget.mjs` carries the two
+      # readings the tree can re-derive. Observed
       # live: run 32804357171 started at 03:13:27Z, 6m50s after `0409b766d`
       # lowered MAX_EAGER_CLOSURE_GZIP_BYTES from 4,086,000 to 3,345,000, and
       # published `BUDGET_CLOSURE_BUDGET_KB: 3990.2` — the retired ceiling — as a
@@ -426,8 +452,34 @@ jobs:
             exit 1
           fi
 
+          # The COMPOSITION half (objectui#7479): WHICH locale catalogues a page
+          # load pulls, which no byte ceiling can answer. The catalogues could
+          # return to the eager closure one at a time, each arrival small enough
+          # to fit inside a ceiling's headroom, and every run above would be
+          # green until the last one — and they could be routed into a roomier
+          # chunk without a single byte leaving the browser's request list,
+          # which objectui#7399 named and refused. Same three exit codes and the
+          # same reading of them: 2 is about the GAUGE, never a softer 1.
+          set +e
+          node scripts/check-eager-locale-catalogues.mjs
+          CATALOGUE_CODE=$?
+          set -e
+
+          if [ "$CATALOGUE_CODE" -eq 2 ]; then
+            echo "budget_status=error" >> "$GITHUB_OUTPUT"
+            echo "budget_message=The byte budgets passed, but the locale-catalogue composition half returned no trustworthy VERDICT: the eager-closure report could not be read, a catalogue was emitted under no chunk of its own, or the resident catalogue is not in the eager closure at all. The step log says which. This is not a passing budget — and it is not a size regression either." >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          if [ "$CATALOGUE_CODE" -ne 0 ]; then
+            echo ""
+            echo "❌ NON-RESIDENT LOCALE CATALOGUES ARE IN THE EAGER CLOSURE"
+            echo "budget_status=fail" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
           echo ""
-          echo "✅ Budget OK: entry chunk and eager closure are both within budget"
+          echo "✅ Budget OK: entry chunk and eager closure are both within budget, and one locale catalogue is eager"
           echo "budget_status=pass" >> "$GITHUB_OUTPUT"
 
       # The ARTIFACT half of the `sideEffects` contract (objectui#6683). The

@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { handlerKeyRefusal } from './tombstone.zod.js';
+import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import type { NavLink, NavigationMenuItem } from '../navigation.js';
 
@@ -79,6 +79,20 @@ export const HeaderBarSchema = BaseSchema.extend({
   sticky: z.boolean().optional().describe('Whether header is sticky'),
   height: z.union([z.string(), z.number()]).optional().describe('Header height'),
   variant: z.enum(['default', 'bordered', 'transparent']).optional().describe('Header variant'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `header-bar` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `actions`, `crumbs`, `rightContent`, `search`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `header-bar` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `actions`, `crumbs`, `rightContent`, `search`.',
+  ),
 });
 
 /**
@@ -108,6 +122,20 @@ export const BreadcrumbSchema = BaseSchema.extend({
   items: z.array(BreadcrumbItemSchema).describe('Breadcrumb items'),
   separator: z.string().optional().describe('Custom separator'),
   maxItems: z.number().optional().describe('Maximum items to display'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `breadcrumb` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `items`, `maxItems`, `separator`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `breadcrumb` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `items`, `maxItems`, `separator`.',
+  ),
 });
 
 /**
@@ -121,6 +149,20 @@ export const PaginationSchema = BaseSchema.extend({
   showFirstLast: z.boolean().optional().describe('Show first/last page buttons'),
   showPrevNext: z.boolean().optional().describe('Show previous/next buttons'),
   onPageChange: handlerKeyRefusal('onPageChange', 'runtime-slot', 'Page change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `pagination` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `currentPage`, `page`, `totalPages`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `pagination` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `currentPage`, `page`, `totalPages`.',
+  ),
 });
 
 /**
@@ -150,6 +192,20 @@ export const NavigationMenuSchema = BaseSchema.extend({
   type: z.literal('navigation-menu'),
   items: z.array(NavigationMenuItemSchema).optional().describe('Menu items'),
   orientation: z.enum(['horizontal', 'vertical']).optional().describe('Menu orientation'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `navigation-menu` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `items`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `navigation-menu` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `items`.',
+  ),
 });
 
 /**
@@ -172,6 +228,20 @@ export const ButtonGroupSchema = BaseSchema.extend({
   buttons: z.array(ButtonGroupButtonSchema).optional().describe('Group buttons'),
   variant: z.enum(['default', 'secondary', 'destructive', 'outline', 'ghost', 'link']).optional().describe('Button group variant'),
   size: z.enum(['default', 'sm', 'lg', 'icon']).optional().describe('Button group size'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `button-group` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `buttons`, `className`, `size`, `variant`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `button-group` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `buttons`, `className`, `size`, `variant`.',
+  ),
 });
 
 /**

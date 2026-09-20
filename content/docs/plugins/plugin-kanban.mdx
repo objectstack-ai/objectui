@@ -38,11 +38,13 @@ This package publishes a stylesheet. Import it after the base sheets, or the boa
 ```tsx
 // Import once in your app entry point
 import '@object-ui/plugin-kanban'
-import type { KanbanSchema } from '@object-ui/plugin-kanban'
+import type { ObjectKanbanSchema } from '@object-ui/types'
 
 // Use in schemas
-const schema: KanbanSchema = {
-  type: 'kanban',
+const schema: ObjectKanbanSchema = {
+  type: 'object-kanban',
+  groupBy: 'status',
+  data: [],
   columns: [
     {
       id: 'todo',
@@ -56,10 +58,13 @@ const schema: KanbanSchema = {
       title: 'Done',
       cards: []
     }
-  ],
-  onCardMove: (cardId, fromCol, toCol, index) => {
-    console.log(`Card ${cardId} moved`)
-  }
+  ]
+}
+
+// `onCardMove` is NOT a document key — JSON has no function value. The host
+// supplies it as a React prop, separate from `schema` above.
+const onCardMove = (cardId: string, fromCol: string, toCol: string, index: number) => {
+  console.log(`Card ${cardId} moved`)
 }
 ```
 
@@ -73,20 +78,72 @@ const schema: KanbanSchema = {
 
 ## Schema API
 
+`onCardMove` is NOT a document key: it is a React prop the host supplies (JSON
+has no function value), never a member of the schema object below —
+`packages/plugin-kanban/README.md` documents this the same way.
+
+Neither are `onCardClick` and `onQuickAdd`, and since objectui#7804 the
+`object-kanban` validator **says so by name**: both are declared as
+objectui#6124 **runtime slots**, so an authored `onCardClick: { "action":
+"toast" }` is now refused with a message pointing at the node-type spelling,
+where before it parsed green and was handed to a call site expecting a function.
+A React host still supplies either function through the TypeScript interface or
+as a React prop; only the JSON face refuses them.
+
+⭐ `onCardMove` is declared too, since objectui#9342 — but as a **tombstone**,
+not a runtime slot. An authored one used to be accepted and silently dropped,
+because an object-bound board substitutes its own mover and `ObjectKanban`
+declares no `onCardMove` React prop; the key reached **nothing**, so the
+TypeScript twin is `?: never` rather than callable and the validator refuses the
+key by name. The mover is a prop on **`KanbanRenderer`**, a sibling of its
+`schema` — which is where a host that mounts the board component directly
+supplies it, and the move that let the arm carry the tombstone at all.
+
+`columns` are the board's **swimlanes**, not a field projection — the fields drawn
+on a card are `cardFields`. It is **one of two array shapes**, the pair
+`@objectstack/spec` declares: an array of `{ id, title }` lanes (one per `groupBy`
+value), **or** an array of bare value strings. ⛔ Not a mix of the two — the
+renderer decides which shape it has by looking at the first element only, so a
+mixed array produces a blank lane and mis-bucketed cards. `cards` is **optional**
+on a lane — an object-bound board buckets its records into the lane by `groupBy`,
+and only a static board writes a lane's cards itself. Both faces of
+`@object-ui/types` declare this since objectui#8913, so a lane and its cards are
+validated: a card with no `title` is refused.
+
+<Callout type="warn">
+  **The bare-string array applies only to a board with no `groupBy`.** It is
+  declared so this package does not refuse an authoring `@objectstack/spec` allows.
+  The renderer only reads a bare-string lane list when a board has **no** `groupBy`,
+  so on a board that declares one the strings are ignored and the lanes come from
+  the group field's picklist options or from the data.
+
+  Since objectui#8990 made `groupBy` **optional** (matching `@objectstack/spec`), a
+  lane-less board is a valid authoring and this arm is live on it: the lanes are
+  drawn, titled by the **raw strings** — where a grouped board titles its lanes with
+  the picklist **labels**. ⚠️ A lane-less board holds **no cards**: with no lane key
+  the records are never distributed into lanes, and dragging a card writes nothing
+  back. It is lane headings, not a populated board. To control the lanes of a
+  working board, declare `groupBy` and write the `{ id, title }` array.
+</Callout>
+
 ```plaintext
 {
-  type: 'kanban',
-  columns?: KanbanColumn[],
-  onCardMove?: (cardId, fromColumnId, toColumnId, newIndex) => void,
+  type: 'object-kanban',
+  groupBy: 'status',
+  data: [],
+  columns?: string[] | KanbanLane[],   // one shape or the other, never mixed
   className?: string
 }
 
-interface KanbanColumn {
-  id: string
+// `KanbanLane` is a name for this page only — the shape is declared inline on
+// `ObjectKanbanSchema` and is not importable.
+interface KanbanLane {
+  id: string                  // matched against the groupBy value
   title: string
-  cards: KanbanCard[]
-  limit?: number              // Max cards allowed
+  cards?: KanbanCard[]        // a STATIC board's lane only
+  limit?: number              // Max cards allowed (WIP limit)
   className?: string
+  collapsed?: boolean         // lane starts collapsed; the viewer can reopen it
 }
 
 interface KanbanCard {
@@ -104,21 +161,23 @@ interface KanbanCard {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `columns` | KanbanColumn[] | Array of column definitions |
+| `columns` | `string[] \| KanbanLane[]` | Swimlane definitions — an array of `{ id, title }` lanes (one per `groupBy` value), **or** an array of bare value strings; never a mix. NOT a field projection. The bare-string array is accepted for spec parity but is ignored on this block (see the note above). |
 | `filter` | ViewFilterRule[] | Query filter for an object-driven board, lowered to `$filter` |
 | `limit` | number | Rows fetched by an object-driven board (default 100) |
-| `onCardMove` | function | Callback when a card is moved |
 | `className` | string | Additional Tailwind CSS classes |
 
-### Column Properties
+### Lane Properties
+
+An undeclared lane key is accepted and dropped, not refused.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `id` | string | Unique column identifier |
-| `title` | string | Column title |
-| `cards` | KanbanCard[] | Cards in this column |
-| `limit` | number | Max cards allowed (WIP limit) |
+| `id` | string | Lane identifier, matched against the `groupBy` value. Declare a string; since objectui#8993 a non-string id is matched by its string spelling (a lane `1` takes the group `'1'`) instead of rendering every such card twice |
+| `title` | string | Lane title, localized against the `groupBy` picklist's option labels |
+| `cards` | KanbanCard[] | Cards this lane carries — **optional**, and a static board's option; an object-bound board's cards arrive from the record source |
+| `limit` | number | Max cards allowed (WIP limit). Never reaches the query — the fetch window is the board's `limit` |
 | `className` | string | Additional Tailwind CSS classes |
+| `collapsed` | boolean | Whether the lane renders collapsed — narrowed to a title spine with its cards withheld, and its heading a disclosure the viewer can open. The authored value is the lane's INITIAL state: once a viewer toggles the lane, their choice holds for the session, including across data refreshes |
 
 ### Card Properties
 
@@ -182,10 +241,12 @@ names fills the cap only when the board leaves `limit` unset (see
 ### Project Task Board
 
 ```tsx
-import type { KanbanSchema } from '@object-ui/plugin-kanban'
+import type { ObjectKanbanSchema } from '@object-ui/types'
 
-const taskBoard: KanbanSchema = {
-  type: 'kanban',
+const taskBoard: ObjectKanbanSchema = {
+  type: 'object-kanban',
+  groupBy: 'status',
+  data: [],
   columns: [
     {
       id: 'backlog',
@@ -227,21 +288,26 @@ const taskBoard: KanbanSchema = {
       title: 'Done',
       cards: []
     }
-  ],
-  onCardMove: (cardId, fromCol, toCol, index) => {
-    // Update backend/state
-    console.log(`Moved ${cardId} from ${fromCol} to ${toCol}`)
-  }
+  ]
+}
+
+// `onCardMove` is NOT a document key — the host supplies it as a React prop,
+// separate from `taskBoard` above.
+const onCardMove = (cardId: string, fromCol: string, toCol: string, index: number) => {
+  // Update backend/state
+  console.log(`Moved ${cardId} from ${fromCol} to ${toCol}`)
 }
 ```
 
 ### Support Ticket Board
 
 ```tsx
-import type { KanbanSchema } from '@object-ui/plugin-kanban'
+import type { ObjectKanbanSchema } from '@object-ui/types'
 
-const ticketBoard: KanbanSchema = {
-  type: 'kanban',
+const ticketBoard: ObjectKanbanSchema = {
+  type: 'object-kanban',
+  groupBy: 'status',
+  data: [],
   columns: [
     {
       id: 'new',
@@ -277,10 +343,12 @@ const ticketBoard: KanbanSchema = {
 ### Sales Pipeline
 
 ```tsx
-import type { KanbanSchema } from '@object-ui/plugin-kanban'
+import type { ObjectKanbanSchema } from '@object-ui/types'
 
-const salesPipeline: KanbanSchema = {
-  type: 'kanban',
+const salesPipeline: ObjectKanbanSchema = {
+  type: 'object-kanban',
+  groupBy: 'status',
+  data: [],
   columns: [
     {
       id: 'leads',
@@ -366,7 +434,8 @@ Handle card movements to update your backend or state:
 
 ```tsx
 import { useState } from 'react'
-import type { KanbanColumn, KanbanSchema } from '@object-ui/plugin-kanban'
+import type { KanbanColumn } from '@object-ui/plugin-kanban'
+import type { ObjectKanbanSchema } from '@object-ui/types'
 
 declare function updateCardColumn(cardId: string, toColumnId: string, newIndex: number): Promise<void>
 declare function moveCard(columns: KanbanColumn[], cardId: string, toColumnId: string, newIndex: number): KanbanColumn[]
@@ -374,43 +443,54 @@ declare function moveCard(columns: KanbanColumn[], cardId: string, toColumnId: s
 export function useBoard(initialColumns: KanbanColumn[]) {
   const [columns, setColumns] = useState<KanbanColumn[]>(initialColumns)
 
-  const schema: KanbanSchema = {
-    type: 'kanban',
+  const schema: ObjectKanbanSchema = {
+    type: 'object-kanban',
+    groupBy: 'status',
+    data: [],
     columns,
-    // `onCardMove` returns void, so the callback cannot be awaited by the board:
-    // start the write and update local state without blocking the drop.
-    onCardMove: (cardId, fromColumnId, toColumnId, newIndex) => {
-      // Update database
-      void updateCardColumn(cardId, toColumnId, newIndex)
-
-      // Update local state
-      setColumns((prev) => moveCard(prev, cardId, toColumnId, newIndex))
-    },
   }
 
-  return schema
+  // `onCardMove` is NOT a document key — the host supplies it as a React prop,
+  // separate from `schema` above. It returns void, so the callback cannot be
+  // awaited by the board: start the write and update local state without
+  // blocking the drop.
+  const onCardMove = (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => {
+    // Update database
+    void updateCardColumn(cardId, toColumnId, newIndex)
+
+    // Update local state
+    setColumns((prev) => moveCard(prev, cardId, toColumnId, newIndex))
+  }
+
+  return { schema, onCardMove }
 }
 ```
 
-### Quick Add is a `kanban-ui` capability, not an object-driven one
+### Quick Add is a React-host capability, not a document one
 
 The Quick Add button at the bottom of a lane is gated on **both** halves of a
 pair: `quickAdd`, and an `onQuickAdd` handler. `onQuickAdd` is a runtime slot —
 a function — so it can only be supplied by a React host that mounts the board
-directly, which is the `kanban-ui` block above.
+component directly: `KanbanRenderer`, exported from `@object-ui/plugin-kanban`,
+forwards both halves by identity.
+
+⚠️ There is **no node type key** that reaches it. The `kanban-ui` registration
+retired with objectui#8257, so a document naming that tag is now an
+`unknown-component` **error** rather than a board with a working pair. Import the
+component instead.
 
 An **object-driven** board (`object-kanban`, or a kanban view inside `ListView` /
 `ObjectView`) supplies no `onQuickAdd` of its own, and a page written as
 constrained JSX cannot write one either: that tier parses and never executes, so
-a handler attribute is refused there. An authored `quickAdd: true` on those tags
+a handler attribute is refused there. An authored `quickAdd: true` on that tag
 therefore renders no control. The authoring validator (`validateTree` in
 `@object-ui/sdui-parser`) reports it as an `inert-quick-add` **warning** naming
 the missing half — the document still parses, saves and renders.
 
 <Callout type="info">
-  `quickAdd` is being retired from `object-kanban` / `kanban`; it stays on
-  `kanban-ui`, where the pair works. Inline record creation from a board is not a
-  capability the object-driven boards have.
+  `quickAdd` is being retired from `object-kanban`; it stays on the
+  `KanbanRenderer` component, where the pair works. Inline record creation from
+  an object-driven board is not a capability those boards have.
 </Callout>
 
 ## Bundle Size
@@ -431,8 +511,14 @@ The kanban board includes:
 
 ## TypeScript Support
 
+`ObjectKanbanSchema` is published by `@object-ui/types` (and its Zod mirror by
+`@object-ui/types/zod`); `@object-ui/plugin-kanban` publishes the card and column
+shapes. Importing all three from the plugin does not resolve — its barrel never
+exported the schema type.
+
 ```plaintext
-import type { KanbanSchema, KanbanCard, KanbanColumn } from '@object-ui/plugin-kanban'
+import type { ObjectKanbanSchema } from '@object-ui/types'
+import type { KanbanCard, KanbanColumn } from '@object-ui/plugin-kanban'
 
 const column: KanbanColumn = {
   id: 'todo',
@@ -441,8 +527,10 @@ const column: KanbanColumn = {
   limit: 5
 }
 
-const kanbanSchema: KanbanSchema = {
-  type: 'kanban',
+const kanbanSchema: ObjectKanbanSchema = {
+  type: 'object-kanban',
+  groupBy: 'status',
+  data: [],
   columns: [column]
 }
 ```

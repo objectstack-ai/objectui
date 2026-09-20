@@ -43,7 +43,8 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { I18nProvider, builtInLocales } from '@object-ui/i18n';
+import { I18nProvider } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 import { RecordFormPage } from './RecordFormPage';
 
 const h = React.createElement;

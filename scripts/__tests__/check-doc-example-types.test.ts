@@ -339,28 +339,98 @@ describe('the real ledger', () => {
       expect(row.card, key).toMatch(/^objectui#\d+$/);
     }
   });
+
+  /**
+   * objectui#8875 clause 3. The key used to be `path:line symbol`, and the line
+   * number in it was not decoration — it was a STORED literal compared for
+   * equality, so an edit anywhere above a documented symbol invalidated every
+   * row below it in that file and reddened `main` on a branch that had not
+   * touched a single example. PR #8895 added three imports to
+   * `packages/types/src/objectql.ts` and did exactly that; objectui#8614 is the
+   * same failure one card earlier.
+   *
+   * The maintainer ruled the class on 2026-09-10 — 跨文件的「某文件第几行」引用，
+   * 这种完全没必要吧，是否应该避免 — and the repair the ruling names is to stop
+   * storing the number, ⛔ not to recompute it after every shift. So the shape
+   * is pinned in BOTH directions: the key generator may not produce one, and the
+   * ledger may not carry one.
+   */
+  it('keys carry no line address, in either direction', () => {
+    const LINE_ADDRESS = /\.[A-Za-z]+:\d+/;
+
+    for (const key of Object.keys(UNGATED_EXAMPLES)) {
+      expect(
+        key,
+        `${key} embeds a line address. objectui#8875 clause 3 retired that key shape: a stored ` +
+          `line number is a snapshot of a moving quantity, so an unrelated edit above the block ` +
+          `invalidates the row and reddens a branch that changed nothing. Key by ` +
+          `\`path symbol #ordinal\` — see \`ledgerKey\`.`,
+      ).not.toMatch(LINE_ADDRESS);
+      expect(key, `${key} is not in the \`path symbol #ordinal\` shape`).toMatch(/ #\d+$/);
+    }
+
+    // The generator, not only today's ledger: a ledger cleaned by hand while the
+    // generator still emits addresses would go red on the next collected block
+    // instead of here.
+    for (const block of census.blocks) {
+      expect(ledgerKey(block), 'ledgerKey emitted a line address').not.toMatch(LINE_ADDRESS);
+    }
+
+    // Anti-vacuity. A regex that matched nothing would pass both loops above on
+    // an empty tree, so it is shown FIRING on the shape it is written to reject.
+    //
+    // ⛔ ASSEMBLED, not written out. A literal address here would itself be a
+    // cross-file line citation, and the differential gate landed alongside this
+    // change would report it as newly added — correctly. A control for a shape
+    // does not need to be an instance of the thing the shape names.
+    const RETIRED_KEY_SHAPE = ['packages/types/src/objectql.ts', ':', '1618', ' ObjectFormSchema'].join('');
+    expect(RETIRED_KEY_SHAPE).toMatch(LINE_ADDRESS);
+  });
+
+  it('the ordinal discriminates the symbols that document more than one example', () => {
+    // The ordinal is not ceremony: five symbols in this tree carry several
+    // `@example` blocks, and `path symbol` alone would collapse them onto one
+    // key — silently, by making several rows the same row. Keys are checked for
+    // uniqueness against the block count so that collapse cannot happen quietly.
+    const generated = census.blocks.map((b) => ledgerKey(b));
+    expect(new Set(generated).size).toBe(census.blocks.length);
+    expect(new Set(census.blocks.map((b) => `${b.file} ${b.symbol}`)).size).toBeLessThan(
+      census.blocks.length,
+    );
+  });
 });
 
 // ── the card's own acceptance criterion ──────────────────────────────────────
 
-describe('objectui#7974 — the defect this gate was filed for', () => {
-  const key = 'packages/mobile/src/useSpecGesture.ts:69 useSpecGesture';
+describe('objectui#7974 — the defect this gate was filed for, after the repair landed', () => {
+  const key = 'packages/mobile/src/useSpecGesture.ts useSpecGesture #1';
 
   it('its example is IN the compiled tier — the gate reaches the block the card named', () => {
     const census = exampleCensus({ root: repoRoot });
     expect(census.blocks.map((b) => ledgerKey(b))).toContain(key);
   });
 
-  it('the scalar `direction` the card measured is what the block still carries', () => {
+  it('the block now passes the ARRAY its declared type asks for, not the scalar the card measured', () => {
     const source = fs.readFileSync(path.join(repoRoot, 'packages/mobile/src/useSpecGesture.ts'), 'utf8');
-    expect(source).toContain("direction: 'left'");
+    expect(source).toContain("direction: ['left']");
+    expect(source, 'the scalar the card measured').not.toContain("direction: 'left'");
   });
 
-  it('its row records TS2322 by NUMBER and names the card that owns the repair', () => {
+  it('its row no longer declares TS2322, and no longer names a card that owns a repair', () => {
     const row = UNGATED_EXAMPLES[key];
     expect(row).toBeDefined();
-    expect(row.codes).toContain(2322);
-    expect(row.card).toBe('objectui#7974');
+    expect(row.codes).not.toContain(2322);
+    expect(row.card).toBeNull();
+  });
+
+  it('the row SURVIVED the repair rather than being deleted — the block still returns outside a function', () => {
+    // The row's own instruction said to delete it when the card landed. Deleting
+    // it would have been an UNDECLARED FAILURE, not a green: repairing the
+    // example removed the TS2322 half and left the hook-body excerpt its two
+    // siblings in the same package are declared for.
+    expect(UNGATED_EXAMPLES[key].codes).toEqual([1108]);
+    expect(UNGATED_EXAMPLES['packages/mobile/src/useGesture.ts useGesture #1'].codes).toEqual([1108]);
+    expect(UNGATED_EXAMPLES['packages/mobile/src/useTouchTarget.ts useTouchTarget #1'].codes).toEqual([1108]);
   });
 
   it('the row is the ONLY thing keeping this green — remove it and the block is an undeclared failure', () => {
@@ -371,7 +441,7 @@ describe('objectui#7974 — the defect this gate was filed for', () => {
     expect(findings.map((f) => f.reason)).toEqual(['undeclared-failure']);
   });
 
-  it("when that lane repairs the example the row goes STALE, so the debt cannot outlive the defect", () => {
+  it('when the block is made self-contained the row goes STALE, so the debt cannot outlive the defect', () => {
     const { findings } = judge({
       results: [{ key, codes: [] }],
       ledger: { [key]: UNGATED_EXAMPLES[key] },
@@ -441,5 +511,122 @@ describe('the sibling harness is imported, not forked', () => {
     const { files, excludedAsTooling } = listExampleSources(repoRoot);
     expect(files.some((f) => f.includes('__tests__'))).toBe(false);
     expect(excludedAsTooling.some((f) => f.includes('__tests__') || /\.test\./.test(f))).toBe(true);
+  });
+});
+
+// ── wiring: a script nothing runs is not a gate (objectui#8757) ───────────────
+
+/**
+ * objectui#8757. Until that card this gate was declared in the root
+ * `package.json` and invoked by NO workflow, while its sibling
+ * `check-doc-snippet-types.mjs` was invoked by one. The cost is on the record
+ * rather than assumed: a defect this gate catches reached `main` and was
+ * repaired 71 minutes later with nothing observing in either direction, and the
+ * card that reported the red was written from a stale merge base — because no
+ * run existed to read. A whole dispatch round was spent on a premise that had
+ * already been repaired before the card was filed.
+ *
+ * So the wiring is pinned, not merely done. Everything below is modelled on the
+ * sibling's own `wiring` block for the same reasons that block gives, and reads
+ * the YAML as text with whole-line comments removed — the headers in this
+ * repository name other workflows and other scripts in prose.
+ */
+describe('wiring — the gate runs in CI, and in a workflow a docs-only pull request can start', () => {
+  const GATE = 'scripts/check-doc-example-types.mjs';
+  const SIBLING = 'scripts/check-doc-snippet-types.mjs';
+  const HOME = 'doc-snippet-types.yml';
+  const workflowDir = path.join(repoRoot, '.github/workflows');
+  const workflowFiles = fs.readdirSync(workflowDir).filter((f) => f.endsWith('.yml'));
+
+  const yamlOf = (file: string): string =>
+    fs
+      .readFileSync(path.join(workflowDir, file), 'utf8')
+      .split('\n')
+      .filter((line) => !/^\s*#/.test(line))
+      .join('\n');
+
+  it('has a workflow that gates pull requests, not just pushes', () => {
+    expect(workflowFiles, 'the workflow directory scan returned implausibly few files').toContain(HOME);
+    const yaml = yamlOf(HOME);
+    expect(yaml, 'a check nothing runs is not a gate — objectui#8757').toContain(GATE);
+    expect(yaml).toContain('pull_request:');
+  });
+
+  it('runs it in NO path-filtered workflow — an `@example` moves with the source it documents', () => {
+    expect(workflowFiles.length, 'the workflow directory scan returned implausibly few files').toBeGreaterThan(5);
+    for (const file of workflowFiles) {
+      const yaml = yamlOf(file);
+      if (!yaml.includes(GATE)) continue;
+      expect(yaml, `${file} filters paths and would miss a change this gate exists to judge`).not.toMatch(
+        /^\s*paths(-ignore)?:/m,
+      );
+    }
+  });
+
+  it('lives in exactly one workflow — one gate, one home', () => {
+    expect(workflowFiles.filter((f) => yamlOf(f).includes(GATE))).toEqual([HOME]);
+  });
+
+  /**
+   * The gate's exit `2` means THE GATE COULD NOT RUN — the packages are unbuilt
+   * — and is neither green nor red. Invoked before its own build it would
+   * return exactly that on every run, which is the counterfeit shape: a step
+   * that runs, prints a page of text and judged nothing.
+   */
+  it('is invoked AFTER the build, so a precondition exit is not a state CI can reach', () => {
+    const yaml = yamlOf(HOME);
+    const build = yaml.indexOf('turbo run build');
+    const invoke = yaml.search(new RegExp(`run: node ${GATE.replace(/[.\\/]/g, '\\$&')}\\s*$`, 'm'));
+    expect(build, 'the workflow must build the packages the covered examples import').toBeGreaterThan(-1);
+    expect(invoke, 'the workflow must invoke the gate itself').toBeGreaterThan(-1);
+    expect(build, 'invoked before its own build, the gate would exit 2 on every run').toBeLessThan(invoke);
+  });
+
+  /**
+   * Both gates block, so whichever is second is skipped when the first is red.
+   * Ordering the newly wired gate FIRST would let it mask an established one —
+   * the worse of the two directions, and the one this asserts against.
+   */
+  it('is invoked AFTER the sibling blocking gate, so a new gate cannot mask an established one', () => {
+    const yaml = yamlOf(HOME);
+    const sibling = yaml.search(new RegExp(`run: node ${SIBLING.replace(/[.\\/]/g, '\\$&')}\\s*$`, 'm'));
+    const invoke = yaml.search(new RegExp(`run: node ${GATE.replace(/[.\\/]/g, '\\$&')}\\s*$`, 'm'));
+    expect(sibling, 'the sibling blocking gate must still be invoked').toBeGreaterThan(-1);
+    expect(invoke).toBeGreaterThan(-1);
+    expect(invoke).toBeGreaterThan(sibling);
+  });
+
+  /**
+   * objectui#3653's discipline, applied by hand here: the page that inventories
+   * this repository's gates must name the command a contributor can be stopped
+   * by. `doc-snippet-types.yml` carries no `commandParity` unit in
+   * `ci-cd-pipeline-doc.test.ts` — verified when this landed — so this stands in
+   * for one rather than relying on a pin that does not cover the section.
+   */
+  it('is documented on the page that inventories the gates, by command', () => {
+    const page = fs.readFileSync(
+      path.join(repoRoot, 'content/docs/guide/ci-cd-pipeline.md'),
+      'utf8',
+    );
+    expect(page, 'a contributor stopped by this gate must be able to find it').toContain(
+      'pnpm check:doc-examples',
+    );
+    expect(page).toContain(GATE);
+    // The by-command row, asserted as the whole row rather than by a regex that
+    // could drift onto the prose mentions elsewhere in the same section.
+    const row = page
+      .split('\n')
+      .filter((line) => line.startsWith('|') && line.includes('`pnpm check:doc-examples`'));
+    expect(row, 'exactly one by-command table row must name this gate').toHaveLength(1);
+    expect(row[0], 'the page must say the gate BLOCKS, not merely that it exists').toContain('**Yes**');
+    expect(row[0]).toContain(GATE);
+  });
+
+  it('the root package.json alias and the workflow invoke the same script', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    expect(pkg.scripts['check:doc-examples']).toBe(`node ${GATE}`);
+    expect(yamlOf(HOME)).toContain(`run: node ${GATE}`);
   });
 });

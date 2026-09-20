@@ -14,7 +14,8 @@ import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
 import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, getSortValue } from '@object-ui/core';
 import type { DataTableSchema, TableSortItem, TableColumnType } from '@object-ui/types';
-import { SchemaRenderer, toRenderableSchema, useRowPredicate, usePredicateScope } from '@object-ui/react';
+import type { SortDirection } from '@objectstack/spec/shared';
+import { SchemaRenderer, toRenderableSchema, useCapabilityGate, useRowPredicate, usePredicateScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 import { 
   Table, 
@@ -61,8 +62,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../ui/dropdown-menu';
-
-type SortDirection = 'asc' | 'desc' | null;
 
 /**
  * Inline-edit helpers: convert a stored cell value to the string a native
@@ -495,11 +494,37 @@ const DataTableRowActionsMenu: React.FC<{
   t: (key: string) => string;
 }> = ({ schema, row, t }) => {
   const scope = usePredicateScope();
-  // Custom defs are only dispatchable when there is a handler to dispatch them
-  // to, so an unhandled `rowActionDefs` contributes no items (unchanged).
+  /**
+   * [ADR-0066 D4 / objectui#9623] The capability gate, applied ONCE to the
+   * whole declared set so `plan.count` (the "⋮" trigger) and the items it
+   * renders agree — the objectui#3562 invariant, and verbatim the posture
+   * `plugin-grid`'s `RowActionMenu` already takes for the standalone grid.
+   *
+   * This surface filters its own action list instead of routing through
+   * `ActionEngine.getActionsForLocation`, so the engine's gate never reached
+   * it. That left `requiredPermissions` INERT on every `list_item` action a
+   * data-table renders — the record page's related-list panel above all, which
+   * feeds a child object's `list_item` actions in as `rowActionDefs`
+   * (`RelatedRecordActionsBridge`). The record surface one level up gates the
+   * same declaration correctly, off the SAME `<ActionProvider>` this hook
+   * reads: the capability was on the page all along, this renderer just never
+   * asked (objectui#9623, cloud#2224 — a plain member was offered Set as
+   * Primary and read a 403 toast on click).
+   *
+   * A UI MIRROR of a decision the server still enforces, nothing more: unknown
+   * capabilities fail OPEN (see `useCapabilityGate`), an EMPTY held set gates
+   * normally, and the server remains the authority.
+   *
+   * Custom defs are only dispatchable when there is a handler to dispatch them
+   * to, so an unhandled `rowActionDefs` contributes no items (unchanged).
+   */
+  const mayInvoke = useCapabilityGate();
   const customActions = useMemo(
-    () => (Array.isArray(schema.rowActionDefs) && schema.onRowActionDef ? schema.rowActionDefs : []),
-    [schema.rowActionDefs, schema.onRowActionDef],
+    () =>
+      Array.isArray(schema.rowActionDefs) && schema.onRowActionDef
+        ? schema.rowActionDefs.filter((d) => mayInvoke(d.requiredPermissions))
+        : [],
+    [schema.rowActionDefs, schema.onRowActionDef, mayInvoke],
   );
   const plan = useMemo(
     () =>
@@ -928,7 +953,22 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // State management
   const [searchQuery, setSearchQuery] = useState('');
   const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  // The sort state's second half. `SortDirection` is `@objectstack/spec`'s own
+  // export, imported rather than re-declared: this module used to hand-write
+  // `'asc' | 'desc' | null` under that exact export name, which is the planted-
+  // premise class `check:spec-symbols` exists to stop (objectui#7265).
+  //
+  // `null` is the ONE divergence, and it lives HERE rather than in the name
+  // because it is not a third direction — it is the absence of one, the
+  // unsorted end of the client-side header cycle in `handleSort`. That is the
+  // same "this half is empty" that `sortColumn` above already spells at its own
+  // slot, which is why folding it into a type would have been the odd one out.
+  // No `null` can reach the protocol's vocabulary: the sort comparator is past
+  // the `!sortDirection` guard in `sortedData`, and `activeSort` emits a
+  // `TableSortItem` only when both halves are set. The cycle that produces the
+  // third state is pinned by the `leaves client-side sorting exactly as it was`
+  // case in data-table-manual-sorting.test.tsx.
+  const [sortDirection, setSortDirection] = useState<SortDirection | null>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<any>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
@@ -1279,7 +1319,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
    * directly, which under `manualSorting` would have written to state nothing
    * reads: a menu item that highlights, closes, and changes nothing.
    */
-  const applySort = (columnKey: string, order: 'asc' | 'desc') => {
+  const applySort = (columnKey: string, order: SortDirection) => {
     if (manualSorting) {
       onSortChange?.([{ field: columnKey, order }]);
       return;
@@ -2177,16 +2217,29 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
                         - `toRenderableSchema` is the repo's permanent bridge
                           onto `SchemaRendererProps['schema']`, which declares
-                          no `number` / `boolean` (objectui#4548 ruling Q2). It
-                          maps those two onto their `String` form, which is
-                          behaviour-preserving for the TRUTHY ones - that is
-                          what the renderer's own defensive branch produces -
-                          but NOT for `0` / `false`, which `SchemaRenderer`
-                          renders as nothing (pinned, objectui#4548). Gating on
-                          truthiness keeps those two away from the bridge, so
-                          they keep the platform's answer instead of arriving as
-                          the text "0" and "false". Do not "tidy" the leg into a
-                          nullish test.
+                          no `number` / `boolean` (objectui#4548 ruling Q2).
+                          Since objectui#8908 it is behaviour-preserving across
+                          the WHOLE union: a truthy primitive becomes its text,
+                          which is what the renderer's own defensive branch
+                          produces, and a falsy one becomes nothing, which is
+                          what the renderer's first leg produces. Until then it
+                          mapped every `number` / `boolean` onto its `String`
+                          form, so `0` / `false` arrived as the text "0" and
+                          "false" while `SchemaRenderer` renders them as nothing
+                          (pinned, objectui#4548) - and gating on truthiness is
+                          what kept THIS slot out of that defect while the
+                          shipped `empty` renderer, which gates on nullish,
+                          printed a stray "0".
+                        - So the truthiness leg no longer DECIDES the answer;
+                          it reaches the same one a step earlier. It stays
+                          anyway, and objectui#8908 said so rather than letting
+                          it vanish as tidying: it is what makes this slot's
+                          answer independent of the bridge, which is the whole
+                          reason this slot survived the bridge being wrong. ⛔ Do
+                          not drop it as redundant without re-measuring both
+                          paths - the pins below assert the OUTCOME, and they
+                          would stay green through the removal right up until
+                          the bridge regressed again.
                         - The ternary replaces an `&&` chain that LEAKED: with
                           `emptyAction: 0` the chain evaluated to the number `0`
                           itself, which React renders as a stray "0" inside the
@@ -2256,7 +2309,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                            ) {
                              return;
                            }
-                           schema.onRowClick(row);
+                           // objectui#9462 — the DOM event goes with the row.
+                           // `ObjectGrid` and `ListView` put the navigation
+                           // hook's own `handleClick` on this slot, and that
+                           // hook reads `metaKey` / `ctrlKey` / `button` off a
+                           // second argument to decide "open in a new tab".
+                           // Calling with one argument dropped the payload
+                           // here, so Cmd/Ctrl/middle-click reached no host
+                           // handler and degraded to an ordinary navigation.
+                           schema.onRowClick(row, e);
                         }
                       }}
                     >
@@ -2289,7 +2350,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               data-testid="row-expand-button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                schema.onRowClick?.(row);
+                                // objectui#9462 — same forward as the row's own
+                                // handler above. `e` was already bound here for
+                                // `stopPropagation`, so the payload was in
+                                // scope on this line and still was not handed
+                                // on: the hover "open record" affordance
+                                // answered a Cmd/Ctrl-click exactly like a
+                                // plain one.
+                                schema.onRowClick?.(row, e);
                               }}
                               title="Open record"
                             >

@@ -1,5 +1,5 @@
 /**
- * ObjectUI — the inert `quickAdd` on the two `ObjectKanbanRenderer` tags
+ * ObjectUI — the inert `quickAdd` on the `ObjectKanbanRenderer` tag
  * (objectui#8285, director-seat ruling of 2026-09-08, decision batch #91)
  *
  * ## What is wrong, measured rather than argued
@@ -66,10 +66,14 @@
  *
  * ## Scope — the three places this deliberately does not fire
  *
- *   - `kanban-ui`. The ruling keeps the `quickAdd` / `onQuickAdd` pair there
- *     untouched: that block is `KanbanRenderer`, which forwards both halves by
- *     identity, and a React host mounting it CAN pass the function. An authored
- *     `quickAdd` there still draws whatever the generic prop rules draw.
+ *   - `KanbanRenderer`, the component. The ruling keeps the `quickAdd` /
+ *     `onQuickAdd` pair there untouched: it forwards both halves by identity,
+ *     and a React host mounting it CAN pass the function. ⚠️ It is no longer
+ *     reachable as a TAG — objectui#8257 retired the `kanban-ui` registration,
+ *     so on this tier `<kanban-ui>` is now an `unknown-component` ERROR, not a
+ *     block with a working pair. The component stays exported from
+ *     `@object-ui/plugin-kanban`, which is the surviving way to get the pair,
+ *     and is what this module's message names.
  *   - `quickAdd: false`, and any other falsy value. The renderer's own gate is
  *     `quickAdd && onQuickAdd`, so a falsy value asks for no control and gets
  *     none — the author got what they wrote, and nothing was dropped. The
@@ -88,17 +92,35 @@ export const INERT_QUICK_ADD = 'inert-quick-add';
 export const QUICK_ADD_KEY = 'quickAdd';
 
 /**
- * The tags served by `ObjectKanbanRenderer` — the two registrations in
- * `packages/plugin-kanban/src/index.tsx`, which is where a third one would
+ * The tags served by `ObjectKanbanRenderer` — the registrations in
+ * `packages/plugin-kanban/src/index.tsx`, which is where another one would
  * appear. Restated here as data because this package is deliberately free of
  * any dependency on the registry or on a plugin (see `RegistryConfigLike` in
  * `index.ts`), and re-derived from that file's registration calls by
  * `packages/plugin-kanban/src/__tests__/quickAddIsDiagnosedNotDropped-8285.test.ts`,
  * so a renamed or added tag reddens a named row rather than silently narrowing
- * this set. `kanban-ui` and `kanban-enhanced` are registered in the same file
- * to OTHER renderers and are not here — see the scope notes above.
+ * this set.
+ *
+ * ⚠️ **`kanban` left this set with its registration** (objectui#8802, ruled
+ * 2026-09-09; `kanban-ui` and `kanban-enhanced` went the same way under
+ * objectui#8257). Keeping it would have been dead data, MEASURED and not
+ * assumed: `checkKanbanQuickAdd` has exactly one call site, inside
+ * `validate.ts`'s prop walk, and that walk runs only in the branch where
+ * `manifest.components[node.type]` RESOLVED. A tag no registration produces is
+ * answered one level up, by `unknown-component`, and its props are never walked
+ * at all — so on a manifest built from the live registry a `<kanban quickAdd>`
+ * node draws `error/unknown-component` and nothing else, against a firing
+ * control on `<object-kanban quickAdd>` that draws `warning/inert-quick-add`.
+ * ⛔ Nothing is silently dropped by the narrowing: the retired spelling is
+ * refused BY NAME at the tag, which is a louder answer than this warning, and
+ * stacking both would be the two-diagnostics-for-one-mistake shape
+ * `checkMemberTypes` already refuses (objectui#8067). The one path that could
+ * still reach a `kanban` entry is a HAND-BUILT manifest declaring a component
+ * of that name — which, after the retirement, is somebody else's component, and
+ * the message below asserts things about `ObjectKanban` that would be false of
+ * it.
  */
-export const QUICK_ADD_HOST_TYPES: ReadonlySet<string> = new Set(['object-kanban', 'kanban']);
+export const QUICK_ADD_HOST_TYPES: ReadonlySet<string> = new Set(['object-kanban']);
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -133,7 +155,7 @@ export function checkKanbanQuickAdd(tag: string, key: string, value: unknown): D
       `BOTH "${QUICK_ADD_KEY}" and an "onQuickAdd" handler, and this block supplies neither half ` +
       `of the pair: "onQuickAdd" takes a FUNCTION, which no page on this tier can write (this tier ` +
       `parses, never executes) and which this board substitutes none of its own for. Drop the key, ` +
-      `or render <kanban-ui> from a React host that passes "onQuickAdd".`,
+      `or mount KanbanRenderer from "@object-ui/plugin-kanban" in a React host that passes "onQuickAdd".`,
     tag,
   };
 }

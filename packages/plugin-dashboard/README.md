@@ -66,13 +66,13 @@ const schema = {
 ### What the side-effect import registers
 
 That single import is the whole of registration — there is no components map to
-iterate over. Importing the entry runs the eight `ComponentRegistry.register(...)`
+iterate over. Importing the entry runs the eight live `ComponentRegistry.register(...)`
 calls in `src/index.tsx`, which claim exactly these schema types. The keys below
 are read off those calls:
 
 | Namespaced key | Bare-name fallback | Renderer behind it |
 | --- | --- | --- |
-| `view:dashboard` | `dashboard` | `DashboardRenderer` — the widget container |
+| `plugin-dashboard:dashboard` | `dashboard` | `DashboardRenderer` — the widget container |
 | `plugin-dashboard:metric` | `metric` | `MetricWidget` — one KPI value |
 | `plugin-dashboard:metric-card` | `metric-card` | `MetricCard` — KPI with trend and icon |
 | `plugin-dashboard:object-metric` | `object-metric` | internal wrapper around `ObjectMetricWidget` — aggregates over an object |
@@ -83,12 +83,26 @@ are read off those calls:
 
 `ComponentRegistry.register` publishes `namespace:type`, and — unless the call
 passes `skipFallback: true` — the bare `type` as a back-compat fallback
-(`packages/core/src/registry/Registry.ts:194`, fallback branch at `:226`). No
-call in this package passes `skipFallback`, so each type above resolves under
-both spellings. The two `object-*` types are served by internal wrappers that
+(`packages/core/src/registry/Registry.ts:194`, fallback branch at `:226`). Every
+call behind the table above leaves `skipFallback` unset, so each type there
+resolves under both spellings. The two `object-*` types are served by internal wrappers that
 first resolve the spec's per-element `dataSource` binding (through
 `ElementDataSourceGate` from `@object-ui/react`) and then render the exported
 component, which is why those rows name a wrapper rather than an export.
+
+⛔ One further registration is deliberately absent from the table above. Until
+objectui#9533 the dashboard renderer was published as `view:dashboard`, while
+`apps/console`'s lazy stubs and the CLI's known-type whitelist already spelled it
+`plugin-dashboard:dashboard`; the bare `dashboard` key therefore declared one
+namespace before the chunk loaded and the other after it, and the
+`plugin-dashboard:dashboard` stub was never cleared, so that spelling could never
+resolve. The renderer now registers under `plugin-dashboard`, and the retired
+`view:dashboard` key is answered by a tombstone widget that refuses BY NAME and
+names `plugin-dashboard:dashboard` as its replacement — so an authored
+`view:dashboard` gets a visible refusal carrying its own migration, never a
+silent fall-through. That tombstone registration passes `skipFallback: true`, so
+it claims no bare key, and `view:dashboard` is deliberately NOT a renderable key:
+`objectui check` reports it as unknown.
 
 ### Registering a component under your own key
 
@@ -169,6 +183,26 @@ const card: MetricCardNode = {
 
 `value` is the only required key. `title` and `description` take a plain string
 or the spec's inline per-locale map (`I18nLabel`).
+
+#### Percent `format` patterns (`'0%'`, `'0.00%'`)
+
+A numeral pattern ending in `%` is handed whole to `formatPercent`
+(`@object-ui/fields`), the same call the list-view percent cell and this
+package's own record-field renderer already make. Two consequences, both of
+them shared with every other percent surface in the console rather than decided
+by the tile:
+
+- **Magnitude** follows `percentDisplayValue` in `@object-ui/core` — a stored
+  value strictly between `-1` and `1` is a fraction and is scaled (`0.25` reads
+  `25%`); anything at or outside that band is already in percentage points and
+  passes through (`1` reads `1%`, `-5` reads `-5%`, `12.3` reads `12%`).
+- **The percent sign is the locale's**, not a literal `%`: a `de-DE` session
+  gets the no-break space German writes before the sign, and grouping follows
+  the locale (`1234.5` reads `1,235%` in `en`).
+
+The pattern's decimal count still belongs to the tile — `'0.00%'` renders two
+decimals — because that is an author declaration on the widget rather than a
+guess about the value.
 
 ## Examples
 

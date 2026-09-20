@@ -123,8 +123,12 @@ async function renderPage() {
 
 /** The body of the last PUT, exactly as it went over the wire. */
 function lastPut(): Record<string, unknown> {
-  // Indexed rather than `.at(-1)`: this package's tsconfig `lib` predates
-  // ES2022, so `Array.prototype.at` does not type-check here.
+  // Indexed rather than `.at(-1)`: `Array.prototype.at` is ES2022, and this
+  // package's own `tsconfig.test.json` owns the `lib` level that decides
+  // whether it type-checks — read that off the `lib` section of
+  // `pnpm census:tsconfig-test-parity`. ⛔ Don't restate its answer here: the
+  // sentence this replaces did, and went false the moment the level moved
+  // (objectui#9513). Index arithmetic asks no `lib` question at all.
   return puts[puts.length - 1];
 }
 

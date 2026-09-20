@@ -33,8 +33,15 @@
  */
 
 import { GetMetaItemLayeredResponseSchema } from '@objectstack/spec/api';
+// objectui#8676 - the object-metadata write invariant, applied HERE because this
+// is a DOOR and not a writer. Every `client.save('object', ...)` call site in the
+// repo passes through this one method, so guarding it covers a writer set that
+// nothing has to enumerate. See that module's docblock for why the writers are
+// deliberately not listed anywhere.
+import { assertObjectMetadataWritable } from './object-metadata-write-guard';
 import type {
   GetMetaItemLayeredResponse,
+  PublishPackageDraftsResponse,
   RuntimeAuthoringIssue,
 } from '@objectstack/spec/api';
 
@@ -79,6 +86,14 @@ export type { RuntimeAuthoringIssue };
  * one event serve both. Measured against the installed `@objectstack/spec`
  * rather than assumed — see the PR for the probe.
  *
+ * ## And the BATCH publish door (objectui#6965)
+ *
+ * `PublishPackageDraftsResponseSchema` declares the same key with the same
+ * element type, riding EACH `published[]` element rather than a parallel
+ * top-level map (objectstack#9343's ruled shape). So the reader is still one
+ * reader — the object it is handed is one `published[]` element instead of a
+ * whole response — and the event is still one event per promoted item.
+ *
  * The name keeps its `Save` prefix because it is public API of this package and
  * renaming it would break consumers for no behavioural gain; {@link door} is
  * what says which write produced the event.
@@ -101,8 +116,22 @@ export interface MetadataSaveAdvisoryEvent {
    *
    * - `'save'` — `PUT /meta/:type/:name` ({@link MetadataClient.save}, and the
    *   SDK's `meta.saveItem` behind `ObjectStackAdapter`).
-   * - `'publish'` — `POST /meta/:type/:name/publish`
-   *   ({@link MetadataClient.publish} and {@link MetadataClient.publishDraft}).
+   * - `'publish'` — the promotion doors: `POST /meta/:type/:name/publish`
+   *   ({@link MetadataClient.publish} and {@link MetadataClient.publishDraft}),
+   *   and the batch `POST /packages/:id/publish-drafts`
+   *   ({@link MetadataClient.publishPackageDrafts}), which emits ONE event per
+   *   `published[]` element carrying that element's own `type` / `name`.
+   *
+   * ## Why the batch route is not a third value (objectui#6965)
+   *
+   * The batch door promotes drafts to active — the author pressed Publish, and
+   * every item this event names really was published. What `door` decides is
+   * the frame's VERB, and "Published" is the true one for all three routes; a
+   * third value would have to render the same word. The per-item identity the
+   * author needs to act on is already carried by {@link type} / {@link name},
+   * one event per item, so nothing about the batch is lost by sharing the
+   * value. ⛔ It is NOT a claim that "one call = one event": the batch emits as
+   * many events as it has advised items, which is why each one names its own.
    *
    * Distinct from {@link mode}, which cannot answer this: a direct active save
    * and a draft promotion both report `mode: 'publish'` because both land the
@@ -127,10 +156,20 @@ export type MetadataSaveAdvisoryListener = (event: MetadataSaveAdvisoryEvent) =>
 /**
  * Read the `advisories` array off a metadata write response, defensively.
  *
- * Serves BOTH write doors unchanged (#5026): `SaveMetaItemResponseSchema` and
- * `PublishMetaItemResponseSchema` declare the key at the same top level, under
- * the same name, with the same element schema — so there is one reader, not a
- * per-door copy that could drift.
+ * Serves EVERY write door unchanged (#5026, objectui#6965):
+ * `SaveMetaItemResponseSchema` and `PublishMetaItemResponseSchema` declare the
+ * key at the same top level, and `PublishPackageDraftsResponseSchema` declares
+ * it on each `published[]` element — under the same name, with the same element
+ * schema. So there is one reader, not a per-door copy that could drift; the
+ * batch caller hands it one element, which is the object that carries the key
+ * there.
+ *
+ * ⛔ It reads the `advisories` key of the object it is GIVEN and never
+ * traverses. Choosing the object — a response body at the single-item doors,
+ * one `published[]` element at the batch door — is the caller's job precisely
+ * because the place is declared per route: a reader that went hunting for
+ * findings wherever they might be would be inventing a contract the server
+ * never stated.
  *
  * The server omits the key entirely on a clean write, so `undefined` is the
  * common case and means "nothing to say". Anything that is not an array of
@@ -182,10 +221,12 @@ export interface MetadataClientConfig {
   /**
    * Called after a {@link MetadataClient.save} whose 2xx response carried a
    * non-empty `advisories` array (objectstack#7435). Since #5026 the SAME sink
-   * also receives the publish door's findings (objectstack#9176) — read
-   * `event.door` to tell them apart. The write already
-   * succeeded; this is how the shell learns there is something to tell the
-   * author instead of the findings being discarded client-side.
+   * also receives the publish door's findings (objectstack#9176), and since
+   * objectui#6965 the batch publish door's too, one event per advised
+   * `published[]` element (objectstack#9343) — read `event.door` to tell a
+   * save from a promotion, and `event.type` / `event.name` for which item. The
+   * write already succeeded; this is how the shell learns there is something to
+   * tell the author instead of the findings being discarded client-side.
    *
    * Set on the CONFIG rather than exposed as a `subscribe()` method on purpose:
    * console metadata clients are minted per-component by `useMetadataClient`,
@@ -216,6 +257,30 @@ export interface MetadataDraftHeader {
   updatedAt: string | null;
   updatedBy: string | null;
 }
+
+/**
+ * What {@link MetadataClient.publishPackageDrafts} resolves with — the "publish
+ * whole app" body, DERIVED from `PublishPackageDraftsResponseSchema` rather
+ * than re-spelled (objectui#6965).
+ *
+ * Derived, and then widened in exactly two ways, each for a measured reason:
+ *
+ * - `Partial<…>` because this client talks to runtimes of several vintages and
+ *   the spec's six required keys are what TODAY's producer sets. Declaring them
+ *   required would be this client asserting a server version it cannot check —
+ *   and an older runtime that omits one would be a type lie, not a compile
+ *   error. Every consumer here already reads these keys defensively.
+ * - The index signature because the REST door adds keys on the way out
+ *   (ADR-0045 visibility receipts, the `metadata:reloaded` announce receipt),
+ *   and because a body this client hands back must stay readable by a caller
+ *   that knows about a key this package has never heard of.
+ *
+ * ⛔ What it is NOT is a second definition of the batch response: the key names
+ * and element shapes come from the spec symbol, so a key the spec adds, renames
+ * or retypes arrives here with no edit.
+ */
+export type MetadataPublishPackageDraftsResult = Partial<PublishPackageDraftsResponse> &
+  Record<string, unknown>;
 
 /**
  * Options for {@link MetadataClient.save} — a WRITE OVER HTTP to
@@ -598,6 +663,54 @@ function buildBase(config: MetadataClientConfig): string {
   return `${trimmed}${scoped}`;
 }
 
+/**
+ * The `/api/v1/packages` sibling of this client's `/meta` base (objectui#6965).
+ *
+ * Derived from the base rather than stored, so the two clone methods carry it
+ * for free. It keeps the ORIGIN the client was configured with (split-origin
+ * dev points the console at another port) and drops everything this client
+ * appended after it.
+ *
+ * ⚠️ The environment segment is dropped deliberately: the path built here is
+ * byte-for-byte the one the two batch-publish call sites in app-shell have
+ * always fired at, and an `/environments/:id/packages` mirror is a route this
+ * repo has no reading on. Scoping a call to a path nobody has shown exists
+ * would trade a working call for a 404.
+ */
+function packagesBaseOf(metaBase: string): string {
+  const origin = metaBase
+    .replace(/\/api\/v\d+(?:\/environments\/[^/]+)?\/meta$/, '')
+    .replace(/\/+$/, '');
+  return `${origin}${API_PREFIX}/packages`;
+}
+
+/**
+ * Unwrap the HTTP dispatcher's `{ success, data }` envelope — for the ONE route
+ * whose spec declaration says it arrives inside one (objectui#6965).
+ *
+ * ⛔ Not a general tolerance, and the difference is per-route rather than per
+ * file: {@link MetadataClient.publishDraft} refuses to unwrap because
+ * `PublishMetaItemResponseSchema` describes the full body of a route the REST
+ * server answers verbatim, so an envelope there is a shape that door does not
+ * serve. `PublishPackageDraftsResponseSchema` says the opposite in as many
+ * words — it "describes the FULL body … inside the dispatcher's
+ * `{ success, data }` envelope" — so the declared object is the INNER one, and
+ * unwrapping is how a caller gets the shape the spec declares.
+ *
+ * A body with no object-valued `data` is returned as-is: the REST composition
+ * answers this route unenveloped, and the ADR-0112 failure envelope
+ * (`{ success: false, error }`) has no `data` either, so its `error` stays
+ * where the caller's reader expects it.
+ */
+function unwrapDispatcherEnvelope(body: unknown): Record<string, unknown> {
+  if (!body || typeof body !== 'object') return {};
+  const root = body as Record<string, unknown>;
+  const data = root.data;
+  return data && typeof data === 'object' && !Array.isArray(data)
+    ? (data as Record<string, unknown>)
+    : root;
+}
+
 async function parseError(res: Response): Promise<MetadataError> {
   let body: unknown;
   try {
@@ -681,7 +794,7 @@ export class MetadataClient {
   private readonly headers: Record<string, string>;
   /** ADR-0037: when true, reads render the draft-overlaid world. */
   readonly previewDrafts: boolean;
-  /** #4133 / #5026 — sink for both write doors' advisory findings; see the config field. */
+  /** #4133 / #5026 — sink for every write door's advisory findings; see the config field. */
   private readonly onSaveAdvisory: MetadataSaveAdvisoryListener | undefined;
 
   constructor(config: MetadataClientConfig) {
@@ -907,8 +1020,11 @@ export class MetadataClient {
    * calling method returns or whether it throws. The server emits `advisories`
    * ONLY when non-empty, so a clean write costs one absent-key check.
    *
-   * One helper rather than a copy per door: the two doors' responses declare
-   * the key identically, so a second inline copy could only ever drift.
+   * One helper rather than a copy per door: every door's response declares the
+   * key identically, so a second inline copy could only ever drift. The batch
+   * door (objectui#6965) calls it once per `published[]` element, handing it
+   * the element — the object that carries the key there — and the same
+   * best-effort contract covers that loop unchanged.
    */
   private emitAdvisories(
     body: unknown,
@@ -944,6 +1060,9 @@ export class MetadataClient {
           ' The PUT /meta/:type/:name route requires a name segment.',
       );
     }
+    // objectui#8676 - before the request, so a refused body issues no PUT and the
+    // half-filled draft stays in the client (objectui#7714's ruled behaviour).
+    assertObjectMetadataWritable(type, item, 'MetadataClient.save');
     const params: string[] = [];
     if (options.force) params.push('force=true');
     if (options.mode === 'draft') params.push('mode=draft');
@@ -985,10 +1104,21 @@ export class MetadataClient {
    * rather than assume the data went live.
    *
    * Same door as {@link publish} (`POST /meta/:type/:name/publish`), so it
-   * reports the gate's advisories the same way (#5026). The BATCH door
-   * (`POST /packages/:id/publish-drafts`) is a different route that discards
-   * per-draft advisories server-side; that is objectstack#9343 and nothing here
-   * compensates for it.
+   * reports the gate's advisories the same way (#5026).
+   *
+   * The BATCH door (`POST /packages/:id/publish-drafts`) is a different route
+   * with a method of its own — {@link publishPackageDrafts} — and it reports
+   * too. It did not when this paragraph was first written: it discarded
+   * per-draft advisories server-side, which was objectstack#9343, and that card
+   * has since landed with a ruling that each `published[]` element carries
+   * them (objectui#6965 is the client half).
+   *
+   * What survives that change is the READING RULE, which is about this method
+   * rather than about the other route: it reads the top level of the
+   * single-item body and nothing else. A batch-shaped body arriving HERE still
+   * reports nothing, because `PublishMetaItemResponse` declares no
+   * `published[]` and a client that went looking for findings wherever they
+   * might be would be inventing a contract instead of reading one.
    *
    * ## Why there is no `{ success, data }` unwrapping here (objectui#6962)
    *
@@ -1049,6 +1179,80 @@ export class MetadataClient {
     // `PublishMetaItemResponse`, which is what this route answers (#6962).
     this.emitAdvisories(body, { type, name, door: 'publish', mode: 'publish' });
     return body as any;
+  }
+
+  /**
+   * Publish EVERY pending draft bound to one package — Studio's "publish whole
+   * app" door, `POST /api/v1/packages/:id/publish-drafts` (ADR-0033; the route
+   * that orders structure-before-seeds server-side and runs the ADR-0038 L3
+   * runtime probes).
+   *
+   * ## Why it is expressed here at all (objectui#6965)
+   *
+   * It was not, and that was the defect. Two app-shell call sites fired this
+   * route with a bare `fetch` / a page-private `apiJson`, outside the seam that
+   * covers every other metadata write — so when objectstack#9343 landed and the
+   * server began sending per-draft advisories, the author publishing a whole
+   * app was told nothing, while the SAME button's client-side capability lint
+   * still raised a toast. A door that cannot report is not a door the gate can
+   * reach, however loudly the server speaks.
+   *
+   * ## What it reports, and what it refuses to invent
+   *
+   * `PublishPackageDraftsResponseSchema` declares `advisories` on EACH
+   * `published[]` element — objectstack#9343's ruled shape, the same element
+   * type and the same omitted-when-empty discipline as the single-item door,
+   * and explicitly not a parallel top-level map. So this method emits one
+   * {@link MetadataSaveAdvisoryEvent} per advised element, each naming that
+   * element's own `type` / `name`, through the same sink, event and renderer
+   * the save and single-item publish doors use.
+   *
+   * ⛔ It renders only what the server sent where the schema says it sits:
+   *
+   * - `advisories` is read off the element, by the one shared reader, which
+   *   drops anything that is not a complete finding.
+   * - An element that does not carry the `type` and `name` the schema states as
+   *   REQUIRED is skipped rather than reported under invented identity — the
+   *   event names the item the author has to go fix, and an event that cannot
+   *   name it truthfully is worse than silence.
+   * - Nothing is derived, counted or summarised from the batch: no advisory
+   *   exists here that the server did not put in the body.
+   *
+   * ## The failure shapes stay the callers'
+   *
+   * Non-2xx throws {@link MetadataError}, like every other method. A 2xx is
+   * RETURNED unexamined — `success: false` is not a failure on this route
+   * (`outcome: 'nothing_to_publish'` answers it too, and the spec's own text
+   * says to read `outcome`, not the boolean), and the two callers have their
+   * own, different rules for the refusal and rolled-back cases. Deciding that
+   * here would change behaviour this card is not about.
+   */
+  async publishPackageDrafts(packageId: string): Promise<MetadataPublishPackageDraftsResult> {
+    if (!packageId || !String(packageId).trim()) {
+      throw new Error(
+        'MetadataClient.publishPackageDrafts: packageId must be non-empty.' +
+          ' The POST /packages/:id/publish-drafts route requires an id segment.',
+      );
+    }
+    const url = `${packagesBaseOf(this.base)}/${encodeURIComponent(packageId)}/publish-drafts`;
+    const res = await this.fetchImpl(url, {
+      method: 'POST',
+      // Both call sites this replaces sent the session cookie, and the client's
+      // own fetch adds the console's Bearer token — so the routed call carries a
+      // superset of what the bare doors carried, never less.
+      credentials: 'include',
+      headers: { ...this.headers, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: '{}',
+    });
+    if (!res.ok) throw await parseError(res);
+    const body = unwrapDispatcherEnvelope(await res.json().catch(() => ({})));
+    for (const element of Array.isArray(body.published) ? body.published : []) {
+      if (!element || typeof element !== 'object') continue;
+      const { type, name } = element as { type?: unknown; name?: unknown };
+      if (typeof type !== 'string' || typeof name !== 'string') continue;
+      this.emitAdvisories(element, { type, name, door: 'publish', mode: 'publish' });
+    }
+    return body as MetadataPublishPackageDraftsResult;
   }
 
   /**

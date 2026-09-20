@@ -90,8 +90,8 @@ afterEach(() => {
 });
 
 const schema = (drillDown: Record<string, unknown>) => ({
-  type: 'object-chart',
-  chartType: 'bar',
+  type: 'object-chart' as const,
+  chartType: 'bar' as const,
   objectName: 'opportunity',
   xAxisKey: 'stage',
   data: [{ stage: 'won', amount: 42 }],
@@ -133,9 +133,15 @@ describe("ObjectChart — DrillDownConfig.target: 'navigate' (objectui#3354)", (
 
     fireEvent.click(screen.getByTestId('fake-segment'));
 
-    // Widget filter ∧ click context — the same merge the drawer would have used.
+    // Widget filter ∧ click context — the same composition the drawer would have
+    // used. The conjunction was always the intent this comment stated; since
+    // objectui#8944 it is spelled by the repo's single filter sink
+    // (`composeDrillFilter`) instead of by spreading the widget's filter into an
+    // object literal, which only worked when that filter was the object arm.
     await waitFor(() =>
-      expect(openRecordList).toHaveBeenCalledWith('opportunity', { owner: 'me', stage: 'won' }),
+      expect(openRecordList).toHaveBeenCalledWith('opportunity', {
+        $and: [{ owner: 'me' }, { stage: 'won' }],
+      }),
     );
     expect(screen.queryByTestId('chart-drill-body')).toBeNull();
     // …and it does not fire again on subsequent renders.

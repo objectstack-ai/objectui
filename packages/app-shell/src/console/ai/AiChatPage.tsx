@@ -77,6 +77,7 @@ import {
   detectProposedChanges,
   detectReplayOutcome,
   detectBuiltAppPackage,
+  detectPendingApproval,
   buildProgressFromDraftReview,
   // The authoring/honest -> runtime message seam (objectui#4399 / PR #4416),
   // consumed here one hop up from the plugin's own renderers (objectui#4437).
@@ -107,6 +108,7 @@ import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
 import { getRuntimeConfig, isAiStudioEnabled } from '../../runtime-config.js';
 import { makerConvergedOnBuild, makerVisibleAgents } from '../../hooks/surfaceAgent.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
+import { useHomePath } from '../../hooks/useHomePath.js';
 import { cloudConsoleUrl } from '../marketplace/marketplaceApi.js';
 import { useNavigationContext } from '../../context/NavigationContext.js';
 import {
@@ -131,6 +133,31 @@ const DEFAULT_AI_PATH = '/api/v1/ai';
 function partString(part: HydratedUIMessagePart, key: string): string | undefined {
   const value = part[key];
   return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+/**
+ * The AI SDK approval envelope as the server persisted it on a tool part.
+ *
+ * `HydratedUIMessagePart` is an open record, so the envelope is REACHABLE here
+ * but unverified. This narrows it to the declared shape and drops what does not
+ * match rather than asserting a cast: `id` is the envelope's only required
+ * member, so a value without a usable one is not an envelope at all.
+ */
+function partApproval(
+  part: HydratedUIMessagePart,
+): NonNullable<ChatbotEnhancedToolInvocation['approval']> | undefined {
+  const raw = part.approval;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const envelope = raw as Record<string, unknown>;
+  const id = envelope.id;
+  if (typeof id !== 'string' || id.length === 0) return undefined;
+  return {
+    id,
+    ...(typeof envelope.approved === 'boolean' ? { approved: envelope.approved } : {}),
+    ...(typeof envelope.reason === 'string' ? { reason: envelope.reason } : {}),
+    ...(typeof envelope.isAutomatic === 'boolean' ? { isAutomatic: envelope.isAutomatic } : {}),
+    ...(typeof envelope.signature === 'string' ? { signature: envelope.signature } : {}),
+  };
 }
 
 function partToolState(part: HydratedUIMessagePart): ChatbotEnhancedToolInvocation['state'] | undefined {
@@ -203,11 +230,37 @@ export function hydratedMessagesToChatMessages(messages: HydratedUIMessage[]): C
         // draft card (a rolled-back publish would get a live Publish button).
         // Mirrors the live mapper's suppression exactly.
         const replayOutcome = detectReplayOutcome(toolCallId, result);
+        // objectui#8442 — the two halves of an actionable approval, dropped
+        // here until now, and they arrive from DIFFERENT places:
+        //   * the AI SDK's `approval` envelope rides the persisted PART (the
+        //     SDK's tool-part union requires it alongside the three approval
+        //     states this mapper already carries through);
+        //   * the ObjectStack `pendingActionId` rides the tool RESULT and is
+        //     never persisted as a part key, so it is derived with the same
+        //     detector the live mapper uses — one parse, so the hydrated path
+        //     cannot disagree with the live one about the same envelope.
+        // Without the id, `useHitlInChat` never indexes the invocation and the
+        // operator's Approve / Reject has nothing to call.
+        const approval = partApproval(part);
+        // objectui#9232 — the envelope still decides wherever it has anything
+        // to say; the part key is only consulted when it does not. That order
+        // is what keeps this a single contract rather than two dialects: on the
+        // SERVER path the id exists only inside the result, so `??` never
+        // reaches its right-hand side and this line behaves exactly as
+        // objectui#8442 left it. The fallback exists for the CACHE path, where
+        // `output` holds one envelope and a turn carrying both a draft and a
+        // pending approval has to put its draft there — leaving the part key as
+        // the only place the id can ride. `sanitizeChatMessagesForCache` is the
+        // only writer of that key.
+        const pendingActionId =
+          detectPendingApproval(result)?.pendingActionId ?? partString(part, 'pendingActionId');
         toolInvocations.push({
           toolCallId,
           toolName,
           ...(state ? { state } : {}),
           ...(result !== undefined ? { result } : {}),
+          ...(approval ? { approval } : {}),
+          ...(pendingActionId ? { pendingActionId } : {}),
           ...(draftReview && !replayOutcome ? { draftReview } : {}),
           ...(proposedPlan ? { proposedPlan } : {}),
           ...(builderHandoff ? { builderHandoff } : {}),
@@ -630,7 +683,13 @@ export function matchAiChatShortcut(e: {
  *  2. History back, when react-router has an in-app entry to return to
  *     (`window.history.state.idx > 0` — the router stamps a monotonically
  *     increasing `idx` on entries it creates).
- *  3. `/home` — the page was the entry point (deep link, fresh tab).
+ *  3. `homePath` — the page was the entry point (deep link, fresh tab).
+ *
+ * `homePath` is a PARAMETER, not a literal, since objectui#7373: home is
+ * whatever the deployment declared (`useHomePath()` at the call site), and on a
+ * control plane the environment launcher is the wrong screen to land a customer
+ * on. Required rather than defaulted, so a new call site cannot silently
+ * reintroduce the literal this card removed.
  *
  * The dock itself is armed to open expanded separately
  * ({@link armChatDockExpanded}); this only picks the landing. Pure + exported
@@ -638,10 +697,11 @@ export function matchAiChatShortcut(e: {
  */
 export function resolveCollapseToDockTarget(
   historyIdx: unknown,
-  storedPath?: string,
+  storedPath: string | undefined,
+  homePath: string,
 ): string | -1 {
   if (storedPath) return storedPath;
-  return typeof historyIdx === 'number' && historyIdx > 0 ? -1 : '/home';
+  return typeof historyIdx === 'number' && historyIdx > 0 ? -1 : homePath;
 }
 
 /** A composer submission held until the conversation id that will carry it exists. */
@@ -781,6 +841,10 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
   const handoffParentConversationId =
     searchParams.get('parentConversationId')?.trim() || undefined;
   const navigate = useNavigate();
+  // objectui#7373 — both exits out of this page (the "no agent here" screen's
+  // Home button, and the collapse-to-dock landing on a cold deep link) follow
+  // the DECLARED landing. Undeclared deployments get the launcher, unchanged.
+  const homePath = useHomePath();
   const { setContext } = useNavigationContext();
 
   useEffect(() => {
@@ -1206,7 +1270,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
             surface back into the dock. Arms the dock to mount expanded, then
             returns to the exact page the user maximized from (remembered by
             the dock's own maximize handlers; falls back to history-back, then
-            /home on a cold deep link) — the dock resolves the same
+            the declared home on a cold deep link) — the dock resolves the same
             (user, product) conversation scope, so it shows THE SAME THREAD.
             Visible on mobile too: under `md` the dock presents as a bottom
             sheet. */}
@@ -1223,6 +1287,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
               const target = resolveCollapseToDockTarget(
                 (window.history.state as { idx?: unknown } | null)?.idx,
                 readDockReturnLocation(),
+                homePath,
               );
               if (target === -1) navigate(-1);
               else navigate(target);
@@ -1236,7 +1301,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
         <AiUnavailable
           hasError={Boolean(agentsError)}
           onRetry={refetchAgents}
-          onHome={() => navigate('/home')}
+          onHome={() => navigate(homePath)}
           t={t}
         />
       ) : (

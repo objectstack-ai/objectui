@@ -29,6 +29,19 @@
  * a tripwire built on `Object.keys(await import(…))` would pass while proving
  * nothing. So this reads each subpath's `.d.ts` through the TypeScript checker,
  * exactly as `scripts/check-spec-symbol-derivation.mjs` does.
+ *
+ * ## Later arrivals are APPENDED under their own card
+ *
+ * Six / four / two is a measurement of the batch-5 burn-down at the time it was
+ * taken; re-counting it here whenever a new symbol arrives would make it
+ * unreproducible. `SortDirection` (objectui#7265) is the first such arrival — a
+ * module-local mirror in the DataTable renderer that rule 1 could not see until
+ * its export filter was dropped. It went the BIND route, and because the
+ * declaration is now an import rather than a derivation there is no local name
+ * left to reach for: what is pinned below is the SPEC-side property the binding
+ * rests on, the way the app-shell slice pinned its own module-local names. The
+ * absence of the old declaration is pinned where the scanner can execute it, in
+ * scripts/__tests__/spec-symbol-ledger-components-7265.test.ts.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -45,8 +58,9 @@ import type {
   ShareLinkAudience as SpecShareLinkAudience,
   ShareLinkPermission as SpecShareLinkPermission,
 } from '@objectstack/spec/contracts';
-import type { SortItem as SpecSortItem } from '@objectstack/spec/shared';
+import type { SortItem as SpecSortItem, SortDirection as SpecSortDirection } from '@objectstack/spec/shared';
 import type { FilterCondition as SpecFilterCondition } from '@objectstack/spec/data';
+import type { TableSortItem } from '@object-ui/types';
 
 /** Every name `@objectstack/spec` exports from any subpath — types AND values. */
 function specExportNames(): Set<string> {
@@ -238,6 +252,71 @@ describe('FilterBuilderCondition is NOT the spec ObjectQL AST', () => {
     // A builder row is one field/operator/value line plus a React key.
     type _RowKeys = Assert<Equal<keyof FilterBuilderCondition, 'id' | 'field' | 'operator' | 'value'>>;
 
+    expect(true).toBe(true);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* objectui#7265 — `SortDirection`, the DataTable renderer's module-local       */
+/* mirror. BOUND: the declaration is gone and the renderer imports the spec's    */
+/* own type, with the third state confined to the state slot that carries it.    */
+/* -------------------------------------------------------------------------- */
+
+describe('the spec still owns `SortDirection` — the collision this route answers is real', () => {
+  it('reads the name off the spec, not off a list written here', () => {
+    expect(
+      SPEC_NAMES.has('SortDirection'),
+      '@objectstack/spec no longer exports `SortDirection`. The DataTable ' +
+        'renderer imports it, so this is a build break rather than a silent ' +
+        'drift — but it also means the burn-down that removed the local ' +
+        'declaration no longer has a spec symbol to bind to, and the route has ' +
+        'to be taken again.',
+    ).toBe(true);
+  });
+});
+
+describe('the DataTable sort state IS the spec direction, widened only by absence', () => {
+  it('is pinned at compile time', () => {
+    // Guard-header cases 1, 2 and 2b: an `any` or `unknown` on the SPEC side
+    // answers every assignability question affirmatively, so binding to it would
+    // be a type-safety regression wearing a burn-down's clothes.
+    type _SpecNotAny = Assert<Equal<IsAny<SpecSortDirection>, false>>;
+    type _SpecNotUnknown = Assert<Equal<IsUnknown<SpecSortDirection>, false>>;
+
+    // The third state is genuinely OUTSIDE the spec's vocabulary. This is the
+    // assertion the confinement rests on: if `null` were already admissible
+    // there, the `| null` at the renderer's state slot would be a no-op and the
+    // comment explaining it would be false.
+    type _NullIsNotADirection = Assert<Equal<Extends<null, SpecSortDirection>, false>>;
+
+    // …and the two real members are, so the widening is by absence and nothing
+    // else. Read as an assignability pair rather than by restating `'asc' |
+    // 'desc'` here: a member list typed out in a test is the same hand copy the
+    // renderer just stopped keeping.
+    type _DirectionsSurviveTheWidening = Assert<Extends<SpecSortDirection, SpecSortDirection | null>>;
+    type _WideningIsStrict = Assert<Equal<Extends<SpecSortDirection | null, SpecSortDirection>, false>>;
+
+    // The seam the non-null half flows into. `activeSort` builds a
+    // `TableSortItem` out of `sortDirection` verbatim, so the day the spec grows
+    // a direction this reds on the hand-declared `order` in @object-ui/types
+    // rather than on the renderer — which is where the drift would actually be.
+    // (@object-ui/types takes no dependencies and declares the shape instead of
+    // importing it; that is a documented decision of that package, and this is
+    // the tripwire on it.)
+    type _OrderIsTheSpecDirection = Assert<Equal<TableSortItem['order'], SpecSortDirection>>;
+
+    expect(true).toBe(true);
+  });
+
+  it('the three-state cycle the `| null` exists for is covered behaviourally', () => {
+    // Stated here rather than re-tested: the client-side header cycle that
+    // PRODUCES the unsorted state is pinned by the `leaves client-side sorting
+    // exactly as it was` case in data-table-manual-sorting.test.tsx, and the
+    // manual-sorting side is pinned there too by `never asks for "no sort" — the
+    // third click returns to ascending`. Duplicating them here would make two
+    // places to keep honest; naming them makes the type pins above and the
+    // behaviour one file, which is what a reader deciding to "simplify" the
+    // `| null` away needs to find.
     expect(true).toBe(true);
   });
 });

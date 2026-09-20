@@ -54,6 +54,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 // Registers `object-kanban` and `kanban-ui`.
+import { KanbanRenderer } from '../index';
 import '../index';
 
 /**
@@ -276,18 +277,20 @@ describe('objectui#8827 — reverse: a genuinely empty board STILL announces', (
     expect(find).not.toHaveBeenCalled();
   });
 
-  it('exit 5 — the schema-only `kanban-ui` entry has NO provider and DEFAULTS to settled', async () => {
+  it('exit 5 — the schema-only `KanbanRenderer` path has NO provider and DEFAULTS to settled', async () => {
     // No `ObjectKanban` on this path, so nothing supplies the signal. Its rows
     // arrive whole from their author and are settled by construction; the
     // context default is what says so. A default of `false` would leave every
     // authored board that happens to be empty silent forever.
-    render(
-      <SchemaRenderer
-        schema={
-          { type: 'kanban-ui', groupBy: 'status', columns: LANES, data: [] } as never
-        }
-      />,
-    );
+    //
+    // ⚠️ Driven by rendering `KanbanRenderer` DIRECTLY. It used to be reached
+    // through the `kanban-ui` registry key, which RETIRED (objectui#8257) —
+    // ⛔ and re-pointing this leg at `object-kanban` would have destroyed it
+    // rather than moved it: that key resolves to `ObjectKanbanRenderer`, which
+    // DOES mount `ObjectKanban` and therefore DOES supply the provider, so the
+    // "no provider" premise would be false and the assertion would pass for the
+    // wrong reason. The component is unchanged; only the lookup is gone.
+    render(<KanbanRenderer schema={{ type: 'object-kanban', groupBy: 'status', columns: LANES, data: [] } as never} />);
 
     await waitFor(() => expect(emptyState()).not.toBeNull());
     expect(emptyState()!.textContent).toContain('No cards');
@@ -298,11 +301,19 @@ describe('objectui#8827 — the per-lane placeholder is the same claim and takes
   /**
    * `KanbanColumnView` renders the SAME `kanban.noCards` string inside any lane
    * with no cards, suppressed only when the board-level empty state is already
-   * saying it. On a SINGLE-lane board `isBoardEmpty` is false — it requires
-   * `boardColumns.length > 1` — so the board-level gate never runs there and
-   * the placeholder was the only thing on screen, still claiming "No cards"
-   * over rows in flight. Gating only the live region would have left the false
-   * claim alive on exactly the boards the live region never covered.
+   * saying it. When this was written, `isBoardEmpty` additionally required
+   * `boardColumns.length > 1`, so on a SINGLE-lane board the board-level gate
+   * never ran and the placeholder was the only thing on screen, still claiming
+   * "No cards" over rows in flight. Gating only the live region would have left
+   * the false claim alive on exactly the boards the live region never covered.
+   *
+   * ⚠️ objectui#9045 has since made `isBoardEmpty` blind to the lane count, so
+   * a settled single-lane empty board now reaches the BOARD-level region and
+   * the placeholder gives way to it. ⭐ Both legs below are unchanged and both
+   * still measure what they always did: nothing may say "No cards" while the
+   * rows are in flight, and something must say it once they settle with none.
+   * ⛔ What changed is which element says it, which neither leg reads —
+   * `emptyStateLaneCountBlind-9045.test.tsx` is where that is pinned.
    */
   const ONE_LANE = [{ id: 'todo', title: 'To Do' }];
 

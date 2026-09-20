@@ -59,10 +59,53 @@
  * The key universe comes from `deriveRegistryKeys` in
  * `scripts/check-doc-component-types.mjs` — deliberately the SAME derivation
  * that judges documentation snippets (objectui#4823), not a second scanner
- * with its own bugs. It already handles the forms this repo actually uses
- * (balanced-span `namespace` / `skipFallback` reads, loop and indirect
- * registrations, declared open sites), and any registration form it cannot
- * resolve fails there rather than silently shrinking the universe here.
+ * with its own bugs. It handles the forms this repo actually uses (registration
+ * keys as literals, loops and declared indirect helpers; registration OPTIONS
+ * as an object literal of key-value pairs and plain-identifier spreads, or an
+ * identifier resolving to one such literal), and an options ARGUMENT whose
+ * shape it does not recognise fails there rather than silently shrinking the
+ * universe here.
+ *
+ * ⚠️ That last clause is a PROPERTY OF THAT MODULE, not of this file, and this
+ * header asserted it while it was false — which is why objectui#9641 exists at
+ * all. A registration whose options arrive by reference, as
+ * `register('app', PageRenderer, { ...pageMeta, label: 'App Page' })` with
+ * `pageMeta.namespace` of `'ui'`, has no `namespace:` inside its own call span.
+ * The derivation produced the bare half alone and reported NOTHING, so five
+ * real runtime keys (`ui:page` `ui:app` `ui:utility` `ui:home` `ui:record`)
+ * were missing from a generated list whose entire job is to say which keys are
+ * real, and `objectui check` called documents spelling them unknown while the
+ * renderer painted them.
+ *
+ * ⛔ The first repair for that fixed the two shapes this tree uses and left
+ * seven siblings — a cast, a member expression, a call, three spread variants
+ * and a computed `namespace` — falling through to the same silent reading,
+ * while this paragraph re-asserted the clause. Restating a false invariant
+ * beside a partial fix is the original defect one layer up, and it is the
+ * reason the derivation now works from an ALLOWLIST: two options ARGUMENT
+ * shapes are read and every other argument shape is an
+ * `unresolved-registration-meta` finding. That is what makes the clause above
+ * a description of the code rather than a hope about it; `deriveRegistryKeys`
+ * is where to check it, and its own header and fixture pins are what hold it.
+ *
+ * ⚠️ AND THE CLAUSE IS NARROWER THAN IT READS, which is the third layer of the
+ * same mistake and is stated here rather than discovered again. "A form it
+ * cannot resolve" means a form it does not RECOGNISE. A form it recognises but
+ * reads under a premise that does not hold — an options object reached by a
+ * name that some spelling this derivation cannot see rebinds or writes to — is
+ * read SILENTLY and shrinks or inflates the universe here with no finding
+ * anywhere. Those readings are measured, enumerated in `declaredObjectBody`'s
+ * and `optionsMutatedAfterDeclaration`'s headers, and pinned one per shape in
+ * `scripts/__tests__/check-doc-component-types.test.ts` as KNOWN GAP readings.
+ * ⛔ Closing them is not owed: a regex approximation of JavaScript scope and
+ * mutation semantics has no finishing line, and the ruling on objectui#9641
+ * (batch #150 item 2, letter B) is that the reachable end state is an accurate
+ * declaration of what the instrument cannot see. This paragraph is that
+ * declaration for this file; the pins are what re-derive it.
+ *
+ * The repair belongs there and not here for the reason this section already
+ * gives: a second resolver in this file would be the second scanner it exists
+ * to refuse.
  *
  * The universe is taken WHOLE, with no filtering — bare keys, namespaced keys
  * and the `protocol-placeholder:` spellings alike. A filter would be a second

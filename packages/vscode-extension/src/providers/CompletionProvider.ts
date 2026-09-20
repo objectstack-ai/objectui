@@ -105,7 +105,7 @@ export class CompletionProvider
       card: [
         { name: 'title', desc: 'Card title' },
         { name: 'description', desc: 'Card description' },
-        { name: 'body', desc: 'Card content' },
+        { name: 'children', desc: 'Card content' },
       ],
       text: [{ name: 'content', desc: 'Text content' }],
     };
@@ -130,7 +130,7 @@ export class CompletionProvider
     const common = [
       { name: 'type', desc: 'Component type' },
       { name: 'className', desc: 'Tailwind CSS classes' },
-      { name: 'body', desc: 'Child components or content' },
+      { name: 'children', desc: 'Child components or content' },
       { name: 'id', desc: 'Component ID' },
       { name: 'visible', desc: 'Visibility condition' },
     ];
@@ -142,8 +142,8 @@ export class CompletionProvider
       );
       item.detail = prop.desc;
 
-      if (prop.name === 'body') {
-        item.insertText = new vscode.SnippetString('"body": {\n  $0\n}');
+      if (prop.name === 'children') {
+        item.insertText = new vscode.SnippetString('"children": {\n  $0\n}');
       } else if (prop.name === 'className') {
         item.insertText = new vscode.SnippetString('"className": "$1"');
       } else {

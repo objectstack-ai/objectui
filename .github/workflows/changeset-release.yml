@@ -1078,6 +1078,12 @@ jobs:
       # runner time daily for a PR nobody reads until release day. That is the
       # cost objectstack#10850 was closed to REMOVE, walking back in.
       #
+      # ⚠️ "SOURCE" ABOVE MEANS `.ts`/`.tsx`/config AND NOT EVERY BUILD INPUT: a
+      # generated `CHANGELOG.md` IS a Tailwind source input for any package whose
+      # stylesheet entry scans it, which is how a changeset body that merely
+      # QUOTED a class name used to compile that class into a published sheet and
+      # subtract it back out of the plugin sheets (objectui#9569).
+      #
       # So the validation is scoped to what the diff can actually move, and the
       # union — `ci.yml` on the source, these steps on the version outputs — is
       # the whole post-version tree.

@@ -154,16 +154,47 @@ describe('the gate can fail (non-vacuity)', () => {
   });
 
   it('goes red on a stale exception — an entry that matches nothing', () => {
-    const result = scanMutated(
-      (files) => {
-        // The stale.yml SHA becomes a tag: exactly what objectui#8126 landing
-        // one way would do. The entry must then be deleted, loudly.
-        const name = 'stale.yml';
-        files.set(name, files.get(name)!.replace(/actions\/stale@[0-9a-f]{40}/, 'actions/stale@v9'));
+    // This case used to mutate the real `stale.yml`, whose SHA pin was the only
+    // entry DECLARED_EXCEPTIONS ever held. objectui#8548 deleted that workflow
+    // and the entry with it, so the table is empty and the shape has to be
+    // reproduced over a synthetic one — which is stricter, not weaker: the
+    // assertion no longer depends on one particular workflow surviving.
+    //
+    // Both halves are pinned, because only the pair says the entry is doing
+    // work. An entry that never silences anything would satisfy the second half
+    // on its own.
+    const declared = [
+      {
+        workflow: 'control-bytes.yml',
+        action: 'actions/checkout',
+        issue: 'objectui#8465',
+        reason: 'synthetic entry for the non-vacuity proof below — not a real exception',
       },
-    );
-    expect(result.offenders).toEqual([]);
-    expect(result.stale.map((e: { workflow: string }) => e.workflow)).toEqual(['stale.yml']);
+    ];
+    const shaPin = (files: Map<string, string>) => {
+      const name = 'control-bytes.yml';
+      files.set(
+        name,
+        files.get(name)!.replace('uses: actions/checkout@v7', 'uses: actions/checkout@' + 'a'.repeat(40)),
+      );
+    };
+
+    // Matching: the ref is off-convention and the entry names it, so nothing is
+    // reported from either direction.
+    const matching = scanMutated(shaPin, declared);
+    expect(matching.offenders).toEqual([]);
+    expect(matching.stale).toEqual([]);
+
+    // Orphaned: the workflow the entry names is deleted — literally what
+    // objectui#8548 did to the real table. The entry now matches nothing and
+    // must be reported, loudly, so that deleting a workflow cannot leave a
+    // permanently red `main` behind it.
+    const orphaned = scanMutated((files) => {
+      shaPin(files);
+      files.delete('control-bytes.yml');
+    }, declared);
+    expect(orphaned.offenders).toEqual([]);
+    expect(orphaned.stale.map((e: { workflow: string }) => e.workflow)).toEqual(['control-bytes.yml']);
   });
 
   it('goes red when the census collapses, instead of reporting a clean tree', () => {
@@ -180,18 +211,31 @@ describe('the gate can fail (non-vacuity)', () => {
     const fake = [
       { workflow: 'control-bytes.yml', action: 'actions/checkout', issue: 'objectui#1', reason: 'x'.repeat(50) },
     ];
+    // Two off-convention refs, in two different workflows, and `fake` names only
+    // the first. The second is the whole point of the case: until objectui#8548
+    // it was `stale.yml`'s real SHA pin, which the tree no longer carries, so it
+    // is injected here instead. ⛔ Do not drop it and keep only the silenced
+    // half — a gate that reported nothing at all would pass that alone.
     const result = scanMutated((files) => {
-      const name = 'control-bytes.yml';
-      files.set(name, files.get(name)!.replace('uses: actions/checkout@v7', 'uses: actions/checkout@main'));
+      files.set(
+        'control-bytes.yml',
+        files.get('control-bytes.yml')!.replace('uses: actions/checkout@v7', 'uses: actions/checkout@main'),
+      );
+      files.set(
+        'shadcn-check.yml',
+        files
+          .get('shadcn-check.yml')!
+          .replace('uses: actions/checkout@v7', 'uses: actions/checkout@' + 'd'.repeat(40)),
+      );
     }, fake);
     // The ref `fake` covers is silenced...
     expect(result.offenders.map((o: { ref: string }) => o.ref)).not.toContain('actions/checkout@main');
     expect(result.stale).toEqual([]);
-    // ...and ONLY that one: `fake` replaced the real table, so stale.yml's SHA
-    // is now undeclared and reported. Proof that what silences a reference is an
-    // entry naming it, not the gate being lax about off-convention spellings.
+    // ...and ONLY that one: the second workflow's SHA is undeclared and is
+    // reported. Proof that what silences a reference is an entry naming it, not
+    // the gate being lax about off-convention spellings.
     expect(result.offenders.map((o: { file: string; kind: string }) => `${o.file} ${o.kind}`)).toEqual([
-      'stale.yml sha',
+      'shadcn-check.yml sha',
     ]);
   });
 });

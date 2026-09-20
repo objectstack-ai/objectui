@@ -561,6 +561,9 @@ describe('performance-budget.yml contract', () => {
     const TRIGGER_CLOSURE = [
       '.github/workflows/performance-budget.yml',
       'scripts/check-eager-closure-budget.mjs',
+      // The COMPOSITION half (objectui#7479) — WHICH locale catalogues a page
+      // load pulls, which the byte half above cannot answer.
+      'scripts/check-eager-locale-catalogues.mjs',
       'scripts/render-budget-comment.mjs',
       // `isEntrypoint` decides whether `main()` runs at all — a regression here
       // makes the checker exit 0 having measured nothing.

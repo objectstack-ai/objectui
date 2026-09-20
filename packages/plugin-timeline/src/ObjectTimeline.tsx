@@ -29,6 +29,73 @@ import { useTimelineTranslation } from './useTimelineTranslation';
 export const DEFAULT_TIMELINE_LIMIT = 100;
 
 /**
+ * What the contract admits as a row cap for this rail.
+ *
+ * `@objectstack/spec` has already answered what `limit: 0` means: the element
+ * data source `limit` that a `dataSource` binding lowers into this key is
+ * declared a POSITIVE INTEGER (`z.number().int().positive().optional()`), and
+ * so is the `pagination.pageSize` of a named view that fills it. So `0` is not
+ * a spelling whose meaning this renderer may choose; it is a value the contract
+ * refuses, and a renderer that forwards it to the wire is the only party not
+ * saying so.
+ */
+function isUsableRowLimit(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The ONE resolver for this rail's row cap, for the reason objectui#9853 gave
+ * when it landed the same shape on `ObjectGrid` and objectui#9897 repeated on
+ * `ListView`: one resolver at every entry is what keeps the answer single.
+ *
+ * Before objectui#9925 this read was a bare `schema.limit ?? DEFAULT_TIMELINE_LIMIT`,
+ * and `??` rejects only `null` and `undefined` — so an authored `limit: 0` was
+ * not nullish and survived as a real window. It reached the wire as `$top: 0`,
+ * the rail asked the server for nothing, and the empty rail named no cause. A
+ * negative goes out the same way. Both ENTRANCES converge on this key: a
+ * `dataSource` binding lowers a view's `pagination.pageSize` into `schema.limit`
+ * before this component sees it, and a rail with no binding at all reads the
+ * authored `limit` from the same place — so resolving HERE covers both, which a
+ * repair at the lowering layer could not.
+ *
+ * ⚠️ The refusal is FAIL-SOFT on purpose. Throwing would take out the whole
+ * rail over one declaration, which is a worse outcome than the defect. The
+ * value is dropped, this rail's own default is used, and
+ * `describeRefusedRowLimit` states it once through the channel this component
+ * already uses for "you declared it, the renderer dropped it" (the same
+ * `console.warn` the timeline-config parse above writes to). ⛔ Not a silent
+ * clamp, and ⛔ not a clamp to 1: the author's number is refused, not repaired.
+ */
+function resolveRowLimit(authored: unknown, fallback: number): number {
+  return isUsableRowLimit(authored) ? authored : fallback;
+}
+
+/**
+ * The diagnostic half. `null` means "nothing to say" — an absent `limit` is not
+ * a mistake, and a usable one is not either, so the message is CONDITIONAL and
+ * the silence controls in the pin are what keep it from being an always-on
+ * marker that states nothing.
+ *
+ * ⛔ NOT a second guard: the predicate lives once, in `isUsableRowLimit`, and
+ * this reads it. Two predicates would be free to drift, and the drift would be
+ * invisible — a value refused by one and admitted by the other.
+ */
+function describeRefusedRowLimit(authored: unknown, objectName: unknown): string | null {
+  if (authored === undefined || authored === null) return null;
+  if (isUsableRowLimit(authored)) return null;
+  const where =
+    typeof objectName === 'string' && objectName
+      ? `object-timeline on ${objectName}`
+      : 'object-timeline';
+  return (
+    `[ObjectUI] ObjectTimeline row cap: ${where} declared limit: ${String(authored)}, `
+    + 'which is not a positive integer. A row cap must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and this '
+    + `timeline fell back to its default row cap (${DEFAULT_TIMELINE_LIMIT}).`
+  );
+}
+
+/**
  * The variants an OBJECT-BOUND timeline can render.
  *
  * `TimelineSchema.variant` is `vertical | horizontal | gantt`. These two are its
@@ -152,8 +219,23 @@ export interface ObjectTimelineProps {
   };
   dataSource?: DataSource;
   className?: string;
-  onRowClick?: (record: any) => void;
-  onItemClick?: (record: any) => void;
+  /**
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (record: any, event?: any) => void;
+  /** The other arm of the same `??` that feeds the hook — see `onRowClick` above (objectui#9357). */
+  onItemClick?: (record: any, event?: any) => void;
 }
 
 export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
@@ -185,6 +267,18 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
       console.warn(`[ObjectTimeline] Invalid timeline configuration:`, result.error.format());
     }
   }, [schema]);
+
+  // [objectui#9925] The loud half of the row-cap refusal, on the same channel
+  // as the parse warning just above. Keyed on the DECLARATION, so it is one
+  // warning per declaration rather than one per render — and it fires from an
+  // effect, never from render, so a re-render with the same authored value says
+  // nothing a second time. (`TimelineExtensionSchema` above declares no
+  // `limit`, and it is a non-strict object, so an authored `limit: 0` passed
+  // that parse in silence; this is the only place it is stated.)
+  useEffect(() => {
+    const message = describeRefusedRowLimit(schema.limit, schema.objectName);
+    if (message) console.warn(message);
+  }, [schema.limit, schema.objectName]);
 
   const boundData = useDataScope(schema.bind);
 
@@ -310,7 +404,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
             const results = await dataSource.find(schema.objectName, {
                 $filter: schema.filter,
                 $orderby: convertSortToQueryParams(schema.sort),
-                $top: schema.limit ?? DEFAULT_TIMELINE_LIMIT,
+                $top: resolveRowLimit(schema.limit, DEFAULT_TIMELINE_LIMIT),
                 ...(expand.length > 0 ? { $expand: expand } : {}),
             });
             const data = extractRecords(results);

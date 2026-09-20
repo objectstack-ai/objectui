@@ -128,6 +128,16 @@ export const DESIGNER_PAIR_CONSTS = DESIGNER_TABLE_PAIRS.flatMap((pair) => [pair
  * family is one-sided is a fact about a consumer, and a claim about a consumer
  * that names no consumer is an assertion.
  *
+ * ⛔ A citation is `{ file, anchor }` and the anchor is TEXT, ⛔ never a line
+ * number (objectui#8875 clause 3, on the maintainer's ruling of 2026-09-10:
+ * 跨文件的「某文件第几行」引用， 这种完全没必要吧，是否应该避免). These three
+ * addresses were stored literals pointing INTO another file, so every one of
+ * them was one unrelated edit away from naming the wrong line — silently, since
+ * nothing here ever followed them. An anchor is checked: this gate's test
+ * asserts the text is actually present in the file, which a line number never
+ * could be. ⚠️ The anchor must be a string that occurs exactly once, or the
+ * citation stops locating anything.
+ *
  * These prefixes decide only what a REPORT prints. They can never make a
  * failing gate pass, which is why a prefix is safe here and would not be in an
  * exemption ledger — a prefix ledger swallows an entire family's future
@@ -140,14 +150,20 @@ export const ZH_ONLY_FAMILIES = [
     reason:
       'zh-only by design: for English the flow palette falls back to the engine descriptor’s own ' +
       'server-authoritative name/description, so an `en` row would OVERRIDE the server',
-    citation: 'packages/app-shell/src/views/metadata-admin/i18n.ts:2692-2695',
+    citation: {
+      file: 'packages/app-shell/src/views/metadata-admin/i18n.ts',
+      anchor: 'resolved by translateNodeLabel/Hint',
+    },
   },
   {
     prefix: 'engine.enum.type.',
     reason:
       'zh-only by construction: translateEnumOption returns the raw value before it ever touches the ' +
       'table for any non-zh locale (`if (!isZhLocale(locale)) return value;`), so an `en` row is unreachable',
-    citation: 'packages/app-shell/src/views/metadata-admin/i18n.ts:4516',
+    citation: {
+      file: 'packages/app-shell/src/views/metadata-admin/i18n.ts',
+      anchor: 'export function translateEnumOption',
+    },
   },
   {
     prefix: 'engine.packages.form.help.',
@@ -155,7 +171,10 @@ export const ZH_ONLY_FAMILIES = [
       'zh-only on purpose: with no `en` row tOptional returns undefined, helpText drops out, and the row ' +
       'falls back to ManifestSchema’s .describe() in @objectstack/spec — an `en` row would copy that ' +
       'text into a second producer, against AGENTS.md #0.1',
-    citation: 'packages/app-shell/src/views/metadata-admin/package-schema.ts:88-93',
+    citation: {
+      file: 'packages/app-shell/src/views/metadata-admin/package-schema.ts',
+      anchor: 'en-US deliberately has NO entry',
+    },
   },
 ];
 
@@ -306,7 +325,10 @@ if (isEntrypoint(import.meta.url)) {
   // to a reader without handing anyone a lever that can turn the gate off.
   console.log('\nzh-only keys, by documented family (report only — these never affect the exit code):');
   for (const family of ZH_ONLY_FAMILIES) {
-    console.log(`  ${result.familyCounts[family.prefix]}  ${family.prefix}  ${family.reason} [${family.citation}]`);
+    console.log(
+      `  ${result.familyCounts[family.prefix]}  ${family.prefix}  ${family.reason} ` +
+        `[${family.citation.file} -> ${family.citation.anchor}]`,
+    );
   }
   if (result.unexplainedZhOnly.length === 0) {
     console.log('  0  <residue>  no zh-only key falls outside the families above.');

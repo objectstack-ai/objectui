@@ -219,7 +219,8 @@ describe('objectui#5827 — the empty dimension bucket sorts last', () => {
     // …and the blank bucket, now last, still drills to "is empty".
     fireEvent.click(bodyRows()[2]);
     await waitFor(() =>
-      expect(drillFilters[drillFilters.length - 1]).toEqual({ industry: null }),
+      // objectui#9085 spelling; the sorted-row identity this test pins is unchanged.
+      expect(drillFilters[drillFilters.length - 1]).toEqual({ industry: { $null: true } }),
     );
   });
 });

@@ -10,7 +10,10 @@
  * This helper scans every object for fields whose `reference`/`reference_to`
  * points back at the parent object and produces one related-list descriptor per
  * eligible FK. The detail page (`RecordDetailView`) feeds these into the
- * `record:related_list` renderers (and the legacy `DetailView.related`).
+ * `record:related_list` renderers. (It also fed `DetailView.related`, which is
+ * RETIRED as of objectui#7997 — that entry is a `?: never` tombstone on both
+ * faces now, and this helper's output reaches the page only as
+ * `record:related_list` nodes.)
  *
  * Rules (kept in lockstep with the relationship-level `relatedList` spec flag):
  *   - Owned children (`master_detail`) and `lookup` children are SHOWN by
@@ -124,7 +127,29 @@ export interface DerivedRelatedList {
   sort?: Array<{ field: string; order: 'asc' | 'desc' }>;
 }
 
-interface ObjectLike {
+/**
+ * An object definition AS THE CONSOLE HOLDS IT — after `MetadataProvider` has
+ * merged the object's views onto it.
+ *
+ * ⚠️ Renamed off `ObjectLike` at objectui#7265, and the rename is the fix rather
+ * than a workaround. `@objectstack/spec/system` exports an `ObjectLike` of its
+ * own: the minimal object document `translateObject` consumes, `{ name, label,
+ * pluralLabel, description, fields, actions }`, with `name` REQUIRED and no
+ * index signature. This is a different layer in both directions at once, which
+ * is why deriving it was not on the table:
+ *
+ *   - it carries `list`, a MERGED key. Nothing authors `object.list`; it is put
+ *     there by `MetadataProvider.mergeViewsIntoObjects` after the fact, so the
+ *     spec's shape has no member for it and, being closed, no room for one;
+ *   - `name` is optional here because this shape also describes an object that
+ *     is still LOADING — the guards below (`if (!objectDef?.name)`,
+ *     `if (!child?.name)`) are the whole reason the derivation runs at all
+ *     during the pre-catalog render.
+ *
+ * The spec name stays free for whatever genuinely is the spec's object
+ * document; `spec-symbol-parity.test.ts` holds the two-way ratchet.
+ */
+interface MergedObjectLike {
   name?: string;
   label?: string;
   fields?: Record<string, any> | any[];
@@ -156,7 +181,7 @@ interface ObjectLike {
  * Returns `undefined` — never `[]` — when nothing orderable was declared.
  */
 function inheritedListViewSort(
-  list: ObjectLike['list'],
+  list: MergedObjectLike['list'],
 ): Array<{ field: string; order: 'asc' | 'desc' }> | undefined {
   const map = convertSortToQueryParams(list?.sort as any);
   if (!map) return undefined;
@@ -183,7 +208,7 @@ function isDeclaredFilter(value: unknown): value is Record<string, any> {
 }
 
 /** Normalize an object's `fields` (record or array) into `[name, def]` pairs. */
-function fieldEntries(fields: ObjectLike['fields']): Array<[string, any]> {
+function fieldEntries(fields: MergedObjectLike['fields']): Array<[string, any]> {
   if (!fields) return [];
   if (Array.isArray(fields)) {
     return fields
@@ -210,8 +235,8 @@ export interface DeriveRelatedListsOptions {
  * children; deterministic and side-effect free (safe to memoize).
  */
 export function deriveRelatedLists(
-  objectDef: ObjectLike | null | undefined,
-  objects: ObjectLike[] | null | undefined,
+  objectDef: MergedObjectLike | null | undefined,
+  objects: MergedObjectLike[] | null | undefined,
   options?: DeriveRelatedListsOptions,
 ): DerivedRelatedList[] {
   if (!objectDef?.name || !Array.isArray(objects) || objects.length === 0) return [];

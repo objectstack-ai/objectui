@@ -50,8 +50,14 @@ export interface ExpressionScopeInput {
    * ruling exists to remove, so the parameter is gone rather than ignored.
    * `ExpressionProvider` still takes an `app` prop and still publishes it on
    * the React context value; that is a different thing from a CEL root.
+   *
+   * ⛔ No `data` either, and for the mirror-image reason — objectui#8166,
+   * ruled 2026-09-10. `app` was BOUND HERE AND REFUSED by the engine; `data`
+   * was BOUND HERE AND ACCEPTED by it, while naming something that is not the
+   * record. Same remedy, same argument: the builder no longer takes an
+   * argument it must not bind. `ExpressionProvider` still takes a `data` prop
+   * and still publishes it on the React context value.
    */
-  data?: Record<string, any>;
   features?: Record<string, any>;
 }
 
@@ -107,15 +113,64 @@ export interface ExpressionScopeInput {
  * diagnostic in `celAuthoring.ts`: that is the lenient-fallback shape
  * AGENTS.md #0.1 bans.
  *
- * Every root below is one the engine accepts, so the three surfaces — what
- * this binds, what the editor advertises, what the linter admits — now agree.
+ * ## Why there is no `data` root either (objectui#8166, ruled 2026-09-10)
+ *
+ * `app` and `data` came off the same list producing OPPOSITE failures, and the
+ * `data` half is the nastier one.
+ *
+ * objectui#5741 (Phase 2 of the objectui#5330 canon) retired `data.*` on
+ * runtime record surfaces: the row is bound as `record.*` and nothing else, and
+ * `@object-ui/core`'s `evaluator/rowPredicateCanon.ts` records the server's
+ * verdict for the retired spelling — `data.status` is `❌ Unknown variable:
+ * data`. But `@objectstack/formula`'s `SCOPE_ROOTS` still contains `data`, so
+ * at `scope: 'record'` the AUTHORING LINT accepts `data.status == 'x'`. An
+ * ambient `data` bound HERE is what let that accepted-by-the-linter predicate
+ * also resolve at runtime — against this bag rather than against the row.
+ *
+ * Measured on `origin/main` before the removal, one authored
+ * `visibleWhen: "data.status == 'x'"` meant three different things depending on
+ * which of this tier's bags reached it:
+ *
+ *   - against `data: {}` (what every `ExpressionProvider` mount passes, and
+ *     what `RecordFormPage`'s own evaluator built) the engine answered
+ *     `[runtime] No such key: status` — a fault, so the field-rule fallback
+ *     applied: fail-OPEN for `visibleWhen`;
+ *   - against `data: editingRecord` (what `AppContent`'s field-list evaluator
+ *     built for the global record-form modal, in EDIT mode) it RESOLVED, with
+ *     no diagnostic at all — the wrong-layer root silently answering from the
+ *     host's record;
+ *   - in CREATE mode on that same modal `editingRecord` is null, so the same
+ *     predicate fell back to the first case.
+ *
+ * A root that answers three ways and is never the row is not a root. Removing
+ * it collapses all three onto the engine's own verdict — `[type] Unknown
+ * variable: data`, byte-identical in shape to the `app` diagnostic above — and
+ * `record.*`, the canon, is unaffected.
+ *
+ * ⛔ Two routes the ruling refused. De-advertising `data` from an
+ * advertised-roots list fixes nothing: it stops autocomplete RECOMMENDING the
+ * root while the lint still ACCEPTS it, so every already-authored `data.*`
+ * predicate stays green and stays wrong. And ⛔ filtering the diagnostic in
+ * `celAuthoring.ts` is treating the wrong layer — there is no diagnostic to
+ * filter, the absence of one is the defect. Splitting `SCOPE_ROOTS` per scope
+ * is the producer-side half and lives in `@objectstack/formula`, not here.
+ *
+ * The one `data` that survives this tier is the metadata-admin form's, and it
+ * is a different object one layer up: `views/metadata-admin/predicate.ts`
+ * binds `data` = the DRAFT under edit through its own builder (ADR-0089 D3,
+ * `CANONICAL_ROOT_BY_LAYER` = `{ runtime: 'record', metadata: 'data' }`), takes
+ * only the identity roots from this bag, and assigns its own `data` last. It is
+ * unaffected by this removal, by construction.
+ *
+ * Every root below is one the engine accepts AND one this tier can actually
+ * answer, so the three surfaces — what this binds, what the editor advertises,
+ * what the linter admits — now agree.
  */
 export function buildExpressionScope({
   user = {},
-  data = {},
   features = {},
 }: ExpressionScopeInput = {}): Record<string, any> {
-  return { current_user: user, user, ctx: { user }, os: { user }, data, features };
+  return { current_user: user, user, ctx: { user }, os: { user }, features };
 }
 
 /**
@@ -140,9 +195,10 @@ interface ExpressionProviderProps {
 
 export function ExpressionProvider({ children, user = {}, app = {}, data = {}, features = {} }: ExpressionProviderProps) {
   const value = useMemo(() => {
-    const evaluator = createExpressionEvaluator({ user, data, features });
-    // `app` is still published on the context value — `DashboardView` reads it
-    // as a plain value. It is NOT handed to the evaluator: objectui#8155.
+    const evaluator = createExpressionEvaluator({ user, features });
+    // `app` and `data` are still published on the context value — `DashboardView`
+    // reads `app` as a plain value. Neither is handed to the evaluator:
+    // objectui#8155 (`app`), objectui#8166 (`data`).
     return { user, app, data, features, evaluator };
   }, [user, app, data, features]);
 
@@ -152,8 +208,8 @@ export function ExpressionProvider({ children, user = {}, app = {}, data = {}, f
   // The SAME bag the evaluator above got — one builder, so the imperative and
   // the hook-driven halves of this provider cannot drift apart either.
   const scope = useMemo(
-    () => buildExpressionScope({ user, data, features }),
-    [user, data, features],
+    () => buildExpressionScope({ user, features }),
+    [user, features],
   );
 
   return (
@@ -176,14 +232,14 @@ export function useExpressionContext(): ExpressionContextValue {
     // spells as aliases "pointing at the same object".
     //
     // The scope input and the context value are no longer the same object:
-    // `app` is a readable context FIELD but not a CEL root (objectui#8155), so
-    // handing this bag straight to the builder would smuggle back the very
-    // binding the ruling removed.
+    // `app` (objectui#8155) and `data` (objectui#8166) are readable context
+    // FIELDS but not CEL roots, so handing this bag straight to the builder
+    // would smuggle back the very bindings those rulings removed.
     // Left UNANNOTATED on purpose: annotating it `ExpressionScopeInput` widens
     // every member to optional, and the spread below then fails to satisfy
     // `ExpressionContextValue`, whose members are required.
-    const scope = { user: {}, data: {}, features: {} };
-    return { ...scope, app: {}, evaluator: createExpressionEvaluator(scope) };
+    const scope = { user: {}, features: {} };
+    return { ...scope, app: {}, data: {}, evaluator: createExpressionEvaluator(scope) };
   }
   return ctx;
 }

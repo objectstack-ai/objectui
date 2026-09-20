@@ -54,12 +54,21 @@
  *
  * The arity VERDICT is `@objectstack/spec/data`'s exported `isMultiValueField`,
  * imported rather than re-implemented — the component only finds the field def
- * to hand it. That is not hygiene: this component picks `$contains` vs `=` on
- * the answer, and the driver that refuses the query picks on the spec's, so a
- * local copy would be two readers of one question disagreeing, which is the
- * defect this card is about. The three `SPEC PREDICATE` cases below pin the
- * places where the spec's rule and an eyeballed `multiple === true` DIFFER,
- * measured on `@objectstack/spec` 17.4.0, in both directions.
+ * to hand it. That is not hygiene: a second copy of the rule inside this
+ * package would be two readers of one question disagreeing, which is the defect
+ * this card is about. The three `SPEC PREDICATE` cases below pin the places
+ * where the spec's rule and an eyeballed `multiple === true` DIFFER, measured
+ * on `@objectstack/spec` 17.4.0, in both directions.
+ *
+ * ⚠️ This header used to add that "the driver that refuses the query picks on
+ * the spec's". It does NOT (objectui#8937). `driver-sql` gates the equality
+ * family on its own STORAGE question — a JSON column when the type is one it
+ * stores as JSON OR when `multiple` is merely TRUTHY, on ANY type — so the two
+ * rules diverge for a type outside `MULTI_CAPABLE_TYPES` carrying
+ * `multiple: true`. See the `INERT` case below and `parentRelationshipFieldDef`'s
+ * docblock in `RelatedList.tsx`; the divergence itself is re-derived each run by
+ * `relatedListParentScopeResidue-8937.test.ts` and owned upstream by
+ * objectstack#17469.
  *
  * ## The control
  *
@@ -308,12 +317,22 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
   });
 
   it('SPEC PREDICATE — `multiple: true` is INERT on a type outside MULTI_CAPABLE_TYPES', async () => {
-    // The same delegation read the other way. `master_detail` is not a
-    // multi-capable type, so the flag does not make its stored value an array
-    // and equality is the correct predicate. An eyeballed `multiple === true`
-    // would send `$contains` against a scalar column — wrong in the opposite
-    // direction, and invisible, because it fails as "no rows" rather than as a
-    // refusal.
+    // The same delegation read the other way: `master_detail` is not a
+    // multi-capable type, so the SPEC's rule says the flag does not make the
+    // stored value an array, and this component sends `=`.
+    //
+    // ⚠️ What this case pins is the component's DELEGATION, ⛔ not that `=` is
+    // the predicate the storage will answer (objectui#8937). `driver-sql` reads
+    // `multiple` as truthy on ANY type, stores a JSON column, and refuses `=`
+    // here with the same `400 INVALID_FILTER` this card was filed for. That
+    // divergence is KNOWN and owned upstream (objectstack#17469); it is ⛔ not a
+    // regression of this card — the pre-fix renderer sent `=` for this shape
+    // too — and ⛔ not repairable by widening the predicate on this side, which
+    // would only move the disagreement rather than end it.
+    //
+    // The opposite error is still real and still guarded: an eyeballed
+    // `multiple === true` would send `$contains` against a genuinely scalar
+    // column, which fails as "no rows" rather than as a refusal.
     const ds = makeDS(
       recordSchema('contact', { account: { type: 'master_detail', reference: 'account', multiple: true } }),
       SINGLE_ROWS,

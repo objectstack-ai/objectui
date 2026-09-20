@@ -2,7 +2,7 @@
  * Side-by-side comparison: the same stats-card dashboard written in
  * traditional React + Shadcn versus the ObjectUI JSON equivalent.
  *
- * The whole point of this section is the line-count delta — keep both
+ * The section contrasts two authoring models side by side — keep both
  * snippets honest (no cheating by omitting imports, no padding the
  * React side with formatting).
  *
@@ -20,9 +20,10 @@
  *    leaked into the DOM as `props="[object Object]"` (same defect class as the
  *    `cols` fix in objectui#4011 / PR #4785).
  *
- * `OBJECTUI_LINES` feeds `REDUCTION_PCT`, shown on the page as "N lines" and
- * "X% less code" — keep this snippet at 18 lines so a correctness fix never
- * silently moves the marketing number (the constraint PR #4785 established).
+ * Copy-runnability is the whole constraint on this snippet, and now the only
+ * one: the panel renders no line counts and no percentage, so a correctness
+ * fix here is free to change its length (objectui#8948 — the homepage stopped
+ * leaning on counts, so there is no number left for an edit to move).
  */
 
 const REACT_CODE = `import {
@@ -88,29 +89,21 @@ const OBJECTUI_CODE = `{
   ]
 }`;
 
-const REACT_LINES = REACT_CODE.split('\n').length;
-const OBJECTUI_LINES = OBJECTUI_CODE.split('\n').length;
-const REDUCTION_PCT = Math.round(
-  ((REACT_LINES - OBJECTUI_LINES) / REACT_LINES) * 100,
-);
-
 function CodePanel({
   label,
   badge,
   badgeTone,
-  lines,
   code,
 }: {
   label: string;
   badge: string;
   badgeTone: 'muted' | 'primary';
-  lines: number;
   code: string;
 }) {
   const lineNumbers = code.split('\n').map((_, i) => i + 1);
   return (
     <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-fd-border bg-fd-card shadow-sm">
-      <div className="flex items-center justify-between border-b border-fd-border bg-fd-muted/40 px-4 py-2.5">
+      <div className="flex items-center border-b border-fd-border bg-fd-muted/40 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-fd-foreground">{label}</span>
           <span
@@ -123,9 +116,6 @@ function CodePanel({
             {badge}
           </span>
         </div>
-        <span className="text-xs font-mono text-fd-muted-foreground">
-          {lines} lines
-        </span>
       </div>
       <div className="flex max-h-[460px] overflow-auto text-[12.5px] leading-[1.55]">
         <pre
@@ -153,7 +143,7 @@ export function ReactVsObjectUI() {
           <h2 className="text-3xl font-bold tracking-tight text-fd-foreground sm:text-4xl">
             Same UI.{' '}
             <span className="bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-violet-400">
-              {REDUCTION_PCT}% less code.
+              Written as JSON.
             </span>
           </h2>
           <p className="mt-4 text-lg text-fd-muted-foreground">
@@ -168,14 +158,12 @@ export function ReactVsObjectUI() {
             label="React + Shadcn"
             badge="StatsCards.tsx"
             badgeTone="muted"
-            lines={REACT_LINES}
             code={REACT_CODE}
           />
           <CodePanel
             label="ObjectUI"
             badge="stats-cards.schema.json"
             badgeTone="primary"
-            lines={OBJECTUI_LINES}
             code={OBJECTUI_CODE}
           />
         </div>
@@ -183,14 +171,13 @@ export function ReactVsObjectUI() {
         <div className="mx-auto mt-10 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-fd-border bg-fd-card p-5">
             <div className="text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">
-              Lines of code
+              What you maintain
             </div>
             <div className="mt-1 text-2xl font-bold text-fd-foreground">
-              {REACT_LINES} <span className="text-fd-muted-foreground">&rarr;</span>{' '}
-              <span className="text-fd-primary">{OBJECTUI_LINES}</span>
+              One JSON file
             </div>
             <p className="mt-1 text-sm text-fd-muted-foreground">
-              {REDUCTION_PCT}% smaller, no build step.
+              No component code, no build step.
             </p>
           </div>
           <div className="rounded-xl border border-fd-border bg-fd-card p-5">

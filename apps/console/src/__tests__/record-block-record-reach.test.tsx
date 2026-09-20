@@ -397,11 +397,12 @@ async function mountWithRecord(cfg: any, record: Record<string, unknown>): Promi
     <MetadataCtx.Provider value={METADATA}>
       <SchemaRendererProvider dataSource={dataSource}>
         {/*
-          `dataSource` is typed `string` on RecordContextValue (a datasource id)
-          while `record:history`, `record:reference_rail` and
-          `record:line_items` all call `.find` on it — the host passes the
-          object and the renderers cast. Passing the object is what matches the
-          runtime (app-shell RecordDetailView), not the declaration.
+          `dataSource` carries the ADAPTER, which is what `record:history`,
+          `record:reference_rail` and `record:line_items` call `.find` on. The
+          declaration says so since objectui#9197 — before that it said
+          `string` and every one of those renderers cast around it, so this
+          probe passed the object to match the runtime (app-shell
+          RecordDetailView) rather than the declaration. Both agree now.
         */}
         <RecordContextProvider
           objectName={PROBE_OBJECT}

@@ -40,7 +40,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import * as specSystem from '@objectstack/spec/system';
-import { builtInLocales } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 import { humanizeToolName, toolTitleKey } from '../tool-display.js';
 
 type LocaleCode = keyof typeof builtInLocales;

@@ -33,8 +33,13 @@ export interface TransactionOperation {
   type: 'create' | 'update' | 'delete';
   /** Target resource name */
   resource: string;
-  /** Record ID (for update/delete) */
-  id?: string | number;
+  /**
+   * Record ID (for update/delete). A `string`, as `@objectstack/spec` declares
+   * every record door and as this type's own sibling `BatchTransactionOperation.id`
+   * already did; the rollback path hands it straight to `DataSource.update`
+   * (objectui#9333).
+   */
+  id?: string;
   /** Data payload */
   data?: Record<string, any>;
   /** Previous state (for rollback) */

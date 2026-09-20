@@ -7,7 +7,9 @@
  * `apps/site/app/components/registerCatalogBlocks.ts` is a list of side-effect
  * imports. Every one of them pulls its package's module graph into the Next
  * docs route `/docs/[[...slug]]`, which is shared by every docs page — so an
- * import added there is paid on 181 pages, not on the gallery alone. The cards
+ * import added there is paid on every page of the docs collection
+ * `apps/site/source.config.ts` declares, not on the gallery alone. How many that
+ * is, is derived: this gate's own `gauge:` line reports it on every run. The cards
  * that added to that list (objectui#4600, objectui#4616, objectui#6167,
  * objectui#6025) all said the cost was governed by `check:eager-closure`.
  *
@@ -32,8 +34,11 @@
  * ## What this gate asserts, and what it deliberately does not
  *
  * It does NOT weigh bytes. Ruled on objectui#6316: a second byte budget would
- * cost a 556-page docs build in CI, and the cheap structural question catches
- * the change that matters anyway. Every package named in the registrar is
+ * cost a full docs build in CI — every page of that collection, on every run —
+ * and the cheap structural question catches the change that matters anyway. ⛔ No
+ * page count in this header, deliberately: the two that used to be here were
+ * literals nothing derived, and both were false by the time anyone read them
+ * (objectui#9004). Every package named in the registrar is
  * classified into exactly one of three buckets:
  *
  *   RECORDED  it is in {@link MEASURED_PAYLOAD} — its eager cost was argued for

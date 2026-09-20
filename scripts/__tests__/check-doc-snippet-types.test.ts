@@ -12,6 +12,7 @@ import ts from 'typescript';
 import {
   ADR_DOCS,
   AUDIT_DOCS,
+  NESTED_PACKAGE_READMES,
   EXIT_CODES,
   FRAGMENT_MARKER_EXAMPLES,
   ROOT_DECLARED_CONTROL_PACKAGE,
@@ -27,6 +28,7 @@ import {
   listDocuments,
   moduleSpecifiersOf,
   moduleSpecifiersOfBlock,
+  nestedPackageReadmePages,
   resolvesOnlyThroughRootManifest,
   ROOT_DOCS,
   adrDocsPages,
@@ -59,12 +61,17 @@ import {
  *     would check the docs against code no consumer sees.
  *  5. **The gate is wired**, in a workflow a docs-only pull request can start.
  *  6. **Third-party resolution reaches exactly as far as the imported packages
- *     DECLARE** (objectui#6120). This one's failure mode is the worst in the list
+ *     DECLARE** (objectui#6120), in either of the two fields the map reads —
+ *     `dependencies`, and the REQUIRED `peerDependencies` this workspace
+ *     resolves (objectui#8919). This one's failure mode is the worst in the list
  *     because it is invisible: widen resolution past the declarations and every
  *     document stays green while the gate stops being able to fail. The suite
- *     therefore pins both directions — a declared dependency IS mapped, and an
+ *     therefore pins every direction — a declared dependency IS mapped, a
+ *     required peer IS mapped, an OPTIONAL peer and a devDependency are NOT, an
  *     installed-but-undeclared one is NOT — plus the two preconditions the
- *     UNDECLARED control needs in order to mean anything.
+ *     UNDECLARED control needs in order to mean anything. The peer half is
+ *     pinned as an ADDITION: `dependencies` still decides every specifier it
+ *     names, first, from its own owner's directory.
  *  7. **The exit path tells "I could not run" from "I ran and found errors"**
  *     (objectui#5465). A run that resolved against nothing produced no verdict
  *     about any document; leaving through the same code as a real snippet
@@ -900,6 +907,257 @@ describe('objectui#7856 card 2 — docs/adr/** and docs/audits/** are in the sca
   });
 });
 
+/**
+ * objectui#7308 — every `README.md` under `packages/`, at any depth, ledger-first.
+ *
+ * The defect this closes was a SPECIFICATION defect rather than drift: the
+ * header's SCAN SURFACE paragraph said `every packages/<name>/README.md`, one
+ * level, literally, and `listDocuments` implemented that sentence faithfully. So
+ * four nested pages were neither compiled nor ledgered — objectui#5174's "neither
+ * covered NOR declared ungated", one directory down — and `check-doc-links` had
+ * already closed the identical hole on the identical four files (objectui#6026).
+ *
+ * The proof this block owes is card 2's shape rather than card 1's, because this
+ * widening also lands LEDGER-FIRST: three of the four pages carry blocks that do
+ * not compile today, so showing them in the compiled tier is a claim this card
+ * may not make. What it asserts instead:
+ *
+ *   1. the pages are really in the walk, and the walk is EXACTLY the tracked
+ *      population under `packages/` — measured against `git ls-files` rather than
+ *      a hand-written list, which is the only version of this assertion that
+ *      notices a fifth page landing tomorrow;
+ *   2. every one of them that holds a `ts` / `tsx` block is on the ledger, and
+ *      every one that holds none is COVERED and ledgered nowhere — the second
+ *      half is not decoration, it is why this card writes THREE rows for FOUR
+ *      pages, and it is the mechanical refutation of "keep the ledger short by
+ *      leaving the page outside the surface";
+ *   3. the leg cannot double-collect a package's own top-level `README.md`, which
+ *      objectui#6026 got structurally by rooting the walk one directory down;
+ *   4. ⚠️ the walk does not follow pnpm's workspace symlinks out of the authored
+ *      tree. This is the one hazard no other leg in this file has: every other
+ *      recursive walk here crosses an authored tree with nothing generated inside
+ *      it, while `packages/` has a `node_modules/` per package whose entries are
+ *      SYMLINKS to sibling workspace packages — and `statSync` follows symlinks,
+ *      so `packages/a/node_modules/@object-ui/b` leads back into `packages/b` and
+ *      onward forever. Measured on `9ba7e9c3` with the workspace installed: an
+ *      unguarded walk does not merely overshoot, it does not terminate; capped at
+ *      depth 12 it had already reached 17,354 files named `README.md` against the
+ *      43 the repository tracks. The fixture below reproduces that cycle in
+ *      miniature, so the guard is asserted rather than trusted.
+ *
+ * ⛔ What is deliberately NOT asserted: a `main()` refusal when `packages/` is
+ * missing, of the kind `ROOT_DOCS` and the two subtree legs carry. This leg walks
+ * the SAME directory the top-level package-README leg has always walked, and that
+ * leg has never had one — introducing a new precondition on the shared directory
+ * is a different change from widening the depth this one reads. The vacuity floor
+ * that does apply is this file's own "scans a plausible number of documents".
+ */
+describe('objectui#7308 — the nested package READMEs are in the scan set, ledger-first', () => {
+  const trackedPackageReadmes = () =>
+    spawnSync('git', ['ls-files', '--', 'packages/'], { cwd: repoRoot, encoding: 'utf8' })
+      .stdout.split('\n')
+      .filter((f) => /(^|\/)README\.md$/.test(f))
+      .sort();
+
+  it('listDocuments reaches the nested pages, and the walk IS the tracked population', () => {
+    const documents = listDocuments(repoRoot);
+    const nested = nestedPackageReadmePages(repoRoot);
+    // Non-vacuous: the leg really finds pages, and they really are in the walk.
+    expect(nested.length).toBeGreaterThan(0);
+    for (const doc of nested) expect(documents).toContain(doc);
+    // Exactly the tracked population — no generated page gained, none lost.
+    const walked = documents.filter((d) => d.startsWith('packages/') && d.endsWith('/README.md')).sort();
+    const tracked = trackedPackageReadmes();
+    expect(tracked.length).toBeGreaterThan(0);
+    expect(walked).toEqual(tracked);
+    // Both depths are really represented, so the equality above is not green on
+    // a population that happens to be flat.
+    expect(tracked.some((f) => /^packages\/[^/]+\/README\.md$/.test(f))).toBe(true);
+    expect(tracked.some((f) => !/^packages\/[^/]+\/README\.md$/.test(f))).toBe(true);
+  });
+
+  it('collects BELOW a package root only, so the top-level leg cannot double-collect', () => {
+    for (const doc of nestedPackageReadmePages(repoRoot)) {
+      expect(doc, `${doc} sits at a package root`).not.toMatch(/^packages\/[^/]+\/README\.md$/);
+    }
+    const walked = listDocuments(repoRoot).filter((d) => d.startsWith('packages/'));
+    expect(new Set(walked).size).toBe(walked.length);
+  });
+
+  /**
+   * objectui#9412 paid the three rows down, so this pin's direction INVERTED:
+   * where it used to say "every block-bearing nested page is on the ledger", the
+   * state it now holds is that NONE of them is, and that every one of them is
+   * covered. Both readings are the same claim about the accounting — the
+   * widening is visible in it — and the half that was never about the debt is
+   * kept verbatim: a nested page with no ts/tsx block is covered at zero blocks
+   * and may not be ledgered.
+   *
+   * ⛔ The inversion is not a relaxation. A ledgered nested page would still be
+   * legal the day somebody writes a row with a reason (`analyze` re-derives every
+   * row), and the sibling case below is what keeps the row's SHAPE requirement
+   * live for that day.
+   */
+  it('the widening is VISIBLE to the accounting: every nested page is covered, none is ledgered', () => {
+    const state = analyze({}) as {
+      scans: Map<string, { blocks: unknown[] }>;
+      covered: string[];
+    };
+    const nested = nestedPackageReadmePages(repoRoot);
+    const withBlocks = nested.filter((doc) => (state.scans.get(doc)?.blocks.length ?? 0) > 0);
+    const withoutBlocks = nested.filter((doc) => (state.scans.get(doc)?.blocks.length ?? 0) === 0);
+    // Non-vacuous on BOTH halves — a nested page that really holds blocks, and a
+    // nested page that really holds none, are each present in the tree.
+    expect(withBlocks.length).toBeGreaterThan(0);
+    expect(withoutBlocks.length).toBeGreaterThan(0);
+    // The debt is paid: no nested README is ungated any more.
+    expect(Object.keys(UNGATED_DOCS as Record<string, string>).filter((doc) => nested.includes(doc))).toEqual([]);
+    // A page with no ts/tsx block is COVERED at zero blocks and may not be
+    // ledgered: the stale-entry check would refuse it, which is exactly why
+    // leaving it out of the surface to keep the ledger short is not available.
+    // The block-bearing ones are covered now too, and the gate compiles them.
+    for (const doc of nested) expect(state.covered).toContain(doc);
+  });
+
+  it('every ledger row a nested page might get still owes a measured count, the phases, and what would have to change', () => {
+    const shapeFailures = (reason: string) =>
+      [
+        [/\d+ `tsx?` blocks?/, 'names no block count'],
+        [/\d+ diagnostics/, 'names no diagnostic count'],
+        [/TS\d{4}/, 'names no diagnostic code'],
+        [/syntax-phase|semantic-phase/, 'does not say which phase was measured'],
+        [/What would have to change|would have to change/, 'does not say what would have to change'],
+      ].flatMap(([pattern, complaint]) => ((pattern as RegExp).test(reason) ? [] : [complaint as string]));
+
+    // Non-vacuity, in place of the population this used to loop over: the shape
+    // checker itself is exercised against a row that satisfies it and one that
+    // does not, so a nested row reappearing cannot land on a check that has
+    // quietly stopped checking anything.
+    expect(
+      shapeFailures(
+        '2 `ts` blocks, 4 diagnostics, ALL semantic-phase: TS2304 x4. What would have to change: the ' +
+          'excerpts declare the values they use.',
+      ),
+    ).toEqual([]);
+    expect(shapeFailures('this page does not compile')).toHaveLength(5);
+
+    // Today: the nested leg carries no ledger row at all (objectui#9412). The
+    // loop below is what applies the shape the day one returns.
+    const nested = new Set(nestedPackageReadmePages(repoRoot));
+    const entries = Object.entries(UNGATED_DOCS as Record<string, string>).filter(([doc]) => nested.has(doc));
+    expect(entries).toEqual([]);
+    for (const [doc, reason] of entries) {
+      expect(shapeFailures(reason), `${doc}: ${shapeFailures(reason).join('; ')}`).toEqual([]);
+    }
+  });
+
+  it('descends below a package root, and stops at the directories that hold no prose', () => {
+    const root = tempTree({
+      'packages/alpha/README.md': '# top level, the OTHER leg has this one\n',
+      'packages/alpha/src/zod/README.md': '# nested\n',
+      'packages/alpha/docs/verification/README.md': '# nested, deeper\n',
+      'packages/alpha/src/NOTES.md': '# not a README, in no leg\n',
+      'packages/alpha/dist/README.md': '# build output\n',
+      'packages/alpha/node_modules/dep/README.md': '# an installed dependency\n',
+      'packages/beta/README.md': '# another package root\n',
+    });
+    try {
+      expect(nestedPackageReadmePages(root)).toEqual([
+        'packages/alpha/docs/verification/README.md',
+        'packages/alpha/src/zod/README.md',
+      ]);
+      const documents = listDocuments(root);
+      // The top-level leg still has the package roots, exactly once each.
+      expect(documents.filter((d) => d === 'packages/alpha/README.md')).toEqual([
+        'packages/alpha/README.md',
+      ]);
+      expect(documents).toContain('packages/beta/README.md');
+      // Not a README, and therefore in no leg — this card widened the depth the
+      // README rows read, and nothing else.
+      expect(documents).not.toContain('packages/alpha/src/NOTES.md');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not follow a workspace symlink out of the authored tree — the walk terminates', () => {
+    const root = tempTree({
+      'packages/alpha/README.md': '# alpha\n',
+      'packages/alpha/src/zod/README.md': '# the one real nested page\n',
+      'packages/beta/README.md': '# beta\n',
+      'packages/beta/src/adapters/README.md': '# beta nested\n',
+    });
+    try {
+      // pnpm's shape, in miniature: each package's node_modules links to its
+      // sibling, so an unguarded walk loops alpha -> beta -> alpha forever.
+      fs.mkdirSync(path.join(root, 'packages/alpha/node_modules/@object-ui'), { recursive: true });
+      fs.mkdirSync(path.join(root, 'packages/beta/node_modules/@object-ui'), { recursive: true });
+      fs.symlinkSync(
+        path.join(root, 'packages/beta'),
+        path.join(root, 'packages/alpha/node_modules/@object-ui/beta'),
+        'dir',
+      );
+      fs.symlinkSync(
+        path.join(root, 'packages/alpha'),
+        path.join(root, 'packages/beta/node_modules/@object-ui/alpha'),
+        'dir',
+      );
+      // ⚠️ The guard is written at TWO levels — once on each package's own
+      // directory entries, once inside the recursive descent — and only the
+      // second one covers a `node_modules` that is not a package's own. Without
+      // this deeper cycle the fixture ablates green when the inner guard is
+      // removed, which would make this assertion a pin on half the guard.
+      fs.mkdirSync(path.join(root, 'packages/alpha/src/node_modules/@object-ui'), { recursive: true });
+      fs.symlinkSync(
+        path.join(root, 'packages/beta'),
+        path.join(root, 'packages/alpha/src/node_modules/@object-ui/beta'),
+        'dir',
+      );
+      // Terminates, and yields the authored pages only — each exactly once.
+      expect(nestedPackageReadmePages(root)).toEqual([
+        'packages/alpha/src/zod/README.md',
+        'packages/beta/src/adapters/README.md',
+      ]);
+      // The control that makes the assertion above a reading: with the guard
+      // removed the SAME tree is a cycle, so an unguarded walk cannot finish. It
+      // is shown here bounded by depth rather than run to exhaustion.
+      const unguarded = (dir: string, depth: number): number => {
+        if (depth > 8) return 1;
+        let hits = 0;
+        for (const entry of fs.readdirSync(dir).sort()) {
+          const full = path.join(dir, entry);
+          if (fs.statSync(full).isDirectory()) hits += unguarded(full, depth + 1);
+          else if (entry === 'README.md') hits += 1;
+        }
+        return hits;
+      };
+      expect(unguarded(path.join(root, 'packages'), 0)).toBeGreaterThan(
+        nestedPackageReadmePages(root).length,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('an absent packages/ tree yields nothing here rather than throwing', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'doc-snippet-gate-nopkg-'));
+    try {
+      expect(nestedPackageReadmePages(root)).toEqual([]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+    expect(NESTED_PACKAGE_READMES).toEqual({ dir: 'packages', name: 'README.md', recursive: true });
+  });
+
+  it('the header states the widened surface, so the specification cannot drift back', () => {
+    const source = fs.readFileSync(path.join(repoRoot, 'scripts/check-doc-snippet-types.mjs'), 'utf8');
+    // The SCAN SURFACE paragraph is where objectui#7308's defect lived: it said
+    // `every packages/<name>/README.md`, and the walk implemented that sentence.
+    expect(source).toMatch(/every `README\.md` under `packages\/` AT ANY DEPTH/);
+    expect(source).not.toMatch(/every `packages\/<name>\/README\.md`, every/);
+  });
+});
+
 describe('third-party resolution reaches exactly as far as the imported packages declare', () => {
   /** A workspace package with its own `node_modules`, the way pnpm links one. */
   function treeWithDependency(files: Record<string, string> = {}): string {
@@ -931,12 +1189,15 @@ describe('third-party resolution reaches exactly as far as the imported packages
     });
   }
 
+  type Derived = {
+    paths: Record<string, string[]>;
+    declaredBy: Record<string, string>;
+    declaredIn: Record<string, string>;
+    untyped: { specifier: string; field: string }[];
+  };
+
   const derive = (root: string, imported: string[] = ['pkg-a']) =>
-    deriveDeclaredDependencyPaths(root, imported, { 'pkg-a': 'packages/pkg-a' }) as unknown as {
-      paths: Record<string, string[]>;
-      declaredBy: Record<string, string>;
-      untyped: { specifier: string }[];
-    };
+    deriveDeclaredDependencyPaths(root, imported, { 'pkg-a': 'packages/pkg-a' }) as unknown as Derived;
 
   it('maps a specifier the imported package DECLARES — that is what a consumer resolves', () => {
     const { paths, declaredBy } = derive(treeWithDependency());
@@ -952,10 +1213,84 @@ describe('third-party resolution reaches exactly as far as the imported packages
     expect(Object.keys(paths)).not.toContain('undeclared-dep');
   });
 
-  it('does not map peerDependencies or devDependencies — it fails CLOSED', () => {
+  it('maps a REQUIRED peerDependency this workspace resolves, and records which field it came from (objectui#8919)', () => {
+    // The widening. A required peer is not an optional extra a reader may lack:
+    // the package declares it cannot function without it, so it reaches every
+    // reader who can use the package at all. The reason is stated in the gate's
+    // own header, and pinned below.
+    const { paths, declaredBy, declaredIn } = derive(treeWithDependency());
+    expect(Object.keys(paths)).toContain('peer-dep');
+    expect(paths['peer-dep'][0]).toMatch(/peer-dep[\\/]index\.d\.ts$/);
+    expect(declaredBy['peer-dep']).toBe('pkg-a');
+    expect(declaredIn['peer-dep']).toBe('peerDependencies');
+    // Told apart from the other half in the same reading, so a report can say
+    // how much of the map rests on "the reader must already have it".
+    expect(declaredIn['declared-dep']).toBe('dependencies');
+  });
+
+  it('does NOT map devDependencies — they reach no consumer at all', () => {
     const { paths } = derive(treeWithDependency());
-    expect(Object.keys(paths)).not.toContain('peer-dep');
     expect(Object.keys(paths)).not.toContain('dev-dep');
+  });
+
+  it('does NOT map an OPTIONAL peer — that is the case the fail-CLOSED reason describes', () => {
+    // Same tree, same shape, same node_modules layout: the ONLY difference
+    // between the two specifiers is `peerDependenciesMeta`. `req-peer` is the
+    // control that keeps the zero below a reading rather than an empty probe.
+    const root = tempTree({
+      'packages/pkg-a/package.json': JSON.stringify({
+        name: 'pkg-a',
+        peerDependencies: { 'opt-peer': '^1.0.0', 'req-peer': '^1.0.0' },
+        peerDependenciesMeta: { 'opt-peer': { optional: true } },
+      }),
+      'packages/pkg-a/node_modules/opt-peer/package.json': JSON.stringify({ name: 'opt-peer', types: 'index.d.ts' }),
+      'packages/pkg-a/node_modules/opt-peer/index.d.ts': 'export declare const opt: number;\n',
+      'packages/pkg-a/node_modules/req-peer/package.json': JSON.stringify({ name: 'req-peer', types: 'index.d.ts' }),
+      'packages/pkg-a/node_modules/req-peer/index.d.ts': 'export declare const req: number;\n',
+    });
+    const { paths } = derive(root);
+    expect(Object.keys(paths)).toContain('req-peer');
+    expect(Object.keys(paths)).not.toContain('opt-peer');
+  });
+
+  it('leaves a REQUIRED peer that ships no types unresolvable rather than approximating it', () => {
+    const root = tempTree({
+      'packages/pkg-a/package.json': JSON.stringify({
+        name: 'pkg-a',
+        peerDependencies: { 'untyped-peer': '^1.0.0' },
+      }),
+      'packages/pkg-a/node_modules/untyped-peer/package.json': JSON.stringify({
+        name: 'untyped-peer',
+        main: 'index.js',
+      }),
+      'packages/pkg-a/node_modules/untyped-peer/index.js': 'module.exports = {};\n',
+    });
+    const { paths, untyped } = derive(root);
+    expect(Object.keys(paths)).not.toContain('untyped-peer');
+    expect(untyped.map((u) => u.specifier)).toContain('untyped-peer');
+    expect(untyped.find((u) => u.specifier === 'untyped-peer')!.field).toBe('peerDependencies');
+  });
+
+  it('lets `dependencies` decide first — the peer half can only ADD a specifier, never re-own one', () => {
+    // `pkg-a` sorts first and declares `shared` as a peer, so ONE pass per owner
+    // would hand the specifier to the peer and resolve it from `pkg-a`'s
+    // directory. Two passes is what makes the widening strictly additive: every
+    // mapping a `dependencies` entry backs is decided before any peer is read.
+    const root = tempTree({
+      'packages/pkg-a/package.json': JSON.stringify({ name: 'pkg-a', peerDependencies: { shared: '^1.0.0' } }),
+      'packages/pkg-a/node_modules/shared/package.json': JSON.stringify({ name: 'shared', types: 'from-peer.d.ts' }),
+      'packages/pkg-a/node_modules/shared/from-peer.d.ts': 'export declare const which: number;\n',
+      'packages/pkg-b/package.json': JSON.stringify({ name: 'pkg-b', dependencies: { shared: '^1.0.0' } }),
+      'packages/pkg-b/node_modules/shared/package.json': JSON.stringify({ name: 'shared', types: 'from-dep.d.ts' }),
+      'packages/pkg-b/node_modules/shared/from-dep.d.ts': 'export declare const which: number;\n',
+    });
+    const { paths, declaredBy, declaredIn } = deriveDeclaredDependencyPaths(root, ['pkg-a', 'pkg-b'], {
+      'pkg-a': 'packages/pkg-a',
+      'pkg-b': 'packages/pkg-b',
+    }) as unknown as Derived;
+    expect(declaredBy['shared']).toBe('pkg-b');
+    expect(declaredIn['shared']).toBe('dependencies');
+    expect(paths['shared'][0]).toMatch(/from-dep\.d\.ts$/);
   });
 
   it('maps nothing for a package no covered document imports', () => {
@@ -997,6 +1332,22 @@ describe('third-party resolution reaches exactly as far as the imported packages
   });
 
   describe('in this repository', () => {
+    it('maps `react`, which every documented React package REQUIRES of its consumer (objectui#8919)', () => {
+      // The measured half of the widening, in the tree it was written for. It is
+      // NOT a restatement of the unit fixture above: this asserts that on THIS
+      // corpus `react` arrives through the peer field and through nothing else,
+      // which is the fact the 34 refused blocks turned on. `dependencies` must
+      // not be what backs it — a package pinning its own React is the defect
+      // objectui#8303 removed, and the map silently rested on it.
+      const state = analyze({}) as unknown as {
+        dependencyPaths: Record<string, string[]>;
+        dependencyDeclaredIn: Record<string, string>;
+      };
+      expect(Object.keys(state.dependencyPaths)).toContain('react');
+      expect(state.dependencyDeclaredIn['react']).toBe('peerDependencies');
+      expect(state.dependencyPaths['react'][0]).toMatch(/\.d\.ts$/);
+    });
+
     it("maps lucide-react, which the documented packages declare (objectui#6120)", () => {
       const state = analyze({}) as unknown as {
         dependencyPaths: Record<string, string[]>;
@@ -1025,18 +1376,36 @@ describe('third-party resolution reaches exactly as far as the imported packages
       ).toBeTruthy();
     });
 
-    it('the UNDECLARED control specifier is declared by no workspace package at all', () => {
+    it('neither control specifier is declared by any workspace package, in EITHER field the map reads', () => {
+      // Widened with the map (objectui#8919). A control that stays green only
+      // because the suite asks about one of two fields is a control that can be
+      // satisfied by the other one, silently — and both of these controls exist
+      // to notice exactly that class of drift.
       const packagesDir = path.join(repoRoot, 'packages');
-      const declaring = fs
-        .readdirSync(packagesDir)
-        .filter((d) => fs.existsSync(path.join(packagesDir, d, 'package.json')))
-        .filter((d) => {
-          const manifest = JSON.parse(
-            fs.readFileSync(path.join(packagesDir, d, 'package.json'), 'utf8'),
-          ) as { dependencies?: Record<string, string> };
-          return Boolean(manifest.dependencies?.[UNDECLARED_CONTROL_PACKAGE]);
-        });
-      expect(declaring, 'pick a control specifier no package declares').toEqual([]);
+      const declarers = (specifier: string) =>
+        fs
+          .readdirSync(packagesDir)
+          .filter((d) => fs.existsSync(path.join(packagesDir, d, 'package.json')))
+          .filter((d) => {
+            const manifest = JSON.parse(
+              fs.readFileSync(path.join(packagesDir, d, 'package.json'), 'utf8'),
+            ) as {
+              dependencies?: Record<string, string>;
+              peerDependencies?: Record<string, string>;
+            };
+            return Boolean(manifest.dependencies?.[specifier] || manifest.peerDependencies?.[specifier]);
+          });
+      expect(declarers(UNDECLARED_CONTROL_PACKAGE), 'pick a control specifier no package declares').toEqual(
+        [],
+      );
+      expect(
+        declarers(ROOT_DECLARED_CONTROL_PACKAGE),
+        'pick a control specifier the map cannot cover',
+      ).toEqual([]);
+      // The probe itself is known to find a positive of this shape: `react` IS
+      // declared, in the second field, by the packages the docs import. Without
+      // this leg the two zeros above could be a reader that looks at nothing.
+      expect(declarers('react').length).toBeGreaterThan(0);
     });
   });
 });
@@ -1275,10 +1644,13 @@ describe('the ROOT BOUND — what only this repository declares does not resolve
       const source = fs.readFileSync(path.join(repoRoot, SCRIPT), 'utf8');
 
       // 1. "DECLARES" is qualified, so the sentence stops reading as impossible
-      //    on a package that declares the specifier in `peerDependencies`.
+      //    on a package that declares the specifier in `peerDependencies`. Since
+      //    objectui#8919 the map READS that field for a required peer, so the
+      //    message names it as a route rather than as a field it cannot use, and
+      //    the "may be unmet" reason narrows to the peers it is still true of.
       expect(source).toContain('Import what an imported ');
-      expect(source).toContain('package declares in its `dependencies`.');
-      expect(source).toContain('a peer is a requirement ON the reader');
+      expect(source).toContain('package declares in its `dependencies`, or REQUIRES of its consumer in its ');
+      expect(source).toContain('an optional peer is a requirement ON the reader');
 
       // 2. The stand-in shape is named, with the property that earns it: the
       //    block still compiles, so the documented surface stays judged.
@@ -1296,10 +1668,32 @@ describe('the ROOT BOUND — what only this repository declares does not resolve
       const banner = source.indexOf('── Fence scanning');
       expect(banner).toBeGreaterThan(0);
       const header = source.slice(0, banner);
-      expect(header).toContain('**`dependencies` only**');
+      expect(header).toContain('**`dependencies`, plus the REQUIRED `peerDependencies` this workspace');
       expect(header).toContain('without surrendering the block: stand');
       expect(header).toContain("the peer's bindings in with `declare const`");
       expect(header).toContain('reads as IMPOSSIBLE on a');
+    });
+
+    /**
+     * objectui#8919 — the edge this widening replaced reserved the right to
+     * widen and named the price: "widening it later is a VISIBLE EDIT WITH A
+     * REASON, not a silent drift". A widening whose reason lives only in a PR
+     * body is a silent drift six months later, so the reason is required to be
+     * in the file, and this is what requires it.
+     */
+    it('the peer widening carries its reason in the source, not only in a PR body (objectui#8919)', () => {
+      const source = fs.readFileSync(path.join(repoRoot, SCRIPT), 'utf8');
+      const banner = source.indexOf('── Fence scanning');
+      const header = source.slice(0, banner);
+      // The class it admits, why that class is sound, and what it still refuses
+      // — a widening stated without the third part is a licence, not a class.
+      expect(header).toContain('THE CLASS IT NOW RESOLVES');
+      expect(header).toContain('WHY THAT IS SOUND');
+      expect(header).toContain('WHAT STAYS CLOSED');
+      expect(header).toContain('peerDependenciesMeta');
+      // And the run says it out loud, every time, so the size of the widening is
+      // readable off a green without opening a manifest.
+      expect(source).toContain('of them from a REQUIRED peerDependency this workspace resolves');
     });
   });
 });

@@ -17,16 +17,15 @@ import {
   AlertDialogTitle, 
   AlertDialogDescription,
   AlertDialogAction,
-  AlertDialogCancel
+  AlertDialogCancel,
+  buttonVariants
 } from '../../ui';
-import { renderChildren } from '../../lib/utils';
+import { renderChildren, renderTriggerSlot } from '../../lib/utils';
 
 ComponentRegistry.register('alert-dialog', 
   ({ schema, className, ...props }: { schema: AlertDialogSchema; className?: string; [key: string]: any }) => (
     <AlertDialog defaultOpen={schema.defaultOpen} {...props}>
-      <AlertDialogTrigger asChild>
-        {renderChildren(schema.trigger)}
-      </AlertDialogTrigger>
+      {renderTriggerSlot(AlertDialogTrigger, schema.trigger)}
       <AlertDialogContent className={className}>
         <AlertDialogHeader>
           {schema.title && <AlertDialogTitle>{schema.title}</AlertDialogTitle>}
@@ -35,7 +34,24 @@ ComponentRegistry.register('alert-dialog',
         {renderChildren(schema.content)}
         <AlertDialogFooter>
           {schema.cancelText && <AlertDialogCancel>{schema.cancelText}</AlertDialogCancel>}
-          {schema.actionText && <AlertDialogAction onClick={schema.onAction}>{schema.actionText}</AlertDialogAction>}
+          {/*
+            * `actionVariant` (objectui#8978). `packages/components/src/ui/**` is a
+            * No-Touch zone (AGENTS.md #7) and `AlertDialogAction` bakes in
+            * `cn(buttonVariants(), className)` with no variant prop, so the variant
+            * is expressed as a className OVERRIDE that `cn()`'s tailwind-merge
+            * resolves over the baked-in default - the same shape
+            * `notifications/NotificationAlerts.tsx` already uses for this button.
+            * `undefined` when the key is absent, so an existing document's confirm
+            * button keeps the exact class it has today.
+            */}
+          {schema.actionText && (
+            <AlertDialogAction
+              className={schema.actionVariant ? buttonVariants({ variant: schema.actionVariant }) : undefined}
+              onClick={schema.onAction}
+            >
+              {schema.actionText}
+            </AlertDialogAction>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -48,6 +64,11 @@ ComponentRegistry.register('alert-dialog',
       { name: 'description', type: 'string' },
       { name: 'cancelText', type: 'string' },
       { name: 'actionText', type: 'string' },
+      {
+        name: 'actionVariant',
+        type: 'enum',
+        enum: ['default', 'destructive']
+      },
        { name: 'defaultOpen', type: 'boolean' },
       { 
         name: 'trigger', 

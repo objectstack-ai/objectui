@@ -19,11 +19,12 @@ gap with a three-clause contract, pinned in
 2. authored `className` passes through **verbatim**;
 3. **zero** injected classes.
 
-Deliberately unlike `div`, `box` reads `children` only — never `schema.body`.
-The `div` renderer's `children || body` fallback is what made a mechanical
-`div`→X swap silently drop content on `body`-authoring nodes while the element
-count stayed unchanged; content moves into `children` at migration time (the
-objectui#6771 B-ruling direction).
+Deliberately unlike `div` AT THE TIME, `box` reads `children` only — never
+`schema.body`. The `div` renderer's `children || body` fallback is what made a
+mechanical `div`→X swap silently drop content on `body`-authoring nodes while the
+element count stayed unchanged. ⚠️ objectui#6771 has since executed that B-ruling and
+retired `body` across the protocol, so `div` reads `children` only too and `box` is no
+longer the exception this paragraph mints it as.
 
 Landed on both contract faces per the zod-mirror-parity pairing (objectui#6424
 family form): `BoxSchema` interface in `@object-ui/types`, its zod mirror in

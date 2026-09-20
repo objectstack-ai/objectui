@@ -303,13 +303,15 @@ jobs:
       # the other 9 a measurement instead of an assumption, and what stops the
       # first violation being typed.
       #
-      # Ported from objectstack `scripts/check-bash32-floor.mjs` at `6136293`
-      # and deliberately NOT registered in `scripts/upstream-port-pin.json` —
-      # that ledger carries ONE global `upstream.ref` (`bf10deb` today) which
-      # `--resync` rewrites for every entry, so registering this file would mean
-      # either shipping `bf10deb`'s older, weaker construct table or re-syncing
-      # three unrelated ported files. The gate's own header carries the full
-      # argument and names the follow-up.
+      # Ported from objectstack `scripts/check-bash32-floor.mjs` and REGISTERED
+      # in `scripts/upstream-port-pin.json` (objectui#8694), so drift from
+      # upstream reds here instead of arriving as a confident green report.
+      # ⛔ The ref this copy was taken at is deliberately not named in this
+      # comment: it lives on that file's ledger entry, beside the digest it was
+      # taken with, where `--resync` keeps it correct. There is no ledger-wide
+      # ref to quote instead — objectui#8288 retired that field, and
+      # `check-upstream-port-parity` now refuses a pin still carrying one. The
+      # gate's own header carries the full argument.
       #
       # Runs before install, next to the three gates above and for the same
       # reason: node builtins, `scripts/invoked-as.mjs` and `git ls-files` only,
@@ -380,6 +382,55 @@ jobs:
       - name: Run linter
         if: steps.relevant.outputs.should_run == 'true'
         run: pnpm lint
+
+      # ── vi.mock override VALUE shapes (objectui#8903) ─────────────────────
+      # The third property of the `vi.mock` population, and the only one of the
+      # three that needs a parser. `check-vi-mock-specifiers.mjs` judges whether
+      # a relative specifier resolves; `check-vi-mock-inherit.mjs` judges whether
+      # the factory obtains and spreads the real module. Neither judges what the
+      # override is WORTH: thirteen stubs returned `{ viewers, others }` where
+      # the real hook returns `PresenceUser[]`, and putting them back on disk
+      # made both of those gates print a BYTE-IDENTICAL verdict line and exit 0
+      # (objectui#8083, fixed by PR #8902).
+      #
+      # Its two siblings live in `vi-mock-specifiers.yml`, which runs before any
+      # install so that it sees every pull request shape. This one cannot: it
+      # imports `typescript` to read declared return types, and
+      # `check-pre-install-import-graph.mjs` fails any pre-install gate that
+      # reaches a package — measured, by injecting the import into the sibling
+      # and watching that gate go from exit 0 to exit 1. So it runs here, after
+      # `pnpm install`.
+      #
+      # The `should_run` switch above is not a blind spot for it: the ignore list
+      # is Markdown plus the `content`, `docs` and `.changeset` trees, and both
+      # halves of what this gate compares — the override and the declared export
+      # — live in TypeScript files. `check-vi-mock-override-shape.test.ts` fails
+      # if a pattern matching a TypeScript file is ever added to that list.
+      - name: Check every vi.mock override matches the declared export shape
+        if: steps.relevant.outputs.should_run == 'true'
+        run: node scripts/check-vi-mock-override-shape.mjs
+
+      # ── Test path roots (objectui#8953) ───────────────────────────────────
+      # A test that resolves a repository path from `process.cwd()` reads a
+      # different tree under a package's own `test` script than under the form
+      # CI runs, so the same assertion reaches two verdicts. AGENTS.md has
+      # taught that rule since PR objectui#8952 and nothing enforced it;
+      # objectui#7799 repaired 13 instances of it in a single day.
+      #
+      # This step is a SECOND signal, not the gate. The gate is
+      # `scripts/__tests__/check-test-path-roots.test.ts`, which runs inside
+      # `Test (shard N/4)` — a required context that subscribes `merge_group`,
+      # so it blocks a queue build. This step reaches the same verdict sooner
+      # and with a message aimed at the author.
+      #
+      # After `pnpm install`, unlike the entry-guard step above: the scan parses
+      # every test file with the TypeScript compiler, because the defect is a
+      # RESOLVED ROOT and not a spelling — one of objectui#7799's own 13 was
+      # invisible to that card's census regex.
+      - name: Verify no test resolves a repository path from the process cwd
+        if: steps.relevant.outputs.should_run == 'true'
+        run: node scripts/check-test-path-roots.mjs
+
 
       # ── The cross-repo closer's outcome contract (#5261) ──────────────────
       # `cross-repo-issue-closer.yml` carries ~250 lines of inline

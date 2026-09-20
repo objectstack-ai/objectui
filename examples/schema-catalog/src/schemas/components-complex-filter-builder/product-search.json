@@ -36,19 +36,19 @@
       {
         "id": "1",
         "field": "category",
-        "operator": "eq",
+        "operator": "equals",
         "value": "Electronics"
       },
       {
         "id": "2",
         "field": "price",
-        "operator": "lt",
+        "operator": "less_than",
         "value": "1000"
       },
       {
         "id": "3",
         "field": "stock",
-        "operator": "gt",
+        "operator": "greater_than",
         "value": "0"
       }
     ]

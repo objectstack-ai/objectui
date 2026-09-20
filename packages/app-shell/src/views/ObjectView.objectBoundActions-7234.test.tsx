@@ -45,10 +45,24 @@
  * only the held set differs.
  *
  * ⚠️ This file therefore pins CURRENT, DELIBERATE behaviour. It is not a fix
- * for #7234 and does not claim one. Whether a declared-but-ungranted action
- * should stay silently invisible — or be surfaced some other way, since today
- * nothing anywhere tells an author why their button is missing — is the open
- * question left on the card.
+ * for #7234 and does not claim one.
+ *
+ * ## Ruled 2026-09-08, and case J is this file's half of the ruling
+ *
+ * Whether a declared-but-ungranted action should stay silently invisible was
+ * the open question this file was written under. The maintainer ruled option
+ * B: the hide STAYS for end users, and the reason becomes visible in an
+ * author/admin channel that already exists — the action designer, pinned by
+ * `capabilityGateChannel-7234.test.tsx`. Option C (drawing the action greyed
+ * out with the missing capability named) was considered and REJECTED, because
+ * it advertises to end users capabilities they do not have.
+ *
+ * ⇒ "No end-user change" is an acceptance criterion of that ruling, not a
+ * side effect of it, so it gets a pin rather than a promise. Case J asserts the
+ * end-user list surface still explains NOTHING in the gated state: an
+ * implementer who lands the author-facing reason on a running app's list
+ * surface turns it red. F establishes the button is gone; J establishes that
+ * nothing took its place.
  *
  * ## Reverse verification — direction predicted before running
  *
@@ -340,5 +354,31 @@ describe('objectui#7234 — object-declared actions reach the list toolbar', () 
     heldCapabilities = undefined;
     renderList(objectsWithActions([APPLY_TO_PEOPLE_GATED]));
     await waitFor(() => expect(toolbarButton()).toBeTruthy());
+  });
+
+  // ── Ruling part (a): the end user is told nothing, and stays told nothing ──
+
+  it('J: the hidden state explains NOTHING on the end-user surface', async () => {
+    // Case F's exact setup — the gate closed on a capability this viewer lacks.
+    heldCapabilities = ['duly.task.update_status'];
+    const { container } = renderList(objectsWithActions([APPLY_TO_PEOPLE_GATED]));
+    await settle();
+
+    expect(toolbarButton()).toBeNull();
+
+    // Paired positive: the list surface itself DID render. Without it an empty
+    // tree would satisfy every negative below for the wrong reason — the same
+    // asymmetry this file's ablation note states for cases B / C / F / H.
+    expect(screen.getByText('Catalog item')).toBeTruthy();
+
+    // Nothing names the capability, and no notice stands in for the button.
+    // Asserted over the whole rendered tree rather than one node, because the
+    // route this must refuse is "surface it somewhere in the running app",
+    // which does not commit to a location in advance.
+    const rendered = container.textContent ?? '';
+    expect(rendered).not.toContain('duly.catalog.apply');
+    expect(rendered).not.toMatch(/capabilit/i);
+    expect(rendered).not.toMatch(/requiredPermissions/i);
+    expect(rendered).not.toMatch(/permission/i);
   });
 });

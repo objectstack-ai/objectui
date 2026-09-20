@@ -65,12 +65,38 @@
  *   3. `line NNN of/in/at NAME` -- the address written before the name.
  *   4. `NAME line NNN`     -- the address written after the name.
  *   5. THE CONTINUATION ADDRESS -- a bare `:NNN` or `#LNNN` carrying NO
- *      filename, inheriting the file from an address earlier in the same
- *      window. `packages/types/src/crud.ts` writes
+ *      filename, inheriting the file from whatever put one in scope nearby.
+ *      `packages/types/src/crud.ts` writes
  *      `` `ActionRunner.ts:1788` and `:1794` ``; a `basename:[0-9]+` probe
  *      cannot match the second one. The card caught it only because a human
  *      read the site the probe did hit. It is the syntax most likely to be
  *      missed and the reason a count from a one-syntax probe is not a census.
+ *
+ *      ⚠️ SCOPE OPENS TWO WAYS, and until objectui#9026 only the first was
+ *      read: a full `NAME:NNN`, and -- the one that was missing -- a bare
+ *      FILENAME with no address of its own, as in "`` `…/ObjectKanban.tsx` ``
+ *      reads `schema.groupBy` at" followed by `` `:601`, `:625`, `:640` ``.
+ *      That second form is what `ObjectKanbanSchema.groupBy` used for six
+ *      addresses that had ALL rotted, and this file scored the docblock zero.
+ *      ⇒ It was not report-only about that class, it was SILENT on it, which
+ *      is worse: a reader who knows the number is report-only still reads a
+ *      clean sheet as nothing new to look at.
+ *
+ *      ⛔ WHAT THIS SYNTAX STILL DOES NOT COVER, stated so it cannot be cited
+ *      as coverage it does not have. TWO rules end scope and they do ⛔ NOT
+ *      cover the same ground -- reading them as one mechanism is the defect
+ *      objectui#9216 found here. DISTANCE (`CONT_WINDOW`) applies everywhere.
+ *      The blank-line break in `carryScope` applies ONLY where a separator line
+ *      really is empty, so it holds in Markdown prose and is INERT inside a
+ *      block comment: a JSDoc separator trims to `*`, ⛔ never to the empty
+ *      string.
+ *
+ *      ⇒ an address restated further down with no filename near it is NOT
+ *      read, and inside a block comment DISTANCE ALONE is the reason. The
+ *      docblock above is read five of six on distance; the fixture that pins it
+ *      contains no line that trims to empty, so ⛔ the paragraph break must not
+ *      be credited for that sixth. Both facts -- the inertness and its firing
+ *      control, and the blind sixth -- are pinned by name in this file's test.
  *
  * The extension list (`SOURCE_EXT`) is what makes `NAME.ext:NNN` a SOURCE
  * ADDRESS rather than a coincidence, and it is copied in spirit from
@@ -92,9 +118,49 @@
  * the two controls below -- so counting them would be the instrument reading
  * itself.
  *
- * Both carve-outs are COUNTED AND PRINTED, never silently dropped. A carve-out
- * whose size is not reported is indistinguishable from a scanner that cannot
- * see the file at all, and this card's whole subject is a zero nobody audited.
+ * AN ADDRESS THE CITING FILE DECLARES AS FIXTURE DATA (objectui#9865). The
+ * carve-out above is right about WHY and wrong about HOW FAR: "carries
+ * addresses as fixture data" is a property of many instruments in this tree,
+ * and `SELF_FILES` names four files. objectui#9865 read every false citation
+ * under `scripts/`, `scripts/__tests__/`, `scripts/pm/` and `eslint-rules/` and
+ * found that a substantial minority are not pointers at all -- they are
+ * addresses standing in as DATA: a RuleTester `code:` string, a self-test
+ * fixture, a control body a differ must judge, a path in a synthetic fixture
+ * tree, a quoted build-log transcript. Repairing them is at best churn and at
+ * worst breaks the assertion that reads them.
+ *
+ * ⛔ THE SHARE IS NOT WRITTEN DOWN HERE, per AGENTS.md #9 and for the reason
+ * `CONT_WINDOW` gives below: a figure in a comment is derived once and never
+ * re-checked. Re-derive it -- `--json --list-false`, group `rows` by `bucket`,
+ * and read each citing site -- and ⛔ do not reason from any number this
+ * docblock hands you.
+ *
+ * ⛔ The answer is ⛔ NOT more names in `SELF_FILES`: a by-name list over a
+ * property that holds of many files is the same drift one level up, and it
+ * carves out WHOLE FILES when what is fixture data is ONE ADDRESS inside them.
+ * So the class is DECLARED, per address, by the citing file itself, in the
+ * window around the address -- `fixture-address: <reason>`. The declaration
+ * travels with the fixture, a reader meets it beside the thing it describes,
+ * and nothing has to remember to extend a list.
+ *
+ * ⚠️ ITS DIRECTION OF ERROR, stated rather than hidden. A declaration can
+ * silence a genuinely rotted pointer, and this census cannot tell that from the
+ * outside -- which is exactly why every declared address is PRINTED with the
+ * reason it gives and the line that gives it. An unaudited mute button and an
+ * audited one differ only in whether the output names what it dropped. And a
+ * declaration with no reason is a mute button, so a bare marker does ⛔ not fire.
+ *
+ * ⛔ The reach is TEXT, ⛔ not syntax: this file reads no AST anywhere, so a
+ * marker inside a string literal declares just as one inside a comment does.
+ * ⚠️ And the window covers a NEIGHBOURING address within `DECLARATION_WINDOW`
+ * lines, which is what a block of fixture rows needs and is also how one
+ * declaration can reach an address its author did not mean. Both are visible
+ * in the printed list; neither is inferred.
+ *
+ * Every carve-out here is COUNTED AND PRINTED, never silently dropped. A
+ * carve-out whose size is not reported is indistinguishable from a scanner that
+ * cannot see the file at all, and this card's whole subject is a zero nobody
+ * audited.
  *
  * ⚠️ PENDING CHANGESETS ARE NOT CARVED OUT, and that is a judgement this census
  * declines to make FOR the reader rather than one it has taken. `.changeset/*.md`
@@ -230,10 +296,23 @@ const SCANNED_EXT = new Set([
 /** Generated or vendored text nothing authors by hand. */
 const SKIP_FILES = new Set(['pnpm-lock.yaml', 'skills-lock.json']);
 
-/** The instrument may not count itself: both files carry addresses as fixtures. */
-const SELF_FILES = new Set([
+/**
+ * The instrument may not count itself: every file here carries addresses as
+ * FIXTURE DATA -- controls, worked examples, the shapes a syntax must and must
+ * not match. Counting them would be the instrument reading itself.
+ *
+ * ⚠️ It is one list for BOTH readers. The differential gate
+ * (`check-new-cross-file-line-citations.mjs`, objectui#8875 clause 2) imports
+ * this set rather than keeping a second copy: two carve-out lists over one
+ * population drift, and the direction they drift in is silent -- a file carved
+ * out of one reader and counted by the other makes the two answers disagree
+ * with no error anywhere.
+ */
+export const SELF_FILES = new Set([
   'scripts/cross-file-line-citation-census.mjs',
   'scripts/__tests__/cross-file-line-citation-census.test.ts',
+  'scripts/check-new-cross-file-line-citations.mjs',
+  'scripts/__tests__/check-new-cross-file-line-citations.test.ts',
 ]);
 
 /**
@@ -269,6 +348,184 @@ const RE_LINE_AFTER = new RegExp(String.raw`(${NAME})\`?[\s,(]+(?:at\s+)?\blines
  */
 const RE_CONT_COLON = /(?<![A-Za-z0-9_$./#-]):(\d+)\b/g;
 const RE_CONT_PERMALINK = /(?<![A-Za-z0-9_$./-])#L(\d+)\b/g;
+/**
+ * A source filename written with NO address of its own -- the OTHER way syntax
+ * 5's scope opens, and the one this file could not read until objectui#9026.
+ *
+ * ⚠️ Measured, not assumed. `ObjectKanbanSchema.groupBy` carried six bare
+ * addresses into `plugin-kanban`'s renderer under the line
+ * "`…/ObjectKanban.tsx` reads `schema.groupBy` at", and scope was opened ONLY
+ * by a full `NAME:NNN`, so a filename with no number of its own put nothing in
+ * scope and all six read as a colon and a number. Every one of them had rotted
+ * and this file scored the docblock EMPTY -- not report-only about the class,
+ * SILENT on it, which is the failure the census exists to make impossible.
+ *
+ * ⛔ The ±2 window is NOT what caused that, and widening it is ⛔ not the fix:
+ * with the window at 999999 and this trigger absent, that docblock still reads
+ * 0 of 6. The defect was what OPENS scope, so that is the only thing that moved.
+ */
+const RE_NAME_ONLY = new RegExp(String.raw`(${NAME})`, 'g');
+
+/**
+ * How far a bare `:NNN` may sit below the thing that put its file in scope.
+ *
+ * DELIBERATE, and left at its shipped value on purpose: a bare `:NNN` on its
+ * own really is a colon and a number, and this is the guard that keeps it from
+ * becoming a citation. Widening it buys real citations and pays in false ones;
+ * that trade is a judgement about a false-positive guard, ⛔ not something
+ * objectui#9026 was asked to make, so the number stayed. objectui#9083 owns the
+ * width and ⛔ nothing here decides it.
+ *
+ * ⛔ THE PRICE OF WIDENING IS NOT WRITTEN DOWN HERE, per AGENTS.md #9. This
+ * docblock shipped carrying a one-time count of what a width of 5 would admit,
+ * and objectui#9216 re-derived it: it had already moved, in size AND in
+ * composition, while reading exactly as live. ⇒ re-derive it instead --
+ * `pnpm census:cross-file-line-citations --json` with this constant at 2 and
+ * again at 5, and diff the `rows` -- and ⛔ do not reason from any figure a
+ * comment hands you.
+ *
+ * ⚠️ Its consequence is stated rather than hidden: an address more than this
+ * many lines below the last thing that named a file is NOT read. In the
+ * docblock above, five of the six are read and the sixth -- restated eight
+ * lines lower, with no filename of its own anywhere near it -- is not.
+ *
+ * ⛔ DISTANCE IS THE WHOLE REASON FOR THAT SIXTH, and this docblock used to
+ * credit `carryScope`'s paragraph break for it (objectui#9216). It cannot be:
+ * the pinned fixture is a JSDoc body and contains ZERO lines that trim to
+ * empty, so that guard never fires on it -- and it fires in no block comment at
+ * all, for the same reason. `scripts/__tests__/cross-file-line-citation-census.test.ts`
+ * pins the residual blindness AND its true cause by name, each beside a firing
+ * control, so neither can be mistaken for coverage again.
+ */
+export const CONT_WINDOW = 2;
+
+/**
+ * The DECLARATION that an address is fixture data, and the reason it must carry
+ * (objectui#9865). Spelled `fixture-address: <reason>` -- the marker names what
+ * the thing IS, the reason says why, and the census prints both.
+ *
+ * ⛔ THE REASON IS NOT DECORATION. A bare marker is a mute button: it removes a
+ * row from the count and tells a reader nothing about whether the removal was
+ * right. Requiring a reason is the only thing separating this from the by-name
+ * carve-out the card ⛔ ruled out, because the reason is what an auditor reads.
+ * Hence the capture is REQUIRED and a marker without one does not fire -- a
+ * case pinned in `DECLARATION_CASES` below and in this file's test.
+ *
+ * The leading boundary keeps a longer token (`not-a-fixture-address:`) from
+ * declaring anything, and the reason stops at the end of the line: a JSDoc or a
+ * trailing STAR-SLASH is stripped (spelled in words here: writing that pair
+ * literally inside this block comment would end it), and a reason that wraps
+ * is read only as far as the marker's own line, which is the half a reader's
+ * eye lands on anyway. A reason longer than `REASON_MAX` is cut, and the cut is
+ * SHOWN -- a silent truncation reads as an author who stopped mid-sentence.
+ */
+const DECLARATION = /(?:^|[^A-Za-z0-9_-])fixture-address:[ \t]*(\S[^\n]{2,})/;
+
+/** How much of a reason is printed before it is cut, and the cut is SHOWN. */
+export const REASON_MAX = 120;
+
+/**
+ * How far from the address a declaration may sit.
+ *
+ * DELIBERATELY the same geometry as the anchor window in `anchorsFor`: one
+ * notion of "near this citation" in this file, so a reader who has understood
+ * one has understood the other. It is 2 for the same reason `CONT_WINDOW` is --
+ * a block of fixture rows wants one declaration above it, and anything wider
+ * starts reaching sentences the author was not talking about.
+ *
+ * ⚠️ Its consequence is the over-reach direction named in the header: a
+ * declaration DOES cover a neighbouring address within this many lines. That is
+ * required for a fixture TABLE and is visible in the printed list, ⛔ never
+ * inferred.
+ */
+export const DECLARATION_WINDOW = 2;
+
+/**
+ * The declaration covering the address on `lines[lineIndex]`, or `null`.
+ *
+ * ⛔ Text, not syntax. Nothing in this file reads an AST, so a marker inside a
+ * string literal declares exactly as one inside a comment does -- stated so it
+ * cannot be read as a comment-only mechanism it never was.
+ */
+export function declarationNear(lines, lineIndex, window = DECLARATION_WINDOW) {
+  const from = Math.max(0, lineIndex - window);
+  const to = Math.min(lines.length - 1, lineIndex + window);
+  for (let i = from; i <= to; i += 1) {
+    const m = DECLARATION.exec(lines[i]);
+    if (!m) continue;
+    const full = m[1].replace(/\*\/\s*$/, '').trim();
+    if (full.length < 3) continue;
+    // Truncation is SHOWN, ⛔ never silent: a reason cut mid-word with nothing
+    // saying so reads as an author who stopped mid-sentence, and the reason is
+    // the only thing an auditor of this carve-out has to go on.
+    const reason = full.length > REASON_MAX ? `${full.slice(0, REASON_MAX - 1)}…` : full;
+    return { reason, line: i + 1 };
+  }
+  return null;
+}
+
+/**
+ * The declaration reader's own control set, run on EVERY census, in the shape
+ * `CLASSIFIER_CASES` already established here: a zero in the declared column is
+ * a reading only if the reader is shown firing in the same run. Each case goes
+ * through the real `scanFile`, ⛔ never through a second copy of the predicate.
+ */
+export const DECLARATION_CASES = [
+  {
+    name: 'a marker WITH a reason, on the address\'s own line, declares it',
+    path: 'packages/example/src/notes.ts',
+    text: '// fixture-address: RuleTester input, the rule under test reads it\n'
+      + '// see packages/core/src/actions/ActionRunner.ts:112 for the vocabulary\n',
+    want: (r) => r.hits.length === 0 && r.declared.length === 1
+      && r.declared[0].declaredReason === 'RuleTester input, the rule under test reads it',
+  },
+  {
+    name: 'a marker a full window away still reaches the address',
+    path: 'packages/example/src/notes.ts',
+    text: '// fixture-address: the self-test feeds this string to the extractor\n'
+      + '//\n'
+      + '// see packages/core/src/actions/ActionRunner.ts:112 for the vocabulary\n',
+    want: (r) => r.hits.length === 0 && r.declared.length === 1,
+  },
+  {
+    name: '⛔ a marker BEYOND the window declares nothing -- the address is counted',
+    path: 'packages/example/src/notes.ts',
+    text: '// fixture-address: the self-test feeds this string to the extractor\n'
+      + '//\n//\n//\n'
+      + '// see packages/core/src/actions/ActionRunner.ts:112 for the vocabulary\n',
+    want: (r) => r.hits.length === 1 && r.declared.length === 0,
+  },
+  {
+    name: '⛔ a marker with NO reason is a mute button, not a declaration',
+    path: 'packages/example/src/notes.ts',
+    text: '// fixture-address:\n'
+      + '// see packages/core/src/actions/ActionRunner.ts:112 for the vocabulary\n',
+    want: (r) => r.hits.length === 1 && r.declared.length === 0,
+  },
+  {
+    name: '⛔ an undeclared address in the same shape is still counted',
+    path: 'packages/example/src/notes.ts',
+    text: '// see packages/core/src/actions/ActionRunner.ts:112 for the vocabulary\n',
+    want: (r) => r.hits.length === 1 && r.declared.length === 0,
+  },
+];
+
+export function evaluateDeclaration() {
+  return DECLARATION_CASES.map((c) => {
+    let ok = false;
+    let detail = '';
+    try {
+      const r = scanFile(c.path, c.text);
+      ok = c.want(r) === true;
+      detail = `${r.hits.length} counted, ${r.declared.length} declared`
+        + (r.declared.length > 0 ? ` (\`${r.declared[0].declaredReason}\`)` : '');
+    } catch (error) {
+      ok = false;
+      detail = `threw: ${error instanceof Error ? error.message : String(error)}`;
+    }
+    return { ...c, ok, detail };
+  });
+}
 
 /** A released changelog heading -- `## 1.2.3`, with or without a link wrapper. */
 const RELEASED_HEADING = /^##\s+\[?v?\d+\.\d+\.\d+/;
@@ -441,6 +698,32 @@ export function locateAnchors(citedLines, anchors) {
   return located;
 }
 
+/**
+ * The LINES of a file's text. `split('\n')` is not that, and the difference is
+ * exactly one line on nearly every tracked file: a file that ends in a newline
+ * splits into a trailing empty element that is the TERMINATOR of the last line,
+ * not a line of its own, so the array reads one longer than `wc -l` says the
+ * file is. Two things went wrong on that extra element -- the printed
+ * `file has N lines` was one too many, and a citation addressing the phantom
+ * index passed the range check and was then scored on the empty string, so a
+ * genuinely out-of-range address came back `non-substantive` instead.
+ *
+ * ⚠️ The repair is a single trailing-terminator pop and ⛔ never a blanket
+ * `length - 1`: a file that does NOT end in a newline has no such element, and
+ * its real last line is the one a blanket subtraction would delete. Whether
+ * this tree still holds such files is re-derived rather than asserted here --
+ * `git ls-files -z | xargs -0 -I{} sh -c '[ -s {} ] && [ -n "$(tail -c 1 {})" ] && echo {}'`
+ * prints them, and ⛔ nothing re-runs it, which is why no count is written down.
+ * Exactly one element is popped, which is also right for a file ending in a
+ * blank line: `"a\n\n"` has a genuinely empty last line plus the terminator,
+ * and only the terminator goes. (objectui#9890)
+ */
+export function fileLines(text) {
+  const lines = text.split('\n');
+  if (lines[lines.length - 1] === '') lines.pop();
+  return lines;
+}
+
 /** Decides one citation against the tree AS IT IS TODAY. Never asks what moved. */
 export function judge(hit, root, index, fileCache) {
   const resolution = resolveCited(hit.citedWritten, index);
@@ -451,7 +734,7 @@ export function judge(hit, root, index, fileCache) {
   let citedLines = fileCache.get(citedPath);
   if (citedLines === undefined) {
     try {
-      citedLines = readFileSync(join(root, citedPath), 'utf8').split('\n');
+      citedLines = fileLines(readFileSync(join(root, citedPath), 'utf8'));
     } catch {
       citedLines = null;
     }
@@ -505,13 +788,80 @@ export function scanFile(relPath, text) {
 
   const hits = [];
   const carvedOut = [];
+  const declared = [];
   /** The most recent full address, so a bare `:NNN` can inherit its file. */
   let lastAddress = null;
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
+    /** Every source filename written on this line, with the column it starts at. */
+    const namesOnLine = [];
+    if (line.includes('.')) {
+      RE_NAME_ONLY.lastIndex = 0;
+      let nm;
+      while ((nm = RE_NAME_ONLY.exec(line)) !== null) namesOnLine.push({ written: nm[1], start: nm.index });
+    }
+
+    /**
+     * The file a bare `:NNN` at `col` inherits: the nearest filename to its
+     * LEFT on this line, and only failing that whatever is still in scope from
+     * above. Reading leftwards is what the prose means and it is measurable --
+     * `(`ViewTabBar.tsx:564`, `:667`; `ManageViewsDialog.tsx:300`, `:361`)`
+     * gave `:667` to ManageViewsDialog while the sentence gives it to
+     * ViewTabBar, because scope was whatever the line's LAST match happened to
+     * leave behind. Nothing announced that; it scored `out-of-range` and the
+     * wrong file simply absorbed the blame.
+     */
+    const scopeFor = (col) => {
+      for (let k = namesOnLine.length - 1; k >= 0; k -= 1) {
+        if (namesOnLine[k].start < col) return namesOnLine[k].written;
+      }
+      return lastAddress && i - lastAddress.line <= CONT_WINDOW ? lastAddress.written : null;
+    };
+
+    /**
+     * Hands scope to the lines below. A line that TRIMS TO EMPTY ends it: a
+     * citation and its continuation belong to one piece of prose, and crossing
+     * a paragraph is how a filename in one sentence captures a port number in
+     * the next.
+     *
+     * ⛔ ITS REACH IS MARKDOWN PROSE, AND ⛔ NOT BLOCK COMMENTS. `'   *'`
+     * trims to `'*'`, ⛔ not to `''`, so this branch CANNOT FIRE inside a JSDoc
+     * or a `//` run -- and a JSDoc is where syntax 5's population actually
+     * lives. What such a comment lays out as two paragraphs is one unbroken
+     * prose unit to this scanner; only `CONT_WINDOW` ends scope there. ⛔ So do
+     * not cite this guard as covering a block comment, and ⛔ do not credit it
+     * for an address that distance alone put out of reach -- that
+     * misattribution is what objectui#9216 was filed for, and it had reached
+     * two docblocks in this file plus a reader reasoning about `CONT_WINDOW`.
+     *
+     * ⚠️ Whether it SHOULD reach a `*`-prefixed line is a live judgement
+     * (objectui#9216), ⛔ not a repair to make on the way past, even though
+     * `NON_SUBSTANTIVE` in this file already spells the delimiters-only
+     * predicate such a change would need. Price it by re-running the census
+     * with the predicate swapped; ⛔ no count is written down here, per
+     * AGENTS.md #9.
+     *
+     * The inertness, the Markdown case it does hold for, and a firing control
+     * for both are pinned in
+     * `scripts/__tests__/cross-file-line-citation-census.test.ts`.
+     *
+     * Otherwise the line's LAST filename is what carries, by column and
+     * ⛔ not by whatever matched last, for the reason `scopeFor` records.
+     */
+    const carryScope = () => {
+      if (line.trim() === '') { lastAddress = null; return; }
+      if (namesOnLine.length > 0) {
+        lastAddress = { written: namesOnLine[namesOnLine.length - 1].written, line: i };
+      }
+      if (lastAddress && i - lastAddress.line > CONT_WINDOW) lastAddress = null;
+    };
+
     if (!/[:#]/.test(line) && !/\bline\s+\d/i.test(line)) {
-      if (lastAddress && i - lastAddress.line > 2) lastAddress = null;
+      // No address syntax can match here, but a bare filename on this line
+      // still puts a file in scope for the ones below it -- which is exactly
+      // the line the `ObjectKanban.tsx` docblock opened with.
+      carryScope();
       continue;
     }
     /** Character spans already claimed on this line, so syntaxes cannot double-count. */
@@ -533,8 +883,14 @@ export function scanFile(relPath, text) {
         text: line.trim().slice(0, 200),
         inTestName: inTestTitle(line, start, end),
       };
+      // Order matters and is stated: the released-changelog carve-out is
+      // decided first, so a declaration inside dated history cannot move a row
+      // from one carve-out to the other and change two printed numbers at once.
+      const declaration = i >= releasedFrom ? null : declarationNear(lines, i);
       if (i >= releasedFrom) carvedOut.push({ ...entry, carveOut: 'released-changelog-section' });
-      else hits.push(entry);
+      else if (declaration) {
+        declared.push({ ...entry, declaredReason: declaration.reason, declaredOnLine: declaration.line });
+      } else hits.push(entry);
       lastAddress = { written, line: i };
     };
 
@@ -553,20 +909,19 @@ export function scanFile(relPath, text) {
       }
     }
 
-    // Syntax 5 last, and only where an address is already in scope: a bare
-    // `:NNN` on its own is a colon and a number, not a citation.
-    if (lastAddress && i - lastAddress.line <= 2) {
-      for (const re of [RE_CONT_COLON, RE_CONT_PERMALINK]) {
-        re.lastIndex = 0;
-        let m;
-        while ((m = re.exec(line)) !== null) {
-          record('continuation', lastAddress.written, m[1], m.index, m.index + m[0].length);
-        }
+    // Syntax 5 last, and only where a file is already in scope: a bare `:NNN`
+    // on its own is a colon and a number, not a citation.
+    for (const re of [RE_CONT_COLON, RE_CONT_PERMALINK]) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(line)) !== null) {
+        const written = scopeFor(m.index);
+        if (written) record('continuation', written, m[1], m.index, m.index + m[0].length);
       }
     }
-    if (lastAddress && i - lastAddress.line > 2) lastAddress = null;
+    carryScope();
   }
-  return { hits, carvedOut, lines };
+  return { hits, carvedOut, declared, lines };
 }
 
 /** Verdicts that mean "this citation does not describe the tree as it is now". */
@@ -584,39 +939,106 @@ export function bucketOf(relPath) {
 }
 
 /**
- * The two controls, addressed BY CONTENT -- the citing file and the file it
- * cites -- and never by their own line numbers. A control pinned by line
- * address would be an instance of the defect this census measures.
+ * The two controls, addressed BY CONTENT -- the citing file, the file it cites,
+ * and a SUBJECT phrase lifted out of the citing prose -- and never by their own
+ * line numbers. A control pinned by line address would be an instance of the
+ * defect this census measures.
+ *
+ * ## Why the subject exists, and why it is the control's identity (objectui#9081)
+ *
+ * A FILE PAIR IS NOT A CITATION. Two sentences in one file may address the same
+ * file, and until objectui#9081 a control was addressed by pair alone while
+ * `evaluateControls` folded EVERY row matching that pair into one answer. Both
+ * directions of that fold were wrong, quietly and in opposite ways:
+ *
+ *   - a NON-FIRING control was sunk by any second citation between the same two
+ *     files, whatever that citation said. That is what happened. Two epitaphs in
+ *     `packages/types/src/crud.ts` address `packages/plugin-detail/src/index.tsx`
+ *     with one number between them, the number rotted, and this census answered
+ *     `exit 1 -- NOT a reading` to every run on `main` for some 580 commits.
+ *     ⭐ The refusal was CORRECT -- the pinned address really had rotted -- but
+ *     no reading could be taken downstream either, which is the outage.
+ *   - a FIRING control could be satisfied by a row that is NOT its subject. A
+ *     rotted sibling citation would report the instrument as proven while the
+ *     case the control was written for had silently stopped firing. That is the
+ *     unearned green this family exists to prevent, and it has no symptom.
+ *
+ * ⇒ a control names ONE citation. A subject matching zero rows, or more than
+ * one, is a FAILURE rather than something to fold away. ⛔ Neither direction is
+ * tolerant of a false row: this is strictly narrower than the fold it replaced.
+ *
+ * How exposed the old shape was is a number this file deliberately does not
+ * carry: run `--json --list-all` and group `rows` by `file` + `citedPath` to
+ * re-derive the share of pairs that carry more than one citation.
+ *
+ * ⚠️ `want: 'resolves'`, ⛔ NOT `not-false`. `anchor-absent` and `no-anchor` are
+ * this census DECLINING to judge, so a non-firing control that accepted them
+ * would pass on a citation whose health it never established -- and one of the
+ * two retired `crud.ts` rows judged exactly that, with its address rotted, at
+ * the moment the other one failed. A non-firing control takes positive evidence
+ * only: the anchor must sit ON the cited line.
+ *
+ * ## ⛔ When a control's subject rots, RE-PIN it -- never renumber it
+ *
+ * objectui#8875 clause 4 repairs an existing address "by converting it to a
+ * content anchor, never by moving the number to a different number". A control
+ * needs a live line address to score at all, so a converted citation leaves no
+ * row behind and the control has to move to a different citation. ⛔ It may
+ * never move to the same citation wearing a fresher number -- that is the
+ * clause, and it is why the `crud.ts` pair below was retired rather than
+ * re-addressed. Its rot stays in the population, where this census reports it.
  */
 export const CONTROLS = [
   {
     id: 'firing',
     from: 'scripts/check-doc-component-types.mjs',
     to: 'packages/core/src/actions/ActionRunner.ts',
+    subject: 'action vocabulary declared at',
     want: 'false',
     why: 'the docblock closes at the cited line and `ActionDef` opens on the next one (objectui#8875)',
   },
   {
     id: 'non-firing',
-    from: 'packages/types/src/crud.ts',
-    to: 'packages/plugin-detail/src/index.tsx',
-    want: 'not-false',
-    why: "the cited line is the `ComponentRegistry.register('detail',` call the prose names",
+    from: 'packages/components/src/__tests__/layout-containers-declare-containment.test.tsx',
+    to: 'packages/components/src/renderers/layout/page.tsx',
+    subject: 'module-private, hence the four lines here',
+    want: 'resolves',
+    why: 'the cited line declares the `getJsxManifest` the citing docblock says it mirrors',
   },
 ];
 
+/** How one row reads in a control's detail line. */
+const controlRow = (r) => `${r.file}:${r.line} -> ${r.citedPath}:${r.citedLine} [${r.verdict}]`;
+
+/**
+ * Scores each control against the ONE citation its subject names. `want: 'false'`
+ * accepts any FALSE verdict; every other `want` is the exact verdict required,
+ * so a control asking for positive evidence cannot be satisfied by a verdict
+ * this census declined to reach.
+ */
 export function evaluateControls(rows) {
   return CONTROLS.map((c) => {
-    const matches = rows.filter((r) => r.file === c.from && r.citedPath === c.to);
+    const pair = rows.filter((r) => r.file === c.from && r.citedPath === c.to);
+    const matches = pair.filter((r) => r.text.includes(c.subject));
     if (matches.length === 0) {
-      return { ...c, ok: false, detail: 'NOT FOUND -- the census did not see this citation at all' };
+      // Said separately, because "the citation is gone" and "the citation is
+      // there but no longer says this" are different repairs.
+      const others = pair.length > 0
+        ? ` (${pair.length} citation(s) do run between these two files; none carries this subject)`
+        : '';
+      return { ...c, ok: false, detail: `NOT FOUND -- the census did not see this citation at all${others}` };
     }
-    const anyFalse = matches.some((r) => FALSE_VERDICTS.has(r.verdict));
-    const ok = c.want === 'false' ? anyFalse : !anyFalse;
-    const detail = matches
-      .map((r) => `${r.file}:${r.line} -> ${r.citedPath}:${r.citedLine} [${r.verdict}]`)
-      .join('; ');
-    return { ...c, ok, detail };
+    if (matches.length > 1) {
+      return {
+        ...c,
+        ok: false,
+        detail: `AMBIGUOUS -- ${matches.length} citations carry this subject, so it names no single one: `
+          + matches.map(controlRow).join('; '),
+      };
+    }
+    const [row] = matches;
+    const ok = c.want === 'false' ? FALSE_VERDICTS.has(row.verdict) : row.verdict === c.want;
+    return { ...c, ok, detail: controlRow(row) };
   });
 }
 
@@ -624,6 +1046,52 @@ function tally(rows, key) {
   const m = new Map();
   for (const r of rows) m.set(r[key], (m.get(r[key]) ?? 0) + 1);
   return [...m].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
+}
+
+/**
+ * Whether a run may certify itself, and -- the part worth exporting -- in WHICH
+ * ORDER its refusals are consulted.
+ *
+ * ⚠️ CERTIFICATION IS LAST, and that is a fact this file has already got wrong
+ * once (objectui#9081). The first cut of the `IS a reading` line printed it
+ * directly under the control check and ABOVE the empty-population guard, so a
+ * blind run announced `✓ ... this run IS a reading.`, then printed
+ * `✗ Empty population ...` and exited 1. A reader -- or a grep keying on that
+ * string -- took a certificate off a run that had refused. In the one script
+ * whose whole subject is that an instrument must not report a reading it did
+ * not take, that is the unearned green arriving through the door marked "say
+ * the good news out loud".
+ *
+ * ⇒ every refusal is consulted first, and a refusing verdict carries NO
+ * certification string at all rather than a suppressed one: there is nothing
+ * for a later edit to print by accident.
+ */
+export function finalVerdict({ controls, classifier, declaration = [], populationSize }) {
+  const all = [...controls, ...classifier, ...declaration];
+  const failed = all.filter((c) => !c.ok);
+  if (failed.length > 0) {
+    return {
+      exit: 1,
+      certification: null,
+      refusal: [`\n✗ ${failed.length} of ${all.length} control(s) failed -- this run is NOT a reading.`],
+    };
+  }
+  if (populationSize === 0) {
+    return {
+      exit: 1,
+      certification: null,
+      refusal: [
+        '\n✗ Empty population. A census that reads nothing because it is blind is',
+        '  indistinguishable from a clean tree, so this exits non-zero rather than',
+        '  printing a silent zero.',
+      ],
+    };
+  }
+  return {
+    exit: 0,
+    refusal: null,
+    certification: `✓ ${all.length} of ${all.length} control(s) passed -- this run IS a reading.`,
+  };
 }
 
 function main(argv) {
@@ -642,6 +1110,7 @@ function main(argv) {
 
   const hits = [];
   const carvedOut = [];
+  const declaredRows = [];
   let scanned = 0;
   let selfCarved = 0;
 
@@ -659,12 +1128,13 @@ function main(argv) {
     scanned += 1;
     const r = scanFile(rel, text);
     if (SELF_FILES.has(rel)) {
-      selfCarved += r.hits.length + r.carvedOut.length;
+      selfCarved += r.hits.length + r.carvedOut.length + r.declared.length;
       continue;
     }
     for (const h of r.hits) h.anchors = anchorsFor(r.lines, h.line - 1, h.citedWritten);
     hits.push(...r.hits);
     carvedOut.push(...r.carvedOut);
+    declaredRows.push(...r.declared);
   }
 
   const fileCache = new Map();
@@ -684,6 +1154,7 @@ function main(argv) {
   const resolving = population.filter((r) => r.verdict === 'resolves');
   const controls = evaluateControls(population);
   const classifier = evaluateClassifier();
+  const declaration = evaluateDeclaration();
   const inTestName = population.filter((r) => r.inTestName);
 
   if (asJson) {
@@ -698,12 +1169,26 @@ function main(argv) {
       sameFileExcluded: sameFile.length,
       carvedOutReleasedChangelog: carvedOut.length,
       carvedOutSelf: selfCarved,
+      carvedOutDeclaredFixture: declaredRows.length,
       inTestName: inTestName.length,
       bySyntax: Object.fromEntries(tally(population, 'syntax')),
       byDirectory: Object.fromEntries(tally(population, 'bucket')),
       byVerdict: Object.fromEntries(tally(population, 'verdict')),
       controls,
       classifierControls: classifier,
+      declarationControls: declaration,
+      // Always emitted in full, whatever `--list-all` says: an instrument that
+      // reports how many rows it dropped without reporting WHICH has published
+      // an unauditable number, and this class is a declaration a reader has to
+      // be able to disagree with.
+      declaredRows: declaredRows.map((r) => ({
+        file: r.file,
+        line: r.line,
+        cited: `${r.citedWritten}:${r.citedLine}`,
+        syntax: r.syntax,
+        declaredReason: r.declaredReason,
+        declaredOnLine: r.declaredOnLine,
+      })),
       rows: listAll ? population : falseRows,
     }, null, 2));
   } else {
@@ -719,6 +1204,10 @@ function main(argv) {
     for (const c of classifier) {
       console.log(`${c.ok ? 'PASS' : 'FAIL'}  test-name classifier (want ${c.want}): ${c.name}`);
     }
+    for (const c of declaration) {
+      console.log(`${c.ok ? 'PASS' : 'FAIL'}  declaration reader: ${c.name}`);
+      console.log(`      ${c.detail}`);
+    }
     console.log('');
 
     console.log('## The number\n');
@@ -729,7 +1218,10 @@ function main(argv) {
     console.log('');
     console.log(`Excluded, same-file citations (#8047's carve-out still holds) : ${sameFile.length}`);
     console.log(`Excluded, released CHANGELOG sections (dated records)         : ${carvedOut.length}`);
-    console.log(`Excluded, this census and its own test (fixture addresses)    : ${selfCarved}`);
+    console.log(`Excluded, the two citation readers and their tests (fixtures): ${selfCarved}`);
+    console.log(`Excluded, addresses the citing file DECLARES as fixture data : ${declaredRows.length}`);
+    console.log('  ^ per address, ⛔ never per file, and a reading only because the declaration');
+    console.log('    controls above fired. Every one is listed below with the reason it gives.');
     console.log(`Reaching a test name (objectui#8047's rule owns these)        : ${inTestName.length}`);
     console.log("  ^ this zero is a reading only because the classifier controls above fired.");
     console.log('');
@@ -766,6 +1258,17 @@ function main(argv) {
     }
     console.log('');
 
+    console.log(`## The ${declaredRows.length} address(es) DECLARED as fixture data, and the reason each gives\n`);
+    console.log('⛔ A declaration can silence a genuinely rotted pointer, and this census cannot');
+    console.log('   tell that from the outside. That is why the reason and the declaring line are');
+    console.log('   printed: an audited mute button and an unaudited one differ only in whether');
+    console.log('   the output names what it dropped.\n');
+    for (const r of declaredRows.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)) {
+      console.log(`  ${r.file}:${r.line}  declares  ${r.citedWritten}:${r.citedLine}  [${r.syntax}]`);
+      console.log(`      declared at :${r.declaredOnLine} -- ${r.declaredReason}`);
+    }
+    console.log('');
+
     if (listAll) {
       console.log('## Every citation in the population\n');
       for (const r of population.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)) {
@@ -775,18 +1278,17 @@ function main(argv) {
     }
   }
 
-  const failedControls = [...controls, ...classifier].filter((c) => !c.ok);
-  if (failedControls.length > 0) {
-    console.error(`\n✗ ${failedControls.length} control(s) failed -- this run is NOT a reading.`);
-    return 1;
+  const verdict = finalVerdict({ controls, classifier, declaration, populationSize: population.length });
+  if (verdict.refusal) {
+    for (const line of verdict.refusal) console.error(line);
+    return verdict.exit;
   }
-  if (population.length === 0) {
-    console.error('\n✗ Empty population. A census that reads nothing because it is blind is');
-    console.error('  indistinguishable from a clean tree, so this exits non-zero rather than');
-    console.error('  printing a silent zero.');
-    return 1;
-  }
-  return 0;
+  // Said out loud rather than left to be inferred from silence: a reader who
+  // cannot tell "every control held" from "the script died before printing" has
+  // no certification, only an exit code. ⛔ Printed HERE and nowhere earlier --
+  // see `finalVerdict` for why the position is the point.
+  if (!asJson) console.log(verdict.certification);
+  return verdict.exit;
 }
 
 if (isEntrypoint(import.meta.url)) {

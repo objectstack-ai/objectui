@@ -32,15 +32,20 @@ was dropped at three independent readers rather than rejected at one. This renam
 take away a feature — it converts a silent wrong answer into a loud type error at the one
 place that can still be fixed cheaply.
 
-**Scope — one published export still accepts `direction`, and this release does not retire
-it.** `toSortItems` (`packages/plugin-view/src/config/view-config-utils.ts`, re-exported
-from the package root and listed in the README) folds `s.order || s.direction || 'asc'`.
-It serves a different surface — the studio inspector-draft that feeds `SortBuilder` — and
-it is not reachable from the `views` prop, so it neither affects nor is affected by this
-rename. If you migrate by searching for the old key, that is the other hit you will find:
-it is dormant (nothing in this repo calls it outside a test), and removing it would be a
-separate break on a separate public export, tracked as objectui#6011. It is not a partial
-retirement of this one.
+**Scope — at this change one other published export still accepted `direction`, and this
+release did not retire it.** `toSortItems` (`packages/plugin-view/src/config/view-config-utils.ts`,
+re-exported from the package root and listed in the README) folded
+`s.order || s.direction || 'asc'`. It serves a different surface — the studio
+inspector-draft that feeds `SortBuilder` — and it is not reachable from the `views` prop,
+so it neither affected nor was affected by this rename: dormant (nothing in this repo
+called it outside a test), and removing it would be a separate break on a separate public
+export, tracked as objectui#6011. It was not a partial retirement of this one.
+
+⚠️ **That second export has since been retired too — objectui#6011.** `toSortItems` now
+reads `order`, and only `order`: a draft entry still spelled `{ field, direction }` takes
+the `'asc'` default instead of the direction it asked for. So the migration search
+described above no longer finds a live `direction` read on this package's published sort
+path.
 
 `order` is the spelling every other sort surface already uses (`SortConfig`,
 `NamedListView.sort`, `ObjectGridSchema.sort` / `.defaultSort`, and the shared

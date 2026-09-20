@@ -646,8 +646,12 @@ describe('DatasetReportRenderer', () => {
       dataset: 'task_metrics',
       object: 'task',
       groupKey: { status: 'In Progress' },
-      // raw stored value, mapped to the underlying object field, ANDed with scope
-      objectFilter: { owner: 'me', status: 'in_progress' },
+      // raw stored value, mapped to the underlying object field, ANDed with
+      // scope — a real `$and` since objectui#9137, where the report scope
+      // stopped being SPREAD into the drill filter and became a conjunction
+      // through `composeDrillFilter`. This renderer is the second consumer of
+      // that helper; its own `runtimeFilter` type is unchanged.
+      objectFilter: { $and: [{ owner: 'me' }, { status: 'in_progress' }] },
     }));
   });
 

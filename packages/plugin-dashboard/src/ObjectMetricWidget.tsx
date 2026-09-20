@@ -7,13 +7,12 @@
  */
 
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
-import { SchemaRendererContext, SchemaRenderer, useFilterScope } from '@object-ui/react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, Dialog, DialogContent, DialogHeader, DialogTitle } from '@object-ui/components';
-import { isDrillEnabled, resolveDrillTitle } from '@object-ui/core';
-import type { DrillDownConfig, I18nLabel } from '@object-ui/types';
+import { SchemaRendererContext, useFilterScope } from '@object-ui/react';
+import { isDrillEnabled, resolveDrillTitle, isStructuredGroupBy, objectAggregateSpecQuery } from '@object-ui/core';
+import type { DrillDownConfig, I18nLabel, ObjectChartSchema } from '@object-ui/types';
 import { useLocalization, resolveFieldCurrency, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import { MetricWidget } from './MetricWidget';
-import { OpenInListButton } from './OpenInListButton';
+import { DrillDownDrawer } from './DrillDownDrawer';
 import {
   resolveFilterPlaceholders,
   shiftFilterByCompareTo,
@@ -21,6 +20,15 @@ import {
   computeMetricDelta,
   type CompareToConfig,
 } from './utils';
+
+/**
+ * Page size the drilled record list falls back to when the author declared no
+ * `drillDown.maxRows`. It is the value the hand-rolled panel this block used to
+ * carry hard-coded, kept so that routing through the shared `DrillDownDrawer`
+ * (objectui#8970) changes nothing for a config that never named the member —
+ * the shared drawer's own fallback is `data-table`'s default of 10.
+ */
+const METRIC_DRILL_PAGE_SIZE = 25;
 
 /**
  * ObjectMetricWidget — Data-bound metric widget.
@@ -40,8 +48,32 @@ import {
 export interface ObjectMetricWidgetProps {
   /** The object/resource name to query */
   objectName: string;
-  /** Aggregation config (field, function, groupBy) */
-  aggregate?: { field: string; function: string; groupBy?: string };
+  /**
+   * Aggregation config (field, function, groupBy).
+   *
+   * `groupBy` is the contract's own union — BY REFERENCE through
+   * `ObjectChartSchema['aggregate']`, which holds `ChartAggregate` from
+   * `@objectstack/spec/ui` by reference in turn, never a local near-copy of it
+   * (`check:spec-symbols`). It is the same authored key both dashboard relays
+   * compose for the `object-metric` and the `object-chart` node out of one
+   * provider block, so a second spelling here could only be a way for the two
+   * to disagree.
+   *
+   * It used to say `string`, which was a claim about the AUTHOR that nothing
+   * upstream backed: the value crosses two `any` seams on its way in
+   * (`isObjectProvider` narrows the widget data to `aggregate?: any`, and
+   * `computeOne` takes the datasource untyped), so the declaration refused the
+   * structured `{ field, dateGranularity }` node at neither compile time nor
+   * runtime — it merely hid it from the reader, and from anyone asking whether
+   * `computeOne` handled it (objectui#8613). Optional here, unlike the chart's,
+   * because a metric paints ONE number and floors an absent `groupBy` at
+   * `'_all'`.
+   */
+  aggregate?: {
+    field: string;
+    function: string;
+    groupBy?: NonNullable<ObjectChartSchema['aggregate']>['groupBy'];
+  };
   /** Filter conditions */
   filter?: any;
   /**
@@ -244,12 +276,31 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // between the current-period and comparison-period queries.
   const computeOne = useCallback(async (ds: any, filterForRun: any): Promise<number | string | null> => {
     if (aggregate && typeof ds.aggregate === 'function') {
-      const results = await ds.aggregate(objectName, {
-        field: aggregate.field,
-        function: aggregate.function,
-        groupBy: aggregate.groupBy || '_all',
-        filter: filterForRun,
-      });
+      const groupBy = aggregate.groupBy;
+      // Two authored `groupBy` shapes, two wires — the SAME routing the chart
+      // family has had since objectui#7946, shared out of `@object-ui/core` so
+      // there is one answer rather than two (objectui#8613).
+      //
+      // A structured node (`{ field, dateGranularity }`) needs the spec-shape
+      // `{ groupBy: GroupByNode[], aggregations, where }` query, because that
+      // is the one the server's date-bucket engine runs. Forwarded on the
+      // legacy bag below it became `dimensions: [ <the node> ]` on the
+      // analytics wire, where the contract declares dimension NAMES and
+      // `dateGranularity` is not honoured at all: the author asked for monthly
+      // buckets and got a different question answered, silently.
+      //
+      // The readback below is unchanged and needs no branch of its own: the
+      // measure is projected under `chartMeasureKey`'s alias — the raw `field`,
+      // or the literal `'count'` for a fieldless count — and both are limbs the
+      // two chains already try (`row[field]`, `r.count`).
+      const results = isStructuredGroupBy(groupBy)
+        ? await ds.aggregate(objectName, objectAggregateSpecQuery(aggregate, groupBy, filterForRun))
+        : await ds.aggregate(objectName, {
+            field: aggregate.field,
+            function: aggregate.function,
+            groupBy: groupBy || '_all',
+            filter: filterForRun,
+          });
       const data = Array.isArray(results) ? results : [];
       if (data.length === 0) return 0;
       if (aggregate.function === 'count') {
@@ -388,82 +439,40 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     return resolveDrillTitle(drillDown, {}, titleText || labelText || 'Details');
   }, [drillDown, label, title, language]);
 
-  const drillDrawer = useMemo(() => {
-    if (!drillEnabled) return null;
-    const target = drillDown?.target ?? 'drawer';
-
-    // M3: when drillDown.report is supplied, drill into an analytical Report
-    // (Dashboard → Report → List → Record). The widget's resolvedFilter is
-    // merged into the report so the metric's scope is preserved.
-    const reportConfig = (drillDown as any)?.report;
-    const hasReport = reportConfig && typeof reportConfig === 'object'
-      && (Array.isArray((reportConfig as any).columns) || 'objectName' in reportConfig);
-
-    // Escape hatch — escalate the KPI peek to the object's full list page
-    // (scoped by the same filter the metric aggregates). Hidden for report
-    // drills and when no host navigation handler is present.
-    const escapeHatch = !hasReport
-      ? <OpenInListButton objectName={objectName} filter={resolvedFilter} onNavigate={() => setDrillOpen(false)} />
-      : null;
-
-    let body: React.ReactNode;
-    if (hasReport) {
-      const existingFilter = (reportConfig as any).filter;
-      const mergedReportFilter = existingFilter
-        ? (resolvedFilter ? { $and: [existingFilter, resolvedFilter] } : existingFilter)
-        : resolvedFilter;
-      const reportSchema = {
-        type: 'spec-report',
-        ...(reportConfig as Record<string, unknown>),
-        filter: mergedReportFilter,
-      } as any;
-      body = (
-        <div className="h-full overflow-auto">
-          <SchemaRenderer schema={reportSchema} />
-        </div>
-      );
-    } else {
-      const tableSchema = {
-        type: 'object-data-table',
-        objectName,
-        filter: resolvedFilter,
-        pageSize: 25,
-        // Complete the drill chain: a row in the KPI's record list opens that
-        // record. Dialog target so it stacks cleanly over this drill drawer.
-        drillDown: { enabled: true, mode: 'record', target: 'dialog' },
-      } as any;
-      body = (
-        <div className="h-full overflow-auto">
-          <SchemaRenderer schema={tableSchema} />
-        </div>
-      );
-    }
-
-    if (target === 'dialog') {
-      return (
-        <Dialog open onOpenChange={(v) => !v && setDrillOpen(false)}>
-          <DialogContent className="max-w-5xl">
-            <DialogHeader className="flex-row items-center justify-between gap-4 pr-8">
-              <DialogTitle>{drawerTitle}</DialogTitle>
-              {escapeHatch}
-            </DialogHeader>
-            {body}
-          </DialogContent>
-        </Dialog>
-      );
-    }
-    return (
-      <Sheet open onOpenChange={(v) => !v && setDrillOpen(false)}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl md:max-w-3xl lg:max-w-5xl flex flex-col">
-          <SheetHeader className="flex-row items-center justify-between gap-4 pr-8">
-            <SheetTitle>{drawerTitle}</SheetTitle>
-            {escapeHatch}
-          </SheetHeader>
-          <div className="flex-1 overflow-hidden mt-2">{body}</div>
-        </SheetContent>
-      </Sheet>
-    );
-  }, [drillEnabled, drillDown, objectName, resolvedFilter, drawerTitle]);
+  // Routed through the shared `DrillDownDrawer` — the component every other
+  // widget in this package drills through (objectui#8970). This block used to
+  // hand-roll its own Sheet/Dialog panel, which read `enabled`, `target`'s two
+  // in-place arms, `title` and `report` and silently discarded the rest of the
+  // config an author is offered: `columns`, `maxRows` and `target: 'navigate'`
+  // acted on every other block sharing `DrillDownConfig` and did nothing here.
+  // Two implementations of one drawer was the defect — teaching the copy three
+  // more members would only have guaranteed a fourth divergence.
+  //
+  // `maxRows` now chooses the drilled list's page size, defaulting to the 25
+  // the inline panel hard-coded, so a config that never authored the member
+  // keeps the page size it had. `className` reproduces the height the inline
+  // body wrapper carried.
+  //
+  // `drillDown.filter` is deliberately NOT forwarded: the drilled list is
+  // scoped by the METRIC's own resolved filter, which is the registration's
+  // promise that the number and the records behind it agree. `mode` has no
+  // read site on the shared drawer either. Both are left to the judgement
+  // objectui#8970 asks for rather than settled here.
+  const drillDrawer = drillEnabled ? (
+    <DrillDownDrawer
+      open
+      onClose={() => setDrillOpen(false)}
+      title={drawerTitle}
+      target={drillDown?.target}
+      objectName={objectName as string}
+      filter={resolvedFilter}
+      dataSource={dataSource}
+      columns={drillDown?.columns}
+      maxRows={drillDown?.maxRows ?? METRIC_DRILL_PAGE_SIZE}
+      report={drillDown?.report as Record<string, unknown> | undefined}
+      className="h-full"
+    />
+  ) : null;
 
   return (
     <>

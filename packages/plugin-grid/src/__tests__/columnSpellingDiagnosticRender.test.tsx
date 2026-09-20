@@ -35,7 +35,7 @@ import React from 'react';
 
 import { ObjectGrid } from '../ObjectGrid';
 import { registerAllFields } from '@object-ui/fields';
-import { ActionProvider, SchemaRendererProvider } from '@object-ui/react';
+import { ActionProvider, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 
 registerAllFields();
 
@@ -63,7 +63,14 @@ function renderGrid(
   render(
     <ActionProvider>
       {options.scopeData !== undefined
-        ? <SchemaRendererProvider dataSource={options.scopeData as any}>{grid}</SchemaRendererProvider>
+        ? (
+          // objectui#9308 — `bind` resolves the ambient predicate scope, not the
+          // injected adapter. The adapter seam is still crossed (it is what a
+          // real host mounts) and is inert for this assertion.
+          <PredicateScopeProvider scope={options.scopeData as Record<string, unknown>}>
+            <SchemaRendererProvider dataSource={options.scopeData as any}>{grid}</SchemaRendererProvider>
+          </PredicateScopeProvider>
+        )
         : grid}
     </ActionProvider>,
   );
@@ -77,13 +84,29 @@ function renderGrid(
   };
 }
 
+/**
+ * ⭐ objectui#8348 — the SCHEMA-carried inline rows below are spelled
+ * `data: { provider: 'value', items: ROWS }`, not the bare `data: ROWS` this
+ * file used to write. `object-grid`'s published `data` row is the `ViewData`
+ * union, whose own spec description says "the bare-array shortcut is refused",
+ * so `getDataConfig` no longer lifts an array. The declared form resolves to the
+ * identical config, which is why nothing this file measures moves.
+ *
+ * ⛔ TWO ROWS DELIBERATELY KEEP THE BARE ARRAY, and they are not oversights:
+ * the host-prop row passes rows through the `data` REACT PROP, a different
+ * carrier that requires an array (`passedData`'s `Array.isArray`) and is
+ * untouched by the ruling; and the row named for objectui#8348 keeps the bare
+ * array under the schema key precisely to assert that it no longer carries
+ * rows.
+ */
+
 afterEach(() => cleanup());
 
 describe('objectui#5349 — the four-way matrix, rendering and diagnostic together', () => {
   it('field-only: renders both columns, says nothing', () => {
     const { headers, diagnostics } = renderGrid({
       objectName: 'opportunities',
-      data: ROWS,
+      data: { provider: 'value', items: ROWS },
       columns: [{ field: 'name', label: 'Name' }, { field: 'amount', label: 'Amount' }],
     });
     expect(headers).toEqual(['#', 'Name', 'Amount']);
@@ -97,7 +120,7 @@ describe('objectui#5349 — the four-way matrix, rendering and diagnostic togeth
     // columns, and no error, no warning, no empty state.
     const { headers, diagnostics } = renderGrid({
       objectName: 'opportunities',
-      data: ROWS,
+      data: { provider: 'value', items: ROWS },
       columns: [{ accessorKey: 'name', header: 'Name' }, { accessorKey: 'amount', header: 'Amount' }],
     });
     expect(headers).toEqual(['#']);
@@ -115,7 +138,7 @@ describe('objectui#5349 — the four-way matrix, rendering and diagnostic togeth
   it('mixed, declared first: drops the second — and names the second', () => {
     const { headers, diagnostics } = renderGrid({
       objectName: 'opportunities',
-      data: ROWS,
+      data: { provider: 'value', items: ROWS },
       columns: [{ field: 'name', label: 'Name' }, { accessorKey: 'amount', header: 'Amount' }],
     });
     expect(headers).toEqual(['#', 'Name']);
@@ -131,7 +154,7 @@ describe('objectui#5349 — the four-way matrix, rendering and diagnostic togeth
     // diagnostic inherits the per-column judgement, not the sniff.
     const { headers, diagnostics } = renderGrid({
       objectName: 'opportunities',
-      data: ROWS,
+      data: { provider: 'value', items: ROWS },
       columns: [{ accessorKey: 'amount', header: 'Amount' }, { field: 'name', label: 'Name' }],
     });
     expect(headers).toEqual(['#', 'Name']);
@@ -145,7 +168,7 @@ describe('objectui#5349 — the column-side fallbacks that keep their silence', 
   it('a `string[]` column list is the other declared spelling: renders, says nothing', () => {
     const { headers, diagnostics } = renderGrid({
       objectName: 'opportunities',
-      data: ROWS,
+      data: { provider: 'value', items: ROWS },
       columns: ['name', 'amount'],
     });
     expect(headers).toEqual(['#', 'Name', 'Amount']);
@@ -153,13 +176,13 @@ describe('objectui#5349 — the column-side fallbacks that keep their silence', 
   });
 
   it('no `columns` at all: the grid auto-derives them and is not scolded for it', () => {
-    const { headers, diagnostics } = renderGrid({ objectName: 'opportunities', data: ROWS });
+    const { headers, diagnostics } = renderGrid({ objectName: 'opportunities', data: { provider: 'value', items: ROWS } });
     expect(headers).toEqual(['#', 'Id', 'Name', 'Amount']);
     expect(diagnostics).toEqual([]);
   });
 
   it('an empty `columns` array: same auto-derivation, same silence', () => {
-    const { headers, diagnostics } = renderGrid({ objectName: 'opportunities', data: ROWS, columns: [] });
+    const { headers, diagnostics } = renderGrid({ objectName: 'opportunities', data: { provider: 'value', items: ROWS }, columns: [] });
     expect(headers).toEqual(['#', 'Id', 'Name', 'Amount']);
     expect(diagnostics).toEqual([]);
   });
@@ -170,7 +193,7 @@ describe('objectui#5349 — the column-side fallbacks that keep their silence', 
     // columns". The author asked for this one.
     const { headers, diagnostics } = renderGrid({
       objectName: 'opportunities',
-      data: ROWS,
+      data: { provider: 'value', items: ROWS },
       columns: [{ field: 'name', label: 'Name', hidden: true }],
     });
     expect(headers).toEqual(['#']);
@@ -180,7 +203,7 @@ describe('objectui#5349 — the column-side fallbacks that keep their silence', 
     cleanup();
     const probe = renderGrid({
       objectName: 'opportunities',
-      data: ROWS,
+      data: { provider: 'value', items: ROWS },
       columns: [{ accessorKey: 'name', header: 'Name' }],
     });
     expect(probe.headers).toEqual(['#']);
@@ -198,10 +221,20 @@ describe('objectui#5349 — the row-side fallbacks a `needs columns` predicate w
   const GOOD = [{ field: 'name', label: 'Name' }];
   const BAD = [{ accessorKey: 'name', header: 'Name' }];
 
-  it('inline rows as a bare `data` array', () => {
+  it('⭐ objectui#8348 — a bare `data` array no longer carries inline rows, and the diagnostic is unmoved', () => {
+    // This row used to read "inline rows as a bare `data` array" and assert that
+    // `Ada` was on screen. `object-grid`'s published `data` row is the `ViewData`
+    // union — its own spec description says "the bare-array shortcut is refused"
+    // — so `getDataConfig` no longer lifts the array and this grid resolves its
+    // `objectName` instead (with no dataSource here, that draws no rows).
+    //
+    // The file's own subject is unaffected, which is the point of keeping the
+    // row: the column-spelling diagnostic is a statement about `columns`, not
+    // about the row carrier, so it stays silent for GOOD and fires once for BAD
+    // on a grid with no rows at all.
     const ok = renderGrid({ objectName: 'opportunities', data: ROWS, columns: GOOD });
     expect(ok.headers).toEqual(['#', 'Name']);
-    expect(screen.getByText('Ada')).toBeInTheDocument();
+    expect(screen.queryByText('Ada')).toBeNull();
     expect(ok.diagnostics).toEqual([]);
 
     cleanup();

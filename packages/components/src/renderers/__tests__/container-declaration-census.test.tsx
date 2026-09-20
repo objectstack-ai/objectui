@@ -46,8 +46,8 @@
  * the card: they are NOT swept in here, because the three exception populations
  * below prove the predicate has real exceptions -- `tabs` (renders
  * `items[].content`), the void tags out of the same loop factory as 34 that do
- * render children, and the `schema.body` readers the containment check never
- * inspects.
+ * render children, and the former `schema.body` readers, which objectui#6771
+ * converged on `children` and objectui#6804's ruling keeps undeclared.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -163,15 +163,24 @@ describe('the declaration is confined to what was measured (objectui#6764)', () 
     expect(diagnose(withChildren(type)).map((d) => d.code)).toContain(CONTAINMENT);
   });
 
-  it('leaves `badge` and `alert` alone — they read `schema.body`, a key the check never inspects', async () => {
-    // The third exception, and the one a "renders children OR body" predicate
-    // would have collapsed: these render `renderChildren(schema.body)` and never
-    // touch `schema.children`. `validateTree`'s containment branch is guarded by
-    // `node.children?.length` ALONE, so no author writing `body` on them has
-    // ever drawn a false diagnostic, and declaring the flag would buy nothing
-    // while removing both from the react-page scope (both are PUBLIC).
+  it('leaves `badge` and `alert` undeclared — objectui#6771 gave them a `children` read, objectui#6804 keeps the flag off', async () => {
+    // ⚠️ INVERTED, and the exception it guards is now LOAD-BEARING rather than
+    // free. These two used to render `renderChildren(schema.body)` and never
+    // touch `schema.children`, so `validateTree`'s containment branch — guarded
+    // by `node.children?.length` ALONE — never fired on them and declaring the
+    // flag would have bought nothing while removing both from the react-page
+    // scope (both are PUBLIC).
+    //
+    // objectui#6771 retired the `body` spelling; they read `children` now, so
+    // the branch DOES fire, on the only key they read. The flag still stays off
+    // — objectui#6804's ruling covers exactly this population and orders a
+    // reasoned baseline exception instead — and the react-page cost is the
+    // reason the ruling gave. What this pin records is that the warning is now
+    // false rather than absent; the full statement of that cost, and the
+    // question it raises for the `sidebar-*` family, is in
+    // `container-declaration-ratchet.test.tsx`'s converged-readers block.
     for (const type of ['badge', 'alert']) {
-      expect(await rendersChildren(type)).toBe(false);
+      expect(await rendersChildren(type), `\`${type}\` lost its \`children\` read`).toBe(true);
       expect(diagnose(withChildren(type)).map((d) => d.code)).toContain(CONTAINMENT);
     }
   });

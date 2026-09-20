@@ -16,6 +16,7 @@ import {
 import { withFieldCarrier } from '@object-ui/fields';
 import { DetailView } from './DetailView';
 import { DetailSection } from './DetailSection';
+import { DetailSectionNode } from './DetailSectionNode';
 import { headerColorVocabulary } from './headerColor';
 import { DetailTabs } from './DetailTabs';
 import { RelatedList } from './RelatedList';
@@ -97,6 +98,21 @@ export type { SysActivityRow } from './renderers/recordActivityFeed';
 
 export { RecordDetailDrawer, deriveRecordPageHref } from './RecordDetailDrawer';
 export type { RecordDetailDrawerProps } from './RecordDetailDrawer';
+/**
+ * The record overlay PAYLOAD, with no shell of its own (objectui#9299).
+ *
+ * `ObjectGrid`, `ObjectTree`, `ObjectGantt`, `ObjectKanban` and
+ * `ObjectCalendar` mount this through `NavigationOverlay` so the authored
+ * `navigation.mode` is honoured on every view type. `RecordDetailDrawer` is
+ * the same payload in the drawer shell.
+ */
+export {
+  RecordDetailPanel,
+  buildRecordDetailFields,
+  DEFAULT_SYSTEM_FIELDS,
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+} from './RecordDetailPanel';
+export type { RecordDetailPanelProps } from './RecordDetailPanel';
 export {
   ConcurrentUpdateDialog,
   isConcurrentUpdateError,
@@ -297,7 +313,6 @@ ComponentRegistry.register('detail-view', DetailViewRenderer, {
     { name: 'sections', type: 'array' },
     { name: 'fields', type: 'array' },
     { name: 'tabs', type: 'array' },
-    { name: 'related', type: 'array' },
     { name: 'actions', type: 'array' },
     { name: 'showBack', type: 'boolean' },
     { name: 'backUrl', type: 'string' },
@@ -317,12 +332,24 @@ ComponentRegistry.register('detail-view', DetailViewRenderer, {
     sections: [],
     fields: [],
     tabs: [],
-    related: [],
   }
 });
 
-// Register DetailSection component
-ComponentRegistry.register('detail-section', DetailSection, {
+// Register DetailSection component.
+//
+// ⚠️ Against `DetailSectionNode`, NOT `DetailSection` — and that is what makes
+// the `inputs` below true (objectui#8626). `SchemaRenderer` spreads a node's
+// non-metadata keys as React props, so an authored node arrives as `title` /
+// `fields` / … while `DetailSection` reads a single `section` OBJECT prop. Bound
+// directly, `section` arrived `undefined` and the very first
+// `section.defaultCollapsed` read THREW — measured end to end, the author's page
+// showed `SchemaErrorBoundary`'s orange "failed to render" banner in place of the
+// block. `DetailSectionNode` folds the eight declared inputs into the `section`
+// object the component reads; see that file for why the fold sits at this seam
+// rather than in `DetailSection` (which every in-repo caller uses directly), and
+// why re-declaring these eight as a nested `section` input was the repair NOT
+// taken.
+ComponentRegistry.register('detail-section', DetailSectionNode, {
   namespace: 'plugin-detail',
   label: 'Detail Section',
   category: 'Detail Components',
@@ -452,31 +479,36 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
   // rejects on parse; the body-source contract is `sections`-presence, stated
   // in the `sections` description below.
   //
-  // Documented member keys are exactly the spec's four (`name`, `label`,
-  // `columns`, `fields`) — deliberately NOT `showBorder`, which
-  // `RecordDetailsRenderer` also honours on a section, nor `title`, which it
-  // honoured as an ALIAS of `label` until objectui#6190 converged the heading
-  // on the one declared slot, nor `hideEmpty`, which it honoured until
-  // objectui#7129 retired the key (maintainer 2026-09-01) and left the
-  // auto-hide heuristic as the whole contract. `title` and `hideEmpty` stay
-  // named here because the never-teach set is about what the description may
-  // say, not about what the renderer happens to read: the spec refuses them
-  // either way, whether or not anything still reads them. Those are
-  // undeclared upstream, and the spec's section object REFUSES them on parse
-  // rather than stripping them: `RecordDetailsProps.safeParse` on a section
-  // carrying any of the three returns `success: false` with
-  // `unrecognized_keys` naming the key (measured on the installed pin, 17.2.0,
-  // against a control — `columns: 2` — that parses and whose value survives).
-  // So publishing them here would advertise keys that make the whole document
-  // fail to validate, not keys the contract quietly throws away — the same
-  // trap as declaring a top-level `readonly` on `record:highlights` below. The
-  // renderer tolerating them is not a licence to teach them. (This said
-  // "STRIPS" until objectui#7127: that was the pre-#4001-batch-A behaviour the
-  // spec's own refusal message still recounts, and the `layout` paragraph
-  // above already said `rejects`.)
+  // The never-teach set is `title` — which `RecordDetailsRenderer` honoured as
+  // an ALIAS of `label` until objectui#6190 converged the heading on the one
+  // declared slot. It stays named here because this set is about what the
+  // description may SAY, not about what the renderer happens to read: the spec
+  // refuses `title` whether or not anything still reads it. Undeclared
+  // upstream, and the spec's section object REFUSES such a key on parse rather
+  // than stripping it — `RecordDetailsProps.safeParse` on a section carrying
+  // one returns `success: false` with `unrecognized_keys` naming it, against a
+  // control (`columns: 2`) that parses and whose value survives. So publishing
+  // it here would advertise a key that makes the whole document fail to
+  // validate, not one the contract quietly throws away — the same trap as
+  // declaring a top-level `readonly` on `record:highlights` below. The
+  // renderer tolerating it is not a licence to teach it. (This said "STRIPS"
+  // until objectui#7127: that was the pre-#4001-batch-A behaviour the spec's
+  // own refusal message still recounts, and the `layout` paragraph above
+  // already said `rejects`.)
+  //
+  // `hideEmpty` LEFT this set under objectui#8603 (director seat batch #137
+  // item 3, maintainer 2026-09-15) and the `sections` description below now
+  // teaches it. It was named here while objectui#7129 held — the key was
+  // retired on the premise the spec refused it, which the 17.3.0 pin move made
+  // false. The spec declares it on the section entry and this renderer reads
+  // it again, so the membership criterion no longer selects it; the set is
+  // derived against the installed spec at runtime by
+  // `__tests__/recordDetailsInputs.spec-parity.test.ts`, which is what keeps a
+  // stale prohibition from pinning itself. ⚠️ Still NOT this key:
+  // `record:reference_rail`'s own component-level `hideEmpty` input below.
   inputs: [
     { name: 'columns', type: 'enum', enum: ['1', '2', '3', '4'], description: 'Number of columns for field layout (1-4)' },
-    { name: 'sections', type: 'array', of: 'object', description: 'Field groups rendered as the detail body, in order. Every entry is an OBJECT — `{ name?, label?, columns?, fields }` — a bare section-id string is NOT accepted (the spec retired that spelling in objectstack#5611, and the renderer reads name/label/fields off each entry, so a string entry renders no fields at all). `fields` are the field names shown in this section, in order — required unless `group` supplies the members instead (the spec refuses a section carrying neither, and refuses one carrying both). `label` is the section heading; omit it for an untitled, borderless section. `name` is a stable snake_case identifier and the i18n anchor — the heading resolves through objects.<object>._sections.<name>.label, so a section without a name shows its authored label in every locale. `columns` (1-4) is THIS section\'s field-grid width; omit it and the renderer derives the width. Authoring `sections` at all makes it the only source of the detail body; omit it and the body falls back to the object\'s highlightFields. @objectstack/spec 17.3.0 declares eight more member keys on an entry, seven of which this renderer honours: `icon` (a Lucide name on the section header), `description` (sub-heading copy under the heading), `collapsible` and `defaultCollapsed` (a foldable section and its initial state), `showBorder` (force the Card wrapper on or off, overriding the heading-derived default) and `headerColor` (a header tint from the shared palette) through DetailSection, plus `group` — the ADR-0085 §5 REFERENCE form, the alternative to enumerating `fields`. `{ group: \'contact_info\' }` inherits the object\'s `fieldGroups` entry with that key: its members (every visible field pointing at it, in declaration order) and its presentation (label, icon, description, collapse) all come from the group, so the section restates none of it and the spec refuses those keys beside `group`; `columns`, `showBorder` and `headerColor` stay yours because they are how THIS page lays the section out. A `group` naming no declared group renders nothing and is reported to the console (`@objectstack/lint` flags it as `page-section-group-unknown`). Only `hideEmpty` is declared upstream and NOT read here, deliberately retired in objectui#7129 (maintainer 2026-09-01) in favour of DetailSection\'s auto-hide heuristic plus the reader\'s show-empty toggle — authoring it does nothing on this renderer. None of the eight has a designer control yet; they are authorable in source mode only, tracked as a deferred feature.' },
+    { name: 'sections', type: 'array', of: 'object', description: 'Field groups rendered as the detail body, in order. Every entry is an OBJECT — `{ name?, label?, columns?, fields }` — a bare section-id string is NOT accepted (the spec retired that spelling in objectstack#5611, and the renderer reads name/label/fields off each entry, so a string entry renders no fields at all). `fields` are the field names shown in this section, in order — required unless `group` supplies the members instead (the spec refuses a section carrying neither, and refuses one carrying both). `label` is the section heading; omit it for an untitled, borderless section. `name` is a stable snake_case identifier and the i18n anchor — the heading resolves through objects.<object>._sections.<name>.label, so a section without a name shows its authored label in every locale. `columns` (1-4) is THIS section\'s field-grid width; omit it and the renderer derives the width. Authoring `sections` at all makes it the only source of the detail body; omit it and the body falls back to the object\'s highlightFields. @objectstack/spec 17.3.0 declares eight more member keys on an entry, and this renderer honours all eight: `icon` (a Lucide name on the section header), `description` (sub-heading copy under the heading), `collapsible` and `defaultCollapsed` (a foldable section and its initial state), `showBorder` (force the Card wrapper on or off, overriding the heading-derived default) and `headerColor` (a header tint from the shared palette) through DetailSection, plus `group` — the ADR-0085 §5 REFERENCE form, the alternative to enumerating `fields`. `{ group: \'contact_info\' }` inherits the object\'s `fieldGroups` entry with that key: its members (every visible field pointing at it, in declaration order) and its presentation (label, icon, description, collapse) all come from the group, so the section restates none of it and the spec refuses those keys beside `group`; `columns`, `showBorder` and `headerColor` stay yours because they are how THIS page lays the section out. A `group` naming no declared group renders nothing and is reported to the console (`@objectstack/lint` flags it as `page-section-group-unknown`). `hideEmpty` is the eighth, and it decides whether an ALL-empty section exists: it defaults to on, so a section whose fields are every one of them empty renders nothing at all — no heading, no skeleton — and `hideEmpty: false` is the spelling that keeps that heading and its label skeleton on a brand-new record. It decides ONLY the all-empty case; the empty rows of a section that still has a filled one belong to DetailSection\'s auto-hide heuristic plus the reader\'s show-empty toggle, which no authored value overrides in either polarity (objectui#7129 Q2-C), and inline-edit mode renders the section either way so its fields stay reachable. Restored under objectui#8603 (maintainer 2026-09-15) after objectui#7129 retired it on the premise, since falsified upstream, that the spec refused the key. None of the eight has a designer control yet; they are authorable in source mode only, tracked as a deferred feature.' },
     { name: 'fields', type: 'array', of: 'string', description: 'Explicit field list (overrides highlightFields)' },
     // `hideFields` is DECLARED, not merely honoured (objectui#3808). The spec
     // declares it (objectstack#5611) and `RecordDetailsRenderer` has read it
@@ -625,7 +657,7 @@ ComponentRegistry.register('highlights', RecordHighlightsRenderer, {
   // un-gated (pinned as `MULTI_KIND_MEMBER_CONTRACTS` in the repo-wide parity
   // gate). objectui#3407 / objectstack#5176.
   inputs: [
-    { name: 'fields', type: 'array', required: true, description: 'Key fields to highlight (1-7), bare names or {name,label?,icon?,type?,readonly?}. Set readonly: true on an entry to render that chip read-only — it suppresses the inline-edit affordance and the HeaderHighlight editability gate enforces it. Use it for hook/automation-maintained columns that must not be hand-edited from the record header; marking the OBJECT field readonly instead would also strip the hook\'s own write-back.' },
+    { name: 'fields', type: 'array', required: true, description: 'Key fields to highlight (1-7), bare names or {name,label?,type?,readonly?}. Set readonly: true on an entry to render that chip read-only — it suppresses the inline-edit affordance and the HeaderHighlight editability gate enforces it. Use it for hook/automation-maintained columns that must not be hand-edited from the record header; marking the OBJECT field readonly instead would also strip the hook\'s own write-back.' },
     { name: 'layout', type: 'enum', enum: ['horizontal', 'vertical'], description: 'Layout orientation for highlight fields' },
   ],
 });
@@ -700,7 +732,26 @@ const CHATTER_INPUTS: ComponentInput[] = [
   { name: 'width', type: 'string', description: 'Panel width as a CSS value (side positions only)' },
   { name: 'collapsible', type: 'boolean' },
   { name: 'defaultCollapsed', type: 'boolean' },
-  { name: 'feed', type: 'object', description: 'Activity-feed config nested inside the panel — same shape as record:activity' },
+  // `feed` delegates its whole member list to `record:activity`, and that is
+  // the SPEC's statement rather than this file's: `@objectstack/spec` declares
+  // `RecordChatterProps.feed: RecordActivityProps.optional()`
+  // (`component.zod.ts:1366`), bound to both names (`:2948` / `:2962`). So the
+  // description names the declaration it delegates to instead of re-listing
+  // its members, which would then be free to drift from it. (Re-listing would
+  // also have to decide what to do with `aria`, which the spec shape carries
+  // and `record:activity`'s own registration does not — one more reason the
+  // delegation is the honest statement.)
+  //
+  // objectui#8934: the four FILTER members of that shape (`types` / `limit` /
+  // `showCompleted` / `unifiedTimeline`) used to be discarded on this path
+  // because `record-chatter.tsx` handed `discussion.items` to the panel raw.
+  // That was an IMPLEMENTATION GAP against a wider protocol, not a narrower
+  // contract, so it was closed in the renderer — see `renderers/record-chatter.tsx`,
+  // which now runs `applyFeedConfig` with `record-activity.tsx:219`'s call shape.
+  // ⛔ Do not narrow this declaration to match an implementation: the protocol
+  // is the contract, and a protocol that is wrong is changed in
+  // `@objectstack/spec` first.
+  { name: 'feed', type: 'object', description: 'Activity-feed configuration nested inside the panel — the same shape as record:activity. The spec declares this key as RecordActivityProps (RecordChatterProps.feed), so its members are the inputs record:activity declares; see that block for what each one does.' },
 ];
 
 ComponentRegistry.register('chatter', RecordChatterRenderer, {
@@ -795,16 +846,35 @@ ComponentRegistry.register('alert', RecordAlertRenderer, {
   icon: 'triangle-alert',
   inputs: [
     { name: 'severity', type: 'enum', enum: ['info', 'warning', 'error', 'success'] },
-    // Two arms each (objectui#3832). Unlike the `page:*` specimens these two
-    // have no props schema to measure against — `ComponentPropsMap` carries no
-    // `record:alert` entry at rc.6 — so the second arm is justified by the
-    // RENDERER: `renderers/record-alert.tsx` resolves both through
-    // `pickLocalized`, which is exactly what these descriptions teach. Declaring
-    // the map arm therefore adds no shape the block does not already honour; it
-    // stops the manifest gate warning `type-mismatch` on the recommended write.
+    // Two arms each (objectui#3832). When these were declared, `ComponentPropsMap`
+    // carried no `record:alert` entry to measure against, so the second arm was
+    // justified by the RENDERER: `renderers/record-alert.tsx` resolves both
+    // through `pickLocalized`, which is exactly what these descriptions teach.
+    // Declaring the map arm therefore adds no shape the block does not already
+    // honour; it stops the manifest gate warning `type-mismatch` on the
+    // recommended write. (The row DOES exist as of the installed 17.4.0 — read
+    // for `visible` below, objectui#9100 — so the "no entry" reading is stale;
+    // these two arms are unaffected either way.)
     { name: 'title', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
     { name: 'body', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
-    { name: 'visible', type: 'string', description: 'Expression gating the banner against the current record' },
+    // objectui#9100 — the spec accepts three arms here and the renderer now
+    // resolves all three, so a single `'string'` was the declaration-narrower-
+    // than-the-contract family of objectui#4581, one layer up. Measured on the
+    // INSTALLED `@objectstack/spec` 17.4.0 (`dist/ui/index.d.ts`, the
+    // `ComponentPropsMap['record:alert']` row): `visible` is
+    // `boolean | string | { dialect: 'cel'|'cron'|'template', source?, … }`,
+    // and `renderers/record-alert.tsx` hands whichever arrives to
+    // `toPredicateInput`, which takes a boolean as a short-circuit, a bare
+    // string as the legacy spelling, and a `cel` envelope as the canonical
+    // one. The envelope arm only became reachable through `SchemaRenderer`
+    // with this card's fix, which is the order `ComponentInput.type`
+    // prescribes: teach the render site, then declare the arm.
+    {
+      name: 'visible',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Gates the banner against the current record: `true`/`false`, a bare CEL expression, or the `{ dialect: \'cel\', source }` envelope',
+    },
     { name: 'icon', type: 'string', description: 'Lucide icon name; defaults to the severity icon' },
     { name: 'action', type: 'object', description: '{ actionName, label?, variant? } — the action the banner offers' },
     { name: 'dismissible', type: 'boolean' },

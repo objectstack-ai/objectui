@@ -66,10 +66,16 @@ const GATE = cel("'sales_manager' in current_user.positions");
 /** A root NOTHING binds — "faulted" must be unambiguous. */
 const UNBOUND_ROOT = cel("'sales_manager' in no_such_root.positions");
 
-/** The host scope `ExpressionProvider` mounts, transcribed (see #6010's pin). */
+/**
+ * The host scope `ExpressionProvider` mounts, transcribed (see #6010's pin).
+ *
+ * ⛔ No `data` since objectui#8166, and no `app` since objectui#8155 — this
+ * literal claims to be that bag, so a root it carries that the producer does
+ * not bind is a false claim that no assertion here would redden.
+ */
 function hostScope(positions: string[]) {
   const user = { id: 'u1', name: 'Kim', positions };
-  return { current_user: user, user, ctx: { user }, os: { user }, data: {}, features: {} };
+  return { current_user: user, user, ctx: { user }, os: { user }, features: {} };
 }
 
 const DENIED = hostScope(['sales']);

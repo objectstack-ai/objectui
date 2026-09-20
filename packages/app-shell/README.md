@@ -387,23 +387,34 @@ Salesforce Flow Builder) instead of a flat step list. It is **dependency-free**
 **JSON shape** (a `flow` draft):
 
 ```jsonc
+// flows/renewal_reminder.json
 {
+  "name": "renewal_reminder",
+  "label": "Renewal reminder",
+  "type": "autolaunched",
   "nodes": [
     { "id": "start", "type": "start", "label": "Start" },
     { "id": "decide", "type": "decision", "label": "Renew?",
-      "ui": { "x": 220, "y": 180 } },   // optional persisted canvas position
+      "position": { "x": 220, "y": 180 } },   // optional persisted canvas position
     { "id": "email", "type": "notify", "label": "Send reminder",
       "config": { "recipients": "{record.owner}", "title": "Renewal reminder" } },
     { "id": "end", "type": "end", "label": "End" }
   ],
   "edges": [
-    { "source": "start", "target": "decide" },
-    { "source": "decide", "target": "email", "condition": "${days <= 30}", "label": "Due" },
-    { "source": "decide", "target": "end", "isDefault": true, "label": "Skip" },
-    { "source": "email", "target": "end" }
+    { "id": "e1", "source": "start", "target": "decide" },
+    { "id": "e2", "source": "decide", "target": "email",
+      "condition": "${days <= 30}", "label": "Due" },
+    { "id": "e3", "source": "decide", "target": "end",
+      "isDefault": true, "label": "Skip" },
+    { "id": "e4", "source": "email", "target": "end" }
   ]
 }
 ```
+
+That whole object — identity keys included — is what the metadata admin hands to
+client-side validation: `validateMetadataDraft('flow', draft)` parses the draft
+with the spec's own `FlowSchema`, so anything the example leaves out is a
+save-time error rather than a detail left to the reader.
 
 - **Layout** — nodes without a `position` are placed by a deterministic layered
   auto-layout (cycle-guarded), so a flow always renders cleanly even before any
@@ -414,8 +425,13 @@ Salesforce Flow Builder) instead of a flat step list. It is **dependency-free**
   pinned, and the canvas lifts them onto `position` in the first patch it emits
   (objectui#3172) — `FlowNodeSchema` is `.strict()`, so a draft that still
   carries `ui` fails client-side validation and is rejected on save with a 422.
-- **Edges** — branch semantics (`condition`, `label`, `isDefault`) are rendered
-  as labels on the connectors and preserved when a node is inserted on an edge.
+- **Edges** — every edge carries an `id`: `FlowEdgeSchema` declares it required
+  (a free-form string, unconstrained by the spec), beside `source` and `target`,
+  and the canvas mints one for each edge you draw. Branch semantics
+  (`condition`, `label`, `isDefault`) are rendered as labels on the connectors
+  and preserved when a node is inserted on an edge; a bare `condition` string is
+  widened to the ADR-0089 expression envelope on parse, so the edge above is
+  stored as `"condition": { "dialect": "cel", "source": "${days <= 30}" }`.
 
 **Interactions** (design mode):
 

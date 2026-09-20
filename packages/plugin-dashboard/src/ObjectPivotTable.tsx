@@ -9,7 +9,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useDataScope, SchemaRendererContext, useFilterScope } from '@object-ui/react';
 import { useSafeFieldLabel } from '@object-ui/i18n';
-import { extractRecords, computeDrillFilter, isDrillEnabled, resolveDrillTitle, type DrillEvent } from '@object-ui/core';
+import { extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, type DrillEvent } from '@object-ui/core';
 import { Skeleton, cn } from '@object-ui/components';
 import { PivotTable } from './PivotTable';
 import { DrillDownDrawer } from './DrillDownDrawer';
@@ -46,6 +46,34 @@ export interface ObjectPivotTableProps {
     // local member grown because no schema shape declared it — the
     // second-declaration class objectui#6357 measured. `PivotTableSchema
     // extends BaseSchema`, which now declares it once, same spelling.
+
+    // ⚠️ `filter` STAYS a local member, and that is a decision rather than an
+    // oversight (objectui#9024). It is read twice below — the fetch leg's
+    // `$filter` and the drill seam — and `object-pivot`'s registry `inputs`
+    // advertise it, so the key is live. What it is NOT is a member of the
+    // schema type above: `PivotTableSchema` is `type: 'pivot'`, the plain
+    // cross-tab, and `PivotTable` reads no `filter` at all — declaring it there
+    // would put an `object-pivot`-only key on the one node type that never
+    // reads it, and STILL leave `object-pivot` (which does) undeclared, since
+    // an `object-pivot` node is not assignable to that `type` literal. It is
+    // the same reason `objectName` is passed to `PivotTable` as a PROP instead
+    // of read off `finalSchema` (see the comment at the render below).
+    //
+    // The sibling widgets each declare `filter` on their OWN `Object*Schema`:
+    // measured on this tree, NINE of the eleven `Object*Schema` interfaces in
+    // `@object-ui/types` declare it — six array-only (`ObjectGridSchema`,
+    // `ObjectViewSchema`, `ObjectMapSchema`, `ObjectGanttSchema`,
+    // `ObjectCalendarSchema`, `ObjectKanbanSchema`), plus `ObjectChartSchema`'s
+    // two-armed union, `ObjectGallerySchema`'s `unknown` and
+    // `ObjectDataTableSchema`'s `any`. `object-pivot` has no such interface at
+    // all, so the consistent fix is to give it one carrying all three members
+    // grown here — `objectName`, `dataProvider`, `filter`. That widens a
+    // published authorable surface and wants its own card and ruling, rather
+    // than a one-member edit smuggled into a composition fix.
+    //
+    // ⭐ The composition below does NOT depend on this: `composeDrillFilter`
+    // takes `unknown` and routes every shape through the repo's single filter
+    // sink, so the drill is correct for both arms whatever this key is typed.
     filter?: any;
   };
   dataSource?: any;
@@ -266,7 +294,30 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
       rowField: schema.rowField,
       columnField: schema.columnField,
     });
-    const merged = { ...(schema.filter || {}), ...baseFilter };
+    // ⛔ Composed through `composeDrillFilter`, NOT by spreading this pivot's
+    // own filter into an object literal. `schema.filter` reaches this component
+    // in BOTH dialects and a spread is only correct for the second:
+    //
+    //   - the ObjectQL `$filter` OBJECT (`{ region: 'emea' }`), and
+    //   - a spec `FilterArray` / ObjectQL AST node (`[['region','=','emea']]`).
+    //
+    // The array arm is not hypothetical here, and it is not only what a hand
+    // author may write: `object-pivot`'s registry `inputs` advertise
+    // `{ name: 'filter', type: 'array' }` (see `index.tsx`), and
+    // `ElementDataSourceGate` WRITES the array arm mechanically — binding a
+    // pivot the spec way (`dataSource: { object, view }`) sets this key to
+    // `mergeFilterNodes(schema.filter, view.filter)`, an AST node, for every
+    // saved view that carries a filter. Spreading THAT yields index keys
+    // (`{ '0': ['region','=','emea'] }`), so the pivot's own conditions were
+    // replaced by a key the query layer ignores and the drilled list showed
+    // rows this pivot is scoped to exclude (objectui#9024).
+    //
+    // ⚠️ Direction: the widget filter is what NARROWS, so losing it widened the
+    // drill to a SUPERSET — silently, since nothing errors. The seam's docblock
+    // names the composition rule (`widget.filter ∧ drill.filter`, via the
+    // repo's single filter sink `mergeFilterNodes`); it is not decided here.
+    // `ObjectChart` was routed through the same seam by objectui#8944.
+    const merged = composeDrillFilter(schema.filter, baseFilter);
     const title = resolveDrillTitle(drillDown, drillEvent, schema.title || 'Details');
     return (
       <DrillDownDrawer

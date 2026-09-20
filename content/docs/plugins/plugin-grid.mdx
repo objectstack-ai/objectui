@@ -485,6 +485,47 @@ The declarative alternative, which *is* metadata and survives a round trip
 through storage, is `navigation`: its `mode` decides what a row click does
 without any host code.
 
+### Withholding a row's Edit or Delete
+
+`operations` and the `onEdit` / `onDelete` wiring are GRID-level: they decide
+whether the generic Edit / Delete entries exist at all, identically for every
+row. When the refusal belongs to one RECORD — a system field a designer may not
+drop — use `rowOperations`, a component prop called with a row record that
+answers for that row alone:
+
+```tsx
+import { ObjectGrid } from '@object-ui/plugin-grid';
+import type { ObjectGridSchema } from '@object-ui/types';
+
+const schema: ObjectGridSchema = {
+  type: 'object-grid',
+  objectName: 'field_definition',
+  columns: ['name', 'label', 'type'],
+};
+
+export const FieldList = ({ isSystem }: { isSystem: (name: string) => boolean }) => (
+  <ObjectGrid
+    schema={schema}
+    onEdit={(record) => console.log('edit', record)}
+    onDelete={(record) => console.log('delete', record)}
+    rowOperations={(record) => ({ delete: !isSystem(String(record.name)) })}
+  />
+);
+```
+
+It speaks the same `update` / `delete` vocabulary as the authored `operations`
+block, and it is an **intersection**, never a union: `false` withholds the
+entry, while `true`, an omitted member, and a `null` / `undefined` return all
+leave the grid's own verdict alone. Nothing it returns can re-open what the
+object's lifecycle bucket, its `userActions`, the server's effective operations,
+the principal's grant or the record-level verdict already closed — and a grid
+that passes no `rowOperations` renders exactly as it did before the prop
+existed.
+
+Prefer this over refusing inside the callback. A refusal that runs after the
+click ships a button that is drawn as available and then does nothing, which is
+indistinguishable from a broken build (objectui#8674).
+
 ### Inline Editing
 
 Enable inline cell editing for quick data updates:

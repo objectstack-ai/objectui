@@ -133,6 +133,19 @@ export type ResponsiveValue<T> = T | Partial<Record<BreakpointName, T>>;
 // the retired `AccordionItem.icon` / `ToggleGroupItem.icon`, which were
 // likewise removed outright rather than tombstoned.
 //
+// That one line states prong 1 alone. The discriminator's full, amended form
+// (objectui#7678) is stated in `complex.ts` beside the `chatbot` tombstones: a
+// `?: never` tombstone is available only on a SURVIVING CARRIER, and on one it
+// is used when EITHER prong holds — a named live replacement KEY, or keeping
+// loud a key the docs taught as working. Neither branch reaches this
+// retirement: an exported type name that goes whole has no carrier to host a
+// `?: never` member at all, and where a member did have one, prong 1 fails
+// (above) and prong 2 has nothing to guard — this module has never had a
+// `zod/` twin, so there is no mirror that could accept an undeclared key and
+// strip it silently, which is the hazard prong 2 guards where a mirror does
+// exist. ⛔ The route itself is settled (objectui#4919); this note states the
+// rule it followed and does not reopen it.
+//
 // Reopen condition, recorded on objectui#4919: real mobile-override renderer
 // work re-enters as designed product surface on its own card, with the
 // renderer landing in the same change as the declaration. Re-adding the
@@ -289,10 +302,15 @@ export type GestureType ='tap' | 'double-tap' | 'long-press' | 'swipe-left' | 's
 // A binding written against it could not reach a handler by any path —
 // `action` was a string nothing dispatched.
 //
-// Removed outright rather than tombstoned, measured against the two-prong
-// discriminator the precedent changesets state (objectui#5941, #7526): a
-// tombstone exists (1) to steer authors to a named live replacement KEY, or
-// (2) to keep loud a key the docs taught as working. Prong 1: none — no
+// Removed outright rather than tombstoned, measured against the discriminator
+// the precedent changesets state (objectui#5941, #7526), in the form
+// objectui#7678 amended it to: a `?: never` tombstone is available only on a
+// SURVIVING CARRIER, and on such a carrier it is used when either prong holds
+// — (1) it steers authors to a named live replacement KEY, or (2) it keeps
+// loud a key the docs taught as working. `GestureConfig` is a whole exported
+// type name, so it has no carrier to host a `?: never` member at all and the
+// precondition settles the route on its own; the per-prong measurement that
+// follows was taken anyway and is kept as the record. Prong 1: none — no
 // dispatcher reads a gesture `action` (zero hits), and the only `gestures` key
 // on any type is `TouchInteraction.gestures: SpecGestureConfig[]`, a different
 // contract with no reader of its own. Prong 2: the CHANGELOG lines naming it

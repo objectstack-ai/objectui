@@ -56,8 +56,17 @@ const LOOKUP_PAGE_SIZE = 50;
 /**
  * SchemaRendererContext is created by @object-ui/react.
  * Using a static import to be compatible with Next.js Turbopack SSR.
+ *
+ * ⚠️ This used to re-declare the imported context as `React.Context<any>`.
+ * That widening was invisible at the read sites — every `ctx?.…` below read as
+ * `any` while looking perfectly typed — so it also laundered the `dataSource`
+ * read, which is precisely the consumer face objectui#7912 typed. The import
+ * is now used AS DECLARED; the one read that needs members the context does
+ * not declare takes a local widened VIEW of the value (see the
+ * `resolvedDependentValues` note), so the widening is visible where it happens
+ * and reaches nothing else.
  */
-const SchemaRendererContext: React.Context<any> = ImportedSchemaRendererContext;
+const SchemaRendererContext = ImportedSchemaRendererContext;
 
 /**
  * A relation whose picker should offer inline "create the referenced record" by
@@ -347,8 +356,9 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     [dependsOn, dependsOnLabelsProp, t],
   );
 
-  // Resolve dependent field values from the explicit prop. See the resolver
-  // below for why the context leg of that chain cannot fire (objectui#7206).
+  // The record a dependent lookup gates on. The HOST supplies it on the
+  // `dependentValues` prop; there is no context fallback (objectui#7206) — see
+  // the resolver below.
   const dependentValuesProp = props.dependentValues;
 
   // Resolve DataSource: explicit prop > field-level > wrapper field > SchemaRendererContext > none
@@ -357,31 +367,32 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   const dataSource: DataSource | null =
     (props.dataSource as DataSource | null | undefined) ?? lookupField?.dataSource ?? fieldMeta?.dataSource ?? contextDataSource;
 
-  /** Resolve dependent values from the explicit prop — today the ONLY channel
-   *  that can carry a record.
+  /** The record this picker gates and scopes itself by: the `dependentValues`
+   *  prop its HOST passes, and nothing else. There is NO context fallback.
    *
-   *  ⚠️ This comment used to call `ctx.data` the "record scope" channel and
+   *  This resolution used to end `?? ctx.formValues ?? ctx.data ?? {}`, and
+   *  this note used to call `ctx.data` the "record scope" channel and
    *  `ctx.formValues` a "form-data context provided by @object-ui/react".
-   *  Neither member exists. `SchemaRendererContextType`
+   *  Neither member ever existed: `SchemaRendererContextType`
    *  (`@object-ui/react`, `context/SchemaRendererContext.tsx`) declares exactly
    *  `dataSource`, `debug`, `debugFlags` and `apiFetch`, and
-   *  `SchemaRendererProvider` accepts no other prop — so the
-   *  `?? ctx?.formValues ?? ctx?.data` tail below is UNCONDITIONALLY `{}` in
-   *  production. Unsettable, not merely unset: no host can populate a member
-   *  the type does not declare. A widget reached without `dependentValues`
-   *  therefore resolves `{}`, which for a `dependsOn` lookup renders a
-   *  permanently gated picker — the shared root of objectui#7165 (the grid's
-   *  inline column) and objectui#7190 (the detail page), both of which were
-   *  first read as independent host bugs because this comment said a host
-   *  could supply the record through the context.
+   *  `SchemaRendererProvider` accepts no other prop — so those two links were
+   *  unsettable rather than merely unset, and the tail resolved `{}` for every
+   *  host that ever rendered this widget. Both were retired under ADR-0049
+   *  enforce-or-remove (objectui#7206, maintainer ruling 2026-09-18).
    *
-   *  ⛔ The tail is left exactly as it is. Whether the channel should be made
-   *  real or retired is OPEN on objectui#7206 and is not decided here; do not
-   *  read this note as either outcome. */
-  const resolvedDependentValues: Record<string, any> = useMemo(() => {
-    if (dependentValuesProp) return dependentValuesProp;
-    return (ctx?.formValues ?? ctx?.data ?? {}) as Record<string, any>;
-  }, [dependentValuesProp, ctx?.formValues, ctx?.data]);
+   *  ⇒ A widget reached without `dependentValues` resolves `{}`, which for a
+   *  `dependsOn` lookup renders a permanently gated picker. That failure is now
+   *  the whole diagnostic, and it is meant to be visible: the host holding the
+   *  record passes it (objectui#7165 for the grid's inline column,
+   *  objectui#7190 for the detail page). ⛔ Do not re-add a context leg here
+   *  — objectui#7165 and objectui#7190 were both first read as independent host
+   *  bugs precisely because this note claimed a host could supply the record
+   *  through the context. */
+  const resolvedDependentValues: Record<string, any> = useMemo(
+    () => dependentValuesProp ?? {},
+    [dependentValuesProp],
+  );
 
   /** True when at least one dependency is missing (empty). The picker is gated
    *  in that state so we never issue an unfiltered query that ignores the

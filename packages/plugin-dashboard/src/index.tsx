@@ -21,6 +21,10 @@ import { DashboardConfigPanel } from './DashboardConfigPanel';
 import { WidgetConfigPanel } from './WidgetConfigPanel';
 import { DashboardWithConfig } from './DashboardWithConfig';
 import { DrillDownDrawer } from './DrillDownDrawer';
+import {
+  RETIRED_DASHBOARD_NODE_TYPES,
+  RetiredDashboardNodeTombstone,
+} from './retired-node-types';
 
 export { DashboardRenderer, DashboardGridLayout, MetricWidget, MetricCard, ObjectMetricWidget, PivotTable, ObjectPivotTable, ObjectDataTable, DashboardConfigPanel, WidgetConfigPanel, DashboardWithConfig, DrillDownDrawer };
 export type { WidgetConfigPanelProps } from './WidgetConfigPanel';
@@ -38,6 +42,17 @@ export type {
   WidgetDatasetDimension,
   WidgetDatasetMeasure,
 } from './dataset-catalog';
+// objectui#9533 — the retirement table and the widget it renders. Exported for
+// the same reason the sibling packages export their tombstones: the assertion
+// that an authored `view:dashboard` is refused BY NAME, with the migration in
+// the refusal's own text, has to be able to import the text it asserts rather
+// than restate it.
+export {
+  RETIRED_DASHBOARD_NODE_TYPES,
+  RetiredDashboardNodeTombstone,
+  reportRetiredDashboardNodeType,
+  resetRetiredDashboardNodeTypeReports,
+} from './retired-node-types';
 
 // Register dashboard component
 //
@@ -76,11 +91,29 @@ export type {
 // authors — AI authors especially — to fabricate a dashboard identity that
 // resolves NO translations and fails silently, minting a fresh
 // silently-inert key, the exact defect class this card removes.
+//
+// ⛔ THE NAMESPACE IS `plugin-dashboard`, NOT `view` (objectui#9533, director
+// summon #24 / batch #152 item 5, letter 1, maintainer-approved). This
+// registration used to declare `view`, while `apps/console`'s two `registerLazy`
+// loops declared `plugin-dashboard` for the same bare `dashboard` key. Two
+// consequences followed, and both are pinned in
+// `__tests__/dashboardBareKeyOwnership.test.tsx`:
+//   1. bare `dashboard` declared one namespace before the chunk loaded and the
+//      other after it — which answer a host got depended on when it asked;
+//   2. `register()` clears the lazy stub of the type IT registers, and the type
+//      it registered was `view:dashboard`, so `plugin-dashboard:dashboard` was
+//      never cleared: no component was ever stored under it,
+//      `hasLazy('dashboard', 'plugin-dashboard')` stayed true forever, and the
+//      generated CLI whitelist advertised a spelling that could never resolve.
+// Converging on the namespace the consumers already declare makes the bare key
+// have ONE owner by construction rather than by whichever phase was observed.
+// ⛔ Do not move it back; the retired `view:dashboard` spelling is answered by
+// the tombstone registered at the bottom of this file.
 ComponentRegistry.register(
   'dashboard',
   DashboardRenderer,
   {
-    namespace: 'view',
+    namespace: 'plugin-dashboard',
     label: 'Dashboard',
     category: 'Complex',
     icon: 'layout-dashboard',
@@ -376,6 +409,36 @@ ComponentRegistry.register(
     }
   }
 );
+
+// RETIRED SPELLINGS, registered LAST (objectui#9533).
+//
+// `view:dashboard` was this package's own full type until the bare `dashboard`
+// key was converged onto `plugin-dashboard` above. The key stays registered and
+// answers with `RetiredDashboardNodeTombstone` — a visible refusal that names
+// the spelling the author wrote and the spelling that replaces it — because the
+// ruling requires the refusal to be BY NAME and ⛔ not a silent fall-through.
+//
+// ⛔ `skipFallback: true` is load-bearing twice over: a tombstone must not claim
+// the bare `dashboard` key (`plugin-dashboard:dashboard` owns it), and without
+// it this call would re-contest the very key the card converged.
+//
+// LAST, for the same reason `registerAllFields()` registers its tombstones last:
+// `register()` clears the lazy stub of the bare name as well as of its own full
+// type, so a tombstone running BEFORE the real registration would drop a stub
+// the real registration is about to satisfy.
+//
+// The loop shape is what the key derivation reads: `deriveRegistryKeys` pairs an
+// unresolvable key argument with the collection that supplies it, and
+// `INDIRECT_REGISTRATIONS` in `scripts/check-doc-component-types.mjs` declares
+// this collection WITHHELD — so a retired spelling is refused by `objectui
+// check` instead of being blessed by the generated whitelist, which is the whole
+// point of retiring it.
+for (const retired of Object.keys(RETIRED_DASHBOARD_NODE_TYPES)) {
+  ComponentRegistry.register(retired, RetiredDashboardNodeTombstone, {
+    namespace: 'view',
+    skipFallback: true,
+  });
+}
 
 // Standard Export Protocol - for manual integration. Keyed by the schema
 // `type` each entry serves (objectui#5064 — aligned with the four sibling

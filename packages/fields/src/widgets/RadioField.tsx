@@ -1,6 +1,6 @@
 import React, { useId, useEffect } from 'react';
 import { RadioGroup, RadioGroupItem, Label, EmptyValue } from '@object-ui/components';
-import { isValueStillOffered, type OptionLike } from '@object-ui/core';
+import { isValueStillOffered, optionDisplayLabel, type OptionLike } from '@object-ui/core';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
@@ -83,7 +83,7 @@ export function RadioField({
     // Label from the raw set so a stored value hidden by `visibleWhen` still
     // renders its label rather than a bare id.
     const opt = rawOptions.find((o) => o.value === value);
-    return <span {...hostGroupProps} className="text-sm">{opt?.label || String(value)}</span>;
+    return <span {...hostGroupProps} className="text-sm">{opt ? optionDisplayLabel(opt) : String(value)}</span>;
   }
 
   // No offered options is unfillable — surface a legible state instead of an
@@ -137,7 +137,7 @@ export function RadioField({
         return (
           <div key={value} className="flex items-center space-x-2">
             <RadioGroupItem value={value} id={id} data-testid={`radio-option-${value}`} />
-            <Label htmlFor={id} className="font-normal">{opt.label}</Label>
+            <Label htmlFor={id} className="font-normal">{optionDisplayLabel(opt)}</Label>
           </div>
         );
       })}

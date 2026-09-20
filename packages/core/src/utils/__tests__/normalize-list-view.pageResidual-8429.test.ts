@@ -35,6 +35,9 @@
  *   · grow a renderer  ⇒ `page` becomes drawable ⇒ the residual set empties and
  *                        the normalised output stops being `'grid'` ⇒ RED.
  *   · narrow `ViewType` ⇒ the published faces stop accepting `page` ⇒ RED.
+ *     ⚠️ That leg is RUNTIME now, judged against the spec this repository
+ *     RESOLVES. Its compile-time half could not keep naming the live union —
+ *     see `_LivePageFaceSkew` below and objectui#9978.
  *
  * ⚠️ The `console.warn` #8372 added is a signal to the DEVELOPER, not to the end
  * user — the author still gets a grid. It is silenced here, not treated as a
@@ -74,6 +77,82 @@ const SPEC_VALID_PAGE_VIEW = {
 } as const;
 
 const readViewType = (out: unknown): unknown => (out as { viewType?: unknown }).viewType;
+
+/* ── The TYPE face, asserted DERIVED rather than annotated (objectui#9978) ──────
+ *
+ * This pin used to state the type face inline, inside the `BOTH published
+ * faces` test, as `const pageAsViewType: ViewType = 'page'`. An annotation
+ * judges the literal against whichever `ViewType` is RESOLVED, and
+ * objectstack#17063 retired the kind on objectstack `main` — so under
+ * objectui#9860's shape gate, which compiles this repository against a spec
+ * built from there, that line became `TS2322: Type '"page"' is not assignable
+ * to type 'ViewType'`. The pin stopped COMPILING on the one leg where the
+ * retirement is the news, instead of reporting anything about it.
+ *
+ * ⛔ The spelling is NOT deleted — it is this file's subject. What moves is what
+ * it is checked AGAINST, the same move objectui#9880 made in the source with
+ * `Extract` and objectui#9943 made for the `Record<ViewType, …>` totals.
+ * `@object-ui/types` derives its two faces from two DIFFERENT exports of the
+ * spec (`ViewType` from `SpecListView['type']`, `ViewTypeSchema` from
+ * `SpecListViewTypeEnum.options`), and the zod-mirror ledger registers
+ * `views.zod.ts#ViewTypeSchema` as a bare vocabulary it does NOT compare — so
+ * the claim the test below is named for, `page` on BOTH faces, is checked here
+ * as the two faces AGREEING about it. They carry it together on the resolved
+ * spec, where the runtime leg beside it proves the value face does; they drop
+ * it together on a spec that retires it, and the assert stays `never` rather
+ * than uncompilable.
+ *
+ * ⚠️ What no COMPILE-time spelling can state on both legs is `page`'s bare
+ * presence in the live union: that sentence is FALSE once the spec retires the
+ * kind. It is stated at RUNTIME instead, against the spec this repository
+ * actually resolves — the sized vocabularies, the `safeParse`, the residual set
+ * and the census below all name `page` literally and all redden if it leaves.
+ */
+
+/** The VALUE face's vocabulary, read as a type off the enum's own options. */
+type ValueFaceViewType = (typeof ViewTypeSchema.options)[number];
+
+/** `never` only while `T` is; a live union here is the failure (TS2344). */
+type AssertNever<T extends never> = T;
+
+/** The two faces' DISAGREEMENT about `page`, over any pair of vocabularies. */
+type PageFaceSkew<TypeFace extends string, ValueFace extends string> =
+  | Exclude<Extract<ValueFace, 'page'>, TypeFace>
+  | Exclude<Extract<TypeFace, 'page'>, ValueFace>;
+
+/** ⭐ The live assert: red the day either published face drops `page` alone. */
+export type _LivePageFaceSkew = AssertNever<PageFaceSkew<ViewType, ValueFaceViewType>>;
+
+/* The assert FIRES — shown over SIMULATED vocabularies, because any one run
+ * installs exactly one spec and so cannot reach both legs. Same operator, same
+ * composition; only the vocabulary is written down here. */
+
+/** The resolved spec's shape: the kind is still in the vocabulary. */
+type PublishedShapedViewType = 'grid' | 'page';
+/** objectstack `main`'s shape: the kind is gone (objectstack#17063). */
+type MainShapedViewType = 'grid';
+
+/** LEG 1 — the resolved spec. Both faces carry it, so the skew is `never`. */
+export type _SkewUnderPublished = AssertNever<PageFaceSkew<PublishedShapedViewType, PublishedShapedViewType>>;
+/** LEG 2 — objectstack `main`. Both faces dropped it together: the card's green. */
+export type _SkewUnderMain = AssertNever<PageFaceSkew<MainShapedViewType, MainShapedViewType>>;
+
+/** FIRING CONTROL A — the TYPE face narrowed alone. The skew is `'page'`. */
+// @ts-expect-error - TS2344: Type '"page"' does not satisfy the constraint 'never'.
+export type _SkewTypeFaceNarrowedAlone = AssertNever<PageFaceSkew<MainShapedViewType, PublishedShapedViewType>>;
+
+/** FIRING CONTROL B — the VALUE face narrowed alone; the other direction. */
+// @ts-expect-error - TS2344: Type '"page"' does not satisfy the constraint 'never'.
+export type _SkewValueFaceNarrowedAlone = AssertNever<PageFaceSkew<PublishedShapedViewType, MainShapedViewType>>;
+
+/**
+ * FIRING CONTROL C — the ANNOTATION this pin carried, over a main-shaped face.
+ * This is the card's own diagnostic, reproduced inside ordinary CI on the
+ * resolved spec. If it ever compiles, LEG 2 above has stopped meaning
+ * "survives the retirement" and this whole section must be re-read.
+ */
+// @ts-expect-error - TS2322: Type '"page"' is not assignable to type '"grid"'.
+export const pageUnderTheOldAnnotation: MainShapedViewType = 'page';
 
 describe('the `page` residual (objectui#8429)', () => {
   beforeEach(() => {
@@ -141,10 +220,11 @@ describe('the `page` residual (objectui#8429)', () => {
       // reading of an enum and not an enum that accepts anything.
       expect(ViewTypeSchema.safeParse('nonsense-control').success).toBe(false);
 
-      // The type face. This line is a COMPILE-time assertion as much as a
-      // runtime one: narrowing `ViewType` makes the annotation itself an error.
-      const pageAsViewType: ViewType = 'page';
-      expect(OBJECTUI_VIEW_TYPES).toContain(pageAsViewType);
+      // The type face, at runtime. Its COMPILE-time half is `_LivePageFaceSkew`
+      // at the top of this file: an annotation here would judge the spelling
+      // against whichever `ViewType` is resolved, which is what made this pin
+      // uncompilable against a spec that retired the kind (objectui#9978).
+      expect(OBJECTUI_VIEW_TYPES).toContain('page');
     });
   });
 

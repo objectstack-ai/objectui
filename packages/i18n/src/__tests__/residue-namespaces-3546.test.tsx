@@ -305,11 +305,17 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
     }
   });
 
-  it('the sixteen literal en values are byte-identical to their inline defaultValue', () => {
+  it('the fifteen literal en values are byte-identical to their inline defaultValue', () => {
     // Two paths must not diverge: with the pack present i18next answers, and
     // before this slice the inline default did — a user must not be able to tell
-    // which ran. 16 keys here; `dashboard.loading` and the two families are the
+    // which ran. 15 keys here; `dashboard.loading` and the two families are the
     // three shapes a byte compare cannot reach, each pinned in its own case.
+    //
+    // ⚠️ It was SIXTEEN until objectui#9170. `kanban.columns` left this table
+    // because its call site left the tree: the board-level empty state no longer
+    // composes a description at all, so there is no inline default to compare
+    // against. ⛔ The key itself was NOT retired here — that is the dead-key
+    // gate's call, not this suite's, and the case below states what it reports.
     const EXPECTED: Array<[key: string, source: string, value: string]> = [
       ['common.done', INVITE_DIALOG, 'Done'],
       ['common.editInStudio', PAGE_VIEW, 'Edit in studio'],
@@ -321,22 +327,29 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
       ['detail.historyEmpty', DETAIL_VIEW, 'No history yet'],
       ['empty.appNotAvailable', APP_CONTENT, 'App not available'],
       [
+        // objectui#9262 retired the publishing clause: the screen asserted a
+        // transient deploy state it had never measured, over seven causes only
+        // one of which is a publish. What is left says nothing about why.
         'empty.appNotAvailableDescription',
         APP_CONTENT,
-        'This app is not available yet — it may still be publishing. Try again in a moment.',
+        'This app is not available — try again in a moment.',
       ],
       [
         'empty.interfacePageSourceMissing',
         INTERFACE_LIST,
         'This interface page references "{{name}}", which is not available.',
       ],
-      ['kanban.columns', KANBAN, 'columns'],
       ['layout.systemNav.administration', UNIFIED_SIDEBAR, 'Administration'],
       ['layout.systemNav.datasources', APP_SIDEBAR, 'Datasources'],
       ['layout.systemNav.documentation', UNIFIED_SIDEBAR, 'Documentation'],
       ['workspace.multiOrgDisabled', CREATE_WORKSPACE, 'Creating new organizations is disabled on this instance.'],
     ];
-    expect(EXPECTED).toHaveLength(16);
+    expect(EXPECTED).toHaveLength(15);
+    // …and the sixteenth is accounted for rather than merely absent: a row that
+    // silently disappears from a table like this is how a slice stops covering
+    // something without anyone noticing.
+    expect(MEASURED_KEYS).toContain('kanban.columns');
+    expect(EXPECTED.map(([key]) => key)).not.toContain('kanban.columns');
     const cache = new Map<string, string>();
     for (const [key, rel, value] of EXPECTED) {
       if (!cache.has(rel)) cache.set(rel, sourceOf(rel));
@@ -678,34 +691,131 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
     expect(at(builtInLocales.de, 'workspace.multiOrgDisabled')).toContain('ist auf dieser Instanz deaktiviert');
   });
 
-  it('kanban.columns is a bare unit word and follows the repo one precedent for that', () => {
-    // The call site concatenates: `` `${boardColumns.length} ${t('kanban.columns')}` ``, so
-    // the pack supplies a UNIT, not a sentence — the same structure as
-    // `preview.history.items` (slice five, which had to be corrected once for
-    // exactly this reason). `en` is plural-only and that is safe here: the empty
-    // state only renders when `boardColumns.length > 1`, so the count is never 1
-    // and no plural family is needed.
+  it('the board-level empty state carries no lane count, so no plural family is needed', () => {
+    // ⭐ RE-DERIVED, ⛔ not deleted (objectui#9170). This case used to pin the
+    // OPPOSITE premise, in two assertions that belong together:
+    //
+    //     description={\`\${boardColumns.length} \${t(<the columns key>)}\`}
+    //     const isBoardEmpty = totalCardCount === 0 && boardColumns.length > 1;
+    //
+    // …with the reasoning written between them: the pack supplies a UNIT word,
+    // `en` is plural-only, and that is SAFE because the empty state only renders
+    // above one lane, so the count can never be 1.
+    //
+    // objectui#9169 removed that second conjunct so a zero-lane and a one-lane
+    // board announce at all — that widening IS the accessibility fix — and this
+    // pin fired exactly as it was written to, because the premise it named had
+    // gone: the live region then read "No cards1 columns", announced aloud.
+    //
+    // The maintainer's ruling on objectui#9170 (2026-09-12) took the third of the
+    // card's three routes: the region's job is "no cards", the lane count is
+    // already visible on the board, and read aloud it is noise. ⇒ the description
+    // is GONE, and "no plural family is needed" is true BY CONSTRUCTION — there
+    // is no number in this region for a plural to have to agree with — rather
+    // than true because a predicate happened to keep the count above one.
+    //
+    // ⚠️ That is a stronger guarantee than the one it replaces, and the legs
+    // below are chosen so it cannot be quietly given up:
+    //
+    //   (1) the predicate is still lane-count-blind, so the zero- and one-lane
+    //       boards still announce — ⛔ route 3 is NOT a licence to put the `> 1`
+    //       guard back, which would silence them again;
+    //   (2) the board-level region declares no `description` at all;
+    //   (3) nothing in that file asks the pack for the columns unit word any
+    //       more, in any spelling, so no count can be composed with one;
+    //   (4) the region still ANNOUNCES — the title is what carries the message,
+    //       and a repair that deleted the whole region would otherwise pass (1)
+    //       to (3) trivially.
+    //
+    // The rendered half — zero, one and two lanes all reading the SAME numberless
+    // string — is pinned where it can be read from the DOM, in
+    // `packages/plugin-kanban/src/__tests__/emptyStateNumberlessDescription-9170.test.tsx`.
     const src = sourceOf(KANBAN);
-    expect(src, 'the columns count label moved').toContain(
-      "description={`${boardColumns.length} ${t('kanban.columns', { defaultValue: 'columns' })}`}",
+
+    // (1)
+    expect(
+      src,
+      'the lane-count blindness moved — the zero- and one-lane boards may be silent again; re-read objectui#9045',
+    ).toContain('const isBoardEmpty = totalCardCount === 0;');
+
+    // (2) — read from the element itself rather than from the whole file, so a
+    // `description` prop on some future sibling cannot make this red by accident,
+    // and `card.description` (a DATA field, two hundred lines up) cannot either.
+    const OPEN = '<DataEmptyState';
+    const openAt = src.indexOf(OPEN);
+    expect(openAt, 'the board-level empty state element moved').toBeGreaterThan(-1);
+    expect(src.indexOf(OPEN, openAt + 1), 'a second DataEmptyState appeared — this slice reads the first').toBe(-1);
+    const element = src.slice(openAt, src.indexOf('/>', openAt));
+    expect(element.length, 'RIG SELF-CHECK: the element slice must not be empty').toBeGreaterThan(0);
+    expect(element, 'the board-level empty state grew a description back').not.toContain('description=');
+
+    // (3) — the needle is held in a variable so this file can describe the thing
+    // it forbids without containing it; it is proven able to fire before it is
+    // trusted (AGENTS.md's rule for forensic matchers).
+    const COLUMNS_CALL = "t('kanban.columns'";
+    expect(
+      "description={`${boardColumns.length} ${" + COLUMNS_CALL + ", { defaultValue: 'columns' })}`}",
+      'POSITIVE CONTROL: the needle must match the exact call this card removed',
+    ).toContain(COLUMNS_CALL);
+    expect(
+      src,
+      'the columns unit word is being asked for again — a count in this region needs a plural family, and that decision went the other way',
+    ).not.toContain(COLUMNS_CALL);
+    expect(src, 'a lane count is being concatenated again').not.toMatch(/\$\{boardColumns\.length\}\s*\$\{/);
+
+    // (4)
+    expect(src, 'the region stopped announcing — that is not route 3, that is silence').toContain(
+      "title={t('kanban.noCards')}",
     );
-    expect(src, 'the >1 guard moved — a plural family would now be required').toContain(
-      'const isBoardEmpty = totalCardCount === 0 && boardColumns.length > 1;',
-    );
-    // The precedent's shape, per pack: unit word only, no counter particle, since
-    // the call site already inserts the space and the number.
-    expect(at(builtInLocales.en, 'preview.history.items')).toBe('item(s)');
-    expect(at(builtInLocales.ko, 'preview.history.items')).toBe('항목');
-    expect(at(builtInLocales.ru, 'preview.history.items')).toBe('элементов');
-    // …and the WORD comes from kanban's own column vocabulary, which is not the
-    // table's: ja says カラム here and 列 in `table.columns`, ru колонка against
-    // столбец.
+    expect(typeof at(builtInLocales.en, 'kanban.noCards')).toBe('string');
+
+    // ⚠️ `kanban.columns` is still DEFINED in all ten packs and is now read by no
+    // call site in `packages/` or `apps/`. ⛔ It is deliberately NOT retired here:
+    // `scripts/check-i18n-dead-keys.mjs` owns that judgement, it is report-only by
+    // design (a reverse sweep over dynamic key construction can produce false
+    // positives, and a gate that cries wolf gets deleted rather than trusted), and
+    // this suite is not the place to pre-empt it. What is pinned is the fact that
+    // makes its verdict readable: the key resolves in every pack, and the slice
+    // this file owns still covers it.
+    for (const lang of LANGS) {
+      expect(typeof at(builtInLocales[lang], 'kanban.columns'), `${lang}.kanban.columns`).toBe('string');
+    }
+    // The vocabulary the key carries, kept so a later retirement can see what it
+    // would be deleting: kanban's own column word is not the table's — ja says
+    // カラム here and 列 in `table.columns`, ru колонка against столбец.
     expect(at(builtInLocales.ja, 'kanban.addColumn')).toBe('カラムを追加');
     expect(at(builtInLocales.ja, 'table.columns')).toBe('列');
     expect(at(builtInLocales.ja, 'kanban.columns')).toBe('カラム');
     expect(at(builtInLocales.ru, 'kanban.addColumn')).toBe('Добавить колонку');
     expect(at(builtInLocales.ru, 'kanban.columns')).toBe('колонок');
     expect(at(builtInLocales.ko, 'kanban.columns')).toBe('열');
+    // `preview.history.items` WAS the repo's other bare-unit-word call site, and
+    // this comment used to offer it as evidence that the shape "still exists
+    // elsewhere". ⚠️ That reading is retired by objectui#9266, and the sentence
+    // is rewritten rather than left standing: pointing at a live instance of a
+    // defect as proof that a ruling was narrow is how the shape propagated — the
+    // next author copies the structure the comment vouches for. What the kanban
+    // ruling was narrow ABOUT is stated directly instead: objectui#9170 dropped
+    // the NUMBER there because a kanban's lanes are visible anyway, and that
+    // reasoning does not transfer to a commit row, where the count is the only
+    // thing saying how much a build changed. objectui#9266 therefore kept the
+    // number and moved it INSIDE the pack value, so each pack owns the
+    // agreement — the repair `fields.textarea.charactersRemaining` already
+    // carries. The three values below are RE-DERIVED against that change, not
+    // deleted and not copied: the old ones pinned `ru`'s bare genitive plural
+    // `элементов` as correct, which rendered `1 элементов`.
+    expect(at(builtInLocales.en, 'preview.history.items')).toBe('{{count}} item(s)');
+    expect(at(builtInLocales.ko, 'preview.history.items')).toBe('{{count}} 항목');
+    expect(at(builtInLocales.ru, 'preview.history.items')).toBe('Элементов: {{count}}');
+    // The property those three strings now have and the old ones could not:
+    // the pack states the count itself. `kanban.columns` above still does not —
+    // it has no call site at all, which is the difference this file records.
+    for (const lang of ['en', 'ko', 'ru'] as const) {
+      expect(
+        at(builtInLocales[lang], 'preview.history.items'),
+        `${lang} preview.history.items`,
+      ).toContain('{{count}}');
+    }
   });
 
   it('detail.concurrentUpdateRecordLabel is grammatical in the sentence that embeds it', () => {
@@ -772,9 +882,13 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
     for (const key of KEYS) {
       expect((at(builtInLocales.fr, key) as string).includes('’'), `fr ${key} used a curly apostrophe`).toBe(false);
     }
-    expect(at(builtInLocales.fr, KEY)).toContain("n'est pas encore disponible");
-    // ru writes ё (163 values in the pack).
-    expect(at(builtInLocales.ru, KEY)).toContain('ещё');
+    expect(at(builtInLocales.fr, KEY)).toContain("n'est pas disponible");
+    // ru writes ё (163 values in the pack). This read `ещё`, which lived in the
+    // publishing clause objectui#9262 retired from this value; the habit is
+    // pinned on the sibling the same screen gained in that pass, where the ё is
+    // in `учётной записи`. Moved rather than dropped: a pack that reverts to
+    // `учетной` is the regression this line exists to catch.
+    expect(at(builtInLocales.ru, 'empty.appNotFoundDescription')).toContain('учётной');
     // The quote style around `{{name}}` follows the sibling empty-state value in
     // the SAME pack: zh curly, ja corner brackets, the rest ASCII.
     expect(at(builtInLocales.zh, 'empty.objectNotFoundDescription')).toContain('“{{name}}”');
@@ -829,7 +943,12 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
       ['common.editInStudio', 'PageView (edit affordance title/aria-label)'],
       ['empty.appNotAvailable', 'AppContent (requested app missing)'],
       ['detail.historyEmpty', 'DetailView (history tab)'],
-      ['kanban.columns', 'KanbanImpl (empty board)'],
+      // ⚠️ No owning surface any more: objectui#9170 removed the only call site
+      // (the board-level empty state's description). Kept in this sample because
+      // what this case checks is that the PACK answers for a slice-seven key, and
+      // that is still true — and because a key with no reader is exactly the one
+      // whose pack rows stop being exercised anywhere else.
+      ['kanban.columns', 'no call site since objectui#9170 — pack-only'],
       ['layout.systemNav.administration', 'UnifiedSidebar (admin cluster)'],
       ['workspace.multiOrgDisabled', 'CreateWorkspaceDialog (submit guard)'],
       ['gantt.linkEnd.start', 'GanttView (link drag hint)'],
@@ -875,8 +994,12 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
         expect(sourceOf(rel), `${rel}`).toContain('const { t } = useDetailTranslation();');
       }
       // …and kanban through its own createSafeTranslation, whose probe key IS in
-      // the packs, so the provider path wins. Its defaults map does not list
-      // `kanban.columns`, which is the provider-LESS defect objectui#3865 owns.
+      // the packs, so the provider path wins. Its defaults map does not list the
+      // columns unit word — which used to be a live instance of the provider-LESS
+      // defect objectui#3865 owns, and since objectui#9170 removed that call site
+      // is merely an absence. The assertion is kept as the guard it now is: a
+      // defaults row for a key nothing reads would be the first sign the
+      // description had come back.
       const kanban = sourceOf(KANBAN);
       expect(kanban).toContain('const useKanbanT = createSafeTranslation(');
       expect(kanban).toContain("'kanban.noCards',");
@@ -902,7 +1025,7 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
       const { t } = result.current;
       expect(t('common.editInStudio')).toBe('在 Studio 中编辑');
       expect(t('empty.appNotAvailable')).toBe('应用不可用');
-      expect(t('empty.appNotAvailableDescription')).toBe('此应用尚不可用 —— 可能仍在发布中。请稍后重试。');
+      expect(t('empty.appNotAvailableDescription')).toBe('此应用不可用 —— 请稍后重试。');
       expect(t('empty.interfacePageSourceMissing', { name: 'crm_lead' })).toBe(
         '此界面页引用了 “crm_lead”，但该来源不可用。',
       );

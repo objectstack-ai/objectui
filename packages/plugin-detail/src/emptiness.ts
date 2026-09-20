@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { recordDisplayValueAt } from '@object-ui/core';
+import { isEmptyValue, recordDisplayValueAt } from '@object-ui/core';
 
 /**
  * Does this cell have anything to render? **THE** definition of emptiness on
@@ -72,6 +72,12 @@ import { recordDisplayValueAt } from '@object-ui/core';
  *
  * ## The one object shape that is NOT a value: `[]` (objectui#8474)
  *
+ * That member now arrives from the SHARED FLOOR rather than from a clause
+ * written here — `isEmptyValue` in `@object-ui/core` (objectui#8496). The
+ * reasoning below is what MEASURED it, and it is kept because it is the reason
+ * the floor may be asked here at all; the four members themselves are no longer
+ * this file's to spell.
+ *
  * Every example above is a POPULATED object. `typeof [] === 'object'`, so until
  * objectui#8474 an EMPTY array took the same branch and was a value — and there
  * the reasoning stops holding, because the type-aware renderer has nothing to
@@ -136,18 +142,24 @@ import { recordDisplayValueAt } from '@object-ui/core';
  * answers EMPTY for everything.
  */
 export function hasCellValue(value: unknown): boolean {
+  // THE FLOOR, asked first and by name (objectui#8496): `null`, `undefined`,
+  // `''` and `[]`. `[]` is the member that has to be answered HERE rather than
+  // by the display-name authority below — that function answers "does this
+  // resolve to a NAME", and it calls `{}` and a `Date` empty too, correct for a
+  // title and a false-empty for a cell (objectui#8474).
+  if (isEmptyValue(value)) return false;
   // Object/array values belong to the cell renderers, not to the display-name
   // chain — see the docblock above. `typeof null === 'object'`, so null is
-  // excluded here and answered by the authority below.
+  // already gone at the floor; a POPULATED object reaching here is a value.
   if (value !== null && typeof value === 'object') {
-    // …with exactly one exception: an EMPTY array, which no cell renderer has
-    // anything to draw for (objectui#8474). Answered HERE rather than by
-    // falling through to the authority below: that function answers "does this
-    // resolve to a NAME", and it calls `{}` and a `Date` empty too — correct
-    // for a title, a false-empty for a cell.
-    if (Array.isArray(value) && value.length === 0) return false;
     return true;
   }
+  // THE EXTENSION, and the only one: a WHITESPACE-ONLY string is empty here
+  // and is not a floor member (objectui#8350 measured what a visually blank
+  // cell costs on this page; the gallery, the kanban and the shared renderers
+  // all keep `'   '` a value, which is why the trim is an extension and not a
+  // fifth member of the floor).
+  //
   // A one-key synthetic record is how a VALUE asks the authority its question:
   // `recordDisplayValueAt` is keyed `(record, field)` because its callers read
   // a field off a record, while a call site's value has several sources (the

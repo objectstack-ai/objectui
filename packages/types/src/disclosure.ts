@@ -84,6 +84,72 @@ export interface AccordionSchema extends BaseSchema {
    * @default 'default'
    */
   variant?: 'default' | 'bordered' | 'separated';
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `accordion` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `accordionType`, `collapsible`, `items` (in `packages/components/src/renderers/disclosure/accordion.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "accordion" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:accordion`
+   * as the SOLE claimant of the bare key, because `page:accordion` passes
+   * `skipFallback: true` and never writes it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `accordion` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `accordion` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `accordionType`, `collapsible`, `items` (in `packages/components/src/renderers/disclosure/accordion.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "accordion" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:accordion`
+   * as the SOLE claimant of the bare key, because `page:accordion` passes
+   * `skipFallback: true` and never writes it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `accordion` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -117,9 +183,41 @@ export interface CollapsibleSchema extends BaseSchema {
    */
   defaultOpen?: boolean;
   /**
-   * Controlled open state
+   * RETIRED (objectui#8236, ADR-0049 enforce-or-remove; maintainer ruling
+   * 2026-09-17 「9593 A,其他同意」, step 2 of two).
+   *
+   * ⚠️ This key was never inert, and the card that filed it as inert was WRONG
+   * in the dangerous direction — read this before "restoring" it.
+   * `SchemaRenderer` spreads every non-metadata node key as a React prop, and
+   * the `collapsible` renderer forwarded that spread onto the Radix root
+   * LAST — after the `defaultOpen` it writes explicitly. So an authored `open`
+   * made the primitive CONTROLLED without any `schema.open` read existing
+   * anywhere: MEASURED through the real renderer and the real registry, in both
+   * polarities, `open: true` froze the trigger open and `open: false` froze it
+   * shut and beat `defaultOpen: true`
+   * (`packages/components/src/__tests__/collapsible-open-intercept-8236.test.tsx`).
+   *
+   * The other half of controlled state cannot be authored: {@link
+   * CollapsibleSchema.onOpenChange} is a RUNTIME SLOT refused by name on the
+   * zod face (objectui#6124), and JSON has no function value — so a document
+   * that wrote `open` could never write the handler that moves it. That is the
+   * whole content of the refusal message, and it is why 「author `defaultOpen`
+   * instead」 is NOT an equivalent: `defaultOpen` seeds the INITIAL state and
+   * then hands control back to the user, which is a different capability.
+   *
+   * ⚠️ Retiring this declaration does NOT by itself stop the takeover — the
+   * render path runs no `safeParse` (objectui#9585 measured NOT GATED), so a
+   * refused key still rides the spread. The renderer-side named exclusion
+   * landed FIRST, in the same change, for exactly that reason; ⛔ do not remove
+   * it on the strength of this tombstone.
+   *
+   * `?: never` is the twin of `zod/disclosure.zod.ts`'s `retirementTombstone`
+   * arm: the pair is what `__tests__/zod-mirror-parity.test.ts` compares, and it
+   * is what makes `tsc` refuse the key at the authoring site before anything
+   * runs.
+   * @deprecated Not authorable in SDUI — use `defaultOpen` for the initial state.
    */
-  open?: boolean;
+  open?: never;
   /**
    * Open state change handler
    *
@@ -129,6 +227,54 @@ export interface CollapsibleSchema extends BaseSchema {
    * spread onto the Radix `Collapsible` root by the renderer's `{...props}`.
    */
   onOpenChange?: (open: boolean) => void;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `collapsible` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `content`, `defaultOpen`, `trigger` (in
+   * `packages/components/src/renderers/disclosure/collapsible.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `collapsible` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `collapsible` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `content`, `defaultOpen`, `trigger` (in
+   * `packages/components/src/renderers/disclosure/collapsible.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `collapsible` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -195,6 +341,54 @@ export interface ToggleGroupSchema extends BaseSchema {
    * `{...toggleGroupProps}`.
    */
   onValueChange?: (value: string | string[]) => void;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `toggle-group` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `className`, `items`, `selectionType`, `size`, `value`, `variant` (in
+   * `packages/components/src/renderers/disclosure/toggle-group.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `toggle-group` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `toggle-group` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `className`, `items`, `selectionType`, `size`, `value`, `variant` (in
+   * `packages/components/src/renderers/disclosure/toggle-group.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `toggle-group` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

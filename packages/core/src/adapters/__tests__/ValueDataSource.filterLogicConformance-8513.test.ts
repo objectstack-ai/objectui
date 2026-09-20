@@ -189,27 +189,38 @@ describe('objectui#8513 — `$not` is out of scope, and stays refused', () => {
  * `engine.find`, and it never passes through this adapter.
  *
  * The producer that does reach here is this repo's own single filter sink.
- * `convertFiltersToAST` returns the ORIGINAL OBJECT when a filter lowers to no
- * conditions, and the identity groups are exactly that case — so `toFilterNode`
- * hands `{ $and: [] }` and `{ $or: [{}] }` back UNLOWERED, and every consumer
- * on that chain (`ObjectGrid`'s `schemaFilter`, `plugin-list`'s
- * `buildEffectiveFilter`, `plugin-view`'s `ObjectView`) drops them straight
+ * `convertFiltersToAST` returned the ORIGINAL OBJECT when a filter lowered to
+ * no conditions, and the identity groups were exactly that case — so
+ * `toFilterNode` handed `{ $and: [] }` and `{ $or: [{}] }` back UNLOWERED, and
+ * every consumer on that chain (`ObjectGrid`'s `schemaFilter`, `plugin-list`'s
+ * `buildEffectiveFilter`, `plugin-view`'s `ObjectView`) dropped them straight
  * onto `$filter`. Before this change the matcher answered ZERO ROWS for both,
  * on filters whose ruled answer is EVERY row — the worst direction, on the
  * reachable path.
+ *
+ * ⚠️ The PRODUCER half moved afterwards: objectui#8770 made `convertFiltersToAST`
+ * answer `undefined` — "no constraint" — for a filter that is nothing but
+ * TRUE-identity combinators, so this matcher is no longer handed those objects
+ * BY THAT CHAIN. The matcher's own answer is asserted below all the same, and
+ * deliberately from the object literals rather than through `toFilterNode`: it
+ * is a `DataSource` with a public `find`, the object dialect is what
+ * `QuerySchema.where` declares, and #8513's ruling is about what this adapter
+ * answers — not about which producer happens to call it this month.
  */
-describe('objectui#8513 — the lowering chain hands this matcher an object', () => {
-  it('`toFilterNode` leaves the TRUE identities in the object dialect', () => {
-    // Not asserting this is right — asserting it is what happens, because it
-    // is why the matcher has to answer correctly for these shapes.
-    expect(toFilterNode({ $and: [] })).toEqual({ $and: [] });
-    expect(toFilterNode({ $or: [{}] })).toEqual({ $or: [{}] });
+describe('objectui#8513 — this matcher answers the object dialect directly', () => {
+  it('the lowering chain no longer hands the identities down in that dialect', () => {
+    // objectui#8770: the producer stopped re-emitting the caller's object for a
+    // filter it read as "no constraint". Pinned here because the paragraph
+    // above rests on it, and a silent revert would put an object back on
+    // `$filter` where the wire refuses it.
+    expect(toFilterNode({ $and: [] })).toBeUndefined();
+    expect(toFilterNode({ $or: [{}] })).toBeUndefined();
   });
 
-  it('and the matcher now answers them the way the ruling says', async () => {
+  it('and the matcher answers the objects themselves the way the ruling says', async () => {
     const allIds = FILTER_LOGIC_ROWS.map((r) => r.id);
-    expect(await selectedIds(toFilterNode({ $and: [] }))).toEqual(allIds);
-    expect(await selectedIds(toFilterNode({ $or: [{}] }))).toEqual(allIds);
+    expect(await selectedIds({ $and: [] })).toEqual(allIds);
+    expect(await selectedIds({ $or: [{}] })).toEqual(allIds);
   });
 
   it('a group that DOES lower still goes down the AST arm, unchanged', async () => {

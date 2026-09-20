@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 /**
- * Rejects the two Vitest invocations that silently produce a FALSE GREEN.
+ * Rejects the Vitest invocations that silently produce a FALSE GREEN — the
+ * verdicts `evaluateVitestInvocation` returns below, each pinned in
+ * `scripts/__tests__/vitest-invocation-guard.test.ts`. Read that test for the
+ * set that is refused today; a count written here would go stale in silence.
  *
  * Called from the top of `vitest.config.mts` — the repo's ONE Vitest config
  * since objectui#3240 — and from every other config file Vitest can pick up
@@ -102,6 +105,48 @@
  * named files and zero matched" is an error, while "no filter, and one project
  * happens to hold no files" stays fine.
  *
+ * ## Trap 3 — an appended path filter that WIDENS the run (objectui#7814)
+ *
+ *     pnpm --filter @object-ui/cli test packages/cli/src/__tests__/app-generator.test.ts
+ *     => Test Files  17 passed (17)   <- the whole package, not the one file
+ *        Tests      266 passed (266)      (the file alone is 1 file / 47 tests)
+ *
+ * objectui#3240 bakes a positional into every package `test` script
+ * (`vitest run --root ../.. packages/<pkg>/`), and Vitest UNIONS positional
+ * filters. The appended path therefore does not replace the baked one, it sits
+ * beside it, and every file the baked filter admits still runs. Exit 0, green
+ * summary — the package's count read as the file's. `subsumed-positional-filter`
+ * refuses it; the numbers above are from the measurement on that card and are a
+ * timestamp, not a live reading.
+ *
+ * ## Trap 4 — a `-t` name filter read as a REGEX (objectui#9660)
+ *
+ *     pnpm exec vitest run scripts/__tests__/body-dialect-census.test.ts \
+ *       -t 'the population travels with the reading (objectui#9545)'
+ *     => Test Files  1 skipped (1)
+ *        Tests      22 skipped (22)    <- exit 0, and `tests 0ms`
+ *
+ * `-t` / `--testNamePattern` takes a REGEX, and this repo's `describe` titles
+ * routinely end in a literal card reference in parentheses. Copy-pasted, that
+ * pair becomes a capture group, the pattern matches no test at all, and every
+ * test in the file is reported SKIPPED — which Vitest exits 0 for. Measured on
+ * objectui#9660 against the same file and the same flag, with the
+ * metacharacter-free substring of the SAME title as the lit control:
+ * `Tests 7 passed | 15 skipped (22)`.
+ *
+ * `passWithNoTests` has nothing to say here — the FILE filter matched, so the
+ * run is not "no tests found", it is "every test found was filtered out".
+ * Nothing on screen says "0 tests matched" either. A caller checking "did the
+ * named pin pass?" reads exit 0 beside the file's own name and calls it a pass.
+ * `unmatchable-name-pattern` refuses it.
+ *
+ * The trigger is STATIC, for the reason under "Deliberately strict" below: a
+ * pattern is refused when it cannot match the plain text it appears to spell,
+ * not when the run turns out to collect zero tests. The guard runs at config
+ * load, before collection — and "collected zero" would be the weaker trigger
+ * anyway, since a literal name with its metacharacters left live is the wrong
+ * command whether or not some unrelated test happens to match it.
+ *
  * ## The canonical invocation
  *
  *     pnpm exec vitest run packages/<pkg>/src/<file>.test.ts   # from the REPO ROOT
@@ -123,7 +168,14 @@
  * what the package-level `test` scripts are: every one of them names the repo
  * root explicitly (`vitest run --root ../.. packages/<pkg>/`), so they satisfy
  * this comparison instead of tripping it, and `pnpm --filter <pkg> test` /
- * `turbo run test` run the same config as CI.
+ * `turbo run test` load the same config as CI. ⛔ The same config is NOT the
+ * same conclusion: objectui#3240 moved Vitest's ROOT, and `process.cwd()` does
+ * not move with it — under the package-level form the cwd is still
+ * `packages/<pkg>/`, so anything that reads it answers differently there than
+ * CI does. This guard is one of those things whenever a TEST imports a config
+ * and re-enters it (objectui#8590): the worker's `process.argv` carries no
+ * `--root`, so the cwd decides and the package-level form is refused after the
+ * run is already under way. AGENTS.md §测试纪律 carries the same correction.
  *
  * Escape hatch, documented in AGENTS.md: `OBJECTUI_VITEST_GUARD=off`.
  */
@@ -333,6 +385,56 @@ export function cliHasTestFilters(argv) {
   return positionals.length > 0;
 }
 
+/**
+ * Spell `literal` as a regex matching it and nothing else — the `-t` argument
+ * a caller should have typed for a test name they pasted.
+ *
+ * @param {string} literal
+ * @returns {string}
+ */
+export function escapeNamePattern(literal) {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The plain text a `-t` pattern APPEARS to spell: a leading `^` and a trailing
+ * `$` dropped, every `\x` collapsed to `x`. This reconstructs the `describe` /
+ * `it` title the caller copied out, from what they actually typed — so the
+ * correctly escaped spelling of a name and a raw paste of that same name read
+ * back as the same literal, and only one of the two is refused.
+ *
+ * @param {string} pattern the `-t` / `--testNamePattern` value as given
+ * @returns {string}
+ */
+export function literalReadingOfNamePattern(pattern) {
+  return pattern
+    .replace(/^\^/, '')
+    .replace(/(?<!\\)\$$/, '')
+    .replace(/\\([^])/g, '$1');
+}
+
+/**
+ * Can this `-t` pattern match the text it appears to spell?
+ *
+ * `null` is yes — a plain substring always can, and so does a regex written
+ * deliberately over the name it targets. `'vacuous'` means the pattern's own
+ * metacharacters put its apparent literal out of reach, which is exactly what
+ * a pasted `… (objectui#9545)` does. `'invalid'` means it is not a regex at
+ * all; same root cause, one step further along.
+ *
+ * @param {string} pattern
+ * @returns {'invalid' | 'vacuous' | null}
+ */
+export function judgeNamePattern(pattern) {
+  let re;
+  try {
+    re = new RegExp(pattern);
+  } catch {
+    return 'invalid';
+  }
+  return re.test(literalReadingOfNamePattern(pattern)) ? null : 'vacuous';
+}
+
 /** Resolve symlinks when possible; fall back to a plain resolve (unit tests pass fake paths). */
 function realpath(p) {
   try {
@@ -469,6 +571,137 @@ export function evaluateVitestInvocation({
         '',
         '确需绕过(自担风险): OBJECTUI_VITEST_GUARD=off',
       ]),
+    };
+  }
+
+  // ## Trap 3 — an appended filter another positional already swallows
+  //
+  // Vitest matches each positional as a SUBSTRING of the test file path and
+  // takes the UNION of them, never the intersection. So when one positional
+  // contains another as a substring, the longer one admits a subset of what the
+  // shorter already admits and changes the collected set by nothing at all.
+  //
+  // This is not hypothetical spelling: objectui#3240 gave every package a
+  // `test` script that bakes its own positional in — `vitest run --root ../..
+  // packages/<pkg>/` — so `pnpm --filter <pkg> test <one file>` appends a
+  // SECOND filter beside that one and runs the whole package. Measured, exact
+  // argv as the guard receives it (objectui#7814):
+  //
+  //     pnpm --filter @object-ui/cli test packages/cli/src/__tests__/app-generator.test.ts
+  //     => positionals: ['packages/cli/', 'packages/cli/src/__tests__/app-generator.test.ts']
+  //
+  // It exits 0 and prints a green summary for the PACKAGE, which reads exactly
+  // like a successful narrowed run for the FILE. The count is real; the
+  // attribution is not, and nothing on screen separates the two. That is the
+  // same false-green shape as traps 1 and 2 — a caller who asked for one file
+  // is handed somebody else's count — so it is refused on the same terms,
+  // rather than left to a sentence somewhere that nobody is reading at the
+  // moment it fires.
+  const swallowed = positionals
+    .map((filter) => ({
+      filter,
+      broader: positionals.find((other) => other !== filter && filter.includes(other)),
+    }))
+    .filter((pair) => pair.broader !== undefined);
+
+  if (swallowed.length > 0) {
+    const { filter, broader } = swallowed[0];
+    const backToRoot = path.relative(realpath(cwd), root) || '.';
+    const fromHere = pkgDir
+      ? [`  pnpm exec vitest run --root ${backToRoot} ${filter}   # 就在当前目录(${pkgDir}/)`]
+      : [];
+    return {
+      code: 'subsumed-positional-filter',
+      message: box(
+        'vitest 调用被拒绝:追加的路径过滤没有缩小范围,反而被并进了更宽的那个 (objectui#7814)',
+        [
+          `位置参数: ${positionals.join(' ')}`,
+          `其中 ${filter} 被 ${broader} 整个包含。`,
+          '',
+          'vitest 把多个位置参数按【子串匹配】取【并集】,不取交集:凡是',
+          `${broader} 能匹配到的文件,${filter} 一个也拦不掉 ——`,
+          '追加的这个过滤器一个文件都没多跑,也一个都没少跑。',
+          '',
+          '包级 `test` 脚本自带一个 `packages/<pkg>/` 过滤(objectui#3240 定下的写法),',
+          '所以 `pnpm --filter <pkg> test <路径>` 追加的路径是【第二个】过滤器,跑的仍然是',
+          '整个包。它退出码 0、摘要一片绿,屏幕上没有任何东西把「整包」和「一个文件」区分开 ——',
+          '把整包的测试数当成那个文件的测试数,数字是真的,归属是假的。',
+          '',
+          '要真正只跑那一个文件,用【不带】baked 过滤器的形式:',
+          '',
+          ...fromHere,
+          `  pnpm exec vitest run ${filter}   # 或 cd 到仓库根再跑`,
+          '',
+          '确实要跑整个包,就把追加的路径去掉(`pnpm --filter <pkg> test` 本身就是整包)。',
+          '',
+          '确需绕过(自担风险): OBJECTUI_VITEST_GUARD=off',
+        ]
+      ),
+    };
+  }
+
+  // ## Trap 4 — a name filter that is a regex, spelled as a literal
+  //
+  // `-t` is documented by Vitest as a pattern; what makes it a false green HERE
+  // is this repo's naming convention. A title ending in `(objectui#NNNN)`
+  // becomes a capture group when pasted, nothing matches, and Vitest reports
+  // every test in the named file as SKIPPED and exits 0.
+  //
+  // Read last-wins per flag, like this function's other flag readers (`--root`,
+  // `--changed`): the value that takes effect is the one that can be vacuous.
+  // Both spellings are read — the caller who typed the long one meets the same
+  // trap as the caller who typed `-t`.
+  const namePatterns = /** @type {Array<[string, string]>} */ (
+    [
+      ['-t', flags['-t']],
+      ['--testNamePattern', flags['--testNamePattern']],
+    ].filter(([, value]) => typeof value === 'string' && value !== '')
+  );
+
+  for (const [flag, pattern] of namePatterns) {
+    const reason = judgeNamePattern(pattern);
+    if (reason === null) continue;
+
+    const literal = literalReadingOfNamePattern(pattern);
+    const lead =
+      reason === 'invalid'
+        ? [
+            '这个模式连合法正则都不是(`new RegExp` 直接抛错)—— 同一个根因的下一步:',
+            '一个字面的测试名被当成了正则。',
+          ]
+        : ['把这个模式按正则跑在【它自己拼出的那段字面文本】上,一个位置都匹配不到。'];
+
+    return {
+      code: 'unmatchable-name-pattern',
+      message: box(
+        'vitest 调用被拒绝:`-t` 是正则,这个模式匹配不到它自己拼出的名字 (objectui#9660)',
+        [
+          `名字过滤: ${flag} ${pattern}`,
+          `它拼出的字面文本: ${literal}`,
+          '',
+          ...lead,
+          '',
+          '`-t` / `--testNamePattern` 收到的是【正则】,不是字面量。本仓的 describe 名普遍以',
+          '`(objectui#NNNN)` 结尾,整段复制粘贴过来,那对括号就成了捕获组,于是一个测试都匹配不到。',
+          '而「名字过滤零匹配」在 vitest 里算 skipped、不算失败:',
+          '',
+          '  Test Files  1 skipped (1)',
+          '  Tests      22 skipped (22)      <- 退出码 0,tests 0ms',
+          '',
+          '文件过滤是匹配上了的,所以 passWithNoTests 在这里什么都管不到;屏幕上也没有任何',
+          '"0 tests matched"。一个跑「那条具名 pin 到底过了没有」的人,看到的是退出码 0 加一次',
+          '提到该文件的运行 —— 读成通过,而实际上一个测试都没执行。这就是假绿。',
+          '',
+          '两种正确写法,任选其一:',
+          '',
+          `  -t '${escapeNamePattern(literal)}'   # 原样匹配那个名字,元字符已转义`,
+          "  -t '<名字里一段不含元字符的子串>'   # 例如把结尾的 (objectui#NNNN) 去掉",
+          '',
+          ...canonicalLines(pkgDir),
+          '',
+          '确实要把这个模式当正则用: OBJECTUI_VITEST_GUARD=off',
+        ]
+      ),
     };
   }
 

@@ -1,4 +1,40 @@
-@import 'tailwindcss';
+/*
+ * `source(none)` is load-bearing, not tidiness.
+ *
+ * This entry is the ROOT sheet, so it keeps the FULL `@import 'tailwindcss'`:
+ * preflight, the `@theme` block and the base layer are this package's to emit.
+ * The narrow siblings (`fields`, `plugin-grid`, `plugin-kanban`) deliberately
+ * emit none of those and therefore spell their entry differently -- `@reference`
+ * on this file plus `@import 'tailwindcss/utilities.css' layer(utilities)
+ * source(none)`. Read `packages/fields/src/index.css`'s own header before
+ * copying anything from it: it states "This file has no `@import 'tailwindcss'`
+ * on purpose". Mirroring the siblings literally here would drop preflight and
+ * the shared theme from the only sheet that ships them.
+ *
+ * What `source(none)` switches off is Tailwind's AUTOMATIC source detection,
+ * which roots at the PROCESS CWD. Two defects followed from leaving it on:
+ *
+ *  1. The published artifact depended on where the build was launched from --
+ *     same commit, same command, two different stylesheets. The ratio measured
+ *     on objectui#9569: compiling with the cwd at this package emitted roughly a
+ *     third of the classes that compiling from the repo root emitted.
+ *  2. It scanned this package's own `CHANGELOG.md` -- 473 kB of published prose
+ *     -- and compiled every class-shaped token in it into `dist/index.css`.
+ *     That is worse than dead weight: `pnpm changeset:version` WRITES changeset
+ *     bodies into that CHANGELOG, so a changeset that merely quotes a class name
+ *     turned it into a real utility here, and the plugin builders subtract every
+ *     rule this sheet already ships -- silently stripping that class out of
+ *     THEIR published sheets while their components still emit it (objectui#9569).
+ *     objectui#8446 already tried the narrow route on this same file, enumerating
+ *     bad doors with `@source not` while leaving detection ON; `CHANGELOG.md` is
+ *     the door it did not enumerate. Enumerating doors is what failed. The door
+ *     list is unbounded -- any published file in this package is a door -- so
+ *     detection is off and the inputs are declared instead.
+ *
+ * With it, the ONLY inputs are the explicit `@source` lines below, and the
+ * output is byte-identical from any working directory.
+ */
+@import 'tailwindcss' source(none);
 
 /* Class-based dark variant: follow `.dark` on <html>/ancestor instead of
    the OS `prefers-color-scheme`, so the in-app theme toggle controls UI.
@@ -10,6 +46,19 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* Scan sources for Tailwind classes.
+ *
+ * Since the entry above carries `source(none)`, these three lines are now the
+ * ONLY thing that keeps this sheet non-empty -- there is no automatic detection
+ * left to cover for a path that names nothing. Every path is resolved relative
+ * to THIS FILE's directory: `@tailwindcss/postcss` compiles with its base set to
+ * the entry stylesheet's own directory, so `../src/**` and `./**` below both
+ * land on `packages/components/src`. `packages/runner/src/index.css` records the
+ * failure mode in detail -- five `@source` lines there were each wrong by one
+ * `src` segment, named directories that do not exist, and contributed nothing,
+ * while automatic detection quietly kept that sheet populated. A near-empty
+ * sheet and a correct one both build green, so the lines below were re-measured
+ * by ablation on objectui#9569 rather than assumed: deleting the first one
+ * collapses this compilation to its base layer.
  *
  * Only SHIPPED source. Tailwind v4 scans source TEXT, so any class-shaped
  * token in a file that is scanned compiles a real rule into the published

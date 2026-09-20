@@ -24,9 +24,18 @@ than a patch; it retires no capability anyone could exercise.
 One key had four contracts and three answers: `@object-ui/types` declared it,
 `RecordDetailsRenderer` honoured it, the `DetailViewSectionSchema` zod mirror
 omitted it, and the spec refused it. The maintainer converged the four on the
-spec's answer (2026-09-01): the spec keeps refusing, the mirror stays absent,
-and the declaration and the read are retired. All four are now pinned together
-in `record-details.hideEmptyRetired-7129.test.tsx`.
+spec's answer (2026-09-01) as it stood then. All four are pinned together in
+`record-details.hideEmptyRetired-7129.test.tsx`.
+
+⚠️ **What that convergence settled on has since moved, inside this same
+release.** The premise was that the spec refuses the key — true of the 17.2.0
+pin this repo held, and already false upstream. `@objectstack/spec` 17.3.0
+declares the key with a description promising the behaviour this entry removed,
+so the maintainer ruled the protocol correct and restored the read. Net for a
+reader of THIS release: the key is declared upstream, honoured here, and
+`hideEmpty: false` works. The paragraphs above describe a step this release
+takes and then takes back; the restoration entry is the one that describes what
+ships.
 
 Going with it is the paradox the key carried: `DetailSection` tested
 `!section.hideEmpty`, so an authored `hideEmpty: false` was indistinguishable
@@ -34,17 +43,38 @@ from an unauthored section and overrode nothing. There is no longer a lever to
 misread.
 
 **Supersedes one paragraph of the `record:details` empty-section changeset in
-this same release.** Its closing "What does not change: an authored `hideEmpty`
-keeps its exact former meaning" no longer holds — an authored `hideEmpty` of
-either polarity is now inert, and the release notes should read that way.
-Everything else in it stands: the unauthored default is unchanged, and so is
-the label-graveyard guard.
+this same release.** (⚠️ Written 2026-09-03 — the reason and the scope line in
+this paragraph were overtaken inside this same release. Read the dated note
+directly below before acting on either.) Its closing "What does not change: an
+authored `hideEmpty` keeps its exact former meaning" no longer holds — an
+authored `hideEmpty` of either polarity is now inert, and the release notes
+should read that way. Everything else in it stands: the unauthored default is
+unchanged, and so is the label-graveyard guard.
 
-**Migration:** delete `hideEmpty` from any `record:details` section you author.
-A section that used `hideEmpty: true` to hide an all-empty block will now show
-that block's skeleton — headings, field labels and one empty-value placeholder
-each. That is the platform's answer for a sparse record, and it is a UI
-decision, not something metadata should have to make.
+⚠️ **Dated note, 2026-09-16 — the paragraph above is a reading of 2026-09-03
+and two of its statements have been falsified since.** ⛔ Its text is kept, not
+rewritten: it was true of the tree that retired the key, and overwriting it
+would erase that. objectui#8603 (director seat batch #137 item 3, maintainer
+2026-09-15) restored the `record:details` read of `hideEmpty`, shipped by PR
+objectui#9627 later in this same release. What holds as of 2026-09-16: an
+authored `hideEmpty` is honoured rather than inert, and a `record:details`
+section that authors no `hideEmpty` hides again once all of its fields are
+empty. What still stands from that paragraph: the label-graveyard guard, and
+the skeleton the direct-`fields` fallback body and the `detail-view` node keep
+with zero app-side authoring. The closing sentence it supersedes does not come
+back either, for the opposite reason — as of 2026-09-16 `hideEmpty: false` is
+an override, which its "exact former meaning" never was. The `hideEmpty`
+restoration entry is the one that states what ships.
+
+**⚠️ Migration: none — superseded inside this same release. ⛔ Do NOT delete
+`hideEmpty` from your sections.** This entry originally told you to, because at
+the time the key was retired here and refused by `@objectstack/spec`. Both
+halves changed before this release shipped: the spec DECLARES
+`RecordDetailsProps.sections[].hideEmpty` from 17.3.0, and the
+`record:details` read is RESTORED later in this same release — see the
+`hideEmpty` restoration entry, which states the behaviour that actually ships.
+A section that authors `hideEmpty` keeps its meaning; `hideEmpty: false` is how
+an all-empty section keeps its heading and label skeleton.
 
 **Not affected**, despite the shared name: `record:reference_rail`'s own
 `hideEmpty` prop, which is a different surface and still live; and the

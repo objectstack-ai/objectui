@@ -19,6 +19,7 @@
   },
   "scripts": {
     "build": "vite build",
+    "test": "vitest run --root ../.. packages/layout/",
     "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
     "lint": "eslint ."
   },
@@ -31,8 +32,7 @@
     "@object-ui/react": "workspace:*",
     "@object-ui/types": "workspace:*",
     "@objectstack/spec": "^17.0.0",
-    "lucide-react": "^1.43.0",
-    "react": "19.2.8"
+    "lucide-react": "^1.43.0"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
@@ -43,6 +43,7 @@
     "@object-ui/sdui-parser": "workspace:*",
     "@object-ui/test-support": "workspace:*",
     "@vitejs/plugin-react": "^6.0.5",
+    "react": "19.2.8",
     "react-router-dom": "^7.18.2",
     "vite": "^8.2.1",
     "vite-plugin-dts": "^5.0.3",

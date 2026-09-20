@@ -33,9 +33,11 @@ import type { ExpressionWire } from './expression.js';
  *   (`packages/react/src/utils/i18n.ts`, and the `t`-taking twin in
  *   `packages/app-shell/src/utils/index.ts`).
  * - INLINE (`I18nLabel`, re-exported from `@objectstack/spec/ui`):
- *   `string | Record<string, string>` — a locale MAP like
- *   `{ en: 'Owner' }` — resolved against a BCP-47 locale by the spec's own
- *   `resolveI18nLabel(label, locale)`.
+ *   `string | Record<string, string>`, with `key?: never; defaultValue?:
+ *   never` on the map arm — a locale MAP like `{ en: 'Owner' }`, resolved
+ *   against a BCP-47 locale by the spec's own `resolveI18nLabel(label,
+ *   locale)`. Those two exclusions are what keep the KEYED shape out of an
+ *   inline slot; {@link BaseSchema.ariaLabel} states both crossings.
  *
  * The shape below is the census of the three inline copies that existed before
  * this type was minted — `packages/react/src/utils/i18n.ts`,
@@ -91,20 +93,47 @@ export interface BaseSchema {
    * Often used in forms, cards, and other UI elements.
    *
    * Accepts the spec's INLINE LOCALE MAP as well as a plain string
-   * (objectui#4580, revised Q1 ruling — option A), because that is what a spec
-   * producer already writes into this slot: `bridgeListView` assigns
-   * `node.label = spec.label` at
-   * `packages/react/src/spec-bridge/bridges/list-view.ts:180`, and `ListView`'s
-   * own `label` is the spec's `I18nLabel`. Under the old `string` declaration
-   * that assignment was a type error the moment `SchemaNode` stopped being
-   * core's index-signature interface — the defect this widening resolves, not a
+   * (objectui#4580, revised Q1 ruling — option A), because `ListView`'s own
+   * `label` is the spec's `I18nLabel`: under the old `string` declaration that
+   * assignment was a type error the moment `SchemaNode` stopped being core's
+   * index-signature interface — the defect this widening resolves, not a
    * capability being invented here.
+   *
+   * The instrument that re-derives the widening is
+   * `inline-locale-declared-face-9092.test.ts` in this package's `__tests__`:
+   * it assigns the map to this slot and to {@link BaseSchema.description}, each
+   * paired with a `@ts-expect-error` control on a genuinely plain-`string`
+   * sibling, and it runs under both `tsc -p packages/types/tsconfig.test.json`
+   * and vitest. ⛔ Read that file rather than any figure written here.
+   *
+   * ## ⚠️ The producer evidence this slot was widened on is DEAD
+   *
+   * It is quoted and dated rather than deleted, because it is the rationale
+   * objectui#4580 was decided on and overwriting it would erase that the ruling
+   * ever had one. As written on 2026-08-13 (#4580, PR #4608) this paragraph
+   * said, and the tree at that commit bore it out:
+   *
+   * > that is what a spec producer already writes into this slot:
+   * > `bridgeListView` assigns `node.label = spec.label` at
+   * > `packages/react/src/spec-bridge/bridges/list-view.ts:180`
+   *
+   * ⛔ FALSIFIED on 2026-08-29 by objectui#6366 (PR #6632), which removed the
+   * WHOLE spec-bridge — `SpecBridge`, `bridgeListView`, `bridgeFormView` — from
+   * `@object-ui/react` as a declared BREAKING CHANGE. That producer, the module
+   * it lived in and the address it is cited at are all gone, and ⛔ nothing
+   * re-derives the sentence — which is why it is quoted here instead of left
+   * reading as live (AGENTS.md #9). The RULING is not in question: its live
+   * basis is the declared-face pin named above, the spec's own `I18nLabel`
+   * declaration this file imports, and the read-site pins in
+   * `@object-ui/components` and `@object-ui/plugin-dashboard`. Reading the dead
+   * sentence as live already cost objectui#9092 a premise-falsification round.
    *
    * ## Which vocabulary this is, and who resolves it
    *
    * This slot — and {@link BaseSchema.description} two lines down — carries the
-   * spec's INLINE form: `I18nLabel` = `string | Record<string, string>`, a
-   * locale MAP like `{ en: 'Owner', 'zh-CN': '负责人' }`, resolved against a
+   * spec's INLINE form: `I18nLabel` = `string | Record<string, string>` with
+   * `key` and `defaultValue` excluded from the map arm, a locale MAP like
+   * `{ en: 'Owner', 'zh-CN': '负责人' }`, resolved against a
    * BCP-47 locale by the spec's own `resolveI18nLabel(label, locale)` from
    * `@objectstack/spec/ui`. Its documented fallback order is exact match →
    * base/region (`zh-CN` ↔ `zh`) → last resort (any remaining entry), and it
@@ -115,12 +144,16 @@ export interface BaseSchema {
    * vocabulary — the KEYED form {@link KeyedI18nLabel} (`{ key, defaultValue?,
    * params? }`), a reference INTO a translation bundle, resolved by
    * `resolveKeyedI18nLabel`. One interface now carries both, two properties
-   * apart, and they are structurally confusable: a keyed ref typed into this
-   * slot is accepted only *vacuously*, as a locale map whose "locales" are
-   * named `key` and `defaultValue`. That is objectui#4167's hazard, inherent to
-   * the spec's `I18nLabel` design and present on every spec surface using it;
-   * naming both shapes with cross-referenced docs is the accepted mitigation
-   * (#4580's revised Q1 ruling states this cost and accepts it).
+   * apart, and they stay confusable to a READER — but NOT to the compiler or
+   * the parser: a keyed ref written into this slot is REFUSED, because the
+   * installed pin types the inline arm with `key?: never; defaultValue?:
+   * never` and its `INLINE_LOCALE_KEY` pattern excludes both names.
+   * {@link BaseSchema.ariaLabel} carries the full statement — both crossings,
+   * both faces, and what a wrong slot actually costs. That confusability is
+   * objectui#4167's hazard, inherent to the spec's `I18nLabel` design and
+   * present on every spec surface using it; naming both shapes with
+   * cross-referenced docs is the accepted mitigation (#4580's revised Q1
+   * ruling states this cost and accepts it).
    *
    * ## Resolution happens at READ time, not at the bridge
    *
@@ -145,12 +178,23 @@ export interface BaseSchema {
    *
    * Accepts the spec's INLINE LOCALE MAP as well as a plain string on exactly
    * the {@link BaseSchema.label} evidence one slot over (objectui#4580, revised
-   * Q1 ruling): `bridgeListView` assigns `node.description = spec.description`
-   * at `packages/react/src/spec-bridge/bridges/list-view.ts:224`, where the
-   * spec's `ListView.description` is an `I18nLabel`. Same vocabulary, same
-   * resolver (`resolveI18nLabel` against the display locale), same
-   * confusability warning against {@link BaseSchema.ariaLabel}'s keyed form —
-   * see {@link BaseSchema.label} for the full statement.
+   * Q1 ruling), where the spec's `ListView.description` is an `I18nLabel`. Same
+   * vocabulary, same resolver (`resolveI18nLabel` against the display locale),
+   * same confusability warning against {@link BaseSchema.ariaLabel}'s keyed
+   * form — see {@link BaseSchema.label} for the full statement, and for the
+   * instrument that re-derives this widening.
+   *
+   * ⚠️ The producer half of that evidence is DEAD, quoted and dated. As
+   * written on 2026-08-13 (#4580, PR #4608), and true of the tree at that
+   * commit:
+   *
+   * > `bridgeListView` assigns `node.description = spec.description` at
+   * > `packages/react/src/spec-bridge/bridges/list-view.ts:224`
+   *
+   * ⛔ FALSIFIED on 2026-08-29 by objectui#6366 (PR #6632), which removed
+   * `SpecBridge` / `bridgeListView` / `bridgeFormView` from `@object-ui/react`
+   * as a declared BREAKING CHANGE. Nothing re-derives it; see
+   * {@link BaseSchema.label} for why it is quoted rather than deleted.
    *
    * @example "Shown below the field"
    * @example { en: 'Shown below the field', 'zh-CN': '显示在字段下方' }
@@ -187,8 +231,15 @@ export interface BaseSchema {
    * Data-scope path this node draws its rows/value from — the SDUI data-binding
    * vocabulary, resolved by `useDataScope()` (`@object-ui/react`).
    *
+   * The path is resolved against the AMBIENT SCOPE a host publishes through
+   * `PredicateScopeProvider` — the channel app-shell's `ExpressionProvider`
+   * already feeds — and ⛔ not against the injected `DataSource` adapter
+   * (objectui#9308, maintainer ruling 2026-09-13 option B). An adapter answers
+   * no member a `bind` path names, so the old walk resolved `undefined` for
+   * every conformant host and each reader below ran its fallback.
+   *
    * ```json
-   * { "type": "list", "bind": "customerNames" }   // → dataSource.customerNames
+   * { "type": "list", "bind": "customerNames" }   // → scope.customerNames
    * { "type": "object-kanban", "bind": "app.settings.users" }
    * ```
    *
@@ -248,14 +299,46 @@ export interface BaseSchema {
   bind?: string;
 
   /**
-   * Child components or content.
-   * Can be a single component, array of components, or primitive values.
+   * RETIRED (objectui#6771, maintainer ruling 2026-09-01, ADR-0049) — the
+   * second spelling of {@link BaseSchema.children}. Author `children`.
+   *
+   * ## Why it is refused by name rather than merely deleted
+   *
+   * `BaseSchema` carries an index signature on the TS side and
+   * `BaseSchemaCore` ends `.passthrough()` on the zod side, so DELETING a
+   * member does not refuse it — it makes it silently acceptable and
+   * silently inert, which is the state this retirement exists to leave. The
+   * `?: never` twin of the mirror's `aliasKeyRefusal` is what turns the
+   * removal into an answer: `tsc` refuses the key at the authoring site and
+   * the parse names `children` as the remedy.
+   *
+   * ## What it used to be
+   *
+   * A declared twin of `children`, and for a dozen registrations — `badge`,
+   * `alert`, the `sidebar-*` family, `tooltip` — the ONLY child-list key
+   * their renderer read, while `div` / `card` / `page` / `button` /
+   * `aspect-ratio` / the sectioning tags read `children || body` and took
+   * either. One concept with two spellings is the lenient-fallback shape
+   * AGENTS.md #0.1 names, and the parser tier only ever knew `children`, so
+   * the one spelling that resolved drew the warning a typo draws. The
+   * ruling retired the spelling rather than blessing it: the registrations
+   * converged on `children` and this repository's own corpus and teaching
+   * moved in the same change.
+   *
+   * @deprecated Retired spelling of `children` — author `children`.
    */
-  body?: SchemaNode | SchemaNode[];
+  body?: never;
 
   /**
-   * Alternative name for children (React-style).
-   * Some components use 'children' instead of 'body'.
+   * Child components or content — THE child-list key, and since
+   * objectui#6771 the only one. Can be a single component, an array of
+   * components, or primitive values.
+   *
+   * This docblock used to read "alternative name for children" and admit
+   * that "some components use 'children' instead of 'body'" without saying
+   * which — a sentence that was itself load-bearing evidence on three
+   * separate cards, because it told an author both spellings were live and
+   * left them to guess per component.
    */
   children?: SchemaNode | SchemaNode[];
 
@@ -454,31 +537,48 @@ export interface BaseSchema {
    *
    * Accepts the KEYED i18n form as well as a plain string (objectui#4581),
    * because that is what the renderer resolves:
-   * `packages/react/src/SchemaRenderer.tsx:111` reads
+   * `packages/react/src/SchemaRenderer.tsx` reads
    * `aria['aria-label'] = resolveKeyedI18nLabel(schema.ariaLabel)`, and
    * `resolveKeyedI18nLabel` accepts `{ key, defaultValue?, params? }` — the
    * shape now named {@link KeyedI18nLabel}.
    *
    * NOT `I18nLabel`. The original #4581 text asked for `string | I18nLabel`,
    * and PR #4593 measured that spelling wrong in three ways before the ruling
-   * withdrew it (#4580 Q2-B): `I18nLabel` is the spec's INLINE LOCALE MAP
-   * (`string | Record<string, string>`), so the shipped keyed fixture was
-   * accepted only *vacuously* — as a locale map whose "locales" are named `key`
-   * and `defaultValue`; the same label carrying `params` was REJECTED
+   * withdrew it (#4580 Q2-B). ⚠️ Read those three as HISTORY, against the
+   * `I18nLabel` of that release — `string | Record<string, string>`, a map
+   * with no name excluded from it: the shipped keyed fixture was accepted
+   * *vacuously*, as a locale map whose "locales" are named `key` and
+   * `defaultValue`; the same label carrying `params` was REJECTED
    * (`Type '{ name: string; }' is not assignable to type 'string'`); and a
    * genuine `{ en: 'Owner' }` type-checked while `resolveKeyedI18nLabel`
-   * returns `undefined` for it, rendering an EMPTY aria-label. The two
-   * vocabularies are structurally confusable — objectui#4167's exact hazard.
+   * returns `undefined` for it, rendering an EMPTY aria-label. The pin has
+   * since closed the vacuous half — see below. What survives is that the two
+   * vocabularies are structurally confusable to a READER — objectui#4167's
+   * exact hazard.
    *
-   * ⚠️ That hazard is now LIVE ON THIS INTERFACE, not just adjacent to it:
-   * since #4580's revised Q1 ruling, {@link BaseSchema.label} and
+   * ⚠️ That hazard is LIVE ON THIS INTERFACE, not just adjacent to it: since
+   * #4580's revised Q1 ruling, {@link BaseSchema.label} and
    * {@link BaseSchema.description} declare the spec's INLINE map (`I18nLabel`,
    * resolved by `resolveI18nLabel(label, locale)`), while this slot declares
    * the KEYED ref (resolved by `resolveKeyedI18nLabel`). Two properties apart,
-   * both spelled `string | {object}`, and each accepts the other's shape
-   * vacuously. Check which resolver owns a slot before writing an object into
-   * it; the ruling accepted this cost with exactly this naming + cross-
-   * referencing as the mitigation.
+   * both spelled `string | {object}` — but NEITHER SLOT ADMITS THE OTHER'S
+   * SHAPE. The installed pin types the inline arm with `key?: never;
+   * defaultValue?: never` and its `INLINE_LOCALE_KEY` pattern excludes both
+   * names, so a keyed ref written into `label` / `description`, and an inline
+   * map written into this slot, are each REFUSED — at `tsc` on the declaration
+   * and at `safeParse` on the zod mirror. The cross-vocabulary block of
+   * `__tests__/inline-locale-declared-face-9092.test.ts` re-derives that on
+   * every run, in both directions and with the accepting control beside each
+   * refusal; read it rather than this sentence.
+   *
+   * ⚠️ So what a wrong slot costs is a WRONG ANSWER rather than a silent
+   * acceptance, and it is paid by metadata that reaches a resolver without
+   * having passed either face — the normal case for server-driven JSON. A
+   * keyed ref handed to `resolveI18nLabel` comes back as its own `key` string,
+   * so the KEY is what renders; an inline map handed to `resolveKeyedI18nLabel`
+   * comes back `undefined`, so the aria-label renders EMPTY. Check which
+   * resolver owns a slot before writing an object into it; the ruling accepted
+   * this cost with exactly this naming + cross-referencing as the mitigation.
    *
    * @example "Close dialog"
    * @example { key: 'dialog.close', defaultValue: 'Close dialog' }

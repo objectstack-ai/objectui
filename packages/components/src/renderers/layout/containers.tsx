@@ -24,7 +24,7 @@ import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
 import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate } from '@object-ui/react';
-import { renderChildren, cn } from '../../lib/utils';
+import { renderChildren, renderNodeSlot, cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { RelatedCountStore, useRelatedCountVersion } from '../../hooks/related-count-store';
 import { useIsMobile } from '../../hooks/use-mobile';
@@ -339,35 +339,44 @@ const interpolate = (
   objectName?: string,
 ): string => {
   if (!template || typeof template !== 'string') return template || '';
-  if (!template.includes('{')) return template;
-  const out = template.replace(/\{([a-zA-Z0-9_.]+)\}/g, (_m, path: string) => {
-    const v = path.split('.').reduce<any>((acc, seg) => (acc == null ? acc : acc[seg]), data);
-    if (v == null) return '';
-    // Skip object/array values rather than letting `String(v)` produce a
-    // useless "[object Object]" — this happens when a token resolves to a
-    // related record (e.g. `{account}` on an opportunity). Authors who want
-    // a field of the related record should use a deeper path
-    // (e.g. `{account.name}`).
-    if (typeof v === 'object') return '';
-    const raw = String(v);
-    // Route enum values through i18n so subtitle templates render
-    // translated option labels instead of raw machine-readable values.
-    // Only the first path segment is treated as a field name (deeper
-    // paths reach into related records and have their own translation
-    // surfaces).
-    if (objectSchema?.fields && fieldOptionLabel && objectName && !path.includes('.')) {
-      const fieldDef: any = Array.isArray(objectSchema.fields)
-        ? objectSchema.fields.find((f: any) => f?.name === path)
-        : objectSchema.fields[path];
-      const options: any[] | undefined = fieldDef?.options;
-      if (Array.isArray(options)) {
-        const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
-        const fallback = match?.label ? String(match.label) : raw;
-        return fieldOptionLabel(objectName, path, raw, fallback);
-      }
-    }
-    return raw;
-  });
+  // No early return on the no-`{` case: that used to skip straight past the
+  // trim below, so a whitespace-only literal (no token, nothing to
+  // substitute) came back UNCHANGED while the exact same string with a
+  // token in it got blanked — two branches disagreeing about whitespace
+  // (objectui#9174). `.includes('{')` still buys the fast path its one real
+  // saving, skipping the `replace()` callback, but every template — token or
+  // not — now falls through to the SAME trim call below, so the two paths
+  // cannot re-diverge.
+  const out = template.includes('{')
+    ? template.replace(/\{([a-zA-Z0-9_.]+)\}/g, (_m, path: string) => {
+        const v = path.split('.').reduce<any>((acc, seg) => (acc == null ? acc : acc[seg]), data);
+        if (v == null) return '';
+        // Skip object/array values rather than letting `String(v)` produce a
+        // useless "[object Object]" — this happens when a token resolves to a
+        // related record (e.g. `{account}` on an opportunity). Authors who want
+        // a field of the related record should use a deeper path
+        // (e.g. `{account.name}`).
+        if (typeof v === 'object') return '';
+        const raw = String(v);
+        // Route enum values through i18n so subtitle templates render
+        // translated option labels instead of raw machine-readable values.
+        // Only the first path segment is treated as a field name (deeper
+        // paths reach into related records and have their own translation
+        // surfaces).
+        if (objectSchema?.fields && fieldOptionLabel && objectName && !path.includes('.')) {
+          const fieldDef: any = Array.isArray(objectSchema.fields)
+            ? objectSchema.fields.find((f: any) => f?.name === path)
+            : objectSchema.fields[path];
+          const options: any[] | undefined = fieldDef?.options;
+          if (Array.isArray(options)) {
+            const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
+            const fallback = match?.label ? String(match.label) : raw;
+            return fieldOptionLabel(objectName, path, raw, fallback);
+          }
+        }
+        return raw;
+      })
+    : template;
   return out.replace(/\s+/g, ' ').trim();
 };
 
@@ -429,6 +438,17 @@ const collectRelatedLists = (nodes: any, acc: any[] = []): any[] => {
       acc.push(n);
       continue; // Don't descend into a related_list's own subtree.
     }
+    // ⚠️ `body` STAYS, and an earlier pass of this change wrongly removed it.
+    // This walker does not RENDER anything — it descends a tab's subtree to
+    // count `record:related_list` nodes for a badge. `page:card` still reads
+    // `body` for stored documents, so a stored subtree under that key is still
+    // drawn; dropping it here made the renderer draw content this count could
+    // not see, which is a wrong badge rather than a retirement. The rule for
+    // every NON-RENDERING reader in this tree: while any renderer still reaches
+    // stored `body` content, the readers that must see the same content keep
+    // their arm (objectui#6771, escalation objectui#9916).
+    // `items` stays for its own reason — the `list` registration's item channel,
+    // objectui#9590's card, not this spelling.
     const candidates = [
       n.children,
       n.properties?.children,
@@ -470,6 +490,7 @@ const containsAttachmentsNode = (nodes: any): boolean => {
   for (const n of list) {
     if (!n || typeof n !== 'object') continue;
     if (n.type === 'record:attachments') return true;
+    // `body` stays — same ground as `collectRelatedLists` above.
     const candidates = [n.children, n.properties?.children, n.properties?.items, n.body, n.items];
     for (const c of candidates) {
       if (c && containsAttachmentsNode(c)) return true;
@@ -508,7 +529,7 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   //     subscriber updates with no parent re-render.
   const ctx = useRecordContext();
   const parentId = ctx?.data?.id;
-  const ds: any = ctx?.dataSource;
+  const ds = ctx?.dataSource;
 
   // Conditional tabs (framework#2606): an item-level `visibleWhen` CEL
   // predicate removes the ENTIRE tab (header + panel) when FALSE — unlike a
@@ -637,31 +658,71 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     if (!ds || typeof ds.find !== 'function') return;
     if (probeTargets.size === 0) return;
     let cancelled = false;
-    for (const probes of probeTargets.values()) {
-      for (const probe of probes) {
-        // RelatedCountStore.fetch is internally deduplicated, so concurrent
-        // mounts of multiple tab strips don't generate redundant requests.
-        // The attachments probe overrides the store-built single-key filter
-        // with the two-key `(parent_object, parent_id)` scope; the synthetic
-        // relationshipField keeps the cache key unique, and the store's
-        // `sys_attachment` invalidation (data-change bus) still hits it.
-        const finder = probe.attachments
-          ? (object: string, query: any) =>
-              ds.find(object, {
-                ...query,
-                $filter: { parent_object: recordObject, parent_id: parentId },
-              })
-          : (object: string, query: any) => ds.find(object, query);
-        void RelatedCountStore.fetch(
-          finder,
-          probe.objectName,
-          probe.relationshipField,
-          parentId,
-          probe.filter,
-        ).catch(() => 0);
-        if (cancelled) return;
+    void (async () => {
+      // objectui#8882 — the badge asks the SAME question of the parent
+      // relationship that the rows do, and that question's spelling depends on
+      // the relationship field's ARITY. The store compiles it through
+      // `composeParentScopeFilter`, the one compiler `RelatedList` uses for the
+      // ROWS, but that seam can only answer from METADATA — so this call site
+      // owes it the child object's field defs. It is the same `DataSource` the
+      // row side reads them from, one layer up.
+      //
+      // Resolved BEFORE any probe rather than gating on a loaded schema: an
+      // adapter without `getObjectSchema`, or one whose fetch rejects, still
+      // probes — the seam then compiles the historical equality wire, which is
+      // byte for byte what this effect sent before this card. What is NOT done
+      // is probing first and correcting later: the store caches the first
+      // answer it gets, and a lenient backend that answers the wrong question
+      // with a number would have that number cached and never re-probed.
+      const fieldsFor = new Map<string, unknown>();
+      if (typeof ds.getObjectSchema === 'function') {
+        const names = new Set<string>();
+        for (const probes of probeTargets.values()) {
+          for (const probe of probes) {
+            // The attachments probe's `relationshipField` is a synthetic cache
+            // discriminator, not a field on `sys_attachment`, and its wrapper
+            // below replaces `$filter` outright — there is no arity to read.
+            if (!probe.attachments) names.add(probe.objectName);
+          }
+        }
+        await Promise.all(
+          Array.from(names).map(async (name) => {
+            try {
+              fieldsFor.set(name, (await ds.getObjectSchema(name))?.fields);
+            } catch {
+              // Equality it is — the wire this effect has always sent.
+            }
+          }),
+        );
       }
-    }
+      if (cancelled) return;
+      for (const probes of probeTargets.values()) {
+        for (const probe of probes) {
+          // RelatedCountStore.fetch is internally deduplicated, so concurrent
+          // mounts of multiple tab strips don't generate redundant requests.
+          // The attachments probe overrides the store-built single-key filter
+          // with the two-key `(parent_object, parent_id)` scope; the synthetic
+          // relationshipField keeps the cache key unique, and the store's
+          // `sys_attachment` invalidation (data-change bus) still hits it.
+          const finder = probe.attachments
+            ? (object: string, query: any) =>
+                ds.find(object, {
+                  ...query,
+                  $filter: { parent_object: recordObject, parent_id: parentId },
+                })
+            : (object: string, query: any) => ds.find(object, query);
+          void RelatedCountStore.fetch(
+            finder,
+            probe.objectName,
+            probe.relationshipField,
+            parentId,
+            probe.filter,
+            probe.attachments ? undefined : (fieldsFor.get(probe.objectName) as any),
+          ).catch(() => 0);
+          if (cancelled) return;
+        }
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -883,6 +944,19 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // carrying both, which the conversion is what resolves; deleting the read
   // before the conversion is live would blank an existing card's content
   // silently — the `page-header-subtitle-alias` sequencing precedent, verbatim.
+  // ⚠️ ONE OF FOUR SURVIVING FALLBACKS, all in this file: this one and the
+  // three thin `page:section` / `page:footer` / `page:sidebar` containers
+  // below. ⛔ Do not delete any of them on the authority of this comment —
+  // objectui#6771 retired the spelling on every RENDERER outside the `page:*`
+  // namespace, and what holds these four is stored documents, not the
+  // authoring face.
+  //
+  // What separates THIS one from the three below is a CONVERSION, not a
+  // ground: `@objectstack/spec`'s conversions registry carries
+  // `page-card-body-to-children` (`toMajor: 17`, surface
+  // `page.component.page:card.body`) and carries nothing for the other three.
+  // ⇒ a stored row under this key has a migration path; a stored row under
+  // theirs has none. Escalated as objectui#9916.
   const body = schema?.body ?? schema?.children;
   const footer = schema?.footer;
 
@@ -896,8 +970,18 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           <CardTitle>{title}</CardTitle>
         </CardHeader>
       )}
-      {body && <CardContent>{renderChildren(body)}</CardContent>}
-      {footer && <CardFooter className="flex justify-between">{renderChildren(footer)}</CardFooter>}
+      {/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to
+          the slot itself, so a legal authored `body: 0` painted the character
+          "0" — and this renderer's `schema` is `any`, which is why the card's
+          TypeScript census could not see these two while the runtime probe
+          could. `renderNodeSlot` invokes the wrapper only when the slot has
+          content, so the chrome disappears with it. */}
+      {renderNodeSlot(body, (node) => (
+        <CardContent>{renderChildren(node)}</CardContent>
+      ))}
+      {renderNodeSlot(footer, (node) => (
+        <CardFooter className="flex justify-between">{renderChildren(node)}</CardFooter>
+      ))}
     </Card>
   );
 };
@@ -1046,6 +1130,40 @@ const PageSectionRenderer: React.FC<any> = ({ schema, className, ...props }) => 
       className={cn('space-y-4', className)}
       {...designer}
     >
+      {/*
+        ⚠️ `body` KEPT on all three thin containers, and the ground is the
+        SPEC'S OWN — ⛔ not the "they never published it" argument an earlier
+        pass of this comment made, which was false in both directions.
+
+        `@objectstack/spec`'s `PageContainerProps` names these three and says
+        it outright: `children` is the canonical spelling and `body` is
+        deliberately not declared, but 「The renderers keep reading `body` as a
+        back-compat fallback for stored documents; that fallback is objectui's
+        to retire on its own schedule, and it is not a second authorable
+        spelling.」 ⇒ they share `page:card`'s ground exactly. What they lack is
+        a CONVERSION: the spec's registry carries `page-card-body-to-children`
+        and NOTHING for these three, so dropping this arm leaves a stored row
+        with no migration path at all.
+
+        The authoring corpus IS answerable, and was answered by the committed
+        instrument rather than an ad-hoc scan:
+          pnpm census:body-dialect --keys page:section,page:footer,page:sidebar,page:card,card
+        CONTROL (fires): `card` + `body` 40 on the pre-retirement tree -> 2 on
+        this one. SUBJECT: `page:section` resolves 6 nodes on both trees, 0
+        with `body`, 4 with `children` — a LIT zero. ⚠️ `page:footer` and
+        `page:sidebar` resolve 0 nodes at all, so their zero is a key-population
+        zero and says nothing.
+
+        ⇒ nothing in this repository authors it; whether a stored ROW does is a
+        database question this tree cannot ask. Escalated as objectui#9916, and
+        the two facts that belong to it are POSTED there (comment 5733844778),
+        not merely asserted to be: the designer canvas already honours `children`
+        ONLY for `page:section` (`PageBlockCanvas.tsx`), so runtime and canvas
+        already disagree about a stored `body` here; and `page:card`'s "until the
+        conversion lands" precondition is STALE — `pageCardBodyToChildren` carries
+        `toMajor: 17` and `retiredFromLoadPath: true` and this repo installs spec
+        17.4.0, so the live ground there is unreplayed stored rows.
+      */}
       {renderChildren(schema?.children || schema?.body)}
     </section>
   );
@@ -2152,6 +2270,7 @@ const PageFooterRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         className={cn('flex items-center justify-between text-sm text-muted-foreground', className)}
         {...designer}
       >
+        {/* `body` kept — escalation recorded at `page:section` above (objectui#6771). */}
         {renderChildren(schema?.children || schema?.body)}
       </footer>
     </>
@@ -2178,6 +2297,7 @@ const PageSidebarRenderer: React.FC<any> = ({ schema, className, ...props }) => 
       className={cn('flex flex-col gap-4 w-full md:w-80 shrink-0', className)}
       {...designer}
     >
+      {/* `body` kept — escalation recorded at `page:section` above (objectui#6771). */}
       {renderChildren(schema?.children || schema?.body)}
     </aside>
   );

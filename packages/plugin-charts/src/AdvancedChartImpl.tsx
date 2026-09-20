@@ -24,7 +24,6 @@ import {
   PolarRadiusAxis,
   Scatter,
   ScatterChart,
-  ZAxis,
   Cell,
   XAxis,
   YAxis,
@@ -107,13 +106,27 @@ const resolveColor = (color: string) => TW_COLORS[color] || color;
  * and scatter, neither of which this renderer strokes — are now spelled
  * `undefined` rather than reaching the Bar and Scatter marks that gained
  * `strokeOpacity` / `strokeDasharray` in the same change.
+ *
+ * `radar` joined the `kind` union later (objectui#8157): the radar arm was the
+ * one mark that never called this helper at all, so all three declarations died
+ * there. It takes the AREA defaults — see `areaLike` below — because it is the
+ * other mark this renderer both strokes and fills. ⚠️ Its call site keeps its
+ * own `?? 0.6` fill fallback: unlike a cartesian mark, a radar polygon with no
+ * fill opacity at all is an unreadable overlay, so the literal that used to be
+ * the whole story became the floor under it.
  */
-const seriesStyle = (s: any, kind: 'line' | 'area' | 'bar' | 'scatter') => {
+const seriesStyle = (s: any, kind: 'line' | 'area' | 'bar' | 'scatter' | 'radar') => {
   const muted = s?.variant === 'comparison';
+  // `radar` shares the AREA defaults rather than getting numbers of its own:
+  // it is the other mark this renderer both strokes and fills, so the muted
+  // treatment area already defines is the one that fits it. For every
+  // cartesian kind `areaLike` is exactly `kind === 'area'`, so no cartesian
+  // arm's result moves (objectui#8157).
+  const areaLike = kind === 'area' || kind === 'radar';
   const authoredOpacity = typeof s?.opacity === 'number' ? s.opacity : undefined;
-  const strokeOpacity = authoredOpacity ?? (muted ? (kind === 'line' ? 0.5 : kind === 'area' ? 0.6 : undefined) : undefined);
-  const fillOpacity = authoredOpacity ?? (muted ? (kind === 'bar' ? 0.4 : kind === 'area' ? 0.2 : 0.5) : undefined);
-  const strokeDasharray = s?.dashArray ?? (muted && (kind === 'line' || kind === 'area') ? '4 4' : undefined);
+  const strokeOpacity = authoredOpacity ?? (muted ? (kind === 'line' ? 0.5 : areaLike ? 0.6 : undefined) : undefined);
+  const fillOpacity = authoredOpacity ?? (muted ? (kind === 'bar' ? 0.4 : areaLike ? 0.2 : 0.5) : undefined);
+  const strokeDasharray = s?.dashArray ?? (muted && (kind === 'line' || areaLike) ? '4 4' : undefined);
   return { strokeOpacity, fillOpacity, strokeDasharray };
 };
 
@@ -393,6 +406,123 @@ const X_AXIS_ALL_LABELS_MAX_BUCKETS = 5;
  * render their labels exactly as they did before.
  */
 const ROTATED_X_LABEL_MAX_CHARS = 12;
+
+/**
+ * Symbol AREA budget the scatter's edge margin below is sized against, in px².
+ *
+ * ⚠️ A HEADROOM figure, ⛔ NOT a reading of what the chart paints. Recharts
+ * paints a scatter mark as a circle of `sqrt(area / PI)` and chooses that area
+ * itself: nothing in this file and no authored metadata sets it, so every mark
+ * is drawn at recharts' own implicit default and the budget here is
+ * deliberately well above it. The size actually painted is measured off the
+ * rendered symbol by `AdvancedChartImpl.scatterSymbolSize-9681.test.tsx` —
+ * read that, never this number, for what the marks are.
+ *
+ * Kept as a named number because the padding below is derived from it rather
+ * than guessed, and kept at THIS value rather than lowered to what is painted:
+ * it is the envelope a variable-area scatter would have to stay inside, so the
+ * margin already survives the day mark area becomes variable (objectui#9681).
+ */
+const SCATTER_SYMBOL_MAX_AREA = 400;
+
+/**
+ * Margin, in px, that each scatter numeric axis reserves at BOTH ends so an
+ * extreme mark is drawn WHOLLY inside the plot area (objectui#7396).
+ *
+ * ## What it fixes
+ *
+ * Both scatter axes are numeric with no explicit domain, so recharts fits the
+ * domain to `[dataMin, dataMax]` and maps it across the WHOLE plot box. A row
+ * at either extreme is therefore CENTRED on the boundary and half its symbol
+ * paints outside the plot area. Measured on the Chart Gallery scatter
+ * ("Estimate vs Progress") in real Chromium — viewport 1440, widget svg
+ * 510x350, plot area x 53..505 / y 5..296 — marks landed at cx 53, 256.4,
+ * 301.6, 414.6, 459.8, 505 and the y-max row at cy 5: the first and last on the
+ * x boundary, the y-max one on the top boundary, each overhanging by its own
+ * radius. It is BOTH axes, not just the x the card measured.
+ *
+ * ## Why `padding` and not `domain`
+ *
+ * Recharts' axis `padding` insets the pixel RANGE the scale maps into — the
+ * axis range becomes `[left + padding.left, right - padding.right]` — and
+ * leaves the domain alone, so every tick VALUE is unchanged and only the
+ * mapping moves. Moving the domain instead would both invent unround tick
+ * endpoints and spend the very prop the scatter's spec-axis derivation needs
+ * (objectui#9675): a spec-derived domain and a padding domain would be one
+ * recharts prop, and whichever landed second would shadow the other. Reserving
+ * the margin kept that prop free — objectui#9675 has since landed and spends
+ * `domain` on both scatter axes, so the two are live at once and compose.
+ *
+ * ## Why this size
+ *
+ * `sqrt(SCATTER_SYMBOL_MAX_AREA / PI)`, rounded up — the largest radius that
+ * budget admits. It is deliberately the budget and ⛔ not the radius observed
+ * today: recharts chooses the symbol area itself and nothing here or in
+ * authored metadata moves it, so sizing this margin to what is painted would
+ * tie the fix to a third-party default AND reopen the defect the day mark area
+ * becomes variable. That the painted radius still fits inside this margin is
+ * asserted, not assumed — `AdvancedChartImpl.scatterSymbolSize-9681.test.tsx`
+ * reads both off the same render, so the two cannot drift apart in silence.
+ *
+ * ## Why these are module constants and not inline objects
+ *
+ * Recharts memoises each axis's settings object on its props and dispatches a
+ * `replaceXAxis` / `replaceYAxis` when that object changes; a fresh literal per
+ * render would defeat the memo and re-register the axis on every render.
+ */
+const SCATTER_AXIS_EDGE_PADDING = Math.ceil(Math.sqrt(SCATTER_SYMBOL_MAX_AREA / Math.PI));
+const SCATTER_X_AXIS_PADDING = {
+  left: SCATTER_AXIS_EDGE_PADDING,
+  right: SCATTER_AXIS_EDGE_PADDING,
+} as const;
+const SCATTER_Y_AXIS_PADDING = {
+  top: SCATTER_AXIS_EDGE_PADDING,
+  bottom: SCATTER_AXIS_EDGE_PADDING,
+} as const;
+
+/**
+ * How a spec `ChartAxis.title` is laid out, per axis orientation.
+ *
+ * Both are a recharts `label` object minus its `value`. A y-axis title reads up
+ * the left edge, an x-axis title along the bottom — the same two layouts this
+ * file already used, named here because one derivation now serves both
+ * orientations (objectui#9675).
+ */
+const Y_AXIS_TITLE_LAYOUT = { angle: -90, position: 'insideLeft' } as const;
+const X_AXIS_TITLE_LAYOUT = { position: 'insideBottom', offset: -4 } as const;
+
+/**
+ * Recharts props derived from one spec axis that plots NUMBERS — the domain
+ * from `min`/`max`, the ticks from `stepSize`, the scale from `logarithmic`
+ * and the label from `title`.
+ *
+ * `values` is every number plotted on that axis: the population `stepSize`
+ * lays its ticks over. It is a parameter rather than derived here because the
+ * callers read different columns — a y-axis's numbers come from the series
+ * bound to its side, and the scatter x-axis's from `xAxisKey`, which is a
+ * measure on that one family (objectui#9675).
+ *
+ * At module scope, and a plain function: it closes over nothing, so there is
+ * no identity for a caller to depend on and nothing for a hook to recompute.
+ */
+function numericAxisSpecProps(
+  axis: NormalizedAxis | undefined,
+  values: number[],
+  labelLayout: typeof Y_AXIS_TITLE_LAYOUT | typeof X_AXIS_TITLE_LAYOUT,
+) {
+  if (!axis) return {};
+  const domain = domainFor(axis);
+  const ticks = ticksFor(axis, values);
+  return {
+    ...(ticks ? { ticks } : {}),
+    ...(domain ? { domain } : {}),
+    // `allowDataOverflow` is what makes an explicit domain actually clip
+    // rather than being silently widened to fit the data.
+    ...(domain ? { allowDataOverflow: true } : {}),
+    ...(axis.logarithmic ? { scale: 'log' as const, domain: domain ?? ([1, 'auto'] as any) } : {}),
+    ...(axis.title ? { label: { value: axis.title, ...labelLayout } } : {}),
+  };
+}
 
 /**
  * Treemap leaf cell — paints each leaf rect with its palette fill + label.
@@ -1262,20 +1392,11 @@ function AdvancedChartImplInner({
   }, [data, series, hasDualAxis]);
 
   /** Recharts props derived from one spec y-axis (domain / scale / ticks / label). */
-  const yAxisSpecProps = React.useCallback((axis: NormalizedAxis | undefined, side: 'left' | 'right' = 'left') => {
-    if (!axis) return {};
-    const domain = domainFor(axis);
-    const ticks = ticksFor(axis, axisValues(side));
-    return {
-      ...(ticks ? { ticks } : {}),
-      ...(domain ? { domain } : {}),
-      // `allowDataOverflow` is what makes an explicit domain actually clip
-      // rather than being silently widened to fit the data.
-      ...(domain ? { allowDataOverflow: true } : {}),
-      ...(axis.logarithmic ? { scale: 'log' as const, domain: domain ?? ([1, 'auto'] as any) } : {}),
-      ...(axis.title ? { label: { value: axis.title, angle: -90, position: 'insideLeft' as const } } : {}),
-    };
-  }, [axisValues]);
+  const yAxisSpecProps = React.useCallback(
+    (axis: NormalizedAxis | undefined, side: 'left' | 'right' = 'left') =>
+      numericAxisSpecProps(axis, axisValues(side), Y_AXIS_TITLE_LAYOUT),
+    [axisValues],
+  );
 
   // `showGridLines` is per-axis in the spec; the renderer draws one grid, so
   // an explicit `false` on EITHER axis turns off that axis's lines.
@@ -1348,25 +1469,57 @@ function AdvancedChartImplInner({
 
   // Shared X-axis props for time/categorical axes, in two branches.
   //
-  // Above X_AXIS_ALL_LABELS_MAX_BUCKETS, recharts' `minTickGap` thins ticks
-  // that would otherwise overlap — `interval={0}` is NOT hard-coded there,
-  // because forcing every label painted a dense black bar when the data spanned
-  // hundreds of points. At or below the bound the reverse is true and thinning
-  // is the bug (objectui#7247): the axis is short enough that every label is
-  // provably drawable, and each one is a bar's only name.
+  // Above X_AXIS_ALL_LABELS_MAX_BUCKETS, `interval={0}` is NOT hard-coded,
+  // because forcing every label painted a dense black bar when the data
+  // spanned hundreds of points (`interval: 'preserveStartEnd'` is what keeps
+  // that safe — it, not `minTickGap`, is what still lets recharts drop
+  // interior ticks; see objectui#7386 below for why `minTickGap` itself no
+  // longer does any of that thinning). At or below the bound the reverse is
+  // true and thinning is the bug (objectui#7247): the axis is short enough
+  // that every label is provably drawable, and each one is a bar's only name.
+  //
+  // objectui#7386 — `minTickGap: 0`, not a re-tuned nonzero density.
+  // `minTickGap` is ADDED on top of each tick's own measured (angled) box —
+  // recharts' `getTicks`, per tick: `start = tickCoord + size/2 + minTickGap`
+  // — so the 32/48px this branch used to charge was mandatory whitespace
+  // beyond what real overlap avoidance already required, borrowed from a
+  // time-series budget and charged to every band axis above 5 buckets too
+  // (a 7-status pipeline at 290px, ~33px/band, dropped 4 of 7 names — the
+  // labels were never actually so wide they'd collide). `interval:
+  // 'preserveStartEnd'` plus recharts' own measured-width collision check
+  // (`getStringSize` against each tick's real rendered font) is the
+  // mechanism that has to do ALL the work now, same as it always has for the
+  // ticks it keeps — `minTickGap: 0` removes only the extra margin, not the
+  // check itself, so the "hundreds of points" case above stays protected by
+  // the SAME measured-overlap logic, just without the added tax. Verified in
+  // real Chromium (this repo's DOM test env reports zero text metrics, so it
+  // cannot exercise this at all — see the PR for the harness and counts):
+  // at 290px, 7/7 and 8/8 bucket labels now draw with zero measured overlap
+  // (rotated labels checked via their true rotated rectangles, not an
+  // axis-aligned box — an axis-aligned check over-reports collisions for
+  // diagonal text, which is the same conservatism recharts' own angled-tick
+  // model (`getAngledRectangleWidth`) accepts rather than reimplements: real
+  // collision is on PERPENDICULAR separation between parallel slanted lines,
+  // and neither this file nor recharts computes that; both accept the
+  // more-conservative projected-width model instead of bypassing it, as this
+  // scale (a handful of buckets, not hundreds) does not warrant taking on
+  // untested custom collision geometry with no local way to verify it); a
+  // 180-point daily series at 800px still thinned to 11 ticks with zero
+  // overlap, unchanged in kind from before this change.
   const xAxisCommonProps = React.useMemo(() => ({
     tickLine: false as const,
     tickMargin: 10,
     axisLine: false as const,
-    // A short categorical axis names every bucket; everything above the bound
-    // keeps the time-series thinning, which is what `minTickGap` is for.
+    // A short categorical axis names every bucket; everything above the
+    // bound now leans on recharts' own measured-overlap check with no added
+    // margin — see the `objectui#7386` comment above.
     ...(labelEveryBucket
       ? { interval: 0 as const }
-      : { interval: 'preserveStartEnd' as const, minTickGap: isMobile ? 32 : 48 }),
+      : { interval: 'preserveStartEnd' as const, minTickGap: 0 }),
     tickFormatter: xAxisTickFormatter,
-    ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, position: 'insideBottom' as const, offset: -4 } } : {}),
+    ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, ...X_AXIS_TITLE_LAYOUT } } : {}),
     ...(rotateXLabels && { angle: -35, textAnchor: 'end' as const, height: 60 }),
-  }), [isMobile, labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title]);
+  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title]);
 
   // #2942 — the non-series spec families used to fall through the component
   // map's `|| BarChart` into a bar shell whose series marks all returned
@@ -1750,13 +1903,23 @@ function AdvancedChartImplInner({
           />
           {series.map((s: any) => {
             const color = resolveColor(config[s.dataKey]?.color || DEFAULT_CHART_COLOR);
+            // objectui#8157 — this arm used to render a bare `fillOpacity={0.6}`
+            // and read nothing off the series, so an authored `opacity` /
+            // `dashArray` and the whole `variant: 'comparison'` treatment were
+            // inert on `chartType: 'radar'` while every cartesian arm honoured
+            // them. The `0.6` is a DEFAULT, not merely a bug — a radar fill
+            // needs some opacity or an overlay is unreadable — so it stays, as
+            // the fallback a series that declares nothing still lands on.
+            const pres = seriesStyle(s, 'radar');
             return (
               <Radar
                 key={s.dataKey}
                 dataKey={s.dataKey}
                 stroke={color}
                 fill={color}
-                fillOpacity={0.6}
+                fillOpacity={pres.fillOpacity ?? 0.6}
+                strokeOpacity={pres.strokeOpacity}
+                strokeDasharray={pres.strokeDasharray}
                 {...animProps}
               />
             );
@@ -1786,6 +1949,17 @@ function AdvancedChartImplInner({
     // predicate and the axis below, so the two cannot drift apart.
     const scatterYKey = series[0]?.dataKey || 'value';
     const points = countPlottablePoints(data, xAxisKey, scatterYKey);
+    // Every number plotted on the x axis — the population a spec `stepSize`
+    // lays its x ticks over, and scatter's alone to compute: on every other
+    // family x is a category band, so `axisValues` reads the SERIES columns.
+    const scatterXValues = data
+      .map((row: any) => Number(row?.[xAxisKey]))
+      .filter((n: number) => Number.isFinite(n));
+    // The spec `format` for that same axis. Not `xAxisTickFormatter`, which is
+    // the CATEGORY formatter (it resolves `config[value].label` and ISO dates)
+    // and would be wrong on a measure; and omitted entirely when the author
+    // declared no recognisable format, so the default render is untouched.
+    const scatterXTickFormatter = formatterFor(xAxisSpec?.format);
     if (points.total > 0 && points.plottable === 0) {
       return <PositionRefusal xKey={xAxisKey} yKey={scatterYKey} className={className} />;
     }
@@ -1796,24 +1970,58 @@ function AdvancedChartImplInner({
       <ChartContainer config={config} className={className} {...containerProps}>
         <ScatterChart>
           <CartesianGrid vertical={false} />
-          <XAxis 
-            type="number" 
+          {/* Both axes carry the spec `ChartAxis` derivation every other
+              family's numeric axis gets — `min`/`max` as the domain,
+              `stepSize` as the ticks, `logarithmic` as the scale, `title` as
+              the label and `format` as the tick text (objectui#9675). Scatter
+              is this file's only family whose X is a MEASURE rather than a
+              category band, which is why the x axis takes the same derivation
+              here and the categorical `xAxisCommonProps` everywhere else.
+
+              This composes with the edge margin objectui#7396 reserved rather
+              than shadowing it: that card deliberately spent `padding`, which
+              insets the pixel RANGE and leaves the domain alone, so both props
+              are live at once — the domain is the author's, and no extreme
+              mark is half-painted outside the plot box. */}
+          <XAxis
+            type="number"
             dataKey={xAxisKey}
             name={String(config[xAxisKey]?.label || xAxisKey)}
             tickLine={false}
             axisLine={false}
             minTickGap={isMobile ? 32 : 48}
+            padding={SCATTER_X_AXIS_PADDING}
+            {...(scatterXTickFormatter ? { tickFormatter: scatterXTickFormatter } : {})}
+            {...numericAxisSpecProps(xAxisSpec, scatterXValues, X_AXIS_TITLE_LAYOUT)}
           />
-          <YAxis 
+          <YAxis
             type="number"
             dataKey={scatterYKey}
             name={String(config[series[0]?.dataKey]?.label || series[0]?.dataKey)}
             tickLine={false}
             axisLine={false}
-            tickFormatter={formatYTick}
+            tickFormatter={yTickFormatter}
             width={48}
+            padding={SCATTER_Y_AXIS_PADDING}
+            {...yAxisSpecProps(primaryY)}
           />
-          <ZAxis type="number" range={[60, 400]} />
+          {/* ⛔ No `<ZAxis>` here, deliberately — scatter mark AREA is recharts'
+              own implicit default and is not configurable in this product
+              today. This branch used to declare `<ZAxis type="number"
+              range={[60, 400]} />`, which painted NOTHING: recharts'
+              `selectZAxisWithScale` drops a z axis that carries no `dataKey`
+              before it reaches a mark, so the declared envelope never applied
+              and every mark came out at the implicit default size. Its only
+              effect was on readers — and it did mislead one, in writing, on
+              this repository: the triage comment on objectui#7396 derived a
+              variable-bubble-size prediction from it whose every clause was
+              false. ⭐ A DECLARATION IS NOT A READING: an inert declaration and
+              a live one look identical in the source, so what this branch
+              paints is stated by a test that reads the rendered symbol
+              (`AdvancedChartImpl.scatterSymbolSize-9681.test.tsx`), never by a
+              prop sitting here. Variable-area marks remain possible — they need
+              a `dataKey` and a schema key to feed it, which is a new capability
+              and its own card, not a prop restored here (objectui#9681). */}
           <ChartTooltip content={<ChartTooltipContent />} />
           {/* `nameKey` is REQUIRED here, for a reason unique to scatter
               (objectui#7248). `ChartLegendContent` resolves a label as

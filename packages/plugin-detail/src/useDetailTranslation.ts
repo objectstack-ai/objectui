@@ -87,7 +87,6 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.recordNotFoundDescription': 'The record you are looking for does not exist or may have been deleted.',
   'detail.goBack': 'Go back',
   'detail.details': 'Details',
-  'detail.related': 'Related',
   'detail.relatedRecords': '{{count}} records',
   'detail.relatedRecordOne': '{{count}} record',
   'detail.noRelatedRecords': 'No related records found',

@@ -23,7 +23,8 @@ import { fileURLToPath } from 'node:url';
  * trigger; it survives only on `push`, so a docs-only PR does start `ci.yml` now
  * (measured: PR #3856, one markdown file, 16 checks) and objectui#3857 pinned
  * the correction. The in-job switch would not keep a link check out either — the
- * `docs` job runs its steps precisely when `content/` or `apps/site/` changed.
+ * `docs` job runs its steps whenever anything the site build consumes changed,
+ * which since objectui#8647 is a superset of `content/` and `apps/site/`.
  * What outlived the premise is what the assertions below pin: `ci.yml` keeps the
  * filter on its `push` lane, so a docs-only push to `main` starts it not at all,
  * and #3448 settled one gate, one home.

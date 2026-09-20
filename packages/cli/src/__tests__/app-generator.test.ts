@@ -112,12 +112,37 @@ const ROUTES: RouteInfo[] = [
   }
 ];
 
-/** An `app.json` that makes the routed generator emit `src/Layout.tsx`. */
+/**
+ * An `app.json` that makes the routed generator emit `src/Layout.tsx`.
+ *
+ * Every level carries an `icon`, which it did not until objectui#7472: the
+ * layout renders `menu[].icon` at two call sites and a nested one at a third,
+ * and with an icon-less fixture the only authored name any test had ever put
+ * through the resolver was `logo`. The names are canonical lucide spellings on
+ * purpose — `authoredIconNames` puts each of them through the real seam below.
+ */
 const APP_CONFIG = {
   title: 'Demo',
   logo: 'Flame',
-  menu: [{ label: 'Home', path: '/' }, { label: 'Users', children: [{ label: 'All', path: '/users' }] }]
+  menu: [
+    { label: 'Home', path: '/', icon: 'House' },
+    { label: 'Users', icon: 'Users', children: [{ label: 'All', path: '/users', icon: 'List' }] }
+  ]
 };
+
+/** Every icon name `APP_CONFIG` authors, `logo` and `menu` alike, nesting included. */
+function authoredIconNames(config: typeof APP_CONFIG): string[] {
+  const names: string[] = [];
+  const walk = (items: ReadonlyArray<{ icon?: string; children?: ReadonlyArray<unknown> }>) => {
+    for (const item of items) {
+      if (item.icon) names.push(item.icon);
+      if (item.children) walk(item.children as ReadonlyArray<{ icon?: string }>);
+    }
+  };
+  if (config.logo) names.push(config.logo);
+  walk(config.menu);
+  return names;
+}
 
 type Manifest = {
   name?: string;
@@ -515,10 +540,22 @@ describe('generated app manifests', () => {
     // writes `from "lucide-react"` — one of the two lines objectui#3827
     // reports — and `src/theme-provider.tsx` imports `"react"` the same way.
     // A single-quote-only port would have been blind to exactly the defect.
+    //
+    // objectui#7472 made this leg STRICTER, not weaker. The layout's other
+    // lucide line — `import * as LucideIcons from 'lucide-react';`, single
+    // quoted — is gone, so the double-quoted form is now the ONLY way
+    // `lucide-react` reaches the scanner at all. A regression to
+    // single-quote-only matching used to halve this file's lucide imports;
+    // now it would drop the package outright.
     const layout = routedFiles()['src/Layout.tsx'];
-    expect(layout).toContain(`import * as LucideIcons from 'lucide-react';`);
-    expect(layout).toContain(`import { Moon, Sun } from "lucide-react"`);
+    expect(layout).not.toContain(`from 'lucide-react'`);
+    expect(layout).toContain(`import { ChevronsUpDown, Monitor, Moon, Sun } from "lucide-react"`);
     expect(importedPackagesOf(layout)).toContain('lucide-react');
+    // …and single-quoted specifiers are still present and still seen, so the
+    // line above is a reading about quote-agnosticism rather than about lucide
+    // having quietly left the file.
+    expect(layout).toContain(`} from '@object-ui/components';`);
+    expect(importedPackagesOf(layout)).toContain('@object-ui/components');
     expect(importedPackagesOf(routedFiles()['src/theme-provider.tsx'])).toEqual(['react']);
     // The side-effect form the seven plugins arrive by.
     expect(importedPackagesOf(`import '@object-ui/plugin-grid';\n`)).toEqual([
@@ -980,6 +1017,134 @@ describe('generated app file maps', () => {
         expect(path.startsWith('/')).toBe(false);
       }
     }
+  });
+});
+
+/**
+ * The generated layout resolves icon names through the SEAM (objectui#7472).
+ *
+ * objectui#5935's ruling converges every lucide tokeniser and icon-name
+ * vocabulary in this repo behind one module and adds, verbatim and untranslated
+ * because the wording is the operative clause:
+ *
+ *   「本裁定后新容器 ⛔ 不得再自带解析器,一律走 seam」
+ *
+ * `src/Layout.tsx` was the one container that had never been held to it, and
+ * the reason is structural rather than an oversight. It is emitted from inside
+ * a template literal in `app-generator.ts`, it reached lucide through a
+ * NAMESPACE import, and its lookup base was a property access — so
+ * `scripts/check-lucide-icon-record-names.mjs` cannot see it, three times over,
+ * and its absence from that script's `DECLARED_RECORD_READERS` is correct
+ * rather than a miss. ⛔ Nothing here proposes widening that discovery
+ * predicate; the census is right and the template was the thing that diverged.
+ *
+ * WHY IT MATTERED WITH NO USER-VISIBLE FAILURE. The self-rolled lookup was
+ * strictly MORE permissive than the seam — `lucideIcons[name]`, no
+ * normalisation at all — so an author got a working icon either way and
+ * nothing was ever red. What it accreted instead was a vocabulary that holds
+ * inside a generated application and nowhere else in the platform, which is an
+ * authoring contract nobody declared.
+ *
+ * WHAT THESE GATES CAN AND CANNOT REACH. The generated layout is not importable
+ * from here: it is source text destined for a user's app, whose `@object-ui/*`
+ * specifiers deliberately do not resolve in this workspace (the type-check
+ * gate's header says why, and exempts them). So the split is:
+ *
+ *  - the WIRING is judged here, textually, over the same file map the CLI
+ *    writes;
+ *  - the BEHAVIOUR is judged in `@object-ui/components`, by
+ *    `src/__tests__/lazy-icon-generated-app-contract-7472.test.ts`, which puts
+ *    the names pinned below through the real seam via the package's own public
+ *    entry — the same surface the generated layout imports.
+ *
+ * Neither half alone is worth much. Text alone would pass on a seam that no
+ * longer exports these names; behaviour alone would pass on a layout that had
+ * gone back to rolling its own. Splitting them across the two packages is not
+ * a preference: see the join assertion below for why the seam cannot be
+ * imported from this file by its package specifier.
+ */
+describe('generated layout icon resolution', () => {
+  /**
+   * Lines that resolve an icon NAME without going through the seam.
+   *
+   * Deliberately shaped as a reported list rather than a boolean, so the
+   * self-test below can name what it caught instead of only that it caught
+   * something.
+   */
+  function selfRolledIconLookups(source: string): string[] {
+    return source.split('\n').filter(
+      (line) =>
+        /import \* as \w+ from ["']lucide-react["']/.test(line) ||
+        /\blucideIcons\s*\[/.test(line) ||
+        /\bfrom ["']lucide-react\/dynamic/.test(line)
+    );
+  }
+
+  /** Every `name="…"` the layout TEMPLATE hardcodes at a `DynamicIcon` call site. */
+  function hardcodedIconNames(layout: string): string[] {
+    return [...layout.matchAll(/<DynamicIcon name="([^"]+)"/g)].map((m) => m[1]);
+  }
+
+  it('rolls no icon-name resolver of its own', () => {
+    const layout = routedFiles()['src/Layout.tsx'];
+    expect(selfRolledIconLookups(layout)).toEqual([]);
+    // Non-empty guard for the negative above: an empty or missing layout would
+    // satisfy it vacuously, so pin in the same run that the file is really here
+    // and really still renders icons.
+    expect(layout.length).toBeGreaterThan(1000);
+    expect(hardcodedIconNames(layout).length).toBeGreaterThan(0);
+  });
+
+  it('catches a self-rolled lookup when one is present', () => {
+    // Self-test, planting the pre-fix template back verbatim. A gate that is
+    // green by producing nothing is not a gate (the file header's rule).
+    const preFix = [
+      `import * as LucideIcons from 'lucide-react';`,
+      `const lucideIcons = LucideIcons as unknown as Record<`,
+      `  const Icon = lucideIcons[name];`
+    ].join('\n');
+    expect(selfRolledIconLookups(preFix)).toEqual([
+      `import * as LucideIcons from 'lucide-react';`,
+      `  const Icon = lucideIcons[name];`
+    ]);
+  });
+
+  it('imports the seam from a package the generated manifest declares', () => {
+    // objectui#7525's trap: a generated file may only import things that
+    // resolve from the GENERATED app's own dependency graph. A relative path
+    // back into this repo resolves here and breaks in the user's app.
+    const layout = routedFiles()['src/Layout.tsx'];
+    expect(layout).toContain('  LazyIcon,\n  isLucideIconName\n} from \'@object-ui/components\';');
+    expect(importedPackagesOf(layout)).toContain('@object-ui/components');
+    expect(dependenciesOf(buildRoutedAppPackageJson())).toHaveProperty('@object-ui/components');
+    expect(layout).not.toContain('../');
+  });
+
+  it('names exactly the icons the seam-side contract test puts through the seam', () => {
+    // THE OTHER HALF LIVES IN `@object-ui/components`, and this is the join.
+    //
+    // The behavioural question — do these names still resolve? — can only be
+    // answered by calling the seam, and the seam may not be imported from here
+    // by its package specifier: `@object-ui/cli` declares `@object-ui/components`
+    // as a RUNTIME dependency for a reason no scanner can see (the generated app
+    // imports it, and `objectui dev` runs that app out of the CLI's own install
+    // when there is no workspace to alias from), and that reason is carried by a
+    // `DECLARED_WITHOUT_IMPORT` row in `scripts/check-unused-dependencies.mjs`.
+    // A package import from this file would make that row stale and delete the
+    // only written record of why the declaration is not a devDependency.
+    //
+    // So the names cross the boundary as data instead:
+    //
+    //     packages/components/src/__tests__/lazy-icon-generated-app-contract-7472.test.ts
+    //
+    // pins this exact list and puts every entry through the real seam. If this
+    // fixture moves, this assertion goes red and names the file to move with it.
+    expect(authoredIconNames(APP_CONFIG)).toEqual(['Flame', 'House', 'Users', 'List']);
+    // `<DynamicIcon name="ChevronRight" …/>` is written by the TEMPLATE rather
+    // than authored in `app.json`, so no fixture would otherwise cover it — and
+    // it is the icon that renders on every collapsible menu group, which makes
+    // it the loudest possible regression and the least likely to be noticed.
+    expect(hardcodedIconNames(routedFiles()['src/Layout.tsx'])).toEqual(['ChevronRight']);
   });
 });
 
@@ -1561,10 +1726,19 @@ describe('generated app type-checks under its own tsconfig', () => {
     // -> TS7006 (five, not the three the issue lists); no ambient declaration ->
     // TS2882 for `./index.css`. The two type-only declarations the plants strand
     // were predicted too — the plants are a revert, not a scalpel — but as
-    // TS6133 + TS6196, and measuring said TS6196 twice: `import type { ReactNode }`
-    // binds a TYPE, and an unused type is "declared but never used" (TS6196),
-    // never "its value is never read" (TS6133, which is what an unused VALUE
-    // import like `Link` gets). Pinned as measured rather than as predicted.
+    // TS6133 + TS6196. Pinned as measured rather than as predicted, and
+    // RE-measured at objectui#7472, which moved one of them.
+    //
+    // Until then this read TS6196 twice, on the reasoning that `import type
+    // { ReactNode }` binds a TYPE and an unused type is "declared but never
+    // used" (TS6196) rather than "its value is never read" (TS6133). That
+    // reasoning was never the whole mechanism, and the seam wiring exposed it:
+    // deleting the `ComponentType` the old namespace cast needed left
+    // `import type { ReactNode } from 'react'` as a SOLE specifier, so the
+    // plant now strands the entire import DECLARATION rather than one binding
+    // inside a live one — and tsc reports that as TS6133 on the name. Only
+    // `AppConfig`, a local type alias with no declaration to strand, is still
+    // TS6196. Measured, both before and after.
     const plants: Array<[file: string, from: string, to: string]> = [
       [
         'src/App.tsx',
@@ -1603,8 +1777,9 @@ describe('generated app type-checks under its own tsconfig', () => {
           byCode[`TS${diagnostic.code}`] = (byCode[`TS${diagnostic.code}`] ?? 0) + 1;
         }
         expect(byCode).toEqual({
-          TS6133: 1, // 'Link' — an unused VALUE import
-          TS6196: 2, // 'ReactNode' and 'AppConfig' — unused TYPES the plants strand
+          TS6133: 2, // 'Link', an unused VALUE import; and 'ReactNode', whose
+          //            whole type-only import declaration the plants strand
+          TS6196: 1, // 'AppConfig' — the unused local type alias
           TS7031: 4, // name, className, app, children
           TS7006: 5, // item, idx, child, child, cIdx
           TS2741: 2, // <DynamicIcon name={…} /> with no className, twice
@@ -1613,7 +1788,17 @@ describe('generated app type-checks under its own tsconfig', () => {
         // The identifiers, not just the counts: a gate that reported the right
         // number of the wrong errors would pass the assertion above.
         const named = beyondResolution.map((d) => d.message).join('\n');
-        for (const identifier of ['Link', 'name', 'className', 'app', 'children', 'item', 'idx']) {
+        for (const identifier of [
+          'Link',
+          'ReactNode',
+          'AppConfig',
+          'name',
+          'className',
+          'app',
+          'children',
+          'item',
+          'idx'
+        ]) {
           expect(named, `no diagnostic names ${identifier}`).toContain(`'${identifier}'`);
         }
         expect(named).toContain(`'./index.css'`);

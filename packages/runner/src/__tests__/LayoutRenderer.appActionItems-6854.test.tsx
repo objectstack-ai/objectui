@@ -12,9 +12,10 @@
  *
  * `AppAction.items` is `AppMenuItem[]` — `type` / `label` / `icon` / `path` /
  * `href` / `children` / `badge` / `hidden` — and the zod mirror parses it with
- * the legacy eight-member `MenuItemSchema`, which drops anything else in
- * silence. This map used to reach two keys that are on neither list through
- * `as any`: `onClick` and `shortcut`.
+ * the legacy `MenuItemSchema`, which drops anything else in silence, `shortcut`
+ * excepted since objectui#7719 (see the note below). This map used to reach two
+ * keys that are on neither authorable list through `as any`: `onClick` and
+ * `shortcut`.
  *
  * Deleting them is what makes `AppActionSchema.onClick`'s refusal message true
  * again. It tells an author "no renderer reads this key, so nothing could ever
@@ -27,9 +28,18 @@
  * none of in this repo — and require the renderer to ignore both. Re-adding
  * either read turns one of them red.
  *
- * ⛔ NOT a ruling that `shortcut` must stay unrendered for ever: whether it
- * should become AUTHORABLE on `AppAction.items` is its own contract card. This
- * pins the contract as it stands, not the answer to that question.
+ * ⭐ THE RULING THIS NOTE USED TO BE WAITING FOR HAS LANDED. This paragraph read
+ * "⛔ NOT a ruling that `shortcut` must stay unrendered for ever: whether it
+ * should become AUTHORABLE on `AppAction.items` is its own contract card" —
+ * that card is objectui#7719, and director seat decision batch #70 of
+ * 2026-09-07 answered it: `shortcut` does NOT become authorable here, and ⛔ no
+ * read is re-added in this renderer. What that card changed is the DIAGNOSTIC on
+ * the types side — `shortcut?: never` on `AppMenuItem` and a named refusal on
+ * `MenuItemSchema`, so an authored value is refused by name instead of stripped
+ * in silence, pinned in
+ * `packages/types/src/__tests__/app-menu-item-shortcut-refusal-7719.test.ts`.
+ * ⇒ The assertions below are unchanged BY THAT RULING, which says the #6854 pin
+ * stays as is. They now pin a settled contract rather than an interim state.
  *
  * The `packages/types` half of the same claim — that the refusal message still
  * makes it — is pinned in

@@ -160,10 +160,18 @@ describe('ListView forwards the view-level `map` block to plugin-map (objectui#5
       expect(schema.titleField).toBe('bag_title');
     });
 
-    it('CONTROL: with no map config at all, only the `locationField` default is emitted', async () => {
+    it('CONTROL: with no map config at all, NOTHING is emitted — not even a binding', async () => {
       const schema = await mapSchemaFor({});
 
-      expect(schema.locationField).toBe('location');
+      // objectui#8169 (ruled 2026-09-07 「同意」, option B): the
+      // `locationField: … || 'location'` floor that used to be the one key this
+      // arm emitted is gone, together with `getMapConfig`'s own coordinate
+      // guesses. An undeclared map view now produces a schema with no binding
+      // in it and `ObjectMap` renders its "Map configuration required" refusal
+      // — pinned end-to-end in
+      // `plugin-map/src/ObjectMap.unboundRefusal-8169.test.tsx`.
+      expect(schema.locationField).toBeUndefined();
+      expect(Object.prototype.hasOwnProperty.call(schema, 'locationField')).toBe(false);
       // objectui#5000 / objectui#4941: no camera is synthesized anywhere on
       // this path. `zoom`/`center` carry no spec default precisely so that
       // "no declaration" stays distinguishable from a declared camera at the

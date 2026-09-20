@@ -140,7 +140,7 @@ All ObjectUI components follow the same schema-based pattern:
   "type": "card",
   "title": "User Profile",
   "className": "max-w-md",
-  "body": {
+  "children": {
     "type": "form",
     "fields": [
       {

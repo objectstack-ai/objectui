@@ -38,12 +38,21 @@
  * oversight. `0` / `false` / `''` render nothing both before and after this
  * change, which is exactly the answer `SchemaRenderer` itself gives them
  * (objectui#4548 pins them as "renders nothing … rather than becoming '0' /
- * 'false'"). Routing them through the bridge instead — `toRenderableSchema`
- * maps `number` / `boolean` onto `String(node)` — would turn them into the
- * text "0" and "false", a SECOND behaviour change on a published surface that
- * nothing ruled and that would contradict that pin. So the slot's answer stays
- * the platform's uniform one, and these cases stand guard over a future
- * "tidy" of the leg into a nullish test.
+ * 'false'"). When this suite was written, routing them through the bridge
+ * instead would have turned them into the text "0" and "false", because
+ * `toRenderableSchema` mapped every `number` / `boolean` onto `String(node)` —
+ * a SECOND behaviour change on a published surface that nothing ruled and that
+ * would have contradicted that pin. This leg is why that never reached this
+ * slot.
+ *
+ * ⚠️ objectui#8908 repaired the bridge itself: it now gives a falsy primitive
+ * nothing, so the leg no longer changes the answer here — it reaches the same
+ * one a step earlier, and it stays as defence in depth. That makes the cases
+ * below CONTROLS rather than the discriminating evidence they were: they are
+ * green on the bridge's old spelling and its new one alike, and what they now
+ * guard is the slot keeping the platform's answer no matter which side of the
+ * boundary decides it. The bridge's own two paths are measured directly in
+ * `packages/react/src/__tests__/schema-input.bridgeFidelity.test.tsx`.
  *
  * ## Discriminating power
  *
@@ -139,11 +148,11 @@ describe('objectui#8331 — data-table emptyAction accepts the whole SchemaNode 
     });
 
     it('renders nothing for the falsy primitives, exactly as SchemaRenderer does', () => {
-      // objectui#4548 pins `''` / `0` / `false` as rendering nothing. The slot
-      // must keep giving them the platform's answer, not the bridge's `String()`
-      // form — this case fails the moment the truthiness leg is "tidied" into a
-      // nullish test, because `0` and `false` would arrive as the text "0" and
-      // "false".
+      // objectui#4548 pins `''` / `0` / `false` as rendering nothing, and the
+      // slot must keep giving them that answer. ⚠️ Since objectui#8908 repaired
+      // the bridge, this case no longer fails if the truthiness leg is "tidied"
+      // into a nullish test — both routes now render nothing. It pins the
+      // OUTCOME; the leg's own rationale is in the renderer's comment.
       const baseline = emptyStateBaselineText();
       for (const value of ['', 0, false] as const) {
         const { container, unmount } = renderEmptyTable(value);

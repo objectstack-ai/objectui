@@ -1306,6 +1306,22 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.admin.assignableSets': 'Assignable permission sets',
   'perm.admin.noSets': 'No permission sets loaded.',
   'perm.loading': 'Loading permission set {name}…',
+  // objectui#9420 — the package door refuses rather than PUTs when the
+  // save-time layered re-read REJECTS: without it the merge base falls back
+  // to the already-sliced draft and the write deletes every other package's
+  // permission rows with a 200. Worded as a refusal plus the retry, because
+  // nothing was written and retrying is the whole remedy.
+  'perm.save.rereadFailed':
+    'Save cancelled: the current permission set could not be re-read, so rows contributed by other packages cannot be preserved. Nothing was saved — please try again.',
+  // objectui#9484 — the ENVIRONMENT door's re-read runs AFTER the write, so
+  // its rejection is not a failed save and must not be worded like one. It
+  // opens with the outcome that is certain ("Saved."), then says exactly what
+  // is degraded: the matrix on screen is the accepted body, not a fresh read.
+  // Deliberately shares no wording with `perm.save.rereadFailed` above — that
+  // one cancels a save, this one confirms one, and a permission surface cannot
+  // afford the two reading alike.
+  'perm.save.rereadStale':
+    'Saved. The follow-up read that refreshes this view did not answer, so the matrix below shows what was just saved rather than the server\'s copy. Reopen this permission set to confirm.',
   // objectui#4446 — names the gate that actually tripped. The old wording
   // ("OS_METADATA_WRITABLE not enabled") blamed a deployment env var for a
   // per-type registry declaration, and had no reachable honest case: the env
@@ -1392,6 +1408,13 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.noGroup': '— No group —',
   'designer.field.picklistValues': 'Picklist values',
   'designer.field.noValues': 'No values yet.',
+  'designer.field.optMalformed': 'This option cannot be edited here',
+  'designer.field.optMalformed.notAnObject': 'It is not an option object.',
+  'designer.field.optMalformed.valueNotText': 'Its `value` is missing or is not text.',
+  'designer.field.optMalformed.valueEmpty': 'Its `value` is empty.',
+  'designer.field.optMalformed.labelNotText': 'Its `label` is not text.',
+  'designer.field.optMalformed.colorNotText': 'Its `color` is not text.',
+  'designer.field.optMalformedHint': 'It is kept exactly as authored. Repair it in the JSON source, or remove it here.',
   'designer.field.addValue': 'Add value',
   'designer.field.optValue': 'value',
   'designer.field.optLabel': 'Label',
@@ -1526,7 +1549,18 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.cancel': 'Cancel',
   'engine.studio.create': 'Create',
   'engine.studio.creating': 'Creating…',
-  'engine.studio.createDraft': 'Create (save as draft)',
+  // objectui#9231 — this is the CONFIRM control of the shared create dialog.
+  // Never give it a name that shares a leading run with the affordance that
+  // OPENS that dialog (`engine.studio.app.create`, `Create app` — and the
+  // dialog itself is titled after it, which is correct). It used to read
+  // `Create (save as draft)`, so the only handle it offered a by-name caller
+  // was `Create`, which also matched all three openers (toolbar, Interfaces
+  // empty state, Interfaces rail): nothing could address THIS control, the one
+  // that actually creates. While the dialog is open every opener is
+  // `aria-hidden` behind Radix's modal overlay, so a by-name click there
+  // dismisses the dialog with no error and nothing created. Pinned by
+  // `studio-design/StudioDesignSurface.createAppAccessibleName.test.tsx`.
+  'engine.studio.createDraft': 'Save as draft',
   'engine.studio.saveDraft': 'Save draft',
   'engine.studio.more': 'More',
   'engine.studio.autoSaving': 'Saving…',
@@ -3258,6 +3292,12 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.admin.assignableSets': '可分配权限集',
   'perm.admin.noSets': '未加载权限集。',
   'perm.loading': '加载权限集 {name}…',
+  // objectui#9420 — 见 EN 表同键注释。
+  'perm.save.rereadFailed':
+    '保存已取消：无法重新读取当前权限集，其他包贡献的权限行将无法保留。本次未写入任何内容，请重试。',
+  // objectui#9484 — 见 EN 表同键注释。
+  'perm.save.rereadStale':
+    '已保存。用于刷新此视图的后续读取没有返回，因此下方矩阵显示的是刚刚保存的内容，而不是服务端的副本。请重新打开该权限集以确认。',
   // objectui#4446 — 见 EN 表同键注释：旧文案把「每类型注册表声明」说成「部署环境变量未启用」。
   'perm.readOnly': '只读（该元数据类型没有运行时写入通道）',
   'perm.readOnly.hint':
@@ -3336,6 +3376,13 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.noGroup': '— 无分组 —',
   'designer.field.picklistValues': '选项值',
   'designer.field.noValues': '暂无选项值。',
+  'designer.field.optMalformed': '此选项无法在这里编辑',
+  'designer.field.optMalformed.notAnObject': '它不是一个选项对象。',
+  'designer.field.optMalformed.valueNotText': '它的 `value` 缺失或不是文本。',
+  'designer.field.optMalformed.valueEmpty': '它的 `value` 为空。',
+  'designer.field.optMalformed.labelNotText': '它的 `label` 不是文本。',
+  'designer.field.optMalformed.colorNotText': '它的 `color` 不是文本。',
+  'designer.field.optMalformedHint': '它按原样保留。请在 JSON 源码中修复,或在此处删除。',
   'designer.field.addValue': '添加选项',
   'designer.field.optValue': '值',
   'designer.field.optLabel': '显示名',
@@ -3469,7 +3516,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.cancel': '取消',
   'engine.studio.create': '创建',
   'engine.studio.creating': '创建中…',
-  'engine.studio.createDraft': '创建(存为草稿)',
+  // objectui#9231 — see the English entry. This value must share no leading
+  // run with `engine.studio.app.create`, which opens the same dialog.
+  'engine.studio.createDraft': '存为草稿',
   'engine.studio.saveDraft': '保存草稿',
   'engine.studio.more': '更多',
   'engine.studio.autoSaving': '保存中…',
@@ -4076,8 +4125,20 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     criteria: { label: '进入条件(旧)', help: '旧字段 —— 建议使用“进入条件”(condition)。' },
   },
   end: {
-    outcome: { label: '结果' },
-    outputVariable: { label: '输出变量' },
+    outcome: {
+      label: '结果',
+      help: '运行在此处如何结束。“已完成”是普通终态,也是省略该键时的取值。“已拒绝”把拒绝记为一等结果 —— 它是一次成功的评估,只是结论为否 —— 并要求在下方字段中给出拒绝理由 message({token} 模板)。',
+      opts: { completed: '已完成', refused: '已拒绝' },
+    },
+    // objectui#9336 —— 仅在“结果”选为“已拒绝”时出现(见 flow-node-config 的
+    // `showWhen`);契约两个方向都校验:已拒绝必须有 message,已完成则拒收它。
+    message: {
+      label: '拒绝原因',
+      help: '当结果为“已拒绝”时必填;结果为“已完成”时则被拒收 —— 已完成的结束节点不渲染任何文本,该键会成为静默的空操作。支持 {token} 模板(如 {record.name}),与屏幕节点的“描述”一致。',
+    },
+    // objectui#9335 — an `outputVariable` overlay lived here and went with the
+    // descriptor it localized: `EndConfigSchema` refuses that key by name, so
+    // the end group no longer offers a field for it (see flow-node-config).
   },
   decision: {
     conditions: {

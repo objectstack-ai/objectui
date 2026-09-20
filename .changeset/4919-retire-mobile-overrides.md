@@ -22,14 +22,14 @@ to the implemented values"; here the implemented set is empty, so that rule term
 deletion — a config that type-checks, builds and silently does nothing is the
 declare-without-enforce shape the platform doctrine forbids.
 
-Removal rather than a `?: never` tombstone follows this package's own discriminator. A
-tombstone exists to steer authors to a named live replacement — `crud.ts` `confirm` →
-`confirmText` (objectui#4314), `data-display.ts` `hoverable` / `striped` → `data-table`
-(objectui#5474) — or to keep a key loud that the docs had actively taught as working.
-Neither applies: there is no replacement key to steer to, no documentation ever described
-the surface, and there is no successor spelling. That is the same zero-pull, no-successor
-shape as the retired `AccordionItem.icon` (objectui#4652) and `ToggleGroupItem.icon`
-(objectui#4632), both of which were removed outright rather than tombstoned.
+Removal rather than a `?: never` tombstone follows this package's own retire-vs-remove
+discriminator, in the form objectui#7678 amended it to. That rule is cited here and not
+restated: it is stated once, and a second copy carried in a release note could only drift
+out of agreement with it. Measured against it the route is removal: there is no replacement
+key to steer to, no documentation ever described the surface, and there is no successor
+spelling. That is the same zero-pull, no-successor shape as the retired
+`AccordionItem.icon` (objectui#4652) and `ToggleGroupItem.icon` (objectui#4632), both of
+which were removed outright rather than tombstoned.
 
 **Breaking for TypeScript authors of `MobileOverrides` / `mobileOverrides` only** (marked
 `minor` per this repo's version-alignment rule, which reserves `major` for following

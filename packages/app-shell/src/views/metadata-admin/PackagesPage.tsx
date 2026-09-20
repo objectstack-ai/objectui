@@ -61,6 +61,7 @@ import {
   SheetDescription,
 } from '@object-ui/components';
 import { useMetadataLocale, t, tFormat } from './i18n.js';
+import { useMetadataClient } from './useMetadata.js';
 import { PackageFormDialog } from './PackageFormDialog.js';
 import { errorCodeIs } from '@object-ui/types';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
@@ -280,6 +281,14 @@ export function PackageDetailSheet({
   onChanged: () => void;
 }) {
   const locale = useMetadataLocale();
+  // objectui#6965 — the console's metadata client, for the ONE action on this
+  // sheet that must report: "publish drafts" promotes metadata, and the runtime
+  // authoring gate's findings for those promotions ride the response. This hook
+  // is where the advisory sink is wired (`useMetadataClient` → the toast
+  // renderer), so a call made through it reports and a call made through the
+  // page-private `apiJson` cannot. The other lifecycle actions on this sheet
+  // write no metadata and stay on `apiJson`.
+  const client = useMetadataClient();
   const [busy, setBusy] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   // ADR-0033 — pending DRAFT items bound to this package. AI-authored metadata
@@ -360,47 +369,68 @@ export function PackageDetailSheet({
   // ADR-0033 — publish every pending draft of this app in one shot, then
   // refresh the pending list (it should now be empty). Distinct from the
   // registry-based `publish` above; this hits `/publish-drafts`.
+  //
+  // objectui#6965 — through `MetadataClient`, not `apiJson`. This promotes
+  // metadata, so the runtime authoring gate grades it and answers its findings
+  // on each `published[]` element (objectstack#9343); the client is the seam
+  // that reports them to the author. `apiJson` could not — and the response
+  // type declared here could not even hold them: it listed the two counts and
+  // `failed[]`, with no `published[]` at all. The declared shape now comes from
+  // the spec, through the client's return type.
   const publishDrafts = () =>
     run(
       'publish-drafts',
-      () =>
-        apiJson<{
-          publishedCount?: number;
-          failedCount?: number;
-          failed?: Array<{ type?: string; name?: string; error?: string; code?: string }>;
-        }>(
-          `${API}/${encodeURIComponent(id)}/publish-drafts`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) },
-        ).then(async (r) => {
-          try {
-            const fresh = await apiJson<{ drafts?: Array<{ type: string; name: string }> }>(
-              `/api/v1/meta/_drafts?packageId=${encodeURIComponent(id)}`,
-            );
-            setDrafts(fresh?.drafts ?? []);
-          } catch {
-            setDrafts([]);
-          }
-          if (r?.failedCount) {
-            // framework 15.1+ (ADR-0067 D2): the batch is all-or-nothing — a
-            // failure means NOTHING landed and `failed[]` marks the rolled-back
-            // drafts `batch_aborted`, with the causal item carrying the real
-            // error. Say "rolled back because X", not "{n} failed" (which reads
-            // as a partial publish that no longer exists).
-            const failedList = Array.isArray(r.failed) ? r.failed : [];
-            const causal = failedList.find((f) => !errorCodeIs(f, 'BATCH_ABORTED') && f?.error);
-            if (failedList.some((f) => errorCodeIs(f, 'BATCH_ABORTED'))) {
-              throw new Error(tFormat('engine.packages.detail.publishDraftsRolledBack', locale, {
-                cause: causal ? `${causal.type ?? '?'}/${causal.name ?? '?'}: ${causal.error}` : String(r.failedCount),
-              }));
-            }
-            // pre-15.1 server — genuine partial publish.
-            throw new Error(tFormat('engine.packages.detail.publishDraftsPartial', locale, {
-              published: r.publishedCount ?? 0,
-              failed: r.failedCount,
+      async () => {
+        const r = await client.publishPackageDrafts(id).catch((e: unknown) => {
+          // The ADR-0112 rule objectui#7959 landed on this page: a
+          // producer-marked `error.userMessage` outranks the diagnostic
+          // `error.message`. `MetadataClient` raises with the diagnostic and
+          // keeps the body, so the marked sentence is re-read here rather
+          // than lost on the way through the seam.
+          const marked = readEnvelopeFailureText((e as { body?: unknown } | null)?.body);
+          throw marked ? new Error(marked) : e;
+        });
+        if ((r as { success?: boolean }).success === false) {
+          // Preserves what `apiJson` did for this call: a batch that did not
+          // publish is an error on this surface, read through the same
+          // envelope ladder. The status is no longer in hand — a non-2xx
+          // threw above — so the last rung is a sentence, not "(200)".
+          throw new Error(
+            readEnvelopeFailureText(r) ||
+              (typeof r.error === 'string' ? r.error : '') ||
+              (typeof r.message === 'string' ? r.message : '') ||
+              t('engine.packages.detail.actionFailed', locale),
+          );
+        }
+        try {
+          const fresh = await apiJson<{ drafts?: Array<{ type: string; name: string }> }>(
+            `/api/v1/meta/_drafts?packageId=${encodeURIComponent(id)}`,
+          );
+          setDrafts(fresh?.drafts ?? []);
+        } catch {
+          setDrafts([]);
+        }
+        if (r?.failedCount) {
+          // framework 15.1+ (ADR-0067 D2): the batch is all-or-nothing — a
+          // failure means NOTHING landed and `failed[]` marks the rolled-back
+          // drafts `batch_aborted`, with the causal item carrying the real
+          // error. Say "rolled back because X", not "{n} failed" (which reads
+          // as a partial publish that no longer exists).
+          const failedList = Array.isArray(r.failed) ? r.failed : [];
+          const causal = failedList.find((f) => !errorCodeIs(f, 'BATCH_ABORTED') && f?.error);
+          if (failedList.some((f) => errorCodeIs(f, 'BATCH_ABORTED'))) {
+            throw new Error(tFormat('engine.packages.detail.publishDraftsRolledBack', locale, {
+              cause: causal ? `${causal.type ?? '?'}/${causal.name ?? '?'}: ${causal.error}` : String(r.failedCount),
             }));
           }
-          return r;
-        }),
+          // pre-15.1 server — genuine partial publish.
+          throw new Error(tFormat('engine.packages.detail.publishDraftsPartial', locale, {
+            published: r.publishedCount ?? 0,
+            failed: r.failedCount,
+          }));
+        }
+        return r;
+      },
       t('engine.packages.detail.publishDraftsOk', locale),
     );
 

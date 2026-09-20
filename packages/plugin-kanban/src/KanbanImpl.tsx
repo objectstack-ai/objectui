@@ -20,7 +20,6 @@ import {
 } from "@dnd-kit/core"
 import {
   SortableContext,
-  arrayMove,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
@@ -347,6 +346,105 @@ function columnWidthClasses(columnStyle?: React.CSSProperties): string {
     : "w-[85vw] sm:w-80 shrink-0";
 }
 
+/** The width a collapsed lane occupies — a spine wide enough for its title. */
+const COLLAPSED_COLUMN_WIDTH = 56
+
+/**
+ * The lane box — width classes AND inline width — for BOTH board layouts, with
+ * the collapsed case folded in (objectui#9628).
+ *
+ * It wraps `columnWidthClasses` rather than replacing it: an expanded lane is
+ * exactly what that function already decided, and the only thing added here is
+ * what a COLLAPSED lane is. A collapsed lane always carries an explicit inline
+ * width, so its class list is the bare `shrink-0` — the viewport-relative
+ * fallback would otherwise paint an 85vw "collapsed" lane before the board's
+ * first `useResizeObserver` reading.
+ *
+ * ⚠️ It has to be ONE function for the same reason `columnWidthClasses` does,
+ * and the swimlane layout makes the reason sharper: that layout paints the
+ * column-title row and each lane's content row as two independent scrollers
+ * whose `scrollLeft` is synced (objectui#8448), and equal `scrollLeft` is equal
+ * ALIGNMENT only while both rows give a given column the same width
+ * (objectui#8797). A collapsed column that narrowed in one row and not the
+ * other would put every title past it over the wrong column. Both rows call
+ * this; neither computes a width of its own.
+ */
+function laneBox(
+  columnStyle: React.CSSProperties | undefined,
+  collapsed: boolean,
+): { className: string; style: React.CSSProperties | undefined } {
+  return collapsed
+    ? { className: "shrink-0", style: { ...columnStyle, width: COLLAPSED_COLUMN_WIDTH } }
+    : { className: columnWidthClasses(columnStyle), style: columnStyle }
+}
+
+/**
+ * The lane heading, as a disclosure when the lane declared `collapsed`
+ * (objectui#9628).
+ *
+ * ## Why the heading itself is the control
+ *
+ * The button's accessible name is the lane title, so no new user-facing string
+ * enters the product and no catalogue gains a key — the same reason the
+ * swimlane rows' own collapse control carries its lane name. It is the
+ * `heading > button` disclosure shape, which is valid HTML (a `<button>` is
+ * phrasing content inside the heading) and leaves the `id` every board consumer
+ * reads on the `<h3>`.
+ *
+ * ## ⚠️ Why the affordance is conditional
+ *
+ * `collapsible` is the AUTHORED value, not the live one: a lane the author did
+ * not declare `collapsed: true` on renders exactly the heading it rendered
+ * before this card — no button, same DOM — so every existing board and every
+ * pin over one is untouched, and an authored `collapsed: false` stays
+ * indistinguishable from an omitted key rather than quietly minting a control.
+ */
+function LaneHeading({
+  column,
+  collapsed,
+  collapsible,
+  onToggle,
+  className,
+}: {
+  column: KanbanColumn
+  collapsed: boolean
+  collapsible: boolean
+  onToggle: () => void
+  className?: string
+}) {
+  // ⚠️ A lane with no disclosure renders the title EXACTLY as it did before
+  // objectui#9628 — bare text where the caller already owns the element, a
+  // single `<span>` where the caller passed one's classes. Wrapping it in one
+  // more element unconditionally is not cosmetic: `laneCountHonesty-8307`
+  // locates the count badge as the first `<span>` beside the `<h3>`, and an
+  // extra span inside the heading hands that locator the title instead.
+  if (!collapsible) {
+    return className ? <span className={className}>{column.title}</span> : <>{column.title}</>
+  }
+  return (
+    <button
+      type="button"
+      className={cn(
+        "inline-flex items-center gap-1 min-w-0 hover:text-foreground transition-colors",
+        collapsed && "flex-col",
+        className,
+      )}
+      aria-expanded={!collapsed}
+      onClick={onToggle}
+    >
+      <span
+        aria-hidden="true"
+        className={cn("text-[10px] transition-transform shrink-0", collapsed ? "" : "rotate-90")}
+      >
+        ▶
+      </span>
+      <span className={cn("truncate", collapsed && "[writing-mode:vertical-rl] rotate-180")}>
+        {column.title}
+      </span>
+    </button>
+  )
+}
+
 /**
  * How a lane count is WRITTEN, in ONE place, for every header on this board.
  *
@@ -395,6 +493,8 @@ function KanbanColumnView({
   columnStyle,
   suppressEmptyPlaceholder,
   countsAreWindowed,
+  collapsed,
+  onToggleCollapse,
 }: {
   column: KanbanColumn
   cards: KanbanCard[]
@@ -415,6 +515,18 @@ function KanbanColumnView({
   suppressEmptyPlaceholder?: boolean
   /** The cards handed in are a fetched window — see `laneCountLabel` (objectui#8307). */
   countsAreWindowed?: boolean
+  /**
+   * Whether this lane renders collapsed right now — the authored
+   * `KanbanColumn.collapsed` until the viewer says otherwise (objectui#9628).
+   * The board owns that resolution; this component only paints it.
+   */
+  collapsed?: boolean
+  /**
+   * Toggles the lane's collapse. Present only on a lane that DECLARED
+   * `collapsed: true`, and its presence is what puts the disclosure in the
+   * heading — see `LaneHeading`.
+   */
+  onToggleCollapse?: () => void
 }) {
   const { t } = useKanbanT()
   const safeCards = cards || [];
@@ -428,9 +540,11 @@ function KanbanColumnView({
   const isLimitExceeded = column.limit && safeCards.length >= column.limit
 
   // When the parent passes inline width, drop the viewport-relative classes
-  // so they don't fight with the container-derived value. Shared with the
-  // swimlane layout's own cells — see `columnWidthClasses`.
-  const widthClasses = columnWidthClasses(columnStyle);
+  // so they don't fight with the container-derived value. A collapsed lane
+  // takes its own width instead. Shared with the swimlane layout's own cells —
+  // see `laneBox`.
+  const isCollapsed = collapsed === true
+  const box = laneBox(columnStyle, isCollapsed);
 
   // Stage progress indicator: the colored top stripe was distracting on
   // boards with many columns ("rainbow stripe" effect). The lane border
@@ -442,10 +556,10 @@ function KanbanColumnView({
       ref={setNodeRef}
       role="group"
       aria-label={column.title}
-      style={columnStyle}
+      style={box.style}
       className={cn(
         "relative flex flex-col rounded-xl border border-border/60 bg-muted/15 snap-start max-h-full min-h-0 transition-all duration-200 shadow-sm hover:shadow-md overflow-hidden",
-        widthClasses,
+        box.className,
         // P2-5: when a card is being dragged over this column, highlight the
         // whole column so users can see exactly which lane will receive the
         // drop. This is critical for empty columns where there's no card
@@ -454,9 +568,16 @@ function KanbanColumnView({
         column.className
       )}
     >
-      <div className="px-3 sm:px-4 pt-3 pb-2.5 border-b border-border/40">
-        <div className="flex items-center justify-between gap-2">
-          <h3 id={`kanban-col-${column.id}`} className="text-xs sm:text-[13px] font-semibold tracking-tight truncate text-foreground/85 uppercase">{column.title}</h3>
+      <div className={cn("border-b border-border/40", isCollapsed ? "px-1 py-3" : "px-3 sm:px-4 pt-3 pb-2.5")}>
+        <div className={cn("flex gap-2", isCollapsed ? "flex-col items-center" : "items-center justify-between")}>
+          <h3 id={`kanban-col-${column.id}`} className={cn("text-xs sm:text-[13px] font-semibold tracking-tight truncate text-foreground/85 uppercase", isCollapsed && "min-w-0")}>
+            <LaneHeading
+              column={column}
+              collapsed={isCollapsed}
+              collapsible={onToggleCollapse != null}
+              onToggle={() => onToggleCollapse?.()}
+            />
+          </h3>
           <div className="flex items-center gap-1.5 shrink-0">
             <span
               className={cn(
@@ -477,6 +598,11 @@ function KanbanColumnView({
           </div>
         </div>
       </div>
+      {/* A collapsed lane withholds its cards — that is what the authored
+          `collapsed` asks for (objectui#9628). The lane BOX stays mounted and
+          keeps `setNodeRef`, so it remains a drop target: a card dragged onto a
+          collapsed lane still lands in it, and the count above updates. */}
+      {!isCollapsed && (
       <ScrollArea className="flex-1 p-4">
         <SortableContext
           items={safeCards.map((c) => c.id)}
@@ -509,6 +635,7 @@ function KanbanColumnView({
           <QuickAddForm columnId={column.id} onAdd={onQuickAdd} />
         )}
       </ScrollArea>
+      )}
     </div>
   )
 }
@@ -589,6 +716,40 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
     return new Set()
   })
   
+  /**
+   * Per-LANE collapse — the authored `KanbanColumn.collapsed`, with the
+   * viewer's own decision layered over it (objectui#9628).
+   *
+   * ⚠️ The authored value is not copied into state, and that is the whole
+   * design. `columns` is re-derived on every data round-trip (`ObjectKanban`
+   * re-buckets, so the lane objects are new on each pass), so a state seeded
+   * from them and re-seeded on prop change would re-collapse a lane the viewer
+   * had opened, every time the records refreshed — AGENTS.md #8's "state that
+   * must survive a data refresh". Holding only the OVERRIDES and resolving
+   * against the current prop keeps the viewer's decision and the author's
+   * default independent, and depends on no object identity (#10).
+   *
+   * The override map is deliberately NOT persisted: the swimlane ROW collapse
+   * beside it is keyed by `swimlaneField`, and a lane key that stable does not
+   * exist here — a board has no identity of its own at this level. An authored
+   * default that survives reload plus a per-view viewer override is the shape
+   * the declaration describes.
+   */
+  const [laneCollapseOverrides, setLaneCollapseOverrides] = React.useState<ReadonlyMap<string, boolean>>(
+    () => new Map<string, boolean>(),
+  )
+  const isColumnCollapsed = React.useCallback(
+    (col: KanbanColumn) => laneCollapseOverrides.get(String(col.id)) ?? col.collapsed === true,
+    [laneCollapseOverrides],
+  )
+  const toggleColumnCollapse = React.useCallback((columnId: string, next: boolean) => {
+    setLaneCollapseOverrides(prev => {
+      const updated = new Map(prev)
+      updated.set(String(columnId), next)
+      return updated
+    })
+  }, [])
+
   // Ensure we always have valid columns with cards array
   const safeColumns = React.useMemo(() => {
     return (columns || []).map(col => ({
@@ -597,13 +758,18 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
     }));
   }, [columns]);
 
-  // The board keeps its own copy of the columns, and that mirror STAYS: the drag
-  // path writes it optimistically (`handleDragEnd` below), and the `columns`
-  // prop never carries card ORDER back. A same-column reorder notifies nobody —
-  // `handleDragEnd` takes its local branch without calling `onCardMove` — and
-  // `ObjectKanban.handleCardMove` early-returns on `fromColumnId === toColumnId`
-  // and discards `newIndex` outright. Order truth is local-only, so deriving
-  // this away would roll a committed reorder back on the next prop change.
+  // The board keeps its own copy of the columns, and that mirror STAYS: the
+  // cross-column drag path writes it optimistically (`handleDragEnd` below), so
+  // a card the user moved between columns is in its new column on screen before
+  // any data round-trip carries that membership back — and on the ownership
+  // where a parent owns the records, nothing re-renders this board until that
+  // parent reflows. Deriving the mirror away would strand such a move.
+  //
+  // ⚠️ What the mirror no longer holds is card ORDER (objectui#8826). The
+  // `columns` prop never carried order back, so an optimistic reorder was a
+  // claim nothing could keep; the same-column branch below now leaves the
+  // mirror alone, and the cross-column branch appends rather than honouring the
+  // slot the card was dropped in. Order is whatever the data round-trip says.
   //
   // What does NOT stay is syncing it from a passive effect. An effect runs after
   // commit, so every prop-driven column change reached the DOM one commit late:
@@ -701,17 +867,24 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
     }
 
     if (activeColumn.id === overColumn.id) {
-      // Same column reordering
-      const cards = [...activeColumn.cards]
-      const oldIndex = cards.findIndex((c) => c.id === activeId)
-      const newIndex = cards.findIndex((c) => c.id === overId)
-
-      const newCards = arrayMove(cards, oldIndex, newIndex)
-      setBoardColumns((prev) =>
-        prev.map((col) =>
-          col.id === activeColumn.id ? { ...col, cards: newCards } : col
-        )
-      )
+      // Same-column drop: the board does NOTHING, deliberately (objectui#8826).
+      //
+      // Card ORDER is persisted nowhere. This branch notifies nobody, the
+      // `onCardMove` consumer this board is given (`ObjectKanban`'s mover)
+      // returns early when the source and target columns are equal, and the
+      // write it would otherwise send carries the grouped field and no
+      // positional key. There is no declared ordering slot in
+      // `@objectstack/spec` to write one to.
+      //
+      // An optimistic `arrayMove` here therefore showed the user a success the
+      // board cannot keep: the reorder landed on screen, nothing recorded it,
+      // and the next prop change — a refetch, a poll, any data round-trip —
+      // re-synced this mirror from `columns` and silently put the card back.
+      // A drop that visibly returns the card to its position is duller and
+      // TRUE: nothing is persisted, so nothing is shown as persisted.
+      //
+      // ⛔ Do not restore the reorder without an ordering slot to write it to.
+      // Ruled on objectui#8826 (letter B); a spec card is that slot's entry.
     } else {
       // Moving between columns
       const activeCards = [...activeColumn.cards]
@@ -725,7 +898,18 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
         : overCards.findIndex((c) => c.id === overId)
 
       const [movedCard] = activeCards.splice(activeIndex, 1)
-      overCards.splice(overIndex, 0, movedCard)
+      // Membership moves; the landing POSITION is not claimed (objectui#8826).
+      // `overIndex` is where the pointer was released. It is still handed to
+      // `onCardMove` below — the prop's contract is unchanged — and the
+      // consumer still discards it, so nothing persists it. Splicing the card
+      // in at that slot painted a position the next data round-trip cannot
+      // reproduce: the board re-buckets in record order, and on the ownership
+      // that re-renders it snapped out of the dropped slot within the same
+      // commit, while on the ownership that does not it sat in a slot no
+      // reload would ever reproduce. Appending claims only what the board can
+      // say for itself — the card is in this column now — and leaves the
+      // position to the round-trip, which is the only thing that decides it.
+      overCards.push(movedCard)
 
       setBoardColumns((prev) =>
         prev.map((col) => {
@@ -879,7 +1063,19 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
         const totalCardCount = boardColumns.reduce((sum, c) => sum + (c.cards?.length || 0), 0);
         // "This board holds no cards" — a fact about what was HANDED to this
         // component, true the instant it renders.
-        const isBoardEmpty = totalCardCount === 0 && boardColumns.length > 1;
+        //
+        // ⚠️ It reads the CARDS and deliberately not the LANE COUNT
+        // (objectui#9045). It used to also require more than one lane, which
+        // made the announcement below unreachable on a zero-lane board and on
+        // a one-lane board: `DataEmptyState` is the board's only
+        // `aria-live` region, so on those two shapes assistive technology was
+        // told nothing at all. A zero-lane board became authorable when
+        // objectui#9021 made `ObjectKanbanSchema.groupBy` optional, as the
+        // protocol declares it — which is what moved this from theoretical to
+        // reachable. ⛔ The lane count never separated "still loading" from
+        // "genuinely empty"; `recordsSettled` below is the conjunct that does,
+        // and it is untouched by this.
+        const isBoardEmpty = totalCardCount === 0;
         // "This board HAS no cards" — a fact about the DATA, which is only
         // knowable once the records have settled (objectui#8827). Before
         // #8827 the two were the same expression, so a board whose lazy chunk
@@ -898,7 +1094,23 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
             showIcon={false}
             className="rounded-lg border border-dashed border-border/60 bg-muted/10 py-8 gap-2 [&>h3]:text-sm [&>h3]:font-medium [&>h3]:text-foreground/80"
             title={t('kanban.noCards')}
-            description={`${boardColumns.length} ${t('kanban.columns', { defaultValue: 'columns' })}`}
+            // ⛔ NO DESCRIPTION, deliberately (objectui#9170, maintainer ruling
+            // 2026-09-12). This region's job is "no cards"; the lane count is
+            // already on screen, and read aloud it is noise.
+            //
+            // It used to be composed by CONCATENATION — the lane count, a space,
+            // then the pack's `kanban.columns` unit word, which is a bare plural
+            // with no singular form. That was safe only while this region required
+            // more than one lane, because the count could then never be 1.
+            // Widening `isBoardEmpty` above is what made "1 columns" reachable
+            // here, and this region is announced rather than merely printed.
+            //
+            // ⭐ Removing the number is what makes the bare plural safe BY
+            // CONSTRUCTION, rather than by a predicate objectui#9169 had to remove
+            // for the announcement to exist at all. ⛔ Do not put a count back in
+            // any spelling: a number in this region needs a plural family across
+            // ten packs, and that decision was taken the other way.
+            // `residue-namespaces-3546.test.tsx` fails if one returns.
           />
         </div>
       )}
@@ -992,16 +1204,33 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
             onScroll={syncSwimlaneScroll}
             data-swimlane-scroll-row=""
           >
-            {boardColumns.map(col => (
-              <div
-                key={col.id}
-                style={columnInlineStyle}
-                className={cn(columnWidthClasses(columnInlineStyle), "text-center")}
-              >
-                <span className=" text-xs sm:text-sm font-semibold tracking-wider text-primary/90 uppercase">{col.title}</span>
-                <span className="ml-2 text-xs text-muted-foreground">({laneCountLabel(col.cards.length, countsAreWindowed)})</span>
-              </div>
-            ))}
+            {/* objectui#9628 — this row carries the column-collapse control on
+                the swimlane layout, because it is the only place a column is
+                drawn once rather than once per lane. The width comes from
+                `laneBox`, the same source the lane content cells below read,
+                which is what keeps the two synced scrollers on equal ranges. */}
+            {boardColumns.map(col => {
+              const collapsed = isColumnCollapsed(col)
+              const box = laneBox(columnInlineStyle, collapsed)
+              return (
+                <div
+                  key={col.id}
+                  style={box.style}
+                  className={cn(box.className, "text-center")}
+                >
+                  <LaneHeading
+                    column={col}
+                    collapsed={collapsed}
+                    collapsible={col.collapsed === true}
+                    onToggle={() => toggleColumnCollapse(col.id, !collapsed)}
+                    className=" text-xs sm:text-sm font-semibold tracking-wider text-primary/90 uppercase"
+                  />
+                  {!collapsed && (
+                    <span className="ml-2 text-xs text-muted-foreground">({laneCountLabel(col.cards.length, countsAreWindowed)})</span>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           {/* Swimlane rows */}
@@ -1035,19 +1264,27 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
                       const laneCards = col.cards.filter(c =>
                         (c[swimlaneField!] != null ? String(c[swimlaneField!]) : UNCATEGORIZED_LANE) === lane
                       )
+                      // A collapsed column narrows in EVERY row and withholds
+                      // its cards in each of them (objectui#9628) — a column
+                      // collapsed in the title row and open here would be the
+                      // misalignment objectui#8797 measured, self-inflicted.
+                      const collapsed = isColumnCollapsed(col)
+                      const box = laneBox(columnInlineStyle, collapsed)
                       return (
                         <div
                           key={col.id}
-                          style={columnInlineStyle}
-                          className={cn(columnWidthClasses(columnInlineStyle), "min-h-[60px] rounded-md bg-card/20 p-2")}
+                          style={box.style}
+                          className={cn(box.className, "min-h-[60px] rounded-md bg-card/20 p-2")}
                         >
-                          <SortableContext items={laneCards.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                            <div className="space-y-2" role="list" aria-label={`${col.title} - ${lane} cards`}>
-                              {laneCards.map(card => (
-                                <SortableCard key={card.id} card={card} onCardClick={onCardClick} conditionalFormatting={conditionalFormatting} objectFields={objectFields} />
-                              ))}
-                            </div>
-                          </SortableContext>
+                          {!collapsed && (
+                            <SortableContext items={laneCards.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                              <div className="space-y-2" role="list" aria-label={`${col.title} - ${lane} cards`}>
+                                {laneCards.map(card => (
+                                  <SortableCard key={card.id} card={card} onCardClick={onCardClick} conditionalFormatting={conditionalFormatting} objectFields={objectFields} />
+                                ))}
+                              </div>
+                            </SortableContext>
+                          )}
                         </div>
                       )
                     })}
@@ -1076,11 +1313,26 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
               // means the BOARD-level empty state above is already saying it,
               // so a per-column copy would be a duplicate. `!recordsSettled`
               // means nobody may say it yet: the placeholder renders the same
-              // `kanban.noCards` string, so leaving it ungated would have kept
-              // the false claim alive on any board with a single lane — where
+              // `kanban.noCards` string, and leaving it ungated would keep that
+              // false claim alive on a board that is only PARTLY empty — some
+              // lanes already holding rows while a refetch is in flight, where
               // `isBoardEmpty` is false and the board-level gate never runs.
+              // ⚠️ objectui#9045 widened the first reason rather than adding
+              // one: now that `isBoardEmpty` is blind to the lane count, a
+              // one-lane empty board reaches the board-level region and gives
+              // up its own placeholder to it — the same trade a multi-lane
+              // empty board has always made, and the reason the duplicate
+              // clause above is TRUE there instead of merely vacuous.
               suppressEmptyPlaceholder={isBoardEmpty || !recordsSettled}
               countsAreWindowed={countsAreWindowed}
+              // objectui#9628 — the authored lane default, the viewer's toggle
+              // over it, and the disclosure only where the author asked for one.
+              collapsed={isColumnCollapsed(column)}
+              onToggleCollapse={
+                column.collapsed === true
+                  ? () => toggleColumnCollapse(column.id, !isColumnCollapsed(column))
+                  : undefined
+              }
             />
           ))}
         </div>

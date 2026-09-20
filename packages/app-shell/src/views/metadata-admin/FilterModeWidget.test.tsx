@@ -13,6 +13,9 @@ const FilterMode = WIDGETS['filter-mode'];
 // to say which arm it is standing in — an empty list and a failed load are no
 // longer the same value.
 const ctx: WidgetContext = {
+  // objectui#8167 made `conditionScope` required. `'flattened'` is what every
+  // mount ran under before it existed, so this fixture's subject is unmoved.
+  conditionScope: 'flattened',
   objectFields: loaded([
     { name: 'status', label: 'Status' },
     { name: 'priority', label: 'Priority' },

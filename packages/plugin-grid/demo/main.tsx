@@ -34,7 +34,7 @@ themeStyle.textContent = `:root {
   --input: 214.3 31.8% 91.4%;
 }`;
 document.head.appendChild(themeStyle);
-import { en, zh, ja, ko, de, fr, es, pt, ru, ar } from '@object-ui/i18n';
+import { en, zh, ja, ko, de, fr, es, pt, ru, ar } from '@object-ui/i18n/locales';
 import { ImportWizard, type ImportResult } from '../src/ImportWizard';
 
 const lang = new URLSearchParams(window.location.search).get('lang') ?? 'en';

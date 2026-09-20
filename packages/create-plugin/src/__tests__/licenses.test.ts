@@ -27,6 +27,12 @@
  * - **a run that answers nothing still gets both** — `resolveLicenseId` is
  *   total, and the default path emits the file.
  *
+ * A third half arrived with objectui#8892: **an id nothing offers is refused,
+ * not answered with MIT's text.** The id is emitted SIX times — the manifest,
+ * the README's `## License` line and four source headers take it verbatim, and
+ * only `buildLicenseFile` resolves it — so substituting a default at that one
+ * place did not remove the disagreement, it authored one.
+ *
  * ## The self-test
  *
  * `emits no licence text when the LICENSE entry is removed` is the reverse
@@ -45,6 +51,7 @@ import {
   resolveLicenseId
 } from '../licenses';
 import {
+  buildLicenseFile,
   buildPackageJson,
   buildPluginFiles,
   buildReadme,
@@ -159,11 +166,50 @@ describe('a manifest that claims a licence ships its text (objectui#8041)', () =
     expect(licenseCopyrightHolder(VARS)).toBe('Jane Doe');
   });
 
-  it('has a text for its own default, so the fallback can never be empty', () => {
+  it('has a text for its own default, so the default path can never be empty', () => {
+    // `resolveLicenseId` answers every unanswered run with this id, so a table
+    // that lost it would turn EVERY default scaffold into the refusal below.
     expect(findLicense(DEFAULT_LICENSE_ID)).toBeDefined();
-    // An id nothing offers cannot reach here through the CLI, but if it ever
-    // did the emitted file must still be a licence rather than nothing.
-    expect(buildPluginFiles(withLicense('NOT-A-LICENCE')).LICENSE).toContain(DISTINCTIVE_LINE.MIT);
+    expect(buildPluginFiles(VARS).LICENSE).toContain(DISTINCTIVE_LINE.MIT);
+  });
+
+  it('refuses an id nothing offers instead of answering it with MIT (objectui#8892)', () => {
+    // This id used to be answered with MIT's TEXT while `buildPackageJson`,
+    // `buildReadme` and the four source headers kept it verbatim — six licence
+    // statements, five naming an id and the LICENSE beside them carrying
+    // another licence entirely. Measured on 4d65991c5: manifest
+    // `"NOT-A-LICENCE"`, README `NOT-A-LICENCE (c) Jane Doe`, four headers
+    // `licensed under the NOT-A-LICENCE license`, LICENSE `MIT License`.
+    //
+    // Only ONE of the six resolves the id, so agreement cannot be restored from
+    // this end for the other five; the id is refused for all six instead.
+    let thrown: unknown;
+    try {
+      buildPluginFiles(withLicense('NOT-A-LICENCE'));
+    } catch (error) {
+      thrown = error;
+    }
+
+    // ⛔ Not `.toThrow()` on its own. The pre-fix code threw here too — for a
+    // DIFFERENT reason (a licence table with no text for its own default), with
+    // a message that names neither the offending id nor a way out — so a bare
+    // throw assertion is green on both sides of this change.
+    expect(thrown).toBeInstanceOf(Error);
+    const message = (thrown as Error).message;
+    expect(message).toContain('NOT-A-LICENCE');
+    expect(message).toContain('resolveLicenseId');
+    for (const license of PLUGIN_LICENSES) {
+      expect(message, `offered id ${license.id} named in the refusal`).toContain(license.id);
+    }
+
+    // ⭐ The assertion this card is actually about: NOTHING is emitted. A
+    // repair that resolved the id a second time inside `buildPackageJson`
+    // instead would leave this call RETURNING a map — one whose README and four
+    // headers still disagreed with its LICENSE.
+    expect(() => buildPluginFiles(withLicense('NOT-A-LICENCE'))).toThrow();
+    expect(() => buildLicenseFile(withLicense('NOT-A-LICENCE'))).toThrow();
+    // An offered id is untouched by the refusal.
+    expect(() => buildLicenseFile(withLicense('ISC'))).not.toThrow();
   });
 
   it('emits no licence text when the LICENSE entry is removed', () => {

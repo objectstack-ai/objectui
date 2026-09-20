@@ -151,12 +151,16 @@ function coerceByType(value: any, type?: string): any {
  * question for every operator its dropdown offers, so `equals ''` is unfinished
  * to it; here `equals ''` is a REAL predicate that has to keep being emitted
  * ("the field is the empty string" is a filter an admin can mean), and the only
- * rows that must not reach storage are the ones whose comparand is free text
- * the spec declares as a refusal. Composing the two — `TEXT_COMPARAND_OPERATORS
- * .has(op) && !isFilterValueComplete(op, value)` — is the same answer on this
- * set today; it is not adopted because it would make this drop depend on a
- * helper marked `@internal` in another package, whose vocabulary is the
- * dropdown's rather than the spec's.
+ * rows that must not reach storage are the ones whose EMITTED DOCUMENT the spec
+ * or the evaluator refuses — a free-text comparand the spec declares as a
+ * refusal, and (objectui#9914) a range whose bound is still blank, see the
+ * `between` arm of {@link condToMongo}. The test is the document, never the
+ * dropdown's notion of a finished row: that is what lets `equals ''` keep being
+ * emitted while `between ['1', '']` is dropped. Composing the two —
+ * `TEXT_COMPARAND_OPERATORS.has(op) && !isFilterValueComplete(op, value)` — is
+ * the same answer on THIS set today; it is not adopted because it would make
+ * this drop depend on a helper marked `@internal` in another package, whose
+ * vocabulary is the dropdown's rather than the spec's.
  */
 const TEXT_COMPARAND_OPERATORS: ReadonlySet<string> = new Set([
   'contains',
@@ -166,8 +170,18 @@ const TEXT_COMPARAND_OPERATORS: ReadonlySet<string> = new Set([
   'endsWith',
 ]);
 
-/** An unfinished value box: never typed in, or cleared back out. */
-function isEmptyTextComparand(value: any): boolean {
+/**
+ * An unfilled cell: never typed in, or cleared back out — the ONE reading this
+ * file makes of "the admin has not supplied this", for a free-text comparand
+ * and for a range bound alike. Extended to the second caller by objectui#9914;
+ * a second copy of the predicate is how the two would come to disagree.
+ *
+ * Spelled as `===` against the three unfilled shapes and never as `!value` —
+ * the same reading `isValueUnset` in `@object-ui/components` spells out, and
+ * for the same reason: `0` is a real bound on a number column and `false` is a
+ * real value, so `!value` would drop a filter the admin can see on screen.
+ */
+function isUnfilledCell(value: any): boolean {
   return value === undefined || value === null || value === '';
 }
 
@@ -200,7 +214,7 @@ export function condToMongo(c: BuilderCondition, typeOf: (f: string) => string |
   // yields NO criteria (`filterGroupToMongo` returns null), which the
   // empty-criteria guard already names out loud (objectstack#3896) rather than
   // storing a vacuous predicate.
-  if (TEXT_COMPARAND_OPERATORS.has(operator) && isEmptyTextComparand(value)) return null;
+  if (TEXT_COMPARAND_OPERATORS.has(operator) && isUnfilledCell(value)) return null;
   const t = typeOf(field);
   const cv = coerceByType(value, t);
   switch (operator) {
@@ -237,8 +251,42 @@ export function condToMongo(c: BuilderCondition, typeOf: (f: string) => string |
     case 'before': return { [field]: { $lt: cv } };
     case 'greaterOrEqual': return { [field]: { $gte: cv } };
     case 'lessOrEqual': return { [field]: { $lte: cv } };
+    // objectui#9914 — a range reaches storage only once BOTH bounds are filled
+    // in; a half-filled one is DROPPED, exactly as the unfinished text row
+    // above is.
+    //
+    // This arm used to hand whatever was in the two boxes straight to
+    // `coerceByType`, which returns `''` unchanged (its `value !== ''`
+    // conjunct), so every unfinished range authored a document. Measured
+    // against `ValueDataSource`'s matcher over four rows, the three shapes an
+    // admin could produce are three DIFFERENT predicates, and not one of them
+    // is the range being typed:
+    //
+    //   - `{ age: { $gte: 1, $lte: '' } }` matches NOTHING (`1 <= ''` is
+    //     `1 <= 0`), so a sharing rule saved mid-edit silently shares nothing;
+    //   - `{ age: { $gte: '', $lte: 5 } }` matches everything up to 5 —
+    //     INCLUDING rows the real lower bound would have excluded, because `''`
+    //     compares as `0`;
+    //   - `{ age: {} }` — what an untouched `between` row emitted the moment
+    //     the operator was picked, since the builder clears both bounds to `[]`
+    //     and `JSON.stringify` drops the two `undefined`s — matches EVERY row.
+    //     On a sharing rule that is the over-share `isMatchAllCriteria` exists
+    //     to warn about and does not catch, because a field key with a nested
+    //     object is not one of the vacuous shapes it recognises. That document
+    //     also fails `kvToCondition`, so the widget forced ITSELF into raw-JSON
+    //     mode and `between` was unreachable through the visual builder at all
+    //     — objectui#8748's shape, on a second operator.
+    //
+    // Emitting the one bound that IS filled (`{ age: { $gte: 1 } }`) is a real
+    // predicate and is deliberately NOT what happens: `isFilterValueComplete`
+    // already rules that a range missing an end "is not a narrower range, it is
+    // a query the server refuses", and both the view fold and the view-override
+    // recovery pass drop such a row rather than narrow it. Guessing a one-sided
+    // range here would author a filter the admin never typed, silently, into a
+    // rule that decides who sees what.
     case 'between': {
       const [a, b] = Array.isArray(value) ? value : [undefined, undefined];
+      if (isUnfilledCell(a) || isUnfilledCell(b)) return null;
       return { [field]: { $gte: coerceByType(a, t), $lte: coerceByType(b, t) } };
     }
     case 'in': return { [field]: { $in: toArray(value).map((v) => coerceByType(v, t)) } };
@@ -429,7 +477,9 @@ export function FilterConditionField({
 }: FieldWidgetComponentProps<string | object>) {
   const ctx = React.useContext(SchemaRendererContext);
   const { t } = useFieldTranslation();
-  const dataSource: any = props.dataSource ?? (ctx as any)?.dataSource ?? null;
+  // Cast-free context read (objectui#7912); the local stays `any` for the
+  // `FieldWidgetProps.dataSource?: unknown` channel it merges with.
+  const dataSource: any = props.dataSource ?? ctx?.dataSource ?? null;
   const dependentValues: Record<string, any> = (props as any).dependentValues ?? {};
   const objectName = String(dependentValues.object_name ?? '');
 

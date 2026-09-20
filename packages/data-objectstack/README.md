@@ -125,10 +125,21 @@ AST format**. This is what keeps it compatible with the ObjectStack Protocol
 Every row below is decided by `@object-ui/core`'s `convertFiltersToAST`, and
 this package's `src/readme-filter-operator-table.test.ts` runs each worked
 example through it on every test run, so a row cannot drift from the code
-unnoticed again (objectui#8558). Where a row lists two spellings, the camelCase
-one is the spec's (`FILTER_OPERATORS` in `@objectstack/spec`'s
-`data/filter.zod.ts`) and the lowercase one is an alias the converter also
-accepts; both lower to the same node.
+unnoticed again (objectui#8558). Every spelling below is the spec's own
+(`FILTER_OPERATORS` in `@objectstack/spec`'s `data/filter.zod.ts`) and there are
+no aliases: the four lowercase spellings this table used to list beside the
+camelCase keys — `$notin`, `$notcontains`, `$startswith`, `$endswith` — were
+retired by objectui#8568 and moved to the refused table below.
+
+`$icontains` is the case-insensitive member of the `$contains` family, and its
+ObjectStack spelling is the SAME word: `icontains` is itself a member of the
+spec's `VALID_AST_OPERATORS`, so nothing is squashed on the way down. It had no
+row here at all until objectui#8976 — `convertFiltersToAST` refused it as an
+unknown operator while `ValueDataSource` executed it and this repo's own filter
+builder emitted it. The pin now holds these two tables complete against the
+spec's `FILTER_OPERATORS` as well as against the code, so a canonical operator
+that is documented NEITHER as supported NOR as refused fails the suite instead
+of going unnoticed.
 
 | MongoDB Operator | ObjectStack Operator | Example |
 |------------------|---------------------|---------|
@@ -140,12 +151,13 @@ accepts; both lower to the same node.
 | `$lt` | `<` | `{ age: { $lt: 65 } }` → `['age', '<', 65]` |
 | `$lte` | `<=` | `{ age: { $lte: 65 } }` → `['age', '<=', 65]` |
 | `$in` | `in` | `{ status: { $in: ['active', 'pending'] } }` → `['status', 'in', ['active', 'pending']]` |
-| `$nin` / `$notin` | `nin` | `{ status: { $nin: ['archived'] } }` → `['status', 'nin', ['archived']]` |
+| `$nin` | `nin` | `{ status: { $nin: ['archived'] } }` → `['status', 'nin', ['archived']]` |
 | `$between` | `between` | `{ age: { $between: [18, 65] } }` → `['age', 'between', [18, 65]]` |
 | `$contains` | `contains` | `{ name: { $contains: 'John' } }` → `['name', 'contains', 'John']` |
-| `$notContains` / `$notcontains` | `notcontains` | `{ name: { $notContains: 'test' } }` → `['name', 'notcontains', 'test']` |
-| `$startsWith` / `$startswith` | `startswith` | `{ email: { $startsWith: 'admin' } }` → `['email', 'startswith', 'admin']` |
-| `$endsWith` / `$endswith` | `endswith` | `{ email: { $endsWith: '@example.com' } }` → `['email', 'endswith', '@example.com']` |
+| `$notContains` | `notcontains` | `{ name: { $notContains: 'test' } }` → `['name', 'notcontains', 'test']` |
+| `$startsWith` | `startswith` | `{ email: { $startsWith: 'admin' } }` → `['email', 'startswith', 'admin']` |
+| `$endsWith` | `endswith` | `{ email: { $endsWith: '@example.com' } }` → `['email', 'endswith', '@example.com']` |
+| `$icontains` | `icontains` | `{ name: { $icontains: 'john' } }` → `['name', 'icontains', 'john']` |
 | `$null` | `is_null` / `is_not_null` | `{ email: { $null: true } }` → `['email', 'is_null', true]` |
 | `$exists` | `is_not_null` / `is_null` | `{ email: { $exists: true } }` → `['email', 'is_not_null', true]` |
 
@@ -153,6 +165,14 @@ accepts; both lower to the same node.
 `is_not_null` and `$exists: false` to `is_null`. The lowered node's value slot
 is always `true` — the direction comes from the operator name, which is how the
 spec's `data/filter.zod.ts` reads it.
+
+`$icontains` constrains its **comparand**, which no other row in this table
+does: `@objectstack/spec`'s `FILTER_TEXT_CASES` declares an empty or non-string
+comparand REFUSED, so an empty box or an uncoerced number throws
+`INVALID_FILTER` / 400 at lowering time instead of sending a predicate that
+constrains nothing or a question nobody wrote (objectui#9001). The operator is
+supported exactly as the row says — write a non-empty string, or drop the
+condition.
 
 #### Logical combinators
 
@@ -177,9 +197,10 @@ the call site rather than as a `400` from the server or as an empty list.
 
 | Shape | Why | Example |
 |-------|-----|---------|
-| `$regex` | The spec has no `$regex`, and it is not downgraded to `contains`: a pattern match and a substring match are different questions, not stronger and weaker forms of one. Use `$contains`, `$startsWith` or `$endsWith`. | `{ name: { $regex: '^J' } }` → throws `INVALID_FILTER` |
+| `$regex` | The spec has no `$regex`, and it is not downgraded to `contains`: a pattern match and a substring match are different questions, not stronger and weaker forms of one. Use `$contains` for a case-sensitive substring, `$icontains` for a case-insensitive one, or `$startsWith` / `$endsWith`. | `{ name: { $regex: '^J' } }` → throws `INVALID_FILTER` |
 | `$not` | The AST has no negation keyword, and rewriting the negation inward would be silently partial. Use a negated operator instead: `$ne`, `$nin`, `$notContains`. | `{ $not: { status: 'open' } }` → throws `INVALID_FILTER` |
 | a bare array as a field's value | The AST has no array-equality node, and the array is deliberately not read as `$in` (see below). | `{ tags: ['a', 'b'] }` → throws `INVALID_FILTER` |
+| `$notin` / `$notcontains` / `$startswith` / `$endswith` | Retired lowercase aliases (objectui#8568). The `$` dialect follows `@objectstack/spec`'s spellings, and this repo's in-memory matcher already refused these; accepting them here made one authored filter behave differently depending on the data source behind the view. The refusal names the canonical spelling for the alias you wrote — rename the key, the operator is unchanged. | `{ email: { $startswith: 'a' } }` → throws `INVALID_FILTER` |
 | any other `$` key in operator position | Unknown operator; the error message lists the supported ones. | `{ age: { $foo: 1 } }` → throws `INVALID_FILTER` |
 
 A bare array as a field's value — `{ tags: ['a', 'b'] }` — is **refused** at
@@ -365,6 +386,7 @@ const dataSource = createObjectStackAdapter({ baseUrl: 'https://api.example.com'
 const stats = dataSource.getCacheStats();
 console.log(`Cache hit rate: ${stats.hitRate * 100}%`);
 console.log(`Cache size: ${stats.size}/${stats.maxSize}`);
+console.log(`Fetches coalesced onto an in-flight request: ${stats.coalesced}`);
 
 // Manually invalidate cache entries
 dataSource.invalidateCache('users'); // Invalidate specific schema
@@ -380,7 +402,13 @@ dataSource.clearCache();
 - **TTL Expiration**: Entries expire after the configured time-to-live from creation (default: 5 minutes)
   - Note: TTL is fixed from creation time, not sliding based on access
 - **Memory Limits**: Configurable maximum cache size (default: 100 entries)
-- **Concurrent Access**: Handles async operations safely. Note that concurrent requests for the same uncached key may result in multiple fetcher calls.
+- **Request Coalescing**: Concurrent `get` calls for the same uncached key share a single
+  fetch. The first caller invokes the fetcher; every caller that arrives while that promise
+  is still in flight is handed the same promise instead of starting a second request, and
+  each one increments the `coalesced` counter in `getCacheStats()` — so the saving is
+  something you can read off the adapter, not just a claim in this page.
+  - The in-flight slot is released in a `finally`, so a rejected fetch is not cached and
+    does not poison the key: the next call starts a fresh fetch.
 
 ## Connection State Monitoring
 
@@ -679,6 +707,54 @@ ObjectUI does not hard-require it: against an older backend a master-detail save
 still succeeds, but non-atomically via the fallback above. Treat the advertised
 capability as the floor for the atomicity guarantee, not as a connection
 prerequisite.
+
+## Object-Metadata Write Guard
+
+`MetadataClient.save` refuses an `object` document whose `fields` carry a
+relationship field (`lookup`, `master_detail`) with a missing, empty or
+whitespace-only `reference`, **before** issuing the request:
+
+```ts
+import { MetadataClient } from '@object-ui/data-objectstack';
+
+const client = new MetadataClient({ baseUrl: '/api/v1' });
+
+await client.save('object', 'account', {
+  name: 'account',
+  fields: { owner: { type: 'lookup', label: 'Owner' } },
+});
+// throws: MetadataClient.save refused this object metadata write: the field
+// `owner` is a `lookup` and carries no `reference` key at all ...
+```
+
+Nothing that previously succeeded now fails. `@objectstack/spec` refuses the same
+document at the server with a 422 on `fields.owner.reference`, and that refusal
+blocks every *later* save of the object for as long as the half-filled field
+rides along in the draft. The guard moves the identical refusal earlier, names
+the field while it is still on screen, and leaves the draft in the client. Writes
+of every other metadata type are untouched, and the guard never strips the
+offending field — a dropped field reported as saved would be a silent deletion.
+
+Hosts that write object metadata through their own transport can apply the same
+invariant at their own door:
+
+```ts
+import { assertObjectMetadataWritable } from '@object-ui/data-objectstack';
+
+async function uploadObject(name: string, body: unknown) {
+  assertObjectMetadataWritable('object', body, 'uploadObject');
+  await fetch(`/api/v1/meta/object/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+```
+
+`RELATIONSHIP_TYPES_REQUIRING_REFERENCE` and `OBJECT_METADATA_TYPE` are exported
+beside it. The relationship-type set is derived from the installed
+`@objectstack/spec` by this package's own pin, so it follows the contract rather
+than a remembered list.
 
 ## User-Scoped State Adapter
 

@@ -53,7 +53,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { I18nProvider, builtInLocales } from '@object-ui/i18n';
+import { I18nProvider } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 
 /**
  * Only `useAuth` is replaced — everything else in `@object-ui/auth` stays real,
@@ -95,6 +96,41 @@ function Recorder() {
 }
 
 /**
+ * Records the FULL-PAGE navigations the page performs (objectui#7373).
+ *
+ * The accept path leaves React Router deliberately — see the comment at that
+ * call site — so "where did it go" cannot be read off `seen`, which only sees
+ * in-router transitions. Assigning `window.location.href` for real would make
+ * the environment try to navigate, so the accessor is swapped for the duration
+ * of each case and restored exactly as it was found (own property or
+ * prototype accessor, whichever it was).
+ */
+let navigations: string[] = [];
+let ownHref: PropertyDescriptor | undefined;
+
+function captureFullPageNavigations() {
+  navigations = [];
+  ownHref = Object.getOwnPropertyDescriptor(window.location, 'href');
+  const inherited = Object.getOwnPropertyDescriptor(
+    Object.getPrototypeOf(window.location),
+    'href',
+  );
+  Object.defineProperty(window.location, 'href', {
+    configurable: true,
+    get: () => (ownHref?.get ?? inherited?.get)?.call(window.location) ?? '',
+    set: (value: string) => {
+      navigations.push(String(value));
+    },
+  });
+}
+
+function releaseFullPageNavigations() {
+  if (ownHref) Object.defineProperty(window.location, 'href', ownHref);
+  else delete (window.location as unknown as Record<string, unknown>).href;
+  ownHref = undefined;
+}
+
+/**
  * Mount the page exactly as `apps/console/src/App.tsx` does: inside the
  * console's `BrowserRouter`, on the real path, with NO layout wrapper.
  * `basename` mirrors a console served under a `<base href>` mount.
@@ -109,6 +145,10 @@ function renderRoute({ basename = '/', lang = 'en' }: { basename?: string; lang?
         <Routes>
           <Route path="/accept-invitation/:invitationId" element={<DefaultAcceptInvitationPage />} />
           <Route path="/login" element={<div data-testid="login-sentinel" />} />
+          {/* ⛔ Keep this route declared even though nothing should land on it:
+              the accept case asserts the sentinel is ABSENT, and a negative
+              assertion against a route that does not exist passes for the
+              wrong reason (objectui#7373). */}
           <Route path="/home" element={<div data-testid="home-sentinel" />} />
           <Route path="/organizations" element={<div data-testid="orgs-sentinel" />} />
         </Routes>
@@ -120,6 +160,7 @@ function renderRoute({ basename = '/', lang = 'en' }: { basename?: string; lang?
 beforeEach(() => {
   vi.clearAllMocks();
   seen.length = 0;
+  captureFullPageNavigations();
   window.localStorage.clear();
   authState = {
     isAuthenticated: true,
@@ -132,6 +173,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  releaseFullPageNavigations();
   window.history.pushState({}, '', '/');
 });
 
@@ -195,7 +237,16 @@ describe('objectui#3811 — console routes DefaultAcceptInvitationPage', () => {
       ).toBeInTheDocument();
     });
 
-    it('accept switches the user into the invited organization, then lands on /home', async () => {
+    it('accept switches the user into the invited organization, then reloads onto the console ROOT', async () => {
+      // objectui#7373 moved this landing. It used to be an in-router
+      // `navigate('/home')` — the environment launcher, reached without leaving
+      // the SPA, which is exactly why it could not honour the declaration: the
+      // app list in memory at that instant is the org the user just LEFT
+      // (`MetadataProvider` drops its cache on an org change, objectui#4486,
+      // and refetches after this line has already run). Landing on the root
+      // lets `RootLandingRedirect` resolve `app.isDefault` for the org the user
+      // just JOINED, which is the shape `WorkspaceSwitcher.handleSwitch` and
+      // `OrganizationsPage.handleSelect` already take for the same transition.
       const user = userEvent.setup();
       renderRoute();
       await screen.findByTestId('accept-invitation-page');
@@ -208,7 +259,29 @@ describe('objectui#3811 — console routes DefaultAcceptInvitationPage', () => {
       expect((authState.acceptInvitation as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]).toBeLessThan(
         (authState.switchOrganization as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0],
       );
-      await screen.findByTestId('home-sentinel');
+
+      // A full page load, not a router transition — the whole point is that
+      // every data scope is re-seated on the new organization before anything
+      // reads the app list.
+      await waitFor(() => expect(navigations).toHaveLength(1));
+      // Asked of the RESOLVED target, the way the browser resolves it, rather
+      // than by string equality with the call — the shipped embeddable build's
+      // correct answer is a relative `'./'` (`utils/consoleBase.test.ts`), and
+      // a pin on the literal would forbid it while proving nothing.
+      const landed = new URL(navigations[0], document.baseURI);
+      expect(landed.pathname, 'accept must land on the console root').toBe('/');
+      // …and specifically NOT on the launcher this replaced. Stated separately
+      // because that is the regression with a name: a root that is `/home` is
+      // the defect objectui#7373 was filed about, wearing a page load.
+      expect(landed.pathname).not.toBe('/home');
+      expect(navigations[0]).not.toContain('/home');
+
+      // The router must NOT have handled it. `seen` records every in-router
+      // transition, so a `navigate()` regression shows up here even if a page
+      // load were also performed.
+      expect(screen.queryByTestId('home-sentinel')).not.toBeInTheDocument();
+      expect(seen).not.toContain('/home');
+
       expect(toastSuccess).toHaveBeenCalledWith('Invitation accepted');
     });
 

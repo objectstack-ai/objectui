@@ -27,17 +27,39 @@ import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
-import { getCellRenderer, resolveCellRendererType, formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue } from '@object-ui/fields';
+// objectui#8920 — the grid reaches a cell renderer through THIS module and
+// nowhere else. `getCellRenderer` / `resolveCellRendererType` are deliberately
+// NOT imported here: six sites spelling the resolve three different ways is
+// what dropped a `format`-hinted column's renderer, and one shared owner is
+// what stops a seventh site picking a convention of its own.
+import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
+import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
+// Two resolvers, two vocabularies — the repo spells the distinction into the
+// NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
+// `resolveI18nLabel`: it resolves the INLINE per-locale map
+// (`{ en: …, 'fr-FR': … }`) that `I18nLabel` carries. It does NOT accept
+// objectui's keyed `{ key, defaultValue, params }` ref — that vocabulary lives
+// on the FLAT `schema.ariaLabel` and is resolved by `SchemaRenderer` instead.
+// Needed here since objectui#9092 restored `ObjectGridSchema.label` to the
+// `string | I18nLabel` form `BaseSchema` has carried since objectui#4580: the
+// two reads below put the label in STRING positions, so a map-valued label used
+// to reach them as an object and the compiler could not say so.
+import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
 import { stateMachineNextValues, isFieldInlineEditable } from './inline-edit-options';
 import {
   Badge, Button, NavigationOverlay, EmptyValue,
+  legacyRecordDrawerWidthKey, recordOverlayWidthStorageKey, useOverlayAnchor,
   Popover, PopoverContent, PopoverTrigger,
   RefreshIndicator,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
+import {
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+  RecordDetailPanel,
+} from '@object-ui/plugin-detail';
 import { ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Download, Rows2, Rows3, Rows4, AlignJustify, Type, Hash, Calendar, CheckSquare, User, Tag, Clock, Loader2 } from 'lucide-react';
 import { useRowColor } from './useRowColor';
 import { useGroupedData, usableGroupingFields } from './useGroupedData';
@@ -57,25 +79,75 @@ import type { BulkResult } from './hooks/useBulkExecutor';
 import type { BulkActionDef } from '@object-ui/types';
 
 /**
+ * A declared `sort` → the `"field order"` join string THIS block sends as
+ * `$orderby` (objectui#8973).
+ *
+ * ⚠️ Read the split before editing either half. WHICH entries survive and what
+ * a missing `order` means is `normalizeSortEntries`' decision — the governed
+ * one in `@object-ui/core`, shared with `convertSortToQueryParams` and every
+ * sibling block. Only the JOIN is this block's, because only this block sends
+ * a join string: the sink's `{field: direction}` map is route B on
+ * objectui#8767, declined by the maintainer 2026-09-10 pending a card that
+ * measures the server contract and both readers. So the operation with two
+ * copies (the normalization) has one implementation, and the shape the
+ * declination protects does not move.
+ *
+ * What this closes: the arms below used to interpolate every key
+ * unconditionally, so an entry missing `field` or `order` reached the wire as
+ * the literal text `undefined`. `$orderby: 'name undefined'` is not a
+ * degraded ordering — `normalizeSortNodes` (`@objectstack/metadata-protocol`,
+ * the one normalizer every server ingress funnels through) reads `undefined`
+ * as a direction that is "neither 'asc' nor 'desc'" and answers
+ * `400 INVALID_QUERY`.
+ *
+ * @returns `undefined` when nothing orderable survives, so the caller omits
+ * `$orderby` entirely instead of sending `""` — the same correction
+ * `toFilterNode` already made for `$filter: {}` on the filter leg above.
+ */
+function toOrderByClause(sort: QuerySortEntry[] | undefined | null): string | undefined {
+  const ordered = normalizeSortEntries(sort);
+  if (!ordered) return undefined;
+  return ordered.map((s) => `${s.field} ${s.order}`).join(', ');
+}
+
+/**
  * A view's declared `sort` → the shape the table's header indicators read.
  *
- * `@objectstack/spec` allows `"name desc"`, `["name desc", …]` and
- * `[{ field, order }, …]`, and this grid's own fetch path already reads all
- * three. The headers have to agree with it: a view that arrives sorted by
- * `created_at desc` should show that arrow before anyone clicks anything —
+ * `[{ field, order }, …]` is the ONE spelling `@objectstack/spec` still
+ * declares for `ObjectGridPropsSchema.sort` (objectui#8221 retired the string
+ * clauses), and since objectui#8961 it is the only spelling this reader
+ * admits. The headers agree with the fetch path on it: a view that arrives
+ * sorted by `created_at desc` shows that arrow before anyone clicks anything —
  * otherwise the first click on that column produces `asc` while the list was
  * already `desc`, and the arrow tells the truth only from the second click on.
+ *
+ * ⭐ A retired string spelling (`"name desc"`, `["name desc", …]`) yields
+ * NOTHING here, so it lights no arrow. That is the agreement, not an omission:
+ * the fetch path REFUSES the same spelling and sends no `$orderby`
+ * (objectui#8767). Between #8767 and objectui#8961 this reader was WIDER than
+ * that path — it parsed the string and drew a confident arrow for an ordering
+ * the query did not carry, a UI element stating something untrue about the rows
+ * beside it, with nothing but a console line to say so.
+ *
+ * ⛔ Do not re-widen it for a stored `sys_metadata` row still carrying the old
+ * spelling. The author is already told, once per spelling, by PR #8758's own
+ * diagnostic at the fetch path — it quotes the offending value and prescribes
+ * the array form. A second reading here would restore exactly the arrow the
+ * wire cannot honour.
+ *
+ * The wire shape is NOT what moved: this block still sends its own
+ * `"field order"` join string (see {@link toOrderByClause}), the shared sink's
+ * `{field: direction}` map stays declined, and the server-side export path
+ * reads `schema.sort` itself rather than through this function, so it was
+ * already array-only and is untouched.
  *
  * Exported for the test that pins it against the fetch path's own reading.
  */
 export function parseSchemaSort(sort: unknown): TableSortItem[] {
-  const entries = typeof sort === 'string' ? [sort] : Array.isArray(sort) ? sort : [];
+  const entries = Array.isArray(sort) ? sort : [];
   const items: TableSortItem[] = [];
   for (const entry of entries) {
-    if (typeof entry === 'string') {
-      const [field, order] = entry.trim().split(/\s+/);
-      if (field) items.push({ field, order: order?.toLowerCase() === 'desc' ? 'desc' : 'asc' });
-    } else if (entry && typeof entry === 'object' && typeof (entry as any).field === 'string') {
+    if (entry && typeof entry === 'object' && typeof (entry as any).field === 'string') {
       const { field, order } = entry as { field: string; order?: string };
       items.push({ field, order: String(order).toLowerCase() === 'desc' ? 'desc' : 'asc' });
     }
@@ -406,11 +478,73 @@ export interface ObjectGridExternalPaginationProps
  * The barrel keeps `ObjectGridProps` as a deprecated alias of this type, so no
  * importer breaks. Tripwire: `__tests__/spec-symbol-4650.test.ts`.
  */
+/**
+ * The subset of the grid-level `operations` block that a row may answer for
+ * ITSELF — the vocabulary {@link ObjectGridComponentProps.rowOperations} speaks.
+ *
+ * `update` / `delete` are the two the row kebab renders, and they are spelled
+ * exactly as the authored `operations` block spells them, so one word means one
+ * thing whether it is declared for the whole grid or resolved for one row. The
+ * block's other members (`create`, `export`) are deliberately absent: neither
+ * is a row affordance, so a per-row answer for them would have nowhere to land.
+ */
+export interface ObjectGridRowOperations {
+  update?: boolean;
+  delete?: boolean;
+}
+
 export interface ObjectGridComponentProps extends ObjectGridExternalPaginationProps {
   schema: ObjectGridSchema;
   dataSource?: DataSource;
   className?: string;
-  onRowClick?: (record: any) => void;
+  /**
+   * [objectui#8674] Narrow ONE row's generic Edit / Delete entries — the layer
+   * that lets a host withhold an operation the record itself cannot accept.
+   *
+   * ## Why this exists
+   *
+   * `operations` and the `onEdit` / `onDelete` wiring are GRID-level: they say
+   * whether the affordance exists at all, identically for every row. A host
+   * whose refusal is per RECORD had nowhere to put it, so it put the refusal in
+   * the callback instead — `FieldDesigner`'s delete handler returned early on a
+   * system field, after the grid had already drawn the button. The two states
+   * it was distinguishing (`readOnly`, which withholds the callback, and
+   * `isSystem`, which swallowed the click) differed in the code and did not
+   * differ on screen: the author clicked a button drawn as available and got no
+   * dialog, no toast, no console message. The operation an affordance cannot
+   * perform is not offered.
+   *
+   * ## The contract
+   *
+   * Called with a row record; returns the overrides for THAT row. It is an
+   * INTERSECTION, like every layer around it (the ADR-0103 bucket, the object's
+   * `userActions`, the server's effective API operations, the principal's own
+   * grant and the record-level explain verdict): `false` WITHHOLDS, and nothing
+   * it returns can re-open what those closed. `true`, an omitted member, a
+   * `null` / `undefined` return, and an absent prop all leave the verdict
+   * exactly as the grid resolved it — so a caller that passes nothing renders
+   * what it rendered before this prop existed.
+   *
+   * Scope is the row's kebab. Bulk delete rides `onBulkDelete` and the object
+   * verdict behind the selection bar, which no per-row answer can speak for:
+   * one selected row's `false` must not silently drop the other rows' action.
+   */
+  rowOperations?: (record: any) => ObjectGridRowOperations | null | undefined;
+  /**
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (record: any, event?: any) => void;
   onEdit?: (record: any) => void;
   onDelete?: (record: any) => void;
   onBulkDelete?: (records: any[]) => void;
@@ -429,28 +563,45 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
  * implementation of a contract published on both faces (objectui#6939), which
  * this file used to hand-copy (objectui#7632).
  *
- * What stays here is the head above it: the bare-array `data` shorthand. It is
- * OFF-CONTRACT — `ViewData` is a `z.discriminatedUnion('provider', [...])` over
- * object variants, so an array under `data` cannot be published — and only this
- * block and `ObjectMap` normalize it inside their ladder; calendar, gantt and
- * tree return the array verbatim. So it is kept at the site rather than folded
- * into the shared rung, exactly as the objectui#7627 collapse left this file's
- * off-contract `{ provider: 'object' }` tail at the site (AGENTS.md #0.1).
+ * What used to stay here was the head above it: the bare-array `data`
+ * shorthand, which lifted `data: [...]` to `{ provider: 'value', items }`.
+ * ⛔ IT IS GONE (objectui#8348, decision batch #83, maintainer verbatim
+ * 「8348 以协议为准」 — the contract decides).
  *
- * Hoisting the check above the shared call is behaviour-neutral: an array is
- * ALWAYS truthy, `[]` included, so `if (schema.data)` could never have let one
- * fall through to `staticData` or `objectName`.
+ * MEASURED on `@objectstack/spec` 17.4.0:
+ * `ComponentPropsMap['object-grid'].data` is the `ViewData` union, and its own
+ * description names the refusal — *"Static inline rows live at
+ * `{ provider: 'value', items: [...] }`; the bare-array shortcut is refused —
+ * see migration `object-grid-data-view-data-converged`"*. This block's own
+ * registration publishes the same arm (`{ name: 'data', type: 'object' }` in
+ * `index.tsx`), and `gridDataInputContract.test.ts` has pinned that declaration
+ * since objectui#5090. The head was the last carrier of a spelling every one of
+ * those faces refuses, so `data` is honoured here on the OBJECT arm only and
+ * the shared rung is passed `'view-data'`.
+ *
+ * ⛔ WHAT THIS REACHES, measured per CARRIER — do NOT read it as "the array is
+ * gone". An authored `data` array reaches this component TWICE: as
+ * `schema.data`, which this function used to lift, and as the `data` PROP,
+ * because `SchemaRenderer` spreads every non-metadata node key and
+ * `index.tsx` forwards `{...rest}`. That prop is `passedData` below, and it
+ * lifts an array to `{ provider: 'value', items }` at HIGHER priority than this
+ * ladder — it is the channel a host such as `ListView` uses to hand down rows it
+ * already fetched, and it is indistinguishable here from an authored key.
+ *
+ * ⇒ at the ladder the array is no longer a record source; through
+ * `SchemaRenderer` an authored `data: [ …rows… ]` still draws, from the props
+ * channel. Both halves are pinned in
+ * `__tests__/gridBareArrayDataRefused-8348.test.tsx`, which had to correct its
+ * own first draft on exactly this point. Collapsing the two carriers would take
+ * the host path with it and is outside objectui#8348's scope — reported on the
+ * card, not changed in passing.
+ *
+ * The declared spelling for inline rows is
+ * `data: { provider: 'value', items: [...] }`, and the deprecated `staticData`
+ * array still works as before.
  */
 function getDataConfig(schema: ObjectGridSchema): ViewData | null {
-  // Array shorthand -> the declared `value` provider (see docblock above).
-  if (Array.isArray(schema.data)) {
-    return {
-      provider: 'value',
-      items: schema.data,
-    };
-  }
-
-  return resolveRecordSourceConfig(schema);
+  return resolveRecordSourceConfig(schema, 'view-data');
 }
 
 /**
@@ -989,11 +1140,114 @@ function resolveRowHeightMode(rowHeight: unknown): RowHeightMode {
   return rowHeight as RowHeightMode;
 }
 
+/**
+ * The three page-size defaults this component falls back to, named so the
+ * divergence between them is DECLARED rather than a by-product of three
+ * hand-spelled fallback chains that happened to end in different literals.
+ *
+ * They are three different quantities and that is why they are three
+ * constants: one sizes a page of ROWS in the client-paged table, one sizes a
+ * page of GROUPS in the grouped view, and one sizes the `$top` WINDOW the
+ * server-paged fetch asks for. ⚠️ What is NOT settled here is whether the
+ * first and the third should be the same number — the same grid with no
+ * authored `pagination` shows the server-window default per page while it
+ * fetches its own rows and the flat default when it does not, which is a
+ * visible inconsistency an author never declared. Changing either literal
+ * changes what every undeclared grid renders, so it is handed back as a
+ * question (objectui#9853) rather than decided here.
+ */
+const DEFAULT_FLAT_PAGE_SIZE = 10;
+const DEFAULT_GROUPS_PER_PAGE = 10;
+const DEFAULT_SERVER_WINDOW_SIZE = 50;
+
+/**
+ * The ONE resolver for an authored page size, for the reason the `rowHeight`
+ * resolver just above exists: one resolver at every entry is what keeps the
+ * answer single (objectui#4443).
+ *
+ * Before objectui#9853 this value was spelled out separately at each of its
+ * three read points, and the spellings disagreed about a non-positive number:
+ * the flat site used `||`, so `0` was falsy and fell through to a default,
+ * while both seeds used `??`, so `0` was not nullish and survived as a real
+ * page size. It then divided the grouped pager and reached the wire as
+ * `$top: 0`, so the grid asked the server for nothing and drew an empty table
+ * — with no error, no warning and no empty state naming the cause.
+ *
+ * ## Why refusing `0` is not this renderer inventing a meaning
+ *
+ * `@objectstack/spec` has already answered what a `pageSize` of `0` means.
+ * Its pagination config declares the member as a POSITIVE integer with a
+ * default, and the spec's own suite pins that refusal under the names
+ * `should reject zero pageSize` and `should reject negative pageSize`. The
+ * `limit` that this block's `ElementDataSourceMapping` lowers
+ * `pagination.pageSize` into is declared positive as well. So `0` is not a
+ * spelling whose meaning a consumer may choose; it is a value the contract
+ * refuses, and a renderer that quietly divides by it is the only party not
+ * saying so.
+ *
+ * ⚠️ The refusal is FAIL-SOFT on purpose. Throwing would take out the whole
+ * subtree for a declaration the flat path already tolerated, which is a worse
+ * outcome than the defect. The value is dropped, the site's own default is
+ * used, and `describeNonPositivePageSize` states it once through the channel
+ * this component already uses for "you declared it, the renderer dropped it".
+ *
+ * Reads the canonical key first and the deprecated flat shorthand second, in
+ * that precedence, with `??` so an explicit `0` is SEEN by the guard instead
+ * of skipped by falsiness — that skipping is the defect, not the fix.
+ */
+function readAuthoredPageSize(schema: {
+  pagination?: unknown;
+  pageSize?: unknown;
+}): unknown {
+  const fromObject = (schema.pagination as { pageSize?: unknown } | undefined)?.pageSize;
+  return fromObject ?? schema.pageSize;
+}
+
+function isUsablePageSize(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+function resolvePageSize(
+  schema: { pagination?: unknown; pageSize?: unknown },
+  fallback: number,
+): number {
+  const authored = readAuthoredPageSize(schema);
+  return isUsablePageSize(authored) ? authored : fallback;
+}
+
+/**
+ * The diagnostic half. `null` means "nothing to say" — an absent key is not a
+ * mistake, and a usable page size is not either, so the message is CONDITIONAL
+ * and a control asserting its silence is what keeps it from being an
+ * always-on marker that states nothing.
+ */
+function describeNonPositivePageSize(
+  schema: { pagination?: unknown; pageSize?: unknown },
+  context: { blockType?: unknown; objectName?: unknown },
+): string | null {
+  const authored = readAuthoredPageSize(schema);
+  if (authored === undefined || authored === null) return null;
+  if (isUsablePageSize(authored)) return null;
+  const where = [
+    typeof context.blockType === 'string' ? context.blockType : 'object-grid',
+    typeof context.objectName === 'string' ? context.objectName : undefined,
+  ]
+    .filter(Boolean)
+    .join(' on ');
+  return (
+    `[ObjectUI] ObjectGrid pagination: ${where} declared pageSize: ${String(authored)}, `
+    + 'which is not a positive integer. A page size must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and this '
+    + 'grid fell back to its default page size.'
+  );
+}
+
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   schema,
   dataSource,
   onEdit,
   onDelete,
+  rowOperations,
   onBulkDelete,
   onRowSelect,
   onRowClick,
@@ -1054,7 +1308,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // pages). Defaults to the schema page size, falling back to 10 groups/page.
   const [groupedPage, setGroupedPage] = useState(1);
   const [groupedPageSize, setGroupedPageSize] = useState<number>(
-    (schema.pagination as any)?.pageSize ?? schema.pageSize ?? 10,
+    resolvePageSize(schema, DEFAULT_GROUPS_PER_PAGE),
   );
 
   // Sync internal rowHeightMode when schema.rowHeight prop changes (e.g., parent ListView density toggle).
@@ -1473,7 +1727,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // makes records beyond the first batch reachable at all (framework #2212).
   const [serverPage, setServerPage] = useState(1);
   const [serverPageSize, setServerPageSize] = useState<number>(
-    (schema.pagination as any)?.pageSize ?? schema.pageSize ?? 50,
+    resolvePageSize(schema, DEFAULT_SERVER_WINDOW_SIZE),
   );
 
   // Column-header sort, when this grid fetches its own rows (objectui#3106).
@@ -1851,15 +2105,54 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             params.$orderby = headerSort.map((s) => ({ field: s.field, order: s.order }));
           } else if (schemaSort) {
             if (typeof schemaSort === 'string') {
-              params.$orderby = schemaSort;
+              // objectui#8767 — the legacy string `sort` clause is RETIRED
+              // (objectui#8221, decision batch #77) and is REFUSED here rather
+              // than lowered. This block owns a PRIVATE lowering, so #8758's
+              // narrowing of the shared sink never reached it: a bare
+              // `object-grid` went on honouring a spelling `object-view`
+              // already refuses — one key meaning two things depending on which
+              // block you are on, which is the per-block divergence the #8221
+              // ruling declined by name.
+              //
+              // The refusal is #8758's OWN, not a second one: calling the
+              // shared sink on this arm reports the retired spelling once per
+              // spelling and answers `undefined`, so the query carries no
+              // `$orderby`. Its return value is deliberately unused — the wire
+              // shape stays this block's, and the array arm below is untouched
+              // (with it the export path). The header-arrow reader
+              // `parseSchemaSort` was left parsing the string HERE, and read
+              // this same key more widely than this refusal until objectui#8961
+              // narrowed it to the declared array; the two now agree. Routing
+              // the whole key through the sink is still a different card: it
+              // would send the sink's `{field: direction}` map where every grid
+              // today sends a `"field order"` string.
+              //
+              // Read through `unknown`, exactly as the sink does: types are
+              // erased, so the array-only `ObjectGridSchema.sort` declaration
+              // cannot stop a string arriving from authored JSON, a stored
+              // `sys_metadata` row or an `as any` bag.
+              convertSortToQueryParams(schemaSort as unknown as QuerySortEntry[]);
             } else if (Array.isArray(schemaSort)) {
-              params.$orderby = schemaSort
-                .map((s: any) => `${s.field} ${s.order}`)
-                .join(', ');
+              // objectui#8973 — normalize before joining. Every key used to be
+              // interpolated unconditionally, so `[{ field: 'name' }]` went out
+              // as `'name undefined'` and `[]` as `''`. The join, and only the
+              // join, stays this block's (see {@link toOrderByClause}).
+              const orderBy = toOrderByClause(schemaSort as unknown as QuerySortEntry[]);
+              if (orderBy !== undefined) {
+                params.$orderby = orderBy;
+              }
             }
           } else if (schema.defaultSort) {
-            // Legacy support
-            params.$orderby = `${(schema.defaultSort as any).field} ${(schema.defaultSort as any).order}`;
+            // Legacy support — through the SAME normalizer as the array arm
+            // above, because it had the SAME defect (objectui#8973): a
+            // `defaultSort` missing `order` was interpolated straight into
+            // `$orderby: 'name undefined'`, which the server answers
+            // `400 INVALID_QUERY`. Fixing one arm and not its neighbour would
+            // leave the class open in the same `if`/`else` chain.
+            const orderBy = toOrderByClause([schema.defaultSort as QuerySortEntry]);
+            if (orderBy !== undefined) {
+              params.$orderby = orderBy;
+            }
           }
 
           // Search (objectui#3118). The term the toolbar box holds is a question
@@ -2062,6 +2355,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     onRowClick,
   });
 
+  // objectui#9299 item 3 — `popover` anchors to the ROW the user clicked. The
+  // grid reaches `handleClick` from several places that carry no DOM event
+  // (`DataTable`'s own row handler, `LinkCell.onActivate`), so the anchor is
+  // recorded by a capture listener on this component's container.
+  const { anchorRef, anchorCaptureProps } = useOverlayAnchor();
+
   // --- Action support for action columns ---
   const { execute: executeAction, updateContext: updateActionContext } = useAction();
 
@@ -2249,6 +2548,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     });
     if (message) console.warn(message);
   }, [bulkDefsDiagnosticSlice, columnDiagnosticBlockType, schema.objectName, columnDiagnosticLabel]);
+
+  // [objectui#9853] The same channel again, for a `pagination.pageSize` (or the
+  // deprecated flat shorthand) that is not a positive integer. `resolvePageSize`
+  // drops such a value at all three read points and uses the site's default; on
+  // its own that is a quieter version of the defect, because substituting a
+  // number the author never wrote is exactly what the flat site already did in
+  // silence. This is the half that makes it a diagnosis.
+  //
+  // Keyed on the authored slice, so it is one warning per declaration and not
+  // one per render. NOT a second guard — the predicate lives once, in
+  // `isUsablePageSize`, and this reads it.
+  const pageSizeDiagnosticObject = schema.pagination;
+  const pageSizeDiagnosticFlat = schema.pageSize;
+  useEffect(() => {
+    const message = describeNonPositivePageSize(
+      { pagination: pageSizeDiagnosticObject, pageSize: pageSizeDiagnosticFlat },
+      { blockType: columnDiagnosticBlockType, objectName: schema.objectName },
+    );
+    if (message) console.warn(message);
+  }, [pageSizeDiagnosticObject, pageSizeDiagnosticFlat, columnDiagnosticBlockType, schema.objectName]);
 
   const generateColumns = useCallback((): ObjectGridColumnDraft[] => {
     // Map field type to column header icon (Airtable-style)
@@ -2451,7 +2770,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
             // Type-based cell renderer: explicit col type > objectDef type > heuristic inference.
             // Format hints (e.g. `text` + `format: 'phone'`) promote to the
-            // richer renderer (PhoneCellRenderer) via resolveCellRendererType.
+            // richer renderer (PhoneCellRenderer) via the grid's one shared
+            // resolve, `./cellRendererResolution` (objectui#8920).
             const objectDefField = objectSchema?.fields?.[col.field];
             // ⭐ ANNOTATED, and the annotation is load-bearing (objectui#6004).
             // `objectSchema` is `useState<any>`, so `objectDefField?.type` is
@@ -2465,10 +2785,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // object-field fallback below is now the only road, which is what
             // every measured author already used.
             const formatHint = objectDefField?.format;
-            const inferredType: string | null = baseInferredType
-              ? resolveCellRendererType({ type: baseInferredType, format: formatHint })
-              : null;
-            const CellRenderer = inferredType ? getCellRenderer(inferredType) : null;
+            // Both answers, from the one shared resolve (objectui#8920):
+            // `baseInferredType` is the DECLARED type the inline editor reads,
+            // `inferredType` the renderer key it promotes to.
+            const { rendererType: inferredType, Renderer } = resolveGridCellRendering({ type: baseInferredType, format: formatHint });
+            const CellRenderer = inferredType ? Renderer : null;
 
             // Build field metadata for cell renderers with objectDef enrichment
             const fieldMeta: Record<string, any> = { name: col.field, type: inferredType || 'text' };
@@ -2604,12 +2925,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             const prefixConfig = col.prefix;
             if (prefixConfig?.field) {
               const baseCellRenderer = cellRenderer;
-              const PrefixRenderer = prefixConfig.type === 'badge' ? getCellRenderer('select') : null;
+              // ⭐ The one site whose contract is NOT "declared type + format
+              // hint": a FIXED registry key for the badge, owned by this
+              // component rather than by the prefixed field (objectui#8920).
+              // Named and routed through the same module so it reads as the
+              // declared exception it is, not as a fifth silent convention.
+              const PrefixRenderer = prefixConfig.type === 'badge' ? gridCellRendererForFixedKey(BADGE_PREFIX_RENDERER_KEY) : null;
               cellRenderer = (value: any, row: any) => {
                 const prefixValue = row[prefixConfig.field];
                 const prefixEl = prefixValue != null && prefixValue !== ''
                   ? PrefixRenderer
-                    ? <PrefixRenderer value={prefixValue} field={{ name: prefixConfig.field, type: 'select' } as any} />
+                    ? <PrefixRenderer value={prefixValue} field={{ name: prefixConfig.field, type: BADGE_PREFIX_RENDERER_KEY } as any} />
                     : <span className="text-muted-foreground text-xs mr-1.5">{String(prefixValue)}</span>
                   : null;
                 return (
@@ -2666,16 +2992,29 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           const rawHeader = rawFieldLabel || fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/_/g, ' ');
           const header = schema.objectName ? resolveFieldLabel(schema.objectName, fieldName, rawHeader) : rawHeader;
 
-          // Resolve type: objectDef type > heuristic inference (consistent with ListColumn path)
-          // Annotated for the same reason as path A's `baseInferredType`
-          // above: `fieldDef` is `any`, and an `any` reaching the `...(resolvedType
-          // && { type: resolvedType })` spread below collapses the emit literal
-          // to `any` (objectui#6004).
-          const resolvedType: string | null = fieldDef?.type || inferColumnType({ field: fieldName }) || null;
-          const CellRenderer = resolvedType ? getCellRenderer(resolvedType) : null;
+          // TWO resolves, two names (objectui#8920). "Resolve type" here means
+          // objectDef type > heuristic inference — WHICH TYPE THE FIELD HAS,
+          // and that is `declaredType`. The published second step, WHICH
+          // RENDERER THE TYPE MAPS TO, is `rendererType`; this path used to
+          // skip it entirely, so a `text` + `format: 'phone'` column got
+          // `TextCellRenderer` and the hint vanished with no diagnostic.
+          // A local called `resolvedType` holding only the FIRST answer is the
+          // trap that hid that for four of the six sites.
+          //
+          // The `string | null` annotation path A's `baseInferredType` needs
+          // (objectui#6004: `fieldDef` is `any`, and an `any` reaching the
+          // `...(declaredType && { type: declaredType })` spread below
+          // collapses the emit literal) now lives on `GridCellRendering`'s
+          // members — it moved into the helper's return type, it did not go
+          // away.
+          const { declaredType, rendererType, Renderer } = resolveGridCellRendering({
+            type: fieldDef?.type || inferColumnType({ field: fieldName }),
+            format: fieldDef?.format,
+          });
+          const CellRenderer = rendererType ? Renderer : null;
 
           // Build field metadata with objectDef enrichment
-          const fieldMeta: Record<string, any> = { name: fieldName, type: resolvedType || 'text' };
+          const fieldMeta: Record<string, any> = { name: fieldName, type: rendererType || 'text' };
           if (fieldDef) {
             if (fieldDef.label) fieldMeta.label = fieldDef.label;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
@@ -2689,16 +3028,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // reads the schema def directly, see `renderCellEditor` (objectui#7154).
           applyRelationalMeta(fieldMeta, fieldDef as any);
           // Auto-generate select options from data when no options defined
-          if (resolvedType === 'select' && !fieldMeta.options) {
+          if (rendererType === 'select' && !fieldMeta.options) {
             const uniqueValues = Array.from(new Set(data.map(row => row[fieldName]).filter(Boolean)));
             fieldMeta.options = uniqueValues.map((v: any) => ({ value: v, label: humanizeLabel(String(v)) }));
           }
-          if ((resolvedType === 'select' || resolvedType === 'status') && (fieldDef as any)?.appearance != null) {
+          if ((rendererType === 'select' || rendererType === 'status') && (fieldDef as any)?.appearance != null) {
             fieldMeta.appearance = (fieldDef as any).appearance;
           }
 
           const numericTypes = ['number', 'currency', 'percent'];
-          const inferredAlign = resolvedType && numericTypes.includes(resolvedType) ? 'right' as const : undefined;
+          const inferredAlign = rendererType && numericTypes.includes(rendererType) ? 'right' as const : undefined;
 
           // Auto-link primary field (first column) to record detail
           const isPrimaryField = colIndex === 0;
@@ -2736,9 +3075,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           return {
             header,
             accessorKey: fieldName,
-            // Forward the resolved field type for the type-aware inline editor.
-            ...(resolvedType && { type: resolvedType }),
-            ...(schema.showColumnTypeIcons && resolvedType && { headerIcon: getTypeIcon(resolvedType) }),
+            // Forward the DECLARED type for the type-aware inline editor — the
+            // renderer key would make a `format`-hinted text column edit as a
+            // phone/currency control it never declared. Path A forwards
+            // `baseInferredType` for exactly this reason (objectui#8920).
+            ...(declaredType && { type: declaredType }),
+            ...(schema.showColumnTypeIcons && rendererType && { headerIcon: getTypeIcon(rendererType) }),
             ...(inferredAlign && { align: inferredAlign }),
             ...(cellRenderer && { cell: cellRenderer }),
             sortable: fieldDef?.sortable !== false,
@@ -2827,13 +3169,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         });
         return fieldsToShow.map((fieldName) => {
           const fieldDef = objectSchema?.fields?.[fieldName];
-          // Annotated for the same reason as paths A and B (objectui#6004).
-          const resolvedType: string | null = fieldDef?.type || inferColumnType({ field: fieldName }) || null;
-          const CellRenderer = resolvedType ? getCellRenderer(resolvedType) : null;
+          // The same two resolves as path B, through the same shared owner
+          // (objectui#8920) — and the same objectui#6004 annotation, now
+          // carried by `GridCellRendering`'s `string | null` members.
+          const { declaredType, rendererType, Renderer } = resolveGridCellRendering({
+            type: fieldDef?.type || inferColumnType({ field: fieldName }),
+            format: fieldDef?.format,
+          });
+          const CellRenderer = rendererType ? Renderer : null;
           const header = fieldDef?.label || fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/_/g, ' ');
 
           // Build field metadata with objectDef enrichment
-          const fieldMeta: Record<string, any> = { name: fieldName, type: resolvedType || 'text' };
+          const fieldMeta: Record<string, any> = { name: fieldName, type: rendererType || 'text' };
           if (fieldDef) {
             if (fieldDef.label) fieldMeta.label = fieldDef.label;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
@@ -2847,23 +3194,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // reads the schema def directly, see `renderCellEditor` (objectui#7154).
           applyRelationalMeta(fieldMeta, fieldDef as any);
           // Auto-generate select options from data when no options defined
-          if (resolvedType === 'select' && !fieldMeta.options) {
+          if (rendererType === 'select' && !fieldMeta.options) {
             const uniqueValues = Array.from(new Set(data.map(row => row[fieldName]).filter(Boolean)));
             fieldMeta.options = uniqueValues.map((v: any) => ({ value: v, label: humanizeLabel(String(v)) }));
           }
-          if ((resolvedType === 'select' || resolvedType === 'status') && (fieldDef as any)?.appearance != null) {
+          if ((rendererType === 'select' || rendererType === 'status') && (fieldDef as any)?.appearance != null) {
             fieldMeta.appearance = (fieldDef as any).appearance;
           }
 
           const numericTypes = ['number', 'currency', 'percent'];
-          const inferredAlign = resolvedType && numericTypes.includes(resolvedType) ? 'right' as const : undefined;
+          const inferredAlign = rendererType && numericTypes.includes(rendererType) ? 'right' as const : undefined;
 
           return {
             header,
             accessorKey: fieldName,
-            // Forward the resolved field type for the type-aware inline editor.
-            ...(resolvedType && { type: resolvedType }),
-            ...(schema.showColumnTypeIcons && resolvedType && { headerIcon: getTypeIcon(resolvedType) }),
+            // Forward the DECLARED type for the type-aware inline editor — the
+            // renderer key would make a `format`-hinted text column edit as a
+            // phone/currency control it never declared. Path A forwards
+            // `baseInferredType` for exactly this reason (objectui#8920).
+            ...(declaredType && { type: declaredType }),
+            ...(schema.showColumnTypeIcons && rendererType && { headerIcon: getTypeIcon(rendererType) }),
             ...(inferredAlign && { align: inferredAlign }),
             ...(CellRenderer && { cell: (value: any) => <CellRenderer value={value} field={fieldMeta as any} /> }),
             sortable: fieldDef?.sortable !== false,
@@ -2948,9 +3298,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         && !perms.checkField(schema.objectName, fieldName, 'read')) return;
 
       // Annotated for the same reason as paths A-C (objectui#6004): `field` is
-      // `any`, so this value has to be named before it reaches a spread below.
-      const fieldType: string | undefined = field.type;
-      const CellRenderer = getCellRenderer(field.type);
+      // `any`, so these values have to be named before they reach a spread
+      // below — the naming now lives on `GridCellRendering`'s `string | null`
+      // members. `fieldType` is the DECLARED type the emit forwards to the
+      // inline editor; the renderer comes from the `format`-promoted key, which
+      // this path used to skip (objectui#8920).
+      const { declaredType: fieldType, rendererType, Renderer: CellRenderer } = resolveGridCellRendering(field);
       const numericTypes = ['number', 'currency', 'percent'];
       const translatedField = field.options
         ? { ...field, options: translateOptions(schema.objectName, fieldName, field.options) }
@@ -2961,7 +3314,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         accessorKey: fieldName,
         // Forward the field type for the type-aware inline editor.
         ...(fieldType && { type: fieldType }),
-        ...(numericTypes.includes(field.type) && { align: 'right' as const }),
+        // Aligned on the RENDERER key, like paths A-C: a `text` column with
+        // `format: 'currency'` renders as currency, so it aligns as currency.
+        ...(!!rendererType && numericTypes.includes(rendererType) && { align: 'right' as const }),
         cell: (value: any) => <CellRenderer value={value} field={fieldForCell} />,
         sortable: field.sortable !== false,
       });
@@ -3020,7 +3375,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       prefix: exportConfig?.fileNamePrefix,
       label: objectSchema?.label,
       objectName: objectName || schema.objectName,
-      viewLabel: schema.label || schema.title,
+      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
     });
 
     // Server-streamed path: csv / xlsx / json via dataSource.exportDownload.
@@ -3306,61 +3661,76 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // extent and is hidden). Excluded from the frozen-column decision below so
       // this auto-pin doesn't cancel the default left-freeze of the first column.
       pinned: 'right',
-      cell: (_value: any, row: any) => (
-        <RowActionMenu
-          row={row}
-          rowActions={customRowActions}
-          rowActionDefs={resolvedRowActionDefs as any[]}
-          objectFields={objectSchema?.fields}
-          // NON-AUTHOR SURFACE — `maxInlineRowActions` is deliberately
-          // absent from `GRID_QUERY_INPUTS` (maintainer ruling, 2026-08-18,
-          // objectui#5091), so this cast read is deliberate, not missed. It is
-          // a host/internal switch for the inline-button budget before the
-          // rest fold into the "⋮" menu — an embedder's layout call, set from
-          // code (`apps/console/src/dev/DevRowActions.tsx:51`), never from a
-          // view document. `ComponentPropsMap['object-grid']` is a
-          // `strictObject` and rejects the key by name, so publishing it would
-          // advertise a key the save gate refuses. The `?? 1` default is the
-          // published behaviour and stays the one an author sees. Pinned by
-          // `__tests__/gridNonAuthorKeys.test.tsx`.
-          maxInlineActions={(schema as any).maxInlineRowActions ?? 1}
-          // [#4296] The object verdict ANDed with THIS row's record-level one.
-          // It rides the same per-row channel the #2614 predicates ride —
-          // `planRowActionMenu` conjoins `canEdit`/`canDelete` with
-          // `visibleWhen` in one expression, so the item and the "⋮" guard read
-          // one decision (#3562) and a hidden row grows no empty trigger. An
-          // unanswered row keeps the object verdict, i.e. today's rendering.
-          canEdit={resolveRowRecordCrudAffordance(canEdit, recordVerdict(rowRecordId(row), 'update'))}
-          canDelete={resolveRowRecordCrudAffordance(canDelete, recordVerdict(rowRecordId(row), 'delete'))}
-          editPredicates={editPredicates}
-          deletePredicates={deletePredicates}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onAction={(action, r) => {
-            void executeAction({ type: action, params: { record: r } }).then(res => {
-              // A successful row action typically mutated this record; refresh
-              // so the grid reflects the server state (same rationale as bulk).
-              if (res?.success) setRefreshKey(k => k + 1);
-            });
-          }}
-          onActionDef={(def, r) => {
-            // Dispatch schema-driven row action through the runner. We forward
-            // the full action def so type/target/recordIdParam/bodyShape/etc.
-            // route correctly, attach the row record under `_rowRecord` for the
-            // apiHandler row-id injection, and surface raw `params` as
-            // `actionParams` so the runner shows the param dialog when present.
-            const { params: rawParams, ...rest } = def;
-            const dispatch: any = { ...rest };
-            if (Array.isArray(rawParams) && rawParams.length > 0) {
-              dispatch.actionParams = rawParams;
-            }
-            dispatch.params = { _rowRecord: r };
-            void executeAction(dispatch).then(res => {
-              if (res?.success) setRefreshKey(k => k + 1);
-            });
-          }}
-        />
-      ),
+      cell: (_value: any, row: any) => {
+        // [objectui#8674] The CALLER's answer for this one row, resolved
+        // once per row and ANDed into the two verdicts below. A host whose
+        // refusal is per record (a system field the designer may not drop)
+        // has no other place to put it: `operations` and the `onEdit` /
+        // `onDelete` wiring are grid-level and identical for every row, so
+        // the refusal used to live in the callback and fire AFTER the button
+        // had been drawn and clicked. Narrowing only — see `rowOperations`.
+        const rowOps = rowOperations?.(row);
+        return (
+          <RowActionMenu
+            row={row}
+            rowActions={customRowActions}
+            rowActionDefs={resolvedRowActionDefs as any[]}
+            objectFields={objectSchema?.fields}
+            // NON-AUTHOR SURFACE — `maxInlineRowActions` is deliberately
+            // absent from `GRID_QUERY_INPUTS` (maintainer ruling, 2026-08-18,
+            // objectui#5091), so this cast read is deliberate, not missed. It is
+            // a host/internal switch for the inline-button budget before the
+            // rest fold into the "⋮" menu — an embedder's layout call, set from
+            // code (`apps/console/src/dev/DevRowActions.tsx:51`), never from a
+            // view document. `ComponentPropsMap['object-grid']` is a
+            // `strictObject` and rejects the key by name, so publishing it would
+            // advertise a key the save gate refuses. The `?? 1` default is the
+            // published behaviour and stays the one an author sees. Pinned by
+            // `__tests__/gridNonAuthorKeys.test.tsx`.
+            maxInlineActions={(schema as any).maxInlineRowActions ?? 1}
+            // [#4296] The object verdict ANDed with THIS row's record-level one.
+            // It rides the same per-row channel the #2614 predicates ride —
+            // `planRowActionMenu` conjoins `canEdit`/`canDelete` with
+            // `visibleWhen` in one expression, so the item and the "⋮" guard read
+            // one decision (#3562) and a hidden row grows no empty trigger. An
+            // unanswered row keeps the object verdict, i.e. today's rendering.
+            // [objectui#8674] `rowOps` is the third narrowing in this one
+            // expression, and an INTERSECTION like the two around it: only
+            // `false` removes, so a caller that passes no `rowOperations` —
+            // every caller but the field designer today — reads exactly the
+            // verdict this line carried before the prop existed.
+            canEdit={resolveRowRecordCrudAffordance(canEdit && rowOps?.update !== false, recordVerdict(rowRecordId(row), 'update'))}
+            canDelete={resolveRowRecordCrudAffordance(canDelete && rowOps?.delete !== false, recordVerdict(rowRecordId(row), 'delete'))}
+            editPredicates={editPredicates}
+            deletePredicates={deletePredicates}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onAction={(action, r) => {
+              void executeAction({ type: action, params: { record: r } }).then(res => {
+                // A successful row action typically mutated this record; refresh
+                // so the grid reflects the server state (same rationale as bulk).
+                if (res?.success) setRefreshKey(k => k + 1);
+              });
+            }}
+            onActionDef={(def, r) => {
+              // Dispatch schema-driven row action through the runner. We forward
+              // the full action def so type/target/recordIdParam/bodyShape/etc.
+              // route correctly, attach the row record under `_rowRecord` for the
+              // apiHandler row-id injection, and surface raw `params` as
+              // `actionParams` so the runner shows the param dialog when present.
+              const { params: rawParams, ...rest } = def;
+              const dispatch: any = { ...rest };
+              if (Array.isArray(rawParams) && rawParams.length > 0) {
+                dispatch.actionParams = rawParams;
+              }
+              dispatch.params = { _rowRecord: r };
+              void executeAction(dispatch).then(res => {
+                if (res?.success) setRefreshKey(k => k + 1);
+              });
+            }}
+          />
+        );
+      },
       sortable: false,
     },
   ] : persistedColumns;
@@ -3878,7 +4248,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // refresh so the grid reflects persisted values. Throwing on failure is
   // important: DataTable's saveRow/saveBatch keep pending changes when the save
   // promise rejects, so a failed write doesn't silently lose the user's edits.
-  const resolveRecordId = (row: any): string | number | undefined =>
+  // The one place a row's primary key is read for a write. `string`, as
+  // `@objectstack/spec` declares every record door — the union this used to
+  // annotate was a claim about `any`-typed row data, not a measurement of it
+  // (objectui#9333).
+  const resolveRecordId = (row: any): string | undefined =>
     row?._id ?? row?.id;
 
   const defaultRowSave = async (
@@ -3924,9 +4298,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     ? true 
     : (schema.showPagination !== undefined ? schema.showPagination : true);
   
-  const pageSize = schema.pagination?.pageSize 
-    || schema.pageSize 
-    || 10;
+  // Through the same resolver as the two seeds above (objectui#9853). This
+  // site used `||` and the seeds used `??`, so one authored `pageSize: 0`
+  // reached three read points and got two different answers.
+  const pageSize = resolvePageSize(schema, DEFAULT_FLAT_PAGE_SIZE);
 
   // Determine search settings
   const searchEnabled = schema.searchableFields !== undefined
@@ -4023,6 +4398,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // arrow, and the first click on that column would ask for `asc` on a list
   // that was already `desc`.
   //
+  // ⭐ That agreement now covers the SPELLING too (objectui#8961). One used to
+  // escape it: since objectui#8767 the fetch path REFUSES a string `sort` and
+  // sends no `$orderby`, while {@link parseSchemaSort} went on parsing one, so
+  // a grid authored `sort: 'name desc'` painted a descending arrow over rows
+  // the server returned in no declared order. That reader now admits only the
+  // declared `[{ field, order }]` array — the one spelling the fetch path
+  // still lowers — so the arrow on screen and the `$orderby` on the wire read
+  // the same key the same way, and a retired spelling lights nothing on either
+  // side. What did NOT move is the wire shape: the array arm still lowers to
+  // this block's own `"field order"` join string, and the shared sink's
+  // `{field: direction}` map stays declined (see {@link toOrderByClause}).
+  //
   // A plain expression, not a `useMemo`: this sits below the component's early
   // returns, where a hook would be skipped on some renders and change the hook
   // order. Parsing at most a handful of sort keys costs nothing worth a hook.
@@ -4083,7 +4470,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   const dataTableSchema: ObjectGridDataTableSchema = {
     type: 'data-table',
-    caption: schema.label || schema.title,
+    caption: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
     columns: orderedColumns,
     data,
     pagination: paginationEnabled,
@@ -4171,12 +4558,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               onChange={(v: any) => (discrete ? ctx.commit(v) : ctx.stage(v))}
               // The record a dependent widget scopes itself by (objectui#7165,
               // finished by objectui#7188). `LookupField` resolves
-              // `dependentValues ?? ctx.formValues ?? ctx.data ?? {}`, and only
-              // the FIRST link is suppliable by any host: `SchemaRendererContextType`
-              // declares exactly `dataSource` / `debug` / `debugFlags` / `apiFetch`,
-              // so the tail is unconditionally empty repo-wide (objectui#7206) —
-              // which is why the repair is this prop and could not have been a
-              // provider. A grid that supplied none of the three rendered every
+              // `dependentValues ?? {}`, so this prop is the only channel that
+              // can carry a record. The chain used to end
+              // `?? ctx.formValues ?? ctx.data`, but `SchemaRendererContextType`
+              // declares exactly `dataSource` / `debug` / `debugFlags` /
+              // `apiFetch`, so that tail was unconditionally empty repo-wide and
+              // has been retired (objectui#7206) — which is why the repair is
+              // this prop and could not have been a provider. A grid that supplied none of the three rendered every
               // `dependsOn` column as a permanently gated, disabled trigger
               // ("Select region first") even when the row carried the parent —
               // a field that could never be filled, with no diagnostic. PR
@@ -4359,13 +4747,54 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `Contacts Detail` / `Record Detail`), including with no `I18nProvider`
   // mounted — `createSafeTranslation`'s fallback interpolates `{{label}}` from
   // `GRID_DEFAULT_TRANSLATIONS`.
-  const detailTitle = schema.label
-    ? t('detail.recordDetailWithLabel', { label: schema.label })
+  //
+  // ⚠️ The label is RESOLVED before it reaches `t()` (objectui#9092). This is an
+  // UNTYPED sink: `t`'s options are `Record<string, unknown>`, so when
+  // `ObjectGridSchema.label` was restored to `string | I18nLabel` the compiler
+  // named the two `string`-typed reads above and said nothing about this one.
+  // Unresolved, an inline locale map interpolates as `[object Object]` on BOTH
+  // paths — i18next substitutes the raw value, and the provider-less
+  // `interpolateFallback` runs it through `String(v)` — and this value IS the
+  // overlay's visible heading (`NavigationOverlay title=`, below), so the
+  // failure is user-facing rather than diagnostic.
+  //
+  // The fallthrough is deliberate: `resolveI18nLabel` answers `undefined` for an
+  // entry-less map and `''` for an empty entry, and both are falsy, so a label
+  // that resolves to nothing lands on the `objectName` branch exactly as a
+  // missing label always did. Testing `schema.label` itself could not do that —
+  // every object is truthy, so an entry-less map used to take the label branch.
+  const resolvedDetailLabel = resolveInlineI18nLabel(schema.label, displayLocale);
+  const detailTitle = resolvedDetailLabel
+    ? t('detail.recordDetailWithLabel', { label: resolvedDetailLabel })
     : schema.objectName
       ? t('detail.recordDetailWithLabel', {
           label: schema.objectName.charAt(0).toUpperCase() + schema.objectName.slice(1),
         })
       : t('detail.recordDetail');
+
+  /**
+   * The shell-side props every one of this component's three
+   * `NavigationOverlay` call sites shares (objectui#9299).
+   *
+   * Spelled once because three copies of a set like this is how two of them
+   * end up carrying a `popoverAnchorRef` and the third silently keeps falling
+   * back to the `Dialog` the ruling closed.
+   *
+   * - `popoverAnchorRef` (item 3): the row the user clicked. Before this card
+   *   NO renderer passed an anchor, so `popover` degraded to a `Dialog` on all
+   *   five surfaces — measured, not inferred.
+   * - `storageKey` / `legacyStorageKey` (item 4): one drag-resize
+   *   implementation, one key per object across every view type, and a width
+   *   persisted under the retired `objectui.drawerWidth.OBJECT` carries over.
+   * - `width`: an unauthored width lands on the ruled default (objectui#6584)
+   *   rather than on the shell's own `42rem` floor.
+   */
+  const recordOverlayShellProps = {
+    popoverAnchorRef: anchorRef,
+    storageKey: schema.objectName ? recordOverlayWidthStorageKey(schema.objectName) : undefined,
+    legacyStorageKey: schema.objectName ? legacyRecordDrawerWidthKey(schema.objectName) : undefined,
+    width: navigation.width ?? RECORD_OVERLAY_DEFAULT_WIDTH,
+  };
 
   // Form-based record detail renderer (replaces simple key-value dump).
   // Hoisted above the mobile card-view's early return (below) so both the
@@ -4373,6 +4802,64 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // this same type-aware renderer instead of the card view falling back to
   // a raw `String(value)` dump (which showed "[object Object]" for lookups).
   const renderRecordDetail = (record: any) => {
+    // ⭐ objectui#9299 — ONE payload on every view type.
+    //
+    // `ObjectGrid` already honoured all four `navigation.mode` values through
+    // `NavigationOverlay`, but it drew its OWN read-only key/value panel inside
+    // them while the gantt/kanban/calendar drew the rich
+    // `InlineEditProvider` -> `DetailView` -> `InlineEditSaveBar` payload. The
+    // card measured that as "nobody gets both": the renderers that honoured the
+    // mode drew the poorer body. The ruling closes it in one direction — one
+    // payload everywhere.
+    //
+    // ⚠️ READ-ONLY here, and deliberately so: capability is handler presence,
+    // and this renderer has no per-field write path to hand the panel. What
+    // changes is the FIDELITY of the reading (declared labels, typed widgets,
+    // honoured `hidden`, the object's own field order), not the ability to edit.
+    // ⚠️ DECLARED-FIELDS GATE, measured rather than assumed. The shared payload
+    // renders the object's DECLARED fields: `RecordDetailPanel` derives widgets
+    // from `objectSchema.fields[name].type`. The panel below renders the same
+    // values by INFERRING from them — a date-shaped string on a `*_date` key,
+    // a number on an `amount`-ish key — which is what objectui#4541 (locale-
+    // aware date fallback), objectui#8491 (the localized `Empty` placeholder)
+    // and objectui#8920 (the `format` hint) put here. A grid with no object
+    // schema — inline `value` rows, or a DataSource with no `getObjectSchema`
+    // — has NOTHING declared, so handing it to the shared payload renders raw
+    // ISO strings where a localized date used to be. Measured on this branch:
+    // `recordDetailDateLocale` read back `close_date2024-03-15` in a zh
+    // session. So the shared payload takes every grid that HAS declared
+    // fields — every console surface — and the inference reading stands where
+    // there is nothing to declare. ⛔ Not a preference: it is which of the two
+    // can render the value at all.
+    const panelRecordId = rowRecordId(record);
+    const hasDeclaredFields = !!objectSchema?.fields
+      && Object.keys(objectSchema.fields as Record<string, unknown>).length > 0;
+    if (schema.objectName && panelRecordId != null && hasDeclaredFields) {
+      return (
+        <div className="px-6 pt-6 pb-6" data-testid="record-detail-panel">
+          {/*
+            objectui#9722: `dataSource` is passed straight through — no cast.
+            This hand-off carried an `as any` too; measured on this branch, it
+            was paying for NOTHING (both sides declare `DataSource | undefined`
+            from `@object-ui/types`), so removing it restores a real check at
+            zero cost. The `objectSchema` cast below is a different question
+            and is deliberately left alone.
+          */}
+          <RecordDetailPanel
+            record={record}
+            objectName={schema.objectName}
+            recordId={panelRecordId}
+            dataSource={dataSource}
+            objectSchema={objectSchema as any}
+            onClose={navigation.close}
+          />
+        </div>
+      );
+    }
+    // No addressable record behind this row — a grid over inline `value` rows
+    // with no object name. The payload needs an object and an id to render
+    // field widgets against, so the plain reading of what the row carries is
+    // the honest answer; inventing an id would not be.
     const entries = Object.entries(record);
     // Honor `hidden: true` on the schema field def — internal/system fields
     // (e.g. database_url, environment_id, is_system) shouldn't leak into the
@@ -4396,11 +4883,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
       // Use objectSchema field type for type-aware rendering
       const fieldDef = objectSchema?.fields?.[key];
-      if (fieldDef?.type) {
-        const CellRenderer = getCellRenderer(fieldDef.type);
-        if (CellRenderer) {
-          return <CellRenderer value={value} field={fieldDef} />;
-        }
+      // Through the shared resolve, so the panel honours a `format` hint the
+      // same way the row above it does (objectui#8920). `rendererType` is null
+      // exactly when the key has no declared type, which is the guard this
+      // used to spell as `if (fieldDef?.type)`. The old inner
+      // `if (CellRenderer)` was DEAD — `getCellRenderer` ends in
+      // `standardMap[key] || TextCellRenderer` and never returns anything
+      // falsy — and `GridCellRendering.Renderer` states that totality in the
+      // type, so the dead branch goes with it.
+      const { rendererType, Renderer } = resolveGridCellRendering(fieldDef);
+      if (rendererType) {
+        return <Renderer value={value} field={fieldDef} />;
       }
 
       // Fallback: infer from value and key name
@@ -4553,7 +5046,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
     return (
       <>
-        <div className="space-y-2 p-2">
+        <div className="space-y-2 p-2" {...anchorCaptureProps}>
           {data.map((row, idx) => {
             // Collect secondary fields (skip the title column)
             const secondaryCols = displayColumns.slice(1, 5);
@@ -4679,7 +5172,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           })}
         </div>
         {navigation.isOverlay && (
-          <NavigationOverlay {...navigation} title={detailTitle}>
+          <NavigationOverlay
+            {...navigation}
+            title={detailTitle}
+            {...recordOverlayShellProps}
+          >
             {(record) => renderRecordDetail(record)}
           </NavigationOverlay>
         )}
@@ -4953,6 +5450,22 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   );
 
   // Rendered BulkActionDialog (shared across both render branches).
+  //
+  // ⭐ objectui#9722: `dataSource` reaches this hand-off through a `!`, and
+  // that non-null assertion is ALL that is erased here. It used to be an
+  // `as any`, and measured on this branch that cast was paying for two
+  // separate things at once: the optional-vs-required arm (this grid declares
+  // `dataSource?: DataSource`, the dialog demands one) AND the structural
+  // assignability of the four data-source members — which did not hold,
+  // because the executor's face still spelled the pre-objectui#9511
+  // `ReadonlyArray<string | number>` for the two bulk doors. Deriving those
+  // two doors from `DataSource` (see `BulkExecutorOptions`) makes the second
+  // one hold for real, so only the first still needs erasing, and any future
+  // drift of that face reddens HERE instead of passing silently.
+  //
+  // ⚠️ The `!` is not an idle tidy-up of the same lie: it preserves exactly
+  // today's runtime behaviour (a grid with no `dataSource` still hands the
+  // dialog `undefined`), and it is the one arm a type cannot check for us.
   const bulkDialog = (
     <BulkActionDialog
       def={activeBulkDef}
@@ -4960,7 +5473,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       skippedCount={activeBulkSkipped}
       open={!!activeBulkDef}
       onClose={handleBulkDialogClose}
-      dataSource={dataSource as any}
+      dataSource={dataSource!}
       resource={schema.objectName ?? ''}
       objectFields={objectSchema?.fields}
       runAction={runBulkActionRecord}
@@ -4968,13 +5481,29 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     />
   );
 
-  // For split mode, wrap the grid in the ResizablePanelGroup
-  if (navigation.isOverlay && navigation.mode === 'split') {
+  // For split mode, wrap the grid in the ResizablePanelGroup.
+  //
+  // ⭐ objectui#9299, MEASURED WHILE REPAIRING THIS CARD and repaired here.
+  // This branch used to be entered on the authored mode alone, and the shell's
+  // split branch opens `if (!isOpen || !mainContent) return null` — so a grid
+  // authored `split` rendered NOTHING until a record was selected, and a record
+  // could never be selected because there was no grid to click. Same defect
+  // class as the `ObjectTree` blank the card names, on the renderer the card
+  // calls correct; the card's measurement read only that `mainContent` is
+  // PASSED here, never that the closed state renders. Ruling item 2 requires
+  // `split` to work on all five, so the guard joins the open state.
+  if (
+    navigation.isOverlay
+    && navigation.mode === 'split'
+    && navigation.isOpen
+    && navigation.selectedRecord
+  ) {
     return (
       <>
         <NavigationOverlay
           {...navigation}
           title={detailTitle}
+          {...recordOverlayShellProps}
           mainContent={
             <div className="flex flex-col h-full">
               {gridToolbar}
@@ -5003,7 +5532,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }
 
   return (
-    <div ref={pullRef} className="relative h-full flex flex-col">
+    <div ref={pullRef} className="relative h-full flex flex-col" {...anchorCaptureProps}>
       {/* Re-fetch indicator while existing rows remain visible (filter/sort
           change). The initial-load skeleton above handles the empty case. */}
       <RefreshIndicator active={loading && data.length > 0} />
@@ -5034,6 +5563,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         <NavigationOverlay
           {...navigation}
           title={detailTitle}
+          {...recordOverlayShellProps}
         >
           {(record) => renderRecordDetail(record)}
         </NavigationOverlay>

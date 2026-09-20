@@ -127,8 +127,17 @@ const schema: ObjectGanttSchema = {
   gantt?: GanttConfig,              // Gantt-specific configuration
   viewMode?: 'day' | 'week' | 'month' | 'quarter' | 'year',
   readOnly?: boolean                // disable every edit path
+  filter?: Array<any>,              // JSON-Rules query filter — applies on EVERY provider
+  sort?: Array<{ field, order }>,   // ordering — applies on EVERY provider
 }
 ```
+
+`filter` and `sort` are not object-only keys. They narrow and order inline rows
+(`staticData`, or `data: { provider: 'value' }`) exactly as they narrow and
+order fetched ones, and the platform row ceiling — 2,000 drawn rows with a
+footnote naming both numbers — applies to inline rows too. The ceiling is
+applied to the **filtered** set, so a large inline array that a `filter` cuts
+below the ceiling draws every matching row and shows no footnote.
 
 `onTaskClick` and `className` are **React props on `<ObjectGantt>`**, not schema
 keys — the renderer never reads them off the schema, and a function cannot

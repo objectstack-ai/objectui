@@ -36,13 +36,13 @@
       {
         "id": "1",
         "field": "age",
-        "operator": "gt",
+        "operator": "greater_than",
         "value": "25"
       },
       {
         "id": "2",
         "field": "department",
-        "operator": "eq",
+        "operator": "equals",
         "value": "Engineering"
       }
     ]

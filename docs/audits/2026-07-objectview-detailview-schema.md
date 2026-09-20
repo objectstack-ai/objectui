@@ -126,7 +126,7 @@ wrong thing.** The prerequisite is to make the declaration match the reads.
 | objectui | Spec | Note |
 | --- | --- | --- |
 | `objectName` | `data: { provider: 'object', object }` (`ViewDataSchema`, `:29`) | Same divergence as scope A step 6 — and the same upstream blocker (`react-blocks.ts` sanctions `objectName` as a React-tier prop). Move together, or not at all. |
-| `defaultViewType` | `ListViewSchema.type` (`:643`) | Spec is a superset (adds `chart`, `tree`). objectui's own `ListViewSchema` **already imports this enum by reference** (`objectql.zod.ts:365`) — this schema should use the same import instead of restating a narrower copy. |
+| `defaultViewType` | `ListViewSchema.type` (`:646`) | Spec is a superset (adds `chart`, `tree`). objectui's own `ListViewSchema` **already imports this enum by reference** (`objectql.zod.ts:368`) — this schema should use the same import instead of restating a narrower copy. |
 | `showSearch` / `showFilters` / `showSort` | `UserActionsConfigSchema.{search,filter,sort}` (`:350-352`) | Scope A step 3, same fold. |
 | `showCreate` | `AddRecordConfigSchema.enabled` (`:448`) | Spec's config also carries `position` / `mode` / `formView`; the boolean is a lossy shorthand for it. |
 | `title` | `label` (`:642`) | Type differs: objectui `z.string()`, spec `I18nLabelSchema`. Promoting means accepting the i18n envelope. |

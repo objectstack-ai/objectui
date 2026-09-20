@@ -183,8 +183,37 @@ export function FieldDesigner({
     }
   }, [fields]);
 
+  /**
+   * [objectui#8674] Which generic row operations THIS row may be offered.
+   *
+   * The delete refusal used to live only inside {@link handleDelete}, which
+   * runs after the click: `ObjectGrid` takes ONE grid-level `onDelete` and drew
+   * the row action for every row, so a system field showed a delete button that
+   * answered a click with nothing at all — no dialog, no toast, no console
+   * message. `readOnly` was already honest (the callback is withheld, so no
+   * button is drawn); `isSystem` was not. This is the same refusal, moved to
+   * where it can withhold the affordance instead of swallowing its click.
+   *
+   * `isSystem` is the spelling the drawer form already uses to disable `name`
+   * and `type` on a system field — the one concept, "this field's structure is
+   * not the designer's to change", not a second one.
+   *
+   * An unresolvable row is withheld too, for the same reason and not as a
+   * defensive flourish: `handleDelete` returns early when the lookup misses, so
+   * offering delete for such a row would reproduce the exact defect this card
+   * is about.
+   */
+  const rowOperations = useCallback((record: Record<string, unknown>) => {
+    const field = fields.find((f) => f.name === record.name);
+    return { delete: !!field && !field.isSystem };
+  }, [fields]);
+
   const handleDelete = useCallback(async (record: Record<string, unknown>) => {
     const field = fields.find((f) => f.name === record.name);
+    // Unreachable through the grid now that `rowOperations` withholds the
+    // action for exactly these two cases — kept because this callback is a
+    // published prop value and nothing stops a future caller invoking it
+    // directly. It must never become the ONLY refusal again.
     if (!field || field.isSystem) return;
     const confirmed = await confirmDialog.confirm(
       t('appDesigner.fieldDesigner.deleteConfirmTitle'),
@@ -416,6 +445,7 @@ export function FieldDesigner({
         dataSource={dataSource}
         onEdit={readOnly ? undefined : handleEdit}
         onDelete={readOnly ? undefined : handleDelete}
+        rowOperations={rowOperations}
         onAddRecord={readOnly ? undefined : handleAddField}
       />
 

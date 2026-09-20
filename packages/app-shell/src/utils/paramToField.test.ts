@@ -110,18 +110,17 @@ describe('paramToField', () => {
   // in-repo framework producer of that spelling, so the emit had to move with
   // the reader.
   //
-  // ⚠️ CORRECTED (objectui#8672). This sentence used to end "…or the dialog's
-  // dependent lookups would have gone dead silently", which describes a WORKING
-  // cascade in this dialog. Measured, there has never been one: `dependsOn` is
-  // emitted onto the field bag below, but `ActionParamDialog` supplies
-  // `dependentValues` only to `CASCADE_OPTION_WIDGET_TYPES` (`select` /
-  // `multiselect` / `radio` / `checkboxes` — `lookup` is not a member), so
-  // `LookupField` resolves `{}` and the gate NEVER lifts. What moving the emit
-  // preserved is therefore the GATE, not a cascade: leaving it behind would have
-  // flipped a permanently gated picker into an ungated, UNFILTERED one — the
-  // silent behaviour change `paramToField.ts`'s own comment records. Pinned in
-  // `views/ActionParamDialog.lookupDependsOnReach-8672.test.tsx`; which
-  // disposition that gap gets is open on objectui#8672.
+  // ⚠️ CORRECTED ONCE, then OVERTAKEN (objectui#8672). The sentence above used
+  // to end "…or the dialog's dependent lookups would have gone dead silently",
+  // which described a WORKING cascade in this dialog; at the time there had
+  // never been one, so the correction said what moving the emit preserved was
+  // the GATE, not a cascade. ⭐ Ruling A then wired the missing half: the dialog
+  // feeds the reference-bearing pickers their live record too
+  // (`paramNeedsDependentValues()` in `views/ActionParamDialog.tsx`), so this
+  // emit now reaches a cascade that really does ungate and really does filter.
+  // Both readings are kept because the order matters — the emit had to move
+  // BEFORE the supply existed, and it is what made the wiring a one-line
+  // change. Pinned in `views/ActionParamDialog.lookupDependsOnReach-8672.test.tsx`.
   // The remaining snake members below (`reference_to`, `title_format`,
   // `lookup_columns`, `lookup_page_size`) were outside both rulings and are
   // unchanged — this mixed shape is deliberate, and asserting it keeps the two

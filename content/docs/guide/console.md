@@ -52,6 +52,35 @@ Validations and Actions persist with the object's own **Save draft**; Hooks (a
 distinct metadata type) save per-hook. Nothing goes live until the package is
 published from the top-bar **Publish** flow.
 
+#### Why a configured action can be missing from the app
+
+An action that is saved, published and correctly placed can still appear on no
+surface at all. There are two reasons, and the Actions panel states both — the
+running app deliberately states neither, because an end user should not be told
+about capabilities they do not have.
+
+* **No placement.** `locations` is empty, so the action surfaces nowhere.
+  A selection-only action is legitimate here: it is placed by a list view's
+  `bulkActions` / `bulkActionDefs` instead.
+* **The capability gate.** `action.requiredPermissions` (ADR-0066 D4) is
+  enforced with a 403 on the platform action route and **mirrored as a UI
+  hide**: a viewer who does not hold every listed capability gets no button,
+  no greyed-out control and no message, at every declared location at once.
+  This is intended — the client hide mirrors an enforcement the server applies
+  regardless, and an unentitled user is never shown a control they cannot use.
+
+The **Placement** section of the action inspector names the gating capabilities
+and says the action is hidden rather than disabled; when the signed-in session
+is itself missing one of them it says so too, so "I configured the buttons and
+I see none of them" has an answer on the screen where the buttons were
+configured. The read-only **action preview** beside it carries the same
+capability line, so its *Where it appears* frames are not read as a promise
+that everyone will see the button there.
+
+An unheld capability is not the same problem as a *misspelled* one: a
+capability string registered nowhere is caught separately, by the advisory
+capability-reference lint that runs over pending drafts during **Publish**.
+
 ## Configuration
 
 **The console has no configuration file.** It declares no apps, objects or views of its own —

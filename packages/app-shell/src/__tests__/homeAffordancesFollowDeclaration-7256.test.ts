@@ -33,7 +33,9 @@
  * redirects in `console/AppContent.tsx` / `console/ConsoleShell.tsx`. Those are
  * error-recovery paths, not Home affordances, and retargeting them moves a
  * `/home` expectation that a dozen existing tests pin — a separate change with
- * its own measurement.
+ * its own measurement. That change is objectui#7373, and its scan is the
+ * sibling file `homeRecoveryRedirectsFollowDeclaration-7373.test.ts`: the
+ * affordances stay this file's subject, the recovery exits are that one's.
  *
  * And it does not cover `apps/console`'s `/` resolver, which keeps its own
  * reading of the declaration — `landingHomeParity-7256.test.ts` compares the two
@@ -44,6 +46,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../../../..');
@@ -57,7 +64,7 @@ const read = (rel: string) => readFileSync(path.join(repoRoot, rel), 'utf8');
  * subject, and the pressure would be to delete the explanation.
  */
 function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  return mask(src);
 }
 
 /** The chrome's Home affordances: file → the expression each must resolve to. */

@@ -106,6 +106,15 @@ interface BaseSchema {
 - **#6 — Type safety over magic.** No `any` — use strict generics. Map `"type": "button"` → React component via a central `ComponentRegistry`. **No `eval()` / runtime dynamic imports** to load components (security).
 - **#7 — No-Touch zones (Shadcn purity).** `packages/components/src/ui/**/*.tsx` are upstream 3rd-party files overwritten by sync scripts — **never edit their logic/styles**. To change `Button`/`Dialog` behavior: create/edit a wrapper in `packages/components/src/custom/`, import the primitive from `@/ui/...`, and wrap it.
 - **#8 — UI state lives where it can survive (objectui#2269, ADR-0054 C3).** Classify every piece of UI state before writing it: **addressable** (user would share it / expect it back after refresh / Back should respect it) → the **URL** (`?recordId=`, `?form=`, `?tab=` — constants in `app-shell/src/urlParams.ts`, never string literals); **preference** (stable across records/sessions) → localStorage or server prefs; **truly ephemeral** (hover, open dropdown — nobody cares if it's lost) → component state. The rule: **state that must survive a data refresh may never live only in an uncontrolled component** (that's how the detail-tab reset happened — objectui#2257). Corollary: **refresh data, don't rebuild UI** — after a save/action, invalidate the affected data (`notifyDataChanged` from `@object-ui/react`) so consumers refetch in place; never bump a `key=` to remount a subtree (it destroys scroll, collapsed sections, tab state, in-progress inline edits, and triggers a refetch storm).
+- **#9 — A "verified" claim is only as good as the check that re-verifies it (objectui#7833).** Prose that declares something checked, counted, aligned or covered — in a doc, a code comment, a script or workflow header, or this file — states a fact that was derived once, when it was written, and is derived never again; no later reading can tell such an assertion from a live one. So when you declare something verified, **point at the instrument that re-derives it — the script, the gate, the test — and never write down its answer**: "the count this gate prints", not the count; "the list this script enumerates", not the list. A figure that is still correct is the dangerous case, not the safe one — a reader who spot-checks it confirms it and is still wrong once the population it described has moved out from under it. Where nothing re-derives the claim, say that in the text rather than let it read as live. This file is not exempt: it has carried such a claim and needed a repair (objectui#7800). The measured instances behind this rule sit on objectui#7833 — pointed at, not copied here, which is this rule applied to itself.
+- **#10 — Never depend on the IDENTITY of a `useMemo` / `useCallback` result (objectui#8640, ruled over eight instances: objectui#5976 · #6018 · #6591 · #6592 · #6697 · #6724 · #6813 · #6862).** React documents both hooks as a **performance hint** and reserves the right to throw the cache away and recompute even when the dependency list compares equal — the identity they hand back is something the library never promised. Memoise for cost freely; just never let correctness rest on the object or function that comes back — ⛔ not as a `useEffect` / `useMemo` dependency, ⛔ not as a `Map` / `WeakMap` key, ⛔ not in a reference comparison. Re-key the consumer on the **primitives or the payload objects it actually reads** (objectui#6592), or move the cache out of React onto those same inputs (`packages/permissions/src/discardProofCache.ts`, objectui#6813). **Both sides of the seam, or neither holds:** a value-side cache keyed on a payload object is walked straight through by an effect that still keys on a memoised identity — a discard re-runs the fetch and `setData(json)` installs a **fresh payload object even for a byte-identical answer**, so every such cache misses and a new value reaches every consumer (objectui#6813 defeated by #6862, measured on objectui#8640). ⇒ a provider that refetches may not republish an equal payload as a new object, and a consumer that needs stability keys on the **data**, not on a cache. ⚠️ **Nothing enforces this rule** — said here per #9 rather than left to be assumed: a lint rule is feasible for the same-file shape only (`eslint-rules/` would host it), while the instances that crossed a module boundary — a prop, a hook return, a context — are out of reach of any single-file rule; the feasibility reading and its counts are on objectui#8640's PR. ⚠️ Nor does an ordinary test see the defect: React does not discard on its own in this tree, so a pin that does not **force** a discard passes identically on defect and fix — `providerCtxIdentity.discarded.test.tsx` in `packages/permissions` forces one.
+- **#11 — Cite by CONTENT, not by line address; a CROSS-FILE `path:line` is banned outright (objectui#7853, objectui#8875).** When a comment, an assertion or failure message, a doc, a changeset or a script header cites an assertion, a call, or a line of code, cite it by something that travels with the thing itself — a quoted distinctive string, a symbol name, a test name, a heading anchor — and ⛔ never by a `path:line` address. A line address is read by nothing: no gate parses it and the file it points at is never opened, so it cannot fail — it rots the first time a line is inserted above the thing it cites, and stays wrong until a reader believes it. objectui#7853 ruled the class and landed as `fa7d66c45`; objectui#6548, #6998, #7289, #7913 and #8045 are the one-at-a-time repairs that followed it, and the class kept recurring — which is why it is now mechanized rather than remembered.
+  - **The same-file carve-out stands; crossing a file boundary is what makes the citation indefensible.** objectui#8047 mechanized the ruling as the `no-line-address-in-test-name` ESLint rule, over test names only, deliberately exempting comments and failure messages on the ground stated in that rule's own header: *"A human reads them beside the code they annotate, and the next reader of that code corrects a wrong one."* ⭐ That justification is **positional** — it holds for a SAME-FILE citation and it does not survive the citation crossing a file boundary. The reader of `packages/types/src/crud.ts` is not looking at `packages/core/src/actions/ActionRunner.ts`: nothing puts the cited line in front of them, nothing tells them it moved, and the person who moves it never sees the citation. Measured once, inside a single pull request's blast radius (objectui#8875 — a historical reading, ⛔ not re-derived here and ⛔ not a live count): 73 cross-file hits across four syntaxes, 14 of them moved by that one branch's line shifts, and **10 of those 14 were already false before the branch existed**. ⇒ same-file line addresses keep the objectui#8047 exemption; cross-file ones are the banned form, in every carrier the ruling names.
+  - Maintainer's ruling, 2026-09-10 — **原文照录、不翻译**:
+    > 跨文件的「某文件第几行」引用， 这种完全没必要吧，是否应该避免
+  - **The gate is DIFFERENTIAL — it reads what your branch ADDS, never a tree-wide total.** `pnpm check:new-line-citations` (`scripts/check-new-cross-file-line-citations.mjs`, workflow `Line Citation Gate`, landed by objectui#8974) compares your branch against its base and reports the cross-file line-address citations the branch introduced; read that script's `ENFORCEMENT` constant for whether findings block today, and its file header for the syntaxes it scans. ⛔ An absolute count was explicitly refused, and not on taste: a tree-wide number also moves when unrelated line shifts flip a stale citation into a true one by accident, scoring as progress an unearned green that belongs to nobody. The existing population is therefore ⛔ not the gate's denominator; `pnpm census:cross-file-line-citations` prints the tree-wide picture and is report-only by design. ⛔ Never copy either instrument's answer into prose — that is #9 applied to this rule.
+  - **Existing citations: repair opportunistically, ⛔ never as a sweep.** When you touch a file anyway, fix the cross-file line addresses inside it; ⛔ do not open a pull request whose purpose is sweeping them. ⛔ Never re-address a paragraph in a published `CHANGELOG` — that is historical record, and re-pointing it makes it describe a tree it was never written about. A citation into a regenerated artifact (`dist/*.d.ts`) is *unresolvable*, not a finding.
+  - **⛔ Don't store a line number as a key, either.** The dividing line is **stored vs computed**: a `path:line` string a script *computes at runtime to print a diagnostic* cannot expire, while one that is *stored and compared* — a ledger key, a baseline entry — is this same defect with a gate wired to it, so it goes red instead of going quiet. Key those by symbol name or anchor text.
 
 ---
 
@@ -163,7 +172,7 @@ export const SchemaRenderer = ({ schema }: { schema: BaseSchema }) => {
   - 别再按"feature 要写、bug 修复不用"来判断 —— 正是这个旧判据让三条用户可见的修复(`19716b5bf` fix(charts)、`5e7ef1141` fix(i18n)、`0e50440` #3518)搭顺风车发了出去,任何 CHANGELOG/版本号/发布记录里都查不到:平台侧的发布判据(objectstack#4731/#4843)读的就是本仓声明的 changeset。
   - 本地先自查:`node scripts/check-changeset-presence.mjs`(未提交的 changeset 也算)。
 
-### 怎么跑测试(有两种写法会静默假绿 —— 现已机械拦截)
+### 怎么跑测试(有些写法会静默假绿 —— 现已机械拦截)
 
 **唯一正确的跑法:在【仓库根目录】执行,路径相对仓根书写,前面不要加 `--`。**
 
@@ -174,9 +183,11 @@ pnpm test                                                # 全量(CI 就是它,�
 ```
 
 AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩小范围**,不是 `cd` 进包里。
-`pnpm --filter <pkg> test` 与 `turbo run test` **现在是安全的**(objectui#3240):每个包的
-`test` 脚本都改成了显式指回仓根的 `vitest run --root ../.. packages/<pkg>/`,跑的就是仓根
-那一份配置、和 CI 同一个结论;它们只是比上面的写法多绕一层。
+`pnpm --filter <pkg> test` 与 `turbo run test` **不再静默假绿**(objectui#3240):每个包的
+`test` 脚本都改成了显式指回仓根的 `vitest run --root ../.. packages/<pkg>/`,跑的**就是仓根
+那一份配置**;它们只是比上面的写法多绕一层。⛔ 但**同一份配置不等于同一个结论**:#3240 移的
+是 **vitest 的 root**,`process.cwd()` **不动**,包级形式下它仍是 `packages/<pkg>/` —— 见下面
+最后一条。要和 CI 得出同一个结论,就用上面那三条仓根写法。
 
 - **陷阱一:让 vitest 的 cwd 落在包目录里(objectui#3378)。** 今天只剩
   `cd packages/x && pnpm exec vitest` 这一种写法(改造前 `pnpm --filter <pkg> test` 和
@@ -190,9 +201,12 @@ AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩�
   pnpm 把 `--` **原样**转发进脚本,vitest 的 CLI 解析在 `--` 处停止,后面的一切(包括你的路径)
   在 vitest 看到之前就没了 —— 不是「被忽略并警告」,是压根不存在。于是退回默认集合(叠加陷阱一
   就是别人的包),新加的测试文件零执行、输出全绿。
-- **两条现在都会直接失败**,由 `scripts/vitest-invocation-guard.mjs` 拦下:vitest root 不是仓根
-  → 拒绝;`--` 后面还有参数 → 拒绝。报错正文会指出机制并给出上面的正确命令。包级 `test` 脚本的
-  存废是 objectui#3240;在那之前它们只失败,不撒谎。
+- **上面的陷阱现在都会直接失败**,由 `scripts/vitest-invocation-guard.mjs` 拦下。⛔ **它今天拒绝
+  哪些形态不写在这里** —— 以 `scripts/__tests__/vitest-invocation-guard.test.ts` 为准,那份 pin
+  测试逐条钉住每个 verdict,guard 自己的文件头也是这么指的。⚠️ 理由是本文件的诫条 **#9**:写进散文的计数
+  只推导一次、此后永不复核,下一条拒绝加上来就把它证伪 —— 所以⛔ 别把本节展开的陷阱读成「就这些」,
+  拒绝集比它们大。报错正文会指出机制并给出上面的正确命令。包级 `test` 脚本的存废是 objectui#3240;
+  在那之前它们只失败,不撒谎。
   - **拦截点不止 `vitest.config.mts` 一处**(objectui#5406 / objectui#3240)。vitest 只加载
     「启动目录里的那份」config,所以根 config 顶部那一次调用,只覆盖得到「本目录没有任何
     config(向上找到根 config)」或「本目录 config import 了根 config」这两条路。
@@ -217,6 +231,17 @@ AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩�
   `examples/schema-catalog` 的 `vitest.config.*`(维护者 2026-08-06 裁决 A);某个包确实需要
   不同的 environment / setup / include,就在 `vitest.config.mts` 的 `projects` 里**加一个
   project**,不要在包里新开一份 config —— 一份 config 一个结论,是这条裁决的全部内容。
+- ⛔ **测试在断言里读文件系统,根定在它自己的文件上,永不定在 `process.cwd()`。** 包级形式的
+  cwd 是 `packages/<pkg>/`、仓根形式是仓根,同一个断言因此读到不同的树 —— 实测两次:
+  objectui#7791(PR #7796)同一个文件仓根 `7 passed`、包级 `2 failed / 5 passed`,cwd 是唯一
+  变量;objectui#7799(PR #7806)按 `packages/*/src` 普查,命中 19 个同类、13 个确有缺陷。
+  拼法用 PR #7796 落地、#7806 沿用的那一个:从**裸** `import.meta.url` 逐段上溯到仓根,
+  ⛔ 不引入第三种;`new URL(<相对路径>, import.meta.url)` 就是第三种,别写 —— 但理由只是「拼法唯一」。
+  这里曾断言它被 Vite 重写成 `http://localhost:3000/@fs/…`、`fileURLToPath` 在**两种 cwd 下都**抛
+  `ERR_INVALID_URL_SCHEME`;objectui#9191 按 `vitest.config.mts` 声明的每个 project 逐一实测,未能复现
+  —— node 与 happy-dom 两种 environment、两种 cwd 下 `import.meta.url` 都是 `file:` URL,文件读得到。
+  `@fs` 那个形状是 Vite dev-server/浏览器变换的产物,本仓测试不声明 browser mode,不走那条路。
+  ⚠️ **`process.cwd()` 那一类已由 `pnpm check:test-path-roots` 拦下,这个拼法它按设计不拦**(理由写在该脚本头部)。
 
 ### 测试纪律(flaky 测试:先找竞态,别调超时)
 
@@ -302,7 +327,7 @@ AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩�
   ```
 
   实测是从 REST 端点发起的;405 正文那句 `Changes must be made through the merge queue` 拒绝的是**「直接合并」这个动作**本身,不是某个客户端,所以旧文教的 `gh pr merge --squash --delete-branch`(不带 `--auto`)这条收尾路径同样不成立(`gh` 具体报什么文案随版本变,**别按文案去猜**,认准下面的入队路径)。**撞上这个 405 不是你权限不够** —— 别去试更强的手段,也别以为要等人工审批。
-- **CI 全绿即自行合并,不必等维护者确认**(授权语义没变,变的只是动作;⛔ **例外:diff 命中受管面的 PR 不适用本条** —— 见下方「受管面」,那类 PR 停在 draft 等人类合并)—— 修改完成后**只提交你任务改动的文件**(逐路径 `git add <file>`,绝不 `git add -A` 扫入无关 diff),开 **draft** PR;等远端 CI 全绿后:
+- **CI 全绿即自行合并,不必等维护者确认**(授权语义没变,变的只是动作;⛔ **例外:diff 命中受管面的 PR 不适用本条** —— 见下方「受管面」,那类 PR 停在 draft 等一条获授权的批准,再由认领席落地)—— 修改完成后**只提交你任务改动的文件**(逐路径 `git add <file>`,绝不 `git add -A` 扫入无关 diff),开 **draft** PR;等远端 CI 全绿后:
 
   ```bash
   gh pr ready <n>                                    # 退出 draft
@@ -374,6 +399,9 @@ git cat-file -e origin/main:.github/workflows/ci.yml    # 阳性对照:必须解
 **阳性对照不是可选项。** 没有它,一个打错的路径和一次真实的缺席给出完全相同的退出码,而你会把前者读成
 后者。
 
+**改 `.github/workflows/X.yml` 之前,先把读它的测试推导出来、别凭名字回忆:** `git grep -l 'X.yml' -- '**/__tests__/**' '**/*.test.*'`,命中逐个本地跑。
+一次 workflow 编辑把一个没列出来的钉子弄红,是对这条习惯的发现,⛔ 不是对那一轮的发现;这条搜索两个方向都会错,它看不见的那半记在 objectui#9198 上,不在本条覆盖内。
+
 #### ⛔ 对照本身还有一个洞:**枚举**和**读取**必须来自不同来源才验得动
 
 `origin/main` 阅读规则覆盖的是文件**内容**,**不覆盖文件枚举**。把工作树 glob 喂给逐文件的 `origin/main`
@@ -425,11 +453,16 @@ ls <dir>/* | wc -l                                   # 两个数不等 ⇒ 工�
 命中**。⇒ ⛔ **不是通道不可用** —— 死通道不会返回 3 条。失灵的是那一次查询(失败的那条是**长的、近
 乎逐字的标题**,可用的那条是短关键词)。所以规则不是「别用 search」,而是:
 
-- **非空结果自我验证,不需要对照;空结果永远需要一个「已知必中」的对照** —— 例如某个你能用 `issue_read` 直接读到的 issue 的近逐字标题。⛔ **没跑对照的空结果不是一次读数**:它不携带任何信息,而它渲染出来恰好就是去重步骤想要的那个答案(「没有重复」),与真负例**不可区分**,不做对照就**不可证伪**。失败形态不是「报错然后重试」,是「立了一张重复卡、没人纠正、下一个席位再立一次」。
+- **非空结果只自我验证「通道还活着」,⛔ 不验证它报出来的那个大小;任何声称总体大小的读数 —— 一个零,或一个计数 —— 都要在同一次运行里带一个会响的「已知必中」对照** —— 例如某个你能用 `issue_read` 直接读到的 issue 的近逐字标题。⛔ **没跑对照的空结果不是一次读数**:它不携带任何信息,而它渲染出来恰好就是去重步骤想要的那个答案(「没有重复」),与真负例**不可区分**,不做对照就**不可证伪**。失败形态不是「报错然后重试」,是「立了一张重复卡、没人纠正、下一个席位再立一次」。⚠️ **非零的那一半失败形态不同,而且更难看见**:一个锚在数据并不遵守的边界上的模式,给出的不是错误而是一个**自信的计数** —— 它既可能把散文算进总体,也可能漏掉另一种拼写,而一个数字读上去正好就像一次成功的测量。⇒ 计数和零一样,不带对照就不是读数。
+- **一条被发布的命令,必须在它被印出的那个形态下可复现。** 读数对、而印在它旁边的命令错,是这一类最常见的一半:命令在作者脑子里跑的是一份**蒸馏过**的输入,发布出去的那一行却要落在原始语料上 —— 下一个照抄重跑的人拿到的是一个**自信的零**,而在这里零读作「这个发现根本不存在」。⇒ 发布之前,把你要印出去的那一行**原样**再跑一次;蒸馏过的输入必须和命令一起写下来,否则它不存在。
 - **每次查询都跑,不是每个会话跑一次。**「这个通道十分钟前还好好的」不是关于你眼前这次查询的证据。
 - **兜底通道**:零配额的 GitHub 网页 payload 通道实测可用(同一次去重里返回 8 个 issue 号,含 `search_issues` 看不见的那个),**它要跑同一条对照** —— 它只是「某一天、某一个容器里被测过可用」,不是永久答案。
 - ⭐ **已诊断的成因:`word:word` 形状的 token 被当成搜索 qualifier,静默清零整条查询。** MCP `search_issues` 把你的查询文本**逐字**贴进 GitHub search 的 `q=`,所以 GitHub 的 qualifier 语法在你以为是自由文本的地方是**活的**:粘进来的 issue 文本里一个裸的 `word:word` token(`page:header`、`record:quick_actions`、`ui:text`、`check:`、`pm:` 一类)会被解析成一个 **qualifier**,与其余词 AND 在一起,匹配不到任何东西,返回一个静默的 `total_count: 0`。实测最小对 —— 词与词序完全相同,唯一差别是一对反引号:`resolve record:quick_actions does` → **0**;把中间那个 token 用反引号包起来 → **17**。**本仓格外暴露**:这个产品的组件键本身就是 `word:word`,抽样 345 条标题里 **33 条(9.6%)**带一个 ⇒ 近逐字标题的去重查询,大约**每十次就有一次**被静默清零。⇒ **把任何标题或正文文本贴进 `search_issues` 之前,先给每个 `word:word` token 加反引号,或者把冒号换成空格** —— 前导反引号会打断 qualifier 解析。⚠️ **有意写的 qualifier 照常生效、照常有用**(`in:title`、`state:closed` 实测都被正常执行)—— 危险的只是无意撞上的那些。⛔ 这条**不取代**上面的对照要求:空结果依然永远需要一个「已知必中」的对照。
 - **两个看着更像的候选都已实测排除**,别再往那个方向追:**不是索引延迟** —— 长查询漏掉的那个 issue,同一次运行里短查询就返回了,而长查询七分钟后重跑仍是 0;**不是读路径与搜索路径的 scope 差异** —— 搜索路径**看得见**那个 issue。⚠️ 连带一条更正:本容器里未认证 REST `/search/issues` 的 403 **不是 GitHub 发的**,是本容器自己的出口代理在执行「会话只绑定到它配置的那些仓库」的路径白名单,它对 GitHub 的搜索 scope 什么都没说 —— 读到状态码就下结论、没读随之而来的 body,正是它一度被当成 scope 证据的原因。
+
+#### ⛔ 「这个声明键没有渲染器读」—— 一次源码 grep 的零答不了这个问题
+
+`SchemaRenderer` 把节点剩下的键当作 React props 交给组件(剥离元数据键的那次解构,和紧跟它的那个 spread,都在 `packages/react/src/SchemaRenderer.tsx` 里),所以**一个渲染器可以消费一个它从不指名的键**。⇒ 一次 `schema.KEY` 的 grep 看不见这条通道,只会返回一个自信的零;而对 `...props` 做一次 `grep -l` **也不是**仪器 —— 转发的和不转发的渲染器**都**命中,且粒度是**那个渲染函数的签名**而不是文件(同一个文件里可以同时住着一个转发的注册和一个不转发的注册)。⇒ 主张某个声明键惰性的卡,**必须带一次运行期读数**:objectui#6158 用的那把尺(`next build` 之后读预渲染 HTML),或者一次真 `SchemaRenderer` + 真注册表、只变那一个键的探针。⛔ 源码 grep 不算,⛔ 也不要据此去枚举「受影响的键」。重测一个已裁定的退役之前,先读 `packages/types/src/__tests__/zod-mirror-parity.test.ts` 里那些 `RUNTIME SLOT` 条目 —— 它们逐组件记着这条通道,而这个类**已经导致过一次建立在假前提上的裁定**(objectui#8236)。
 
 ### ⚠️ GitHub 会改写你写进 issue/PR 正文的字节 —— 每次发布后回读
 
@@ -462,7 +495,7 @@ ls <dir>/* | wc -l                                   # 两个数不等 ⇒ 工�
 ⇒ ⭐ **回读发现正文「变短」时,先看渲染后的页面,再决定要不要修。** 一次不必要的重写会毁掉一张本
 来正确的卡 —— 而在受管面上,那是不可恢复的。
 
-### ⛔ 受管面(governed surface):agent 起草,人类合并
+### ⛔ 受管面(governed surface):agent 起草,获授权批准后由认领席落地
 
 维护者裁决(2026-08-18),**原文照录、不翻译** —— 提问明确点名了本仓:
 
@@ -481,13 +514,13 @@ ls <dir>/* | wc -l                                   # 两个数不等 ⇒ 工�
 ⚠️ **两棵 skills 树都受管 —— 别把它们和 skill 的安装位置弄混:**
 
 - `.claude/skills/**` —— 内部 agent 工具,在 `.claude/**` 之内,**受管**。
-- `skills/**`(仓根,发布给使用者的那棵,如 `skills/objectui/`)—— **同样受管**,就是 `GOVERNED_SURFACES` 里的 `skills-catalog` 一项:只改 `skills/**` 的 PR 也**停在 draft 等人类合并**,⛔ 不翻 ready、不入队。`.agents/skills/` 是 skill 的**安装位置**(内容由 `skills-lock.json` 还原,第三方的那些被 gitignore),不是规程文本,**不受管**。
+- `skills/**`(仓根,发布给使用者的那棵,如 `skills/objectui/`)—— **同样受管**,就是 `GOVERNED_SURFACES` 里的 `skills-catalog` 一项:只改 `skills/**` 的 PR 也**停在 draft 等一条获授权的批准**,⛔ 批准前不翻 ready、不入队。`.agents/skills/` 是 skill 的**安装位置**(内容由 `skills-lock.json` 还原,第三方的那些被 gitignore),不是规程文本,**不受管**。
 
   两棵树名字像、内容都叫 skill,本段曾按「路径是不是以 `.claude/` 开头」把仓根那棵判成**不受管**、并要求照普通代码 PR 自行入队 —— **那是错的**,而且错在会被机械拒绝的方向上:`merge_group` 腿照样拒,照着那句话做的席位要赔上一整轮队列构建。判据以 `scripts/check-governed-queue-guard.mjs` 的 `GOVERNED_SURFACES` 为准,拿不准就直接问它:`node scripts/check-governed-queue-guard.mjs --test <paths…>`。
 
 **硬规则 —— PR 的 diff 命中受管面时:**
 
-⛔ 绝不 `gh pr ready`(不退出 draft)、⛔ 绝不加入合并队列、⛔ 绝不 `gh pr merge --auto` / `enable_pr_auto_merge`、⛔ 绝不自己合并。这类 PR **停在 draft,等人类合并**。**人类的那次合并动作本身就是审核记录** —— 不需要额外的逐 PR 批准点击,也别去等一个不存在的 approval。
+⇒ **命中即停 draft;⛔ 未获授权批准不 ready 不入队不自合、永不批准,获批后认领席落地。**「获授权批准」= `GOVERNED_APPROVERS`(`os-zhuang` / `hotlong`)里某个账号的一条 latest-decisive APPROVED review,DISMISSED 与被顶掉的不算(完整判据在下面那段);在它出现之前 ⛔ 绝不 `gh pr ready`(不退出 draft)、⛔ 绝不加入合并队列、⛔ 绝不 `gh pr merge --auto` / `enable_pr_auto_merge`、⛔ 绝不自己合并。**那条批准本身就是审核记录** —— 它出现之后,`gh pr ready` + `gh pr merge --squash --auto --delete-branch` 由**认领席**执行,照常走合并队列(维护者 2026-09-13 裁决 C,原文照录、不翻译:「C. approve 后不管后续改动都由席位落地:」)。
 
 ⛔ **第五条禁令 —— 绝不自己去留下那条 approval。** 上面四条管的是**落地**,这一条管的是**批准**:`scripts/check-governed-queue-guard.mjs` 的文件头部把它写成规范条款,它 `cleared` 分支的判定文本也印着同一句。此处**逐字照录、不译**(两处措辞不得漂移):
 
@@ -496,12 +529,12 @@ ls <dir>/* | wc -l                                   # 两个数不等 ⇒ 工�
 sha pin **退休**之后这条**更重、不是更轻**(维护者 2026-09-04 裁,#7606 执行、#7616 把新判据写进下面那段):一条获授权的 APPROVED review 现在清掉同一 PR 其后**每一次** push,于是在一个 agent 操作的 approver 账号与一次它自己放行的受管落地之间,**只剩这条规范禁令**。
 
 - **判据是 PR 的文件清单,不是 PR 的标题或描述。** 命中与否只看路径。
-- **混合 diff:一条命中即整个 PR 分叉,没有比例判断。** 99 个普通文件 + 1 个受管文件 = 整个 PR 等人类合并。其余部分急着落地,就把受管文件**拆成单独的 PR**,别用「占比很小」给自己开口子。
+- **混合 diff:一条命中即整个 PR 分叉,没有比例判断。** 99 个普通文件 + 1 个受管文件 = 整个 PR 等那条获授权的批准。其余部分急着落地,就把受管文件**拆成单独的 PR**,别用「占比很小」给自己开口子。
 - **起草不受限。** 写、推分支、开 PR、按 review 修改,每个席位照做不误;被保留的只有**落地**这一个动作。
 - **CI 全绿、已 review 都不构成例外。** 这类文件是后续每一次 dispatch 读的操作规程,绿灯说明不了它该不该成为规程。
 - **发现自己已经挂上了怎么办**:把 PR 转回 **draft** 是唯一能可靠退出合并队列的动作 —— 只调 `disable_pr_auto_merge` 会摘掉 auto-merge 但**不取消队列成员资格**,两个都要做。⚠️ 只回收**你自己**挂上的:本仓多 agent 共用同一 GitHub 身份,不是你设置的状态就属于别的 actor —— 去问、去报告,别替他回退。
 
-**本仓的机械兜底只有一件,而且它现在只报告、不拦截 —— 别读成一道拦得住的门,也别再读成「什么都没有」。** 本仓仍然没有 CODEOWNERS(核实:仓内不存在该文件),受管面上也没有钩子;但 `.github/workflows/governed-surface-guard.yml`(check 名 `Governed Surface Queue Guard`,判定逻辑在 `scripts/check-governed-queue-guard.mjs`)**是活的**:`pull_request` 腿是早期告警、**故意 exit 0**(受管 PR 停在 draft 正是健康终态,所以**绿不等于不受管**),`merge_group` 腿才是会拒绝的那条 —— 它要求 `GOVERNED_APPROVERS`(`os-zhuang` / `hotlong`)里某个账号的一条 latest-decisive APPROVED review,**留在哪个 commit 上都算**;DISMISSED 与被顶掉的批准(同一 reviewer 后续给了 CHANGES_REQUESTED)不算,该集合之外账号的 APPROVED 不算,review 列表为空或读不到则 fail closed —— 判定读的是**有没有一条人工批准记录**,不问它是对哪些字节给的(维护者 2026-09-04 裁,逐字未译:「你的门禁有问题，只需要有人工批准记录就行，不需要卡最新的提交。」;sha pin 是**退休**不是放宽,守卫里已没有任何判定读 `commit_id`)。⚠️ 已接受的代价:批准之后的 push 不再被这道门重审,一个已批准的受管 PR 可以带着批准者没读过的字节落地 —— 维护者接受这一点,而这道拒绝先印的补救仍是转回 draft、交人类合并。⚠️ 但它**尚未**是 required context:ruleset 开关只有维护者能翻(#6596,`pm:awaiting-maintainer`),**在翻转之前,那条拒绝腿只报告、不阻止队列**。事后一侧:`../objectstack` 的 report-only 合并后审计(`scripts/pm/check-governed-merges.mjs`)自 objectstack#9619 起**已覆盖本仓**(四个受管仓一次扫完),它把受管面的合并列出来,但同样不阻止任何事。⇒ 违规不再完全静默,但**仍然没有任何东西会替你拦下它**,这条规则的效力主要还是在于你读到了它并照做。**⛔ 别再把本段当成兜底工具的完整清单** —— 覆盖面以脚本自己的 `GOVERNED_SURFACES` 为准(它随树变化,本段不会);⚠️ 该清单曾与上面的受管面清单**并不一致**(脚本的集合含已发布 `skills/**`),这一分歧**已裁**:维护者第 5 场决裁批 #7 采 **Option A**(#6866 评论 5469339478)—— 已发布 `skills/**` **受管**,守卫的读法才是裁定的那个;该裁决**已随本段上方的清单落地**(#6866):上面五项已含 `skills/**`,与脚本的 `GOVERNED_SURFACES` 一致,曾经那条「仓根 `skills/**` 不受管、自行入队」的豁免**已作废**,⛔ 别再照它行事。
+**本仓的机械兜底只有一件,而且它现在只报告、不拦截 —— 别读成一道拦得住的门,也别再读成「什么都没有」。** 本仓仍然没有 CODEOWNERS(核实:仓内不存在该文件),受管面上也没有钩子;但 `.github/workflows/governed-surface-guard.yml`(check 名 `Governed Surface Queue Guard`,判定逻辑在 `scripts/check-governed-queue-guard.mjs`)**是活的**:`pull_request` 腿是早期告警、**故意 exit 0**(受管 PR 停在 draft 正是健康终态,所以**绿不等于不受管**),`merge_group` 腿才是会拒绝的那条 —— 它要求 `GOVERNED_APPROVERS`(`os-zhuang` / `hotlong`)里某个账号的一条 latest-decisive APPROVED review,**留在哪个 commit 上都算**;DISMISSED 与被顶掉的批准(同一 reviewer 后续给了 CHANGES_REQUESTED)不算,该集合之外账号的 APPROVED 不算,review 列表为空或读不到则 fail closed —— 判定读的是**有没有一条人工批准记录**,不问它是对哪些字节给的(维护者 2026-09-04 裁,逐字未译:「你的门禁有问题，只需要有人工批准记录就行，不需要卡最新的提交。」;sha pin 是**退休**不是放宽,守卫里已没有任何判定读 `commit_id`)。⚠️ 已接受的代价:批准之后的 push 不再被这道门重审,一个已批准的受管 PR 可以带着批准者没读过的字节落地 —— 维护者接受这一点,而这道拒绝先印的补救仍是转回 draft、交人类合并。⚠️ 而这条拒绝腿上的判据**不止上面那一条** —— #9018(PR #9212)给 `merge_group` 腿加了**第二条、与受管面完全无关的**判据:它枚举该 merge group 要落地的**每一个** PR(逐 commit 分解,不是只读 `merge_group.head_ref`),读每个 PR 的 label,其中任何一个仍挂着 `needs:contract-review` 就拒绝(**exit 6**);label 读不到、或该 group 指不出任何 PR,同样拒绝(**exit 7**)。⚠️ 这条判据读的是**挂在 PR 上的 label**,不读任何路径、不问 diff 命中了什么 —— ⇒ **一个 diff 完全没碰受管面的 merge group,现在也可能被这道 check 拒绝**;`pull_request` 腿不受影响,不读 label。⚠️ 但它**尚未**是 required context:ruleset 开关只有维护者能翻(#6596,`pm:awaiting-maintainer`),**在翻转之前,那条拒绝腿只报告、不阻止队列**。事后一侧:`../objectstack` 的 report-only 合并后审计(`scripts/pm/check-governed-merges.mjs`)自 objectstack#9619 起**已覆盖本仓**(四个受管仓一次扫完),它把受管面的合并列出来,但同样不阻止任何事。⇒ 违规不再完全静默,但**仍然没有任何东西会替你拦下它**,这条规则的效力主要还是在于你读到了它并照做。**⛔ 别再把本段当成兜底工具的完整清单** —— 覆盖面以脚本自己的 `GOVERNED_SURFACES` 为准(它随树变化,本段不会);⚠️ 该清单曾与上面的受管面清单**并不一致**(脚本的集合含已发布 `skills/**`),这一分歧**已裁**:维护者第 5 场决裁批 #7 采 **Option A**(#6866 评论 5469339478)—— 已发布 `skills/**` **受管**,守卫的读法才是裁定的那个;该裁决**已随本段上方的清单落地**(#6866):上面五项已含 `skills/**`,与脚本的 `GOVERNED_SURFACES` 一致,曾经那条「仓根 `skills/**` 不受管、自行入队」的豁免**已作废**,⛔ 别再照它行事。
 
 ### 服务纪律(本仓库与 `../objectstack` 多 agent 并行开发)
 

@@ -31,6 +31,7 @@ import {
   cn,
 } from '@object-ui/components';
 import { AlertTriangle } from 'lucide-react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useDetailTranslation } from './useDetailTranslation';
 
 export interface ConcurrentUpdateConflict {
@@ -72,14 +73,16 @@ const formatValue = (value: unknown): string => {
   }
 };
 
-const formatTimestamp = (raw: unknown): string | null => {
+const formatTimestamp = (raw: unknown, locale: string): string | null => {
   if (typeof raw !== 'string' || raw.length === 0) return null;
   // Backend ships SQL-style "YYYY-MM-DD HH:mm:ss.SSS"; normalise so Date parses it cross-browser.
   const iso = /\d{4}-\d{2}-\d{2}[ T]/.test(raw) ? raw.replace(' ', 'T') : raw;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   try {
-    return d.toLocaleString();
+    // The tag is DECLARED (objectui#9786) — a bare call formats in the
+    // machine's locale, which is neither the tenant's nor the user's channel.
+    return d.toLocaleString(locale);
   } catch {
     return d.toISOString();
   }
@@ -94,6 +97,8 @@ export const ConcurrentUpdateDialog: React.FC<ConcurrentUpdateDialogProps> = ({
   busy = false,
 }) => {
   const { t } = useDetailTranslation();
+  // The BCP-47 tag the racer's timestamp is formatted with (objectui#9786).
+  const displayLocale = useDisplayLocale();
   const fieldLabel = conflict?.label || conflict?.field || '';
   const pendingPreview = conflict ? formatValue(conflict.pendingValue) : '';
   const currentPreview = conflict ? formatValue(conflict.currentValue) : '';
@@ -116,7 +121,7 @@ export const ConcurrentUpdateDialog: React.FC<ConcurrentUpdateDialogProps> = ({
       id.length >= 16 && !/\s/.test(id) && /^[A-Za-z0-9_-]+$/.test(id);
     return looksLikeToken ? null : id;
   })();
-  const racerUpdatedAt = formatTimestamp(racer['updated_at'] ?? conflict?.currentVersion);
+  const racerUpdatedAt = formatTimestamp(racer['updated_at'] ?? conflict?.currentVersion, displayLocale);
 
   // Render the description with the field label bolded. We translate a string
   // that contains the literal placeholder "{{field}}" and split on it so we can

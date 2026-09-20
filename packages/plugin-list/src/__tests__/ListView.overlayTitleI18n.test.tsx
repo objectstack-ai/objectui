@@ -41,6 +41,16 @@
  * `ListView.overlayTitleNoProviderFallback.test.tsx` — it cannot live in this
  * file, because `createI18n` registers its instance as react-i18next's
  * module-global default and that registration survives `cleanup()`.
+ *
+ * ── The inline-locale-map arm (objectui#9373) ─────────────────────────────
+ * `label` is an `I18nLabel`, so an author may write an inline locale map
+ * instead of a string. The last case below covers the map on THIS leg — the
+ * i18next interpolator — and was RED before that change: the raw map reached
+ * the interpolation options and the heading read `[object Object]详情`. The
+ * provider-less `interpolateFallback` leg, the map's fall-through cases and
+ * the string negative control live in
+ * `ListView.overlayTitleInlineLocale-9373.test.tsx`, which must mount no
+ * provider for the reason stated just above.
  */
 
 import React from 'react';
@@ -51,7 +61,19 @@ import { ComponentRegistry } from '@object-ui/core';
 import { I18nProvider } from '@object-ui/i18n';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ListView } from '../ListView';
-import type { ListViewSchema } from '@object-ui/types';
+import type { DataSource, ListViewSchema } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are partial stubs carrying only the members the path under test calls;
+ * completing them would change which capability probes fire, and so would
+ * change what these tests measure.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 const rows = [{ id: '1', name: 'Alice' }];
 
@@ -89,7 +111,7 @@ afterEach(() => cleanup());
 function renderListIn(language: string, schemaExtra: Partial<ListViewSchema>) {
   return render(
     <I18nProvider config={{ defaultLanguage: language, detectBrowserLanguage: false }}>
-      <SchemaRendererProvider dataSource={mockDataSource}>
+      <SchemaRendererProvider dataSource={mockDataSource as unknown as DataSource}>
         <ListView
           schema={{
             type: 'list-view',
@@ -168,7 +190,7 @@ describe('ListView record-detail overlay heading (objectui#3426)', () => {
   it('reuses detail.recordDetail when the schema names nothing', async () => {
     render(
       <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false }}>
-        <SchemaRendererProvider dataSource={mockDataSource}>
+        <SchemaRendererProvider dataSource={mockDataSource as unknown as DataSource}>
           <ListView
             schema={{
               type: 'list-view',
@@ -185,5 +207,21 @@ describe('ListView record-detail overlay heading (objectui#3426)', () => {
     await openOverlay();
 
     expect(screen.getByText('记录详情')).toBeInTheDocument();
+  });
+
+  /**
+   * The map arm on the i18next interpolator (objectui#9373). `label` admits an
+   * inline locale map, and handing that object to the options bag stringifies
+   * it — the heading named the record `[object Object]` in every session. The
+   * `zh` entry is asserted rather than `en` so the reading also shows the
+   * resolution honouring the audience locale rather than always answering the
+   * first key.
+   */
+  it('resolves an inline locale map for the session locale', async () => {
+    renderListIn('zh', { label: { en: 'Contacts', zh: '联系人' } as ListViewSchema['label'] });
+    await openOverlay();
+
+    expect(screen.getByText('联系人详情')).toBeInTheDocument();
+    expect(screen.queryByText('[object Object]详情')).toBeNull();
   });
 });

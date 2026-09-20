@@ -254,7 +254,7 @@ describe('deprecated component types are refused across the catalog (#3965, clos
     // mode every arm above would read as green.
     const found = new Map<string, number>();
     countDeprecated(
-      { type: 'stack', children: [{ type: 'div', body: [{ type: 'span' }] }, { type: 'card' }] },
+      { type: 'stack', children: [{ type: 'div', children: [{ type: 'span' }] }, { type: 'card' }] },
       found,
     );
     expect(found.get('div')).toBe(1);

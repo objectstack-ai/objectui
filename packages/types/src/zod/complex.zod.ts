@@ -17,17 +17,14 @@
  */
 
 import { z } from 'zod';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { handlerKeyRefusal, retiredNodeType, retirementTombstone } from './tombstone.zod.js';
 import {
   ChartTypeSchema as SpecChartTypeSchema,
   DashboardSchema as SpecDashboardSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   GlobalFilterSchema as SpecGlobalFilterSchema,
-  GroupingConfigSchema as SpecGroupingConfigSchema,
-  NavigationConfigSchema as SpecNavigationConfigSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
-import { KanbanConditionalFormattingRuleSchema } from './objectql.zod.js';
 import { DASHBOARD_COLOR_VARIANTS, DASHBOARD_WIDGET_TYPES } from '../designer.js';
 import {
   DASHBOARD_COMPONENT_WIDGET_TYPES,
@@ -89,35 +86,12 @@ const retiredDeclarativeKanbanKey = (key: string, where: string, remedy: string)
       `an object-bound board, or \`columns[].cards[]\` for a static one. ${remedy}`,
   );
 
-/**
- * The ZERO-READ members this arm declared, named once so every refusal below
- * says the same thing (objectui#7742, ADR-0049, maintainer decision batch #70,
- * 2026-09-07: 「同意」).
- *
- * ⛔ Deliberately NOT {@link retiredDeclarativeKanbanKey}. That helper's message
- * says the key "belonged to the retired `DeclarativeKanbanSchema` dialect",
- * which is TRUE of `draggable` and the column `color` and FALSE of these three:
- * they were members of the PLUGIN dialect objectui#7664 ruled authoritative,
- * carried over member-for-member, and retired one card later for a different
- * reason — declared on both faces, read by no registered board. Sharing the
- * older message would hand the author a false history of their own document.
- *
- * The zeros are readings, not a dead grep: measured over
- * `packages/plugin-kanban/src` with every file including tests, `allowCollapse`
- * / `cardTemplates` / `columnWidths` returned 0 hits / 0 files while `groupBy`
- * (85/27), `cardTitle` (18/9) and `coverImageField` (17/3) fired as controls on
- * the same instrument.
- *
- * Refused BY NAME rather than dropped, for the reason this file states twice
- * already: {@link BaseSchema} is `.passthrough()`, so a dropped key is KEPT,
- * not refused.
- */
-const retiredZeroReadKanbanKey = (key: string, taught: string, remedy: string) =>
-  retirementTombstone(
-    `\`${key}\` is RETIRED (objectui#7742, ADR-0049) — the \`kanban\` arm declared ` +
-      'it on both faces and NO registered board ever read it, so a document that set ' +
-      `it validated green and changed nothing. ${taught} ${remedy}`,
-  );
+// ⛔ `retiredZeroReadKanbanKey` RETIRED with its only three call sites
+// (objectui#8802): `allowCollapse` / `cardTemplates` / `columnWidths` were
+// tombstones on the `kanban` arm, and the arm itself is gone. The batch #70
+// refusals it carried were arm-scoped by construction — a `type: "kanban"`
+// document is now refused whole, and a `type: "object-kanban"` one is judged by
+// `objectql.zod.ts#ObjectKanbanSchema` exactly as it always was.
 
 /**
  * Kanban Card Schema — mirrors {@link KanbanCard} in `../complex.ts` key for key.
@@ -160,7 +134,7 @@ export const KanbanColumnSchema = z.object({
   cards: z.array(KanbanCardSchema).describe('Column cards'),
   limit: z.number().optional().describe('WIP limit — the card count at which the lane warns'),
   className: z.string().optional().describe('Column class name'),
-  collapsed: z.boolean().optional().describe('Whether the lane renders collapsed (honoured by the enhanced board)'),
+  collapsed: z.boolean().optional().describe('Whether the lane renders collapsed — narrowed to a title spine with its cards withheld, and reopenable by the viewer; the authored value is the initial state'),
   color: retiredDeclarativeKanbanKey('color', 'column', 'Style a lane through its `className`.'),
 });
 
@@ -185,68 +159,35 @@ export const ColumnWidthConfigSchema = z.object({
 });
 
 /**
- * Kanban Schema — the `'kanban'` arm of {@link ComplexSchema}, mirroring
- * {@link KanbanSchema} in `../complex.ts` key for key: the shape
- * `@object-ui/plugin-kanban`'s registered renderers read (objectui#7664).
+ * ⛔ The `'kanban'` arm is RETIRED (objectui#8802, maintainer ruling 2026-09-09)
+ * — this is its NAMED REFUSAL, the half a deletion would not have given.
  *
- * `onCardMove` / `onCardClick` / `onQuickAdd` are RUNTIME SLOTS (objectui#6124):
- * `KanbanRenderer` forwards all three off `schema.*` in one block, so the
- * TypeScript twin keeps them callable and this mirror refuses them by name.
- * ⛔ None of the three may be dropped instead of refused — `BaseSchema` is
- * `.passthrough()`, so a dropped key is KEPT rather than refused (the first cut
- * of objectui#7664 dropped `onCardClick` and turned a refused document into an
- * accepted one). `onColumnAdd` / `onCardAdd` are the two
- * retired handler keys carried over from the declarative face so the successor
- * arm keeps refusing the spelling; `draggable` is that face's own retired key.
- * `conditionalFormatting` and `grouping` are the same schemas the `object-kanban`
- * and `object-gallery` arms use (`objectql.zod.ts`, `@objectstack/spec`).
+ * {@link KanbanSchema}'s member-by-member mirror of `../complex.ts` went with
+ * the TypeScript interface. What stays is an arm claiming the literal, so
+ * `AnyComponentSchema`'s discriminator still routes a `type: "kanban"` document
+ * HERE and the author reads why the spelling went and what to write instead —
+ * rather than the union's own remedy-free `Invalid input`.
+ *
+ * ⚠️ Read `retiredNodeType`'s own docblock before changing this: the reason an
+ * arm is needed at all is NOT `BaseSchema`'s `.passthrough()` (that rule governs
+ * dropped MEMBER keys), it is that the union's generic discriminator message
+ * names no remedy.
+ *
+ * The keys this arm alone declared — `columns`, `cardTitle`, `swimlaneField`,
+ * `grouping`, `conditionalFormatting`, `navigation` — were never on the
+ * `object-kanban` face (`objectql.zod.ts#ObjectKanbanSchema`) and are not being
+ * removed from it: an `object-kanban` document is judged exactly as it was.
+ *
+ * Pinned in `../__tests__/bare-kanban-node-key-retired-8802.test.ts`.
  */
-export const KanbanSchema = BaseSchema.extend({
-  type: z.literal('kanban'),
-  objectName: z.string().optional().describe('Object name to fetch data from'),
-  groupBy: z.string().optional().describe('Field to group records by (maps to column IDs)'),
-  swimlaneField: z.string().optional().describe('Field for swimlane rows (2D grouping)'),
-  cardTitle: z.string().optional().describe('Field to use as the card title'),
-  cardFields: z.array(z.string()).optional().describe('Fields to display on the card'),
-  data: z.array(z.any()).optional().describe('Static data or bound data (raw rows)'),
-  limit: z.number().optional().describe('Row cap for the fetch (defaults to 100)'),
-  columns: z.array(KanbanColumnSchema).optional().describe('Columns to display, each carrying its cards'),
-  onCardMove: handlerKeyRefusal('onCardMove', 'runtime-slot', 'Card move handler'),
-  onCardClick: handlerKeyRefusal('onCardClick', 'runtime-slot', 'Card click handler'),
-  className: z.string().optional().describe('CSS class name'),
-  quickAdd: z.boolean().optional().describe('Enable the Quick Add button at the bottom of each column'),
-  onQuickAdd: handlerKeyRefusal('onQuickAdd', 'runtime-slot', 'Quick Add handler'),
-  coverImageField: z.string().optional().describe('Field name to use as cover image on cards'),
-  allowCollapse: retiredZeroReadKanbanKey(
-    'allowCollapse',
-    'The capability exists on another channel:',
-    'the enhanced board collapses a lane off that lane\'s own `collapsed` key, so write `columns[].collapsed`.',
-  ),
-  conditionalFormatting: z.array(KanbanConditionalFormattingRuleSchema).optional().describe('Card conditional formatting rules'),
-  cardTemplates: retiredZeroReadKanbanKey(
-    'cardTemplates',
-    'The capability exists on another channel:',
-    '`CardTemplates` takes its `templates` as a COMPONENT PROP, not off the board node; there is no authorable spelling for it.',
-  ),
-  columnWidths: retiredZeroReadKanbanKey(
-    'columnWidths',
-    'The capability exists on another channel:',
-    '`useColumnWidths` takes its `ColumnWidthConfig` as a HOOK OPTION, not off the board node; there is no authorable spelling for it. (The grid surface has an unrelated key of the same name — that one is untouched.)',
-  ),
-  grouping: stripImportedDefaults(SpecGroupingConfigSchema).optional().describe('Grouping configuration from ListView; its first field is the swimlaneField fallback'),
-  navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Record navigation behaviour on card click (drawer/dialog/page)'),
-  titleField: retirementTombstone(
-    '`titleField` is RETIRED on the `kanban` arm (objectui#7742, ADR-0049) — one arm, one ' +
-      'spelling. Write `cardTitle`, which selects the same record field and which this arm ' +
-      'has always declared. ⛔ This is NOT an inertness retirement: `ObjectKanban` still ' +
-      'reads the key, because the SIBLING `object-kanban` arm declares it and keeps it ' +
-      '(objectui#7322 item ②). A `type: "object-kanban"` document naming `titleField` is ' +
-      'still accepted; a `type: "kanban"` one is not.',
-  ),
-  draggable: retiredDeclarativeKanbanKey('draggable', 'board', 'Drag-and-drop is always on; delete the key.'),
-  onColumnAdd: handlerKeyRefusal('onColumnAdd', 'retired', 'Column add handler'),
-  onCardAdd: handlerKeyRefusal('onCardAdd', 'retired', 'Card add handler'),
-});
+export const RetiredKanbanNodeSchema = retiredNodeType(
+  'kanban',
+  'Author `object-kanban` instead — the same board, the same renderer, and the ' +
+    'spelling every stored kanban view already renders through (`ObjectView` maps a ' +
+    'stored `kanban` view type onto the `object-kanban` node type). ⚠️ The STORED ' +
+    '`NamedListView.type` value `"kanban"` is a DIFFERENT layer and is unaffected — ' +
+    'do not rewrite it.',
+);
 
 /**
  * Calendar View Mode — the registered renderer's rendered set.
@@ -324,6 +265,22 @@ export const CalendarViewSchema = BaseSchema.extend({
   // `onViewChange` below.
   onEventClick: handlerKeyRefusal('onEventClick', 'runtime-slot', 'Host-only event click handler'),
   onViewChange: handlerKeyRefusal('onViewChange', 'runtime-slot', 'Host-only view change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`, '
+    + '`titleField`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`, '
+    + '`titleField`.',
+  ),
 });
 
 /**
@@ -541,6 +498,20 @@ export const FilterBuilderSchema = BaseSchema.extend({
   maxDepth: z.number().optional().describe('Maximum nesting depth'),
   // Applied at renderers/complex/filter-builder.tsx:37 as `className={schema.wrapperClass || ''}`.
   wrapperClass: z.string().optional().describe('Outer wrapper classes for the filter builder (objectui#6150)'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `fields`, `label`, `name`, `value`, `wrapperClass`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `fields`, `label`, `name`, `value`, `wrapperClass`.',
+  ),
 });
 
 /**
@@ -570,6 +541,20 @@ export const CarouselSchema = BaseSchema.extend({
   itemsPerView: z.number().optional().describe('Items per view'),
   gap: z.number().optional().describe('Gap between items'),
   onSlideChange: handlerKeyRefusal('onSlideChange', 'retired', 'Slide change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `carousel` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `itemClassName`, `items`, `opts`, `orientation`, `showArrows`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `carousel` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `itemClassName`, `items`, `opts`, `orientation`, `showArrows`.',
+  ),
 });
 
 /**
@@ -596,6 +581,20 @@ export const ChatToolInvocationSchema = z.object({
     ])
     .optional()
     .describe('Tool invocation state'),
+  // Mirrors `ChatToolInvocation.approval` in ../complex.ts. The AI SDK v6
+  // tool-part union requires this envelope alongside the three approval
+  // states; the pairing itself is objectui#8426's narrowing and is NOT
+  // enforced here, so this arm stays independently optional (objectui#8442).
+  approval: z
+    .object({
+      id: z.string().describe('Approval request id — the key a decision is replied on'),
+      approved: z.boolean().optional().describe('The decision, once made'),
+      reason: z.string().optional().describe('Free-text reason supplied with the decision'),
+      isAutomatic: z.boolean().optional().describe('True when policy decided without a human'),
+      signature: z.string().optional().describe('Signature over the approval, when signed'),
+    })
+    .optional()
+    .describe('AI SDK approval envelope for a tool call awaiting or carrying a human decision'),
 });
 
 export const ChatMessageSourceSchema = z.object({
@@ -683,7 +682,14 @@ export const ChatbotSchema = BaseSchema.extend({
   model: z.string().optional().describe('AI model identifier'),
   streamingEnabled: z.boolean().optional().describe('Enable streaming responses'),
   headers: z.record(z.string(), z.string()).optional().describe('Additional API headers'),
-  body: z.record(z.string(), z.unknown()).optional().describe('Additional API body params'),
+  body: retirementTombstone(
+    'REFUSED (objectui#8572, ADR-0049) — `body` is the CONTENT slot on every other component, and '
+    + '`chatbot` reads NEITHER content channel; this arm restated it as the chat API body params, the one '
+    + 'place in this vocabulary where the key carried two meanings. Author the chat API params as '
+    + '`requestBody` instead — the key the registration forwards to the chat runtime as its `body` option, '
+    + 'and the key the `chatbot-enhanced` and `chatbot-floating` twins already declare. Delete `body` here: '
+    + 'nothing renders it, and nothing sends it.',
+  ),
   /** @deprecated objectui#5605 — inert; nothing reads it. Cap loops on the agent (`planning.maxIterations`). Slated for removal. */
   maxToolRoundtrips: z.number().optional()
     .describe('DEPRECATED (inert, slated for removal) — Max tool-calling round-trips. Nothing reads this; cap tool loops on the agent via planning.maxIterations'),
@@ -703,6 +709,16 @@ export const ChatbotSchema = BaseSchema.extend({
   autoResponseText: z.string().optional().describe('Text of the local auto-response'),
   autoResponseDelay: z.number().optional().describe('Delay in milliseconds before the local auto-response is sent'),
   onSend: handlerKeyRefusal('onSend', 'runtime-slot', 'Called after a message is sent, in both API and local auto-response mode'),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`, `maxHeight`, '
+    + '`maxToolRoundtrips`, `messages`, `model`, `onError`, `onSend`, `placeholder`, `requestBody`, '
+    + '`showTimestamp`, `streamingEnabled`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
+  ),
 });
 
 /**
@@ -712,13 +728,19 @@ export const ChatbotSchema = BaseSchema.extend({
  * Not exported: it is a census, not a mirror, and the parity census in
  * `__tests__/zod-mirror-parity.test.ts` registers `export const`s only.
  *
- * `requestBody` is deliberately NOT in this pick. `ChatbotSchema` above mirrors
- * the API body params under the key `body`, which collides with `BaseSchema`'s
- * `body` children slot — the naming collision the parity ledger records under
- * `KnownDrift`. The two twins below mirror the key the renderer actually reads,
- * `requestBody`, and inherit `body` as the children slot, so they are born
- * without the collision. Ruling on `ChatbotSchema`'s own `body` arm is a
- * separate question and is not decided here.
+ * `requestBody` is deliberately NOT in this pick, and cannot be: the two twins
+ * below mirror the key the renderer actually reads, while `ChatbotSchema` above
+ * does not declare it at all — it rides through `.passthrough()` there, the
+ * state `__tests__/zod-mirror-parity.test.ts` records under
+ * `UnmirroredDeclared`. Picking a key this shape does not hold would pick
+ * nothing.
+ *
+ * ⚠️ This note used to end "ruling on `ChatbotSchema`'s own `body` arm is a
+ * separate question and is not decided here". It has been decided: ruling A on
+ * objectui#8572 (decision batch #137, item 4, 2026-09-15) retires that arm, and
+ * `body` is a `retirementTombstone` on `ChatbotSchema` above. ⇒ the naming
+ * collision this pick was built to sidestep no longer exists on any of the
+ * three chatbot faces — they now agree that `body` is not theirs to read.
  */
 const ChatbotSharedMirrorShape = ChatbotSchema.pick({
   messages: true,
@@ -771,6 +793,36 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
   surface: z.enum(['card', 'plain']).optional()
     .describe("Visual chrome for the chat surface: 'card' bordered panel (default) or 'plain' frameless full-page workspace (objectui#6687)"),
   onClear: chatbotOnClearArm(),
+  // Declared HERE rather than inherited, because objectui#6771's retirement
+  // of `BaseSchema.body` refuses the key with a message naming `children` —
+  // which is the right remedy on every node except this family, where
+  // `children` is refused too and the key an author actually wants is
+  // `requestBody`. The sentence below is the one this node's `children`
+  // tombstone already asserts about BOTH channels; only the declaration was
+  // missing, and inheriting a wrong remedy is worse than inheriting none.
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot-enhanced` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`headers`, `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
+    + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot-enhanced` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`headers`, `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
+    + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
+  ),
 });
 
 /**
@@ -805,6 +857,36 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
   enableMarkdown: chatbotEnableMarkdownArm(),
   enableFileUpload: chatbotEnableFileUploadArm(),
   onClear: chatbotOnClearArm(),
+  // Declared HERE rather than inherited, because objectui#6771's retirement
+  // of `BaseSchema.body` refuses the key with a message naming `children` —
+  // which is the right remedy on every node except this family, where
+  // `children` is refused too and the key an author actually wants is
+  // `requestBody`. The sentence below is the one this node's `children`
+  // tombstone already asserts about BOTH channels; only the declaration was
+  // missing, and inheriting a wrong remedy is worse than inheriting none.
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot-floating` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`floatingConfig`, `headers`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
+    + '`userAvatarFallback`, `userAvatarUrl`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot-floating` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`floatingConfig`, `headers`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
+    + '`userAvatarFallback`, `userAvatarUrl`.',
+  ),
 });
 
 /**
@@ -1110,6 +1192,22 @@ export const DashboardComponentSchema = BaseSchema.extend(SpecDashboardFields.sh
     defaultRange: z.string().optional(),
     allowCustomRange: z.boolean().optional(),
   }).optional().describe('Built-in date range filter'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `columns`, `dateRange`, `description`, `gap`, `globalFilters`, '
+    + '`header`, `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `columns`, `dateRange`, `description`, `gap`, `globalFilters`, '
+    + '`header`, `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets`.',
+  ),
 });
 
 /**
@@ -1183,7 +1281,7 @@ export const DashboardConfigSchema = z.object({
  * Complex Schema Union - All complex component schemas
  */
 export const ComplexSchema = z.discriminatedUnion('type', [
-  KanbanSchema,
+  RetiredKanbanNodeSchema,
   CalendarViewSchema,
   FilterBuilderSchema,
   CarouselSchema,

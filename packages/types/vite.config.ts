@@ -49,9 +49,17 @@ if (process.env.VITEST) {
  * expected set from tsconfig and only counts PRESENCE, the `./zod` typings stay
  * `tsc`'s own, and no `exports` / `files` / `sideEffects` field moves.
  *
- * ⛔ `emptyOutDir` MUST stay false. `dist/` holds `tsc`'s 124 files by the time
- * this runs, and the default for an `outDir` inside the project root is to empty
- * it — which would delete the whole published package and leave one bundle.
+ * ⛔ `emptyOutDir` MUST stay false — and what a flip actually costs is stated
+ * here exactly, because this comment used to overstate it (objectui#8712).
+ * `outDir` is INSIDE the project root, so Vite's default is to empty it, and
+ * `tsc` has already written all of `dist/` by the time this runs. Measured on
+ * `2596b1b85` with `vite build --emptyOutDir`: `dist/` went 128 files → 89, all
+ * of the loss inside `dist/zod/` (40 → 1) — the `./zod` typings and every
+ * per-category zod module. So the flip empties that ONE directory rather than
+ * the published package as a whole, and it is not silent: `vite build` itself
+ * exits 0, and the build script's third step then reds with
+ * `missing 39 of 128 files tsc emits`. A gate one step later is still a
+ * published package built wrong, so the setting stays false.
  */
 export default defineConfig({
   build: {

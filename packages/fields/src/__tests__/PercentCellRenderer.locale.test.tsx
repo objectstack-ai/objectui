@@ -17,14 +17,21 @@
  *       ? `${numValue.toFixed(precision)}%`   // a second bare toFixed path
  *       : formatPercent(numValue, precision); // no locale to pass
  *
- * The branch exists for a real reason — a field named `progress` / `completion`
- * stores 0-100, so it must NOT go through `percentDisplayValue`'s fraction
- * scaling — but it had quietly become a second place where a percent was
- * formatted, and it was the more primitive of the two. Threading only the
- * `formatPercent` half would have made ONE grid internally inconsistent: a
- * `progress` column ungrouped and unlocalized beside a `rate` column that was
- * neither. So both branches now render through the same locale-aware body and
- * differ only in the scaling policy, which is all the branch was ever about.
+ * The branch was believed to exist for a real reason — a field named
+ * `progress` / `completion` was taken to store 0-100, so it must NOT go
+ * through `percentDisplayValue`'s fraction scaling — but it had quietly become
+ * a second place where a percent was formatted, and it was the more primitive
+ * of the two. Threading only the `formatPercent` half would have made ONE grid
+ * internally inconsistent: a `progress` column ungrouped and unlocalized
+ * beside a `rate` column that was neither. So both branches rendered through
+ * the same locale-aware body and differed only in the scaling policy.
+ *
+ * ⚠️ That scaling policy is GONE (objectui#9452): the name never was evidence
+ * about the value, and the census in
+ * `PercentCellRenderer.nameKeyedScaling-9452.test.tsx` found no first-party
+ * producer it served. What this file still measures — the locale and the
+ * convention on every path — is unchanged, and so is every assertion below
+ * except the one marked as inverted.
  *
  * ── Directions, predicted in writing BEFORE the run ──────────────────────
  * Runner machine locale en-US.
@@ -116,26 +123,42 @@ describe('PercentCellRenderer follows the display locale (objectui#4553)', () =>
 
 describe('PercentCellRenderer keeps its scaling contract (objectui#4553 must-not-change)', () => {
   /**
-   * PIN, green both sides — and the reason the whole-percent branch was kept
-   * rather than collapsed into `formatPercent`. The same stored number means
-   * different things in the two columns, and that must not have changed.
+   * ⚠️ INVERTED by objectui#9452, deliberately — this assertion used to read
+   * `progress` + `0.5` as `1%` and was labelled must-not-change.
+   *
+   * Read what it was guarding before treating the inversion as a broken
+   * promise: objectui#4553's subject was the display LOCALE, and this block is
+   * that card's blast-radius guard — it pinned the magnitudes so a locale
+   * change could not move them silently. It was never a product ruling on
+   * which magnitude is right. objectui#9452 is the card that asked that
+   * question, and its census found the name test had no first-party producer
+   * that needed it and two that it misread. The magnitude now comes from
+   * `percentDisplayValue` on every name, so the two columns below agree.
+   *
+   * The guard itself survives intact and is still worth its place: a locale
+   * change must still not move a magnitude. The full before/after table and
+   * the census live in `PercentCellRenderer.nameKeyedScaling-9452.test.tsx`.
    */
-  it('an ordinary percent scales a fraction; a progress field does not', () => {
+  it('an ordinary percent and a progress field scale a fraction identically', () => {
     const { unmount } = renderCell(0.5, { name: 'win_rate' }, 'en');
     // Fraction-stored: 0.5 → 50%.
     expect(cellText()).toContain('50%');
     unmount();
 
     renderCell(0.5, { name: 'progress' }, 'en');
-    // Whole-percent field: 0.5 really is half a percent, rounded to 1% at
-    // precision 0 — NOT 50%.
-    expect(cellText()).toContain('1%');
-    expect(cellText()).not.toContain('50%');
+    // The column's NAME no longer reaches the scaling decision.
+    expect(cellText()).toContain('50%');
   });
 
-  /** PIN: small-value English output is byte-identical across the change. */
+  /**
+   * PIN: small-value English output is byte-identical across the change.
+   *
+   * The two-decimal width is declared with `scale`, ⛔ not `precision`
+   * (objectui#9295) — `precision` is the column's TOTAL digit count and this
+   * renderer no longer reads it.
+   */
   it('en small-value output is unchanged (must-not-change)', () => {
-    renderCell(33.33, { name: 'win_rate', precision: 2 }, 'en');
+    renderCell(33.33, { name: 'win_rate', scale: 2 }, 'en');
     expect(cellText()).toContain('33.33%');
   });
 

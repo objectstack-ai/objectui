@@ -225,14 +225,28 @@ export const FILTER_BUILDER_OPERATORS = defaultOperators.map(o => o.value)
 export type FilterBuilderOperator = (typeof defaultOperators)[number]['value']
 
 /**
- * Operator ids for which this builder renders NO value input — so "no value"
- * is the row's FINISHED state, not an unfinished one (objectui#4744).
+ * Operator ids — this dropdown's OWN camelCase ids — for which this builder
+ * renders no value input, so "no value" is the row's FINISHED state, not an
+ * unfinished one (objectui#4744).
  *
  * This is the source of truth for that distinction, and it lives here because
- * this component is the thing that decides it: `needsValueInput` below is
- * defined as the complement of this set, so the two cannot say different
- * things. Every consumer that has to tell a complete value-less row from a
- * half-filled one reads it FROM here rather than restating it:
+ * this component is the thing that decides it. But membership here is not the
+ * whole question: `needsValueInput` below is the complement of this set's
+ * FOLD-CLOSURE under the spec's `normalizeFilterOperator`, not of this set
+ * itself (objectui#9302), so the gate answers "no value" for spellings that
+ * are NOT members — the canonical form `foldFilterGroupToSpecRules` persists,
+ * and the alias rows the spec publishes for those same operators. A consumer
+ * holding a spelling that did not come from this dropdown must therefore ask
+ * that FOLD-CLOSURE, not this set: fold this set's own members through
+ * `normalizeFilterOperator` as well as the spelling, and ask the result —
+ * the same fold the gate applies to BOTH sides. How much wider the gate's
+ * preimage is is NOT restated here: the pin
+ * `filter-builder-valueless-canonical-spelling-9302.test.tsx` walks the
+ * spec's two published tables and names every row it measures, which is the
+ * only form of that answer that moves when those tables do (AGENTS.md #9).
+ *
+ * Every consumer that has to tell a complete value-less row from a half-filled
+ * one reads the membership FROM here rather than restating it:
  *
  *   - `plugin-list`'s `convertFilterGroupToAST` — what the live grid QUERIES;
  *   - `app-shell`'s `foldFilterGroupToSpecRules` — what a saved view PERSISTS
@@ -265,6 +279,34 @@ export const VALUELESS_FILTER_BUILDER_OPERATORS: ReadonlySet<string> = new Set([
   "exists",
   "notExists",
 ])
+
+/**
+ * The same six operators, keyed by the spelling `normalizeFilterOperator`
+ * folds each of them to — the lookup table the value-input gate below reads
+ * (objectui#9302).
+ *
+ * DERIVED, never a second literal: a hand-kept canonical copy beside the
+ * exported set is exactly how the two could come to disagree, and the
+ * disagreement would be invisible — a row that draws an input the label says
+ * it does not take.
+ *
+ * Why it exists separately instead of widening the export: the exported set
+ * states a fact about what THIS DROPDOWN draws, and its members are this
+ * builder's own camelCase ids. Two other layers read it — `plugin-list`'s
+ * `convertFilterGroupToAST` and `app-shell`'s `foldFilterGroupToSpecRules`,
+ * the latter already documented as this set PLUS the canonical spellings only
+ * that layer sees. Folding the canonical spellings INTO the export would make
+ * that layer's deliberate compensation redundant by side effect, in a file
+ * nobody is editing. The defect was never a set missing members; it was a
+ * reader that forgot to normalize its input.
+ *
+ * `exists` / `notExists` fold to themselves — the spec's vocabulary has no
+ * member for either and its alias table deliberately has no row for them — so
+ * this set is the same size as the one it derives from.
+ */
+const VALUELESS_FILTER_BUILDER_OPERATORS_CANONICAL: ReadonlySet<string> = new Set(
+  [...VALUELESS_FILTER_BUILDER_OPERATORS].map(normalizeFilterOperator),
+)
 
 /**
  * The SHAPE an operator's `value` must have — the question
@@ -390,6 +432,64 @@ export function reconcileOperatorForField(
   // Kept in the row's OWN spelling: a field switch is not a spelling migration.
   if (stillOffered) return operator
   return offeredOperators[0]?.value ?? operator
+}
+
+/**
+ * The offered id the operator trigger COMPARES against — the last site in this
+ * component that read the operator literally instead of through the spec's
+ * fold (objectui#7561).
+ *
+ * Radix matches `SelectValue` against the `SelectItem`s actually MOUNTED, and
+ * the mounted ids are this builder's own camelCase vocabulary. A row can hold
+ * the operator under another spelling of the SAME operator and still be
+ * perfectly valid:
+ *
+ *   - the spec's canonical `greater_than`, which is what `FilterOperatorSchema`
+ *     accepts and what `foldFilterGroupToSpecRules` persists;
+ *   - the spec's alias table `gt` / `lt` / `eq`, which three schema-catalog
+ *     entries author today.
+ *
+ * Neither matched `greaterThan` literally, so the trigger drew BLANK over a row
+ * that filtered correctly — the user's own operator, invisible and unreachable.
+ * Everywhere the operator's MEANING matters this component already folds first
+ * ({@link filterValueArity}, {@link reconcileOperatorForField}); this was the
+ * one place it did not, and that omission — not the vocabulary divergence — is
+ * what produced the blank.
+ *
+ * So the comparison is made canonically and the MOUNTED spelling is handed to
+ * the trigger. Three things this deliberately does NOT do, each of them a
+ * separate ruling (objectui#7561):
+ *
+ *   1. it does not rewrite `condition.operator` — the row keeps the spelling it
+ *      arrived with, exactly as {@link reconcileOperatorForField} keeps it, and
+ *      nothing is written back on render;
+ *   2. it does not mount a new `SelectItem`, so the vocabulary the dropdown
+ *      EMITS is byte-identical — contrast the value select above, where
+ *      objectui#4874 ruling C mounts the outside-options value as its own
+ *      option. That answer is right there and wrong here: the value's domain is
+ *      the author's data, while the operator's domain is a declared vocabulary,
+ *      and mounting a foreign spelling would admit a second one;
+ *   3. it does not widen what any schema ACCEPTS.
+ *
+ * Safe to compare through because the fold is INJECTIVE over this builder's
+ * vocabulary — all 22 ids in `defaultOperators` normalize to 22 distinct
+ * canonical operators, pinned in `filter-builder-field-switch-operator.test.tsx`
+ * — so no two OFFERED operators can collapse onto one another and the match is
+ * unambiguous. An operator no offered id folds onto falls through to the row's
+ * own spelling and still draws blank: inventing a label for a word this
+ * vocabulary does not contain would be a claim, not a repair.
+ *
+ * @internal exported for tests
+ */
+export function mountedOperatorValue(
+  operator: string,
+  offeredOperators: ReadonlyArray<{ value: string }>,
+): string {
+  const canonical = normalizeFilterOperator(operator)
+  const mounted = offeredOperators.find(
+    (op) => normalizeFilterOperator(op.value) === canonical,
+  )
+  return mounted?.value ?? operator
 }
 
 /**
@@ -1218,11 +1318,23 @@ function FilterBuilder({
     })
   }
 
-  // The complement of the exported set, never a second literal beside it:
+  // The complement of the exported set's FOLD-CLOSURE, never a second literal
+  // beside it:
   // that set's whole job is to let other layers know which rows this builder
   // leaves value-less, and a hand-kept copy here is how they drifted apart.
+  //
+  // BOTH sides are folded through the spec's `normalizeFilterOperator` — the
+  // same fold `filterValueArity` and `reconcileOperatorForField` already
+  // perform, so this is one more site joining a fold this file does rather
+  // than a new dialect. The gate used to do a raw `has()` on whatever spelling
+  // the row carried, and the set's members are the dropdown's camelCase ids:
+  // a stored rule spelled `is_null` — the spec's CANONICAL form, which is what
+  // `foldFilterGroupToSpecRules` persists and what any spec-side producer
+  // emits — missed the set and was treated as value-taking. The row then drew
+  // a box to type a value into, directly beside a trigger reading `Is null`
+  // (objectui#9302). One operator, two spellings, two different rows.
   const needsValueInput = (operator: string) => {
-    return !VALUELESS_FILTER_BUILDER_OPERATORS.has(operator)
+    return !VALUELESS_FILTER_BUILDER_OPERATORS_CANONICAL.has(normalizeFilterOperator(operator))
   }
 
   // Derived from the value FAMILY rather than from a second branch ladder over
@@ -1591,7 +1703,13 @@ function FilterBuilder({
 
               <div className="col-span-4">
                 <Select
-                  value={condition.operator}
+                  // The row's operator, resolved to the id actually MOUNTED
+                  // below — see {@link mountedOperatorValue}. The row itself
+                  // keeps its own spelling; only this comparison is folded.
+                  value={mountedOperatorValue(
+                    condition.operator,
+                    getOperatorsForField(condition.field),
+                  )}
                   onValueChange={(value) => changeOperator(condition.id, value)}
                 >
                   <SelectTrigger className="h-9 text-sm">

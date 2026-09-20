@@ -16,12 +16,62 @@
  * `RecordContext`. We deliberately query with `$top` only — this rail is
  * a snapshot, not a paginated list — and silently degrade to "—" on
  * failure so a misconfigured entry never blanks the whole rail.
+ *
+ * ## The parent scope is compiled by the relationship field's ARITY
+ *
+ * An entry names a `relationshipField` on the child object and nothing about
+ * how that field STORES the link. A `multiple: true` relationship
+ * (`Field.user({ multiple: true })` is the platform's own shape) persists an
+ * ARRAY of parent ids, so the question is MEMBERSHIP and not equality —
+ * equality asks whether that whole stored array IS one id, which `driver-sql`
+ * refuses with `400 INVALID_FILTER` while prescribing `$contains`.
+ *
+ * The condition is therefore composed by `@object-ui/core`'s
+ * `composeParentScopeFilter` (objectui#8883), the ONE compiler the related
+ * list's rows and the tab badge already share (objectui#7299, objectui#8882).
+ * ⛔ Do not add a local arity rule here, however small. The seam's verdict is
+ * `@objectstack/spec/data`'s own `isMultiValueField`, and a local
+ * approximation is wrong against it in BOTH directions, not merely incomplete:
+ * `multiselect` / `checkboxes` / `tags` persist an array with no flag at all,
+ * and `multiple: true` is INERT on a type outside the spec's multi-capable
+ * set. Two readers of one question, drifted, is the entire defect class.
+ *
+ * ⚠️ The QUERY rule and the STORAGE rule are two rules, and ⛔ this file does
+ * not claim they are one predicate. Measured at source: the spec asks
+ * `MULTI_OPTION_TYPES.has(type) || (MULTI_CAPABLE_TYPES.has(type) && multiple
+ * === true)`, while the SQL driver's own `isJsonField` asks
+ * `JSON_COLUMN_TYPES.has(type) || !!field.multiple` — the flag on ANY type. So
+ * `{ type: 'master_detail', multiple: true }` answers `false` to the spec and
+ * `true` to the driver, and the two part company for exactly the
+ * flag-on-a-non-multi-capable-type case. ⛔ Nothing here decides which is
+ * right: that divergence is owned upstream by objectstack#17469. This renderer
+ * follows the SPEC, because the spec is what the authoring surface is
+ * validated against and what the seam already compiles on — and a second
+ * opinion at this call site would be the defect above, one layer up.
+ *
+ * ## The "View All" link cannot follow the rows there
+ *
+ * The link builds a `filter[<field>]=<value>` URL into the console's object
+ * list. That grammar has no membership operator and no third spelling: the
+ * ADR-0055 data surface recognises `gte`/`lte`/`gt`/`lt` and DROPS any other
+ * suffix, and the route this link actually targets parses equality only. A
+ * hopeful `[contains]` suffix therefore does not narrow the destination at
+ * all. Rather than send the user to an unscoped child table dressed as this
+ * parent's related records, the link is SUPPRESSED on a multi-value
+ * relationship and the reason is logged once — the same "empty and loud beats
+ * wider and quiet" posture `RelatedList`'s raw-URL fallback takes for the same
+ * grammar. Losing the affordance there is the COST of the repair.
  */
 
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useRecordContext, useSafeFieldLabel } from '@object-ui/react';
 import { cn, Card, CardHeader, CardTitle, CardContent, Badge, Skeleton } from '@object-ui/components';
+import {
+  composeParentScopeFilter,
+  isMultiValueRelationship,
+  type FieldContainerLike,
+} from '@object-ui/core';
 import { ChevronRight } from 'lucide-react';
 import type { ReferenceRailEntry } from '@objectstack/spec/ui';
 import { useDetailTranslation } from '../useDetailTranslation';
@@ -52,6 +102,35 @@ export interface RecordReferenceRailRendererProps {
      * behavior.
      */
     hideEmpty?: boolean;
+    /**
+     * The contract's NODE-level props envelope
+     * (`@objectstack/spec` `PageComponentSchema.properties` — "Component props
+     * passed to the widget"), declared here by objectui#8649 for the ONE member
+     * this renderer reads off it.
+     *
+     * The rail accepts a node either flattened (`schema.entries`) or enveloped
+     * (`schema.properties.entries`). The enveloped read went through an explicit
+     * `(schema as any)` cast — ⛔ NOT through the `[k: string]: any` below,
+     * which had nothing to do with it — so `entries` arrived as `any` on that
+     * path while the flattened path had the contract's own entry type.
+     *
+     * ⚠️ An earlier revision of this card declared the member and left that cast
+     * in place, which made the declaration INERT at the only site this comment
+     * names: a cast at the read site defeats a declaration that a membership
+     * instrument still reports as present. The cast is now gone (see the read
+     * itself), and `__tests__/detailRendererUndeclaredKeys-8649.test.ts` fails
+     * if it returns. Declaring the member NARROWS an accept this face already
+     * granted through its index signature; it widens nothing, and `properties`
+     * itself stays open because the contract declares it as a record.
+     *
+     * ⚠️ This is the node's envelope, NOT a `record:reference_rail` prop:
+     * `RecordReferenceRailProps` declares `entries` and `hideEmpty` and nothing
+     * else. `properties` has the standing `dataSource` and `className` have —
+     * accepted on every page component, as
+     * `recordRelatedListInputs.spec-parity.test.ts` derives for the sibling
+     * block.
+     */
+    properties?: { entries?: ReferenceRailEntry[] } & Record<string, any>;
     [k: string]: any;
   };
   className?: string;
@@ -63,6 +142,79 @@ interface EntryState {
   total: number;
   items: any[];
   error?: string;
+}
+
+/**
+ * Preview rows fetched for one entry when the author declared no `limit`.
+ *
+ * Named rather than spelled inline because it was spelled TWICE — once in the
+ * `$top` the entry's query carries and once in the fetch signature that decides
+ * whether to re-issue it — and objectui#9925 gave both a resolver, which needs
+ * one fallback to agree on.
+ */
+export const DEFAULT_REFERENCE_RAIL_LIMIT = 3;
+
+/**
+ * What the contract admits as a preview-row cap for a rail entry.
+ *
+ * `@objectstack/spec` has already answered what `limit: 0` means: this entry's
+ * own member is declared a POSITIVE INTEGER on `ReferenceRailEntrySchema`
+ * (`z.number().int().positive().optional()`, described there as "Preview rows
+ * per card, and the `$top` of the one query this entry issues"). So `0` is not
+ * a spelling whose meaning this renderer may choose; it is a value the contract
+ * refuses.
+ */
+function isUsableRowLimit(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The ONE resolver for a rail entry's row cap, for the reason objectui#9853
+ * gave when it landed the same shape on `ObjectGrid` and objectui#9897 repeated
+ * on `ListView`: one resolver at every entry is what keeps the answer single.
+ *
+ * Before objectui#9925 both read points were a bare `entry.limit ?? 3`, and
+ * `??` rejects only `null` and `undefined` — so an authored `limit: 0` was not
+ * nullish and survived as a real window, reaching the wire as `$top: 0`. This
+ * rail degrades silently by design (a failed entry renders "—"), so an entry
+ * asked for nothing rendered an empty card with a zero badge and named no
+ * cause. A negative goes out the same way.
+ *
+ * ⚠️ The refusal is FAIL-SOFT on purpose, as it is at the two sibling sites
+ * this card repairs: throwing would take out the whole rail over one entry's
+ * declaration, which is a worse outcome than the defect. The value is dropped,
+ * this rail's own default is used, and `describeRefusedRowLimit` states it
+ * through the developer channel — the only channel available, because the
+ * suppression this rail already does is silent on screen by construction.
+ * ⛔ Not a silent clamp, and ⛔ not a clamp to 1.
+ */
+function resolveRowLimit(authored: unknown, fallback: number): number {
+  return isUsableRowLimit(authored) ? authored : fallback;
+}
+
+/**
+ * The diagnostic half. `null` means "nothing to say" — an absent `limit` is not
+ * a mistake, and a usable one is not either, so the message is CONDITIONAL and
+ * the silence controls in the pin are what keep it from being an always-on
+ * marker that states nothing.
+ *
+ * ⛔ NOT a second guard: the predicate lives once, in `isUsableRowLimit`, and
+ * this reads it. Two predicates would be free to drift, and the drift would be
+ * invisible — a value refused by one and admitted by the other.
+ */
+function describeRefusedRowLimit(authored: unknown, objectName: unknown): string | null {
+  if (authored === undefined || authored === null) return null;
+  if (isUsableRowLimit(authored)) return null;
+  const where =
+    typeof objectName === 'string' && objectName
+      ? `record:reference_rail entry for ${objectName}`
+      : 'record:reference_rail entry';
+  return (
+    `[ObjectUI] RecordReferenceRail row cap: ${where} declared limit: ${String(authored)}, `
+    + 'which is not a positive integer. A row cap must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and this '
+    + `entry fell back to its default preview-row cap (${DEFAULT_REFERENCE_RAIL_LIMIT}).`
+  );
 }
 
 const humanize = (s: string) =>
@@ -106,11 +258,20 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
 
   const entries: ReferenceRailEntry[] = Array.isArray(schema.entries)
     ? schema.entries
-    : Array.isArray((schema as any).properties?.entries)
-      ? ((schema as any).properties.entries as ReferenceRailEntry[])
+    : // ⛔ NOT `(schema as any).properties` (objectui#8649 contract review D1).
+      // The cast predated the declaration below and defeated it: the checker
+      // read `.properties : any` and `.entries : any`, so the declaration was
+      // inert at the one site its own doc-comment named. Un-cast, this read now
+      // carries `ReferenceRailEntry[]` from the declaration, which is also why
+      // the trailing `as ReferenceRailEntry[]` assertion is gone — the declared
+      // type supplies it. The two sibling renderers reading the same envelope
+      // (`record-history.tsx`, `record-quick-actions.tsx`) already read it
+      // un-cast; this file was the outlier.
+      Array.isArray(schema.properties?.entries)
+      ? schema.properties.entries
       : [];
   const parentId = ctx?.recordId;
-  const dataSource: any = (ctx as any)?.dataSource;
+  const dataSource = ctx?.dataSource;
 
   const [states, setStates] = React.useState<Record<string, EntryState>>({});
 
@@ -158,7 +319,51 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
     return () => obs.disconnect();
   }, [railVisible]);
 
-  const entriesSig = JSON.stringify(entries.map((e) => `${e.objectName}:${e.relationshipField}:${e.limit ?? 3}`));
+  // The CHILD objects' field defs, keyed by object name — the METADATA the
+  // parent-scope seam draws its arity verdict from. Filled by the fetch effect
+  // below BEFORE it reads any rows, and read a second time at render time by
+  // the "View All" link, so both halves of an entry answer from one source.
+  // Empty until a schema proves otherwise: the seam then compiles equality,
+  // which is byte for byte the wire this rail has always sent.
+  const [entryFields, setEntryFields] = React.useState<Record<string, FieldContainerLike>>({});
+  // One warning per (object, field) per mounted rail — the link suppression
+  // below is silent on screen by construction, so the developer channel is the
+  // only place it can be said at all. Fired from the effect, never from render.
+  const warnedSuppressedLinks = React.useRef<Set<string>>(new Set());
+
+  // [objectui#9925] One warning per (object, refused value) per mounted rail —
+  // the same dedupe shape as the link suppression above, and for the same
+  // reason: an entry that asked for nothing is silent on screen by
+  // construction, so the developer channel is the only place it can be said.
+  // Fired from an effect, never from render, and keyed on the DECLARATION so a
+  // re-render with the same authored value says nothing a second time.
+  const warnedRefusedLimits = React.useRef<Set<string>>(new Set());
+
+  // [objectui#9925] Through the resolver, so this signature names the window
+  // that actually leaves — two entries whose refused `limit`s differ (`0` and
+  // `-5`) issue the SAME query and must not read as two different fetches.
+  const entriesSig = JSON.stringify(
+    entries.map(
+      (e) =>
+        `${e.objectName}:${e.relationshipField}:${resolveRowLimit(e.limit, DEFAULT_REFERENCE_RAIL_LIMIT)}`,
+    ),
+  );
+  // [objectui#9925] The DECLARATION, kept apart from the signature above: the
+  // diagnostic has to re-fire when the authored value changes even though the
+  // resolved window does not, which is exactly the pair the resolver collapses.
+  const authoredLimitSig = JSON.stringify(entries.map((e) => [e.objectName, e.limit ?? null]));
+  React.useEffect(() => {
+    for (const entry of entries) {
+      const message = describeRefusedRowLimit(entry.limit, entry.objectName);
+      if (!message) continue;
+      const key = `${entry.objectName}:${String(entry.limit)}`;
+      if (warnedRefusedLimits.current.has(key)) continue;
+      warnedRefusedLimits.current.add(key);
+      console.warn(message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `entries` is tracked by CONTENT (`authoredLimitSig`), the way the fetch effect below tracks it by `entriesSig`; an inline array on a schema node is a new object every render.
+  }, [authoredLimitSig]);
+
   React.useEffect(() => {
     if (!railVisible) return;
     if (!dataSource?.find || !parentId || entries.length === 0) return;
@@ -180,12 +385,17 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
       }
       return next;
     });
-    const fetchEntry = async (entry: ReferenceRailEntry) => {
+    const fetchEntry = async (entry: ReferenceRailEntry, fields: FieldContainerLike) => {
       const key = entry.objectName;
       try {
         const res: any = await dataSource.find(entry.objectName, {
-          $filter: { [entry.relationshipField]: parentId },
-          $top: entry.limit ?? 3,
+          // The parent-relationship condition, compiled to match the field's
+          // ARITY by the one seam the rows and the tab badge already use
+          // (objectui#8883). With no `fields` it compiles equality — the
+          // historical wire — so an adapter that cannot serve metadata is no
+          // worse off than before this card.
+          $filter: composeParentScopeFilter(entry.relationshipField, parentId, fields),
+          $top: resolveRowLimit(entry.limit, DEFAULT_REFERENCE_RAIL_LIMIT),
           $count: true,
         });
         if (!mountedRef.current) return;
@@ -206,22 +416,70 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
         }));
       }
     };
-    // Concurrency-capped pool: drain the entries a few at a time instead of
-    // firing all N at once, so the rail never floods the backend in a burst.
-    const MAX_CONCURRENCY = 3;
-    const queue = [...entries];
-    const runWorker = async () => {
-      while (mountedRef.current) {
-        const entry = queue.shift();
-        if (!entry) return;
-        await fetchEntry(entry);
+    void (async () => {
+      // ARITY FIRST, then the reads — and the rail's reason for that order is
+      // its OWN, not the tab badge's.
+      //
+      // `RelatedList` deliberately attempts equality, is refused, and refetches
+      // once the arity lands; it can, because its fetch effect re-runs on the
+      // verdict. This rail cannot: `fetchedSigRef` above latches on
+      // (parentId + entries), and the arity is in NEITHER — so a probe-then-
+      // correct design would make the refused first attempt the ONLY attempt,
+      // and the entry would sit on its error state until the user navigated to
+      // another record. The link half compounds it: the destination href is
+      // decided by the same verdict, so deferring it would ship exactly the
+      // disagreement this card exists to prevent — right rows, wrong link.
+      //
+      // ⛔ NOT gated on "a schema loaded", which is a different thing: an
+      // adapter without `getObjectSchema`, or one whose fetch rejects, still
+      // reads rows, with the equality wire it has always sent. Gating would
+      // trade this card's loud 400 on one relationship shape for a silently
+      // empty rail on every entry in the app.
+      const fieldsFor = new Map<string, FieldContainerLike>();
+      if (typeof dataSource.getObjectSchema === 'function') {
+        await Promise.all(
+          Array.from(new Set(entries.map((e) => e.objectName))).map(async (name) => {
+            try {
+              fieldsFor.set(name, (await dataSource.getObjectSchema(name))?.fields);
+            } catch {
+              // Equality it is — the wire this rail has always sent.
+            }
+          }),
+        );
       }
-    };
-    const workers = Array.from(
-      { length: Math.min(MAX_CONCURRENCY, queue.length) },
-      () => runWorker(),
-    );
-    void Promise.all(workers);
+      if (!mountedRef.current) return;
+      setEntryFields(Object.fromEntries(fieldsFor));
+      for (const entry of entries) {
+        if (!isMultiValueRelationship(fieldsFor.get(entry.objectName), entry.relationshipField)) {
+          continue;
+        }
+        const warnKey = `${entry.objectName}.${entry.relationshipField}`;
+        if (warnedSuppressedLinks.current.has(warnKey)) continue;
+        warnedSuppressedLinks.current.add(warnKey);
+        console.warn(
+          `[RecordReferenceRail] "${entry.objectName}" relates through the multi-value field ` +
+            `"${entry.relationshipField}", so the "View All" link is suppressed for it. The ` +
+            'console list URL\'s `filter[<field>]=<value>` grammar has no membership operator ' +
+            'and no unrecognised suffix narrows it, so the link would open the entire child ' +
+            "table dressed as this parent's related records. The rail's own rows are still " +
+            'scoped correctly.',
+        );
+      }
+      // Concurrency-capped pool: drain the entries a few at a time instead of
+      // firing all N at once, so the rail never floods the backend in a burst.
+      const MAX_CONCURRENCY = 3;
+      const queue = [...entries];
+      const runWorker = async () => {
+        while (mountedRef.current) {
+          const entry = queue.shift();
+          if (!entry) return;
+          await fetchEntry(entry, fieldsFor.get(entry.objectName));
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(MAX_CONCURRENCY, queue.length) }, () => runWorker()),
+      );
+    })();
   }, [railVisible, dataSource, parentId, entriesSig]);
 
   // useState must run unconditionally — declared above the empty-entries early
@@ -262,6 +520,18 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
       {visibleEntries.map((entry) => {
         const key = entry.objectName;
         const state = states[key] || { loading: true, total: 0, items: [] };
+        // The link's URL grammar cannot express MEMBERSHIP (see the file
+        // header), so on a multi-value relationship the only honest "View All"
+        // is no "View All": the href below would drop the parent scope
+        // entirely and open the whole child table. The verdict is the same
+        // seam's, off the same metadata the rows were scoped with, and it is
+        // `false` until a schema PROVES otherwise — a single-value entry and
+        // an entry whose schema never resolved both keep today's link, href
+        // byte for byte.
+        const suppressViewAll = isMultiValueRelationship(
+          entryFields[key],
+          entry.relationshipField,
+        );
         const title =
           entry.title ||
           (i18n?.objectLabel
@@ -280,7 +550,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
                     {state.total}
                   </Badge>
                 )}
-                {appName && parentId && (
+                {appName && parentId && !suppressViewAll && (
                   <Link
                     to={`/apps/${appName}/${entry.objectName}?filter%5B${entry.relationshipField}%5D=${encodeURIComponent(String(parentId))}`}
                     className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"

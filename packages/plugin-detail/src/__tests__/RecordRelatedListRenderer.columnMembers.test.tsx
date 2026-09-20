@@ -29,6 +29,11 @@
  * the canonical-first `field` / `name` / `fieldName` resolution shared with the
  * rest of the repo, and `key` is a tail fallback this block adds on top.
  *
+ * A member that resolves to NONE of them is excluded from the filtered set
+ * (objectui#8793): the fold fails closed, because an entry it cannot name is an
+ * entry it cannot check against the field-security allow-list, while
+ * `RelatedList` would render it anyway through the table library's own key.
+ *
  * The end-to-end half — an object column reaching the screen with VALUES rather
  * than a header over blank cells — is pinned next door in
  * `RelatedList.columnIdentityAccessor.test.tsx` (objectui#5022), which renders
@@ -166,19 +171,38 @@ describe('record:related_list — the `columns` MEMBER shape the renderer reads 
     expect(await columnsAfterFold([mixed], ['subject'])).toEqual([mixed]);
   });
 
-  it('keeps a member whose identity it cannot resolve, rather than dropping it', async () => {
-    // `colName` returns null and the filter's else-branch keeps the entry
-    // (`return n ? allowed.has(n) : true`). Pinned because it is the member
-    // contract's sharp edge: an entry the fold cannot NAME is an entry the fold
-    // cannot filter, so whatever the entry means downstream is unfiltered.
-    // `accessorKey` is the concrete instance — the table LIBRARY's own key,
-    // excluded from `columnIdentity` on purpose (objectui#3104) and read by
-    // `RelatedList` as `c?.accessorKey || columnIdentity(c)`. So a column
-    // authored that way is kept by this fold AND rendered by the table: filed
-    // as objectui#8793. Pinned as the CURRENT behaviour it is, which means this
-    // row reds when that lands — deliberately, so the fix cannot be quiet.
+  it('DROPS a member whose identity it cannot resolve — the fold fails CLOSED (objectui#8793)', async () => {
+    // `colName` returns null and the filter's else-branch EXCLUDES the entry
+    // (`return n ? allowed.has(n) : false`). The member contract's sharp edge,
+    // now pointing the safe way: an entry the fold cannot NAME is an entry the
+    // fold cannot check, and `RelatedList` renders it anyway as
+    // `c?.accessorKey || columnIdentity(c)` — so keeping it was a field-security
+    // bypass, not a tolerance. `accessorKey` is the concrete instance: the table
+    // LIBRARY's own key, excluded from `columnIdentity` on purpose
+    // (objectui#3104). Until objectui#8793 this row pinned the opposite.
+    //
+    // ⚠️ Two of that bypass's three legs are now caught downstream as well and
+    // this row is the only place that still sees THIS one: `filterFLS` refuses a
+    // declared field field-security denies, and since objectui#9090
+    // `filterRedacted` refuses a redacted one — both resolving the same
+    // `accessorKey || columnIdentity` pair. What the fold alone still decides is
+    // a key the permission evaluator has no opinion about, pinned over rendered
+    // cells as THE RESIDUAL LEG in
+    // `RecordRelatedListRenderer.unresolvedIdentityFailClosed-8793.test.tsx`.
     expect(columnIdentity({ accessorKey: 'status' })).toBeUndefined();
-    expect(await columnsAfterFold([{ accessorKey: 'status' }], ['status'])).toEqual([
+    expect(await columnsAfterFold([{ accessorKey: 'status' }], ['status'])).toEqual([]);
+
+    // The drop is by UNRESOLVABILITY, not by matching the redacted name — this
+    // is the shape of the change's blast radius and it belongs in the pin, not
+    // only in the PR that made it. Redacting a DIFFERENT field drops it just
+    // the same, because the fold still cannot say what the column is.
+    h.captured = null;
+    expect(await columnsAfterFold([{ accessorKey: 'status' }], ['some_other_field'])).toEqual([]);
+
+    // …and the bound on that radius: with nothing to filter, the fold does not
+    // run and the same member is handed down untouched.
+    h.captured = null;
+    expect(await columnsAfterFold([{ accessorKey: 'status' }])).toEqual([
       { accessorKey: 'status' },
     ]);
   });

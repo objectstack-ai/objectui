@@ -103,17 +103,24 @@ const GATE = cel("'sales_manager' in current_user.positions");
 const UNBOUND_ROOT = cel("'sales_manager' in no_such_root.positions");
 
 /**
- * The scope `packages/app-shell/src/providers/ExpressionProvider.tsx:59,70`
- * really mounts, transcribed rather than imported: `@object-ui/app-shell`
- * depends on `@object-ui/components`, so importing it from here would invert
- * the dependency. The aliases are not decoration — `SchemaRenderer` re-derives
+ * The scope `buildExpressionScope` (`packages/app-shell/src/providers/
+ * ExpressionProvider.tsx`) really mounts, transcribed rather than imported:
+ * `@object-ui/app-shell` depends on `@object-ui/components`, so importing it
+ * from here would invert the dependency. Anchored by SYMBOL rather than by the
+ * `:59,70` line pair it used to name, which had already drifted.
+ *
+ * ⛔ No `data` (objectui#8166) and no `app` (objectui#8155). A transcription
+ * cannot disagree with its producer, so it absorbs the producer's drift
+ * silently — a root left here that the real bag no longer binds would keep
+ * every assertion below green while describing a scope that does not exist.
+ * The aliases are not decoration — `SchemaRenderer` re-derives
  * `current_user` from `scope.user`, so a scope carrying only `current_user`
  * would gate correctly on the two form surfaces and NOT on the page one, which
  * is the very asymmetry this file exists to refuse.
  */
 function hostScope(positions: string[]) {
   const user = { id: 'u1', name: 'Kim', positions };
-  return { current_user: user, user, ctx: { user }, os: { user }, data: {}, features: {} };
+  return { current_user: user, user, ctx: { user }, os: { user }, features: {} };
 }
 
 const DENIED = hostScope(['sales']);

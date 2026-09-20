@@ -35,7 +35,8 @@
 import React from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { I18nProvider, builtInLocales } from '@object-ui/i18n';
+import { I18nProvider } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<any>('recharts');

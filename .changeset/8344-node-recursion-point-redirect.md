@@ -6,7 +6,8 @@ Redirect the node recursion point from `BaseSchemaCore` to `AnyComponentSchema`
 (objectui#8344) — a nested node is now judged by its OWN component schema.
 
 **Behaviour change, deliberately, at every depth below the root.** Every child slot
-(`body`, `children`, and every per-component redeclaration of them) is
+(`body`, `children`, and every per-component redeclaration of them — objectui#6771 has
+since retired `body`, leaving `children` and its redeclarations) is
 `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])`, and `SchemaNodeSchema`'s
 component arm was `BaseSchemaCore` — the ~21 base keys and nothing type-specific. So
 per-type enforcement was ROOT-ONLY, for every component type: objectui#7869 measured
@@ -56,11 +57,34 @@ a child by its own schema would therefore have ADMITTED, at every child slot, a 
 the base arm refused. ⛔ That widening is eliminated rather than declared: the arm the
 recursion point installs carries a check that a nested `chatbot` node's `body` still fits
 the node slot. Measured, corpus-valid chatbot seed plus `body: { model, temperature }`:
-accepted at the root before and after; inside `card.body[]` and `div.children[]` refused
-before and refused now. ⇒ the redirect narrows at all 109 redeclarations and widens at
+accepted at the root before and after; inside the card's and the div's child lists
+refused before and refused now. ⇒ the redirect narrows at all 109 redeclarations and widens at
 none. The published `ChatbotSchema` is untouched — whether its own `body` should carry the
 chat API's params is a separate question, recorded on objectui#8572 and deliberately not
 decided here.
+
+⚠️ **AMENDED (objectui#8572, ruling A — landing in THIS release).** Two statements in the
+paragraph above were true of this card's head and are no longer true of the release they
+ship in, so they are corrected here rather than left to contradict the entry beside them:
+`ChatbotSchema.body` is no longer the record — it is an ADR-0049 retirement tombstone on
+both published faces, pointing the author at `requestBody` — and the root document above is
+now REFUSED, not accepted. The separate question this paragraph deferred has been answered,
+and the deferral itself is the part that stayed true. ⛔ Nothing else in the paragraph moved:
+the nested verdict, the installed arm's check and the "narrows at all 109, widens at none"
+reading are all readings of THIS card's head and cannot rot.
+
+⚠️ **AMENDED AGAIN (objectui#9659 — also landing in THIS release).** One clause of the note
+above has since moved: "the installed arm's check" is GONE. The check it names was the
+`superRefine` clause on `defineNodeComponentUnion`, and once ruling A retired the key it
+narrowed, it could no longer fire for any input — measured on the issue tree of a nested
+refusal, which carries the arm's own tombstone and no clause-shaped issue, against a lit
+control built from the pre-retirement record arm. objectui#9659 retires the clause and
+re-points the pin that read its shape. ⛔ The READING is unaffected and still cannot rot: the
+nested verdict is the same (refused before, refused now, by the arm instead of by the
+clause), the accept set is byte-identical over 432 corpus documents plus a 60-case chatbot
+sweep, and "narrows at all 109, widens at none" is still what this card's redirect does. What
+changed is WHICH mechanism delivers the nested refusal, and the sentence above names the
+retired one.
 
 **3. ⚠️ KNOWN GAP, declared rather than papered over: a bundled consumer that never reads
 `AnyComponentSchema` can tree-shake the redirect away.** This package declares
@@ -77,7 +101,7 @@ the `./zod` barrel under Node or vitest, `@object-ui/cli`'s `check` / `validate`
 Measured on the published `dist/zod` face of this head (Vite 8.2.1 lib build, `es`,
 esbuild-minified, `zod` 4.4.3 and `@objectstack/spec` external, so the figures are this
 package's own bytes; nested off-spec node = `{ type: 'icon', icon: 'check', size: 'huge' }`
-inside `card.body[]`, parsed through `CardSchema`):
+inside the card's child list, parsed through `CardSchema`):
 
 | entry | nested off-spec node | bundle (raw / gzip) | fill in output |
 | --- | --- | --: | --- |

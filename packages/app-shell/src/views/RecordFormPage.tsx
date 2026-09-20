@@ -204,11 +204,14 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
     () =>
       // ⛔ No `app`: objectui#8155 removed it from the predicate scope, because
       // neither ADR-0068 nor the engine's `SCOPE_ROOTS` declares such a root.
+      // ⛔ No `data`: objectui#8166 removed that one too. It was `{}` here, so
+      // a `data.*` field predicate faulted with `No such key` and fell back
+      // fail-open; it now faults with the engine's own `Unknown variable: data`,
+      // the verdict the server gives the same string.
       createExpressionEvaluator({
         // expressionUser already handles the anonymous fallback, so we can
         // pass it through unconditionally.
         user: expressionUser,
-        data: {},
         features,
       }),
     [expressionUser, features],

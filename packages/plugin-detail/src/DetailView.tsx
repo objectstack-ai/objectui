@@ -20,7 +20,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-  useIsMobile,
+  renderNodeSlot,
 } from '@object-ui/components';
 import { 
   ArrowLeft, 
@@ -37,7 +37,6 @@ import {
 } from 'lucide-react';
 import { DetailSection } from './DetailSection';
 import { DetailTabs } from './DetailTabs';
-import { RelatedList } from './RelatedList';
 import { SectionGroup } from './SectionGroup';
 import { HeaderHighlight } from './HeaderHighlight';
 import { RecordComments } from './RecordComments';
@@ -47,17 +46,16 @@ import { RecordMetaFooter } from './RecordMetaFooter';
 import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate } from '@object-ui/react';
 import { buildExpandFields, getRecordDisplayName, formatTitleTemplate, userActionPredicates } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
-import { useLocalization, resolveFieldCurrency } from '@object-ui/i18n';
+import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import type { DetailViewSchema, DataSource, ActionSchema, SchemaNode } from '@object-ui/types';
 import { useDetailTranslation } from './useDetailTranslation';
 import { useRecordEditable } from './useRecordEditable';
-import { getCellRenderer, resolveCellRendererType, coerceToSafeValue } from '@object-ui/fields';
+import { getCellRenderer, resolveCellRendererType, coerceToSafeValue, formatPercent } from '@object-ui/fields';
 import { hasCellValue } from './emptiness';
 import { enrichDetailField } from './fieldEnrichment';
 import { chipTakesCellRenderer } from './summaryChipRenderers';
+import { summaryChipPercentPoints } from './summaryChipPercent';
 
-/** Default page size for related lists in the detail view */
-const DEFAULT_RELATED_PAGE_SIZE = 5;
 
 /** Stable empty draft so the section `data`-merge identity is preserved when
  *  no <InlineEditProvider> is mounted (bare / read-only DetailView). */
@@ -297,8 +295,14 @@ export const DetailView: React.FC<DetailViewProps> = ({
   const { t } = useDetailTranslation();
   // Tenant default currency (ADR-0053) for summary metrics whose field omits one.
   const { currency: tenantCurrency } = useLocalization();
-  const { fieldOptionLabel } = useSafeFieldLabel();
-  const isMobile = useIsMobile();
+  // The BCP-47 tag every `Intl`-backed renderer on this page formats with
+  // (objectui#9167). Read here, at the top of the component, because the
+  // summary-chip map below is inside this render and a hook cannot be called
+  // from it. `useDisplayLocale` is the composition — tenant locale, then the
+  // active UI language, then `'en'` — and NOT `undefined`, which would hand
+  // `Intl` the machine's locale, a channel neither the tenant nor the user set.
+  const displayLocale = useDisplayLocale();
+  const { fieldOptionLabel, fieldLabel } = useSafeFieldLabel();
 
   // Field-level permission gate. Filter section.fields and top-level
   // fields based on the current user's read permissions BEFORE any
@@ -845,18 +849,22 @@ export const DetailView: React.FC<DetailViewProps> = ({
     return () => document.removeEventListener('keydown', handler);
   }, [schema.recordNavigation]);
 
+  // objectui#7997 — the `related` ENTRY on this node is RETIRED (ADR-0049
+  // enforce-or-remove, maintainer ruling 2026-09-10: 「关掉详情页那个入口（推荐）」).
+  // `DetailViewSchema.related` is a `?: never` tombstone on the TypeScript face
+  // and a `retirementTombstone()` arm on the zod mirror, so this component no
+  // longer reads it and no longer renders a Related tab or a Related section.
+  //
+  // ⛔ The capability did not retire, only this door: author a
+  // `record:related_list` block, which is the protocol-governed entry
+  // (@objectstack/spec `RecordRelatedListProps`) and which has always rendered
+  // through the same `RelatedList` component this branch used — see
+  // `renderers/record-related-list.tsx`.
+  //
   // Auto-discovery of related panels via INVERSE references (other objects
-  // whose FK points to the current record) is the responsibility of the
-  // page layer (e.g. RecordDetailView), which has access to the registry of
-  // all objects. We deliberately do NOT auto-derive related panels from the
-  // current object's *forward* lookups (account, owner, …) — those are
-  // parent references already surfaced as detail fields, and listing them
-  // here always produces empty 0-count panels with no usable "+ New" CTA
-  // (the new child wouldn't have an FK to back-fill). Leaving them out
-  // avoids the misleading "为什么有的能新建有的不能" experience.
-  const effectiveRelated: NonNullable<DetailViewSchema['related']> = React.useMemo(() => {
-    return schema.related ?? [];
-  }, [schema.related]);
+  // whose FK points at the current record) was never this component's job
+  // either; it belongs to the page layer (e.g. RecordDetailView), which has the
+  // registry of all objects.
 
   /**
    * Chrome-level "system" actions (Duplicate, Export, View History, Delete,
@@ -1026,8 +1034,36 @@ export const DetailView: React.FC<DetailViewProps> = ({
             renders its own `page:header` (e.g. record:details embedded
             under a Lightning-style page) to avoid a duplicate title chip. */}
         {schema.showHeader !== false && (
-        <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4 pb-4 border-b">
-          <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-start justify-between gap-3 sm:gap-4 pb-4 border-b">
+          {/* ── Why this column carries `w-full sm:w-auto` (objectui#9119) ──
+
+              Below `sm` this row is a COLUMN flex container, so a child's
+              WIDTH is its CROSS size — and `items-start` on the row sizes a
+              cross axis to fit-content. This column therefore took the h1's
+              max-content width whatever the viewport was (1201.22px inside a
+              320px row in the console; 1045.59px for the same 98-character
+              title under the headless font metrics the e2e pin reads). The
+              `truncate` below never fired, because its containing block had
+              been sized to the text, and the header overran its row by the
+              difference on every phone-width record whose name runs past
+              roughly thirty characters. What the reader got depended on the
+              host: the console's content pane computes `overflow-x: hidden`,
+              so there the title was cut off mid-word with no ellipsis and no
+              scrollbar; a host that does not clip got a sideways page scroll
+              instead. Both are this one defect.
+
+              ⛔ Neither utility already on this line can fix that, and a
+              third one of the same kind cannot either: `min-w-0` is a FLOOR,
+              not a ceiling, and `flex-1` acts on the MAIN axis — which in a
+              column container is HEIGHT. Only a definite cross size does it.
+              (objectui#3466 / objectui#2493 were a MISSING `min-w-0` on other
+              surfaces; this is not that one.)
+
+              `sm:w-auto` hands the row straight back to the `sm:flex-row`
+              title/action arbitration objectui#7281 fixed, unchanged — the
+              action tail below spells the same pair for the same reason, and
+              the 799px row of the pin is the lit control proving it. */}
+          <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0 sm:min-w-64 w-full sm:w-auto">
             {(schema.showBack ?? true) && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1059,20 +1095,76 @@ export const DetailView: React.FC<DetailViewProps> = ({
                     .find((f) => f.name === fieldName);
                   const objField = objectSchema?.fields?.[fieldName];
                   const ftype = sectionField?.type || objField?.type;
+                  // ── The chip's NAME half ──────────────────────────────────
+                  //
+                  // The chip carries no visible label, so what follows is the
+                  // WHOLE of what a screen-reader user hears the field called —
+                  // and it used to be `fieldName`, the raw stored column
+                  // (objectui#8729). Every other band of this page resolves a
+                  // label: `HeaderHighlight` and `DetailSection` both call
+                  // `fieldLabel(objectName, name, authoredLabel)`. This is that
+                  // same call, not a fourth resolution path — a chip and the
+                  // highlight strip one band below must name the same field the
+                  // same way, including when a translation overrides the
+                  // authored label.
+                  //
+                  // The fallback chain is this render's own field resolution,
+                  // not a new one: the summary chip is addressed by NAME only
+                  // (`summaryFields: ['owner_ref']`), so unlike the siblings —
+                  // whose inputs are field objects that already carry a label —
+                  // it has to find one. `sectionField` (the author's explicit
+                  // entry) wins over `objField` (the object schema), exactly as
+                  // `enrichDetailField` states it, and `fieldName` is the floor,
+                  // exactly as `DetailSection` spells it (`field.label ||
+                  // field.name`). `autoSummaryFields` above already merges the
+                  // two sources this way to PICK the chip; this names it from
+                  // the same pair.
+                  //
+                  // ⚠️ NOT `chipField.label` below: `enrichDetailField` copies
+                  // `ENRICHED_FIELD_METADATA_KEYS`, and `label` is deliberately
+                  // not one of them — so that bag carries `sectionField?.label`
+                  // alone and an object-schema label would be dropped.
+                  //
+                  // ⛔ `data-summary-chip` keeps the RAW name on purpose: it is
+                  // a machine handle for tests and automation, not a name for a
+                  // reader, and a stored column is exactly what it should say.
+                  const chipLabel = fieldLabel(
+                    schema.objectName || '',
+                    fieldName,
+                    sectionField?.label || objField?.label || fieldName,
+                  );
                   let display: string = String(val);
                   let percentValue: number | null = null;
                   try {
+                    // -- The locale these four option bags format in ---------------
+                    //
+                    // `displayLocale`, never the literal `undefined` (objectui#9453).
+                    // `useDisplayLocale`'s own doc comment names that literal as "the
+                    // one thing a caller must not do": `undefined` means the MACHINE's
+                    // locale, which is neither the tenant channel nor the UI-language
+                    // one. A German tenant read a German date in the list and an en-US
+                    // one beside the H1 of the record it opened, for one stored value.
+                    // The percent branch below already reads this same binding.
+                    //
+                    // The number of fraction digits, the date style and the time style
+                    // are NOT part of that repair. They are this chip's own
+                    // deliberately compact face, and whether a KPI chip beside a title
+                    // should instead read exactly like its list cell is an OPEN
+                    // question objectui#9453 recorded and did not answer.
+                    // `EN_CONTROL_ROWS` in `summaryChip.displayLocale-9453.test.tsx`
+                    // is what holds that line: those rows are green before this change
+                    // and after it, and go red the moment one of those options moves.
                     if (ftype === 'currency') {
                       const num = Number(val);
                       if (!Number.isNaN(num)) {
                         const cur = resolveFieldCurrency({ ...(objField as any), ...(sectionField as any) }, tenantCurrency);
                         display = cur
-                          ? new Intl.NumberFormat(undefined, {
+                          ? new Intl.NumberFormat(displayLocale, {
                               style: 'currency',
                               currency: cur,
                               maximumFractionDigits: 0,
                             }).format(num)
-                          : new Intl.NumberFormat(undefined, {
+                          : new Intl.NumberFormat(displayLocale, {
                               maximumFractionDigits: 0,
                             }).format(num);
                       }
@@ -1080,17 +1172,68 @@ export const DetailView: React.FC<DetailViewProps> = ({
                       const d = new Date(val);
                       if (!Number.isNaN(d.getTime())) {
                         display = ftype === 'datetime'
-                          ? d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-                          : d.toLocaleDateString(undefined, { dateStyle: 'medium' } as any);
+                          ? d.toLocaleString(displayLocale, { dateStyle: 'medium', timeStyle: 'short' })
+                          : d.toLocaleDateString(displayLocale, { dateStyle: 'medium' } as any);
                       }
                     } else if (ftype === 'percent') {
                       const num = Number(val);
                       if (!Number.isNaN(num)) {
-                        display = `${num}%`;
-                        // Normalize to 0..100 for the bar; values <=1 are
-                        // treated as ratios (0.6 → 60%), otherwise capped.
-                        const normalized = num <= 1 ? num * 100 : num;
-                        percentValue = Math.max(0, Math.min(100, normalized));
+                        // ── ONE number, ONE spelling, and neither is this
+                        //    file's (objectui#8728 → #9071 → #9167) ──────────
+                        //
+                        // The chip draws a percent TWICE: the text states it,
+                        // the bar below draws it clamped to its track. They
+                        // used to scale `num` by two different rules, so a
+                        // stored `0.123` said `0.123%` beside a bar at 12.3%
+                        // (objectui#8728). objectui#9071 put both halves onto
+                        // the repo's SCALING — `percentDisplayValue` in
+                        // `@object-ui/core` — and stopped there, so the chip
+                        // still appended a bare `%` to the full JavaScript
+                        // number while the list cell rendered the same stored
+                        // value through the locale's percent affix at the
+                        // field's precision. One record, two readings again,
+                        // one contract-half further down.
+                        //
+                        // ⭐ The TEXT now takes the other half from the same
+                        // place: `formatPercent` is the list cell's own body
+                        // (`PercentCellRenderer` calls it with exactly these
+                        // three arguments), and it applies `percentDisplayValue`
+                        // itself — so this is not a second entry into the
+                        // scaling, it is the doorway that carries BOTH halves,
+                        // which is what `percentDisplayValue`'s doc comment
+                        // asks of a third surface. ⛔ Nothing here rounds or
+                        // appends a sign of its own; that local rule is the
+                        // shape objectui#9071 deleted.
+                        //
+                        // The BAR still reads `summaryChipPercentPoints`,
+                        // deliberately: a bar draws the UNROUNDED magnitude —
+                        // the list cell's own bar does the same, off its
+                        // `barValue` before formatting — so rounding the fill
+                        // to the field's precision would make this chip
+                        // disagree with the cell it just started agreeing with.
+                        const percentField = { ...(objField as any), ...(sectionField as any) };
+                        // The field's declared width, resolved with the same
+                        // view-over-object precedence the currency branch above
+                        // spells, and floored at the cell's own default:
+                        // `PercentCellRenderer` reads `field.scale ?? 0`.
+                        //
+                        // ⭐ The MEMBER moved and the AUTHORITY did not
+                        // (objectui#9295). This read was `precision ?? 0` until
+                        // `@objectstack/spec` was read at source: it declares
+                        // `precision` as the "Total digits" of a decimal(p, s)
+                        // column and `scale` as its "Decimal places", so the
+                        // cell was padding a decimal(10, 2) percent field out to
+                        // ten fraction digits and this chip mirrored it there.
+                        // objectui#9167 routed this chip onto the LIST CELL as
+                        // the authority — its ruling turns on the two being
+                        // byte-equal — so when the cell's member moved, staying
+                        // on `precision` is what would have BROKEN that ruling,
+                        // not what would have kept it. Whatever the cell reads,
+                        // this reads; that is the whole of the coupling.
+                        const scale = percentField.scale ?? 0;
+                        display = formatPercent(num, scale, displayLocale);
+                        const points = summaryChipPercentPoints(num);
+                        percentValue = Math.max(0, Math.min(100, points));
                       }
                     } else if (ftype === 'select' || ftype === 'status' || ftype === 'multiselect') {
                       // Resolve raw option label from field metadata as
@@ -1177,7 +1320,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                             it — hiding the very value this branch exists to
                             show. Same accessible name, `field: value`, composed
                             from content instead. */}
-                        <span className="sr-only">{`${fieldName}: `}</span>
+                        <span className="sr-only">{`${chipLabel}: `}</span>
                         <ChipCellRenderer value={val} field={chipField as any} />
                       </Badge>
                     );
@@ -1189,7 +1332,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         key={fieldName}
                         variant="secondary"
                         className="text-xs bg-primary/10 text-primary border-transparent hover:bg-primary/15 gap-1.5 pl-2 pr-2"
-                        aria-label={`${fieldName}: ${display}`}
+                        aria-label={`${chipLabel}: ${display}`}
                         data-summary-chip={fieldName}
                       >
                         <span
@@ -1210,7 +1353,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                       key={fieldName}
                       variant="secondary"
                       className="text-xs bg-primary/10 text-primary border-transparent hover:bg-primary/15"
-                      aria-label={`${fieldName}: ${display}`}
+                      aria-label={`${chipLabel}: ${display}`}
                       data-summary-chip={fieldName}
                     >
                       {display}
@@ -1361,11 +1504,19 @@ export const DetailView: React.FC<DetailViewProps> = ({
         )}
 
       {/* Custom Header */}
-      {schema.header && (
+{/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to the
+          slot itself, so a legal authored `header: 0` — the published node union
+          carries a `z.number()` arm — painted the character "0" here. Measured
+          leaking on `origin/main` at 7d6439c4b before this change; the card's
+          census listed these two as HITS, and the probe confirmed them.
+          `renderNodeSlot` runs the wrapper only when the slot has content, so
+          the wrapping `div` disappears with it. Pinned in
+          `__tests__/DetailView.nodeSlotNumericFalsy-9162.test.tsx`. */}
+      {renderNodeSlot(schema.header, (header) => (
         <div>
-          <SchemaRenderer schema={toRenderableSchema(schema.header)} data={data} />
+          <SchemaRenderer schema={toRenderableSchema(header)} data={data} />
         </div>
-      )}
+      ))}
 
       {/* Header Highlight Area */}
       {schema.highlightFields && schema.highlightFields.length > 0 && (
@@ -1592,7 +1743,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
           When only the Details tab would render (no related, no activity, no
           discussion), skip the Tabs strip entirely — it's pure visual noise. */}
       {schema.autoTabs && !schema.tabs?.length ? (() => {
-        const hasRelated = effectiveRelated.length > 0;
         const hasActivity = !!schema.activities && schema.activities.length > 0;
         const hasDiscussion = !!discussionSlot;
         const hasHistory = !!schema.history;
@@ -1603,7 +1753,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
         // in Radix's uncontrolled state.
         const tabValues = [
           'details',
-          ...(hasRelated ? ['related'] : []),
           ...(hasActivity ? ['activity'] : []),
           ...(hasDiscussion ? ['discussion'] : []),
           ...(hasHistory ? ['history'] : []),
@@ -1673,7 +1822,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
           </div>
         );
 
-        if (!hasRelated && !hasActivity && !hasDiscussion && !hasHistory) {
+        if (!hasActivity && !hasDiscussion && !hasHistory) {
           // Single-tab case: render just the details content without a tab strip.
           return <div className="mt-2">{detailsContent}</div>;
         }
@@ -1687,17 +1836,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
               >
                 {t('detail.details')}
               </TabsTrigger>
-              {hasRelated && (
-                <TabsTrigger
-                  value="related"
-                  className="relative rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-                >
-                  <span className="flex items-center gap-1.5">
-                    {t('detail.related')}
-                    <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-transparent">{effectiveRelated.length}</Badge>
-                  </span>
-                </TabsTrigger>
-              )}
               {hasActivity && (
                 <TabsTrigger
                   value="activity"
@@ -1738,36 +1876,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
             <TabsContent value="details" className="mt-4 motion-safe:data-[state=active]:animate-in motion-safe:data-[state=active]:fade-in-0 motion-safe:duration-150">
               {detailsContent}
             </TabsContent>
-
-            {/* Related Tab Content */}
-            {hasRelated && (
-              <TabsContent value="related" className="mt-4 motion-safe:data-[state=active]:animate-in motion-safe:data-[state=active]:fade-in-0 motion-safe:duration-150">
-                <div className="space-y-3">
-                  {effectiveRelated.map((related, index) => (
-                    <RelatedList
-                      key={index}
-                      title={related.title}
-                      type={related.type}
-                      api={related.api}
-                      data={related.data}
-                      columns={related.columns as any}
-                      dataSource={dataSource}
-                      objectName={related.api}
-                      referenceField={(related as any).referenceField}
-                      icon={(related as any).icon}
-                      onNew={(related as any).onNew}
-                      onViewAll={(related as any).onViewAll}
-                      onRowClick={(related as any).onRowClick}
-                      onRowEdit={(related as any).onRowEdit}
-                      onRowDelete={(related as any).onRowDelete}
-                      collapsible
-                      defaultCollapsed={isMobile && index > 0}
-                      pageSize={DEFAULT_RELATED_PAGE_SIZE}
-                    />
-                  ))}
-                </div>
-              </TabsContent>
-            )}
 
             {/* Activity Tab Content */}
             {hasActivity && (
@@ -1861,35 +1969,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
             <DetailTabs tabs={schema.tabs} data={data} />
           )}
 
-          {/* Related Lists */}
-          {effectiveRelated.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-lg font-semibold">{t('detail.related')}</h2>
-              {effectiveRelated.map((related, index) => (
-                <RelatedList
-                  key={index}
-                  title={related.title}
-                  type={related.type}
-                  api={related.api}
-                  data={related.data}
-                  columns={related.columns as any}
-                  dataSource={dataSource}
-                  objectName={related.api}
-                  referenceField={(related as any).referenceField}
-                  icon={(related as any).icon}
-                  onNew={(related as any).onNew}
-                  onViewAll={(related as any).onViewAll}
-                  onRowClick={(related as any).onRowClick}
-                  onRowEdit={(related as any).onRowEdit}
-                  onRowDelete={(related as any).onRowDelete}
-                  collapsible
-                  defaultCollapsed={isMobile && index > 0}
-                  pageSize={DEFAULT_RELATED_PAGE_SIZE}
-                />
-              ))}
-            </div>
-          )}
-
           {/* Comments */}
           {schema.comments && (
             <RecordComments
@@ -1916,11 +1995,19 @@ export const DetailView: React.FC<DetailViewProps> = ({
       />
 
       {/* Custom Footer */}
-      {schema.footer && (
+{/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to the
+          slot itself, so a legal authored `footer: 0` — the published node union
+          carries a `z.number()` arm — painted the character "0" here. Measured
+          leaking on `origin/main` at 7d6439c4b before this change; the card's
+          census listed these two as HITS, and the probe confirmed them.
+          `renderNodeSlot` runs the wrapper only when the slot has content, so
+          the wrapping `div` disappears with it. Pinned in
+          `__tests__/DetailView.nodeSlotNumericFalsy-9162.test.tsx`. */}
+      {renderNodeSlot(schema.footer, (footer) => (
         <div>
-          <SchemaRenderer schema={toRenderableSchema(schema.footer)} data={data} />
+          <SchemaRenderer schema={toRenderableSchema(footer)} data={data} />
         </div>
-      )}
+      ))}
       </div>
     </TooltipProvider>
   );

@@ -86,8 +86,23 @@ Renaming the file before you commit is what actually prevents it.
 ## Automated Release Process
 
 1. **Merge PR with changeset** → Triggers automation
-2. **Bot creates "Version Packages" PR** → Updates versions and changelogs
-3. **Merge Version PR** → Automatically publishes to npm
+2. **Bot opens or refreshes the release PR** → Updates versions and changelogs
+3. **Merge the release PR** → Automatically publishes to npm
+
+**Find that release PR by its head branch, never by its title.** The
+[Changesets action](https://github.com/changesets/action) derives the head branch
+from the base branch — `changeset-release/main` here — so it is a convention that
+holds in every repository running the action:
+
+```text
+is:pr is:open head:changeset-release
+```
+
+The title is not a convention. It is the `title:` input this repository passes to
+the action in
+[`.github/workflows/changeset-release.yml`](../.github/workflows/changeset-release.yml),
+so it is repository-local configuration and differs between repositories. Read
+that input when you need the current title instead of memorising one.
 
 ## Learn More
 

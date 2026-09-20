@@ -192,15 +192,47 @@ describe('the documented zh-only families', () => {
     for (const family of ZH_ONLY_FAMILIES) {
       expect(family.prefix, 'a family must be a prefix').toMatch(/\.$/);
       expect(family.reason.trim().length, `${family.prefix} has no reason`).toBeGreaterThan(20);
-      expect(family.citation, `${family.prefix} has no citation`).toMatch(/^[\w./-]+:\d+(-\d+)?$/);
+      expect(family.citation, `${family.prefix} has no citation`).toBeTruthy();
+      expect(family.citation.file, `${family.prefix} cites no file`).toMatch(/^[\w./-]+$/);
+      expect(
+        family.citation.anchor.trim().length,
+        `${family.prefix} cites no anchor text`,
+      ).toBeGreaterThan(8);
+      // objectui#8875 clause 3: the citation used to be `path:line`, a STORED
+      // line number pointing into another file. It was one unrelated edit away
+      // from naming the wrong line, and nothing here ever followed it, so the
+      // drift would have been silent. An anchor is text, so it can be CHECKED —
+      // which the next assertion does.
+      expect(
+        `${family.citation.file} ${family.citation.anchor}`,
+        `${family.prefix} still cites a line address`,
+      ).not.toMatch(/\.[A-Za-z]+:\d+/);
     }
   });
 
-  it('every citation names a file that exists in this repo', () => {
+  it('every citation resolves: the file exists and the anchor text is in it, exactly once', () => {
     for (const family of ZH_ONLY_FAMILIES) {
-      const file = family.citation.slice(0, family.citation.lastIndexOf(':'));
-      expect(fs.existsSync(path.join(repoRoot, file)), `${family.citation} names no file`).toBe(true);
+      const full = path.join(repoRoot, family.citation.file);
+      expect(fs.existsSync(full), `${family.citation.file} names no file`).toBe(true);
+
+      const source = fs.readFileSync(full, 'utf8');
+      const occurrences = source.split(family.citation.anchor).length - 1;
+      expect(
+        occurrences,
+        `${family.prefix} cites "${family.citation.anchor}" in ${family.citation.file}, which ` +
+          `contains it ${occurrences} time(s). A citation that locates nothing — or several ` +
+          `things — is the failure objectui#8875 retired the line numbers for; it is not fixed ` +
+          `by writing a number back.`,
+      ).toBe(1);
     }
+
+    // Anti-vacuity: the same reader, on a string that is deliberately absent,
+    // must return zero. Without it a broken read would agree with every anchor.
+    const control = fs.readFileSync(
+      path.join(repoRoot, ZH_ONLY_FAMILIES[0].citation.file),
+      'utf8',
+    );
+    expect(control.includes('zzz-this-anchor-does-not-exist')).toBe(false);
   });
 
   it('every family still subtracts at least one real key', () => {

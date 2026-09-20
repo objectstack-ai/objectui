@@ -282,6 +282,15 @@ A `currency` or `percent` column formats its `sum`/`avg`/`min`/`max` in that
 unit. Counts stay plain cardinalities and percentages carry their own `%`, so
 `count_unique` on a currency column reads `Unique: 3`, not `$3.00`.
 
+A `percent` column's aggregate takes both halves of the percent rule from the
+same place the list cell above it does — `percentDisplayValue` in
+`@object-ui/core` for the fraction-vs-points scaling, and the session locale's
+own percent convention for the sign — so the footer and the cells never read
+under two conventions. A stored `1234.5` renders `Sum: 1,235%` in `en`,
+`Sum: 1.235 %` in `de-DE` (no-break space before the sign) and `Sum: %1.235` in
+`tr-TR`, where the sign goes in front of the number (objectui#9269). The width
+still comes from the column's `precision`.
+
 The footer row renders only when at least one column resolves to a summary — a
 view whose columns are all `none` (or carry no `summary`) has no footer.
 
@@ -587,6 +596,47 @@ The declarative alternative, which *is* metadata and survives a round trip throu
 storage, is `navigation`: `{ mode: 'page' | 'drawer' | 'modal' | 'split' | 'none' }`
 decides what a row click does without any host code.
 
+### Withholding a row's Edit or Delete
+
+`operations` and the `onEdit` / `onDelete` wiring are GRID-level: they decide
+whether the generic Edit / Delete entries exist at all, identically for every
+row. When the refusal belongs to one RECORD — a system field a designer may not
+drop — use `rowOperations`, a component prop called with a row record that
+answers for that row alone:
+
+```tsx
+import { ObjectGrid } from '@object-ui/plugin-grid';
+import type { ObjectGridSchema } from '@object-ui/types';
+
+const schema: ObjectGridSchema = {
+  type: 'object-grid',
+  objectName: 'field_definition',
+  columns: ['name', 'label', 'type'],
+};
+
+export const FieldList = ({ isSystem }: { isSystem: (name: string) => boolean }) => (
+  <ObjectGrid
+    schema={schema}
+    onEdit={(record) => console.log('edit', record)}
+    onDelete={(record) => console.log('delete', record)}
+    rowOperations={(record) => ({ delete: !isSystem(String(record.name)) })}
+  />
+);
+```
+
+It speaks the same `update` / `delete` vocabulary as the authored `operations`
+block, and it is an **intersection**, never a union: `false` withholds the
+entry, while `true`, an omitted member, and a `null` / `undefined` return all
+leave the grid's own verdict alone. Nothing it returns can re-open what the
+object's lifecycle bucket, its `userActions`, the server's effective operations,
+the principal's grant or the record-level verdict already closed — and a grid
+that passes no `rowOperations` renders exactly as it did before the prop
+existed.
+
+Prefer this over refusing inside the callback. A refusal that runs after the
+click ships a button that is drawn as available and then does nothing, which is
+indistinguishable from a broken build (objectui#8674).
+
 ### Inline Editing
 
 Enable inline cell editing for quick updates:
@@ -728,7 +778,23 @@ const grid: ObjectGridSchema = {
 // Row callbacks are COMPONENT props, not schema keys.
 const gridProps: ObjectGridComponentProps = {
   schema: grid,
+  // TWO parameters (objectui#9357). The second is the modifier payload the grid
+  // forwards from the DOM click — read `metaKey` / `ctrlKey` / `button` to
+  // implement Cmd/Ctrl/middle-click yourself. It is optional in both
+  // directions: a one-parameter handler like the one below stays valid.
   onRowClick: (record) => console.log('Row clicked:', record)
+};
+
+// The same prop, taking the payload:
+const gridPropsWithModifiers: ObjectGridComponentProps = {
+  schema: grid,
+  onRowClick: (record, event) => {
+    if (event?.metaKey || event?.ctrlKey || event?.button === 1) {
+      window.open(`/users/${record.id}`, '_blank');
+      return;
+    }
+    console.log('Row clicked:', record);
+  }
 };
 ```
 

@@ -51,11 +51,31 @@
  * ## The contract: declared = enforced, and absence is never green
  *
  * The gate does NOT ask GitHub "are the required checks green?" — that question
- * is answered by the branch-protection required set, which is a
- * repository-SETTINGS surface this repository can neither read nor change
- * (`content/docs/guide/ci-cd-pipeline.md`, "Merge Queue", step 3), and which is
- * demonstrably not carrying the shards today: a merge occurred while all four
- * were `in_progress`, so none of them can be in it.
+ * is answered by the branch-protection required set, a repository-SETTINGS
+ * surface this repository cannot WRITE (`content/docs/guide/ci-cd-pipeline.md`,
+ * "Merge Queue", step 3): enrolling, removing or renaming a context there is a
+ * maintainer action, and `GET /repos/{owner}/{repo}/branches/{branch}/protection`
+ * answers `403 Resource not accessible by integration` to the token a job here
+ * runs under.
+ *
+ * ⛔ What that set currently HOLDS is deliberately not restated here, and no
+ * decision in this file turns on it. It IS readable from a job with network, and
+ * this repository already reads it: `scripts/check-required-check-set.mjs`
+ * (`pnpm check:required-check-set`, patrolled by
+ * `.github/workflows/required-check-set-patrol.yml`) takes a live reading of the
+ * ruleset and exits 2 when it could not take one — never 0. Ask that
+ * instrument. A comment cannot be re-run.
+ *
+ * ⚠️ An earlier version of this paragraph did restate it: "demonstrably not
+ * carrying the shards today", derived from #4959, where a merge landed while all
+ * four shards were `in_progress`, which is possible only if none of them was
+ * required. It was true when it was written and false by the time it was read —
+ * the ruleset was edited afterwards and the prose was not (objectui#9502). So
+ * the declaration below rests on two things no ruleset edit can move: it is
+ * BROADER than a required set (every unfiltered blocking context this repository
+ * produces, not the subset a maintainer chose to enforce), and it is visible to
+ * review and to `dependabot-merge-gate.test.ts`, which off-repo configuration is
+ * not.
  *
  * So the set is declared here, and three rules keep the declaration honest:
  *
@@ -128,6 +148,7 @@ import { isEntrypoint } from './invoked-as.mjs';
  *   doc-component-types.yml  Doc Component Type Check
  *   doc-snippet-types.yml    Doc Snippet Type Check
  *   doc-fence-languages.yml  Doc Fence Language Check
+ *   doc-example-ids.yml      Doc Example Id Check
  *   pre-install-import-graph.yml  Pre-Install Import Graph Check
  *   vi-mock-specifiers.yml        Inert vi.mock Specifier Check
  *   shell-escape-residue.yml      Shell Escape Residue Scan
@@ -171,6 +192,7 @@ export const REQUIRED_CONTEXTS = Object.freeze([
   'Doc Component Type Check',
   'Doc Snippet Type Check',
   'Doc Fence Language Check',
+  'Doc Example Id Check',
   'Pre-Install Import Graph Check',
   'Inert vi.mock Specifier Check',
   'Shell Escape Residue Scan',
@@ -203,6 +225,8 @@ export const OPTIONAL_CONTEXTS = Object.freeze({
     "performance-budget.yml filters on paths: packages/**, apps/console/**, pnpm-lock.yaml. Blocking when it runs (console gzip budget); absent on a PR that touches none of them.",
   'Changeset Bump Policy':
     'changeset-guard.yml filters on paths: .changeset/**. A Dependabot PR carries no changeset, so it normally does not report at all.',
+  'Lockfile Dedupe Check':
+    "lockfile-dedupe.yml (objectui#8333) runs `pnpm dedupe --check`: the committed lockfile must already be deduped, so a dependency bump cannot leave a forked peer group behind for `Bundle Analysis` to misattribute to the bump. Blocking when it runs; its pull_request trigger is path-filtered to `pnpm-lock.yaml` plus its own runtime closure, so a change touching none of them does not report at all. ⚠️ Enrolled as blocking where its neighbour `Lockfile Integrity Check` deliberately is NOT, and the difference is the remedy: #8326's gate names a duplication and leaves the answer open (re-lock, pin, or accept), which is a judgement call its header reserves for the maintainer, while this one has exactly one mechanical remedy that pnpm itself prints — run `pnpm dedupe` and commit the lockfile, changing no declaration, range or override. Cost of enrolling it, measured on objectui#8333 before it was taken: green on `main` as it stands (objectui#9215 collapsed the accumulated duplication first), red on the same tree with `better-auth` bumped. ⇒ nothing currently mergeable is blocked by it, and what it defends is that objectui#9215's paydown does not silently accrue again. To stop it blocking, move this name to `NOT_A_GATE`; ⛔ removing it from both buckets fails the partition test instead.",
   'Hook Self-Tests':
     'hook-selftests.yml filters on paths: .claude/hooks/**, plus the workflow file itself (objectui#5754). Blocking when it runs (the PreToolUse guard self-test matrices must pass); a Dependabot dependency bump never touches .claude/hooks/**, so it normally does not report at all.',
 });
@@ -238,10 +262,14 @@ export const NOT_A_GATE = Object.freeze({
     'labeler.yml applies labels. It is a mutation, not a verdict — nothing about the change is judged by it.',
   'Changeset Overwrite Report':
     "changeset-guard.yml's second job is REPORT-ONLY by measurement (objectui#6336): it names any `.changeset/*.md` the change modified or deleted without having added it, and exits 0 whatever it finds — all 19 such modifications in this repository's history were legitimate, so blocking would have failed every one of those pull requests. It goes red only when it cannot compute its diff, which is a fact about the checkout rather than a verdict on the change. Its pull_request trigger is also path-filtered to `.changeset/**` and the two gate scripts, so a Dependabot bump never produces this check at all.",
+  'Changeset Claim Re-read':
+    "changeset-presence.yml's second job is REPORT-ONLY with no enforcing switch at all (objectui#9003): it names the pending `.changeset/*.md` bodies that spell a file this change touches, so the seat whose diff might have falsified a pending release note re-reads the paragraph before it publishes verbatim. \"A pending changeset names a file you edited\" is usually still TRUE, so the finding is a request to read and never a verdict on the change — it exits 0 whatever it finds, and goes red only when it cannot resolve its base, which is a fact about the checkout. It carries NO path filter, deliberately (the falsifying change is an ordinary source change under no obligation to touch `.changeset/**`), so unlike its sibling report it DOES run on a Dependabot bump — and classifying it here rather than requiring it is what keeps a report-only check out of the merge decision.",
   'Lockfile Integrity Check':
     "lockfile-integrity.yml (objectui#8326) reports a lockfile DELTA — an `@objectstack/*` identity moving backward, or a workspace-declared dependency gaining a physical copy. ⛔ It is deliberately NOT a blocking context: enrolling it changes what stops the merge queue, which is a maintainer decision the #8326 dispatch reserved rather than took, and its pull request writes up the cost as input (measured: it would have blocked 3 of the 40 most recent lockfile-changing commits on `main`, each for a real duplication of a runtime-declared package). Its pull_request trigger is also path-filtered to `pnpm-lock.yaml` and its own two files, so it cannot be REQUIRED under #3523's rule while that filter stands — promoting it means removing the filter as well.",
   'Live half-state sweep':
     'half-state-patrol.yml is REPORT-ONLY by ruling (objectui#5791): a completed sweep exits 0 whether it found 0 half-states or 40, and the job gates no branch and blocks no queue. It goes red only when the sweep could not RUN — the patrol reporting its own death, which is a fact about the patrol, not a verdict on the pull request. Its pull_request trigger is also path-filtered to the sweeper and the workflow, so a Dependabot bump never produces this check at all.',
+  'Line Citation Gate':
+    'line-citation-gate.yml is REPORT-ONLY by ruling (objectui#8875, clause 2): it prints the cross-file line-address citations a pull request ADDED against its base and exits 0 whatever it finds, so requiring it would enrol a check that cannot say no. It goes red only when one of its own synthetic controls fails — the differ reporting its own death, which is a fact about the instrument and not a verdict on the pull request. It also declares NO `merge_group` trigger, because it needs a base to be differential at all and only a pull request has one; under #3523 a required context that never reports on a queue build stalls the queue until the ruleset timeout fails it, so promoting this one means giving it a queue leg first. That promotion is the flip condition the ruling states, and a maintainer decision, ⛔ not a tidy-up.',
 });
 
 /**

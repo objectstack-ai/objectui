@@ -50,13 +50,21 @@ import type { SelectOption as SpecSelectOption } from '@objectstack/spec/data';
  * WARNING - this type is WIDER than the authoring contract, and it is not a
  * description of what an authored object document may carry. It is the runtime
  * READ MODEL the renderers consume. The spec's `SelectOptionSchema` is a strict
- * object over exactly `label`, `value`, `color`, `default` and `visibleWhen`,
- * and it refuses `disabled` and `icon` BY NAME (`unrecognized_keys`); a field's
- * `options` are routed through that schema, so either key written into authored
- * object metadata fails the WHOLE field at publish time. Pinned, each refusal
- * behind an accepting control, by
+ * object, and it refuses `disabled` and `icon` BY NAME (`unrecognized_keys`); a
+ * field's `options` are routed through that schema, so either key written into
+ * authored object metadata fails the WHOLE field at publish time. Each refusal,
+ * behind an accepting control, is re-derived by
  * `__tests__/select-option-spec-extension-7014.test.ts` and
- * `__tests__/select-option-tier1-convergence-7014.test.ts`.
+ * `__tests__/select-option-tier1-convergence-7014.test.ts` — read their verdict
+ * rather than a key list copied into this paragraph, which is how the previous
+ * copy went stale.
+ *
+ * ⚠️ That list USED to be spelled out here as "exactly `label`, `value`,
+ * `color`, `default` and `visibleWhen`", and `@objectstack/spec` 17.3.0 falsified
+ * it by declaring a sixth key, `description` (objectui#6153; corrected by
+ * objectui#7635). The enumeration is deliberately not replaced with a longer
+ * one: the keys arrive through the `Omit` BY REFERENCE, so a list written here
+ * can only ever disagree with the derivation it sits above.
  */
 export interface SelectOptionBase extends Omit<SpecSelectOption, 'visibleWhen'> {
   /**

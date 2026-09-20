@@ -23,12 +23,20 @@
  * ## WHY THE EXCEPTION MECHANISM IS THE POINT, NOT THE DEFAULT
  *
  * objectui#8465. On `origin/main` there were 13 distinct action references.
- * Exactly ONE was spelled differently from the other twelve — a commit SHA,
- * `actions/stale@e00e804f...` — and it was the only reference in the repository
- * that had never resolved. 236 scheduled runs of `stale.yml` since 2026-01-16,
- * 0 successes, every one of them failing in `Set up job`. Eight months, silent,
- * because nothing downstream consumes that job (the broken ref itself is
- * objectui#8126).
+ * Exactly ONE was spelled differently from the other twelve — a commit SHA on
+ * `actions/stale` — and it was the only reference in the repository that had
+ * never resolved. 236 scheduled runs of the stale-issues workflow since
+ * 2026-01-16, 0 successes, every one of them failing in `Set up job`. Eight
+ * months, silent, because nothing downstream consumes that job (the broken ref
+ * itself was objectui#8126).
+ *
+ * That workflow is GONE — objectui#8548 retired it under enforce-or-remove
+ * rather than repairing it (a declared automation with zero consumers and zero
+ * successes), and objectui#8126 closed with it. Its entry left this table in
+ * the same commit, because rule 2 below would otherwise have turned the
+ * deletion into a red `main`. ⛔ The convention did NOT leave with it: it was
+ * never about that one reference, and the next off-convention ref is what it
+ * exists to make loud.
  *
  * ⛔ The finding is NOT "SHA pinning is wrong". It is normally the MORE secure
  * spelling and supply-chain guidance recommends it; whether this repository
@@ -98,39 +106,41 @@ export const DEFAULT_SPELLING_LABEL = 'a floating major tag (@vN)';
 
 /**
  * `workflow file + action path -> why this ref is spelled differently`.
+ * **Deliberately empty — every `uses:` in the tree follows the convention.**
  *
  * ⛔ Adding an entry here is the deliberate, reviewable act that objectui#8465
  * found missing. Every entry needs a real reason and the issue that owns it —
  * "it was like that already" is not a reason, it is the defect.
  *
  * The test below rejects an entry that no longer matches an off-convention ref,
- * so this table cannot rot into a permanent skip-list.
+ * so this table cannot rot into a permanent skip-list. That is not theory: the
+ * one entry this table ever held named `stale.yml :: actions/stale`, and when
+ * objectui#8548 deleted that workflow the entry stopped matching anything.
+ * Leaving it would have made every pull request red on a `main` nobody broke,
+ * so it went in the deletion's own commit — which is exactly the rule working.
+ *
+ * ⚠️ An empty table does NOT mean this mechanism is dormant. It means the tree
+ * currently has nothing to excuse, which is the state the convention is for.
+ * The gate's red branches are pinned over synthetic tables in
+ * `scripts/__tests__/check-action-ref-convention.test.ts`, so emptiness here
+ * costs no coverage.
  */
-export const DECLARED_EXCEPTIONS = [
-  {
-    workflow: 'stale.yml',
-    action: 'actions/stale',
-    issue: 'objectui#8126',
-    reason:
-      'SHA-pinned while objectui#8126 owns this line. The pinned SHA resolves to no commit ' +
-      'in actions/stale: 236 scheduled runs since 2026-01-16, 0 successes, every one failing ' +
-      'in `Set up job`. This entry exists so that this gate can be green on a tree it did not ' +
-      'break, WITHOUT pre-empting what objectui#8126 decides to write there — the reason had ' +
-      'to survive in the tree either way (objectui#8465 triage). When #8126 lands: if the ref ' +
-      'becomes a tag, DELETE this entry (rule 2 below will say so); if it stays a SHA, replace ' +
-      'this reason with the one that justifies keeping it.',
-  },
-];
+export const DECLARED_EXCEPTIONS = [];
 
 /**
  * Non-vacuity floors. A census that collapses reports an empty offender list,
  * and an empty offender list renders exactly like a healthy repository.
  *
- * Sized well under today's readings (34 workflow files, 13 distinct refs) so
+ * Sized well under today's readings — 35 workflow files, 110 refs, 12 distinct,
+ * measured on this commit, one workflow and one distinct ref below the reading
+ * these floors were written against (objectui#8548 retired `stale.yml`) — so
  * ordinary churn never trips them, but far enough above zero that a parser
- * regression cannot pass. `CONTROL_ACTION` is the positive control: a term
- * known to be present, asserted in the same run as the counts, because a zero
- * without one is not a reading.
+ * regression cannot pass. ⚠️ The floors themselves are NOT lowered for that
+ * deletion: they still sit far under the reading, and moving a floor down every
+ * time the population shrinks by one is how a floor stops being able to fail.
+ * `CONTROL_ACTION` is the positive control: a term known to be present,
+ * asserted in the same run as the counts, because a zero without one is not a
+ * reading.
  */
 export const FLOORS = { workflowFiles: 20, distinctRefs: 8, totalRefs: 40 };
 export const CONTROL_ACTION = 'actions/checkout';

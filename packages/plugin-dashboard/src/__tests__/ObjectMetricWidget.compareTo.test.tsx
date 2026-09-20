@@ -13,11 +13,30 @@
  * before) and the label (`vs last year` / `vs last quarter`), so each case can
  * only pass by reading `.kind`. A year-scoped filter would have let a
  * `previousYear` that fell through to the previousPeriod branch pass anyway.
+ *
+ * ## Promoted to the member pin for `object-metric.compareTo` (objectui#8071)
+ *
+ * objectui#8071's eighth slice registers this file as the pin for that key: the
+ * cases below already assert the member SET the renderer reads — `kind` selects
+ * both the comparison window and the label, `dimension` is carried but inert on
+ * this inline path, and an absent `compareTo` leaves the tile at one pass with
+ * no trend — which is what a member-shape claim has to say.
+ *
+ * The four cases above drive `ObjectMetricWidget` directly. The registered
+ * block `object-metric` is the same reader: its `ElementDataSourceGate` shell
+ * re-binds only `objectName` and `filter` and forwards every other authored key
+ * untouched, so `compareTo` arrives at this component exactly as authored. That
+ * is asserted rather than assumed by the last case in this file, which mounts
+ * `type: 'object-metric'` through `SchemaRenderer`.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import { ObjectMetricWidget } from '../ObjectMetricWidget';
+// Registers `object-metric` at MODULE scope, never inside a hook
+// (object-ui/no-dynamic-import-in-test-hook).
+import '../index';
 
 afterEach(cleanup);
 
@@ -100,5 +119,31 @@ describe('ObjectMetricWidget — compareTo under { kind }', () => {
     renderWidget(undefined, src);
     await waitFor(() => expect(src.aggregate).toHaveBeenCalledTimes(1));
     expect(screen.queryByText(/vs last/i)).not.toBeInTheDocument();
+  });
+
+  it('arrives unchanged through the registered `object-metric` block', async () => {
+    // What makes the four cases above a pin on the BLOCK's key rather than on
+    // one component's prop: authored on the schema, `compareTo` passes the
+    // `ElementDataSourceGate` shell untouched and shifts the window exactly as
+    // it does when handed straight to the widget.
+    const src = makeSource();
+    render(
+      <SchemaRendererProvider dataSource={src as never}>
+        <SchemaRenderer
+          schema={{
+            type: 'object-metric',
+            objectName: 'deal',
+            label: 'Revenue',
+            aggregate: { field: 'amount', function: 'sum' },
+            filter: { close_date: { $gte: '{current_quarter_start}', $lte: '{current_quarter_end}' } },
+            compareTo: { kind: 'previousYear' },
+          } as never}
+        />
+      </SchemaRendererProvider>,
+    );
+
+    await waitFor(() => expect(src.aggregate).toHaveBeenCalledTimes(2));
+    expect(comparisonFilterOf(src).$gte).toBe(PREVIOUS_YEAR_FROM);
+    expect(await screen.findByText(/vs last year/i)).toBeInTheDocument();
   });
 });

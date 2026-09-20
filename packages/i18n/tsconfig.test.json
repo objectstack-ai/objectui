@@ -16,7 +16,7 @@
     "composite": false,
     "declaration": false,
     "jsx": "react-jsx",
-    "lib": ["ES2020", "DOM"],
+    "lib": ["ES2022", "DOM"],
     // Two global augmentations, neither of them an import:
     //   - `node` for the seven locale-parity / namespace suites, which walk the
     //     locale packs off disk (`readFileSync`, `__dirname`, `node:path`) to

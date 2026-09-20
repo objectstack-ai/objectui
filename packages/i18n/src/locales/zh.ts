@@ -138,9 +138,9 @@ const zh = {
     // numbers, a missing one cannot name how many. Same split as
     // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
     // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework` — a ceiling set 8,924 B above the
-    // baseline it was measured from, about sixty short keys' worth across ten
-    // locales. `pnpm check:eager-closure` prints the figure in force.
+    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
+    // deliberately NOT restated here — it moves on every re-baseline, and the
+    // figure that was here went stale. `pnpm check:eager-closure` prints it.
     rowCeilingNote: '仅显示 {{total}} 条记录中的前 {{shown}} 条。请缩小筛选范围。',
     rowCeilingNoteUnknownTotal: '仅显示前 {{shown}} 条记录。请缩小筛选范围。',
   },
@@ -172,7 +172,6 @@ const zh = {
   form: {
     noPermissionToSave: '您没有权限保存这条记录。',
     submitFailed: '保存失败，请重试。',
-    addItem: '添加项目',
     removeItem: '移除项目',
     fieldRequired: '此字段为必填项',
     invalidFormat: '格式不正确',
@@ -268,6 +267,9 @@ const zh = {
       selectBusinessUnit: '请选择业务单元',
       selectPosition: '请选择岗位',
       selectUnitAndSubordinates: '请选择业务单元',
+      selectField: '请选择用户字段',
+      noUserFields: '此对象没有用户字段',
+      fieldNotUserTyped: '{{name}} — 不是用户字段',
     },
     filterCondition: {
       selectObjectFirst: '请先选择对象。',
@@ -291,6 +293,10 @@ const zh = {
         '未保存：{{name}}“{{text}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
       refusedResidue:
         '未保存：{{name}}“{{text}}”和{{otherName}}“{{otherText}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
+    },
+    number: {
+      badInput:
+        '未保存：此输入框中的文本不是数字。请输入普通小数（例如 {{example}}）。',
     },
     tags: {
       placeholder: '输入后回车添加…',
@@ -1124,6 +1130,7 @@ const zh = {
     hideEmptyFields: '隐藏空字段',
     noValue: '无',
     unresolvedReference: '未解析的引用：{{value}} 未能解析为用户',
+    unresolvedLookupReference: '未解析的引用：{{value}} 在本屏未能解析为记录',
     repeaterItemCount: '{{count}} 项',
     repeaterItemCount_one: '{{count}} 项',
     repeaterItemCount_other: '{{count}} 项',
@@ -1182,7 +1189,6 @@ const zh = {
   },
   dashboard: {
     addWidget: '添加组件',
-    removeWidget: '移除组件',
     editLayout: '编辑布局',
     saveLayout: '保存布局',
     resetLayout: '重置布局',
@@ -1362,7 +1368,6 @@ const zh = {
     addGroup: '添加分组',
     addUrl: '添加链接',
     addSeparator: '添加分隔线',
-    noNavItems: '暂无导航项。',
     logoUrl: 'Logo 链接',
     primaryColor: '主色调',
     faviconUrl: '网站图标链接',
@@ -1395,7 +1400,6 @@ const zh = {
     stepBrandingDesc: 'Logo、颜色和图标',
     noObjectsFound: '未找到对象。',
     noNavItemsHint: '暂无导航项。请在上一步选择对象或手动添加项目。',
-    separator: '分隔线',
     separatorLabel: '— 分隔线 —',
     newGroup: '新建分组',
     newLink: '新建链接',
@@ -1533,6 +1537,9 @@ const zh = {
     importMappingsUnavailable: "无法加载 {{object}} 的已保存导入映射",
     importMappingsRefused: "服务器拒绝了此请求，因此该列表为空是因为读取失败，而不是因为没有注册任何映射。请重新登录，或联系管理员申请访问权限。",
     importMappingsUnreadable: "该列表为空是因为读取失败，而不是因为没有注册任何映射。请重试；如果反复出现，请反馈此问题。",
+    savedViewsUnavailable: "无法加载 {{object}} 的已保存视图",
+    savedViewsRefused: "服务器拒绝了此请求，因此该列表为空是因为读取失败，而不是因为该对象没有已保存的视图。请重新登录，或联系管理员申请访问权限。",
+    savedViewsUnreadable: "该列表为空是因为读取失败，而不是因为该对象没有已保存的视图。请重试；如果反复出现，请反馈此问题。",
     title: 'ObjectStack 控制台',
     initializing: '正在初始化应用程序…',
     search: '搜索…',
@@ -1981,7 +1988,6 @@ const zh = {
       importedToast: '成功导入 {{count}} 行。',
       importedWithSkipped: '已导入 {{ok}} 行；跳过 {{skipped}} 行。',
       configureView: '配置视图',
-      toolbar: '工具栏',
       toolbarEnabledCount: '已启用 {{count}}/{{total}} 项',
       searchFields: '搜索字段…',
       title: '标题',
@@ -2053,7 +2059,6 @@ const zh = {
       xAxisFieldHelp: '用于分类或时间维度的字段。',
       yAxisField: 'Y 轴字段',
       yAxisFieldHelp: '用于数值聚合的字段。',
-      groupBy: '分组依据',
       endDateField: '结束日期字段',
       ufTabs: '标签页',
       ufAddField: '+ 添加筛选字段…',
@@ -2332,6 +2337,15 @@ const zh = {
       role: '角色',
       save: '保存更改',
     },
+    language: {
+      title: '语言',
+      description: '发送给您的通知和消息所使用的语言。界面语言另行设置,在地球图标菜单中切换。',
+      label: '首选语言',
+      systemDefault: '使用部署默认值',
+      save: '保存',
+      saved: '语言偏好已更新。',
+      readOnly: '您账户的语言由管理员管理。',
+    },
     password: {
       changeTitle: '修改密码',
       setTitle: '设置本地密码',
@@ -2363,7 +2377,6 @@ const zh = {
     label: '工作区',
     default: '我的工作区',
     switch: '切换工作区',
-    create: '创建工作区',
     createTitle: '创建工作区',
     createDescription: '工作区是团队协作的共享空间。',
     createButton: '创建工作区',
@@ -2386,7 +2399,6 @@ const zh = {
   },
   sidebar: {
     settings: '设置',
-    help: '帮助',
     helpTooltip: '帮助与文档',
     activityFeed: '活动动态',
     notifications: '通知',
@@ -2426,7 +2438,6 @@ const zh = {
   },
   home: {
     title: '首页',
-    subtitle: '您的工作区仪表盘',
     nav: '首页',
     allApps: '全部应用',
     yourApps: '我的应用',
@@ -2454,8 +2465,6 @@ const zh = {
     },
     open: '打开',
     loading: '正在加载工作区…',
-    recent: '最近使用',
-    starred: '收藏',
     welcome: '用 AI 搭建你的业务系统',
     welcomeDescription: '用一句话描述你的业务，AI 帮你生成对象、界面、API 和 agent 工具。也可以手动从零开始。',
     welcomeAdminDescription: '用一句话描述你的业务，AI 会为你生成对象、界面、API 和智能体工具；也可以从左侧菜单自行搭建。',
@@ -2576,6 +2585,7 @@ const zh = {
     resultsCount: '找到 {{count}} 条与“{{query}}”相关的结果',
     resultsCountPlural: '找到 {{count}} 条与“{{query}}”相关的结果',
     itemsAvailable: '共 {{count}} 项可搜索',
+    itemsAvailableOne: '共 {{count}} 项可搜索',
     noResults: '未找到结果',
     noResultsHint: '请尝试调整搜索关键字',
     typeObjects: '对象',
@@ -2602,7 +2612,11 @@ const zh = {
     noAppsConfigured: '尚未配置应用',
     noAppsConfiguredDescription: '当前没有任何已注册的应用。请创建您的第一个应用，或前往系统设置进行配置。',
     appNotAvailable: '应用不可用',
-    appNotAvailableDescription: '此应用尚不可用 —— 可能仍在发布中。请稍后重试。',
+    appNotAvailableDescription: '此应用不可用 —— 请稍后重试。',
+    appNotFound: '无法打开此应用',
+    appNotFoundDescription: '服务器未返回你的账号可访问的此应用。',
+    appUnreachable: '无法连接到服务器',
+    appUnreachableDescription: '无法检查此应用。请稍后重试。',
     appAccessDenied: '你没有访问此应用的权限',
     appAccessDeniedDescription: '此应用存在，但你的账号未获授权打开它。请联系管理员为你开通访问权限。',
     appAccessDeniedHome: '返回首页',
@@ -2675,7 +2689,7 @@ const zh = {
       revertLabel: '已撤销一处变更',
       applyLabel: '构建变更',
       revert: '撤销',
-      items: '项',
+      items: '{{count}} 项',
       revertAction: '撤销',
       reverted: '已撤销 —— 该变更已还原。',
       revertFailed: '撤销失败',
@@ -3138,6 +3152,20 @@ const zh = {
       countDashboards_one: '{{count}} 个仪表板',
       countSeedData: '示例数据',
     },
+    build: {
+      building: '正在构建{{app}}…',
+      built: '已构建{{app}}',
+      appFallback: '你的应用',
+      addingSampleData: '正在添加示例数据',
+      group: {
+        object: '对象',
+        view: '视图',
+        dashboard: '仪表板',
+        app: '应用',
+        seed: '示例数据',
+      },
+      moreArtifacts: '+{{n}} 个',
+    },
   },
   chatbotError: {
     title: '响应失败',
@@ -3316,7 +3344,8 @@ const zh = {
         reviewed: '已审核并批准',
         unreviewed: '尚未审核',
         signed: '已签名',
-        grantsIntro: '安装后，此软件包将获得以下权限：',
+        grantsIntro: '此软件包请求以下权限：',
+        notEnforced: '安装时会记录这份清单，后续版本要求更多权限时会再次征求同意；但运行时目前还不会把该软件包限制在此清单内。',
         services: '平台服务',
         hooks: '生命周期钩子',
         network: '网络访问',
@@ -3366,14 +3395,6 @@ const zh = {
         storage: '存储',
         other: '其他',
       },
-      pricing: {
-        free: '免费',
-        freemium: '免费增值',
-        paid: '付费',
-        subscription: '订阅',
-        'usage-based': '按用量计费',
-        'contact-sales': '联系销售',
-      },
       relativeTime: {
         today: '今天',
         daysAgo: '{{count}} 天前',
@@ -3381,15 +3402,8 @@ const zh = {
         yearsAgo: '{{count}} 年前',
       },
     },
-  approvals: {
-    approve: '批准',
-    reject: '驳回',
-    comment: '审批意见(可选)',
-    approveSuccess: '已批准',
-    rejectSuccess: '已驳回',
-    rejectConfirm: '确定驳回该审批请求吗?',
-  },
   approvalsInbox: {
+    recordUnresolvable: '无法打开此记录',
     loadMore: '加载更多',
     loadingMore: '加载中…',
     loadedOf: '已加载 {{loaded}} / 共 {{total}} 条',

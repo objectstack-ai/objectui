@@ -39,18 +39,20 @@
  * ## `line-chart` is deliberately NOT armed — the card's premise fails for it
  *
  * The card lists `line-chart` among the eight as a "REGISTERED, LIVE renderer".
- * Measured here, it is not. `apps/console/src/register-plugins.ts` registers it
- * as a LAZY STUB pointing at `@object-ui/plugin-charts`, and that package never
- * registers the key — `Registry.loadLazy`'s own docblock says the loader
- * "resolves once the loader completes (whether or not the loaded module actually
- * registered the expected type)". So the key is known to `check:doc-types` and
- * resolves to nothing at render time; `scripts/check-doc-component-types.mjs`
- * records the same reading, calling it "the `line-chart` widget objectui#7896
- * recorded in `packages/plugin-dashboard/README.md`". objectui#8499's triage
- * admits arms only for things that "运行时已经正确渲染" — already render
- * correctly at runtime — so an arm for `line-chart` would invent a capability
- * rather than name one. The fourth `describe` pins the absence WITH its reason,
- * so registering the key for real turns this red instead of leaving the gap.
+ * Measured here, it is not. objectui#8499's triage admits arms only for things
+ * that "运行时已经正确渲染" — already render correctly at runtime — so an arm
+ * for `line-chart` would invent a capability rather than name one.
+ *
+ * ⚠️ THE REASON MOVED, and the fourth `describe` moved with it (objectui#8760).
+ * When this file was written, `apps/console/src/register-plugins.ts` registered
+ * `line-chart` as a LAZY STUB pointing at `@object-ui/plugin-charts` while that
+ * package never registered the key, so the key was KNOWN to `check:doc-types`
+ * and resolved to nothing at render. objectui#8760 retired the stub — together
+ * with `area-chart` and `advanced-chart`, the other two of the same shape — so
+ * today the key is absent from BOTH sides rather than half-present on one. The
+ * arm is still owed the day a renderer registers it for real, so the fourth
+ * `describe` now pins the retirement from both sources and fails if either
+ * half comes back.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -238,22 +240,47 @@ describe('objectui#8499 — the family arms are compared against their registrat
 });
 
 describe('objectui#8499 — `line-chart` stays unarmed, and the reason stays checked', () => {
-  it('resolves in no arm', () => {
-    expect(AnyComponentSchema.safeParse({ type: 'line-chart' }).success).toBe(false);
+  /**
+   * The three spellings objectui#8760 retired. Each was a console `registerLazy`
+   * stub that `@object-ui/plugin-charts` never fulfilled; `area-chart` is also
+   * one of this file's `UNREGISTERED` firing controls above, which is the same
+   * reading taken from the union's side.
+   */
+  const RETIRED_8760 = ['line-chart', 'area-chart', 'advanced-chart'] as const;
+
+  it.each(RETIRED_8760)('`%s` resolves in no arm', (type) => {
+    expect(AnyComponentSchema.safeParse({ type }).success).toBe(false);
+    expect(AnyComponentSchema.safeParse({ type: 'div', children: [{ type }] }).success).toBe(false);
   });
 
-  it('is a lazy stub in the console that `@object-ui/plugin-charts` never fulfils', () => {
-    // The premise the card asserts for all eight and that fails for this one.
+  it('is registered by neither the console nor `@object-ui/plugin-charts`', () => {
     // Both halves are read from source so the day someone registers the key for
-    // real, this goes red and the arm becomes owed.
+    // real — in EITHER place — this goes red and the arm becomes owed.
+    //
+    // The console half reads the stub list rather than the whole file, because
+    // the file still NAMES all three: objectui#8760 left a ⛔ comment saying
+    // they are retired, and a substring search over the source would match that
+    // comment and pass on a re-registration.
     const consoleSource = read(CONSOLE_PLUGINS);
-    expect(consoleSource, 'the console stub moved — re-derive the premise').toContain("'line-chart'");
+    const stubbed = [
+      ...consoleSource.matchAll(/registerLazy\(\s*'([^']+)'/g),
+      ...[...consoleSource.matchAll(/for \(const variant of \[([^\]]*)\]\)/g)].flatMap((m) => [
+        ...m[1].matchAll(/'([^']+)'/g),
+      ]),
+    ].map((m) => m[1]);
+    // Non-vacuity: the reader must actually find the console's registrations.
+    expect(stubbed.length, 'the console stub read went vacuous').toBeGreaterThanOrEqual(20);
+    expect(stubbed, 'the reader is looking at the chart stubs').toContain('pie-chart');
 
     const pluginSource = read(CHARTS_PLUGIN);
     const registered = [...pluginSource.matchAll(/register\(\s*\n?\s*'([^']+)'/g)].map((m) => m[1]);
     // Non-vacuity: the reader must actually find this module's registrations.
     expect(registered.length, 'the registration read went vacuous').toBeGreaterThanOrEqual(6);
     expect(registered).toContain('pie-chart');
-    expect(registered).not.toContain('line-chart');
+
+    for (const type of RETIRED_8760) {
+      expect(stubbed, `${type} is stubbed in the console again`).not.toContain(type);
+      expect(registered, `${type} is registered by the charts plugin again`).not.toContain(type);
+    }
   });
 });

@@ -55,6 +55,38 @@
 @source '../../../packages/collaboration/src/**/*.{ts,tsx}';
 @source '../../../packages/mobile/src/**/*.{ts,tsx}';
 
+/*
+ * Only SHIPPED source. Tailwind v4 scans source TEXT, not an import graph, so
+ * any class-shaped token in a scanned file compiles a real utility into this
+ * app's eager `index-*.css` -- including a token that only ever appears as a
+ * test's EXPECTED value. `packages/components/src/index.css` and
+ * `packages/runner/src/index.css` already carry this pair; this entry was the
+ * one that did not, while reaching FURTHER than either of them.
+ *
+ * Anchored at the repository root because that is the one base that covers
+ * BOTH trees this entry scans: the 27 package globs above (`../../../packages`)
+ * and Tailwind's AUTOMATIC detection root, which is the PROCESS CWD -- here
+ * `apps/console`, where `pnpm --filter @object-ui/console build` runs. Runner's
+ * header records the same reasoning one level down, and records the measurement
+ * that makes it sound: negations DO apply to files the automatic root found.
+ *
+ * Measured (objectui#6379), not assumed: these two lines remove 19 classes --
+ * 10,096 bytes from the unminified compile, and -7,998 raw / -955 gzipped from
+ * the built `index-*.css` users are served -- and every removed class was
+ * traced to a test file. That is 2.0% of the render-blocking gzipped CSS: a
+ * correctness fix with a size side-effect, NOT a first-paint fix.
+ *
+ * The clearest single reading among the 19 is `mt-[3.7331px]` -- the
+ * self-hosted sentinel of components' own
+ * `index-css-scan-excludes-tests.test.ts`, a token that exists ONLY to prove
+ * that package's exclusion works, and which this app was shipping to users.
+ * `prose-lg` and `prose-slate` are 10,302 of the unminified bytes between
+ * them: the typography plugin emits a very large rule block per `prose-*`
+ * variant, and both variants were named by tests and by no shipped source.
+ */
+@source not '../../../**/*.test.{ts,tsx}';
+@source not '../../../**/__tests__/**';
+
 /* Tailwind plugin for animations remove
 @plugin 'tailwindcss-animate';
 */

@@ -180,6 +180,16 @@ jobs:
       # objectui#3723. `scripts/__tests__/merge-queue-reporting.test.ts` holds
       # every `CHANGED=$(git diff …)` in this file and in `lint.yml` to the
       # fail-open form, so a new gate cannot be added in the closed spelling.
+      #
+      # ⛔ This job has NO markdown second stage, and objectui#9241 measured
+      # what that costs rather than asserting it away: traced under the `fs`
+      # harness objectui#9096 built, this job's population DOES open markdown --
+      # `pnpm check:spec-symbols` reads every page under `content/docs/**`,
+      # which the pathspec below excludes. ⇒ a documentation-only pull request
+      # skips the gate that reads that documentation. The reading, and the fence
+      # around acting on it, are on the `test` job's decide step below; the
+      # widening is objectui#9241's to grade, ⛔ not a thing to add here on
+      # sight.
       - name: Decide whether this change needs a full run
         id: relevant
         run: |
@@ -333,6 +343,26 @@ jobs:
       - name: Verify every handler key a registered renderer reads is declared by its arm
         if: steps.relevant.outputs.should_run == 'true'
         run: pnpm check:handler-key-reads
+
+      # objectui#7714 ruled one client behaviour and its PR implemented that ruling
+      # by ENUMERATING the writers it knew of. Two. objectui#8057 hit the same
+      # defect on a third in that card's own required dogfood, and objectui#8676's
+      # sweep found nine more — and, the half that outlives the count, the sweep
+      # shape the question is naturally asked in (`client.save(`) CANNOT SEE them:
+      # it returns zero over the very file objectui#8057 is about, because the call
+      # is `client.save<any>(type, ...)`. A hand list of writers is stale the next
+      # time somebody adds one, and nothing says so.
+      #
+      # So this step enumerates DOORS, not writers. The writer set is open and
+      # nobody has to announce a new member; the transport set is closed and this
+      # repo owns it. It derives every call that PUTs `/meta/:type/:name` —
+      # resolving the URL through templates, fields and helper returns, because
+      # the central door says nothing at its own call site — and requires each one
+      # that can carry an object document to reach the guard. Parses sources with
+      # `typescript`, so it needs the install and nothing built.
+      - name: Verify every object-metadata write door applies the write guard
+        if: steps.relevant.outputs.should_run == 'true'
+        run: pnpm check:metadata-write-doors
 
       # A build tsconfig that excludes tooling by FILE NAME (`*.test.ts`) stops
       # the files that happen to be named that way and nothing else. The first
@@ -763,9 +793,102 @@ jobs:
           if [ -n "$CHANGED" ]; then
             echo 'should_run=true' >> "$GITHUB_OUTPUT"
             echo "$CHANGED"
+            exit 0
+          fi
+          # Everything that changed is on the exclusion list above, and for the
+          # `type-check` and `e2e` jobs that is the end of it. It is not the end
+          # of it HERE, and objectui#8857 paid for the difference: a markdown
+          # document can be a TEST'S INPUT. That pull request changed exactly one
+          # file, `packages/plugin-dashboard/README.md`; the test that reads that
+          # README extracts its fences and evaluates them. `Test (shard 1/4)`
+          # reported success on the pull request page in ten seconds having run
+          # nothing, the merge_group build then failed the same shard in 907
+          # seconds, and the pull request was dequeued. The queue did its job;
+          # the cost is that the signal arrived after review had concluded on a
+          # green page.
+          #
+          # So this job asks one more question of the markdown the exclusions
+          # above dropped: does a test READ it? `markdown-test-inputs.mjs` holds
+          # the derived class -- which documents, and which test reads each --
+          # and audits itself against the tree. Only THIS job carries the extra
+          # stage.
+          #
+          # ⚠️ objectui#9241: the reason that used to stand here was an
+          # ASSERTION -- "only this job runs the tests that read markdown
+          # (measured: `type-check` reads no document, and no e2e spec does)".
+          # Nothing had measured it. Both populations have now been run under
+          # the same `fs` trace objectui#9096 used -- every `readFileSync` /
+          # `openSync` / `promises.readFile` door recorded, the opened markdown
+          # written out -- and the two answers differ:
+          #
+          #   e2e         ZERO. That job's Playwright suite opens no markdown
+          #               document at all. Stable across two runs, and in a run
+          #               of the same suite the same harness -- extension filter
+          #               moved off `.md` -- recorded reads from inside the
+          #               Playwright worker process, so the zero is a reading
+          #               and not a harness that never fired. ⚠️ The bound on
+          #               it: 23 of that job's 46 tests skip for want of a docs
+          #               site and a backend, in CI exactly as when this was
+          #               taken (`DOCS_BASE_URL` is set nowhere in this file and
+          #               that job starts no backend), so their bodies are
+          #               outside the reading. Static complement: no spec under
+          #               `e2e/` outside `record-header-title-width.spec.ts`
+          #               names `node:fs` at all, and that one ran.
+          #   type-check  ⛔ NOT zero. Its `check:spec-symbols` gate reads EVERY
+          #               page under `content/docs/**` -- objectui#7995 widened
+          #               that gate onto published prose deliberately, after a
+          #               wrong spec claim shipped in
+          #               `content/docs/fields/lookup.mdx` (objectui#7537).
+          #               Those pages are excluded by the very pathspec above,
+          #               so a documentation-only pull request skips the gate
+          #               whose input it just edited -- the objectui#8857 shape,
+          #               one job over.
+          #
+          # ⛔ The second reading is a FINDING, not a licence to widen anything
+          # here: objectui#9241 returns it for re-grading before a markdown
+          # stage is wired into `type-check`, and this job's stage is unchanged
+          # by it. Both readings are a SNAPSHOT -- re-take them with the trace,
+          # do not trust this block.
+          #
+          # ⚠️ objectui#9096: that class is now TOTAL over markdown, and this
+          # comment used to claim the opposite ("the widening is deliberately
+          # narrow"). `scripts` joined the scan roots, and the gate tests under
+          # `scripts/__tests__` read the documentation the way the product tests
+          # read a README -- measured by running all 46 of them under an fs
+          # trace, 1805 of 1805 tracked markdown files are opened by at least
+          # one of them. ⇒ for THIS job, the markdown half of the exclusion list
+          # above is now inert: any markdown-only pull request runs the shards.
+          # Priced over the 513 first-parent commits available at the time: 36
+          # reached this stage, 21 already ran, and the widening moves 14 of the
+          # remaining 15 from skip to run -- 2.7pp of merges.
+          #
+          # ⛔ The rest of the exclusion list is NOT inert and must stay: a
+          # non-markdown change under `content/**`, `docs/**` or `apps/site/**`
+          # still skips. `8011852dc` is the live instance -- a site-only change
+          # carrying no markdown, which skipped then and skips now.
+          #
+          # Same failure posture as the diff above -- a question that cannot be
+          # answered means RUN. The script needs nothing but the checkout and
+          # the runner's own node, so it is reachable here, before pnpm and
+          # before install.
+          if ! CHANGED=$(git diff --name-only \
+            '${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}'); then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo 'Could not diff against the merge base. Running everything rather than skipping silently.'
+            exit 0
+          fi
+          if ! TEST_INPUTS=$(printf '%s\n' "$CHANGED" | node scripts/markdown-test-inputs.mjs --changed -); then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo 'Could not tell whether the changed markdown is a test input. Running everything rather than skipping silently.'
+            exit 0
+          fi
+          if [ -n "$TEST_INPUTS" ]; then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo 'Markdown changed that a test reads as its input. Running everything:'
+            echo "$TEST_INPUTS"
           else
             echo 'should_run=false' >> "$GITHUB_OUTPUT"
-            echo 'Only ignored paths changed. Skipping the steps below; this check still reports.'
+            echo 'Only ignored paths changed, and no test reads the markdown among them. Skipping the steps below; this check still reports.'
           fi
 
       - name: Enable Corepack and download the pinned pnpm
@@ -919,9 +1042,85 @@ jobs:
       # measured, not assumed). The blob carries this shard's raw coverage as
       # well as its test results; the coverage report proper is produced once,
       # by the merge.
+      #
+      # `--reporter=default --reporter=github-actions` are here because a CLI
+      # `--reporter` REPLACES the reporter set rather than adding to it, and the
+      # set it replaced is exactly this pair. Vitest 4.1.10 resolves reporters
+      # with:
+      #
+      #     if (!resolved.reporters.length) {
+      #       resolved.reporters.push([isAgent ? "agent" : "default", {}]);
+      #       if (process.env.GITHUB_ACTIONS === "true")
+      #         resolved.reporters.push(["github-actions", {}]);
+      #     }
+      #
+      # — and this repo's vitest config sets no `reporters`, so before
+      # objectui#9177 the blob flag alone was the whole set. A red shard's log
+      # therefore ended at `blob report written to …` with no failing test name,
+      # no assertion text and no timeout message, and the shard job's only
+      # annotation was the generic `Process completed with exit code 1.` The
+      # failures existed solely inside the `coverage-blob-N` artifact, which is
+      # download-only. objectui#8545 priced that: two episodes in which ONE test
+      # file held main's coverage gate unevaluated for 84 and 87 consecutive
+      # pushes, both found by a person reading a job log by hand, days later.
+      #
+      # ⚠️ Additive on purpose — the blob stays, because the merge job below is
+      # what enforces the thresholds and it has nothing to read without it.
+      # Measured on vitest 4.1.10 with all three reporters and `--shard=N/4`:
+      # the log carries `Failed Tests`, the test names, the assertion diff and
+      # `Error: Test timed out in …`; `github-actions` emits one `::error`
+      # annotation per failing test, which is the only form of this an API
+      # reader gets without downloading an artifact; and the shard still writes
+      # `.vitest-reports/blob-N-4.json`, which merges and has the configured
+      # thresholds enforced over it exactly as before.
+      #
+      # ⛔ Do not "simplify" this back to one reporter. Dropping the blob trades
+      # an unreadable failure for an unevaluated coverage floor — the same
+      # defect wearing the other hat — and dropping the other two restores
+      # objectui#9177. `scripts/__tests__/coverage-shard-reporter-readability.test.ts`
+      # fails in both directions.
+      # ── Why this lane carries its own `--testTimeout` (objectui#9271) ────
+      #
+      # `vitest.config.mts` sets `testTimeout: 15000`. That budget is calibrated
+      # for the UNINSTRUMENTED lane (`test:` above, which runs on every event
+      # except push). This lane runs the same files under v8 coverage, and
+      # instrumentation is not free: the repo-sweeping rows under
+      # `scripts/__tests__/` — the ones that call `sweep(repoRoot)` /
+      # `analyze(repoRoot)` and walk the whole tree — take several times longer
+      # with the provider attached than without it.
+      #
+      # ⇒ the 15s budget has comfortable headroom uninstrumented and NONE here,
+      # so rows that pass everywhere else die in this lane on a timeout. A dead
+      # shard is not a failed gate, it is NO gate: `coverage-report` below gates
+      # every merge step on `needs.test-coverage.result == 'success'`, so one
+      # timed-out row skips the merge and the thresholds are never evaluated at
+      # all. objectui#9271 measured 116 consecutive pushes to `main` in that
+      # state; the comment above records objectui#8545 pricing two earlier
+      # episodes of the same shape at 84 and 87 pushes.
+      #
+      # ⛔ This is NOT a performance budget and must not be read as one. The
+      # timeout is a hung-test detector, and the detector that guards day-to-day
+      # work is the 15s one in the uninstrumented lane — which is UNCHANGED, and
+      # is the lane that actually runs before a merge. This number only stops
+      # this lane from killing rows that are doing exactly what they should.
+      #
+      # ⭐ Re-derive the ratio rather than trusting a figure written here
+      # (AGENTS.md #5 rule #9) — same tree, same runner, the flag set below as
+      # the only variable:
+      #
+      #     pnpm exec vitest run --project unit --testTimeout=900000 \
+      #       --reporter=verbose scripts/__tests__/check-i18n-dead-keys.test.ts
+      #     # then again with --coverage and compare the per-row ms
+      #
+      # ⚠️ Raising this cannot cost the job its own budget: `timeout-minutes: 40`
+      # above is roughly twice the wall clock the slowest shard has been using,
+      # and letting a row finish instead of killing it at 15s adds only the
+      # difference, not a re-run.
       - name: Run tests with coverage (shard ${{ matrix.shard }}/4)
         run: >-
-          pnpm test:coverage --reporter=blob --shard=${{ matrix.shard }}/4
+          pnpm test:coverage --reporter=blob --reporter=default
+          --reporter=github-actions --shard=${{ matrix.shard }}/4
+          --testTimeout=60000
           --coverage.thresholds.lines=0 --coverage.thresholds.functions=0
           --coverage.thresholds.branches=0 --coverage.thresholds.statements=0
 
@@ -1211,6 +1410,13 @@ jobs:
       # `type-check` job above (objectui#3523). The exclusion list must stay
       # identical across the gated jobs of this workflow;
       # `scripts/__tests__/merge-queue-reporting.test.ts` fails if it drifts.
+      #
+      # This job has no markdown second stage and, unlike `type-check`, that is
+      # now a MEASUREMENT: objectui#9241 ran this job's suite under the `fs`
+      # trace objectui#9096 built and it opened no markdown document, twice, in
+      # a run where the same harness recorded non-markdown reads from inside the
+      # Playwright worker. The bound on that zero, and the `type-check` reading
+      # that did NOT come back zero, are on the `test` job's decide step above.
       - name: Decide whether this change needs a full run
         id: relevant
         run: |
@@ -1402,11 +1608,11 @@ jobs:
       # `playwright-report/` keeps working if the HTML reporter is ever enabled
       # on CI. upload-artifact only warns when NO path matches, so the absent
       # one costs nothing.
-      - name: Upload Playwright report
+      - name: Upload failure artefacts
         uses: actions/upload-artifact@v7
         if: ${{ steps.relevant.outputs.should_run == 'true' && !cancelled() && failure() }}
         with:
-          name: playwright-report
+          name: e2e-failure-artifacts
           path: |
             playwright-report/
             test-results/
@@ -1497,21 +1703,123 @@ jobs:
             echo 'Not a pull request: push is filtered at the trigger, and a merge_group build is the last validation before main. Building the site.'
             exit 0
           fi
+          # ── What this job validates, and therefore what must trigger it ──
+          # (objectui#8647). Until then this list was `apps/site/` +
+          # `content/` alone, which is the *output* surface of the site, not
+          # its *input* surface: `pnpm turbo run build --filter='@object-ui/site'`
+          # builds the whole workspace closure before it runs `next build`
+          # (measured here: 30 tasks, 2m28s with an empty turbo cache), so a
+          # change to any of them changes what this job compiles. A pull
+          # request touching only `packages/**` therefore reported `success`
+          # in seconds having built nothing — and a skipped build and a passed
+          # build are the same green to every reader downstream. That is not
+          # hypothetical for this repository: objectui#8344's getter-binding
+          # route was green on rollup and red on Next/Turbopack, which is why
+          # a green here is written into card acceptance criteria at all.
+          #
+          # ⭐ The list below is DERIVED, not curated, and
+          # `scripts/__tests__/docs-build-trigger.test.ts` re-derives it on
+          # every pull request and fails when this list stops covering it:
+          #   - one entry per workspace package in the site's build closure —
+          #     the package-manifest graph reached from `@object-ui/site` over
+          #     `dependencies`, `devDependencies` and `peerDependencies` on the
+          #     `workspace:` protocol, which is the graph turbo walks for
+          #     `^build` (measured against `turbo run build
+          #     --filter='@object-ui/site' --dry=json`: 31 entries = these 30
+          #     packages plus the site; one of them, `packages/test-support`,
+          #     declares no `build` script, so 30 tasks actually execute);
+          #   - one entry per root-level input `turbo.json` declares for the
+          #     `build` task (`$TURBO_ROOT$/...`), because turbo names them as
+          #     things a build's output depends on;
+          #   - the four workspace manifests, since they decide which versions
+          #     of everything the build resolves.
+          # ⇒ Adding a dependency to any of these packages, or a root build
+          # input to `turbo.json`, turns that test red rather than quietly
+          # narrowing this gate again.
+          #
+          # One entry is deliberate rather than derived: this workflow file.
+          # It is what decides whether and how the site is built, so a pull
+          # request that edits it should be validated by the very job it
+          # edits — the alternative is changing this gate and getting the
+          # 13-second green as the acceptance evidence for the change. It is
+          # not `.github/` wholesale: nothing else under there feeds this
+          # build, and the pin asserts an unrelated workflow still skips.
+          # Measured over the same 400: 2 of them touch this file.
+          #
+          # What is deliberately NOT here, priced over the 400 most recent
+          # merged pull requests: the 11 workspace packages outside the
+          # closure (`app-shell`, `auth`, `cli`, `collaboration`,
+          # `create-plugin`, `plugin-ai`, `plugin-designer`, `plugin-report`,
+          # `plugin-tree`, `runner`, `vscode-extension`) — including them
+          # would fire on a further 15 points of pull requests and cannot
+          # change what `next build` compiles; and `scripts/**` beyond the
+          # entries turbo itself declares, a further 13 points for the same
+          # reason. Cost of the list as it stands, measured over those 400 by
+          # replaying this exact pathspec against each merge: it fires on 281
+          # (70%) where the old list fired on 54 (13.5%) — 227 (56.8%) newly
+          # pay for a site build. ⛔ Narrowing it by excluding the tooling
+          # files under those packages (238/400, a further 11 points, sound
+          # today because every published build program excludes tooling
+          # directories) was considered and declined: this gate's whole defect
+          # class is under-firing silently, and an exclusion is a second thing
+          # that has to stay true for it not to recur.
           if ! CHANGED=$(git diff --name-only \
             '${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}' -- \
+            '.github/workflows/ci.yml' \
             'apps/site/' \
-            'content/'); then
+            'content/' \
+            'examples/schema-catalog/' \
+            'packages/components/' \
+            'packages/core/' \
+            'packages/data-objectstack/' \
+            'packages/fields/' \
+            'packages/i18n/' \
+            'packages/layout/' \
+            'packages/mobile/' \
+            'packages/permissions/' \
+            'packages/plugin-calendar/' \
+            'packages/plugin-charts/' \
+            'packages/plugin-chatbot/' \
+            'packages/plugin-dashboard/' \
+            'packages/plugin-detail/' \
+            'packages/plugin-editor/' \
+            'packages/plugin-form/' \
+            'packages/plugin-gantt/' \
+            'packages/plugin-grid/' \
+            'packages/plugin-kanban/' \
+            'packages/plugin-list/' \
+            'packages/plugin-map/' \
+            'packages/plugin-markdown/' \
+            'packages/plugin-timeline/' \
+            'packages/plugin-view/' \
+            'packages/providers/' \
+            'packages/react/' \
+            'packages/react-runtime/' \
+            'packages/sdui-parser/' \
+            'packages/test-support/' \
+            'packages/types/' \
+            'scripts/build-plugin-stylesheet.mjs' \
+            'scripts/check-dist-completeness.mjs' \
+            'scripts/invoked-as.mjs' \
+            'scripts/vite-*.ts' \
+            'scripts/vitest-invocation-guard.mjs' \
+            'tsconfig.json' \
+            'tsconfig.tier-base.json' \
+            'package.json' \
+            'pnpm-lock.yaml' \
+            'pnpm-workspace.yaml' \
+            'turbo.json'); then
             echo 'should_run=true' >> "$GITHUB_OUTPUT"
             echo 'Could not diff against the merge base. Building the site rather than skipping silently.'
             exit 0
           fi
           if [ -n "$CHANGED" ]; then
             echo 'should_run=true' >> "$GITHUB_OUTPUT"
-            echo 'Docs-related files changed:'
+            echo 'Files the site build consumes changed:'
             echo "$CHANGED"
           else
             echo 'should_run=false' >> "$GITHUB_OUTPUT"
-            echo 'No docs-related files changed. Skipping the steps below; this check still reports.'
+            echo 'Nothing the site build consumes changed. Skipping the steps below; this check still reports.'
           fi
 
       - name: Enable Corepack and download the pinned pnpm
@@ -1609,11 +1917,15 @@ jobs:
       # It sits in THIS job because its surface is `content/docs/**` and this job
       # is the one that already knows whether docs changed; it needs the install
       # (it reads the carriage map out of the built `@objectstack/spec`) and
-      # nothing built beyond it. Consequence worth stating: on a pull request that
-      # changes no `content/` or `apps/site/` file the census does not run — a
-      # spec bump that moves the carriage map is reported by the next docs PR, not
-      # by the bump itself. A pull request that edits only the gate is covered
-      # elsewhere and does not need this step: `scripts/__tests__/check-doc-
+      # nothing built beyond it. Consequence worth stating: it runs only when this
+      # job's own filter fired, so a pull request that touches nothing the site
+      # build consumes does not census either. objectui#8647 shrank that blind
+      # spot rather than removing it — a `@objectstack/spec` bump moves
+      # `pnpm-lock.yaml`, which is now in the filter, so the census does see the
+      # bump that moves the carriage map; a change reaching the map by some other
+      # route outside the filter is still reported by the next docs PR. A pull
+      # request that edits only the gate is covered elsewhere and does not need
+      # this step: `scripts/__tests__/check-doc-
       # expression-carriage.test.ts` runs the controls AND the real-tree census in
       # the ordinary vitest suite, which any PR touching `scripts/**` gets.
       - name: Docs expression-carriage census (report-only)
@@ -1631,8 +1943,8 @@ jobs:
       # fences inheriting that 5, so here is this site's own arithmetic. This
       # cache is `.turbo/cache`, and this job's own save of it measured 5s on
       # 2026-09-02 (`Post Turbo Cache`, job 100094597253, a `merge_group` build
-      # where this job's steps actually run — on a pull request without
-      # `apps/site/` or `content/` changes they all skip). 5 minutes is 60x
+      # where this job's steps actually run — on a pull request that touches
+      # nothing the site build consumes they all skip). 5 minutes is 60x
       # that, so it cannot fire on a working runner.
       # Ceiling check: 5 x 2 = 10 <= 15, so bookkeeping cannot crowd out the
       # checking steps — whose whole verdict path measured 4m26s on that job.

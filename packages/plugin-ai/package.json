@@ -22,7 +22,7 @@
     "build": "vite build",
     "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
     "clean": "rm -rf dist",
-    "test": "vitest run --passWithNoTests --root ../.. packages/plugin-ai/",
+    "test": "vitest run --root ../.. packages/plugin-ai/",
     "lint": "eslint ."
   },
   "peerDependencies": {

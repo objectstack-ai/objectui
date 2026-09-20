@@ -20,15 +20,27 @@ describe('Filter Converter Utilities', () => {
       expect(convertOperatorToAST('$lte')).toBe('<=');
       expect(convertOperatorToAST('$in')).toBe('in');
       expect(convertOperatorToAST('$nin')).toBe('nin');
-      expect(convertOperatorToAST('$notin')).toBe('nin');
       expect(convertOperatorToAST('$contains')).toBe('contains');
-      expect(convertOperatorToAST('$startswith')).toBe('startswith');
+      expect(convertOperatorToAST('$notContains')).toBe('notcontains');
+      expect(convertOperatorToAST('$startsWith')).toBe('startswith');
+      expect(convertOperatorToAST('$endsWith')).toBe('endswith');
       expect(convertOperatorToAST('$between')).toBe('between');
     });
 
     it('should return null for unknown operators', () => {
       expect(convertOperatorToAST('$unknown')).toBe(null);
       expect(convertOperatorToAST('$exists')).toBe(null);
+    });
+
+    // objectui#8568 retired the four lowercase aliases. They are answered by
+    // name one layer up, in `convertFiltersToAST` — this function has no error
+    // channel, so `null` is all it can say. The named refusal and the spec
+    // derivation behind it are pinned in filter-alias-retirement-8568.test.ts.
+    it('should return null for the retired lowercase aliases (objectui#8568)', () => {
+      expect(convertOperatorToAST('$notin')).toBe(null);
+      expect(convertOperatorToAST('$notcontains')).toBe(null);
+      expect(convertOperatorToAST('$startswith')).toBe(null);
+      expect(convertOperatorToAST('$endswith')).toBe(null);
     });
   });
 
@@ -126,15 +138,19 @@ describe('Filter Converter Utilities', () => {
       expect(result).toEqual(['name', '=', 'John']);
     });
 
-    it('should return original filter if empty after filtering', () => {
+    it('should answer "no constraint" when every key was skipped', () => {
+      // UPDATED by objectui#9020. This used to pin the caller's ORIGINAL OBJECT
+      // coming back, which is what made one filter mean two things on the two
+      // `find()` routes of `@object-ui/data-objectstack`: the plain route
+      // dropped it (every row) while the `$expand` route shipped it as
+      // `filter={"age":null}`, a real predicate. The skip itself is unchanged —
+      // the case above still pins it — so the only thing this key can mean once
+      // it is alone is what it already means beside a sibling: nothing.
       const result = convertFiltersToAST({
         age: null,
         email: undefined
       });
-      expect(result).toEqual({
-        age: null,
-        email: undefined
-      });
+      expect(result).toBeUndefined();
     });
   });
 });

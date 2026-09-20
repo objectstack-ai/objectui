@@ -8,7 +8,9 @@ makes `AppActionSchema.onClick`'s retirement message true again (objectui#6854,
 maintainer ruling of 2026-09-05, option B2).
 
 `AppAction.items` is `AppMenuItem[]`, and the zod mirror parses it with the legacy
-eight-member `MenuItemSchema` — neither declares `onClick` or `shortcut`.
+`MenuItemSchema`, which declared neither `onClick` nor `shortcut` when this change was
+made. (`shortcut` has since become a declared refusal there — objectui#7719 — while
+`onClick` remains undeclared on that mirror and is still dropped in silence.)
 `LayoutRenderer` reached both through `as any`, past the type it was handed, and
 that left three mutually exclusive signals about the same key: the TypeScript face
 said `?: never`, the validator's refusal said "no renderer reads this key, so
@@ -25,7 +27,9 @@ its sentence true rather than restating it.
 - `@object-ui/runner`: `LayoutRenderer` no longer reads `onClick` or `shortcut` on a
   `type: 'user'` action's `items`. The `onClick` branch was an empty body and could
   never run a JSON value; the `shortcut` read rendered a `DropdownMenuShortcut` from
-  a key the mirror strips in silence, so no validated document could reach it. A
+  a key the mirror stripped in silence at the time, so no validated document could
+  reach it. (objectui#7719 has since replaced that silent strip with a named refusal;
+  either way the read was unreachable, which is what made deleting it a cleanup.) A
   census of every JSON and TypeScript app document in this repository found zero
   authors of either key (positive controls recorded on the issue).
 - `@object-ui/types`: the rationale comments on `AppAction.onClick` and
@@ -33,5 +37,6 @@ its sentence true rather than restating it.
   That was false — the runner renders both the `'button'` and the `'user'` arm.
   Corrected to what was measured: `actions[]` is read, `onClick` is not.
 
-Whether `shortcut` should become authorable on `AppAction.items` is a separate
-contract question and is filed on its own.
+Whether `shortcut` should become authorable on `AppAction.items` was a separate
+contract question, filed as objectui#7719 and since answered: it does not become
+authorable, and the mirror refuses it by name instead of stripping it.

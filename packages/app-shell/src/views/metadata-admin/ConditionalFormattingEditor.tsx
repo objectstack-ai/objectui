@@ -48,12 +48,14 @@ import type { CelLintIssue } from './celAuthoring.js';
  * this row any more; both fault as unknown variables, exactly as they always
  * did on the server.
  *
- * `data` is therefore off this list. The subtlety worth keeping: a host scope
- * may legitimately carry its OWN ambient `data` (app-shell's
- * `buildExpressionScope` does), so `data.*` still RESOLVES — against the
- * host's object rather than the row. That is the constant-false signature
- * `rowPredicateCanon.ts` describes, and it is why "does `data` resolve?" is
- * not a test of whether `data` names the row.
+ * `data` is therefore off this list. The subtlety it used to carry — that a
+ * host scope may legitimately bind its OWN ambient `data`, so `data.*` still
+ * RESOLVED against the host's object rather than the row — no longer applies to
+ * THIS host: objectui#8166 unbound it in `buildExpressionScope`. The subtlety
+ * is still worth stating for a host that does bind one (a rowless dialog, the
+ * metadata-admin form): "does `data` resolve?" is not a test of whether `data`
+ * names the row, which is why `ConditionalFormattingEditor.test.tsx` probes it
+ * against the producer's real bag instead of a hand-written literal.
  *
  * The engine's default advertisement adds `previous` / `input` / `vars`, none
  * of which are bound for row predicates at all. Suggesting an unbound root
@@ -83,9 +85,14 @@ import type { CelLintIssue } from './celAuthoring.js';
  *   `core/src/evaluator/__tests__/listConditional.test.ts`. Withholding a root
  *   that is bound, accepted AND used was curation with nothing behind it.
  *
- * `data` is deliberately still absent, and that is NOT the same case: the
- * engine accepts it but the row is not reachable through it. That half is
- * objectui#8166.
+ * `data` is deliberately still absent, and that is NOT the same case as either:
+ * the engine ACCEPTS it — `SCOPE_ROOTS` still carries it, so a `data.*`
+ * condition lints clean at `scope: 'record'` to this day — but the row is not
+ * reachable through it. objectui#8166 settled the half this repo owns: the host
+ * no longer binds an ambient `data`, so such a condition now FAULTS with the
+ * engine's own `Unknown variable: data` instead of resolving against the host's
+ * object. Narrowing the accept set itself is the producer-side half and lives
+ * in `@objectstack/formula`, not here.
  */
 export const ROW_PREDICATE_ROOTS = [
   'record',

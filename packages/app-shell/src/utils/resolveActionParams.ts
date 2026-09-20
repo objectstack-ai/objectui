@@ -299,17 +299,58 @@ interface RuntimeField {
   accept?: string[];
   maxSize?: number;
   // ── Lookup-specific metadata (preserved when resolving lookup params) ──
+  //
+  // ⭐ objectui#7435 — three members are declared here in the spelling
+  // `@objectstack/spec`'s `FieldSchema` DECLARES, alongside the snake twins
+  // this interface already carried. They are not new metadata: they are the
+  // only spelling a spec-compliant author can emit and the one
+  // `getObjectSchema` serves, and until this change no camel spelling could be
+  // read off a resolved field def at all. MEASURED on the pin resolved here,
+  // `@objectstack/spec@17.4.0` — `FieldSchema.safeParse` ACCEPTS
+  // `displayField` / `descriptionField` / `lookupFilters` and REFUSES every
+  // snake twin below with `unrecognized_keys`, controls lit in the same run.
+  //
+  // ⭐ objectui#7435 second slice — `lookupColumns` and `lookupPageSize` join
+  // them on the same measurement, re-taken on the pin this tree resolves:
+  // `FieldSchema.safeParse` ACCEPTS both camel spellings and REFUSES
+  // `lookup_columns` / `lookup_page_size` with `unrecognized_keys`, with the
+  // minimal lookup def ACCEPTED and `zzz_not_a_real_key` REJECTED as controls
+  // in the same run.
+  //
+  // ⛔ `id_field` and `title_format` deliberately gain NO camel twin. Measured
+  // on that same pin, `FieldSchema` refuses `idField` exactly as it refuses
+  // `id_field` (the spec's only `idField` is on `InlineGridColumnSchema`, a
+  // different shape), and `titleFormat` is an OBJECT-level key whose canonical
+  // target carries an ADR-0079 deprecation toward `nameField`. Declaring either
+  // camel spelling here would fossilise a spelling no contract declares —
+  // the exact defect this family exists to stop. Routed to objectui#7650.
+  //
+  // ⭐ objectui#8672, ruling A — `dependsOn` is now declared in the SPEC
+  // spelling and ONLY in it. Unlike the five keys above it gains no snake twin
+  // to rank behind, because there was never a contractual reason for one:
+  // `FieldSchema` DECLARES `dependsOn` and refuses `depends_on` by name. The
+  // snake member this interface used to carry was the only spelling the read
+  // site below looked at, so a spec-valid field def declaring the cascade
+  // resolved to `undefined` while the one spelling that DID arrive was one no
+  // author could legally write. That is not a producer leg worth keeping behind
+  // the declared one — it is the inverse of one, and keeping it would be the
+  // consumer-side tolerance AGENTS.md #0.1 bans.
   reference_to?: string;
   reference?: string;
+  displayField?: string;
   display_field?: string;
   reference_field?: string;
   id_field?: string;
+  descriptionField?: string;
   description_field?: string;
   title_format?: string;
+  lookupColumns?: unknown[];
   lookup_columns?: unknown[];
+  lookupFilters?: unknown[];
   lookup_filters?: unknown[];
+  lookupPageSize?: number;
   lookup_page_size?: number;
-  depends_on?: unknown[];
+  dependsOn?: unknown[];
 }
 
 interface RuntimeObject {
@@ -538,17 +579,67 @@ export function resolveActionParam(
         // objectui#7642 CENSUS — verdict KEEP. The in-file provenance note above is
         // CORRECT (`ctx.objects` is `useMetadata().objects`, the `/api/v1/meta/object`
         // documents), so this really is the object-schema def. It is still kept: the
-        // serve path runs no parse, and none of the four reads below has a camel leg,
-        // so retiring them deletes the only read of four authorable keys.
+        // serve path runs no parse, so retiring a snake read deletes the only read
+        // of an authorable key. (That census sentence used to add "and none of the
+        // four reads below has a camel leg" — objectui#7435 made that half false for
+        // three of them, and its second slice for `lookup_columns` and
+        // `lookup_page_size` too; the KEEP verdict it supports is unchanged.)
+        //
+        // ⭐ objectui#7435 — the DECLARED spelling is ranked FIRST on the three
+        // keys that have one. Every read here used to be snake-only, so the
+        // camelCase values `getObjectSchema` serves were silently dropped and
+        // the param rendered with picker defaults. The snake legs are KEPT
+        // behind the declared one, in their pre-existing order: a per-site
+        // producer sweep found no in-repo producer of them, but neither of the
+        // two producers that can still emit them is covered by that sweep — a
+        // document stored before the key was tightened (the serve path runs no
+        // parse — objectui#7650) and a host adapter outside this repo. Dropping
+        // a leg is a retirement with its own evidence, not a side effect here.
+        //
+        // ⭐ objectui#7435 second slice — `lookupColumns` and `lookupPageSize`
+        // get the same treatment, on the same re-taken measurement. Both are
+        // pure picker CONFIG: the value they carry changes what the picker
+        // shows, never whether it can be opened.
+        //
+        // ⛔ `idField` and `titleFormat` keep their snake-only reads on purpose
+        // — see {@link RuntimeField}. Neither has a `FieldSchema` spelling to
+        // rank first, so there is nothing to add that would not fossilise an
+        // undeclared key.
+        //
+        // ⭐ objectui#8672, ruling A — `dependsOn` is the third declared key of
+        // that slice and it lands here now, in the DECLARED spelling and with
+        // no snake leg behind it. It was held back deliberately: honouring the
+        // spec spelling while `ActionParamDialog` fed `dependentValues` to
+        // option widgets only would have turned every spec-valid def that
+        // declares a cascade into a `lookup-trigger-gated`, permanently
+        // DISABLED picker — a measurement objectui#9130 built, rendered and
+        // then refused to ship, routing the disposition to objectui#8672.
+        //
+        // The dialog now supplies that record (see `paramNeedsDependentValues`
+        // in `views/ActionParamDialog.tsx`), so the gate lifts as soon as the
+        // named parent carries a value and `LookupField` narrows the picker by
+        // it. The two halves ship together on purpose: either alone is a
+        // regression, and this comment is the reason they may not be split
+        // again.
+        //
+        // ⛔ The snake read is GONE rather than demoted, which is the one place
+        // this key departs from its five siblings above. Their snake legs are
+        // kept because a pre-tightening document or an out-of-repo host adapter
+        // could still emit them. `depends_on` has no such producer to protect:
+        // `FieldSchema` refuses it BY NAME (suggesting `dependsOn`), so no
+        // document that parses can carry it, and objectui#7357 already retired
+        // the renderer-side twin in `LookupField`. Keeping it would leave this
+        // resolver the last reader of a spelling the protocol rejects.
         referenceTo: param.reference ?? field.reference,
-        displayField: field.display_field ?? field.reference_field,
+        displayField:
+          field.displayField ?? field.display_field ?? field.reference_field,
         idField: field.id_field,
-        descriptionField: field.description_field,
+        descriptionField: field.descriptionField ?? field.description_field,
         titleFormat: field.title_format,
-        lookupColumns: field.lookup_columns,
-        lookupFilters: field.lookup_filters,
-        lookupPageSize: field.lookup_page_size,
-        dependsOn: field.depends_on,
+        lookupColumns: field.lookupColumns ?? field.lookup_columns,
+        lookupFilters: field.lookupFilters ?? field.lookup_filters,
+        lookupPageSize: field.lookupPageSize ?? field.lookup_page_size,
+        dependsOn: field.dependsOn,
       }
     : {};
 

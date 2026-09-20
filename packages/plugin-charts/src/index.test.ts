@@ -159,13 +159,22 @@ describe('object-chart — drillDown is a declared input (framework#5022)', () =
     // advertising them here would re-open the gap framework#5022 closed — one
     // layer down, in the designer palette.
     //
-    // `navigate` stays on the withheld side, and after objectui#3354 that is no
-    // longer because the chart ignores it — it honours it now. It is withheld
-    // because `ChartDrillDownSchema` declares the chart drill target as
-    // `'drawer' | 'dialog'`, strictly, and `validate-react-page-props` PARSES
-    // that schema against the authored literal at publish time. Advertising
-    // `'navigate'` here would hand an author a value the publish gate rejects.
-    // The protocol union has to move first; this palette tracks the spec.
+    // `navigate` stays on the withheld side — but ⚠️ NOT for the reason this
+    // comment carried until objectui#7946's rework round. It said
+    // `ChartDrillDownSchema` declares the chart drill target as
+    // `'drawer' | 'dialog'` strictly, so advertising `'navigate'` would hand an
+    // author a value `validate-react-page-props` rejects at publish. Measured
+    // on `@objectstack/spec` 17.4.0, that is FALSE: `ChartDrillDownSchema.target`
+    // is `['drawer','dialog','navigate']` (objectstack#5435 widened it after
+    // objectui#3354 implemented the arm), and the publish gate parses that same
+    // schema — so it accepts the value.
+    //
+    // The assertion below is UNCHANGED anyway, because what is left is an unmade
+    // decision rather than a protocol gap: widening an advertised authoring
+    // vocabulary is a contract decision about `drillDown`, a key objectui#7946
+    // declares on neither published face and objectui#8885 does. When that card
+    // takes it, `'navigate'` moves from the withheld list to the described one
+    // and this rationale goes with it.
     //
     // `view` / `sort` are not listed on either side any more — objectui#3354
     // deleted them from `DrillDownConfig`, so there is no key left to advertise

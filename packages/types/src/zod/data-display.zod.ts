@@ -65,7 +65,17 @@ export const AlertSchema = BaseSchema.extend({
   icon: z.string().optional().describe('Alert icon'),
   dismissible: z.boolean().optional().describe('Whether alert can be dismissed'),
   onDismiss: handlerKeyRefusal('onDismiss', 'retired', 'Dismiss handler'),
-  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  // INVERTED by objectui#6771, which retired `body`: the refusal follows the
+  // read, and this renderer now reads `children`. objectui#8284's rule — the
+  // channel a renderer does not read is refused by name — is unchanged.
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this alert node',
+    '`alert` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/alert.tsx`). '
+    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling; an authored `body` now parses green through '
+    + '`.passthrough()` and renders an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -78,6 +88,20 @@ export const StatisticSchema = BaseSchema.extend({
   trend: z.enum(['up', 'down', 'neutral']).optional().describe('Trend indicator'),
   description: z.string().optional().describe('Description text'),
   icon: z.string().optional().describe('Statistic icon'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `statistic` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `description`, `icon`, `label`, `trend`, `value`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `statistic` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `description`, `icon`, `label`, `trend`, `value`.',
+  ),
 });
 
 /**
@@ -88,7 +112,17 @@ export const BadgeSchema = BaseSchema.extend({
   label: z.string().optional().describe('Badge label'),
   variant: z.enum(['default', 'secondary', 'destructive', 'outline']).optional().describe('Badge variant'),
   icon: z.string().optional().describe('Badge icon'),
-  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  // INVERTED by objectui#6771, which retired `body`: the refusal follows the
+  // read, and this renderer now reads `children`. objectui#8284's rule — the
+  // channel a renderer does not read is refused by name — is unchanged.
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this badge node',
+    '`badge` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/badge.tsx`). '
+    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling; an authored `body` now parses green through '
+    + '`.passthrough()` and renders an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -101,6 +135,20 @@ export const AvatarSchema = BaseSchema.extend({
   fallback: z.string().optional().describe('Fallback text/initials'),
   size: z.enum(['sm', 'default', 'lg', 'xl']).optional().describe('Avatar size'),
   shape: z.enum(['circle', 'square']).optional().describe('Avatar shape'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `avatar` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `alt`, `fallback`, `src`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `avatar` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `alt`, `fallback`, `src`.',
+  ),
 });
 
 /**
@@ -128,6 +176,30 @@ export const ListSchema = BaseSchema.extend({
   dense: z.boolean().optional().describe('Dense spacing'),
   wrapperClass: z.string().optional()
     .describe('Classes on the wrapper div around the title and the list — merged with the base `space-y-2` (objectui#7722)'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `list` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program built from the repo-root tsconfig on a BUILT tree, no '
+    + 'renderer read consumes `body` or `children` for this node, and `SchemaRenderer` strips both out '
+    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no error, no '
+    + 'warning, no element. '
+    + 'What it renders instead: `bind`, `items`, `ordered`, `title`, `wrapperClass`. '
+    + 'The ITEM channel is a different key and stays live: each entry is drawn as '
+    + '`item.content || renderChildren(item.body)`, a read filed under ListItem and not under this node. '
+    + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `list` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program built from the repo-root tsconfig on a BUILT tree, no '
+    + 'renderer read consumes `body` or `children` for this node, and `SchemaRenderer` strips both out '
+    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no error, no '
+    + 'warning, no element. '
+    + 'What it renders instead: `bind`, `items`, `ordered`, `title`, `wrapperClass`. '
+    + 'The ITEM channel is a different key and stays live: each entry is drawn as '
+    + '`item.content || renderChildren(item.body)`, a read filed under ListItem and not under this node. '
+    + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -276,6 +348,20 @@ export const TableSchema = BaseSchema.extend({
   footer: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Table footer'),
   hoverable: retirementTombstone('RETIRED (objectui#5474) — the static table never implemented row hover; use data-table'),
   striped: retirementTombstone('RETIRED (objectui#5474) — the static table never implemented striping; style rows via className, or use data-table'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `table` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `caption`, `columns`, `data`, `footer`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `table` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `caption`, `columns`, `data`, `footer`.',
+  ),
 });
 
 /**
@@ -310,11 +396,76 @@ export const DataTableSchema = BaseSchema.extend({
   }).optional().describe('Per-record CEL predicates for the built-in row Delete item (objectui#2614)'),
   onSelectionChange: handlerKeyRefusal('onSelectionChange', 'runtime-slot', 'Selection change handler'),
   onColumnsReorder: handlerKeyRefusal('onColumnsReorder', 'runtime-slot', 'Column reorder handler'),
+  // ⭐ objectui#7804 — seven keys the REGISTERED `data-table` renderer reads off
+  // the authored document while this arm declared none of them. `BaseSchema` is
+  // `.passthrough()`, so an undeclared key is NOT refused: it stops being judged
+  // and the value is KEPT. `{ "type": "data-table", "onRowClick": { "action":
+  // "toast" } }` therefore parsed GREEN and handed that action object to a call
+  // site that CALLS it. Declaring the key is what makes the refusal loud and BY
+  // NAME, the shape `onRowEdit` / `onRowDelete` / `onSelectionChange` /
+  // `onColumnsReorder` above already carry.
+  //
+  // ⛔ The disposition is MEASURED PER KEY, never applied as a pattern.
+  // `'retired'` publishes "no renderer reads this key, so nothing could ever
+  // run it" — FALSE for all seven: `renderers/complex/data-table.tsx` reads and
+  // INVOKES every one. So each is a `'runtime-slot'`, and each was carried by
+  // finding the props path a host actually supplies it through:
+  //
+  //   - `onAddRecord`     `ObjectGrid` puts its own `onAddRecord` React prop on
+  //                       the `data-table` node it builds; `ObjectManager` and
+  //                       `FieldDesigner` are the hosts that supply it.
+  //   - `onBatchSave`     `ObjectGrid`'s `onBatchSave ?? defaultBatchSave` —
+  //                       the left limb is `ObjectGridComponentProps.onBatchSave`.
+  //   - `onCellChange`    `ObjectGrid` forwards `ObjectGridComponentProps.onCellChange`.
+  //   - `onColumnResize`  ⚠️ a DIFFERENT channel from its six siblings, and the
+  //                       reason "six of them were" is not evidence: no host prop
+  //                       carries this key at all. `ObjectGrid` supplies its OWN
+  //                       closure, folding the resize into the merged
+  //                       `{ order, widths }` layout it persists and reports
+  //                       through `onColumnStateChange`. Still a live function
+  //                       reaching the renderer through the TypeScript face —
+  //                       objectui#6175 wired that read deliberately — so
+  //                       `'runtime-slot'` holds and `'retired'` would be false.
+  //   - `onRowActionDef`  `RelatedList` forwards its own `onRowAction` React prop.
+  //   - `onRowClick`      three suppliers: `ObjectGrid` (`navigation.handleClick`),
+  //                       `ObjectDataTable` (`schema.onRowClick ?? handleRowClick`)
+  //                       and `RelatedList` (its own `onRowClick` React prop).
+  //                       The sibling `ObjectDataTableSchema.onRowClick` arm in
+  //                       `objectql.zod.ts` is the same key on the forwarding face.
+  //   - `onRowSave`       `ObjectGrid`'s `onRowSave ?? defaultRowSave` — the left
+  //                       limb is `ObjectGridComponentProps.onRowSave`.
+  onAddRecord: handlerKeyRefusal('onAddRecord', 'runtime-slot', 'Add record handler'),
+  onBatchSave: handlerKeyRefusal('onBatchSave', 'runtime-slot', 'Batch save handler'),
+  onCellChange: handlerKeyRefusal('onCellChange', 'runtime-slot', 'Cell value change handler'),
+  onColumnResize: handlerKeyRefusal('onColumnResize', 'runtime-slot', 'Column resize handler'),
+  onRowActionDef: handlerKeyRefusal('onRowActionDef', 'runtime-slot', 'Row action handler'),
+  onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row click handler'),
+  onRowSave: handlerKeyRefusal('onRowSave', 'runtime-slot', 'Row save handler'),
   cellClassName: z.string().optional().describe('Extra classes folded into the utility body cells only — the selection, row-number and row-actions cells; data cells fold the per-column `cellClassName` instead, so row density has to be set on both (objectui#6882)'),
   renderCellEditor: z.function().optional().describe('Host-supplied inline cell editor; returning null falls through to the built-in text/number/date inputs (objectui#6882). Its context carries `row` (the persisted record) and `pendingRow` (that record with the row\'s staged, unsaved edits merged over it — objectui#7188); `z.function()` encodes no parameter shape, so the member on `DataTableSchema` is the authority for it'),
   frozenColumns: z.number().optional().describe('Number of frozen columns'),
   showRowNumbers: z.boolean().optional().describe('Show row numbers'),
   emptyAction: SchemaNodeSchema.optional().describe('Optional schema node rendered inside the empty-state, e.g. an "Add record" button. Lets the empty state become an actionable invitation rather than a dead end.'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `data-table` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `emptyAction`, `onAddRecord`, `onBatchSave`, `onCellChange`, '
+    + '`onColumnResize`, `onColumnsReorder`, `onRowActionDef`, `onRowClick`, `onRowDelete`, '
+    + '`onRowEdit`, `onRowSave`, `onSelectionChange`, `renderCellEditor`, `rowActionDefs`, '
+    + '`rowDeletePredicates`, `rowEditPredicates`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `data-table` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `emptyAction`, `onAddRecord`, `onBatchSave`, `onCellChange`, '
+    + '`onColumnResize`, `onColumnsReorder`, `onRowActionDef`, `onRowClick`, `onRowDelete`, '
+    + '`onRowEdit`, `onRowSave`, `onSelectionChange`, `renderCellEditor`, `rowActionDefs`, '
+    + '`rowDeletePredicates`, `rowEditPredicates`.',
+  ),
 });
 
 /**
@@ -403,8 +554,55 @@ export const TreeViewSchema = BaseSchema.extend({
   selectedIds: z.array(z.string()).optional().describe('Controlled selected node IDs'),
   multiSelect: z.boolean().optional().describe('Allow multiple selection'),
   showLines: z.boolean().optional().describe('Show connecting lines'),
+  // objectui#7804 — RUNTIME SLOT (objectui#6124), the ledger row this slice
+  // drains. `BaseSchema` is `.passthrough()`, so a key no arm declares is not
+  // refused: it stops being judged and the value is KEPT. `onNodeClick` sat in
+  // exactly that state while the registered renderer INVOKED it, so an authored
+  // `{ "type": "tree-view", "onNodeClick": { "action": "toast" } }` parsed GREEN
+  // and that action object was handed to a call site expecting a function.
+  //
+  // MEASURED as `'runtime-slot'` and not `'retired'`, at its own channel rather
+  // than assumed from the two siblings below:
+  //   - READ AND RUN. In `renderers/data-display/tree-view.tsx`, the `tree-view`
+  //     registration's own `handleNodeClick` is the presence gate
+  //     `if (schema.onNodeClick)` around the call `schema.onNodeClick(node)`,
+  //     where `node` is the clicked `TreeNode`. `'retired'` publishes "no
+  //     renderer reads this key, so nothing could ever run it" — flatly false
+  //     here, and it is the sentence the author of a wrong-shaped value would
+  //     be shown.
+  //   - THE TS FACE ALREADY DECLARES THE CALLABLE TWIN
+  //     (`../data-display.ts#TreeViewSchema.onNodeClick`), so a function really
+  //     does reach the renderer through the programmatic channel. This arm says
+  //     on the JSON face what that face never could.
+  //   - ⚠️ NO IN-REPO SUPPLIER builds a `tree-view` node carrying it — the same
+  //     shape as `ObjectFormSchema.onStepChange` in this card's `objectql.ts`
+  //     slice: the channel is wired end to end and only the supplier is absent.
+  //     That is not evidence of a dead read, and it does not make the key
+  //     `'retired'`.
+  //
+  // ⚠️ Unlike thirteen of this card's fifteen remaining ledger rows, the
+  // registration here is NOT an alias: `ComponentRegistry.register('tree-view',
+  // ..., { namespace: 'ui' })` carries no `skipFallback`, so the bare
+  // `tree-view` key is this component's own and this arm is the contract for
+  // what renders under it. The renderer and the arm describe the same
+  // component, which is what makes the declaration safe to publish here.
+  onNodeClick: handlerKeyRefusal('onNodeClick', 'runtime-slot', 'Node click handler'),
   onSelectChange: handlerKeyRefusal('onSelectChange', 'retired', 'Selection change handler'),
   onExpandChange: handlerKeyRefusal('onExpandChange', 'retired', 'Expand change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `tree-view` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `bind`, `nodes`, `onNodeClick`, `title`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `tree-view` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `bind`, `nodes`, `onNodeClick`, `title`.',
+  ),
 });
 
 /**
@@ -841,6 +1039,26 @@ export const TimelineSchema = BaseSchema.extend({
   events: z.array(TimelineEventSchema).optional().describe('DEPRECATED — zero read points; renders an empty rail. Use items'),
   orientation: z.enum(['vertical', 'horizontal']).optional().describe('DEPRECATED — zero read points. Use variant'),
   position: z.enum(['left', 'right', 'alternate']).optional().describe('DEPRECATED — zero read points'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `timeline` reads NEITHER content channel, on EITHER of its '
+    + 'two readers: measured with the TypeScript type checker over one program built from the repo-root '
+    + 'tsconfig on a BUILT tree, and `packages/plugin-timeline` contains no `body` / `children` read of '
+    + 'any kind, on any receiver. `SchemaRenderer` strips both out of the props bag it spreads, so an '
+    + 'authored value rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `variant`, `items`, `dateFormat`, `scale`, `rowLabel`, `minDate`, `maxDate`. '
+    + '`view:timeline` is the measured owner of the bare `timeline` key (`plugin-timeline:timeline` passes '
+    + '`skipFallback: true`); re-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `timeline` reads NEITHER content channel, on EITHER of its '
+    + 'two readers: measured with the TypeScript type checker over one program built from the repo-root '
+    + 'tsconfig on a BUILT tree, and `packages/plugin-timeline` contains no `body` / `children` read of '
+    + 'any kind, on any receiver. `SchemaRenderer` strips both out of the props bag it spreads, so an '
+    + 'authored value rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `variant`, `items`, `dateFormat`, `scale`, `rowLabel`, `minDate`, `maxDate`. '
+    + '`view:timeline` is the measured owner of the bare `timeline` key (`plugin-timeline:timeline` passes '
+    + '`skipFallback: true`); re-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -850,6 +1068,20 @@ export const KbdSchema = BaseSchema.extend({
   type: z.literal('kbd'),
   label: z.string().optional().describe('Key label'),
   keys: z.union([z.string(), z.array(z.string())]).optional().describe('Key(s) to display'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `kbd` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `keys`, `label`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `kbd` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `keys`, `label`.',
+  ),
 });
 
 /**
@@ -858,6 +1090,20 @@ export const KbdSchema = BaseSchema.extend({
 export const HtmlSchema = BaseSchema.extend({
   type: z.literal('html'),
   html: z.string().describe('HTML content'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `html` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `html`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `html` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `html`.',
+  ),
 });
 
 /**

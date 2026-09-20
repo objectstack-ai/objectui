@@ -9,7 +9,7 @@
 import React from 'react';
 import { cn } from '@object-ui/components';
 import { useFieldTranslation } from './useFieldTranslation.js';
-import type { HostGroupProps } from './toHostGroupProps.js';
+import type { HostControlProps, HostGroupProps } from './toHostGroupProps.js';
 
 /**
  * The "this option list cannot be filled" state shared by every fixed-option
@@ -67,11 +67,35 @@ export interface OptionsEmptyStateProps {
    * `aria-describedby` and the `role` that makes them meaningful may reach this
    * element, and reopening a spread is what objectui#3291 exists to prevent —
    * `aria-invalid` / `aria-required` are control-channel state and stay off this
-   * surface. Absent for the single `SelectField` — it is not group-labelled, its
-   * label still uses a plain `for`, and it must keep emitting no such
-   * attributes.
+   * surface. Absent for the single `SelectField`, which is not group-labelled
+   * and fills {@link OptionsEmptyStateProps.hostControlProps} instead.
    */
   hostGroupProps?: HostGroupProps;
+  /**
+   * The host label's PLAIN-`for` plumbing, for the one caller that is NOT
+   * group-labelled — the single `SelectField` (objectui#8803).
+   *
+   * Supplying this switches the rendered element from a `div` to an `<output>`,
+   * and that is the entire repair. `select` declares `labelling: 'control'`,
+   * which the registry defines as "the component's outermost rendered element
+   * is a LABELABLE HTML element" — true of the Radix
+   * `button[role="combobox"]` it renders with options, and FALSE of the `div`
+   * this box used to be. So the host's `for` pointed at an id no element
+   * carried, and `HTMLLabelElement.control` was null. Landing the id on the
+   * `div` instead was measured and rejected: `for` may only reference a
+   * labelable element, so it stayed null and the label stayed unusable.
+   *
+   * `<output>` is labelable, and its implicit `status` role claims no
+   * interactivity — it is the result of a computation, which is what this box
+   * reports. Declaring `select` as `'group'` was the alternative and it
+   * measurably moved the LIVE path: a select WITH options lost the working
+   * `<label for>` to its combobox (objectui#3306).
+   *
+   * Mutually exclusive with `hostGroupProps` — one host, one naming channel
+   * (objectui#3978). A caller that supplies neither renders the box with no
+   * host plumbing at all, which is what standalone rendering has always done.
+   */
+  hostControlProps?: HostControlProps;
 }
 
 export function OptionsEmptyState({
@@ -81,6 +105,7 @@ export function OptionsEmptyState({
   testId,
   className,
   hostGroupProps,
+  hostControlProps,
 }: OptionsEmptyStateProps) {
   const { t } = useFieldTranslation();
   // The host's hint when it computed one; otherwise this widget's own copy,
@@ -97,15 +122,23 @@ export function OptionsEmptyState({
           fields: dependsOnFields.join(t('validation.formInvalidJoiner')),
         })
       : t('fields.options.empty'));
+  const boxClassName = cn(
+    'flex w-full items-center rounded-md border border-input bg-muted/30 px-3 py-2 text-sm text-muted-foreground',
+    className,
+  );
+  // The element kind IS the labelling contract, not a styling choice: a
+  // `labelling: 'control'` caller needs a LABELABLE element for the host's
+  // `for` to reach, a `'group'` caller needs a container it can put
+  // `role="group"` on. See `hostControlProps` above for the measurements.
+  if (hostControlProps) {
+    return (
+      <output {...hostControlProps} data-testid={testId} className={boxClassName}>
+        {hint}
+      </output>
+    );
+  }
   return (
-    <div
-      {...hostGroupProps}
-      data-testid={testId}
-      className={cn(
-        'flex w-full items-center rounded-md border border-input bg-muted/30 px-3 py-2 text-sm text-muted-foreground',
-        className,
-      )}
-    >
+    <div {...hostGroupProps} data-testid={testId} className={boxClassName}>
       {hint}
     </div>
   );

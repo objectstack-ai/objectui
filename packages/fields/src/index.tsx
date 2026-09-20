@@ -7,8 +7,8 @@
  */
 
 import React from 'react';
-import type { DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
-import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
+import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
+import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
@@ -23,6 +23,14 @@ import { withFieldCarrier } from './withFieldCarrier.js';
 // Pure formatting rule shared with `AddressField`'s readonly branch — no React,
 // so this does not pull the widget out of its lazy chunk (objectui#4037).
 import { formatAddress, type AddressValue } from './widgets/address-format.js';
+// The ONE out-of-range `scale` ruling both percent faces take (objectui#9808).
+// Shared with `PercentField` rather than restated here — a second spelling of
+// the same domain is exactly the drift `address-format` above exists to
+// prevent — and, like `address-format` and `file-affordance` below,
+// deliberately NOT re-exported from the `export *` block at the end of this
+// file, so this package's published surface is unchanged. Pure, no React, so
+// it pulls no widget out of its lazy chunk (objectui#4037).
+import { renderablePercentScale } from './widgets/percent-scale.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
 // only trigger one network call. Keyed by `${objectName}:${id}`.
@@ -130,7 +138,9 @@ async function fetchRefObjectSchema(dataSource: any, referenceTo: string): Promi
  */
 function useRefObjectSchema(referenceTo: string | undefined): any {
   const ctx = React.useContext(_SchemaRendererContext);
-  const dataSource = ctx?.dataSource as any;
+  // No cast: the context declares `DataSource | null | undefined` since
+  // objectui#7912, and this read has no second channel to merge with.
+  const dataSource = ctx?.dataSource;
   const [, force] = React.useState(0);
   const canFetch =
     !!referenceTo && !!dataSource && typeof dataSource.getObjectSchema === 'function';
@@ -180,8 +190,18 @@ function resolveLookupRecordName(
 
 /**
  * Heuristic: detect strings that look like opaque foreign-key IDs (e.g. nanoid
- * or BSON ObjectId). Used so we don't display random gibberish to users when
- * a lookup wasn't expanded.
+ * or BSON ObjectId).
+ *
+ * ⛔ Nothing in this repo calls it any more, and re-introducing a caller that
+ * decides PRESENTATION from it would re-open objectui#8695. It used to gate
+ * `LookupCellRenderer`'s muted `—`, i.e. it decided how an unresolved
+ * reference was drawn from the SHAPE of the string rather than from whether
+ * anything resolved — so `'Ada Lovelace'` printed as a confident name and an
+ * opaque id lost its value, two opposite answers to one epistemic state. The
+ * export is kept because it is part of this package's published surface and
+ * retiring it is a breaking change no display card is entitled to make; the
+ * shape question itself is legitimate (a picker filter, an id-vs-name guess),
+ * it is only an answer to "what did this screen resolve?" that it can never be.
  */
 export function isLikelyOpaqueId(v: unknown): boolean {
   if (typeof v !== 'string') return false;
@@ -313,7 +333,11 @@ function useFieldTranslate(): ((key: string, params?: Record<string, unknown>) =
 // static reference; the widgets stay publicly available via the `export * from
 // './widgets/…'` block at the end of this file.
 import { ImageLightbox } from './widgets/ImageLightbox.js';
-import { readFileValues } from './widgets/file-value.js';
+import { readFileValue, readFileValues, type FileValueView } from './widgets/file-value.js';
+// The one view/download affordance every `file` surface renders (objectui#9161).
+// Shared with `FileField` rather than copied into it; deliberately NOT
+// re-exported below, so this package's published surface is unchanged.
+import { FileValueAffordance } from './widgets/file-affordance.js';
 
 /**
  * Cell renderer props
@@ -333,6 +357,31 @@ import { coerceToSafeValue } from './coerceToSafeValue.js';
 export { coerceToSafeValue };
 
 /**
+ * ## This package and the emptiness FLOOR (objectui#8496)
+ *
+ * `@object-ui/core`'s `isEmptyValue` is the weakest common claim — `null`,
+ * `undefined`, `''`, `[]` — and every guard in this file now stands in a STATED
+ * relation to it instead of re-spelling its members. There are three relations,
+ * and all three are legitimate:
+ *
+ *  - **the floor exactly** — `SelectCellRenderer`, `LookupCellRenderer`,
+ *    `TextCellRenderer`, `FormulaCellRenderer`, `ColorSwatchCellRenderer`;
+ *  - **the floor EXTENDED** — this helper (+ whitespace, on the coerced text);
+ *    `UserCellRenderer` (+ every falsy scalar); `BooleanCellRenderer`
+ *    (+ every non-boolean, objectui#8582); `DateCellRenderer` /
+ *    `DateTimeCellRenderer` (+ every falsy scalar, so the numeric epoch is
+ *    empty, and + every unparsable one, objectui#8581);
+ *  - **the floor with a member DECLINED, out loud** — `JsonCellRenderer` draws
+ *    the two-character literal for `[]` on purpose (objectui#8474 measured and
+ *    kept it), `LocationCellRenderer` and `AddressCellRenderer` inherit that
+ *    through their JSON fallback, and `FileCellRenderer` states "0 files".
+ *
+ * ⛔ Those disagreements are MEASURED, not drift: do not "finish the job" by
+ * making every renderer answer the floor. The pins that go red if one is
+ * flattened are `__tests__/emptinessFloorExtensions-8496.test.tsx`.
+ *
+ * ---
+ *
  * A coerced cell text with nothing in it is NOT a cell value (objectui#8490).
  *
  * `coerceToSafeValue([])` joins zero entries into `''`, and every renderer
@@ -347,13 +396,23 @@ export { coerceToSafeValue };
  * blank string, whatever produced it. Whitespace counts as blank for the same
  * reason — `Number('  ')` is `0` too.
  *
- * ⛔ Not the package's general emptiness predicate — see `isEmptyMultiValue`
- * below for why there is none. This answers ONE question for the renderers
- * that coerce to text before they draw: "did the coercion leave anything to
- * draw?". `BooleanCellRenderer` does not coerce to text and does not ask it.
+ * ⛔ Not the package's general emptiness predicate — the renderers do not agree
+ * on what "empty" means, and the roster above says where each one stands. This
+ * answers ONE question for the renderers that coerce to text before they draw:
+ * "did the coercion leave anything to draw?". `BooleanCellRenderer` does not
+ * coerce to text and does not ask it.
  */
 function isBlankCellText(safe: ReturnType<typeof coerceToSafeValue>): boolean {
-  return safe == null || (typeof safe === 'string' && safe.trim() === '');
+  // THE FLOOR by name, taken on the COERCED text rather than on the raw value
+  // (objectui#8496). `[]` never reaches it as an array — `coerceToSafeValue`
+  // joins zero entries into `''`, which is the floor's string member.
+  return (
+    isEmptyValue(safe) ||
+    // THE EXTENSION: whitespace counts as blank, because `Number('  ')` is `0`
+    // too. It is not a floor member — `'   '` is a value on the gallery, the
+    // kanban and `TextCellRenderer`.
+    (typeof safe === 'string' && safe.trim() === '')
+  );
 }
 
 /**
@@ -512,11 +571,19 @@ export function formatNumber(value: number, decimals: number = 2, locale?: strin
  * The percent rendering itself, on a value ALREADY in display magnitude (`80`
  * means 80%).
  *
- * Split out from {@link formatPercent} because `PercentCellRenderer`'s
- * whole-percent branch needs this exact rendering under a DIFFERENT scaling
- * policy (see there). Two copies of the expression is precisely the drift
- * `percentDisplayValue`'s doc comment exists to prevent, so there is one copy
- * and the scaling decision is made by the caller.
+ * Split out from {@link formatPercent} so that the SCALING and the RENDERING
+ * are separable statements: this half renders, `formatPercent` decides the
+ * magnitude by calling `percentDisplayValue` and then calls this. Two copies
+ * of the rendering expression is precisely the drift `percentDisplayValue`'s
+ * doc comment exists to prevent, so there is one copy.
+ *
+ * ⚠️ It once had a second caller: `PercentCellRenderer` reached it directly to
+ * skip the scaling for a column whose NAME matched `/progress|completion/`.
+ * objectui#9452 removed that name test — the magnitude is the value's business
+ * and never the column name's — so the scaling decision is no longer made per
+ * caller. ⛔ Do not reintroduce a caller that formats a percent while stepping
+ * around `percentDisplayValue`; that is the drift, in the one shape that has
+ * already happened here.
  */
 function formatPercentBody(displayValue: number, precision: number, locale?: string): string {
   try {
@@ -579,7 +646,17 @@ export function formatPercent(value: number, precision: number = 0, locale?: str
   // Scale a fraction-stored percent (0.8 → 80%) via the shared core helper, so
   // the list cell and the dashboard measure formatter (`formatMeasure`) agree.
   const displayValue = percentDisplayValue(value);
-  return formatPercentBody(displayValue, precision, locale);
+  // objectui#9808 — the out-of-range ruling lands HERE rather than at
+  // `PercentCellRenderer`'s call site, because this is the door the cell face
+  // actually goes through and the one a future caller cannot step around.
+  //
+  // ⚠️ Without it the throw arrives from `toFixed`, not from `Intl`, which is
+  // worth knowing when reading a stack: `formatPercentBody` CATCHES the
+  // `Intl` `RangeError` for a width above the engine's ceiling, and its
+  // fallback `displayValue.toFixed(precision)` refuses the same width from
+  // inside the `catch`. So the recovery arm was the one that crashed the
+  // render, and neither arm could have rescued the other.
+  return formatPercentBody(displayValue, renderablePercentScale(precision), locale);
 }
 
 /**
@@ -648,7 +725,11 @@ function TruncatedText({
  */
 export function TextCellRenderer({ value }: CellRendererProps): React.ReactElement {
   const safe = coerceToSafeValue(value);
-  if (safe == null || safe === '') return <EmptyValue />;
+  // THE FLOOR by name and nothing more (objectui#8496), on the coerced text.
+  // ⛔ Deliberately NOT `isBlankCellText`: a stored `'   '` is a value of a text
+  // cell and keeps its spaces — the trim belongs to the renderers that go on to
+  // coerce the text into a number, a date or an `href`.
+  if (isEmptyValue(safe)) return <EmptyValue />;
   return <TruncatedText text={String(safe)} />;
 }
 
@@ -722,9 +803,6 @@ export function CurrencyCellRenderer({ value, field }: CellRendererProps): React
   return <span className="tabular-nums font-medium whitespace-nowrap">{formatted}</span>;
 }
 
-// Fields that store percentage values as whole numbers (0-100) rather than fractions (0-1)
-const WHOLE_PERCENT_FIELD_PATTERN = /progress|completion/;
-
 /**
  * Percent field cell renderer with mini progress bar
  */
@@ -739,27 +817,70 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   if (isBlankCellText(safe)) return <EmptyValue />;
 
   const percentField = field as any;
-  const precision = percentField.precision ?? 0;
+  // Decimal places come from `scale`, NOT `precision` — the same correction
+  // objectui#2131 made on the currency arm and objectui#2134 on the number
+  // arm, arriving one type later (objectui#9295). `@objectstack/spec` declares
+  // the pair on the field face in its own words: `precision` is "Total digits
+  // (non-negative integer)" and `scale` is "Decimal places (non-negative
+  // integer)", so reading `precision` here padded every value out to the
+  // column's TOTAL width — a decimal(10, 2) percent field rendered
+  // `25.0000000000%`, and the grid footer beneath it read
+  // `Sum: 25.0000000000%` for the same reason.
+  //
+  // ⛔ NOT `CurrencyConfigSchema.precision`, which is a different surface with
+  // the opposite convention and its own `scale` alias — the spec warns against
+  // conflating them at the field-face declaration itself.
+  //
+  // An ABSENT `scale` keeps today's `0`, deliberately, and ⛔ NOT the
+  // `undefined` (min 0 / max 20) that `NumberCellRenderer` above uses for the
+  // same absence. The two are not interchangeable HERE because this path
+  // multiplies by 100 first (`percentDisplayValue`), and `Intl` renders from
+  // the shortest decimal representation of the resulting double: measured, a
+  // stored `0.07` becomes `7.000000000000001` and `0.29` becomes
+  // `28.999999999999996`, so an unbounded maximum prints binary residue
+  // straight to the user. `NumberCellRenderer` can afford max 20 because it
+  // does no arithmetic on the value. The grid footer's currency arm spells the
+  // same absence the same way (`?? 0`), so the cell and the footer agree.
+  const scale = percentField.scale ?? 0;
   const numValue = Number(safe);
   if (isNaN(numValue)) {
     return <span className="tabular-nums whitespace-nowrap">{String(safe)}</span>;
   }
-  // Use field name to disambiguate 0-1 fraction vs 0-100 whole number:
-  // Fields like "progress" or "completion" store values as 0-100, not 0-1
-  const isWholePercentField = WHOLE_PERCENT_FIELD_PATTERN.test(field?.name?.toLowerCase() || '');
-  const barValue = isWholePercentField
-    ? numValue
-    : (numValue > -1 && numValue < 1) ? numValue * 100 : numValue;
-  // Both branches render through the same locale-aware body (objectui#4553);
-  // they differ ONLY in the scaling policy, which is the whole point of the
-  // branch. The whole-percent branch used to be a second bare `toFixed` path,
-  // so before this card a `progress` field was ungrouped and unlocalized even
-  // where an ordinary percent column would not have been — leaving it behind
-  // would have made ONE grid internally inconsistent, which is worse than the
-  // uniform defect it had.
-  const formatted = isWholePercentField
-    ? formatPercentBody(numValue, precision, locale)
-    : formatPercent(numValue, precision, locale);
+  // ONE scaling rule, and it is the declared one (objectui#9452). Both halves
+  // of this cell — the number and the bar's fill — take their display
+  // magnitude from `percentDisplayValue` in `@object-ui/core`, which its own
+  // doc comment names as the single source of truth for percent display and
+  // which `formatPercent` just below applies for the number.
+  //
+  // ⛔ NOT from the column's NAME, which is what stood here. A
+  // `/progress|completion/` test against `field.name` decided the magnitude
+  // BEFORE anything looked at the value, so a percent column whose name
+  // happened to contain one of those words read its stored FRACTION as
+  // percentage POINTS: one stored `0.5` rendered `50%` in the record-header
+  // chip and `1%` in the list cell — the same record showing two magnitudes in
+  // two places, which users report as a data bug rather than a formatting one.
+  // The pattern was also UNANCHORED, so it matched on substring: a column
+  // merely mentioning progress took the whole-percent path on the strength of
+  // a word inside its name.
+  //
+  // What collapsed the question — measured across both first-party trees, and
+  // reproducible from `PercentCellRenderer.nameKeyedScaling-9452.test.tsx`'s
+  // header: the repo's own percent samples store FRACTIONS in exactly these
+  // columns (the schema catalog's `progress` sample stores `0.753`, and the
+  // inline editor is pinned on a `completion` field storing `0.5` meaning
+  // 50%), the percent edit widget reads the same fields as fractions because
+  // it detects the whole-percent convention from a declared `max > 1` and
+  // never from the name, and the genuinely whole-percent producers are
+  // declared by TYPE (`type: 'progress'`, `min: 0`, `max: 100`) and store only
+  // `0` or integers at or above 1 — values on which the two rules agree by
+  // construction. So the name test had no producer that needed it and two that
+  // it misread.
+  //
+  // ⚠️ The price, stated rather than papered over: a value strictly between 0
+  // and 1 stored on a `type: 'progress'` column now reads as a fraction, as it
+  // does everywhere else. Nothing first-party stores one.
+  const barValue = percentDisplayValue(numValue);
+  const formatted = formatPercent(numValue, scale, locale);
   const clampedBar = Math.max(0, Math.min(100, barValue));
   
   // Layout contract (objectstack#5066): THE NUMBER IS THE CONTENT, THE BAR IS
@@ -829,6 +950,12 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
   // no boolean here. `null` / `undefined` and `[]` (objectui#8490: an empty
   // array holds no boolean) are the same answer for the same reason. A real
   // `false` is a value and stays an unchecked box.
+  //
+  // THE FLOOR, STRICTLY EXTENDED (objectui#8496): every one of its four members
+  // is a non-boolean, so this one test already answers all of them and adding
+  // `isEmptyValue(value) ||` in front of it would be a dead disjunct. What the
+  // floor must NOT do here is grow a `false` member — that is the pinned
+  // disagreement on this renderer.
   if (typeof value !== 'boolean') {
     return <span className="flex items-center justify-center"><EmptyValue /></span>;
   }
@@ -870,6 +997,82 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
 }
 
 /**
+ * The overdue affordance — ONE home for both date-family cell renderers
+ * (objectui#8958).
+ *
+ * `dueLike` is declared for BOTH types: `DetailViewFieldSchema.dueLike`
+ * (`@object-ui/types`' zod views) says, in the `describe` text an author
+ * reads, "Marks a date/datetime field as due/deadline-semantic, gating the
+ * relative 'Overdue Nd' wording". `DateCellRenderer` honoured it;
+ * `DateTimeCellRenderer` never read it, so an author who marked a `datetime`
+ * column `dueLike` published successfully and the affordance simply did not
+ * appear — accepted, parsed, dropped, and rendered as a legitimate-looking
+ * relative date. Measured before the change, one instant
+ * (`2026-09-06T09:30:00.000Z`), clock `2026-09-09T12:00:00.000Z`, `en-US`:
+ *
+ *   date     `dueLike: true` -> "Overdue 3d"  + `text-red-600`
+ *   datetime `dueLike: true` -> "3 days ago"  + no red
+ *   datetime no key at all   -> "3 days ago"  + no red   <- byte-identical
+ *
+ * These two functions exist so the repair is a SHARED read rather than a
+ * second copy. The regex and the midnight predicate below were inline in
+ * `DateCellRenderer`; copying either into the sibling is objectui#4576
+ * exactly — the shape this package already paid for when one convention was
+ * duplicated across a boundary and the two copies drifted while both stayed
+ * "correct". The wording half was already shared (both cells reach the same
+ * `formatRelativeDate`, which reads `options.dueLike`); these cover the two
+ * halves that were not.
+ */
+const DUE_LIKE_FIELD_NAME =
+  /(^|_)(due|deadline|expires?|expiry|expiration|expected_close|target_close|sla|return_by|renewal|next_action)(_|$)/;
+
+/**
+ * Whether a field is due/deadline-semantic: the authored key first, then the
+ * field-name convention.
+ *
+ * A date is only *semantically* a due/deadline when the field says so — a
+ * plain "start_date" or "created_at" in the past is neither overdue text nor
+ * red, even though it renders in the same relative-time style.
+ *
+ * `dueLike` is read through the two interfaces that DECLARE it rather than
+ * through `as any`, which is the objectui#7747 discipline the `format` read
+ * one function down already follows: `as any` would also silence a typo in
+ * the property name, this does not. The name spellings stay on a loose record
+ * read because `accessorKey` / `key` are grid-column spellings that no field
+ * interface carries — and that read goes through `unknown`, because
+ * `FieldMetadata` is a closed union whose members carry no index signature,
+ * so a direct assertion is `TS2352` (measured, not assumed).
+ */
+function resolveDueLike(field: CellRendererProps['field']): boolean {
+  const declared = (field as DateFieldMetadata | DateTimeFieldMetadata | undefined)?.dueLike;
+  if (declared === true) return true;
+  const named = field as unknown as Record<string, unknown> | undefined;
+  const fieldName = String(named?.name || named?.accessorKey || named?.key || '').toLowerCase();
+  return DUE_LIKE_FIELD_NAME.test(fieldName);
+}
+
+/**
+ * Whether a due/deadline instant has passed, at DAY granularity.
+ *
+ * ⚠️ The granularity is inherited, not re-decided here. `formatRelativeDate`
+ * compares calendar-day boundaries and gates its wording on `diffDays < -1`,
+ * so "Overdue 0d" is not a string this codebase can produce — the shortest
+ * overdue phrase is "Overdue 2d". This predicate is the same calendar-day
+ * question asked of the styling half, so a `datetime` two hours past its
+ * deadline reads "Today" and is not red, exactly as the `date` cell has
+ * always answered for a deadline falling today. Making the `datetime` cell
+ * time-of-day aware would put a SECOND convention in this file and make the
+ * two columns unequal again, which is the defect being closed; sub-day
+ * precision is a separate call, deliberately not taken here.
+ */
+function isOverdueInstant(date: Date, dueLike: boolean): boolean {
+  if (!dueLike) return false;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  return date < startOfToday;
+}
+
+/**
  * Date field cell renderer
  */
 export function DateCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
@@ -882,6 +1085,11 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
   // disagrees with itself.
   const locale = useDisplayLocale();
   const t = useFieldTranslate();
+  // THE FLOOR, EXTENDED with every falsy scalar (objectui#8496). The extension
+  // is deliberate and is the pinned disagreement on this renderer: `0` — the
+  // numeric epoch — is EMPTY on a date cell, where the floor says nothing about
+  // it. The floor's own `[]` member is answered one line down, on the coerced
+  // text, because `[]` is truthy. ⛔ Do not "fix" this to spare the epoch.
   if (!value) return <EmptyValue />;
   const safe = coerceToSafeValue(value);
   // `[]` is truthy, so it passed the guard above and reached `formatDate` as
@@ -918,18 +1126,12 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
   const dateField = field as any;
   const style = dateField.format || 'relative';
 
-  // A date is only *semantically* a due/deadline when the field says so — a
-  // plain "start_date" or "created_at" in the past is neither overdue text
-  // nor red, even though it renders in the same relative-time style.
-  const fieldName = String(dateField?.name || dateField?.accessorKey || dateField?.key || '').toLowerCase();
-  const dueLike =
-    dateField?.dueLike === true ||
-    /(^|_)(due|deadline|expires?|expiry|expiration|expected_close|target_close|sla|return_by|renewal|next_action)(_|$)/.test(fieldName);
+  // Both halves of the affordance come from the shared reads above, so the
+  // `datetime` sibling one function down answers this question identically
+  // instead of carrying a second copy (objectui#8958).
+  const dueLike = resolveDueLike(field);
   const formatted = formatDate(safe as string | Date, style, { dueLike, locale, t });
-
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const isOverdue = dueLike && date < startOfToday;
+  const isOverdue = isOverdueInstant(date, dueLike);
 
   return (
     <span
@@ -952,6 +1154,10 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   // `undefined`, i.e. the machine's locale, on every session.
   const locale = useDisplayLocale();
   const t = useFieldTranslate();
+  // THE FLOOR, EXTENDED with every falsy scalar — the numeric epoch included,
+  // spelled EXACTLY as `DateCellRenderer` one function up (objectui#8496). The
+  // floor's `[]` member is answered by the unparsable-date test below, which
+  // `coerceToSafeValue([])` reaches as `''`.
   if (!value) return <EmptyValue />;
   const safe = coerceToSafeValue(value);
   const date = safe != null ? new Date(safe as string | number) : null;
@@ -967,7 +1173,87 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   // `format`, so the bare property read is `TS2339` — SOME cast is load-bearing.
   // `DateTimeFieldMetadata` is the narrowest one that carries it (objectui#7747);
   // `as any` would also silence a typo in the property name, this does not.
-  const style = (field as DateTimeFieldMetadata | undefined)?.format || 'compact';
+  const authoredFormat = (field as DateTimeFieldMetadata | undefined)?.format || 'compact';
+
+  // ── The authored vocabulary is mapped HERE (objectui#8853) ──────────────
+  // `field.format` is ONE authored key, and until this mapping it meant two
+  // different things depending on which of two neighbouring cell renderers
+  // read it. Measured end to end through a real `ObjectGrid` column, one row,
+  // one instant, `format: 'relative'` on both fields: the `date` cell painted
+  // `In 2 days` and the `datetime` cell beside it painted
+  // `Sep 11, 2026, 09:30 AM` — no error, no warning, no fallback. The runtime
+  // accepted the key, parsed it, dropped it, and rendered something that still
+  // looks like a legitimate date, which is why a reader cannot tell an
+  // honoured style from a dropped one by looking at the cell.
+  //
+  // The two words are SELECTED here rather than threaded onward, and that is
+  // the ruling objectui#8352 already made for `formatMeasureDate`'s datetime
+  // arm — the same defect class one surface over. Threading `format` into
+  // `formatDateTime`'s `options.style` is NOT the fix and was measured there:
+  // that key's vocabulary is `'compact'` alone, so a pass-through would honour
+  // the one word the `date` cell does NOT honour while still ignoring both
+  // words it does — the defect inverted, not closed. Widening
+  // `formatDateTime(value, options?)` is refused for the reason it was refused
+  // there and in objectui#7443 ruling B: it is a PUBLISHED signature, and the
+  // parity this card asks for is reachable from the call site without moving
+  // it. Rejecting the currently-accepted spelling is refused too — that would
+  // be a breaking narrowing of a published metadata surface.
+  //
+  //   `'relative'` -> `formatRelativeDate`, the SAME function `formatDate`
+  //                   resolves `'relative'` to, so one calendar day reads the
+  //                   same phrase in either column.
+  //   `'short'`    -> the dense face of THIS type, which for a `datetime` cell
+  //                   is the compact face painted below. `formatDate`'s
+  //                   `'short'` is a narrow DATE face; the datetime equivalent
+  //                   keeps the time of day, exactly as #8352 mapped it.
+  //   anything else, `'compact'` and date patterns such as `'YYYY-MM-DD'`
+  //                   included, falls through unchanged to the default face.
+  //
+  // ⚠️ Beyond the ±7-day window `formatRelativeDate` renders an absolute DATE
+  // face, so an out-of-window `'relative'` datetime shows no time of day. That
+  // window belongs to that function and is INHERITED here, not re-decided —
+  // re-deciding it would put a second copy of the convention in this file,
+  // which is objectui#4576 exactly. `'relative'` is day-granular by
+  // construction (it shows no time inside the window either), and any other
+  // fallback would make the two columns unequal again, which is the defect
+  // being closed. Nothing is taken away from a working feature: this renderer
+  // ignored the word outright before, so it starts honouring a request whose
+  // granularity is days.
+  //
+  // ── The overdue affordance is read HERE (objectui#8958) ────────────────
+  // `dueLike` used to be deliberately not threaded: objectui#8853 mapped
+  // `format` and refused to acquire a second key's behaviour in the same
+  // change, filing the call rather than guessing it. The call came back
+  // "honour the declaration" — `DetailViewFieldSchema.dueLike` says
+  // "date/datetime" in the `describe` text an author reads, and this renderer
+  // never read it, so the affordance silently did not appear on a `datetime`
+  // column that asked for it.
+  //
+  // Both halves are honoured, because the affordance IS both: the "Overdue
+  // Nd" wording (`formatRelativeDate` reads `options.dueLike`, and `t`
+  // travels with it — that function reaches `t` only through this key, which
+  // is why #8853 left it off) and the red styling, applied to the span below.
+  //
+  // ⚠️ The styling is deliberately style-INDEPENDENT, matching the sibling.
+  // `DateCellRenderer` reddens its span whatever face it painted, so gating
+  // red on the relative branch alone would leave a `compact` datetime and a
+  // `compact` date disagreeing about the same authored key — the defect
+  // narrowed rather than closed. Since `'compact'` is THIS cell's default
+  // face, that is also where the visible population is.
+  const style = authoredFormat === 'short' ? 'compact' : authoredFormat;
+  const dueLike = resolveDueLike(field);
+  const isOverdue = isOverdueInstant(date, dueLike);
+  // Spelled as the sibling spells it, one function up, for the same reason
+  // every other guard in these two renderers is: one shape, one reading.
+  const cellClass = `tabular-nums text-sm whitespace-nowrap${isOverdue ? ' text-red-600' : ''}`;
+
+  if (style === 'relative') {
+    return (
+      <span className={cellClass}>
+        {formatRelativeDate(date, { dueLike, locale, t })}
+      </span>
+    );
+  }
 
   // The compact face is painted in two halves — the time is muted and offset
   // — so this branch asks the shared module for the halves rather than the
@@ -981,7 +1267,7 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
     const parts = formatDateTimeCompactParts(date, { locale });
     if (parts) {
       return (
-        <span className="tabular-nums text-sm whitespace-nowrap">
+        <span className={cellClass}>
           <span>{parts.date}</span>
           <span className="ml-2 text-muted-foreground">{parts.time}</span>
         </span>
@@ -990,7 +1276,7 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   }
 
   return (
-    <span className="tabular-nums text-sm whitespace-nowrap">
+    <span className={cellClass}>
       {formatDateTime(date, { style, locale, t })}
     </span>
   );
@@ -1505,46 +1791,6 @@ export function getSemanticHex(name?: string, fallback: string = '#3b82f6'): str
 }
 
 /**
- * An array with zero entries is not a cell value (objectui#8481).
- *
- * Three renderers below open a MULTI-VALUE container and map their entries
- * into it — `SelectCellRenderer` (a flex-wrap row of badges/dots),
- * `LookupCellRenderer` (a flex-wrap row of record chips) and
- * `UserCellRenderer` (an overlapping avatar stack). Each one's opening guard
- * tested only `null`/`undefined`/`''`, so `[]` reached the array branch and
- * mapped over zero entries: the renderer's whole output was a CHILDLESS
- * container — no glyph, no `aria-label`, a visually blank cell.
- *
- * That blindness lived in the SHARED renderer, so it was the same blank cell
- * on every surface. `@object-ui/plugin-detail` had already grown two private
- * upstream pre-checks against it (objectui#8474's `hasCellValue`, and
- * `RelatedList`'s `isValueEmpty` from objectui#8459); every consumer that does
- * NOT pre-check — `ObjectGrid`, `ObjectGallery`, `ObjectKanban`,
- * `ObjectDataTable` — reached the renderer directly and painted the blank.
- * A renderer with nothing to draw says so itself rather than depending on
- * every caller remembering to ask first.
- *
- * ⛔ Deliberately NOT the package's general emptiness predicate, and
- * deliberately not exported. The renderers in this file do NOT agree on what
- * "empty" means, and that disagreement is measured and in several places
- * intentional: `JsonCellRenderer` draws the two-character literal for `[]`
- * (objectui#8474 measured and kept that), `FileCellRenderer` states "0 files",
- * `BooleanCellRenderer` treats `false` as a value while `DateCellRenderer`'s
- * `!value` treats the epoch as empty. This helper answers ONE question — "is
- * this a multi-value container with no entries to draw?" — for the renderers
- * that ask it: the three below. `BooleanCellRenderer` asked it too between
- * objectui#8490 and objectui#8582; its guard is now `typeof value !== 'boolean'`,
- * which answers the same question for `[]` (an array is not a boolean) and for
- * every non-boolean scalar besides. The renderers that coerce
- * to text before they draw ask `isBlankCellText` instead — the same ruling,
- * taken on the coerced string. Unifying the rest is a separate, contested
- * change.
- */
-function isEmptyMultiValue(value: unknown): boolean {
-  return Array.isArray(value) && value.length === 0;
-}
-
-/**
  * Select field cell renderer.
  *
  * Two visual styles, controlled by `field.appearance` (renderer-level option,
@@ -1562,10 +1808,18 @@ export function SelectCellRenderer({ value, field }: CellRendererProps): React.R
   const options: SelectOptionMetadata[] = selectField.options || [];
   const appearance: 'badge' | 'dot' = selectField.appearance === 'dot' ? 'dot' : 'badge';
 
-  // `[]` is handled HERE rather than in the array branch below, because this
-  // is the statement the renderer makes about having nothing to draw
-  // (objectui#8481).
-  if (value == null || value === '' || isEmptyMultiValue(value)) return <EmptyValue />;
+  // THE FLOOR by name and nothing more (objectui#8496). It used to be spelled
+  // out here as `value == null || value === '' || isEmptyMultiValue(value)` —
+  // the same four members, in the fourth of five private copies.
+  //
+  // `[]` is a floor MEMBER, and it is answered HERE rather than in the array
+  // branch below because this is the statement the renderer makes about having
+  // nothing to draw (objectui#8481): the branch opens a flex-wrap row of badges
+  // and maps zero entries into it, so its whole output was a CHILDLESS
+  // container — no glyph, no accessible name, a visually blank cell. The same
+  // shape is why `LookupCellRenderer` (a row of record chips) and
+  // `UserCellRenderer` (an overlapping avatar stack) ask the floor too.
+  if (isEmptyValue(value)) return <EmptyValue />;
 
   // Match a stored value to a configured option, falling back to a
   // case-insensitive comparison so seed data with mixed case
@@ -1806,26 +2060,75 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
   // conditional return violates the rules of hooks — the call would be skipped
   // for an empty value and hook order would desync between renders.
   const t = useFieldTranslate();
+  // THE FLOOR WITH `[]` DECLINED, and extended with every other falsy scalar
+  // (objectui#8496). A file cell STATES ITS COUNT, so an empty array is a
+  // value here — it renders "0 files", which is an answer the em-dash cannot
+  // give. ⛔ Do not replace this with `isEmptyValue(value)`.
   if (!value) return <EmptyValue />;
   
   const fileField = field as any;
   const isMultiple = fileField.multiple;
   
-  if (Array.isArray(value)) {
-    const count = value.length;
-    // Same channel and the same literal-key rule as `RepeaterCellRenderer`
-    // below (objectui#8441). The `count === 1 ? 'file' : 'files'` this replaces
-    // was NOT a rule violation — it is English — but it was equally
-    // unlocalized, and plural-safe for English only: `ru` has four plural
-    // categories and `ar` six, so a two-branch ternary cannot spell either.
-    // Two adjacent cells answering one concept two ways is the shape the
-    // repeater fix exists to close, so both read one channel.
+  // The display name a value that carries none falls back to — the same key and
+  // the same English default `FileField` reads, so the widget and the cell never
+  // name one attachment two different ways. Kept on the i18n channel
+  // (objectui#8441): this card introduces no new user-facing string.
+  const translatedFallback = t?.('fields.file.fileFallback');
+  const fallbackName =
+    !translatedFallback || translatedFallback === 'fields.file.fileFallback'
+      ? 'File'
+      : translatedFallback;
+
+  // One file, as the shared affordance when it resolves to a URL and as the
+  // same truncating text as before when it does not (objectui#9161). ⛔ Never a
+  // dead anchor: objectui#8490's ruling for `email` / `url` / `phone` —
+  // "nothing to link to, no link" — reads the same here, and worse, since an
+  // anchor that navigates nowhere reads as a working download.
+  const renderOne = (view: FileValueView, key?: React.Key) => (
+    <FileValueAffordance
+      key={key}
+      view={view}
+      className="text-sm"
+      fallback={<TruncatedText text={view.name} className="text-sm" />}
+    />
+  );
+
+  // Kept parameterised on `count` even though the only surviving call passes 0
+  // (below): the sentence has to stay true for any count, or a future caller
+  // re-routing it would silently read `1 files`.
+  const countLabel = (count: number) => {
     const translated = t?.('detail.fileCount', { count });
-    const label =
-      !translated || translated === 'detail.fileCount'
-        ? `${count} ${count === 1 ? 'file' : 'files'}`
-        : translated;
-    return <span className="text-sm text-gray-600">{label}</span>;
+    return !translated || translated === 'detail.fileCount'
+      ? `${count} ${count === 1 ? 'file' : 'files'}`
+      : translated;
+  };
+
+  if (Array.isArray(value)) {
+    // THE DEFECT this card fixed (objectui#9161): this arm rendered the COUNT
+    // and nothing else, so a record whose `file` field held a successfully
+    // uploaded attachment stated `1 file` and offered no way to reach it —
+    // while the read path, the signing endpoint and the signed URL all answered
+    // 200. Normalising through `readFileValues` is `ImageCellRenderer`'s
+    // treatment one screen below, applied to the same spec family: a string
+    // URL, a CDN link and an unexpanded bare id all resolve.
+    const views = readFileValues(value, fallbackName);
+    if (views.length === 0) {
+      // THE COUNT SURVIVES on the one arm where it is the whole answer
+      // (objectui#8496): an array that resolves to no renderable file states
+      // `0 files` rather than drawing the em-dash — an answer the affordance
+      // cannot give. Same channel and the same literal-key rule as
+      // `RepeaterCellRenderer` below (objectui#8441). The
+      // `count === 1 ? 'file' : 'files'` this replaced was NOT a rule violation
+      // — it is English — but it was equally unlocalized, and plural-safe for
+      // English only: `ru` has four plural categories and `ar` six, so a
+      // two-branch ternary cannot spell either.
+      return <span className="text-sm text-gray-600">{countLabel(views.length)}</span>;
+    }
+    return (
+      <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-0.5">
+        {views.map((view, idx) => renderOne(view, idx))}
+      </span>
+    );
   }
   
   // An object carrying nothing is not a file (objectui#8596). The spec's
@@ -1845,8 +2148,12 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
   // `{ foo: 1 }` keeps its JSON so real data is never hidden."
   if (isPlainObjectValue(value) && Object.keys(value).length === 0) return <EmptyValue />;
 
-  const fileName = value.name || value.original_name || 'File';
-  return <TruncatedText text={String(fileName)} className="text-sm" />;
+  // Same treatment for the single-value arm: the `value.name ||
+  // value.original_name || 'File'` this replaced picked a name and stopped,
+  // which is the other half of objectui#9161. `readFileValue` picks the same
+  // name (plus a URL's last segment as a name of last resort) AND resolves the
+  // URL, so a single attachment is reachable too.
+  return renderOne(readFileValue(value, fallbackName));
 }
 
 /**
@@ -1874,6 +2181,10 @@ export function ImageCellRenderer({ value }: CellRendererProps): React.ReactElem
     [value],
   );
 
+  // THE FLOOR, EXTENDED twice (objectui#8496): every falsy scalar, and every
+  // value that resolves to no displayable image. `[]` is covered by the second
+  // extension rather than by a floor call — unlike `FileCellRenderer` next
+  // door, an image cell has no count to state.
   if (!value || imgs.length === 0) return <EmptyValue />;
 
   const imageAlt = (idx: number, name?: string) =>
@@ -2035,7 +2346,10 @@ const MAX_LOOKUP_CELL_CHIPS = 3;
  * 2. Static `field.options[]` (e.g. when the lookup is a closed enum) → look up label
  * 3. Fetch-on-demand: when the value is a primitive ID and `field.reference_to`
  *    is known, resolve via dataSource and show the related record's display name.
- *    Falls back to a muted placeholder while pending and on failure.
+ * 4. Nothing named it → the unresolved-reference affordance (objectui#8695):
+ *    the raw value, kept visible, beside a stated epistemic marker. This arm
+ *    used to be two — a muted `—` for opaque-LOOKING strings and confident
+ *    bare text for everything else — which answered one state two ways.
  *
  * Record → name resolution (1 and 3) goes through the referenced object's
  * schema when the data source exposes it (`displayField` → nameField/titleFormat
@@ -2087,10 +2401,10 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   // Always call the hook (rules of hooks). It safely no-ops when inputs are missing.
   const resolvedName = useLookupName(referenceTo, primaryPrimitiveId, displayField);
 
-  // Same childless-container defect as `SelectCellRenderer` above: the array
-  // branch further down opens a flex-wrap row of chips and maps zero entries
-  // into it (objectui#8481).
-  if (value == null || value === '' || isEmptyMultiValue(value)) return <EmptyValue />;
+  // THE FLOOR by name and nothing more (objectui#8496). Same childless-container
+  // defect as `SelectCellRenderer` above: the array branch further down opens a
+  // flex-wrap row of chips and maps zero entries into it (objectui#8481).
+  if (isEmptyValue(value)) return <EmptyValue />;
 
   // A reference can arrive as a JSON-encoded object string — e.g. an
   // unresolved external-id reference '{"externalId":"Website Relaunch"}'.
@@ -2141,35 +2455,55 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
     (field as { options?: Array<{ value: unknown; label: string }> }).options || [];
 
   // Resolve a primitive ID to a label. Order:
-  //   options → server-resolved name (via useLookupName) → muted placeholder for opaque IDs → raw value
-  const resolveLabel = (val: unknown): { text: string; muted: boolean } => {
+  //   options → server-resolved name (via useLookupName) → UNRESOLVED
+  //
+  // ⭐ That last arm used to be TWO, and the split between them was the
+  // defect (objectui#8695). `isLikelyOpaqueId(val)` sent opaque-LOOKING
+  // strings to a muted `—` and sent everything else to confident bare text —
+  // so ONE epistemic state, a reference this screen did not resolve, got two
+  // OPPOSITE answers, chosen by the SHAPE of the string rather than by
+  // whether anything resolved. Re-measured on this base with
+  // `reference_to: 'sys_user'`:
+  //
+  //   'Ada Lovelace'     → <span class="block max-w-full truncate"
+  //                          title="Ada Lovelace">Ada Lovelace</span>
+  //   '01HQZX9K2M4N6P8R' → <span class="block max-w-full truncate
+  //                          text-muted-foreground" title="—">—</span>
+  //
+  // The first is BYTE-IDENTICAL to what a `text` cell prints for the same
+  // string: the screen states a confident fact it does not have, and a dirty
+  // row reads exactly like a clean one. The second destroys the raw id, which
+  // objectui#8434's triage named as "the only clue for diagnosing existing
+  // dirty rows". Opposite failures, one state.
+  //
+  // Both are now the SAME answer — the one objectui#8434 settled for `user`:
+  // additive (a stated marker, never the absence of one), epistemic (this
+  // screen did not resolve it, never "not found"), raw value kept visible.
+  // See `UnresolvedLookupReference` for why this renderer is entitled to say
+  // nothing stronger.
+  const resolveLabel = (val: unknown): { text: string; unresolved: boolean } => {
     if (options.length > 0) {
       const found = options.find((opt) => String(opt.value) === String(val));
-      if (found) return { text: found.label, muted: false };
+      if (found) return { text: found.label, unresolved: false };
     }
     if (val === primaryPrimitiveId && resolvedName) {
-      return { text: resolvedName, muted: false };
+      return { text: resolvedName, unresolved: false };
     }
-    if (isLikelyOpaqueId(val)) {
-      // Don't dump a random-looking ID at the user. Show a soft placeholder
-      // that conveys "this is a reference, name unavailable".
-      return { text: '—', muted: true };
-    }
-    return { text: String(val), muted: false };
+    return { text: String(val), unresolved: true };
   };
 
   if (Array.isArray(value)) {
-    const itemDisplay = (item: unknown): { label: string; muted: boolean } => {
+    const itemDisplay = (item: unknown): { label: string; unresolved: boolean } => {
       if (item != null && typeof item === 'object') {
         return {
           label:
             resolveLookupRecordName(item as Record<string, unknown>, refSchema, displayField) ||
             String((item as any).id || (item as any)._id || '[Object]'),
-          muted: false,
+          unresolved: false,
         };
       }
       const r = resolveLabel(item);
-      return { label: r.text, muted: r.muted };
+      return { label: r.text, unresolved: r.unresolved };
     };
 
     // Cap the chips the same way UserCellRenderer caps its avatars: a
@@ -2183,7 +2517,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
     return (
       <div className="flex flex-wrap gap-1">
         {visible.map((item, idx) => {
-          const { label, muted } = itemDisplay(item);
+          const { label, unresolved } = itemDisplay(item);
           // Each chip is one referenced record, so each links on its own —
           // there is no single destination a multi-value cell could point at.
           return (
@@ -2196,12 +2530,18 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
               <span
                 className={cn(
                   'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium',
-                  muted
+                  unresolved
                     ? 'bg-muted/40 text-muted-foreground'
                     : 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-200',
                 )}
               >
-                {label}
+                {/* The multi-value shape gets the same ruling as the scalar
+                    one, one input-shape over (objectui#8695): a chip must not
+                    be honest about an unresolved reference on one shape and
+                    silent about it on the other. The chip's muted background
+                    is unchanged — what changes is that the raw value survives
+                    inside it instead of being replaced by `—`. */}
+                {unresolved ? <UnresolvedLookupReference value={label} /> : label}
               </span>
             </ReferencedRecordLink>
           );
@@ -2229,14 +2569,19 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
     );
   }
 
-  // Primitive value (e.g. raw ID): try options → resolver → opaque-ID placeholder → raw
-  // The value IS the foreign key, so it addresses the record even when the
-  // display name could not be resolved (the muted placeholder) — a reference
-  // that is present but unnamed is still worth being able to open.
-  const { text, muted } = resolveLabel(value);
+  // Primitive value (e.g. raw ID): try options → resolver → UNRESOLVED.
+  // The value IS the foreign key, so it addresses the record even when no
+  // display name could be resolved — a reference that is present but unnamed
+  // is still worth being able to open, which is why the affordance stays
+  // INSIDE the link rather than replacing it.
+  const { text, unresolved } = resolveLabel(value);
   return (
     <ReferencedRecordLink objectName={referenceTo} recordId={referencedRecordId(value)}>
-      <TruncatedText text={text} className={muted ? 'text-muted-foreground' : undefined} />
+      {unresolved ? (
+        <UnresolvedLookupReference value={text} />
+      ) : (
+        <TruncatedText text={text} />
+      )}
     </ReferencedRecordLink>
   );
 }
@@ -2246,7 +2591,9 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
  */
 export function FormulaCellRenderer({ value }: CellRendererProps): React.ReactElement {
   const safe = coerceToSafeValue(value);
-  if (safe == null || safe === '') return <EmptyValue />;
+  // THE FLOOR by name and nothing more (objectui#8496), on the coerced text —
+  // same relation as `TextCellRenderer`, which this renderer's output mirrors.
+  if (isEmptyValue(safe)) return <EmptyValue />;
   return (
     <span className="text-gray-700 font-mono text-sm">
       {String(safe)}
@@ -2310,11 +2657,13 @@ function UnresolvedUserReference({
 }): React.ReactElement {
   const t = useFieldTranslate();
   const raw = String(value);
-  // The key is written as a LITERAL at both sites on purpose:
+  // The key is written as a LITERAL at every site on purpose:
   // `check:i18n-keys` judges a literal key against the `en` pack and checks
   // that the arguments here are exactly the holes that value has, and it
   // downgrades a key read from a constant to report-only. A shared constant
-  // would have bought tidiness at the cost of the gate.
+  // would have bought tidiness at the cost of the gate — which is also why
+  // `UnresolvedLookupReference` below spells its own key out rather than
+  // taking one as a prop.
   const translated = t?.('detail.unresolvedReference', { value: raw });
   // Same provider-less rule `useFieldLabel` documents: i18next echoes the key
   // when nothing resolves it, and the English fallback applies then. That
@@ -2324,6 +2673,107 @@ function UnresolvedUserReference({
     !translated || translated === 'detail.unresolvedReference'
       ? `Unresolved reference: ${raw} was not resolved to a user`
       : translated;
+  return <UnresolvedReferenceMark raw={raw} hint={hint} className={className} />;
+}
+
+/**
+ * A `lookup` / `master_detail` / `tree` reference this screen did NOT resolve
+ * to a record (objectui#8695), carrying objectui#8434's ruling to the second
+ * renderer that had the same defect.
+ *
+ * ## The state this names, and how many causes hide behind it
+ *
+ * `LookupCellRenderer` reaches here when neither the author's `options` nor
+ * `useLookupName` produced a name. Measured on this base, that ONE seam is fed
+ * by at least six distinct causes, and the renderer can tell apart NONE of
+ * them — `useLookupName` returns `string | undefined`, so the
+ * `pending` / `err` / `ok` discriminator its own cache stores is dropped
+ * before any caller sees it:
+ *
+ *   1. never fetched — no `dataSource`, or no `reference_to` on the field;
+ *   2. IN FLIGHT — the first paint of every successful resolve passes through
+ *      here (measured: the settled paint replaces it);
+ *   3. the resolver threw (`state: 'err'`);
+ *   4. the resolver answered with no record — "fetched and absent";
+ *   5. it answered with a record no display field could name;
+ *   6. not attempted BY POLICY — only the FIRST primitive of an array is
+ *      auto-resolved (`primaryPrimitiveId`), so entries 2..n never ask.
+ *
+ * ⇒ the card's premise that this renderer "can genuinely distinguish 'fetched
+ * and absent' from 'never fetched'" is FALSE as the code stands. And even a
+ * hook that surfaced the discriminator could not upgrade the sentence: (3) and
+ * (4) also cover a record the VIEWER may not read, and "cannot read" versus
+ * "does not exist" is an existence-oracle boundary this lane does not cross
+ * (objectui#8631). What is true of all six is epistemic, and it is all this
+ * affordance says: this screen did not resolve it.
+ *
+ * ## Why the raw value stays, and the `—` does not
+ *
+ * ⛔ This deliberately does NOT keep the muted em-dash this arm used to draw
+ * for `isLikelyOpaqueId` strings. objectui#8434's triage named that treatment
+ * by name and ruled against it — the raw string "is the only clue for
+ * diagnosing existing dirty rows" — and the mother fix's own docblock says it
+ * again: that treatment buys tidiness by destroying the evidence. The tidiness
+ * it bought is real and it is the trade-off objectui#8695 flagged against
+ * itself; it is bought back by TRUNCATION, which hides the id without deleting
+ * it. The `—` also collided with `EmptyValue`'s glyph, so a cell with no value
+ * and a cell whose value failed to resolve read identically to a person.
+ *
+ * ⚠️ The sentence is a SIBLING key, not the `user` one: that pack value ends
+ * "was not resolved to a user", which is false on a `lookup` pointing at any
+ * other object, and it is pinned byte-for-byte by two existing tests.
+ */
+function UnresolvedLookupReference({
+  value,
+  className,
+}: {
+  value: unknown;
+  className?: string;
+}): React.ReactElement {
+  const t = useFieldTranslate();
+  const raw = String(value);
+  // Literal key — see `UnresolvedUserReference` above for what reading it
+  // from a constant would cost at `check:i18n-keys`.
+  const translated = t?.('detail.unresolvedLookupReference', { value: raw });
+  const hint =
+    !translated || translated === 'detail.unresolvedLookupReference'
+      ? `Unresolved reference: ${raw} was not resolved to a record on this screen`
+      : translated;
+  return <UnresolvedReferenceMark raw={raw} hint={hint} className={className} />;
+}
+
+/**
+ * The shipped PRESENTATION of an unresolved reference, shared by the two
+ * renderers that state one (objectui#8434 for `user`, objectui#8695 for
+ * `lookup` / `master_detail` / `tree`).
+ *
+ * Only the drawing is shared. Each caller keeps its own literal i18n key and
+ * its own English fallback, because a key reaching this component as a prop
+ * would be a key `check:i18n-keys` can no longer judge — and because the two
+ * sentences are genuinely different claims: one is about a person, the other
+ * about a record of whatever object the lookup points at.
+ *
+ * ⚠️ No `pointer-events-none` here, unlike `EmptyValue`: that utility stops the
+ * span being a hit target, so a `title` on it never renders a tooltip
+ * (objectui#8506). The stated sentence has to be reachable by hovering.
+ *
+ * ⚠️ `truncate` on the inner span rather than the outer one, and the outer is
+ * `inline-flex`: `overflow: hidden` gives a flex item an automatic minimum
+ * size of zero, so the text shrinks and ellipsises instead of forcing the row
+ * wider. The full value stays reachable through the `title` sentence, which
+ * names it — that is how this shape meets objectui#3466's truncation contract
+ * (a single-line value must never expand its column and must expose its full
+ * text) with an icon in front of the text.
+ */
+function UnresolvedReferenceMark({
+  raw,
+  hint,
+  className,
+}: {
+  raw: string;
+  hint: string;
+  className?: string;
+}): React.ReactElement {
   return (
     <span
       data-slot="unresolved-reference"
@@ -2343,9 +2793,12 @@ function UnresolvedUserReference({
  * User/Owner field cell renderer (with avatars)
  */
 export function UserCellRenderer({ value }: CellRendererProps): React.ReactElement {
-  // `!value` never saw `[]` — a truthy empty array reached the avatar-stack
-  // branch below and rendered an empty stack (objectui#8481).
-  if (!value || isEmptyMultiValue(value)) return <EmptyValue />;
+  // THE FLOOR by name (objectui#8496) plus ONE extension: every falsy scalar.
+  // `!value` alone never saw `[]` — a truthy empty array reached the
+  // avatar-stack branch below and rendered an empty stack (objectui#8481) —
+  // and the floor alone would let `0` through to `UnresolvedUserReference`,
+  // which is not what a user reference of zero is.
+  if (isEmptyValue(value) || !value) return <EmptyValue />;
 
   // A primitive is an UNRESOLVED reference, not "the ID/username" (objectui#8434).
   // The comment that stood here stated the branch's premise, and the premise was
@@ -2499,7 +2952,13 @@ export function resolveCellRendererType(fieldOrType: string | { type?: string; f
  * stringified; primitives fall through to their string form.
  */
 export function JsonCellRenderer({ value }: CellRendererProps): React.ReactElement {
-  if (value == null || value === '') return <EmptyValue />;
+  // THE FLOOR WITH ONE MEMBER DECLINED, and the declension is the point
+  // (objectui#8496). `[]` is a floor member everywhere else in this file; here
+  // it is a VALUE and draws the two-character literal, because a `json` cell
+  // states the structure the record holds and "an empty array" is a structure.
+  // objectui#8474 measured that and pinned it. ⛔ Do not simplify this to
+  // `isEmptyValue(value)`: that flattens a decision already on the record.
+  if (isEmptyValue(value) && !Array.isArray(value)) return <EmptyValue />;
   let text: string;
   if (typeof value === 'object') {
     try {
@@ -2520,7 +2979,10 @@ export function JsonCellRenderer({ value }: CellRendererProps): React.ReactEleme
  * Renders a `color` value as a swatch alongside its hex/string value.
  */
 export function ColorSwatchCellRenderer({ value }: CellRendererProps): React.ReactElement {
-  if (value == null) return <EmptyValue />;
+  // THE FLOOR by name and nothing more (objectui#8496). `''` and `[]` reached
+  // the same affordance one branch down (`String([])` is `''`, which the blank
+  // test below caught); asking the floor here says so once, at the door.
+  if (isEmptyValue(value)) return <EmptyValue />;
   // An object is not a colour (objectui#8596). `String({})` is
   // `'[object Object]'`, which this renderer handed to `background-color` —
   // an invalid declaration the browser drops, so the swatch drew a bordered
@@ -2571,7 +3033,11 @@ import { RICH_TEXT_CELL_RENDERERS } from './widgets/richTextDisplay.js';
  * or a `[lat, lng]` array. Falls back to compact JSON for anything else.
  */
 export function LocationCellRenderer({ value }: CellRendererProps): React.ReactElement {
-  if (value == null || value === '') return <EmptyValue />;
+  // THE FLOOR WITH `[]` DECLINED (objectui#8496), inherited rather than chosen:
+  // an unrecognized shape falls through to `JsonCellRenderer` below, whose
+  // pinned answer for `[]` is the array literal (objectui#8474). Declining the
+  // member here keeps the two ends of that fallback saying one thing.
+  if (isEmptyValue(value) && !Array.isArray(value)) return <EmptyValue />;
   let lat: number | undefined;
   let lng: number | undefined;
   if (typeof value === 'object' && !Array.isArray(value)) {
@@ -2630,7 +3096,11 @@ export function AddressCellRenderer({ value }: CellRendererProps): React.ReactEl
   // renderer in this file already uses, and it is provider-safe (it resolves
   // to `'en'` — the unchanged small-to-large order — with nothing mounted).
   const locale = useDisplayLocale();
-  if (value == null || value === '') return <EmptyValue />;
+  // THE FLOOR WITH `[]` DECLINED (objectui#8496), for the same inherited reason
+  // as `LocationCellRenderer`: this renderer's own docblock promises that an
+  // unknown shape stays visible through the JSON fallback rather than being
+  // swallowed, and `[]` is an unknown shape here.
+  if (isEmptyValue(value) && !Array.isArray(value)) return <EmptyValue />;
   // A plain string address (some apps store one) is already display-ready.
   if (typeof value === 'string') return <TruncatedText text={value} className="text-sm" />;
   if (typeof value === 'object' && !Array.isArray(value)) {
@@ -2692,24 +3162,21 @@ function RepeaterCellRenderer({ value }: CellRendererProps): React.ReactElement 
 }
 
 /**
- * Get the appropriate cell renderer for a field type
+ * THE standard cell-renderer table, built fresh on every call.
+ *
+ * ⭐ A FUNCTION returning a new object, ⛔ not a module-level constant, and the
+ * difference is pinned rather than stylistic: several entries here are INLINE
+ * arrows (`password`, `secret`, `vector`, `grid`), so hoisting this object to
+ * module scope would freeze their identity. `cellRenderers.countLabelI18n-8441`
+ * pins BOTH halves of today's behaviour — a module-level entry is stable across
+ * calls, an inline arrow is not — and hoisting flips the second one. This
+ * extraction therefore changes nothing a caller can observe: `getCellRenderer`
+ * rebuilds the table per call exactly as it did when the literal sat in its
+ * body, and {@link listCellRendererTypes} reads the SAME builder rather than a
+ * second copy of the key list, so the two cannot drift.
  */
-export function getCellRenderer(fieldType: string): React.FC<CellRendererProps> {
-  // 1. Try exact match in registry
-  if (fieldRegistry.has(fieldType)) {
-    return fieldRegistry.get(fieldType)!;
-  }
-
-  // 1b. A RETIRED spelling reaching the read path says a stored column is still
-  //     typed with a name this renderer no longer honours. There is no visible
-  //     alert a table CELL can carry without wrecking the row, so the console
-  //     prescription is the loud half here (once per spelling —
-  //     `reportRetiredFieldType`), and the cell degrades to text deliberately
-  //     rather than by omission (objectui#4814).
-  reportRetiredFieldType(fieldType);
-
-  // 2. Fallback to standard mappings if not overridden
-  const standardMap: Record<string, React.FC<CellRendererProps>> = {
+function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererProps>> {
+  return {
     text: TextCellRenderer,
     textarea: TextCellRenderer,
     // `markdown` / `html` / `richtext` — spread from THE table rather than
@@ -2768,6 +3235,60 @@ export function getCellRenderer(fieldType: string): React.FC<CellRendererProps> 
     vector: () => <span className="text-gray-500 italic">[Vector]</span>,
     grid: () => <span className="text-gray-500 italic">[Grid]</span>,
   };
+}
+
+/**
+ * Every field type that resolves to a cell renderer OF ITS OWN — a LIVE
+ * reading of the registry, taken when you call it (objectui#8734).
+ *
+ * ## Why this exists
+ *
+ * Two censuses — `cellRenderers.objectLiteral-8596` in this package and
+ * `summaryChip.badgeFitCensus-8464` in `@object-ui/plugin-detail` — declare in
+ * prose that they measure "every type `getCellRenderer` resolves to a renderer
+ * of its own", and each enforced that declaration with a hard-coded population
+ * size. A newly registered type is absent from such a table, so every row in it
+ * still passes: the census goes on measuring a snapshot while claiming to
+ * measure the registry. This function is what those censuses reconcile against,
+ * so a new type turns a silent pass into a red row that NAMES the type.
+ *
+ * ## ⭐ A function, ⛔ not a frozen constant
+ *
+ * `FORM_FIELD_TYPES` next door may be `Object.freeze(Object.keys(...))` because
+ * `fieldWidgetMap` is a module literal that never changes. This registry DOES
+ * change: {@link registerFieldRenderer} is published, and a host may add or
+ * override a type after this module is evaluated. A frozen constant here would
+ * be a snapshot taken at import time — the very defect the censuses are being
+ * repaired for, one level down. Every call re-reads.
+ *
+ * The answer is the UNION of the runtime registry and the standard table,
+ * because {@link getCellRenderer} dispatches on both; it is sorted so callers
+ * get a stable order, and `TextCellRenderer` is the TOTAL fallback for
+ * everything else, which is exactly why "everything else" is not listed here.
+ */
+export function listCellRendererTypes(): readonly string[] {
+  return [...new Set([...fieldRegistry.keys(), ...Object.keys(buildStandardCellRendererMap())])].sort();
+}
+
+/**
+ * Get the appropriate cell renderer for a field type
+ */
+export function getCellRenderer(fieldType: string): React.FC<CellRendererProps> {
+  // 1. Try exact match in registry
+  if (fieldRegistry.has(fieldType)) {
+    return fieldRegistry.get(fieldType)!;
+  }
+
+  // 1b. A RETIRED spelling reaching the read path says a stored column is still
+  //     typed with a name this renderer no longer honours. There is no visible
+  //     alert a table CELL can carry without wrecking the row, so the console
+  //     prescription is the loud half here (once per spelling —
+  //     `reportRetiredFieldType`), and the cell degrades to text deliberately
+  //     rather than by omission (objectui#4814).
+  reportRetiredFieldType(fieldType);
+
+  // 2. Fallback to standard mappings if not overridden
+  const standardMap = buildStandardCellRendererMap();
 
   // 3. Register standard renderers implicitly if not present
   // This ensures that if we call registerFieldRenderer('text', Custom), it works,

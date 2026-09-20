@@ -72,7 +72,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PLATFORM_CAPABILITIES } from '@objectstack/spec/security';
-import { builtInLocales } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 // The i18n gate's own source reader (objectui#4964). Importing it — rather than
 // re-implementing a regex — is what makes "the vocabulary that gate consumes"
 // and "the thing this file pins" the same object. Plain JS, untyped here, the

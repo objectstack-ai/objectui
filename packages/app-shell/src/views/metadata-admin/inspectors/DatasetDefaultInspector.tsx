@@ -34,7 +34,7 @@ import { InspectorComboField, type InspectorComboOption } from './InspectorCombo
 import { toFieldName } from '../previews/object-fields-io.js';
 import { formatMeasure } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { conditionToGroup, groupToCondition, type FilterCondition } from './datasetFilterCondition.js';
+import { conditionToGroup, groupToCondition, isClearedGroup, type BuilderGroup, type FilterCondition } from './datasetFilterCondition.js';
 import {
   useObjectOptions,
   useDatasetFieldCatalog,
@@ -242,8 +242,37 @@ function DatasetFilterField({ label, help, value, onCommit, fields, disabled }: 
   fields: Array<{ value: string; label?: string; type?: string }>;
   disabled?: boolean;
 }) {
-  const { group, representable } = conditionToGroup(value);
+  // `fields` is handed to the READ half as well as to the builder: it is what
+  // lets a stored `$gt` on a date column read back as `after` — the operator
+  // that column's dropdown offers — instead of a `greaterThan` it does not
+  // list, which drew a blank operator trigger (objectui#9382).
+  const { group, representable } = conditionToGroup(value, fields);
   const count = group.conditions.length;
+  /**
+   * Commit an edit — unless nothing survived serialization while rows are
+   * still on screen (objectui#9372).
+   *
+   * `groupToCondition` answers `undefined` both when the author CLEARED the
+   * filter and when every row was dropped, and this commit is what turns the
+   * second one into data loss: `onCommit` lands as `onPatch({ filter })`, the
+   * host applies it as `{ ...draft, ...patch }`, so `filter` is SET to
+   * `undefined` — the very patch shape `objectChangePatch` uses to erase it.
+   * An unmapped operator (`between`) or a blanked value on the only row would
+   * therefore destroy a working stored filter, silently.
+   *
+   * Holding the patch leaves the stored value alone, which is the whole
+   * requirement. ⛔ It is deliberately not "emit something anyway": a filter in
+   * a spelling that means something else is worse than one that was dropped.
+   * ⚠️ Known and accepted: the builder re-seeds its own state from `value`
+   * whenever the two differ, so an unexpressible row is lost from the panel on
+   * the next render the inspector happens to do. Losing an edit the bridge
+   * could never have stored is not in the same class as destroying one it had.
+   */
+  const commitFilterGroup = (g: BuilderGroup) => {
+    const next = groupToCondition(g);
+    if (next === undefined && !isClearedGroup(g)) return;
+    onCommit(next);
+  };
   return (
     <div className="space-y-1">
       <Label className="text-xs text-muted-foreground">{label}</Label>
@@ -263,7 +292,7 @@ function DatasetFilterField({ label, help, value, onCommit, fields, disabled }: 
             {fields.length === 0 ? (
               <p className="text-xs text-muted-foreground">Pick a base object to add filter conditions.</p>
             ) : (
-              <FilterBuilder fields={fields as any} value={group as any} onChange={(g: any) => onCommit(groupToCondition(g))} />
+              <FilterBuilder fields={fields as any} value={group as any} onChange={commitFilterGroup} />
             )}
           </PopoverContent>
         </Popover>

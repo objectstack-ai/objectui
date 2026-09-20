@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { childVitestEnv } from './helpers/child-vitest-env';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -103,11 +104,10 @@ describe('objectui#8366 — the runner pins the timezone', () => {
   it.skipIf(IS_CHILD)(
     'a real vitest spawned under a non-UTC TZ still runs in UTC',
     () => {
-      const env: NodeJS.ProcessEnv = { ...process.env };
-      // A fresh CLI, not a nested worker of this run.
-      for (const key of Object.keys(env)) if (key.startsWith('VITEST')) delete env[key];
-      env.TZ = WEST;
-      env.OBJECTUI_TZ_PIN_CHILD = '1';
+      // A fresh CLI, not a nested worker of this run — and one configured the
+      // way CI configures it, so `1 passed` below is read off the same reporter
+      // and the same byte stream CI produces (objectui#8616).
+      const env = childVitestEnv({ TZ: WEST, OBJECTUI_TZ_PIN_CHILD: '1' });
 
       const child = spawnSync(
         process.execPath,

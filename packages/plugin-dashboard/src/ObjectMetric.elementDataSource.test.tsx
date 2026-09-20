@@ -17,6 +17,18 @@
  * `object` and `filter` are the only mapped keys: a metric is one aggregated
  * number, so there is no projection, no ordering and no page for the binding's
  * remaining keys to act on.
+ *
+ * ## Promoted to the member pin for `object-metric.dataSource` (objectui#8071)
+ *
+ * objectui#8071's eighth slice registers this file as the pin for that key. The
+ * member set it asserts is a WHITELIST in both directions: `object` and `view`
+ * are the members that act — the bound object is what gets aggregated and the
+ * named view's own `filter` becomes the metric's scope — while the view's
+ * `columns`, `sort` and `pagination` are carried in the fixture and asserted
+ * ABSENT from the call, because `OBJECT_METRIC_DATA_SOURCE` names only
+ * `filter`. Without that second direction the pin would be satisfied by a
+ * mapping that forwarded everything, which for this block would mean a metric
+ * silently ordered and paged by a list view's presentation settings.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -97,6 +109,32 @@ describe('object-metric — dataSource: { object, view } (objectstack#6953)', ()
       expect(container.querySelector('[data-testid="object-metric-datasource-error"]')).not.toBeNull(),
     );
     expect(adapter.aggregate).not.toHaveBeenCalled();
+  });
+
+  it('maps `object` and the view’s `filter` and NOTHING else the view carries', async () => {
+    // The whitelist direction. `HOT_VIEW` declares `columns`, `sort` and
+    // `pagination`; none of the three is a member this block reads, so none may
+    // appear in the aggregate call. Asserted on the WHOLE options bag rather
+    // than key by key, so a mapping widened to forward the rest is red here.
+    const adapter = makeAdapter();
+    renderBlock(
+      {
+        type: 'object-metric',
+        label: 'Pipeline',
+        aggregate: AGGREGATE,
+        dataSource: { object: 'account', view: 'hot' },
+      },
+      adapter,
+    );
+
+    await waitFor(() => expect(adapter.aggregate).toHaveBeenCalled());
+    const [, params] = adapter.aggregate.mock.calls[0] as [string, any];
+    expect(params).toEqual({
+      field: 'amount',
+      function: 'sum',
+      groupBy: '_all',
+      filter: [['rating', '=', 'hot']],
+    });
   });
 
   it('leaves a metric with NO dataSource exactly as it was', async () => {

@@ -22,7 +22,7 @@
  * and the same automation/approval-vocabulary ban.
  */
 import { describe, it, expect } from 'vitest';
-import { builtInLocales } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 import { buildAgentSuggestions } from '../AiChatPage.js';
 
 /** A `t` that misses every key — i.e. what a provider-less host resolves. */

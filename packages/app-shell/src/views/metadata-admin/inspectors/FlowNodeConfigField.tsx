@@ -253,6 +253,39 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
         return (() => {
           const current = value != null ? String(value) : '';
           const opts = field.options ?? [];
+          // objectui#6830 arm A, SELECT half — the counterpart of the boolean
+          // seed above, and deliberately not the same mechanism. A boolean has
+          // nowhere but its own checked state to say what an unset key does, so
+          // that control seeds its VALUE. A select has a placeholder slot, so
+          // this one leaves the value alone and puts the declared default
+          // there: the trigger states what the runtime applies while the node
+          // still stores nothing, and `InspectorSelectField` marks the trigger
+          // `data-placeholder` (muted), so it never reads as a selection.
+          //
+          // ⛔ Nothing is WRITTEN. That is the whole of triage's "show, do not
+          // write", and objectui#6263's standing ruling — "the console needs no
+          // second default contract" — is what forbids the other half: a commit
+          // from here would freeze today's default into the node and un-track
+          // it from the spec.
+          //
+          // The primitive owns WHEN a placeholder shows (empty value, and no
+          // `''` row of the caller's own standing for "none"), so this branch
+          // only decides WHAT it says, and a stored value is untouchable by
+          // construction rather than by a second predicate here.
+          //
+          // Where the declaration names an offered option, that option's LABEL
+          // wins: it is the text this same trigger draws once the author picks
+          // it, so "unset behaves as X" and "stored X" read alike instead of a
+          // raw wire value appearing nowhere else in the control. A declaration
+          // matching no option falls back to the raw value rather than
+          // vanishing — an author whose runtime applies a value the roster does
+          // not offer needs to see it, the same reason `unknownValueLabel`
+          // surfaces a stored one.
+          const declared = field.defaultValue;
+          const declaredDefault =
+            declared !== undefined && declared !== ''
+              ? (opts.find((o) => o.value === declared)?.label ?? declared)
+              : undefined;
           // A stored value dropped from the options (e.g. a script node's
           // legacy `code` / `sms` actionType, framework#4278) must still
           // render, or editing a legacy node would silently blank it. Surface
@@ -270,6 +303,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
               label={field.label}
               value={current}
               options={opts}
+              placeholder={declaredDefault}
               unknownValueLabel={(v) => `${v} (deprecated)`}
               onCommit={(v) => onCommit(v)}
               disabled={disabled}

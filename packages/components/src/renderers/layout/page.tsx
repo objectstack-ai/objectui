@@ -8,8 +8,8 @@
  * The Page renderer interprets PageSchema into structured layouts.
  * It supports four page types (record, home, app, utility) and
  * renders named regions (header, sidebar, main, footer, aside) with
- * configurable widths. When no regions are defined, it falls back to
- * body/children for backward compatibility.
+ * configurable widths. When no regions are defined, it falls back to the
+ * node's `children` list (objectui#6771 retired the `body` spelling).
  */
 
 import React, { useMemo } from 'react';
@@ -120,17 +120,35 @@ function isTitledPageHeader(node: any): boolean {
   return literalTitleText(node?.title ?? node?.properties?.title) !== '';
 }
 
-/** Depth-bounded walk over the component shapes a page can nest. */
+/**
+ * Depth-bounded walk over the component shapes a page can nest.
+ *
+ * Takes ONE node or a LIST of them, and judges both by the same rule.
+ * `children` is declared `SchemaNode | SchemaNode[]` on `PageNodeSchema` and on
+ * `BaseSchema`, and `FlatContent` below has always rendered the bare-node
+ * form, so a single node is a first-class authored shape — at the top level and
+ * at every nested level the recursion re-enters (objectui#8923). This used to
+ * open with `if (!Array.isArray(nodes)) return false`, so every bare-node
+ * channel answered "no titled header here" and PageRenderer drew a second `h1`
+ * next to the authored one (the outline objectui#3434 closed).
+ *
+ * Normalising HERE rather than at the three call sites is deliberate: one
+ * normaliser at the entry beats four predicates each having to remember
+ * `Array.isArray`. It spends no depth budget — the widening happens inside the
+ * same invocation as the `depth > 6` check — so the bound still admits exactly
+ * the levels it admitted before. Spelled the way `FlatContent` already widens
+ * the same two keys.
+ */
 function containsTitledPageHeader(nodes: unknown, depth = 0): boolean {
-  if (!Array.isArray(nodes) || depth > 6) return false;
-  return nodes.some(
+  if (depth > 6) return false;
+  const list: unknown[] = Array.isArray(nodes) ? nodes : nodes ? [nodes] : [];
+  return list.some(
     (n: any) =>
       !!n &&
       typeof n === 'object' &&
       (isTitledPageHeader(n) ||
         containsTitledPageHeader(n.components, depth + 1) ||
-        containsTitledPageHeader(n.children, depth + 1) ||
-        containsTitledPageHeader(n.body, depth + 1)),
+        containsTitledPageHeader(n.children, depth + 1)),
   );
 }
 
@@ -157,8 +175,7 @@ function pageHeaderOwnsTitle(schema: PageNodeSchema): boolean {
   const regionNodes = (schema.regions ?? []).flatMap((r: any) => r?.components ?? []);
   return (
     containsTitledPageHeader(regionNodes) ||
-    containsTitledPageHeader((schema as any).body) ||
-    containsTitledPageHeader((schema as any).children)
+    containsTitledPageHeader(schema.children)
   );
 }
 
@@ -259,11 +276,11 @@ const RegionLayout: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
-// FlatContent — legacy body/children fallback
+// FlatContent — the `children` fallback when a page declares no regions
 // ---------------------------------------------------------------------------
 
 const FlatContent: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
-  const content = schema.body || schema.children;
+  const content = schema.children;
   const nodes: SchemaNode[] = Array.isArray(content)
     ? content
     : content
@@ -682,13 +699,57 @@ const pageMeta: any = {
       itemType: 'object',
     },
     {
-      name: 'body',
+      // The flat content list `FlatContent` renders when a page declares no
+      // regions. Published as `body` until objectui#6771 retired that
+      // spelling; `pageMeta` backs five registrations, so this one line is
+      // the authoring face of `page` / `app` / `utility` / `home` / `record`.
+      name: 'children',
       type: 'array',
       itemType: 'component',
     },
   ],
 };
 
+/**
+ * ⭐ THESE KEYS ARE PAGE KINDS, NOT A COMPONENT FAMILY — read this before
+ * auditing them (objectui#9642).
+ *
+ * A stored page document's `type` field is the spec's page KIND, enumerated by
+ * `PageTypeSchema` in `@objectstack/spec/ui`. `PageView` (`@object-ui/app-shell`)
+ * hands that document to `SchemaRenderer` with the kind written VERBATIM into
+ * `type` — the SchemaNode discriminator `ComponentRegistry` dispatches on —
+ * plus a copy on `pageType`. ⇒ The registrations below exist BECAUSE of that
+ * line. They are the renderer half of `PageTypeSchema`, which is why they carry
+ * "… Page" labels rather than component names, and `'page'` is the fallback the
+ * same mapping writes for a document carrying no `type` at all.
+ *
+ * ⛔ **They are therefore NOT the "registered but never declared" defect** this
+ * repository files elsewhere. They ARE declared — upstream, in a different
+ * vocabulary, by an enum this package cannot edit. `@object-ui/types`'
+ * `SchemaRegistry` map has no key for them on purpose, because `keyof` that map
+ * is the published `ComponentType` union and widening it is a ruling; that map
+ * carries the other half of this note at its `'page'` entry.
+ *
+ * ⚠️ Removing one of these registrations stops every stored page of that kind
+ * rendering — OBJUI-001 in place of the page. objectui#9263 reached a draft PR
+ * doing exactly that and was re-ruled letter E, "⛔ not a defect"; objectui#9576
+ * proposed the same for the remaining kinds.
+ *
+ * ⭐ **`app` is one token carrying two vocabularies.** `AppComponentSchema`
+ * (`@object-ui/types`) declares the type literal `'app'` for the APP-LEVEL
+ * DOCUMENT (`app.json`: tabs, navigation, areas), which the runner / layout path
+ * reads STRUCTURALLY and never resolves through this registry. The key below
+ * answers only for the spec PAGE KIND `app` — a stored page document with
+ * regions, reached through `PageView`'s passthrough. ⛔ Neither is a collision
+ * to be resolved by removing the other.
+ *
+ * ⚠️ Not every page kind appears below, and the absence is not an omission: an
+ * INTERFACE-MODE kind is short-circuited before this registry, because `PageView`
+ * branches on `interfaceConfig?.source` and renders `InterfaceListPage`
+ * directly. The live split — which kind is served here, which is short-circuited
+ * — is re-derived by `page-kind-node-type-channel-9642` in this package's
+ * `__tests__`, ⛔ not by this comment.
+ */
 ComponentRegistry.register('page', PageRenderer, pageMeta);
 ComponentRegistry.register('app', PageRenderer, { ...pageMeta, label: 'App Page' });
 ComponentRegistry.register('utility', PageRenderer, { ...pageMeta, label: 'Utility Page' });

@@ -15,6 +15,7 @@ import { useRecordContext, useRegisterHighlightFields } from '@object-ui/react';
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
 import type { RecordHighlightsComponentProps } from '@object-ui/types';
 import { HeaderHighlight } from '../HeaderHighlight';
+import { useRecordAriaProps } from './recordComponentAria';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -28,12 +29,27 @@ export interface RecordHighlightsRendererProps {
 }
 
 export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> = ({
-  schema = {} as any,
+  // ⛔ NOT `{} as any` — the annotation-erasing default objectui#8649 repaired.
+  // The mechanism and why the spelling tracks the annotation are written once,
+  // at the same site in `record-details.tsx`.
+  schema = {} as NonNullable<RecordHighlightsRendererProps['schema']>,
   className,
   ...props
 }) => {
   const ctx = useRecordContext();
   const { designer } = splitDesigner(props);
+  /**
+   * The block's authored `aria` bag, honoured through the family's ONE read
+   * point (objectui#9556). Called here, with the other hooks, because every
+   * renderer below it has early returns.
+   *
+   * ⛔ No `defaultRole`: with nothing authored this container stays the bare
+   * `div` it has always been, so a page that never wrote `aria` renders
+   * byte-identical DOM. An author who does write one gets a `region` to carry
+   * it — see `recordComponentAria.ts` for why the attribute alone would reach
+   * nobody.
+   */
+  const ariaProps = useRecordAriaProps(schema.aria);
   const objectName = ctx?.objectName || '';
   const perms = usePermissions();
   const { readableFields } = useFieldPermissions(objectName);
@@ -50,7 +66,8 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
     required.every((p) => perms.can(objectName, p as any));
 
   const rawFields: any[] = Array.isArray(schema.fields) ? schema.fields : [];
-  // Normalize: accepts either bare strings or { name, label?, icon?, type?, readonly? }.
+  // Normalize: accepts either bare strings or { name, label?, type?, readonly? }
+  // — the four keys the contract's object arm declares, and no fifth.
   //
   // `readonly` is copied through deliberately: HeaderHighlight's editability
   // gate has always consulted `field.readonly`, but this map used to rebuild
@@ -59,13 +76,21 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
   // never fire from authored metadata (objectstack#5077). Rebuilding key-by-key
   // rather than spreading keeps the entry shape closed — an undeclared key is
   // still not silently forwarded to the strip.
+  //
+  // `icon` was copied through here until objectui#9280 and that read was
+  // UNREACHABLE, not merely unused: `@objectstack/spec`
+  // `RecordHighlightsProps.fields[]`'s object arm is `$strict` (a `never`
+  // catchall over `name`/`label`/`type`/`readonly`), so a document carrying
+  // `icon` is refused WHOLE at publish and no author could ever feed this
+  // branch. `HeaderHighlight` renders no `.icon` either, so the copy also had
+  // no consumer on the far side. Retired in both directions rather than left
+  // standing as a read for a key nothing can author.
   const normalized = rawFields.map((f) =>
     typeof f === 'string'
       ? { name: f }
       : {
           name: f?.name,
           label: f?.label,
-          icon: f?.icon,
           type: f?.type,
           readonly: f?.readonly === true,
         },
@@ -112,13 +137,13 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
   }
 
   return (
-    <div className={className} {...designer}>
+    <div className={className} {...designer} {...ariaProps}>
       <HeaderHighlight
         fields={highlightFields as any}
         data={ctx?.data}
         objectName={ctx?.objectName}
         objectSchema={ctx?.objectSchema as any}
-        dataSource={ctx?.dataSource as any}
+        dataSource={ctx?.dataSource}
       />
     </div>
   );

@@ -183,12 +183,28 @@ describe('objectui#8530 — legitimate array positions are untouched', () => {
     expect(parseFilterAST(node)).toEqual({ status: { $in: ['active', 'pending'] } });
   });
 
-  it('$nin (and its $notin alias) still lower to `nin`', () => {
+  it('$nin still lowers to `nin`', () => {
     expect(convertFiltersToAST({ status: { $nin: ['archived'] } }))
       .toEqual(['status', 'nin', ['archived']]);
-    expect(convertFiltersToAST({ status: { $notin: ['archived', 'deleted'] } }))
+    expect(convertFiltersToAST({ status: { $nin: ['archived', 'deleted'] } }))
       .toEqual(['status', 'nin', ['archived', 'deleted']]);
     expect(parseFilterAST(['status', 'nin', ['archived']])).toEqual({ status: { $nin: ['archived'] } });
+  });
+
+  // The `$notin` alias this case used to carry alongside `$nin` was RETIRED by
+  // objectui#8568 — it is now refused by name. Asserted here so the retirement
+  // is visible from the array-comparand axis too: a refusal is not the silent
+  // "condition dropped" this file exists to rule out, and the array member
+  // survives into the message rather than into a widened result set.
+  it('the retired $notin alias is refused, not lowered (objectui#8568)', () => {
+    expect(() => convertFiltersToAST({ status: { $notin: ['archived', 'deleted'] } }))
+      .toThrow(/\$nin/);
+    try {
+      convertFiltersToAST({ status: { $notin: ['archived'] } });
+      throw new Error('expected a refusal');
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'INVALID_FILTER', httpStatus: 400 });
+    }
   });
 
   it('$between still lowers with its [min, max] pair', () => {

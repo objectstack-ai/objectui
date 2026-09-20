@@ -258,13 +258,26 @@ export interface MarkdownFieldMetadata extends BaseFieldMetadata {
    * no rich-content type declared it, so the running widget honoured a key an
    * annotated literal rejected. Follows the `TextareaFieldMetadata` precedent.
    *
-   * WARNING - NOT a spec key. Measured on the installed `@objectstack/spec`
-   * 17.2.0: `FieldSchema` REFUSES `rows` BY NAME (`unrecognized_keys`) on all
-   * four of textarea/markdown/html/richtext, with the same payload minus
-   * `rows` accepted as the control. It is an objectui render hint and must not
-   * be written into authored object metadata (objectui#7014).
+   * A DECLARED spec key as of `@objectstack/spec` 17.3.0, which implements that
+   * same ruling. Measured on the installed `@objectstack/spec` 17.4.0:
+   * `FieldSchema` ACCEPTS `rows` on all four of textarea/markdown/html/
+   * richtext, as an integer of at least 1 — a non-integer answers
+   * `invalid_type` and 0 answers `too_small`, so "declared" does not mean "any
+   * number". ⚠️ It is TYPE-GATED, not universal: on a field type that renders
+   * no rows-sized editor surface the refusal arrives as a cross-field
+   * REFINEMENT naming the key — deliberately NOT `unrecognized_keys` — so a
+   * `text` field carrying `rows` still fails the whole field. Authored object
+   * metadata may carry it on these four types and nowhere else.
+   *
+   * ⛔ This reverses what this docblock asserted between objectui#7014 and
+   * objectui#7635: at 17.2.0 the key WAS refused by name, and the sentence
+   * saying so outlived the contract it described. Both directions, each behind
+   * an accepting control, are re-derived by
+   * `__tests__/select-option-spec-extension-7014.test.ts` — read that file's
+   * verdict rather than trusting this paragraph.
    * The four inert editor keys the same ruling measured (`toolbar`/`preview`/
-   * `minHeight`/`maxHeight`) stay deliberately undeclared — nothing reads them.
+   * `minHeight`/`maxHeight`) stay deliberately undeclared — nothing reads them,
+   * and the same file holds that door shut.
    */
   rows?: number;
 }
@@ -279,8 +292,9 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
    * Height of the INLINE editor, in text rows. Same declaration as
    * `MarkdownFieldMetadata.rows` (objectui#6140 Option A ruling — see the
    * docblock there): `RichTextField` reads it for all three registry keys it
-   * serves. WARNING - NOT a spec key either; see the measured refusal in the
-   * docblock there (objectui#7014).
+   * serves. It is a DECLARED spec key on this type too, type-gated to the four
+   * multiline editor types; see the measured reading in the docblock there
+   * (objectui#7014, corrected for the 17.3.0 boundary by objectui#7635).
    */
   rows?: number;
 }
@@ -363,10 +377,11 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
  * that enforces it stayed live — a fresh instance of the asymmetry this member
  * exists to end.
  *
- * ⚠️ The `rows` docblocks on the two siblings still describe the
- * `@objectstack/spec` 17.2.0 boundary, where `rows` was refused by name. That
- * prose is objectui#7635's declared surface, not this member's; the 17.3.0
- * reading above is stated for `richtext` only and is not a correction of it.
+ * The `rows` docblocks on the two siblings described the `@objectstack/spec`
+ * 17.2.0 boundary, where `rows` was refused by name, and outlived it;
+ * objectui#7635 corrected them in the same change that corrected this
+ * paragraph, so all three now read the same boundary and none of them is the
+ * odd one out.
  */
 export interface RichtextFieldMetadata extends BaseFieldMetadata {
   type: 'richtext';
@@ -392,6 +407,23 @@ export interface NumberFieldMetadata extends BaseFieldMetadata {
   precision?: number;
   /** Number of decimal places to display (the `s` in a `decimal(p, s)` column). */
   scale?: number;
+  /**
+   * Explicit input granularity, overriding the value `NumberField` derives from
+   * `scale`. ⛔ NOT a renderer-only invention (objectui#9875): `step` is a
+   * member of `@objectstack/spec`'s own FIELD surface — a flat member of
+   * `FieldSchema`, reachable from every field type — so an author who writes it
+   * on a platform field has it preserved, not stripped and not refused, at both
+   * doors this repo uses: the `ObjectSchema` parse `saveMetaItem` performs on a
+   * metadata item of type `object`, and the served document's
+   * `stripReadDecorations`. Measured with a lit control and a strictness control
+   * in `__tests__/number-field-step-spec-parity-9875.test.ts`, which is also
+   * what goes red if a spec release moves either answer.
+   *
+   * The spec's prose for the member reads "Step increment for slider", which is
+   * documentation of its intended use and ⛔ not a structural fence — reading
+   * that wording as a nested slider node is what made objectui#9875 report an
+   * asymmetry that does not exist.
+   */
   step?: number;
 }
 
@@ -412,6 +444,8 @@ export interface CurrencyFieldMetadata extends BaseFieldMetadata {
 export interface PercentFieldMetadata extends BaseFieldMetadata {
   type: 'percent';
   precision?: number;
+  /** Number of decimal places to display (the `s` in a `decimal(p, s)` column). */
+  scale?: number;
   min?: number;
   max?: number;
 }
@@ -448,6 +482,22 @@ export interface DateTimeFieldMetadata extends BaseFieldMetadata {
   format?: string;
   min_date?: string | Date;
   max_date?: string | Date;
+  /**
+   * Marks this field as due/deadline-semantic — the same key, with the same
+   * meaning, as {@link DateFieldMetadata.dueLike} one interface up.
+   *
+   * It is declared here because the runtime honours it here (objectui#8958).
+   * `DetailViewFieldSchema.dueLike` has always described itself as marking "a
+   * date/datetime field", and `DateTimeCellRenderer` now reads it; leaving it
+   * off this interface would keep the mismatch alive with the sign flipped —
+   * a key the renderer honours but the authoring type rejects.
+   *
+   * ⚠️ Day granularity, inherited from the shared relative-time path: the
+   * overdue wording gates on whole calendar days, so a datetime a few hours
+   * past its deadline is not yet overdue. Sub-day precision is a separate
+   * call and was not taken.
+   */
+  dueLike?: boolean;
 }
 
 /**
@@ -463,17 +513,18 @@ import type { SelectOptionBase } from './select-option.js';
 /**
  * Select option — the OBJECT-METADATA face of the one select-option contract
  * (objectui#7014). It extends {@link SelectOptionBase}, which derives the spec
- * keys (`label`, `value`, `color`, `default`) from `@objectstack/spec/data` by
- * reference and carries objectui's `visibleWhen` wire shape plus the two
- * objectui-only keys `disabled` and `icon`. This face restates none of them; it
- * adds exactly the one key below and keeps the spec's `value` — a lowercase
- * machine identifier — as declared.
+ * keys from `@objectstack/spec/data` by reference and carries objectui's
+ * `visibleWhen` wire shape plus the two objectui-only keys `disabled` and
+ * `icon`. This face restates none of them; it adds exactly the one key below
+ * and keeps the spec's `value` — a lowercase machine identifier — as declared.
  *
  * This is the declared element type of a select field's and a lookup field's
- * `options`, so it is the runtime READ model the renderers consume. It is WIDER
- * than what may be authored: `description`, `disabled` and `icon` are each
- * refused BY NAME by the spec's strict `SelectOptionSchema`, which a field's
- * `options` are routed through.
+ * `options`, so it is the runtime READ model the renderers consume. It is still
+ * WIDER than what may be authored, but by TWO keys rather than three:
+ * `disabled` and `icon` are refused BY NAME by the spec's strict
+ * `SelectOptionSchema`, which a field's `options` are routed through, while
+ * `description` became authorable at `@objectstack/spec` 17.3.0 (objectui#7635
+ * corrected this paragraph; the member docblock below carries the measurement).
  */
 export interface SelectOptionMetadata extends SelectOptionBase {
   /**
@@ -485,14 +536,22 @@ export interface SelectOptionMetadata extends SelectOptionBase {
    * never declared it, so the behaviour was real for a key no annotated
    * literal could carry. Renderers may show it as supporting text.
    *
-   * WARNING - objectui-side extension, NOT a spec key. Measured on the
-   * installed `@objectstack/spec` 17.2.0: `SelectOptionSchema` is `.strict()`
-   * over exactly `{label, value, color, default, visibleWhen}` and REFUSES
-   * `description` BY NAME (`unrecognized_keys`), with the same option minus
-   * the key accepted as the control. `FieldSchema` routes `options` through
-   * that schema, so writing this key into authored object metadata fails the
-   * whole field. It lives on the runtime READ model the renderers consume and
-   * must never reach the metadata payload. Pinned by
+   * A DECLARED `SelectOptionSchema` key as of `@objectstack/spec` 17.3.0,
+   * which implements the objectui#6153 half of that ruling. Measured on the
+   * installed `@objectstack/spec` 17.4.0: an option carrying `description`
+   * is ACCEPTED, as a string (a non-string answers `invalid_type`; the empty
+   * string is valid), and a field whose `options` carry it parses whole. ⇒ it
+   * may now be written into authored object metadata, which is the point of
+   * the ruling — the key was consumed by `LookupField` long before the
+   * authoring door admitted it.
+   *
+   * ⛔ This reverses what this docblock asserted between objectui#7014 and
+   * objectui#7635, when the key was refused by name and this comment said so.
+   * The option keys that are STILL outside the vocabulary are `icon` and
+   * `disabled` — declared on {@link SelectOptionBase} as objectui-only
+   * extensions and refused by name — and they are what keeps "the schema still
+   * refuses something" a live fact rather than an assumption. The verdict is
+   * re-derived, both directions behind accepting controls, by
    * `__tests__/select-option-spec-extension-7014.test.ts` (objectui#7014).
    */
   description?: string;

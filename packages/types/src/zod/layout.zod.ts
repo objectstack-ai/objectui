@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import {
   PageSchema as SpecPageSchema,
   PageTypeSchema as SpecPageTypeSchema,
@@ -76,6 +76,14 @@ export const DivSchema = BaseSchema.extend({
 export const BoxSchema = BaseSchema.extend({
   type: z.literal('box'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this box node',
+    '`box` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/box.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -85,6 +93,14 @@ export const TextSpanSchema = BaseSchema.extend({
   type: z.literal('span'),
   value: z.string().optional().describe('Text content'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this span node',
+    '`span` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/basic/span.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -111,6 +127,26 @@ export const TextSchema = BaseSchema.extend({
     .optional()
     .describe('Text variant/style'),
   align: z.enum(['left', 'center', 'right', 'justify']).optional().describe('Text alignment'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `text` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `align`, `className`, `content`, `variant`. '
+    + '`ui:text` is the measured SOLE owner of the bare `text` key (`element:text` and `field:text` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `text` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `align`, `className`, `content`, `variant`. '
+    + '`ui:text` is the measured SOLE owner of the bare `text` key (`element:text` and `field:text` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -123,6 +159,26 @@ export const ImageSchema = BaseSchema.extend({
   width: z.union([z.string(), z.number()]).optional().describe('Image width'),
   height: z.union([z.string(), z.number()]).optional().describe('Image height'),
   objectFit: z.enum(['contain', 'cover', 'fill', 'none', 'scale-down']).optional().describe('Object fit property'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `image` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `alt`, `src`. '
+    + '`ui:image` is the measured SOLE owner of the bare `image` key (`element:image` and `field:image` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `image` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `alt`, `src`. '
+    + '`ui:image` is the measured SOLE owner of the bare `image` key (`element:image` and `field:image` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -190,6 +246,26 @@ export const IconSchema = BaseSchema.extend({
     .describe('Lucide glyph name, kebab-case (objectui#5631: was `name`)'),
   size: z.number().optional().describe('Icon size in pixels'),
   color: z.string().optional().describe('Icon color'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `icon` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `className`, `color`, `icon`, `name`, `size`. '
+    + '`ui:icon` is the measured SOLE owner of the bare `icon` key (`action:icon` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `icon` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `className`, `color`, `icon`, `name`, `size`. '
+    + '`ui:icon` is the measured SOLE owner of the bare `icon` key (`action:icon` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -199,6 +275,20 @@ export const SeparatorSchema = BaseSchema.extend({
   type: z.literal('separator'),
   orientation: z.enum(['horizontal', 'vertical']).optional().describe('Separator orientation'),
   decorative: z.boolean().optional().describe('Whether decorative'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `orientation`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `orientation`.',
+  ),
 });
 
 /**
@@ -213,6 +303,14 @@ export const ContainerSchema = BaseSchema.extend({
   centered: z.boolean().optional().describe('Center the container'),
   padding: z.number().optional().describe('Padding value'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this container node',
+    '`container` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/container.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -232,6 +330,14 @@ export const FlexSchema = BaseSchema.extend({
   gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)'),
   wrap: z.boolean().optional().describe('Allow items to wrap'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this flex node',
+    '`flex` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/flex.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -245,6 +351,14 @@ export const StackSchema = BaseSchema.extend({
   gap: z.number().optional(),
   wrap: z.boolean().optional(),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this stack node',
+    '`stack` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/stack.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -273,6 +387,14 @@ export const GridSchema = BaseSchema.extend({
   ]).optional().describe('Number of columns (responsive)'),
   gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this grid node',
+    '`grid` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/grid.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -283,8 +405,15 @@ export const CardSchema = BaseSchema.extend({
   title: z.string().optional().describe('Card title'),
   description: z.string().optional().describe('Card description'),
   header: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Card header content'),
-  body: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Card body content'),
-  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Child components'),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this card node',
+    '`card` read `renderNodeSlot(schema.children || schema.body, …)`, one of the fallback readers whose '
+    + '`body` arm objectui#6771 dropped in the same change as the `body`-only registrations converged. '
+    + 'The TS face declares this member `never` and the corpus moved with it.',
+  ),
+  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Card content — the one child-list spelling (objectui#6771)'),
   footer: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Card footer content'),
   variant: z.enum(['default', 'outline', 'ghost']).optional().describe('Card variant style'),
   hoverable: z.boolean().optional().describe('Whether the card is hoverable'),
@@ -313,6 +442,26 @@ export const TabsSchema = BaseSchema.extend({
   orientation: z.enum(['horizontal', 'vertical']).optional().describe('Tabs orientation'),
   items: z.array(TabItemSchema).describe('Tab items configuration'),
   onValueChange: handlerKeyRefusal('onValueChange', 'runtime-slot', 'Change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `tabs` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `defaultValue`, `items`, `orientation`, `value`. '
+    + '`ui:tabs` is the measured SOLE owner of the bare `tabs` key (`page:tabs` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `tabs` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `defaultValue`, `items`, `orientation`, `value`. '
+    + '`ui:tabs` is the measured SOLE owner of the bare `tabs` key (`page:tabs` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -324,6 +473,14 @@ export const ScrollAreaSchema = BaseSchema.extend({
   width: z.union([z.string(), z.number()]).optional().describe('Width of scroll container'),
   orientation: z.enum(['vertical', 'horizontal', 'both']).optional().describe('Scrollbar orientation'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this scroll-area node',
+    '`scroll-area` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/complex/scroll-area.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -346,6 +503,20 @@ export const ResizableSchema = BaseSchema.extend({
   minHeight: z.union([z.string(), z.number()]).optional().describe('Minimum height'),
   withHandle: z.boolean().optional().describe('Show resize handle'),
   panels: z.array(ResizablePanelSchema).describe('Resizable panels'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
+  ),
 });
 
 /**
@@ -356,8 +527,14 @@ export const AspectRatioSchema = BaseSchema.extend({
   ratio: z.number().optional().describe('Aspect ratio (width / height)'),
   image: z.string().optional().describe('Image URL to display'),
   alt: z.string().optional().describe('Image alt text'),
-  body: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Child components (alternative to image)'),
-  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Child components'),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this aspect-ratio node',
+    '`aspect-ratio` read `renderChildren(schema.children || schema.body)` whenever no `image` was set; '
+    + 'objectui#6771 dropped the `body` arm with the rest of the dialect.',
+  ),
+  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Child components rendered when no image is set'),
 });
 
 /**
@@ -424,6 +601,30 @@ export const PageTypeSchema = stripImportedDefaults(SpecPageTypeSchema);
  *    (`record|app|utility|list|home`), objectui's is the component
  *    discriminator (`'page'`) and the kind lives on `pageType` below.
  *    Reconciling the two is a rename decision tracked separately;
+ *
+ *    ⚠️ **The collision is NOT resolved at runtime, and a reader of this bullet
+ *    alone will get it wrong** (objectui#9642). `PageView` (`@object-ui/app-shell`)
+ *    hands a stored page to `SchemaRenderer` with the KIND written VERBATIM into
+ *    `type` and a copy on `pageType` — so the node that actually reaches
+ *    `ComponentRegistry` carries `type: 'app'` / `'home'` / `'record'` /
+ *    `'utility'`, which `PageNodeSchema`'s `z.literal('page')` below would
+ *    REFUSE. ⇒ `@object-ui/components` registers those kinds as node types on
+ *    `PageRenderer` precisely so the passthrough resolves; that registration set
+ *    is the renderer half of the spec's `PageTypeSchema`, ⛔ not a component
+ *    family and ⛔ not names registered without a schema. Two cards read it the
+ *    second way (objectui#9263, re-ruled letter E "⛔ not a defect", and
+ *    objectui#9576).
+ *
+ *    ⭐ `app` is one token carrying two vocabularies: `AppComponentSchema`'s
+ *    `'app'` is the APP-LEVEL DOCUMENT, read structurally by the runner /
+ *    layout path and never resolved through `ComponentRegistry`; the spec page
+ *    kind `app` is a stored PAGE document served by `PageRenderer` through that
+ *    passthrough. ⛔ Neither is a collision to be resolved by removing the other.
+ *
+ *    The live split — which kind is served by `PageRenderer`, which is
+ *    short-circuited by `PageView`'s `interfaceConfig.source` branch — is
+ *    re-derived by `page-kind-node-type-channel-9642` in `@object-ui/components`,
+ *    ⛔ not by this bullet;
  *  - `regions` — objectui's `PageNodeRegionSchema` adds `type`/`className` and
  *    widens `width`; migration deferred (it is its own ledger entry).
  *
@@ -497,7 +698,7 @@ const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).sh
 const PAGE_ACTIONS_REFUSAL =
   '`actions` is not a key of the `page` node and never was (objectui#7926): no renderer ' +
   'reads it, so an authored array drew nothing and rode `.passthrough()` onto the wrapper ' +
-  'element. Author the buttons as NODES in `body` (a `button` node, or an `action:button` ' +
+  'element. Author the buttons as NODES in `children` (a `button` node, or an `action:button` ' +
   'node with a declared `actionType`); on a record page declare them on a `page:header` ' +
   'block instead, whose own `actions` are ACTION IDS resolved from the object metadata ' +
   '(objectui#7182), not nodes.';
@@ -587,7 +788,7 @@ const PAGE_BREADCRUMBS_REFUSAL =
   '`breadcrumbs` is not a key of the `page` node and never was (objectui#8871, ADR-0049 ' +
   'enforce-or-remove): no renderer reads it, so an authored trail drew nothing and rode ' +
   '`.passthrough()` through the validator as a silent accept. Author the trail as a NODE ' +
-  'in `body` instead — { "type": "breadcrumb", "items": [{ "label": "Home", "href": "/" }] } ' +
+  'in `children` instead — { "type": "breadcrumb", "items": [{ "label": "Home", "href": "/" }] } ' +
   '— which is a registered renderer and takes the same item shape, plus `separator` and ' +
   '`maxItems`. ⛔ Not the `page:header` block\'s `breadcrumb` either: that one is SINGULAR ' +
   'and a BOOLEAN display toggle, not a list of links.';
@@ -609,16 +810,24 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   template: z.string().optional().describe('Layout template name'),
   variables: z.array(PageVariableSchema).optional().describe('Local page state variables'),
   regions: z.array(PageNodeRegionSchema).optional().describe('Page layout regions'),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this page node',
+    '`PageRenderer`\'s `FlatContent` read `schema.body || schema.children` and the registration published '
+    + '`body` as the flat content list on all five page kinds; objectui#6771 retired the spelling and '
+    + 'moved both to `children`.',
+  ),
   // objectui#8310: ONE node or a list, mirroring the TS face and the runtime.
   // `FlatContent` in `page.tsx` normalizes a bare node into a one-element list,
-  // and the root README's flagship example authors exactly that; array-only here
-  // made this the only `body` in this file that is not the union (`CardSchema`
-  // and `AspectRatioSchema` already spell it, as does `BaseSchema`).
-  body: z
+  // and the root README's flagship example authors exactly that. The ruling was
+  // made about the `body` spelling; objectui#6771 retired it, so the union lives
+  // on the key the same reader now takes (`CardSchema` and `AspectRatioSchema`
+  // spell the same union on `children`, as does `BaseSchema`).
+  children: z
     .union([SchemaNodeSchema, z.array(SchemaNodeSchema)])
     .optional()
     .describe('Main content — one node or a list of nodes'),
-  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Alternative content prop'),
   isDefault: z.boolean().optional().describe('Whether this is the default page'),
   assignedProfiles: z.array(z.string()).optional().describe('Profiles that can access this page'),
 });
@@ -647,8 +856,9 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
  * ## Why one arm and not seven
  *
  * The factory in `semantic.tsx` builds ONE component over all seven tags: it
- * renders `renderChildren(schema.children || schema.body)` inside the tag and
- * declares exactly one authoring input, `className`. Seven arms would restate
+ * renders `renderChildren(schema.children)` inside the tag and declares exactly
+ * one authoring input, `className`. It read `schema.children || schema.body`
+ * until objectui#6771 retired the second spelling. Seven arms would restate
  * the same shape seven times with no key to tell them apart.
  *
  * ## What is NOT declared here, and why
@@ -664,7 +874,7 @@ export const SemanticElementSchema = BaseSchema.extend({
   type: z.enum(['aside', 'main', 'header', 'nav', 'footer', 'section', 'article'])
     .describe('HTML sectioning tag — the seven `renderers/layout/semantic.tsx` registers'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
-    .describe('Child components — read as `schema.children || schema.body` by the factory'),
+    .describe('Child components — read by the factory as `schema.children`; the `body` arm was retired by objectui#6771'),
 });
 
 /**
@@ -714,7 +924,7 @@ export const HtmlElementSchema = BaseSchema.extend({
     'figure', 'figcaption', 'img', 'hr', 'br', 'time', 'address', 'cite', 'q',
   ]).describe('Safe HTML tag — the set `renderers/basic/html-elements.tsx` registers'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
-    .describe('Child components — read as `schema.children ?? schema.body`; ignored for the void tags `img` / `hr` / `br`'),
+    .describe('Child components — read as `schema.children`, ignored for the void tags `img` / `hr` / `br`; the `body` arm was retired by objectui#6771'),
   href: z.string().optional()
     .describe('`a` link target; scheme-sanitised (`javascript:` / `data:` / `vbscript:` are dropped)'),
   target: z.string().optional().describe('`a` browsing context — an internal link navigates through the SPA router unless this names another target'),

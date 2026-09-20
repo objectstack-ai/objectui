@@ -2595,6 +2595,15 @@ const en = {
       role: 'Role',
       save: 'Save Changes',
     },
+    language: {
+      title: 'Language',
+      description: 'The language used for notifications and messages sent to you. The interface language is chosen separately, from the globe menu.',
+      label: 'Preferred language',
+      systemDefault: 'Use the deployment default',
+      save: 'Save',
+      saved: 'Language preference updated.',
+      readOnly: 'Your administrator manages the language for your account.',
+    },
     password: {
       changeTitle: 'Change Password',
       setTitle: 'Set Local Password',

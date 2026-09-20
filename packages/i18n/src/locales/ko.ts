@@ -2247,6 +2247,15 @@ const ko = {
       role: "역할",
       save: "변경 사항 저장",
     },
+    language: {
+      title: "언어",
+      description: "회원님에게 발송되는 알림과 메시지에 사용되는 언어입니다. 화면 표시 언어는 지구본 메뉴에서 따로 변경합니다.",
+      label: "선호 언어",
+      systemDefault: "배포 기본값 사용",
+      save: "저장",
+      saved: "언어 설정을 업데이트했습니다.",
+      readOnly: "이 계정의 언어는 관리자가 관리합니다.",
+    },
     password: {
       changeTitle: "비밀번호 변경",
       setTitle: "로컬 비밀번호 설정",

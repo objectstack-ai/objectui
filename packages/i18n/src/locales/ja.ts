@@ -2249,6 +2249,15 @@ const ja = {
       role: "ロール",
       save: "変更を保存",
     },
+    language: {
+      title: "言語",
+      description: "あなた宛ての通知やメッセージに使用される言語です。画面の表示言語は地球アイコンのメニューで別途切り替えます。",
+      label: "優先する言語",
+      systemDefault: "デプロイメントの既定値を使用",
+      save: "保存",
+      saved: "言語の設定を更新しました。",
+      readOnly: "このアカウントの言語は管理者が管理しています。",
+    },
     password: {
       changeTitle: "パスワードを変更",
       setTitle: "ローカルパスワードを設定",

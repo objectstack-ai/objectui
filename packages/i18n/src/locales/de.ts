@@ -2247,6 +2247,15 @@ const de = {
       role: "Rolle",
       save: "Änderungen speichern",
     },
+    language: {
+      title: "Sprache",
+      description: "Die Sprache für Benachrichtigungen und Nachrichten, die an Sie gesendet werden. Die Oberflächensprache wird separat über das Globus-Menü gewählt.",
+      label: "Bevorzugte Sprache",
+      systemDefault: "Standard der Bereitstellung verwenden",
+      save: "Speichern",
+      saved: "Spracheinstellung aktualisiert.",
+      readOnly: "Die Sprache Ihres Kontos wird von Ihrer Administration verwaltet.",
+    },
     password: {
       changeTitle: "Passwort ändern",
       setTitle: "Lokales Passwort festlegen",

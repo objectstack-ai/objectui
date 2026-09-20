@@ -2246,6 +2246,15 @@ const pt = {
       role: "Função",
       save: "Salvar alterações",
     },
+    language: {
+      title: "Idioma",
+      description: "O idioma usado nas notificações e mensagens enviadas para você. O idioma da interface é escolhido separadamente, no menu do globo.",
+      label: "Idioma preferido",
+      systemDefault: "Usar o padrão da implantação",
+      save: "Salvar",
+      saved: "Preferência de idioma atualizada.",
+      readOnly: "O idioma da sua conta é gerenciado pelo seu administrador.",
+    },
     password: {
       changeTitle: "Alterar senha",
       setTitle: "Definir senha local",

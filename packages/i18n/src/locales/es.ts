@@ -2251,6 +2251,15 @@ const es = {
       role: "Rol",
       save: "Guardar cambios",
     },
+    language: {
+      title: "Idioma",
+      description: "El idioma que se usa para las notificaciones y los mensajes que se le envían. El idioma de la interfaz se elige aparte, en el menú del globo terráqueo.",
+      label: "Idioma preferido",
+      systemDefault: "Usar el valor predeterminado del despliegue",
+      save: "Guardar",
+      saved: "Preferencia de idioma actualizada.",
+      readOnly: "El idioma de su cuenta lo gestiona su administrador.",
+    },
     password: {
       changeTitle: "Cambiar contraseña",
       setTitle: "Establecer contraseña local",

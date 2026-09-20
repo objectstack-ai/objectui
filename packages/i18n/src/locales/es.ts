@@ -1855,6 +1855,13 @@ const es = {
       records: "Registros",
       recentRecords: "Visto recientemente",
     },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'Volumen de lectura inusual en este entorno',
+      ratio: 'Se leen {{ratio}} filas por cada fila escrita. La plataforma señala todo lo que supere {{threshold}}. No se limita ni se bloquea nada; es un informe para que se pueda revisar el patrón de lectura.',
+      noWritesTitle: 'Lecturas sin ninguna escritura en este entorno',
+      noWrites: 'Se están leyendo filas sin escribir ninguna, por lo que la tasa de lectura no tiene límite superior. Es la lectura más grave. La plataforma señala todo lo que supere {{threshold}}. No se limita ni se bloquea nada; es un informe para que se pueda revisar el patrón de lectura.',
+    },
     errors: {
       somethingWentWrong: "Algo salió mal",
       unexpectedError: "Ocurrió un error inesperado al renderizar esta vista.",

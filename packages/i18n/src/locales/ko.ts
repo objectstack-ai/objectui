@@ -1851,6 +1851,13 @@ const ko = {
       records: "레코드",
       recentRecords: "최근 본 항목",
     },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: '이 환경의 읽기 양이 비정상적입니다',
+      ratio: '쓰기 1행당 {{ratio}}행을 읽고 있습니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
+      noWritesTitle: '이 환경은 읽기만 있고 쓰기가 전혀 없습니다',
+      noWrites: '행을 읽고 있지만 쓰기가 전혀 없어 읽기 비율에 상한이 없습니다. 가장 심각한 수치입니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
+    },
     errors: {
       somethingWentWrong: "문제가 발생했습니다",
       unexpectedError: "이 뷰를 렌더링하는 중 예기치 않은 오류가 발생했습니다.",

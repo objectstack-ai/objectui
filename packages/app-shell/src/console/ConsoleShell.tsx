@@ -41,6 +41,7 @@ import { RedirectWithSplash } from '../chrome/RedirectWithSplash.js';
 import { RemediationOverlay } from './RemediationOverlay.js';
 import { HostNavigationBridge } from './HostNavigationBridge.js';
 import { ImpersonationBanner } from '../layout/ImpersonationBanner.js';
+import { ReadRateBanner } from '../layout/ReadRateBanner.js';
 
 // The console's every pre-React / pre-auth gate (Suspense fallback, adapter
 // not ready, org/auth loading) renders this. It used to be a bare, unbranded
@@ -173,6 +174,15 @@ function ConsoleShellProviders({ children }: { children: ReactNode }) {
                       header it warns about. Renders null on every ordinary
                       session. */}
                   <ImpersonationBanner />
+                  {/* objectui#9954 — the environment admin's read-rate report.
+                      Beside the impersonation indicator for the same reason it
+                      is here: chrome for EVERY console page, including `/home`,
+                      which has its own layout and would otherwise carry no
+                      report. Renders null unless the control plane's verdict is
+                      `anomalous`, so an ordinary session and an unmeasured
+                      environment both see nothing — and a non-admin session
+                      never even issues the request. */}
+                  <ReadRateBanner />
                   <Suspense fallback={<LoadingFallback />}>{children}</Suspense>
                   {/* ADR-0069 — full-screen gate (expired password / required MFA) above all routes */}
                   <RemediationOverlay />

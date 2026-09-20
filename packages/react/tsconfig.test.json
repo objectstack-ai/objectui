@@ -32,7 +32,7 @@
     // The root baseline, plus `DOM.Iterable` (which the root already sets and
     // the retired narrow project did not) — strictly wider than what compiled
     // the parity test before.
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     // The parity test resolves `@objectstack/spec`'s own `.d.ts` files off disk
     // (createRequire / readFileSync / node:path) to read the spec's export
     // names through the TypeScript checker. Naming `types` at all switches off

@@ -23,6 +23,14 @@ import { withFieldCarrier } from './withFieldCarrier.js';
 // Pure formatting rule shared with `AddressField`'s readonly branch — no React,
 // so this does not pull the widget out of its lazy chunk (objectui#4037).
 import { formatAddress, type AddressValue } from './widgets/address-format.js';
+// The ONE out-of-range `scale` ruling both percent faces take (objectui#9808).
+// Shared with `PercentField` rather than restated here — a second spelling of
+// the same domain is exactly the drift `address-format` above exists to
+// prevent — and, like `address-format` and `file-affordance` below,
+// deliberately NOT re-exported from the `export *` block at the end of this
+// file, so this package's published surface is unchanged. Pure, no React, so
+// it pulls no widget out of its lazy chunk (objectui#4037).
+import { renderablePercentScale } from './widgets/percent-scale.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
 // only trigger one network call. Keyed by `${objectName}:${id}`.
@@ -325,7 +333,11 @@ function useFieldTranslate(): ((key: string, params?: Record<string, unknown>) =
 // static reference; the widgets stay publicly available via the `export * from
 // './widgets/…'` block at the end of this file.
 import { ImageLightbox } from './widgets/ImageLightbox.js';
-import { readFileValues } from './widgets/file-value.js';
+import { readFileValue, readFileValues, type FileValueView } from './widgets/file-value.js';
+// The one view/download affordance every `file` surface renders (objectui#9161).
+// Shared with `FileField` rather than copied into it; deliberately NOT
+// re-exported below, so this package's published surface is unchanged.
+import { FileValueAffordance } from './widgets/file-affordance.js';
 
 /**
  * Cell renderer props
@@ -559,11 +571,19 @@ export function formatNumber(value: number, decimals: number = 2, locale?: strin
  * The percent rendering itself, on a value ALREADY in display magnitude (`80`
  * means 80%).
  *
- * Split out from {@link formatPercent} because `PercentCellRenderer`'s
- * whole-percent branch needs this exact rendering under a DIFFERENT scaling
- * policy (see there). Two copies of the expression is precisely the drift
- * `percentDisplayValue`'s doc comment exists to prevent, so there is one copy
- * and the scaling decision is made by the caller.
+ * Split out from {@link formatPercent} so that the SCALING and the RENDERING
+ * are separable statements: this half renders, `formatPercent` decides the
+ * magnitude by calling `percentDisplayValue` and then calls this. Two copies
+ * of the rendering expression is precisely the drift `percentDisplayValue`'s
+ * doc comment exists to prevent, so there is one copy.
+ *
+ * ⚠️ It once had a second caller: `PercentCellRenderer` reached it directly to
+ * skip the scaling for a column whose NAME matched `/progress|completion/`.
+ * objectui#9452 removed that name test — the magnitude is the value's business
+ * and never the column name's — so the scaling decision is no longer made per
+ * caller. ⛔ Do not reintroduce a caller that formats a percent while stepping
+ * around `percentDisplayValue`; that is the drift, in the one shape that has
+ * already happened here.
  */
 function formatPercentBody(displayValue: number, precision: number, locale?: string): string {
   try {
@@ -626,7 +646,17 @@ export function formatPercent(value: number, precision: number = 0, locale?: str
   // Scale a fraction-stored percent (0.8 → 80%) via the shared core helper, so
   // the list cell and the dashboard measure formatter (`formatMeasure`) agree.
   const displayValue = percentDisplayValue(value);
-  return formatPercentBody(displayValue, precision, locale);
+  // objectui#9808 — the out-of-range ruling lands HERE rather than at
+  // `PercentCellRenderer`'s call site, because this is the door the cell face
+  // actually goes through and the one a future caller cannot step around.
+  //
+  // ⚠️ Without it the throw arrives from `toFixed`, not from `Intl`, which is
+  // worth knowing when reading a stack: `formatPercentBody` CATCHES the
+  // `Intl` `RangeError` for a width above the engine's ceiling, and its
+  // fallback `displayValue.toFixed(precision)` refuses the same width from
+  // inside the `catch`. So the recovery arm was the one that crashed the
+  // render, and neither arm could have rescued the other.
+  return formatPercentBody(displayValue, renderablePercentScale(precision), locale);
 }
 
 /**
@@ -773,9 +803,6 @@ export function CurrencyCellRenderer({ value, field }: CellRendererProps): React
   return <span className="tabular-nums font-medium whitespace-nowrap">{formatted}</span>;
 }
 
-// Fields that store percentage values as whole numbers (0-100) rather than fractions (0-1)
-const WHOLE_PERCENT_FIELD_PATTERN = /progress|completion/;
-
 /**
  * Percent field cell renderer with mini progress bar
  */
@@ -790,27 +817,70 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   if (isBlankCellText(safe)) return <EmptyValue />;
 
   const percentField = field as any;
-  const precision = percentField.precision ?? 0;
+  // Decimal places come from `scale`, NOT `precision` — the same correction
+  // objectui#2131 made on the currency arm and objectui#2134 on the number
+  // arm, arriving one type later (objectui#9295). `@objectstack/spec` declares
+  // the pair on the field face in its own words: `precision` is "Total digits
+  // (non-negative integer)" and `scale` is "Decimal places (non-negative
+  // integer)", so reading `precision` here padded every value out to the
+  // column's TOTAL width — a decimal(10, 2) percent field rendered
+  // `25.0000000000%`, and the grid footer beneath it read
+  // `Sum: 25.0000000000%` for the same reason.
+  //
+  // ⛔ NOT `CurrencyConfigSchema.precision`, which is a different surface with
+  // the opposite convention and its own `scale` alias — the spec warns against
+  // conflating them at the field-face declaration itself.
+  //
+  // An ABSENT `scale` keeps today's `0`, deliberately, and ⛔ NOT the
+  // `undefined` (min 0 / max 20) that `NumberCellRenderer` above uses for the
+  // same absence. The two are not interchangeable HERE because this path
+  // multiplies by 100 first (`percentDisplayValue`), and `Intl` renders from
+  // the shortest decimal representation of the resulting double: measured, a
+  // stored `0.07` becomes `7.000000000000001` and `0.29` becomes
+  // `28.999999999999996`, so an unbounded maximum prints binary residue
+  // straight to the user. `NumberCellRenderer` can afford max 20 because it
+  // does no arithmetic on the value. The grid footer's currency arm spells the
+  // same absence the same way (`?? 0`), so the cell and the footer agree.
+  const scale = percentField.scale ?? 0;
   const numValue = Number(safe);
   if (isNaN(numValue)) {
     return <span className="tabular-nums whitespace-nowrap">{String(safe)}</span>;
   }
-  // Use field name to disambiguate 0-1 fraction vs 0-100 whole number:
-  // Fields like "progress" or "completion" store values as 0-100, not 0-1
-  const isWholePercentField = WHOLE_PERCENT_FIELD_PATTERN.test(field?.name?.toLowerCase() || '');
-  const barValue = isWholePercentField
-    ? numValue
-    : (numValue > -1 && numValue < 1) ? numValue * 100 : numValue;
-  // Both branches render through the same locale-aware body (objectui#4553);
-  // they differ ONLY in the scaling policy, which is the whole point of the
-  // branch. The whole-percent branch used to be a second bare `toFixed` path,
-  // so before this card a `progress` field was ungrouped and unlocalized even
-  // where an ordinary percent column would not have been — leaving it behind
-  // would have made ONE grid internally inconsistent, which is worse than the
-  // uniform defect it had.
-  const formatted = isWholePercentField
-    ? formatPercentBody(numValue, precision, locale)
-    : formatPercent(numValue, precision, locale);
+  // ONE scaling rule, and it is the declared one (objectui#9452). Both halves
+  // of this cell — the number and the bar's fill — take their display
+  // magnitude from `percentDisplayValue` in `@object-ui/core`, which its own
+  // doc comment names as the single source of truth for percent display and
+  // which `formatPercent` just below applies for the number.
+  //
+  // ⛔ NOT from the column's NAME, which is what stood here. A
+  // `/progress|completion/` test against `field.name` decided the magnitude
+  // BEFORE anything looked at the value, so a percent column whose name
+  // happened to contain one of those words read its stored FRACTION as
+  // percentage POINTS: one stored `0.5` rendered `50%` in the record-header
+  // chip and `1%` in the list cell — the same record showing two magnitudes in
+  // two places, which users report as a data bug rather than a formatting one.
+  // The pattern was also UNANCHORED, so it matched on substring: a column
+  // merely mentioning progress took the whole-percent path on the strength of
+  // a word inside its name.
+  //
+  // What collapsed the question — measured across both first-party trees, and
+  // reproducible from `PercentCellRenderer.nameKeyedScaling-9452.test.tsx`'s
+  // header: the repo's own percent samples store FRACTIONS in exactly these
+  // columns (the schema catalog's `progress` sample stores `0.753`, and the
+  // inline editor is pinned on a `completion` field storing `0.5` meaning
+  // 50%), the percent edit widget reads the same fields as fractions because
+  // it detects the whole-percent convention from a declared `max > 1` and
+  // never from the name, and the genuinely whole-percent producers are
+  // declared by TYPE (`type: 'progress'`, `min: 0`, `max: 100`) and store only
+  // `0` or integers at or above 1 — values on which the two rules agree by
+  // construction. So the name test had no producer that needed it and two that
+  // it misread.
+  //
+  // ⚠️ The price, stated rather than papered over: a value strictly between 0
+  // and 1 stored on a `type: 'progress'` column now reads as a fraction, as it
+  // does everywhere else. Nothing first-party stores one.
+  const barValue = percentDisplayValue(numValue);
+  const formatted = formatPercent(numValue, scale, locale);
   const clampedBar = Math.max(0, Math.min(100, barValue));
   
   // Layout contract (objectstack#5066): THE NUMBER IS THE CONTENT, THE BAR IS
@@ -1999,21 +2069,66 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
   const fileField = field as any;
   const isMultiple = fileField.multiple;
   
-  if (Array.isArray(value)) {
-    const count = value.length;
-    // Same channel and the same literal-key rule as `RepeaterCellRenderer`
-    // below (objectui#8441). The `count === 1 ? 'file' : 'files'` this replaces
-    // was NOT a rule violation — it is English — but it was equally
-    // unlocalized, and plural-safe for English only: `ru` has four plural
-    // categories and `ar` six, so a two-branch ternary cannot spell either.
-    // Two adjacent cells answering one concept two ways is the shape the
-    // repeater fix exists to close, so both read one channel.
+  // The display name a value that carries none falls back to — the same key and
+  // the same English default `FileField` reads, so the widget and the cell never
+  // name one attachment two different ways. Kept on the i18n channel
+  // (objectui#8441): this card introduces no new user-facing string.
+  const translatedFallback = t?.('fields.file.fileFallback');
+  const fallbackName =
+    !translatedFallback || translatedFallback === 'fields.file.fileFallback'
+      ? 'File'
+      : translatedFallback;
+
+  // One file, as the shared affordance when it resolves to a URL and as the
+  // same truncating text as before when it does not (objectui#9161). ⛔ Never a
+  // dead anchor: objectui#8490's ruling for `email` / `url` / `phone` —
+  // "nothing to link to, no link" — reads the same here, and worse, since an
+  // anchor that navigates nowhere reads as a working download.
+  const renderOne = (view: FileValueView, key?: React.Key) => (
+    <FileValueAffordance
+      key={key}
+      view={view}
+      className="text-sm"
+      fallback={<TruncatedText text={view.name} className="text-sm" />}
+    />
+  );
+
+  // Kept parameterised on `count` even though the only surviving call passes 0
+  // (below): the sentence has to stay true for any count, or a future caller
+  // re-routing it would silently read `1 files`.
+  const countLabel = (count: number) => {
     const translated = t?.('detail.fileCount', { count });
-    const label =
-      !translated || translated === 'detail.fileCount'
-        ? `${count} ${count === 1 ? 'file' : 'files'}`
-        : translated;
-    return <span className="text-sm text-gray-600">{label}</span>;
+    return !translated || translated === 'detail.fileCount'
+      ? `${count} ${count === 1 ? 'file' : 'files'}`
+      : translated;
+  };
+
+  if (Array.isArray(value)) {
+    // THE DEFECT this card fixed (objectui#9161): this arm rendered the COUNT
+    // and nothing else, so a record whose `file` field held a successfully
+    // uploaded attachment stated `1 file` and offered no way to reach it —
+    // while the read path, the signing endpoint and the signed URL all answered
+    // 200. Normalising through `readFileValues` is `ImageCellRenderer`'s
+    // treatment one screen below, applied to the same spec family: a string
+    // URL, a CDN link and an unexpanded bare id all resolve.
+    const views = readFileValues(value, fallbackName);
+    if (views.length === 0) {
+      // THE COUNT SURVIVES on the one arm where it is the whole answer
+      // (objectui#8496): an array that resolves to no renderable file states
+      // `0 files` rather than drawing the em-dash — an answer the affordance
+      // cannot give. Same channel and the same literal-key rule as
+      // `RepeaterCellRenderer` below (objectui#8441). The
+      // `count === 1 ? 'file' : 'files'` this replaced was NOT a rule violation
+      // — it is English — but it was equally unlocalized, and plural-safe for
+      // English only: `ru` has four plural categories and `ar` six, so a
+      // two-branch ternary cannot spell either.
+      return <span className="text-sm text-gray-600">{countLabel(views.length)}</span>;
+    }
+    return (
+      <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-0.5">
+        {views.map((view, idx) => renderOne(view, idx))}
+      </span>
+    );
   }
   
   // An object carrying nothing is not a file (objectui#8596). The spec's
@@ -2033,8 +2148,12 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
   // `{ foo: 1 }` keeps its JSON so real data is never hidden."
   if (isPlainObjectValue(value) && Object.keys(value).length === 0) return <EmptyValue />;
 
-  const fileName = value.name || value.original_name || 'File';
-  return <TruncatedText text={String(fileName)} className="text-sm" />;
+  // Same treatment for the single-value arm: the `value.name ||
+  // value.original_name || 'File'` this replaced picked a name and stopped,
+  // which is the other half of objectui#9161. `readFileValue` picks the same
+  // name (plus a URL's last segment as a name of last resort) AND resolves the
+  // URL, so a single attachment is reachable too.
+  return renderOne(readFileValue(value, fallbackName));
 }
 
 /**
@@ -3043,24 +3162,21 @@ function RepeaterCellRenderer({ value }: CellRendererProps): React.ReactElement 
 }
 
 /**
- * Get the appropriate cell renderer for a field type
+ * THE standard cell-renderer table, built fresh on every call.
+ *
+ * ⭐ A FUNCTION returning a new object, ⛔ not a module-level constant, and the
+ * difference is pinned rather than stylistic: several entries here are INLINE
+ * arrows (`password`, `secret`, `vector`, `grid`), so hoisting this object to
+ * module scope would freeze their identity. `cellRenderers.countLabelI18n-8441`
+ * pins BOTH halves of today's behaviour — a module-level entry is stable across
+ * calls, an inline arrow is not — and hoisting flips the second one. This
+ * extraction therefore changes nothing a caller can observe: `getCellRenderer`
+ * rebuilds the table per call exactly as it did when the literal sat in its
+ * body, and {@link listCellRendererTypes} reads the SAME builder rather than a
+ * second copy of the key list, so the two cannot drift.
  */
-export function getCellRenderer(fieldType: string): React.FC<CellRendererProps> {
-  // 1. Try exact match in registry
-  if (fieldRegistry.has(fieldType)) {
-    return fieldRegistry.get(fieldType)!;
-  }
-
-  // 1b. A RETIRED spelling reaching the read path says a stored column is still
-  //     typed with a name this renderer no longer honours. There is no visible
-  //     alert a table CELL can carry without wrecking the row, so the console
-  //     prescription is the loud half here (once per spelling —
-  //     `reportRetiredFieldType`), and the cell degrades to text deliberately
-  //     rather than by omission (objectui#4814).
-  reportRetiredFieldType(fieldType);
-
-  // 2. Fallback to standard mappings if not overridden
-  const standardMap: Record<string, React.FC<CellRendererProps>> = {
+function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererProps>> {
+  return {
     text: TextCellRenderer,
     textarea: TextCellRenderer,
     // `markdown` / `html` / `richtext` — spread from THE table rather than
@@ -3119,6 +3235,60 @@ export function getCellRenderer(fieldType: string): React.FC<CellRendererProps> 
     vector: () => <span className="text-gray-500 italic">[Vector]</span>,
     grid: () => <span className="text-gray-500 italic">[Grid]</span>,
   };
+}
+
+/**
+ * Every field type that resolves to a cell renderer OF ITS OWN — a LIVE
+ * reading of the registry, taken when you call it (objectui#8734).
+ *
+ * ## Why this exists
+ *
+ * Two censuses — `cellRenderers.objectLiteral-8596` in this package and
+ * `summaryChip.badgeFitCensus-8464` in `@object-ui/plugin-detail` — declare in
+ * prose that they measure "every type `getCellRenderer` resolves to a renderer
+ * of its own", and each enforced that declaration with a hard-coded population
+ * size. A newly registered type is absent from such a table, so every row in it
+ * still passes: the census goes on measuring a snapshot while claiming to
+ * measure the registry. This function is what those censuses reconcile against,
+ * so a new type turns a silent pass into a red row that NAMES the type.
+ *
+ * ## ⭐ A function, ⛔ not a frozen constant
+ *
+ * `FORM_FIELD_TYPES` next door may be `Object.freeze(Object.keys(...))` because
+ * `fieldWidgetMap` is a module literal that never changes. This registry DOES
+ * change: {@link registerFieldRenderer} is published, and a host may add or
+ * override a type after this module is evaluated. A frozen constant here would
+ * be a snapshot taken at import time — the very defect the censuses are being
+ * repaired for, one level down. Every call re-reads.
+ *
+ * The answer is the UNION of the runtime registry and the standard table,
+ * because {@link getCellRenderer} dispatches on both; it is sorted so callers
+ * get a stable order, and `TextCellRenderer` is the TOTAL fallback for
+ * everything else, which is exactly why "everything else" is not listed here.
+ */
+export function listCellRendererTypes(): readonly string[] {
+  return [...new Set([...fieldRegistry.keys(), ...Object.keys(buildStandardCellRendererMap())])].sort();
+}
+
+/**
+ * Get the appropriate cell renderer for a field type
+ */
+export function getCellRenderer(fieldType: string): React.FC<CellRendererProps> {
+  // 1. Try exact match in registry
+  if (fieldRegistry.has(fieldType)) {
+    return fieldRegistry.get(fieldType)!;
+  }
+
+  // 1b. A RETIRED spelling reaching the read path says a stored column is still
+  //     typed with a name this renderer no longer honours. There is no visible
+  //     alert a table CELL can carry without wrecking the row, so the console
+  //     prescription is the loud half here (once per spelling —
+  //     `reportRetiredFieldType`), and the cell degrades to text deliberately
+  //     rather than by omission (objectui#4814).
+  reportRetiredFieldType(fieldType);
+
+  // 2. Fallback to standard mappings if not overridden
+  const standardMap = buildStandardCellRendererMap();
 
   // 3. Register standard renderers implicitly if not present
   // This ensures that if we call registerFieldRenderer('text', Custom), it works,

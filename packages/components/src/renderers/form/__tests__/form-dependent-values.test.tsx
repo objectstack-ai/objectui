@@ -11,10 +11,11 @@
  *
  * Dependent (cascading) lookups resolve their `dependsOn` gate and filters
  * from the `dependentValues` prop. The form renderer must inject the LIVE
- * form values there — pre-fix nothing injected the prop and the widget's
- * context fallback read `ctx.formValues`, a member `SchemaRendererContext`
- * never had, so in create mode a dependent lookup stayed gated forever no
- * matter what the user picked in the parent field.
+ * form values there — pre-fix nothing injected the prop and the widget fell
+ * back to reading `ctx.formValues`, a member `SchemaRendererContext` never had,
+ * so in create mode a dependent lookup stayed gated forever no matter what the
+ * user picked in the parent field. That fallback has since been retired
+ * (objectui#7206), so this prop is the only channel there is.
  */
 
 import { describe, it, expect, beforeAll, vi } from 'vitest';

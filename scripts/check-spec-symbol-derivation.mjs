@@ -81,6 +81,15 @@
  *   canonical                                   source of truth
  *   copy of / copied from                       conforms to
  *
+ * EVERY occurrence of each phrase is tested, not just the first (objectui#8819).
+ * One `exec` per pattern meant an innocent early "mirror"/"match" — ordinary
+ * English in technical prose — consumed the single examination, and a real claim
+ * sitting beside a mention LATER in the same block went unexamined. That failed
+ * PERMISSIVE: the gate returned green on precisely the planted premise its own
+ * failure text is written against. Measured on the tree that landed the repair:
+ * the verdict set over every scanned package source is unchanged, 0 newly
+ * flagged — the masking condition was demonstrable, an escaped claim was not.
+ *
  * Three precision rules, each of which removed real false positives from the
  * measured run — they are load-bearing, not decoration:
  *
@@ -530,6 +539,27 @@ const ALLOW = {
       "the sanctioned set.",
     issue: 4115,
   },
+  "@object-ui/types:UserFiltersSchema": {
+    reason:
+      "Declared dialect of the spec's user-filter surface, not a copy of it (objectui#7265, the " +
+      "@object-ui/types slice). Three divergences, each measured against the RESOLVED pin " +
+      "@objectstack/spec@17.4.0 rather than the version the seeding card asserted against, and " +
+      "each load-bearing: (1) `element` is REQUIRED and admits only `dropdown | tabs`, where the " +
+      "spec defaults it to `dropdown` and keeps `toggle` in ITS enum so shipped configs keep " +
+      "rendering (ADR-0047 3.4a) - ADR-0053 makes `toggle` unauthorable on this side, and the " +
+      "refusal is what `phase2-schemas.test.ts` pins; (2) `tabs` is this package's legacy preset " +
+      "dialect, where the spec's slot is a strict ViewTabSchema that requires `name` and therefore " +
+      "REJECTS the `{ id, filters, default }` documents this schema accepts and " +
+      "`normalizeTabPresets` (@object-ui/plugin-list) normalises at runtime - binding it would 422 " +
+      "metadata that renders today; (3) the shape STRIPS unknown keys where the spec's is strict, " +
+      "and closing it is a protocol decision about this surface, not a side effect of a burn-down. " +
+      "The sibling name in the same block, `UserFilterFieldSchema`, went the OTHER way in the same " +
+      "slice - it IS the spec's concept and is now derived from it, with its own two divergences " +
+      "confined to the members that carry them. Both are pinned by " +
+      "packages/types/src/__tests__/spec-symbol-parity.test.ts, in both directions, so this waiver " +
+      "goes red rather than quiet on the day the gap closes.",
+    issue: 7265,
+  },
   "@object-ui/types:BulkActionParam": {
     reason:
       "Renderer-side dialect of the spec's authored param (objectui#3334). The spec's " +
@@ -839,14 +869,23 @@ const ALLOW = {
 // Re-anchored at objectui#6291. It was `4115` (objectstack#4115) while the block
 // was EMPTY — burned down in objectui#3162, and objectstack#4115 itself closed by
 // objectstack#6883. A ledger whose anchor is CLOSED makes the stale-entry message
-// below ("…and close #N once the ledger is empty") a dead instruction, and #6291
-// could not serve either, being the card its own PR closes. objectui#7265 is the
-// open burn-down card for the population seeded here.
+// below — the one that tells you the anchor can be ended once the ledger is empty
+// — a dead instruction, and #6291 could not serve either, being the card its own
+// PR closes. objectui#7265 is the open burn-down card for the population seeded
+// here. (That message used to spell its own instruction with a GitHub closing
+// keyword in front of the number; the reason it no longer does is written at the
+// ratchet that emits it, not restated here.)
 // ⚠️ `CLAIM_DEBT_ISSUE` a few screens down has the same defect — objectui#4592 is
-// closed while its 18-entry block is live — and is deliberately NOT changed here,
+// closed while its block is still live — and is deliberately NOT changed here,
 // because rule 2's ledger is not what objectui#6291 widened. (Still deliberate at
-// objectui#7265, which burned two entries out of the block below and one out of
-// that one; only the COUNT above moved, never the dead anchor itself.)
+// objectui#7265: its slices have burned names out of BOTH blocks, by BIND, by
+// RENAME and by ALLOW as each site allowed, and each one moved a count while
+// leaving the dead anchor exactly where it was. How large either block is today
+// is deliberately NOT written here — `--ledger` and `--claim-ledger` regenerate
+// them from the working tree and the run banner prints both counts, so a figure
+// spelled out in this sentence could only be a second, staler answer to a
+// question the script already answers, and the sentence it used to end with is
+// the one this note now refuses to write again.)
 const DEBT_ISSUE = 7265;
 // Re-seeded at objectui#6291, mechanically (`--ledger`), when rule 1 stopped
 // skipping module-local declarations. ⚠️ The block is SHRINK-ONLY and this is the
@@ -886,20 +925,116 @@ const DEBT_ISSUE = 7265;
 // `FlowEdge` copy in `FlowEdgeInspector`, which was a third hand copy of this
 // package's OWN declared dialect `FlowDesignerEdge` and now uses it. Both ratchets
 // for the renames live in packages/app-shell/src/__tests__/spec-symbol-parity.test.ts.
+//
+// Then the `@object-ui/types` pair at objectui#7265, which is the slice where the
+// THIRD route finally got used: one name BOUND, one name moved to ALLOW, and the
+// two decided by reading their sites rather than by one policy for the group.
+// `UserFilterFieldSchema` is the spec's own concept under the spec's own name --
+// re-measured against the RESOLVED pin 17.4.0, the two shapes already agreed on
+// `field`, `type`, `showCount` and `defaultValues`, the five-member control-type
+// enum included -- so it now derives from `@objectstack/spec/ui` through this
+// package's import boundary, with TWO divergences confined to the members that
+// carry them (`label` stays a plain string because @object-ui/plugin-list renders
+// it as a React child, and `options[]` keeps the local element for the same reason
+// on its own label) and the object's strip posture restored so no accept set moved.
+// `UserFiltersSchema` went to ALLOW instead: `element` is required and refuses the
+// spec's `toggle` (ADR-0053), `tabs` is this package's legacy `{ id, filters,
+// default }` preset dialect that the spec's strict ViewTabSchema rejects, and
+// binding it would 422 metadata that renders today. Both are pinned, in both
+// directions, by packages/types/src/__tests__/spec-symbol-parity.test.ts.
+//
+// Then the `@object-ui/components` slice at objectui#7265, where the route was
+// decided by what the extra member MEANS rather than by how many members there
+// were. The DataTable renderer declared `SortDirection` as `'asc' | 'desc' |
+// null`, and that third state made the RENAME question genuinely live: the
+// spec's `SortDirection` -- re-measured at the RESOLVED pin 17.4.0, on the
+// `@objectstack/spec/shared` subpath, because byte-identical is a statement
+// about a version and so is two-member -- is the direction and nothing else.
+// Reading the site settled it the other way. `null` is not a third DIRECTION,
+// it is the ABSENCE of one: it is written at exactly one place (the end of the
+// client-side header cycle in `handleSort`) and read only by guards that guard
+// `sortColumn` in the same breath -- and `sortColumn`, the other half of the
+// same state pair, already spelled its own empty case as `useState<string |
+// null>` at the slot instead of folding it into a type name. So the concept IS
+// the spec's, and the strongest BIND form was available: the type is now
+// IMPORTED outright, the local declaration is gone rather than derived, and the
+// third state is confined to the one state slot that carries it with the reason
+// written there. `applySort`, one screen down, was a second hand copy of the
+// same two members inline in its signature and now takes the bound type too.
+// The spec-side properties the binding rests on are pinned in this package's
+// existing spec-symbol file, packages/components/src/__tests__/
+// share-filter-sort-spec-parity.test.ts (appended to, not duplicated); the site
+// and the block are pinned in
+// scripts/__tests__/spec-symbol-ledger-components-7265.test.ts.
+//
+// Then the `@object-ui/data-objectstack` slice at objectui#7265, the first where
+// the mirror was a FUNCTION rather than a type -- which narrows the routes before
+// anybody reads the site. Rule 1 records a function declaration with
+// `derived: false` unconditionally (see `rendersJsx`, whose narrowing exists so
+// that it keeps doing so), meaning there is no derive-in-place form for a
+// function at all: the only exits are to delete the declaration and import the
+// spec's, to rename, or to waive.
+//
+// BIND was refused on a measurement rather than a preference. The spec's
+// `normalizeFilterOperator` (`@objectstack/spec/ui`, re-measured against the
+// RESOLVED 17.4.0 pin, because "same behaviour" is a statement about a version
+// exactly as "byte-identical" is) folds an authored spelling to the canonical
+// VIEW vocabulary so `ViewFilterRuleSchema`'s enum can judge it. This package's
+// folded the same input to the server's filter-AST SYMBOLS -- a different
+// codomain, not a different spelling of one: the spec answers `equals` and
+// `before` where this one answers `=` and `<`. Swapping it in would have changed
+// what goes on the wire for most of the operators a stored view can carry.
+//
+// Two things came out of that measurement which the seeding note had predicted
+// the other way round, and they are the part worth carrying forward. The `?? op`
+// tail is NOT where the two differ: both hand an unrecognised STRING back
+// unchanged, so the lenient tail is COMMON ground, and the guess that the spec's
+// version "refuses instead" does not survive being run. The tail does diverge,
+// but in the opposite direction and on the other arm -- the spec's returns a
+// NON-string verbatim (its body ends `return op as string`), where this one
+// returns `null`, and `objectFilterEntryToAST` reads that `null` one line later
+// into a `MalformedFilterError`. So binding the spec here would have WIDENED what
+// this adapter accepts onto the wire, not tightened it: a number in the operator
+// slot of a tuple it is about to send, instead of a 400-shaped refusal.
+//
+// Renamed, therefore -- to `toAstFilterOperator`, which names the codomain that
+// makes it a different function from the one the rest of this monorepo imports
+// from the spec under the old name. Nothing about the behaviour moved with it.
+// Both directions are pinned: the NAME in this package's own spec-symbol file,
+// packages/data-objectstack/src/spec-symbol-batch6.test.ts (appended to its
+// RENAMES table, not duplicated), and the site, the block and the measured
+// behaviour in
+// scripts/__tests__/spec-symbol-ledger-data-objectstack-7265.test.ts.
+//
+// Then the `@object-ui/plugin-detail` slice at objectui#7265, the LAST group, and
+// the one where the route was settled by the tree rather than by the shape. The
+// site was a non-exported `interface RecordAlertProps` used at exactly one place,
+// the `React.FC<…>` type argument of `RecordAlertRenderer`. Being a TYPE, it had
+// the derive-in-place route a function does not -- and reading it took that route
+// off the table rather than onto it. At the RESOLVED pin the spec's
+// `RecordAlertProps` is the AUTHORED property bag of the `record:alert` block,
+// while the local one is the React props the renderer is called with: a `schema`
+// node, a `className`, an open tail, with the spec's bag NESTED inside it under
+// `schema.properties` and mirrored FLAT beside it for legacy nodes. Not the same
+// concept, so BIND was refused; and an `interface` derives only through
+// `extends`, which a wrapper around a type cannot use on the type it wraps.
+//
+// What decided it is that the collision was a SPELLING SLIP against a convention
+// this repo already keeps. `@objectstack/spec/ui` owns a `Record<Block>Props`
+// for every block that directory renders, and every sibling renderer beside this
+// one already spells its own props type `Record<Block>RendererProps` -- which is
+// exactly why none of them was ever in this ledger and this one was. RENAMED to
+// `RecordAlertRendererProps`, therefore: not a dialect minted for the occasion
+// but the name the file should have carried, and no published face moves with it
+// (the declaration was never exported, and `index.tsx` imports the COMPONENT).
+// Pinned in both directions -- the spec still owns the plain name, the spec does
+// not own the new one, and the sibling convention is re-derived from the
+// directory rather than restated -- in this package's own spec-symbol file,
+// packages/plugin-detail/src/__tests__/spec-symbol-batch7.test.ts (appended to,
+// not duplicated), with the site, the block and the empty-ledger path in
+// scripts/__tests__/spec-symbol-ledger-plugin-detail-7265.test.ts.
 const DEBT = {
-  "@object-ui/types": [
-    "UserFilterFieldSchema",
-    "UserFiltersSchema",
-  ],
-  "@object-ui/components": [
-    "SortDirection",
-  ],
-  "@object-ui/data-objectstack": [
-    "normalizeFilterOperator",
-  ],
-  "@object-ui/plugin-detail": [
-    "RecordAlertProps",
-  ],
+
 };
 
 // Files under these paths are not objectui's own authored surface.
@@ -956,6 +1091,26 @@ export const CLAIM_PATTERNS = [
   /\bcop(?:y|ied)\s+(?:of|from)\b/i,
   /\bconforms?\s+to\b/i,
 ];
+
+/**
+ * The same patterns, `/g`, for `findClaim`'s all-occurrences scan (objectui#8819).
+ *
+ * ⛔ The `/g` deliberately does NOT go on the exported literals above. `/g` makes
+ * `exec` and `test` STATEFUL through `lastIndex`, and `CLAIM_PATTERNS` is a
+ * shared module-level array an importer may call either on: the second call
+ * would resume mid-string and the gate's verdict would depend on how many
+ * docblocks preceded it. A non-deterministic gate is worse than the
+ * first-occurrence-only bug it would be fixing.
+ *
+ * `matchAll` is what makes a SHARED `/g` regex safe here: it clones the pattern
+ * through the species constructor and never mutates the source's `lastIndex`.
+ * The same idiom is already load-bearing in this file for `MEMBER_CITATION`.
+ * These copies are module-private precisely so nothing can `exec` them — that,
+ * not the cloning, is what keeps their `lastIndex` at 0 for every scan.
+ */
+const CLAIM_PATTERNS_ALL = CLAIM_PATTERNS.map(
+  (p) => new RegExp(p.source, p.flags.includes("g") ? p.flags : p.flags + "g")
+);
 
 // Deliberate, reasoned duplications — the rule-1 ALLOW map's governance exactly:
 // declared, reasoned, shrink-only, and stale entries fail the guard. An entry
@@ -1038,7 +1193,6 @@ const CLAIM_DEBT = {
     "PageRegionWidth",
     "RecordActivityComponentProps",
     "RecordChatterComponentProps",
-    "RecordComponentAriaProps",
     "RecordDetailsComponentProps",
     "RecordHighlightsComponentProps",
     "RecordPathComponentProps",
@@ -1060,11 +1214,125 @@ const CLAIM_DEBT = {
   ],
 };
 
+// ── Ledger anchors: is the card each ledger names still open? ────────────────
+// objectui#9537, ruled 2026-09-16 (letter 3, with letter 1 as its companion).
+//
+// Both ledgers above end their stale-entry message by naming an anchor card —
+// "objectui#<n> can be ended once the ledger is empty". That instruction is
+// only followable while the card is OPEN. When the anchor has been ended and
+// the block is non-empty, the ratchet hands a contributor an instruction nobody
+// can follow, and it does so SILENTLY. That has already happened twice:
+// objectstack#4115 was ended by objectstack#6883 while rule 1's block was live
+// (which is why objectui#6291 re-anchored), and rule 2's anchor went the same
+// way while its block stayed live, which is the exclusion recorded below.
+//
+// The note beside `DEBT_ISSUE` DECLARES that state to be a defect and nothing
+// enforced the declaration — the ADR-0049 shape. This table is the enforcement
+// point, and `ledgerAnchorDiagnostic` below is the rule.
+//
+// ⚠️ WHAT THIS DOES NOT DO, written down rather than left to be assumed (root
+// AGENTS.md #9). `state` is DECLARED here, never fetched. This gate is an
+// offline static scan with no token, and a gate that reached GitHub for issue
+// state would go red on a rate limit or an outage — failing on the network
+// instead of on the tree. So the two halves are not symmetric:
+//   - CAUGHT mechanically: a block re-seeded under an anchor already known to
+//     be ended. A jurisdiction widening is the one sanctioned way either block
+//     grows, it is a deliberate edit to THIS file, and it is the same edit that
+//     must re-anchor (objectui#6291's precedent) — so a red lands on exactly
+//     the pull request that owes the re-anchoring.
+//   - NOT CAUGHT: an anchor card ending OUT OF BAND while its block is live and
+//     its `state` here still reads "open". Nothing in this repository
+//     re-derives that; only something holding a token can. Whoever ends an
+//     anchor card is the one who must flip its `state` here.
+// ⛔ Do not "improve" this by teaching the gate to fetch issue state.
+//
+// Adding a third ledger means adding its anchor here. The coverage pin in
+// scripts/__tests__/spec-symbol-ledger-anchor-liveness-9537.test.ts reds if an
+// anchor constant declared in this file has no entry below, so "any ledger
+// anchor it reads" stays true by mechanism rather than by memory.
+export const LEDGER_ANCHORS = [
+  {
+    ledger: "DEBT",
+    constant: "DEBT_ISSUE",
+    issue: DEBT_ISSUE,
+    entries: DEBT,
+    regenerator: "--ledger",
+    // objectui#7265 was ended 2026-09-14 by its own final slice — the burn-down
+    // card recreating, on finishing, the condition it was opened to remove.
+    // Left pointing there deliberately: objectui#9537's ruling keeps the anchor
+    // and buys the detection instead, because inventing a card purely to hold
+    // an anchor is the shape this repository already rejected.
+    state: "closed",
+    excludedByName: null,
+  },
+  {
+    ledger: "CLAIM_DEBT",
+    constant: "CLAIM_DEBT_ISSUE",
+    issue: CLAIM_DEBT_ISSUE,
+    entries: CLAIM_DEBT,
+    regenerator: "--claim-ledger",
+    state: "closed",
+    excludedByName: "`CLAIM_DEBT_ISSUE` (objectui#4592) — excluded BY NAME because it is the deliberate, standing exclusion recorded beside `DEBT_ISSUE` and re-affirmed by objectui#9537's ruling: rule 2's ledger is not what objectui#6291 widened, so re-anchoring it is a separate decision and ⛔ not this detector's to force.",
+  },
+];
+
+/**
+ * The ruled condition, as a pure function of ONE anchor so that both acceptance
+ * legs are measurable without a repository scan: an anchor that has been ended
+ * while its block still holds entries is a dead instruction; every other
+ * combination is silence.
+ *
+ * Returns `null`, or `{ kind, message }` with `kind` one of:
+ *   "dead-anchor"      — the ruled condition.
+ *   "bad-declaration"  — `state` is neither "open" nor "closed". Judged FIRST
+ *                        and judged loudly: a typo there would turn the
+ *                        detection off while leaving it looking wired, which is
+ *                        the exact failure this check exists to end.
+ *
+ * `ignoreExclusion` answers "would this have fired if it were not excluded?" —
+ * used only to keep the standing exclusion visible in the run banner, so it
+ * cannot go quiet, and to retire itself the day it stops applying.
+ */
+export function ledgerAnchorDiagnostic(anchor, { ignoreExclusion = false } = {}) {
+  if (anchor.state !== "open" && anchor.state !== "closed") {
+    return {
+      kind: "bad-declaration",
+      message:
+        `${anchor.constant}'s declared \`state\` is ${JSON.stringify(anchor.state)} — neither "open" nor "closed".\n` +
+        `      An anchor whose state does not parse is one this check cannot judge, and a typo here would\n` +
+        `      silently turn the dead-anchor detection off while leaving it looking wired.`,
+    };
+  }
+  if (!ignoreExclusion && anchor.excludedByName) return null;
+  // No anchor at all is not a DEAD anchor: the ratchet's tail is written behind
+  // a truthiness guard, so it renders no instruction to be followed.
+  if (!anchor.issue) return null;
+  if (anchor.state === "open") return null;
+  const entryCount = Object.values(anchor.entries).reduce((sum, names) => sum + names.length, 0);
+  if (entryCount === 0) return null;
+  return {
+    kind: "dead-anchor",
+    message:
+      `${anchor.ledger}'s anchor \`${anchor.constant}\` names objectui#${anchor.issue}, a card that has already been\n` +
+      `      ended, and the block under it holds ${entryCount} entr${entryCount === 1 ? "y" : "ies"}. So the ratchet that reads this ledger\n` +
+      `      ends its message by telling you objectui#${anchor.issue} can be ended once the ledger is empty — an\n` +
+      `      instruction nobody can follow, because that card is ended already.\n` +
+      `      Re-anchor \`${anchor.constant}\` to the OPEN burn-down card for this seeding and set that entry's\n` +
+      `      \`state\` in LEDGER_ANCHORS to "open". objectui#6291 is the precedent: the pull request that\n` +
+      `      re-seeds a block is the one that re-anchors it (\`${anchor.regenerator}\` regenerates the block).`,
+  };
+}
+
 // ── 1. Enumerate every `@objectstack/spec` export name, per subpath ──────────
 // Types AND values: the drifted symbols in the table above are mostly types, and
 // a runtime `import()` only sees values. The compiler's own view of each
 // subpath's `.d.ts` is the only source that covers both.
-function specExportNames() {
+//
+// Exported for the pins in `scripts/__tests__/`, for the same reason `scanFile`
+// is: a ledger test that builds its own name map is asserting against a COPY of
+// the spec's export set, which is the exact failure this whole guard exists to
+// catch, one level up. A pin that reads THIS function reads what the gate reads.
+export function specExportNames() {
   const require = createRequire(import.meta.url);
   let pkgPath;
   try {
@@ -1346,41 +1614,46 @@ export function findClaim(docText) {
   for (let i = text.indexOf(SPEC_MENTION); i !== -1; i = text.indexOf(SPEC_MENTION, i + 1)) mentions.push(i);
   if (mentions.length === 0) return null;
 
-  for (const pattern of CLAIM_PATTERNS) {
-    const hit = pattern.exec(text);
-    if (!hit) continue;
-    const start = hit.index;
-    const end = hit.index + hit[0].length;
-    for (const at of mentions) {
-      const distance = at >= end ? at - end : start - (at + SPEC_MENTION.length);
-      if (distance < 0 || distance > CLAIM_WINDOW) continue;
-      // Proximity alone is not enough: the claim and the mention must be in the
-      // SAME sentence. `ChartDataSeries` reads "positionally aligned with the
-      // chart's `categories`. Renamed off `ChartSeries`: `@objectstack/spec/ui`
-      // owns that name…" — two sentences, two subjects, 53 characters apart, and
-      // the alignment claim is about the categories array rather than the spec.
-      // A window without this test flags it, which the measured run confirmed.
-      const between = at >= end ? text.slice(end, at) : text.slice(at + SPEC_MENTION.length, start);
-      if (/[.;!?](?:\s|$)/.test(between)) continue;
-      const symbols = [];
-      for (const m of mentions) {
-        // `@objectstack/spec/ui ReactionSchema` — take the identifiers the claim
-        // names just after the mention (its subpath included, then skipped).
-        let tail = text.slice(m + SPEC_MENTION.length, m + SPEC_MENTION.length + 48);
-        // Stop at the end of the SENTENCE, the same discipline the claim/mention
-        // pairing above applies. Without it the window scrapes the capitalised
-        // opening words of the NEXT sentence and reports them as cited symbols:
-        // `ActionDef` (packages/core/src/actions/ActionRunner.ts) reads
-        // "…mirroring `@objectstack/spec`'s `ActionSchema`. Open key set on a
-        // data bag is correct", and `Open` is prose, not a citation. Harmless
-        // while `symbols` only decorated a message; since objectui#4607 it
-        // decides whether the tie test applies, and a claim whose only "cited
-        // symbols" are prose words would read as citing nothing but dangling.
-        const sentenceEnd = tail.search(/[.;!?](?:\s|$)/);
-        if (sentenceEnd !== -1) tail = tail.slice(0, sentenceEnd);
-        for (const s of tail.matchAll(/[`'"\s(]([A-Z][A-Za-z0-9_]{2,})\b/g)) symbols.push(s[1]);
+  for (const pattern of CLAIM_PATTERNS_ALL) {
+    // EVERY occurrence, not the first (objectui#8819). `exec` once per pattern
+    // tested only the first occurrence of each phrase in the block, so an
+    // innocent early "mirror"/"match" masked a real claim sitting beside a
+    // mention later in the SAME block — and it failed PERMISSIVE: the gate went
+    // green on the planted premise its own failure text is written against.
+    for (const hit of text.matchAll(pattern)) {
+      const start = hit.index;
+      const end = hit.index + hit[0].length;
+      for (const at of mentions) {
+        const distance = at >= end ? at - end : start - (at + SPEC_MENTION.length);
+        if (distance < 0 || distance > CLAIM_WINDOW) continue;
+        // Proximity alone is not enough: the claim and the mention must be in the
+        // SAME sentence. `ChartDataSeries` reads "positionally aligned with the
+        // chart's `categories`. Renamed off `ChartSeries`: `@objectstack/spec/ui`
+        // owns that name…" — two sentences, two subjects, 53 characters apart, and
+        // the alignment claim is about the categories array rather than the spec.
+        // A window without this test flags it, which the measured run confirmed.
+        const between = at >= end ? text.slice(end, at) : text.slice(at + SPEC_MENTION.length, start);
+        if (/[.;!?](?:\s|$)/.test(between)) continue;
+        const symbols = [];
+        for (const m of mentions) {
+          // `@objectstack/spec/ui ReactionSchema` — take the identifiers the claim
+          // names just after the mention (its subpath included, then skipped).
+          let tail = text.slice(m + SPEC_MENTION.length, m + SPEC_MENTION.length + 48);
+          // Stop at the end of the SENTENCE, the same discipline the claim/mention
+          // pairing above applies. Without it the window scrapes the capitalised
+          // opening words of the NEXT sentence and reports them as cited symbols:
+          // `ActionDef` (packages/core/src/actions/ActionRunner.ts) reads
+          // "…mirroring `@objectstack/spec`'s `ActionSchema`. Open key set on a
+          // data bag is correct", and `Open` is prose, not a citation. Harmless
+          // while `symbols` only decorated a message; since objectui#4607 it
+          // decides whether the tie test applies, and a claim whose only "cited
+          // symbols" are prose words would read as citing nothing but dangling.
+          const sentenceEnd = tail.search(/[.;!?](?:\s|$)/);
+          if (sentenceEnd !== -1) tail = tail.slice(0, sentenceEnd);
+          for (const s of tail.matchAll(/[`'"\s(]([A-Z][A-Za-z0-9_]{2,})\b/g)) symbols.push(s[1]);
+        }
+        return { phrase: hit[0], distance, symbols: [...new Set(symbols)], text };
       }
-      return { phrase: hit[0], distance, symbols: [...new Set(symbols)], text };
     }
   }
   return null;
@@ -1977,6 +2250,27 @@ for (const [pkg, found] of byPackage) {
 
 // 2. Ratchet — a ledger entry whose symbol is fixed (or gone) must be deleted.
 //    Left in, it reserves the name: the next fork under it would land silently.
+//
+// ⚠️ The tail's WORDING is constrained, and not by taste (objectui#7265). This
+// message names the ledger's anchor card, and taking the INTERMEDIATE reading —
+// the site burned down, the block not yet regenerated — is standing practice on
+// that card, because it is the only proof the edit reached the symbol rather than
+// the block being rewritten around it. So this text is pasted into pull-request
+// bodies and commit messages BY DESIGN. GitHub's closing-keyword parser reads one
+// of its keywords (the close / fix / resolve families, in every tense) sitting
+// immediately before an issue reference, and it does not parse sentences: the
+// tail this line replaced put such a keyword directly in front of the anchor's
+// own number, so every slice that quoted its own reading carried a trigger that
+// would have ended the card on merge — silently, from a body whose author was
+// being careful. ⛔ Never write one of those keywords in front of the reference
+// here, and keep the `objectui#` prefix rather than a bare `#`. Pinned by
+// scripts/__tests__/spec-symbol-ledger-plugin-detail-7265.test.ts, which reads
+// this module's emitted text rather than trusting the comment.
+//
+// ⛔ The `CLAIM_DEBT` twin further down is deliberately NOT given the same
+// treatment. Its anchor is a CLOSED issue — the note beside `DEBT_ISSUE` above
+// records that exclusion and why it stands — so the keyword there triggers
+// nothing, and changing it would quietly make that note false.
 for (const [pkg, names] of Object.entries(DEBT)) {
   const live = new Set((byPackage.get(pkg) ?? []).map((v) => v.name));
   const stale = names.filter((n) => !live.has(n));
@@ -1986,7 +2280,7 @@ for (const [pkg, names] of Object.entries(DEBT)) {
       ` — \`${stale.join("`, `")}\`.\n` +
       `      Delete them from scripts/check-spec-symbol-derivation.mjs (\`--ledger\` regenerates the\n` +
       `      block) so the names cannot be re-forked silently` +
-      `${DEBT_ISSUE ? ` (and close #${DEBT_ISSUE} once the ledger is empty)` : ""}.`
+      `${DEBT_ISSUE ? `, and objectui#${DEBT_ISSUE} can be ended once the ledger is empty` : ""}.`
   );
 }
 
@@ -2075,10 +2369,27 @@ if (memberCitations.length > 0) {
   );
 }
 
+// ── 8. The ledgers' own health: can each anchor still receive its instruction? ─
+// objectui#9537. Rules 1-7 judge the tree; this one judges the ledgers' own
+// anchors, because the two ratchets above end their messages by naming a card.
+// The reasoning, the declared-state boundary and the standing exclusion are all
+// at `LEDGER_ANCHORS`; this loop is only the wiring.
+const anchorErrors = [];
+const excludedAnchorNotes = [];
+for (const anchor of LEDGER_ANCHORS) {
+  const finding = ledgerAnchorDiagnostic(anchor);
+  if (finding) anchorErrors.push(finding.message);
+  // Keep a standing exclusion VISIBLE on green runs, and let it retire itself:
+  // the note stops printing the day the excluded anchor would no longer fire.
+  if (anchor.excludedByName && ledgerAnchorDiagnostic(anchor, { ignoreExclusion: true })) {
+    excludedAnchorNotes.push(anchor.excludedByName);
+  }
+}
+
 const outstanding = Object.values(DEBT).reduce((sum, names) => sum + names.length, 0);
 const outstandingClaims = Object.values(CLAIM_DEBT).reduce((sum, names) => sum + names.length, 0);
 
-if (errors.length === 0 && claimErrors.length === 0) {
+if (errors.length === 0 && claimErrors.length === 0 && anchorErrors.length === 0) {
   console.log(
     `✅  spec symbol derivation: ${files.length} files scanned against ${specNames.size} spec export names; ` +
       `${Object.keys(ALLOW).length} declared dialect${Object.keys(ALLOW).length === 1 ? "" : "s"}, ` +
@@ -2088,7 +2399,9 @@ if (errors.length === 0 && claimErrors.length === 0) {
       `${outstandingClaims} unbacked claim${outstandingClaims === 1 ? "" : "s"} in ` +
       `${Object.keys(CLAIM_DEBT).length} packages.\n` +
       `✅  spec member citations: ${files.length} sources + ${proseSources.length} documentation pages; ` +
-      `nothing cites a key its spec symbol does not declare.`
+      `nothing cites a key its spec symbol does not declare.\n` +
+      `✅  ledger anchors: ${LEDGER_ANCHORS.length} declared; none renders an instruction its anchor card can no longer receive.` +
+      excludedAnchorNotes.map((note) => `\n    ⚠️  excluded by name: ${note}`).join("")
   );
   process.exit(0);
 }
@@ -2113,6 +2426,18 @@ if (claimErrors.length > 0) {
       "keys, drifted on `mode`, and passed every CI run under the comment \"Aligned with\n" +
       "@objectstack/spec ListView.navigation\". The claim is the part both known instances shared.\n" +
       "See https://github.com/objectstack-ai/objectui/issues/4592."
+  );
+}
+
+if (anchorErrors.length > 0) {
+  console.error("❌  a ledger anchor no longer points at a card anyone can act on:\n");
+  for (const message of anchorErrors) console.error(`    • ${message}\n`);
+  console.error(
+    "Both ratchets above end their stale-entry message by naming the ledger's anchor card, so an\n" +
+      "ended anchor turns that message into an instruction nobody can follow — and it went that way\n" +
+      "silently twice before this check existed. What this check does and does not see is written at\n" +
+      "`LEDGER_ANCHORS` in this file.\n" +
+      "See https://github.com/objectstack-ai/objectui/issues/9537.\n"
   );
 }
 

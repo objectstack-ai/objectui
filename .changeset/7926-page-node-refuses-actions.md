@@ -13,7 +13,7 @@ parse GREEN and render nothing. `PageNodeSchema` never declared the key and
 through `BaseSchema`'s `.passthrough()`. Measured through the real
 `SchemaRenderer`: a `page` node with `actions: [{type:'button',label:'Add
 Product'}, …]` drew **0** buttons and the label appeared nowhere in the DOM,
-while the SAME two buttons in `body` drew **2**. Until objectui#7933 the array
+while the SAME two buttons in the page's child list drew **2**. Until objectui#7933 the array
 also reached the wrapper element as `actions="[object Object],[object Object]"`.
 
 `PageNodeSchema` now declares `actions` as an ADR-0049 refusal arm, so the same
@@ -26,14 +26,16 @@ the alert-dialog fixtures), and the authorable action FORM was already ruled on
 2026-08-25 for objectui#6497 / #6182: the declarative action object. Growing a
 reader here would have minted a fourth `actions` shape.
 
-**Migration.** Put the buttons in `body` as nodes — a `button`, or an
-`action:button` with a declared `actionType`:
+**Migration.** Put the buttons in the page's child list as nodes — a `button`, or an
+`action:button` with a declared `actionType`. ⚠️ That list was spelled `body` when this
+change landed; objectui#6771 retired the spelling, and the recipe below is written in
+the one that is left so a reader copying it gets a document that parses:
 
 ```json
 {
   "type": "page",
   "title": "Products",
-  "body": [
+  "children": [
     { "type": "flex", "justify": "end", "gap": 2, "children": [
       { "type": "button", "label": "Add Product", "variant": "default" }
     ] }

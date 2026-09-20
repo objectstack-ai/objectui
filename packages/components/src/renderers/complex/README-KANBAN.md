@@ -7,7 +7,9 @@ A fully functional, schema-driven Kanban board component for Object UI with drag
 - **Multiple Columns**: Create unlimited columns with customizable titles
 - **Rich Cards**: Cards support title, description, and multiple badges
 - **Drag & Drop**: Smooth drag-and-drop functionality powered by @dnd-kit
-- **Reordering**: Reorder cards within the same column
+- **Reordering**: ⛔ Not supported — card order is persisted nowhere, so a card
+  dropped inside its own column returns to its position rather than showing a
+  reorder the next data round-trip would silently undo (objectui#8826)
 - **Cross-Column Moves**: Move cards between different columns
 - **Column Limits**: Optional capacity limits with visual indicators
 - **Card Counters**: Shows current count and limit per column

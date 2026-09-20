@@ -128,7 +128,7 @@ that do configure it are:
 {
   "type": "page",
   "title": "Dashboard",
-  "body": {
+  "children": {
     "type": "grid",
     "columns": 3,
     "gap": 4,
@@ -136,7 +136,7 @@ that do configure it are:
       {
         "type": "card",
         "title": "Total Users",
-        "body": {
+        "children": {
           "type": "statistic",
           "value": 1234,
           "trend": "up"
@@ -145,7 +145,7 @@ that do configure it are:
       {
         "type": "card",
         "title": "Revenue",
-        "body": {
+        "children": {
           "type": "statistic",
           "value": "$56,789",
           "trend": "up"
@@ -154,7 +154,7 @@ that do configure it are:
       {
         "type": "card",
         "title": "Orders",
-        "body": {
+        "children": {
           "type": "statistic",
           "value": 432,
           "trend": "down"

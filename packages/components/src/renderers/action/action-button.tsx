@@ -122,8 +122,11 @@ const ActionButtonRenderer = forwardRef<
     // `enabled`), so a spec-authored `disabled` guard did nothing (#1885,
     // ADR-0049). We now consume `disabled` as the primary control and keep the
     // legacy non-spec `enabled` as a deprecated fallback so existing metadata
-    // keeps working.
-    const isDisabled = useCondition(toPredicateInput((schema as any).disabled), recordData);
+    // keeps working. Uncast since objectui#8648: the mirror declares `disabled`
+    // by derivation from the contract, so the three arms the spec accepts
+    // (boolean, raw CEL, `{ dialect, source }` envelope) are the compiler's
+    // business here instead of `any`'s.
+    const isDisabled = useCondition(toPredicateInput(schema.disabled), recordData);
     const isEnabled = useCondition(toPredicateInput(schema.enabled), recordData);
 
     // Resolve icon
@@ -207,15 +210,30 @@ const ActionButtonRenderer = forwardRef<
           // (objectstack#6938). Sibling of `bodyExtra` above, same whitelist,
           // same failure mode.
           bodyShape: schema.bodyShape,
+          // The declarative single-record field write, forwarded as a PAIR.
+          // `operation` is authored BESIDE `type`, not inside it — the spec
+          // materializes `type: 'script'` here and `ActionType` gained no member —
+          // so a forward that carries `type` alone tells the runner nothing about
+          // this action, and `patch` (which holds the field values) would be
+          // dropped one hop before the runner. The result is the route POSTed an
+          // empty write and a green toast for having written nothing: the
+          // objectstack#6837 / objectui#2960 shape, on the key whose whole payload
+          // is the thing dropped. `@object-ui/core`'s runner dispatches on
+          // `operation` ahead of `type`; both keys must reach it.
+          operation: schema.operation,
+          patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
           errorMessage: schema.errorMessage,
           refreshAfter: schema.refreshAfter,
           // Forward `undoable` (and the row id field) so update actions can
           // offer an Undo affordance — without this the flag is dropped and the
-          // handler never builds the undo operation.
-          undoable: (schema as any).undoable,
-          recordIdField: (schema as any).recordIdField,
+          // handler never builds the undo operation. Both uncast since
+          // objectui#8648: `@objectstack/spec`'s `Action` declares each, so the
+          // mirror declares each, and the forward is compiler-checked against
+          // `ActionDef` instead of arriving as `any`.
+          undoable: schema.undoable,
+          recordIdField: schema.recordIdField,
           // Forward the placement declaration — the console runtime uses it to
           // tell record-scoped actions (also mounted on rows) from pure
           // object-level toolbar actions when no row is selected (#2210).
@@ -225,7 +243,16 @@ const ActionButtonRenderer = forwardRef<
           // exactly once (2FA setup, OAuth client_secret, regenerated
           // backup codes). Without this forward the ActionRunner falls
           // back to the success toast and the user loses the value.
-          resultDialog: (schema as any).resultDialog,
+          //
+          // Both ends uncast: the READ since objectui#8648 (`resultDialog` is
+          // declared on the mirror, so the compiler types it as the contract's
+          // own block), and the WRITE since objectui#9542 retired the narrowing
+          // assertion that stood here — `ActionDef['resultDialog']` now DERIVES
+          // its label members from the contract instead of hand-writing them as
+          // `string`, so the whole forward type-checks against one declared
+          // meaning. ⛔ Never widen either end back to `as any`: that one
+          // spelling hid the missing declaration AND the drifted mirror at once.
+          resultDialog: schema.resultDialog,
           // Declared post-success navigation — spec's closed strict
           // `{ navigate, openIn }` block, authorable on `ActionSchema` since
           // @objectstack/spec 17.1.0 (objectui#5328). The runner reads it off
@@ -300,7 +327,7 @@ const ActionButtonRenderer = forwardRef<
         // "the node gate said disable, or this renderer's own gate did, or an
         // execution is in flight" — one carrier, three sources, no re-declare.
         disabled={hostDisabled || (
-          hasDeclaredVisibilityGate((schema as any).disabled)
+          hasDeclaredVisibilityGate(schema.disabled)
             ? isDisabled
             : hasDeclaredVisibilityGate(schema.enabled)
               ? !isEnabled

@@ -218,7 +218,11 @@ describe('check-test-path-roots — the registries', () => {
   });
 
   it('⛔ `KNOWN_CWD_ROOTED` is SHRINK-ONLY — this is the ratchet, in one number', () => {
-    expect(KNOWN_CWD_ROOTED.length).toBeLessThanOrEqual(1);
+    // At ZERO since objectui#9188 repaired the last entry. The bound follows the
+    // list down and never back up: re-admitting an instance of this class has to
+    // move this number, in a diff a reviewer reads, rather than land quietly
+    // inside a registry that still had room.
+    expect(KNOWN_CWD_ROOTED.length).toBeLessThanOrEqual(0);
   });
 });
 

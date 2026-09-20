@@ -34,6 +34,7 @@ import { ThreadedReplies } from './ThreadedReplies';
 import { SubscriptionToggle } from './SubscriptionToggle';
 import { RichTextCommentInput } from './RichTextCommentInput';
 import { CommentAttachment, type Attachment } from './CommentAttachment';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useDetailTranslation } from './useDetailTranslation';
 
 /**
@@ -141,6 +142,7 @@ function getFilterOptions(t: (key: string) => string): { value: FeedFilterMode; 
 function formatTimestamp(
   timestamp: string,
   t: (key: string, options?: Record<string, unknown>) => string,
+  locale: string,
 ): string {
   try {
     const date = new Date(timestamp);
@@ -154,7 +156,9 @@ function formatTimestamp(
     if (diffHours < 24) return t('detail.hoursAgo', { count: diffHours });
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return t('detail.daysAgo', { count: diffDays });
-    return date.toLocaleDateString();
+    // The tag is DECLARED (objectui#9786): a bare call formats the past-a-week
+    // date in the machine's locale, which is neither channel.
+    return date.toLocaleDateString(locale);
   } catch {
     return timestamp;
   }
@@ -202,6 +206,8 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
   className,
 }) => {
   const { t } = useDetailTranslation();
+  // The BCP-47 tag the absolute-date tail formats with (objectui#9786).
+  const displayLocale = useDisplayLocale();
   const [internalFilter, setInternalFilter] = React.useState<FeedFilterMode>('all');
   const [commentText, setCommentText] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -458,7 +464,7 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
                             </span>
                           )}
                           <span className="text-xs text-muted-foreground">
-                            {formatTimestamp(item.createdAt, t)}
+                            {formatTimestamp(item.createdAt, t, displayLocale)}
                           </span>
                           {item.edited && (
                             <span className="text-xs text-muted-foreground italic">{t('detail.edited')}</span>

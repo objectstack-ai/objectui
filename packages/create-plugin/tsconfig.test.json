@@ -7,6 +7,11 @@
   // this project CHAINED from `type-check` — the script CI actually runs.
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    // objectui#8691: test programs only. One notch above the package build's
+    // ES2020, mirroring packages/app-shell. The package SOURCE tsconfig is
+    // untouched, so what this package SHIPS still compiles at the ES2020
+    // baseline; nothing here is emitted.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "noEmit": true,
     // `templates.test.ts` reads the repo-root manifest off disk (readFileSync,
     // fileURLToPath, isBuiltin) to assert the generated dependency ranges are

@@ -123,9 +123,10 @@ describe('form renderer — data-source wiring covers the core reference family'
     // — the leak objectstack#5407 closed for lookups and left open here.
     //
     // ⚠️ This used to credit two of the three with a context fallback. The
-    // widgets spell one for `dependentValues` (`?? ctx.formValues ?? ctx.data`),
-    // but `SchemaRendererContextType` declares exactly `dataSource` / `debug` /
-    // `debugFlags` / `apiFetch`, so it is unconditionally empty (objectui#7206). `user` is also named in the widget contract's own
+    // widgets spelled one for `dependentValues` (`?? ctx.formValues ?? ctx.data`)
+    // while `SchemaRendererContextType` declares exactly `dataSource` / `debug` /
+    // `debugFlags` / `apiFetch`, so it was unconditionally empty and has since
+    // been retired (objectui#7206). `user` is also named in the widget contract's own
     // `dataSource` doc (`fields/src/widgets/types.ts`) as a type this renderer
     // injects for, so the omission contradicted the published contract too.
     expect(EXPANDABLE_FIELD_TYPES.has('user')).toBe(true);

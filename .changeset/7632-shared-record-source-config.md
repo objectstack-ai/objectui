@@ -31,8 +31,11 @@ input matrix, so a later edit to the shared reader that moves any site turns red
 
 **Two divergences were measured rather than assumed, and both are preserved.**
 
-`ObjectCalendar`'s `'data' in schema && schema.data` guards exist because its parameter is
-the union `ObjectGridSchema | CalendarSchema` and `CalendarSchema` declares neither key.
+`ObjectCalendar`'s `'data' in schema && schema.data` guards existed because its parameter was
+at that time the union `ObjectGridSchema | CalendarSchema`, whose `CalendarSchema` arm declared
+neither key. (objectui#8651 has since re-pointed that parameter at the published
+`ObjectCalendarSchema`, so the union is gone; the CONCLUSION below — that the guard had no
+runtime effect and removing it is behaviour-neutral — is unaffected.)
 That is a TypeScript narrowing device with no runtime effect — an absent property reads
 `undefined`, falsy either way — so the guard could never change which rung is taken. The
 shared reader's optional-property parameter accepts the union directly, and the

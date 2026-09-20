@@ -148,8 +148,15 @@ const ISO_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * ISO date carrying a time part — `2026-07-04T07:00:00.000Z`, or the same with
  * a space separator, with or without seconds/offset. Matched only as far as
- * `HH:mm`; `Date.parse` decides the rest, so a well-shaped impossible instant
- * still falls through untouched.
+ * `HH:mm`; `Date.parse` decides the rest. What it rejects is an out-of-range
+ * MONTH or CLOCK reading (`2026-13-01T09:30`, `2024-07-04T99:99`), which this
+ * pattern admits — such a value falls through untouched.
+ *
+ * ⛔ A DAY that overflows its month does NOT fall through. `2026-02-30T09:30`
+ * parses and renders rolled over, exactly as the date-only arm renders
+ * `2026-02-30`. See the note inside {@link formatMeasureDate} for the
+ * instrument that holds that render in place, and for where the open question
+ * about it lives.
  */
 const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
 
@@ -221,10 +228,25 @@ const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
  */
 function formatMeasureDate(v: unknown, format: string | undefined, locale: string | undefined): string | undefined {
   if (typeof v !== 'string') return undefined;
-  // `Date.parse` guards both arms so a well-shaped impossible date
-  // (`2026-02-30`) is NOT swallowed into the em dash `formatDate` returns for
-  // an unparseable value — it keeps falling through to `String(v)`, exactly as
-  // it does today. Only a value that is genuinely a date changes.
+  // `Date.parse` guards both arms, and what it rejects is an out-of-range
+  // MONTH (`2026-13-01`) — which both patterns above admit — ⛔ NOT an
+  // out-of-range DAY. ECMAScript's Date Time String Format accepts `DD` in
+  // `01`-`31` syntactically and `MakeDay` rolls the surplus into the next
+  // month, so a well-shaped impossible date (`2026-02-30`) is PARSEABLE on
+  // both arms: it does not fall through to `String(v)`, it renders as the
+  // rolled-over day (`2026-03-02`). This paragraph asserted the opposite —
+  // that such a value keeps falling through — until objectui#8263 measured it.
+  //
+  // ⭐ That rolled render is not a leak in this guard; it is pinned, by
+  // `agrees with the list cell on a rolled-over date instead of second-guessing it`
+  // in this file's co-located date suite. Read that test for the argument. It
+  // is deliberately NOT restated here: a comment restating a pin is how this
+  // paragraph came to assert a behaviour that nothing implemented.
+  //
+  // ⚠️ Whether the SHARED display path should refuse an impossible calendar
+  // day at all is OPEN, and it is not this function's to answer alone — the
+  // authoring boundary already refuses such a value while the display path
+  // rolls it. objectui#10026 carries that question.
   if (ISO_DATE_ONLY_RE.test(v)) {
     return Number.isNaN(Date.parse(v)) ? undefined : formatDate(v, format, { locale });
   }

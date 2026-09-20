@@ -1136,17 +1136,35 @@ export const DetailView: React.FC<DetailViewProps> = ({
                   let display: string = String(val);
                   let percentValue: number | null = null;
                   try {
+                    // -- The locale these four option bags format in ---------------
+                    //
+                    // `displayLocale`, never the literal `undefined` (objectui#9453).
+                    // `useDisplayLocale`'s own doc comment names that literal as "the
+                    // one thing a caller must not do": `undefined` means the MACHINE's
+                    // locale, which is neither the tenant channel nor the UI-language
+                    // one. A German tenant read a German date in the list and an en-US
+                    // one beside the H1 of the record it opened, for one stored value.
+                    // The percent branch below already reads this same binding.
+                    //
+                    // The number of fraction digits, the date style and the time style
+                    // are NOT part of that repair. They are this chip's own
+                    // deliberately compact face, and whether a KPI chip beside a title
+                    // should instead read exactly like its list cell is an OPEN
+                    // question objectui#9453 recorded and did not answer.
+                    // `EN_CONTROL_ROWS` in `summaryChip.displayLocale-9453.test.tsx`
+                    // is what holds that line: those rows are green before this change
+                    // and after it, and go red the moment one of those options moves.
                     if (ftype === 'currency') {
                       const num = Number(val);
                       if (!Number.isNaN(num)) {
                         const cur = resolveFieldCurrency({ ...(objField as any), ...(sectionField as any) }, tenantCurrency);
                         display = cur
-                          ? new Intl.NumberFormat(undefined, {
+                          ? new Intl.NumberFormat(displayLocale, {
                               style: 'currency',
                               currency: cur,
                               maximumFractionDigits: 0,
                             }).format(num)
-                          : new Intl.NumberFormat(undefined, {
+                          : new Intl.NumberFormat(displayLocale, {
                               maximumFractionDigits: 0,
                             }).format(num);
                       }
@@ -1154,8 +1172,8 @@ export const DetailView: React.FC<DetailViewProps> = ({
                       const d = new Date(val);
                       if (!Number.isNaN(d.getTime())) {
                         display = ftype === 'datetime'
-                          ? d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-                          : d.toLocaleDateString(undefined, { dateStyle: 'medium' } as any);
+                          ? d.toLocaleString(displayLocale, { dateStyle: 'medium', timeStyle: 'short' })
+                          : d.toLocaleDateString(displayLocale, { dateStyle: 'medium' } as any);
                       }
                     } else if (ftype === 'percent') {
                       const num = Number(val);
@@ -1194,12 +1212,26 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         // to the field's precision would make this chip
                         // disagree with the cell it just started agreeing with.
                         const percentField = { ...(objField as any), ...(sectionField as any) };
-                        // The field's declared precision, resolved with the
-                        // same view-over-object precedence the currency branch
-                        // above spells, and floored at the cell's own default:
-                        // `PercentCellRenderer` reads `field.precision ?? 0`.
-                        const precision = percentField.precision ?? 0;
-                        display = formatPercent(num, precision, displayLocale);
+                        // The field's declared width, resolved with the same
+                        // view-over-object precedence the currency branch above
+                        // spells, and floored at the cell's own default:
+                        // `PercentCellRenderer` reads `field.scale ?? 0`.
+                        //
+                        // ⭐ The MEMBER moved and the AUTHORITY did not
+                        // (objectui#9295). This read was `precision ?? 0` until
+                        // `@objectstack/spec` was read at source: it declares
+                        // `precision` as the "Total digits" of a decimal(p, s)
+                        // column and `scale` as its "Decimal places", so the
+                        // cell was padding a decimal(10, 2) percent field out to
+                        // ten fraction digits and this chip mirrored it there.
+                        // objectui#9167 routed this chip onto the LIST CELL as
+                        // the authority — its ruling turns on the two being
+                        // byte-equal — so when the cell's member moved, staying
+                        // on `precision` is what would have BROKEN that ruling,
+                        // not what would have kept it. Whatever the cell reads,
+                        // this reads; that is the whole of the coupling.
+                        const scale = percentField.scale ?? 0;
+                        display = formatPercent(num, scale, displayLocale);
                         const points = summaryChipPercentPoints(num);
                         percentValue = Math.max(0, Math.min(100, points));
                       }

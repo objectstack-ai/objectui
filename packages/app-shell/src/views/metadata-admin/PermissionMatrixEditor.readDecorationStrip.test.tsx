@@ -22,20 +22,30 @@
  * that nothing asserted. That is what this file closes: the strip was present
  * and unguarded, one edit away from silently coming back.
  *
- * ## Why the `.catch` arm and not the everyday one
+ * ## Which arm, and why it MOVED (objectui#9420)
  *
- * ⚠️ The success arm cannot carry decorations and is not evidence either way.
+ * ⚠️ The everyday arm cannot carry decorations and is not evidence either way.
  * `doSave` re-reads `layered` and merges through `mergePermissionSlice`, which
  * starts from `{ ...base }` and copies only `EDITOR_AUTHORED_KEYS` out of the
- * edited draft — so when the fresh read succeeds, `base` is the RAW `effective`
- * layer and every decoration is dropped by the merge whether or not the unwrap
- * stripped. A pin written there would pass with the strip deleted.
+ * edited draft — so when the fresh read answers a published layer, `base` is
+ * that RAW layer and every decoration is dropped by the merge whether or not
+ * the unwrap stripped. A pin written there would pass with the strip deleted.
  *
- * The leak the card names is the other arm: `client.layered(...).catch(() =>
- * null)` falls back to `base = payload`, the draft body itself, and
- * `mergePermissionSlice` then spreads it wholesale into `client.save`. The card
- * called this out as "a failure-path-only leak and it has not been exercised".
- * It is exercised here.
+ * The leak needs the arm where `base` IS the draft body — `fresh?.effective ??
+ * payload`, whose `payload` branch spreads the draft wholesale into
+ * `client.save`. This file used to reach that branch through the REJECTED
+ * re-read, and objectui#9420 closed that entrance: a rejection now REFUSES the
+ * save outright, because `payload` has been sliced to this package and merging
+ * onto it deletes every other package's permission rows. There is no PUT left
+ * on that arm to inspect.
+ *
+ * The `?? payload` branch itself is untouched and still reachable, through the
+ * OTHER entrance: `MetadataClient.layered` resolves a record the server does
+ * not hold as `{ effective: null, … }` rather than rejecting — the shape a set
+ * that exists only as a package draft answers with, which is why objectui#9420
+ * deliberately kept it saving. That is the arm driven below. The subject under
+ * test, the assertions and the controls are unchanged; only the way the fake
+ * client reaches the fallback moved.
  *
  * ## What the far side does, stated so nobody re-derives it
  *
@@ -89,15 +99,17 @@ interface Server {
 }
 
 /**
- * A client whose `layered` succeeds for the LOAD and then fails for `doSave`'s
- * re-read — the arm the card names. Failing both would leave the editor with no
- * published baseline at all and test a different screen.
+ * A client whose `layered` answers the published record for the LOAD and then
+ * the 404 shape (`effective: null`) for `doSave`'s re-read — the arm that still
+ * falls back to `base = payload`. Answering it for the load too would leave the
+ * editor with no published baseline at all and test a different screen.
  */
 function makeClient(server: Server) {
   return {
     layered: async () => {
       server.layeredCalls += 1;
-      if (server.layeredCalls >= 2) throw new Error('layered read failed');
+      if (server.layeredCalls >= 2)
+        return { effective: null, code: null, overlay: null, overlayScope: null };
       return { effective: PUBLISHED, code: null, overlay: null, overlayScope: null };
     },
     // The decorated envelope, exactly as `decorateMetadataItem` serves it.
@@ -139,7 +151,7 @@ import { PermissionMatrixEditPage } from './PermissionMatrixEditor';
 afterEach(cleanup);
 
 describe('PermissionMatrixEditPage — read decorations never reach the save (objectui#8181)', () => {
-  it('drops `_diagnostics` / `_draft` even when the save-time layered re-read fails', async () => {
+  it('drops `_diagnostics` / `_draft` when the save-time re-read finds no published layer', async () => {
     const server: Server = { saved: [], layeredCalls: 0 };
     clientImpl = makeClient(server);
 
@@ -160,7 +172,8 @@ describe('PermissionMatrixEditPage — read decorations never reach the save (ob
 
     // ── CONTROLS. Every absence below is meaningless without these. ──
 
-    // We are on the `.catch` arm: the re-read was attempted and it failed.
+    // We are on the `?? payload` arm: the re-read was attempted and it came
+    // back without a published layer.
     expect(server.layeredCalls).toBe(2);
     // The DRAFT BODY is the merge base, not the published record — proved by a
     // key only the draft carries. Without this the body under test could be the

@@ -165,9 +165,9 @@ interface KanbanColumn {
   cards: KanbanCard[];
   limit?: number;                     // WIP limit — the count at which the lane warns
   className?: string;
-  collapsed?: boolean;                // Lane renders collapsed (read by the KanbanEnhanced
-                                      // source module, which objectui#8257 left
-                                      // with no registry key — see CHANGELOG)
+  collapsed?: boolean;                // Lane starts collapsed — narrowed to a title
+                                      // spine, cards withheld, heading a disclosure
+                                      // the viewer can reopen (objectui#9628)
   color?: never;                      // RETIRED — refused by name; style a lane through className
 }
 
@@ -194,7 +194,13 @@ interface KanbanCard {
 
 ## Features
 
-- **Drag and Drop**: Drag cards between columns or reorder within a column
+- **Drag and Drop**: Drag cards between columns — the column change is persisted.
+  ⛔ **Not in-column ordering.** A card dropped inside its own column returns to
+  its position: card order is persisted nowhere, there is no ordering slot in
+  `@objectstack/spec` to write it to, and a board that animated the reorder
+  anyway would be showing a success the next data round-trip silently undoes
+  (objectui#8826). The landing position of a cross-column move is not claimed
+  either — the card lands where the data order puts it.
 - **Column Limits**: Set maximum card limits and get visual feedback when full
 - **Card Badges**: Add colored badges to cards for status/priority
 - **Responsive**: Horizontal scrolling for many columns

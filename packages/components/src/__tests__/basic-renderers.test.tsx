@@ -100,7 +100,7 @@ describe('Basic Renderers - Display Issue Detection', () => {
     it('should render children correctly', () => {
       const { container } = renderComponent({
         type: 'div',
-        body: [
+        children: [
           { type: 'text', content: 'Child 1' },
           { type: 'text', content: 'Child 2' },
         ],
@@ -113,7 +113,7 @@ describe('Basic Renderers - Display Issue Detection', () => {
     it('should not have display issues', () => {
       const { container } = renderComponent({
         type: 'div',
-        body: [{ type: 'text', content: 'Content' }],
+        children: [{ type: 'text', content: 'Content' }],
       });
 
       const issues = getAllDisplayIssues(container);

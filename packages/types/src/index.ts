@@ -170,6 +170,22 @@ export type {
   FileUploadSchema,
   DatePickerSchema,
   CalendarSchema,
+  // The two names on `form.ts`'s export list that this barrel did not carry,
+  // added by objectui#9406 (director seat, decision batch #133 item 2, letter
+  // (a), maintainer 2026-09-14). Both narrow a schema already on this list
+  // — `InputShorthandSchema` is `Omit<InputSchema, 'type' | 'inputType'>`,
+  // `UiCalendarSchema` is `Omit<CalendarSchema, 'type'>` — and both were
+  // already published on `@object-ui/types/form` and `@object-ui/types/zod`,
+  // so these two lines ALIGN the third entry point rather than widen the
+  // surface. Purely ADDITIVE, the same route objectui#7697 took for
+  // `ComboboxOption` above. What made the absence worse than "not found": the
+  // root spelling answered `Did you mean 'InputOTPSchema'?` — a different
+  // component — steering an author to a compiling, semantically wrong import.
+  // `form-barrel-mirror-9406.test.ts` re-derives this list against `form.ts`'s
+  // own exports on every run and names whatever is missing, so the gap these
+  // lines close cannot reopen unseen.
+  InputShorthandSchema,
+  UiCalendarSchema,
   FieldValidationRules,
   FieldCondition,
   DependsOnInput,
@@ -426,6 +442,7 @@ export type {
   // Component schemas
   ObjectMapSchema,
   ObjectMapConfig,
+  ObjectTreeSchema,
   ObjectGanttSchema,
   ObjectCalendarSchema,
   ObjectKanbanSchema,
@@ -446,6 +463,7 @@ export type {
   ViewNavigationConfig,
   ViewTabBarConfig,
   ObjectQLComponentSchema,
+  ObjectCalendarBlockConfig,
   BulkActionDef,
   BulkActionParam,
   BulkActionOperation,
@@ -867,7 +885,15 @@ export type {
   AIRecommendationsSchema,
   NLQueryResult,
   NLQuerySchema,
-  AIInsightsSchema,
+  // `AIInsightsSchema` is GONE from this block, not emptied out of it:
+  // `type: 'ai-insights'` was RETIRED whole in objectui#8800 (ADR-0049
+  // enforce-or-remove, director ruling of 2026-09-15, decision batch #137
+  // item 2, maintainer verbatim 「同意」, letter A). Nothing ever registered
+  // the discriminant, so the declaration could only ever route an author to a
+  // node that type-checks and then renders the OBJUI-001 panel. The reasoning,
+  // the boundary against the three AI schemas that DO render, and the in-repo
+  // limit on its census live at the tombstone in `./ai.ts`; the executable half
+  // is `./__tests__/ai-insights-retired-8800.test.ts`.
 } from './ai.js';
 
 // The Block System re-export block is GONE, not emptied: `BlockSchema`,

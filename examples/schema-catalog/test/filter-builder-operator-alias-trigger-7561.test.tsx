@@ -14,20 +14,30 @@
  *   as authored          `… Category Remove condition Price Remove condition …`
  *   operators corrected  `… Category Equals Remove condition Price Less than …`
  *
- * Three catalog entries author the spec's alias table (`eq` / `lt` / `gt`) —
- * `product-search`, `with-conditions`, and the `filter-builder` nested inside
- * `search-interface`. No `SelectItem` in the operator dropdown carries those
- * ids, and the trigger used to match its value LITERALLY against the mounted
- * items, so all three drew a blank operator cell over rows that filtered
- * correctly.
+ * Three catalog entries carry the rows this measures — `product-search`,
+ * `with-conditions`, and the `filter-builder` nested inside `search-interface`.
+ * No `SelectItem` in the operator dropdown carries a spelling from outside its
+ * own camelCase vocabulary, and the trigger used to match its value LITERALLY
+ * against the mounted items, so any other spelling of the same operator drew a
+ * blank operator cell over a row that filtered correctly.
+ *
+ * ⚠️ **What these entries author has since changed, and the pin was re-aimed
+ * rather than deleted.** When objectui#7561 landed they authored the spec's
+ * ALIAS table (`eq` / `lt` / `gt`), and this file's last assertion was a fence
+ * saying so — objectui#7561's own scope forbade touching catalog data, and the
+ * fence existed to stop a lenient "repair" being smuggled in as one. That fence
+ * was lifted by objectui#6939's remainder, which rewrote those seven spellings
+ * to the DECLARED vocabulary so the entries validate. ⇒ the assertion is
+ * INVERTED below, not dropped: it still names the key that moved, and it still
+ * refuses a migration back to a dialect the mirror does not accept.
  *
  * ## Why the swap is the control and not a repair
  *
- * ⛔ No catalog data is changed to make this pass. The swap happens in memory,
- * as a CONTROL: after the repair the two columns must be the SAME text, because
- * `normalizeFilterOperator` folds `eq` and `equals` onto one operator and the
- * trigger now resolves through it. Before the repair they differ — which is
- * what makes this measurement able to fail.
+ * ⛔ No catalog data is changed BY THIS FILE. The swap happens in memory, as a
+ * CONTROL: after objectui#7561's repair the two columns must be the SAME text,
+ * because `normalizeFilterOperator` folds every spelling of one operator onto
+ * one canonical member and the trigger now resolves through it. Before that
+ * repair they differ — which is what makes this measurement able to fail.
  *
  * ⭐ The corrected column deliberately uses the dropdown's OWN camelCase ids
  * (`lessThan`), not the spec's canonical `less_than`: those ids are the ones
@@ -36,12 +46,22 @@
  * rendering the same text is the claim; neither arm is a recommendation about
  * which vocabulary an author SHOULD use — that is objectui#7561's separate
  * ruling and is not decided here.
+ *
+ * ⚠️ The two vocabularies OVERLAP on three members (`equals`, `contains`,
+ * `in` are spelled identically in both), so "the arms are two dialects" cannot
+ * be stated as "no member of one appears in the other". The anti-vacuity leg
+ * below therefore asserts that at least one row's spelling really moved, and
+ * names the overlap instead of pretending it away.
  */
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import '@object-ui/components';
 import { SchemaRenderer, toRenderableSchema } from '@object-ui/react';
+import { FilterOperatorSchema } from '@object-ui/types/zod';
 import { getExample } from '../src/index.js';
+
+/** Taken FROM the mirror, never restated beside it. */
+const DECLARED_OPERATORS: readonly string[] = FilterOperatorSchema.options;
 
 /** The three entries whose rows carry an alias-table operator. */
 const AFFECTED = [
@@ -62,8 +82,22 @@ const EXPECTED: Record<(typeof AFFECTED)[number], string[]> = {
   'components-complex-filter-builder/with-conditions': ['Greater than', 'Equals'],
 };
 
-/** The alias spellings these entries author → the dropdown id each folds onto. */
+/**
+ * The declared spellings these entries author → the dropdown id each folds
+ * onto. Covers the spec's alias table too, so an entry re-authored in EITHER
+ * off-dropdown dialect is still carried by the control arm rather than
+ * silently passed through as an identity.
+ */
 const CORRECTION: Record<string, string> = {
+  // what the catalog authors today — `@objectstack/spec`'s canonical members
+  equals: 'equals',
+  not_equals: 'notEquals',
+  greater_than: 'greaterThan',
+  greater_than_or_equal: 'greaterOrEqual',
+  less_than: 'lessThan',
+  less_than_or_equal: 'lessOrEqual',
+  not_in: 'notIn',
+  // the alias table these entries authored before objectui#6939's remainder
   eq: 'equals',
   ne: 'notEquals',
   lt: 'lessThan',
@@ -72,6 +106,17 @@ const CORRECTION: Record<string, string> = {
   gte: 'greaterOrEqual',
   nin: 'notIn',
 };
+
+/**
+ * The members whose two spellings COINCIDE — a row on one of these cannot show
+ * the control arm moving, and saying so is what keeps the anti-vacuity leg
+ * honest rather than accidentally satisfied.
+ */
+const SPELT_ALIKE = new Set(
+  Object.entries(CORRECTION)
+    .filter(([authored, mounted]) => authored === mounted)
+    .map(([authored]) => authored),
+);
 
 function asAuthored(id: (typeof AFFECTED)[number]): Record<string, unknown> {
   return getExample(id).schema as Record<string, unknown>;
@@ -159,22 +204,40 @@ describe('objectui#7561 — the alias spellings the catalog authors render a lab
       const beforeOps = before.conditions.map((c) => c.operator);
       const afterOps = after.conditions.map((c) => c.operator);
       expect(afterOps).not.toEqual(beforeOps);
-      // Every authored operator really is an alias-table spelling…
+      // Every authored operator is a spelling the control table knows, so no
+      // row slipped through as an unmapped identity…
       expect(beforeOps.every((o) => o in CORRECTION)).toBe(true);
-      // …and none of the swapped-in ids is, so the arms are genuinely two
-      // different dialects of the same operators.
-      expect(afterOps.some((o) => o in CORRECTION)).toBe(false);
+      // …and every row that is NOT one of the coinciding members really moved,
+      // which is the arms being two dialects stated in the form the overlap
+      // permits. (⛔ `afterOps.some(o => o in CORRECTION) === false` is the
+      // form this once used and it is not available: `equals` is a member of
+      // both vocabularies.)
+      const moved = beforeOps.filter((o) => !SPELT_ALIKE.has(o));
+      expect(moved.length).toBeGreaterThan(0);
+      for (const [i, op] of beforeOps.entries()) {
+        if (SPELT_ALIKE.has(op)) expect(afterOps[i]).toBe(op);
+        else expect(afterOps[i]).not.toBe(op);
+      }
     }
   });
 
-  it('⛔ the catalog files themselves still author the alias table', () => {
-    // The fix must NOT be achieved by editing catalog data (objectui#7561's
-    // fence). If someone ever "repairs" the fixtures instead, this reddens.
+  it('⛔ the catalog files author the DECLARED vocabulary, not a dialect the mirror refuses', () => {
+    // INVERTED by objectui#6939's remainder — see this file's header. The
+    // entries now spell their operators the way `FilterOperatorSchema` declares
+    // them, which is what makes them pass `safeValidateSchema`; the two-column
+    // equality above is what says the rewrite cost no pixel.
+    //
+    // ⛔ If someone migrates them back to `eq` / `lt` / `gt`, or forward to the
+    // dropdown's own `greaterThan`, this reddens: both are spellings the mirror
+    // refuses, and the render is no longer the thing at stake.
     for (const id of AFFECTED) {
       const group = builderNode(asAuthored(id)).value as {
         conditions: { operator: string }[];
       };
-      for (const c of group.conditions) expect(c.operator in CORRECTION).toBe(true);
+      expect(group.conditions.length).toBeGreaterThan(0);
+      for (const c of group.conditions) {
+        expect(DECLARED_OPERATORS).toContain(c.operator);
+      }
     }
   });
 });

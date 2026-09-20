@@ -21,19 +21,33 @@
  * ## The defect
  *
  * `packages/plugin-kanban/src/ObjectKanban.tsx` — the component the
- * `object-kanban` registration renders — reads `schema.groupBy` at thirteen
+ * `object-kanban` registration renders — read `schema.groupBy` at thirteen
  * sites (lane materialisation, card moves, their effect deps) and
  * `schema.limit` at two (`$top: schema.limit ?? DEFAULT_KANBAN_LIMIT` and the
- * effect deps). `groupField` has ZERO read sites anywhere under
- * `packages/plugin-kanban/`. Yet the declaration in `../objectql.ts` REQUIRED
- * `groupField` and declared neither `groupBy` nor `limit`, and the zod mirror in
- * `../zod/objectql.zod.ts` restated it. Measured on `53ded82b` from source:
+ * effect deps) WHEN THIS CARD MEASURED IT — the `limit` half has since moved,
+ * see the objectui#9925 note closing this section. `groupField` has ZERO read
+ * sites anywhere under `packages/plugin-kanban/`. Yet the declaration in
+ * `../objectql.ts` REQUIRED `groupField` and declared neither `groupBy` nor
+ * `limit`, and the zod mirror in `../zod/objectql.zod.ts` restated it.
+ * Measured on `53ded82b` from source:
  * the documented, tested, working shape — `{ type: 'object-kanban',
  * objectName, groupBy, limit }` — FAILED `ObjectKanbanSchema.safeParse` and
  * `safeValidateSchema` on the missing `groupField`, while a `groupField`-only
  * node parsed green and rendered a board that grouped nothing. `groupBy` and
  * `limit` only ever reached the renderer through `BaseSchema`'s
  * `[key: string]: any` and `.passthrough()` — admitted, never examined.
+ *
+ * ⚠️ THE `limit` READING ABOVE IS THE ONE objectui#7322 MEASURED, NOT TODAY'S
+ * (objectui#9925). That card made the board REFUSE a non-positive row cap
+ * before it reaches the wire, and both halves of the reading moved with it:
+ * the spelling is now `$top: resolveRowLimit(schema.limit,
+ * DEFAULT_KANBAN_LIMIT)`, and the `schema.limit` CODE read sites are FOUR, not
+ * two — that `$top`, its effect's deps, the refusal diagnostic and that
+ * diagnostic's own effect deps. The older reading is left standing rather than
+ * rewritten away because it is the measurement that motivated the declaration;
+ * what is LIVE is `READ_TEXT` below, which a test re-derives off disk every
+ * run, while this paragraph is prose nothing re-checks. The thirteen
+ * `groupBy` sites are untouched by that card.
  *
  * ## What this file pins, and the shapes it borrows
  *
@@ -82,6 +96,18 @@ const RETIRED = 'groupField';
 /**
  * Exact source text of the reads, as they stand today. Line numbers drift and
  * live in the docblocks' prose only; the READ is the fact.
+ *
+ * The `limit` text was RE-POINTED by objectui#9925, which is what that rule
+ * prescribes rather than an exception to it. The pinned FACT is that the
+ * renderer lowers `schema.limit` into the query's top-level `$top`; that fact
+ * survived intact and only its spelling moved. `??` rejects `null` and
+ * `undefined` and nothing else, so an authored `limit: 0` was not nullish, rode
+ * through as a real window and reached the wire as `$top: 0` — on a key
+ * `@objectstack/spec` declares a POSITIVE integer. `resolveRowLimit` refuses
+ * that value instead of forwarding it. Same file, same reader, same named
+ * `query` object, same key, and still ONE `toContain`: the pin keeps the
+ * strength it had, and the new string is narrow enough that the retired `??`
+ * spelling could not satisfy it either.
  */
 const READ_TEXT: Record<Declared, readonly string[]> = {
   groupBy: [
@@ -89,7 +115,7 @@ const READ_TEXT: Record<Declared, readonly string[]> = {
     'if (schema.groupBy && objectDef?.fields?.[schema.groupBy]?.options) {',
     'const groupBy = schema.groupBy;',
   ],
-  limit: ['$top: schema.limit ?? DEFAULT_KANBAN_LIMIT'],
+  limit: ['$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)'],
 };
 /** The default the `limit` docblock names. */
 const DEFAULT_LIMIT_TEXT = 'export const DEFAULT_KANBAN_LIMIT = 100;';

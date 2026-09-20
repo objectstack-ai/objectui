@@ -364,7 +364,12 @@ export const RELATIONAL_META_READ_SET: Readonly<Record<string, RelationalMetaEnt
   multiple: { verdict: 'spec', readers: LOOKUP_EDITOR_ONLY, note: 'FieldSchema.multiple — picker cardinality. Read only by LookupField, which the grid feeds from the schema def, not from this bag: measured accumulating two picks in the inline picker with this table unchanged (objectui#7154).' },
   allowCreate: { verdict: 'spec', readers: LOOKUP_EDITOR_ONLY, note: 'FieldSchema.allowCreate — picker quick-create affordance. Same route as `multiple`: `allowCreate: false` measured removing the create entry the control column offers (objectui#7154).' },
   lookupPageSize: { verdict: 'spec', readers: LOOKUP_EDITOR_ONLY, note: 'FieldSchema.lookupPageSize — picker page size. Same route: a declared 3 measured scoping the picker dialog to 3 rows against a control of 10 (objectui#7154).' },
-  dependsOn: { verdict: 'spec', readers: LOOKUP_EDITOR_ONLY, note: 'FieldSchema.dependsOn — cascading picker filter. Same route, and it ARRIVES: the declared column renders the gated trigger. The grid supplies no dependent values, so that gate is permanent — objectui#2215’s grid-side residue, filed separately (objectui#7154).' },
+  // ⚠️ This note used to end "The grid supplies no dependent values, so that
+  // gate is permanent". That was true when objectui#7154 measured it and is not
+  // true now — objectui#7165 (finished by objectui#7188) gave `renderCellEditor`
+  // the dependent record. Per AGENTS.md #5 §9 the corrected note points at the
+  // instrument that re-derives the claim instead of restating its answer.
+  dependsOn: { verdict: 'spec', readers: LOOKUP_EDITOR_ONLY, note: 'FieldSchema.dependsOn — cascading picker filter. Same route, and it ARRIVES: the declared column renders the trigger, gated while a named parent is empty. Whether that gate can LIFT here is re-derived by `__tests__/gridDependentValues-7165.test.tsx`, not asserted in this sentence — the grid’s inline editor has supplied the dependent record since objectui#7165/#7188, closing objectui#2215’s grid-side residue (objectui#7154). The bulk action dialog’s half of that residue is objectui#8755.' },
 
   // ── Read on this path, no producer ──────────────────────────────────────
   allow_create: { verdict: 'no-producer', readers: LOOKUP_EDITOR_ONLY, note: 'Runtime twin of `allowCreate`. Not on FieldSchema.' },

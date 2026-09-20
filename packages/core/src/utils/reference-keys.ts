@@ -144,6 +144,23 @@ import { FieldSchema } from '@objectstack/spec/data';
  * REFUSED — a stored legacy document would lose the value instead of arriving
  * canonical, and silent data loss on a serve path is the worst of the shapes.
  *
+ * ⭐ The leave arm is no longer SILENT, which is the other half of that
+ * sentence: the document keeps the value, and the consumers — narrowed to the
+ * canonical spelling by objectui#7155 / #7166 / #7435 — read none of it. See
+ * {@link warnUnfoldableRetiredKey} (objectui#8938) for the diagnostic maintainer
+ * ruling item 3 asked for, and for the two cases it deliberately stays out of.
+ *
+ * ## ⛔ The WIDTH of this arm is measured, never declared
+ *
+ * This arm accepts one spelling rule applied to `FieldSchema`'s WHOLE declared
+ * key set, so its width is a property of the linked `@objectstack/spec` and
+ * grows with it — ⛔ it is not the handful of keys the cards that asked for it
+ * happened to name, and ⛔ no count of it belongs in prose here or in a
+ * changeset (objectui#8938; AGENTS.md #9). The instrument that re-derives it is
+ * the pin named `the width IS the spec's declared key set, not a list anyone
+ * typed`, which drives every snake twin the live spec implies through this
+ * choke point.
+ *
  * ⛔ The `id_field` slice is BLOCKED, and not on a card. `@objectstack/spec`'s
  * `FIELD_KEY_GUIDANCE` grew an `id_field` row explaining why the key has no
  * successor, but that row is in NO PUBLISHED version — measured against 17.3.0
@@ -172,6 +189,7 @@ const aliasProbe = (key: string): string => key.toLowerCase().replace(/[_\-\s]/g
 /** Memoized `FieldSchema` readings — see {@link fieldKeyFolds}. */
 let declaredFieldKeys: ReadonlySet<string> | null = null;
 let probeFolds: ReadonlyMap<string, string> | null = null;
+let collidingProbes: ReadonlyMap<string, readonly string[]> | null = null;
 
 /**
  * `probe -> canonical declared key`, derived once from `FieldSchema.shape`.
@@ -191,14 +209,24 @@ let probeFolds: ReadonlyMap<string, string> | null = null;
 function fieldKeyFolds(): ReadonlyMap<string, string> {
   if (probeFolds) return probeFolds;
   const declared = Object.keys(FieldSchema.shape as Record<string, unknown>);
-  const seen = new Map<string, string | null>();
+  const seen = new Map<string, string[]>();
   for (const key of declared) {
     const probe = aliasProbe(key);
-    seen.set(probe, seen.has(probe) ? null : key);
+    seen.set(probe, [...(seen.get(probe) ?? []), key]);
   }
   const folds = new Map<string, string>();
-  for (const [probe, key] of seen) if (key !== null) folds.set(probe, key);
+  const collisions = new Map<string, readonly string[]>();
+  // Same partition as before — a probe two declared keys share folds NOTHING —
+  // but the colliding keys are now kept rather than flattened to a `null`, so
+  // the diagnostic below can say WHICH declared keys the probe could not choose
+  // between instead of reporting the refusal as an unrecognised spelling
+  // (objectui#8938).
+  for (const [probe, keys] of seen) {
+    if (keys.length === 1) folds.set(probe, keys[0] as string);
+    else collisions.set(probe, keys);
+  }
   declaredFieldKeys = new Set(declared);
+  collidingProbes = collisions;
   probeFolds = folds;
   return folds;
 }
@@ -208,6 +236,90 @@ function fieldKeyFolds(): ReadonlyMap<string, string> {
  * reasoning as {@link warnedLegacyOnly}, which the docblock below sets out.
  */
 const warnedRetiredSpelling = new Set<string>();
+
+/**
+ * Warn once per (OBJECT, field, spelling, REASON) — see
+ * {@link warnUnfoldableRetiredKey}. The reason is in the key because the three
+ * refusals are three different fixes, and a def can hit more than one of them.
+ */
+const warnedUnfoldableSpelling = new Set<string>();
+
+/** Why the choke point left an undeclared key where it was. */
+type UnfoldableReason = 'no-declared-twin' | 'ambiguous-probe' | 'canonical-occupied';
+
+/**
+ * ## ⭐ THE DIAGNOSTIC FOR A SPELLING THIS CHOKE POINT CANNOT FOLD — objectui#8938
+ *
+ * Maintainer ruling item 3 (objectui#7650, comment 5572018999) asked the
+ * execution for "a loud diagnostic (not a silent drop) for a spelling the choke
+ * point cannot fold". The fold arm shipped with a warning for the spelling it
+ * CAN fold ({@link canonicalizeRetiredFieldKeys}) and nothing for the one it
+ * cannot, which is the half the ruling named: a key that folds still reaches
+ * every consumer, while a key that does not fold reaches none of them.
+ *
+ * ⛔ "Not a silent DROP" is about the reader, not about the document. Nothing
+ * here removes a key or a value — the leave arm is lossless and stays lossless.
+ * What is lost is the READ: the retirement cards in this family (objectui#7155,
+ * #7166, #7435) narrowed the consumers to the canonical spelling, so a value
+ * that never reaches a canonical key is a value nothing reads. That is the
+ * silence this makes audible.
+ *
+ * ## The three refusals, and why each is a different sentence
+ *
+ *   - `no-declared-twin` — `FieldSchema` declares neither the key nor anything
+ *     sharing its alias probe. `id_field` and `title_format` land here by the
+ *     derived rule rather than by an exclusion, and so does a typo (`sortible`):
+ *     ⛔ the diagnostic deliberately does NOT offer a near match, for the same
+ *     reason the fold does not — the spec's `lintAuthoredRecordKeys` falls
+ *     through to a Levenshtein matcher, and a serve path that suggests a
+ *     correction is one revision away from applying it.
+ *   - `ambiguous-probe` — two or more declared keys share the probe, so the
+ *     fold refuses to choose. Unreachable against a spec with no collision;
+ *     the pin that exercises it substitutes a colliding `FieldSchema`.
+ *   - `canonical-occupied` — the declared twin is already on the def carrying a
+ *     DIFFERENT value, and the fold never overwrites a value the producer set.
+ *     The producer's value is served, the retired one is inert, and NOTHING said
+ *     so before this. ⛔ Same value under both spellings is NOT this case: that
+ *     is the state this pass leaves behind on its own second run, and reporting
+ *     it would make every re-normalization of a correctly folded def noisy.
+ *
+ * ## ⛔ What it does NOT fire on — the two exclusions that keep it honest
+ *
+ *   - A key that DID fold. That case is {@link canonicalizeRetiredFieldKeys}'s
+ *     own warning, and firing here as well would report a def that works
+ *     exactly as loudly as one that does not.
+ *   - `reference_to` / `referenceTo`, which probe onto no declared key and
+ *     would otherwise report as `no-declared-twin` while the reference arm was
+ *     in the middle of stamping them. They have their own arm and their own
+ *     diagnostic ({@link warnOnLegacyOnlyReference}, objectui#6837).
+ *
+ * Dev-only and memoised, the discipline both existing warnings already use: the
+ * adapter re-serves a cached schema and `MetadataProvider` re-normalizes on
+ * every metadata refresh, so a warning that floods is a warning that gets muted.
+ */
+function warnUnfoldableRetiredKey(
+  reason: UnfoldableReason,
+  key: string,
+  detail: string,
+  fieldName: string | undefined,
+  objectName: string | undefined,
+  f: Record<string, unknown>,
+): void {
+  if (!isDev()) return;
+  const named = fieldName ?? (typeof f.name === 'string' ? f.name : '(unnamed field)');
+  const owner = objectName ?? '(unknown object)';
+  const memo = `${owner}:${named}:${key}:${reason}`;
+  if (warnedUnfoldableSpelling.has(memo)) return;
+  warnedUnfoldableSpelling.add(memo);
+  console.warn(
+    `[ObjectUI] Object \`${owner}\`, field \`${named}\`: the ingestion choke point CANNOT ` +
+      `canonicalize the retired spelling \`${key}\`. ${detail} The key and its value are LEFT ` +
+      `on the def exactly as served — nothing is dropped here — but the consumers read only the ` +
+      `spelling \`@objectstack/spec\`'s \`FieldSchema\` declares, so this value reaches no ` +
+      `reader. Fix the PRODUCER, or migrate the stored document. (maintainer ruling item 3 on ` +
+      `objectui#7650; objectui#8938)`,
+  );
+}
 
 /**
  * Stamp the canonical spelling for every retired-dialect key on one field def.
@@ -227,11 +339,63 @@ function canonicalizeRetiredFieldKeys(
   const folds = fieldKeyFolds();
   for (const key of Object.keys(f)) {
     if (declaredFieldKeys!.has(key)) continue;
-    const canonical = folds.get(aliasProbe(key));
-    if (canonical === undefined) continue;
     const value = f[key];
+    // Nothing to carry across and nothing to lose: no fold, and no diagnostic
+    // either — the reader is not missing a value that was never there.
     if (value === undefined) continue;
-    if (f[canonical] !== undefined) continue;
+    // The reference arm's own keys are handled (and warned about) below; they
+    // probe onto no declared key, so without this they would report here as an
+    // unfoldable spelling while that arm was about to stamp them.
+    if (REFERENCE_ARM_KEYS.has(key)) continue;
+    const probe = aliasProbe(key);
+    const canonical = folds.get(probe);
+    if (canonical === undefined) {
+      const colliding = collidingProbes!.get(probe);
+      if (colliding) {
+        warnUnfoldableRetiredKey(
+          'ambiguous-probe',
+          key,
+          `Its alias spelling is shared by MORE THAN ONE key \`FieldSchema\` declares ` +
+            `(${colliding.map((c) => `\`${c}\``).join(', ')}), so the fold refuses to choose ` +
+            `between them rather than picking one.`,
+          fieldName,
+          objectName,
+          f,
+        );
+      } else {
+        warnUnfoldableRetiredKey(
+          'no-declared-twin',
+          key,
+          `\`FieldSchema\` declares neither \`${key}\` nor any key sharing its alias spelling ` +
+            `(lowercased, with \`_\`, \`-\` and spaces removed), so there is no canonical key ` +
+            `to fold it onto — and this path deliberately does not guess a near match.`,
+          fieldName,
+          objectName,
+          f,
+        );
+      }
+      continue;
+    }
+    if (f[canonical] !== undefined) {
+      // ⛔ Only when a value is actually being lost. `f[canonical] === value` is
+      // the state this pass itself leaves behind — it stamps by reference and
+      // the adapter re-serves a cached schema, so reporting it would fire on
+      // every re-normalization of a def that folded perfectly the first time.
+      // The idempotence pin in the objectui#7650 suite is what measures this.
+      if (f[canonical] !== value) {
+        warnUnfoldableRetiredKey(
+          'canonical-occupied',
+          key,
+          `\`FieldSchema\` declares \`${canonical}\`, and this def already carries a ` +
+            `DIFFERENT value under it; the producer's value stands, because this choke point ` +
+            `never overwrites one.`,
+          fieldName,
+          objectName,
+          f,
+        );
+      }
+      continue;
+    }
     f[canonical] = value;
     if (!isDev()) continue;
     const named = fieldName ?? (typeof f.name === 'string' ? f.name : '(unnamed field)');
@@ -281,6 +445,7 @@ const warnedLegacyOnly = new Set<string>();
 export function resetReferenceKeyWarnings(): void {
   warnedLegacyOnly.clear();
   warnedRetiredSpelling.clear();
+  warnedUnfoldableSpelling.clear();
 }
 
 const isDev = (): boolean =>
@@ -289,6 +454,13 @@ const isDev = (): boolean =>
 
 /** The two spellings no contract declares, in the order the stamp prefers them. */
 const LEGACY_REFERENCE_KEYS = ['reference_to', 'referenceTo'] as const;
+
+/**
+ * The same two, as a set the retired-dialect arm tests before it reports a key
+ * as unfoldable — they are handled by the reference arm below, not left
+ * (objectui#8938).
+ */
+const REFERENCE_ARM_KEYS: ReadonlySet<string> = new Set<string>(LEGACY_REFERENCE_KEYS);
 
 /**
  * Dev-mode only: say out loud that a def arrived spelling ONLY a legacy key.

@@ -75,6 +75,7 @@ import {
   I18nLabelSchema as SpecI18nLabelSchema,
   ChartAggregateSchema as SpecChartAggregateSchema,
   ChartDrillDownSchema as SpecChartDrillDownSchema,
+  UserFilterFieldSchema as SpecUserFilterFieldSchema,
   objectNavTargetExclusivity,
 } from '@objectstack/spec/ui';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
@@ -180,6 +181,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // objectui#8885: `ObjectChartSchema.drillDown` crosses this boundary.
   ['ChartDrillDownSchema', SpecChartDrillDownSchema],
   ['SelectOptionSchema', SpecSelectOptionSchema],
+  // objectui#7265, the @object-ui/types slice: `UserFiltersSchema.fields[]`
+  // stopped being a hand copy of the spec's field shape and now derives from
+  // it, so that crossing is measured here like every other one.
+  ['UserFilterFieldSchema', SpecUserFilterFieldSchema],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */

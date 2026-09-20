@@ -102,7 +102,38 @@ import type {
 
 /**
  * Registry mapping component types to their schema definitions.
- * This interface is the Single Source of Truth for component type lookups.
+ *
+ * Two halves with different standing, split deliberately (objectui#7665),
+ * because one of them is reachable from this package and the other is not:
+ *
+ * **The KEY SET is the Single Source of Truth for component type lookups.**
+ * `keyof SchemaRegistry` IS the published `ComponentType` union (declared at the
+ * end of this file), so whether a key is declared here is the whole answer to
+ * whether a component type is registered — and a consumer discriminating on
+ * `ComponentType` is entitled to that answer.
+ *
+ * **A VALUE is the strongest type THIS LAYER can reach for that key**, which for
+ * a component whose renderer lives in a plugin package may be NARROWER than the
+ * type that renderer honours. Structural, not an oversight: such a component's
+ * authoring face is declared in the plugin, and this package cannot name it —
+ *
+ *   - `pnpm check:phantom-deps` (`scripts/check-phantom-dependencies.mjs`)
+ *     judges `import type` exactly as it judges a value import, so importing a
+ *     specifier `@object-ui/types` does not declare is refused; and
+ *   - declaring the dependency instead closes a cycle — a plugin package depends
+ *     on this one, directly or through what it depends on — and the build graph
+ *     is then rejected as cyclic.
+ *
+ *   Both are re-derived by those two tools; this paragraph is not the evidence.
+ *
+ * ⇒ The limit is this layer's reach, ⛔ not a licence for an entry to describe a
+ * type it cannot name: an entry states what it can prove from here, and closing
+ * the gap is a move in the plugin, not a wider claim here (objectui#7664 closed
+ * the kanban one by moving the dialect down into this package).
+ *
+ * Worked example: objectui#7645, where the type the registered kanban renderer
+ * honoured lived in `@object-ui/plugin-kanban` — unreachable from here for both
+ * reasons above, while the entry described it anyway.
  */
 export interface SchemaRegistry {
   // Layout
@@ -120,6 +151,46 @@ export interface SchemaRegistry {
   'tabs': TabsSchema;
   'scroll-area': ScrollAreaSchema;
   'resizable': ResizableSchema;
+  // ⭐ `'page'` is the ONLY page key in this map, and the four page KINDS that
+  // `ComponentRegistry` also answers — `record` / `home` / `app` / `utility` —
+  // are ABSENT from it deliberately. Read that gap here before concluding
+  // anything from it (objectui#9642, and objectui#9263 / objectui#9576, the two
+  // cards that concluded the opposite).
+  //
+  // **The channel.** A STORED page document's `type` field is not a node type at
+  // all: it is the spec's page KIND, enumerated by `PageTypeSchema` in
+  // `@objectstack/spec/ui`. `PageView` (`@object-ui/app-shell`) hands the
+  // document to `SchemaRenderer` with that kind written VERBATIM into `type` —
+  // the discriminator `ComponentRegistry` dispatches on — plus a copy on
+  // `pageType`. ⇒ The `PageRenderer` registrations in
+  // `@object-ui/components`' `renderers/layout/page.tsx` exist BECAUSE of that
+  // line; they are the renderer half of `PageTypeSchema`, which is why one of
+  // them is labelled "App Page". `'page'` itself is the fallback the same
+  // mapping writes for a document carrying no `type`, and it is the key
+  // `PageNodeSchema` pins (`z.literal('page')`).
+  //
+  // ⛔ So a `PageRenderer` key missing from this map is NOT the
+  // "registered but never declared" defect this repository files elsewhere: it
+  // is declared, upstream, in a different vocabulary. Removing such a
+  // registration stops every stored page of that kind rendering — objectui#9263
+  // reached a draft PR doing exactly that and was re-ruled letter E, "⛔ not a
+  // defect".
+  //
+  // ⭐ **`app` is one token carrying two vocabularies.** `AppComponentSchema`
+  // (`./app.ts`) declares the type literal `'app'` for the APP-LEVEL DOCUMENT
+  // (`app.json`: tabs, navigation, areas), which the runner / layout path reads
+  // STRUCTURALLY and never resolves through `ComponentRegistry` — which is why
+  // this map has no `'app'` key for it either. The spec page kind `app` is a
+  // different vocabulary: a stored PAGE document with regions, served by
+  // `PageRenderer` through `PageView`'s passthrough. ⛔ Neither is a collision
+  // to be resolved by removing the other.
+  //
+  // ⚠️ Adding the kinds to this map is ⛔ NOT the remedy — `keyof SchemaRegistry`
+  // IS the published `ComponentType` union, so an entry here is a widening, and
+  // a widening is a ruling (the `'kanban'` note below states the same limit).
+  // The live answer to which kind is served how is re-derived by
+  // `page-kind-node-type-channel-9642` in `@object-ui/components`, ⛔ not by this
+  // paragraph.
   'page': PageNodeSchema;
 
   // Form

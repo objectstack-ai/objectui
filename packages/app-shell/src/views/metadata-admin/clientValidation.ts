@@ -842,6 +842,112 @@ async function validateObjectFieldRules(draft: unknown): Promise<SchemaFormIssue
 }
 
 /**
+ * CEL predicate slots on an object's `validations` rules (objectui#9497).
+ *
+ * The server's rule evaluator — `rule-validator.ts` in `@objectstack/objectql`
+ * — binds a validation predicate's context as `{ record, previous }` and
+ * NOTHING else, and since objectstack#4649 a predicate it cannot evaluate is
+ * fail-CLOSED: `checkPredicate` logs "predicate failed to evaluate (…) — write
+ * rejected (#4649)" and `unevaluableRuleError` turns that into a
+ * `rule_violation`. So a bare-shorthand `amount > 100` authored here does not
+ * merely fail to match — it rejects EVERY write to the object, and the spec's
+ * Zod accepts it (`ExpressionInputSchema` checks the SHAPE only, exactly as it
+ * does for the field conditional rules above).
+ *
+ * Two keys, because the server evaluates two and the spec spells them
+ * differently per rule type: `condition` on `script` / `cross_field`
+ * (`checkPredicate`), and `when` on `conditional` (`checkConditional`, whose
+ * fault text is the same sentence with "when-predicate"). `format`,
+ * `state_machine` and `json_schema` carry no CEL and are untouched.
+ *
+ * ⛔ The authority is the SERVER, not `@object-ui/core`'s
+ * `ObjectValidationEngine.scopeFor` — that engine is deprecated and pinned
+ * unwired by `validation-engine-stays-unwired.test.ts`, and it binds the bare
+ * field names as well, which is the spelling that fail-closes here.
+ *
+ * ⚠️ `conditionScope.ts`'s ruled table agrees and is NOT read from here, both
+ * halves deliberate. Its `validation` row is `record`, on the same server
+ * reading — so this gate and the schema-driven editor reach one verdict from
+ * one authority rather than from each other. ⛔ Its `object` row (`none`) is
+ * not the row that governs this check and must not be read as overruling it:
+ * that table answers which scope a condition WIDGET may claim for the metadata
+ * type on screen, and its `ConditionScope` has a third value, `none`, that a
+ * gate cannot act on. The rules linted here are validation rules, whichever
+ * door opened the object draft.
+ */
+const VALIDATION_RULE_PREDICATE_KEYS = ['condition', 'when'] as const;
+
+/**
+ * The nested-rule slots a `conditional` rule branches into. `checkConditional`
+ * dispatches the taken branch back through `evaluateRule` with the SAME
+ * context, so a nested `script` rule's `condition` fail-closes identically —
+ * and the Validations panel's `conditional` skeleton seeds exactly such a
+ * nested rule. Linting only the top level would leave that predicate unlinted.
+ */
+const VALIDATION_RULE_BRANCH_KEYS = ['then', 'otherwise'] as const;
+
+/**
+ * Recursion bound. `validateMetadataDraft` takes `unknown` — a draft reaching
+ * it from the JSON source editor is acyclic, but nothing in this module's
+ * signature promises that, and an unbounded walk of a self-referential object
+ * would hang the editor. The spec nests one rule per branch; this is a ceiling,
+ * ⛔ not a declared nesting limit.
+ */
+const VALIDATION_RULE_MAX_DEPTH = 8;
+
+/**
+ * Lint every object validation rule's CEL predicate on a draft.
+ *
+ * Runs with `scope: 'record'` and reports only lint ERRORS — the same contract
+ * as `validateObjectFieldRules`, and for the same reason: warnings would be
+ * noise at the draft level.
+ *
+ * ⛔ No `slot` is passed, deliberately. `celAuthoring`'s slot-routed verdict
+ * comes from `@objectstack/lint`'s `fieldRuleRootIssue`, whose bound-root set
+ * is the FIELD tier's (`record` / `previous` / `parent`). A validation rule
+ * binds `record` / `previous` only, so adopting that verdict here would import
+ * a judgement derived for a different surface — the drift
+ * `FIELD_RULE_VERDICT_SLOTS`' own docblock warns against. Unnamed, the
+ * wrong-layer advisory keeps the local instrument; it is a `warning` either
+ * way, so this gate's verdict does not move on it.
+ */
+async function validateObjectValidationRules(draft: unknown): Promise<SchemaFormIssue[]> {
+  const d = draft as { name?: unknown; fields?: unknown; validations?: unknown } | null | undefined;
+  const rules = d?.validations;
+  if (!Array.isArray(rules)) return [];
+  const objectName = typeof d?.name === 'string' ? d.name : undefined;
+  const fieldNames = readFields(d?.fields).entries.map((e) => e.name);
+  const issues: SchemaFormIssue[] = [];
+
+  const visit = async (rule: unknown, path: string, depth: number): Promise<void> => {
+    if (!rule || typeof rule !== 'object' || Array.isArray(rule)) return;
+    if (depth > VALIDATION_RULE_MAX_DEPTH) return;
+    const r = rule as Record<string, unknown>;
+    for (const key of VALIDATION_RULE_PREDICATE_KEYS) {
+      const source = predicateSource(r[key]);
+      if (source == null || !source.trim()) continue;
+      const findings = await lintCelPredicate(source, {
+        objectName,
+        fields: fieldNames,
+        scope: 'record',
+      });
+      for (const f of findings) {
+        if (f.severity !== 'error') continue;
+        issues.push({ path: `${path}.${key}`, message: f.message });
+      }
+    }
+    for (const branch of VALIDATION_RULE_BRANCH_KEYS) {
+      await visit(r[branch], `${path}.${branch}`, depth + 1);
+    }
+  };
+
+  for (let i = 0; i < rules.length; i++) {
+    await visit(rules[i], `validations.${i}`, 0);
+  }
+  return issues;
+}
+
+/**
  * ── Retired `formula` alias: point the author at the migration surface (objectui#6526) ──
  *
  * PRESENTATION ONLY — same contract as `expandViewIssues`: this runs strictly
@@ -989,9 +1095,16 @@ export async function validateMetadataDraft(
   const schema = await getSchemaForType(type, mode);
   if (!schema) return { ok: true, issues: [] };
 
-  // CEL lint for object field conditional rules — additive to the Zod shape
-  // check (a draft can be shape-valid yet carry an unparsable predicate).
-  const celIssues = type === 'object' ? await validateObjectFieldRules(draft) : [];
+  // CEL lint for object field conditional rules and object VALIDATION rules —
+  // additive to the Zod shape check (a draft can be shape-valid yet carry an
+  // unparsable predicate). Two calls, not one merged walk: the field-rule
+  // check's contract is unchanged by objectui#9497, and keeping it a separate
+  // function is what lets a reader see a fifth check added rather than the
+  // existing four moved.
+  const celIssues =
+    type === 'object'
+      ? [...(await validateObjectFieldRules(draft)), ...(await validateObjectValidationRules(draft))]
+      : [];
 
   const result = schema.safeParse(draft);
   if (result.success) {

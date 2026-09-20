@@ -13,10 +13,21 @@
  * calls it or conspicuously does not.
  *
  * Both widgets deliberately share the `fields.file.exceedsMaxSize` key too. The
- * sentence names a file and a limit and says nothing file-widget-specific, it is
- * already translated in all 11 built-in locales, and a parallel `fields.image.*`
- * twin would be the same sentence maintained twice — drifting the moment one
- * translator rewords one of them.
+ * sentence names a file and a limit and says nothing file-widget-specific, and a
+ * parallel `fields.image.*` twin would be the same sentence maintained twice —
+ * drifting the moment one translator rewords one of them.
+ *
+ * The key is already translated in every locale `@object-ui/i18n` ships. ⛔ How
+ * many that is, this comment does not say: `all-locales-key-parity.test.ts` in
+ * that package is what re-derives it, and it asserts the stronger fact this
+ * sentence actually needs — every pack defines every `en` key — over whatever
+ * the pack set is on the day it runs. A restated count cannot be re-derived by
+ * the next reader, and this line proved it: it shipped in the published source
+ * of `@object-ui/fields` naming a built-in locale count one HIGHER than the
+ * packs `@object-ui/i18n` actually ships, and stayed that way through every
+ * reading of this file (AGENTS.md commandment #9; objectui#9615). ⛔ The wrong
+ * numeral is deliberately not quoted back here — a census greps for it, and a
+ * post-mortem that restates it lights that census up forever.
  */
 
 /**

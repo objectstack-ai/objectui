@@ -49,10 +49,11 @@ reaches:
 no-filter.
 
 **Not closed by this change**, and not claimed to be: `filterMode` and
-`enableMentions` are also members of the declared shape and are still unread on
-this path — `RecordActivityTimeline` takes `filterMode` as a component prop
-rather than off `config`, and the chatter path's mentions come from the host
-context. Tracked as objectui#8968. The host fallback panel described above was
+`enableMentions` are also members of the declared shape and were still unread on
+this path when this change landed — `RecordActivityTimeline` takes `filterMode`
+as a component prop rather than off `config`, and the chatter path's mentions
+come from the host context. Tracked as objectui#8968, and closed by it in this
+same release — see that entry. The host fallback panel described above was
 tracked as objectui#8983, since closed — see the note above it.
 
 Marked `minor` rather than `patch`: this repository never declares `major` (the

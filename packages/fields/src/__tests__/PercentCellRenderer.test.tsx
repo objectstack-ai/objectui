@@ -88,8 +88,10 @@ describe('PercentCellRenderer — value beats the decorative bar (issue #5066)',
     expect(screen.getByText('33%')).toBeInTheDocument();
     first.unmount();
 
-    // Declared precision keeps the decimals — the widest text, worst overflow.
-    renderPercent(33.33, { precision: 2 });
+    // A declared `scale` keeps the decimals — the widest text, worst overflow.
+    // ⛔ NOT `precision` (objectui#9295): that is the column's TOTAL digit
+    // count, and reading it here is the defect that card removed.
+    renderPercent(33.33, { scale: 2 });
     const wide = screen.getByText('33.33%');
     expect(wide).toBeInTheDocument();
     expect(wide).toHaveClass('shrink-0');

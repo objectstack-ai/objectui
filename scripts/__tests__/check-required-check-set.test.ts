@@ -255,3 +255,110 @@ describe('check-required-check-set — the wiring', () => {
     expect(yml).toMatch(/exit_code=\$code/);
   });
 });
+
+/**
+ * objectui#9502. Four sentences in this tree told an author that the ruleset
+ * cannot be read from here. All four were TRUE when written — objectui#4959
+ * recorded a merge landing while all four `Test (shard N/4)` jobs were
+ * `in_progress`, which is possible only if none of them was required — and the
+ * ruleset was edited afterwards (`updated_at` 2026-08-24) without the prose
+ * moving. An author who trusted one of them and re-sharded the test jobs would
+ * block every pull request in the repository on contexts that can never be
+ * produced again.
+ *
+ * The repair was to POINT at this gate instead of restating its answer, so this
+ * block asserts the pointer rather than the answer: nothing it reads could go
+ * stale the next time a maintainer edits the ruleset.
+ *
+ * ⚠️ The population is named in words: the three files objectui#9502 repaired.
+ * `AGENTS.md` carries a fourth instance and is deliberately NOT in that set —
+ * it is governed surface, and its parenthetical also covers who may bypass the
+ * ruleset, which the endpoint this gate reads does not carry. That exclusion is
+ * what makes the control below real: the same detector, run over `AGENTS.md`,
+ * must FIRE. A zero from a detector never observed firing is decoration.
+ */
+describe('check-required-check-set — the prose points here instead of answering (#9502)', () => {
+  /** The three files objectui#9502 repaired. */
+  const REPAIRED = [
+    'content/docs/guide/ci-cd-pipeline.md',
+    '.github/workflows/dependabot-auto-merge.yml',
+    'scripts/dependabot-merge-gate.mjs',
+  ];
+
+  /** The carrier left standing on purpose — and this block's positive control. */
+  const LEFT_STANDING = 'AGENTS.md';
+
+  /**
+   * The claim being hunted: the ruleset cannot be READ from this repository.
+   * Matched on joined text, because every carrier was wrapped across lines and a
+   * per-line reader could not see any of them.
+   */
+  const CANNOT_READ =
+    /nothing (?:here|in this repository) can read|从仓内读不到|cannot be read from (?:here|this repository)/i;
+
+  const flatten = (rel: string): string =>
+    fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\s+/g, ' ');
+
+  it('CONTROL: the detector fires — on a constructed sentence, and on real tree content', () => {
+    // Leg 1, self-contained: the regex is proven able to return non-zero here,
+    // so the zeros below do not rest on any other file staying as it is.
+    expect(CANNOT_READ.test('that set is a surface nothing here can read')).toBe(true);
+    expect(CANNOT_READ.test('that set is a surface nothing here can change')).toBe(false);
+
+    // Leg 2, the same detector over real content: `AGENTS.md` still carries the
+    // claim, deliberately. If this leg ever goes red the governed carrier was
+    // ruled on and repaired — which is a legitimate change, not a bug here. The
+    // remedy is to move the inventory docblock in the gate with it and retire
+    // this leg, NOT to weaken the detector.
+    expect(
+      CANNOT_READ.test(flatten(LEFT_STANDING)),
+      `${LEFT_STANDING} no longer carries the claim this detector hunts. If that carrier was ` +
+        `repaired, update the inventory docblock in ${GATE} to match and drop this leg. ` +
+        'Leg 1 above keeps the detector honest either way.',
+    ).toBe(true);
+  });
+
+  it.each(REPAIRED)('%s makes no "cannot be read" claim', (rel) => {
+    const flat = flatten(rel);
+
+    // Anchor first: a file that moved or emptied would pass the assertion below
+    // vacuously. Each anchor is a phrase the repaired passage must still carry.
+    expect(flat, `${rel} no longer mentions the required set at all`).toMatch(
+      /required[\s-]check|checks are required|required set/i,
+    );
+
+    // The historical quotation in `dependabot-merge-gate.mjs` is explicitly
+    // labelled as the sentence that was replaced, so it is matched by neither
+    // half of the detector — it says "carrying the shards", not "can read".
+    expect(CANNOT_READ.test(flat), `${rel} still claims this surface cannot be read`).toBe(false);
+  });
+
+  it.each(REPAIRED)('%s points at this gate rather than restating its answer', (rel) => {
+    expect(flatten(rel)).toContain('check-required-check-set');
+  });
+
+  it('no repaired file restates which contexts the ruleset currently holds', () => {
+    // Pinning a spelling is what created the card: `Test (shard N/4)` named as a
+    // present-tense member of the required set is the exact sentence an author
+    // would act on. The shard names may still appear — `REQUIRED_CONTEXTS`
+    // declares them — so the detector looks for the CLAIM, not the names.
+    const RESTATES = /(?:required set|checks are required|required[\s-]check set)[^.]{0,80}\b(?:contains|holds|carries|includes)\b/i;
+
+    // Control, same regex, one argument changed: a sentence of the forbidden
+    // shape is detected. Proven able to return non-zero before any zero below.
+    expect(RESTATES.test('the required set contains the four shards today')).toBe(true);
+
+    for (const rel of REPAIRED) {
+      expect(RESTATES.test(flatten(rel)), `${rel} restates the ruleset's membership`).toBe(false);
+    }
+  });
+
+  it("the gate's own docblock inventories every repaired carrier, and the one left standing", () => {
+    const docblock = fs.readFileSync(path.join(ROOT, GATE), 'utf8').slice(0, 4000);
+    for (const rel of [...REPAIRED, LEFT_STANDING]) {
+      expect(docblock, `${GATE} no longer names ${rel} in its inventory`).toContain(rel);
+    }
+    // The write half is the reason the sentences were not simply deleted.
+    expect(docblock).toMatch(/WRITE half/);
+  });
+});

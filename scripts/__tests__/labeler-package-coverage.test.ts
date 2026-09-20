@@ -36,11 +36,16 @@ import { parse as parseYaml } from 'yaml';
  * and the workflow can drift out from under both:
  *
  *   1. **Add a package, forget the label.** The #7746 direction.
- *   2. **Delete a package, forget the rule.** The mirror, and it is already live: the
- *      `designer` rule targets `packages/designer`, whose `package.json` was deleted in
- *      `21396ca4d`. It is carried below as a NAMED exemption pointing at objectui#7771,
- *      which decides delete-vs-retarget — so this gate is honest about it today and
- *      reddens the moment that card is resolved either way.
+ *   2. **Delete a package, forget the rule.** The mirror. It was live when this file
+ *      landed: the `designer` rule targeted `packages/designer`, whose `package.json`
+ *      was deleted in `21396ca4d`, so it had matched nothing since — carried here as a
+ *      NAMED exemption while objectui#7771 decided delete-vs-retarget. That card ruled
+ *      **delete**: an unmeasured successor relationship (`packages/plugin-designer`)
+ *      does not buy a retarget, which would silently change what the `designer` label
+ *      means relative to every historical PR carrying it. The rule left the config and
+ *      its exemption row left this file, so the direction below is now enforced with no
+ *      waiver standing between it and the config. `UNRESOLVABLE_GLOB_EXEMPT` is the one
+ *      place that says whether any waiver is outstanding; ⛔ do not restate it here.
  *   3. **Add rules for labels that do not exist yet, then drop the permission that
  *      lets them be created.** See the workflow assertion at the bottom of this file.
  *
@@ -86,16 +91,7 @@ const UNLABELLED_BY_DESIGN = new Map<string, string>([
  * `packages/`-rooted globs allowed to match no existing directory, each with the reason.
  * Empty is the healthy state; an entry here is a live defect with a card, not a waiver.
  */
-const UNRESOLVABLE_GLOB_EXEMPT = new Map<string, string>([
-  [
-    'packages/designer/**/*',
-    '`packages/designer` no longer exists — its `package.json` was deleted in commit ' +
-      '21396ca4d, and the rule has matched nothing since. objectui#7771 decides whether ' +
-      'to delete the rule or retarget it to `packages/plugin-designer`; the successor ' +
-      'relationship is unmeasured, so this gate must not pick for the maintainer. Drop ' +
-      'this row when that card lands.',
-  ],
-]);
+const UNRESOLVABLE_GLOB_EXEMPT = new Map<string, string>([]);
 
 /**
  * Glob constructs this file models. Anything else makes the test THROW rather than quietly

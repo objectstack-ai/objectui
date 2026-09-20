@@ -324,7 +324,16 @@ describe('the enforcement state is declared once, and this pin states what lande
     // Run twice over a real fixture through the real CLI, since exit codes are
     // the only thing CI reads. A gate whose failing path is never exercised is
     // one nobody has shown can fail.
-    const scratch = fs.mkdtempSync(path.join(repoRoot, '.tmp-citation-gate-'));
+    // The throwaway repo goes under `node_modules/`, never straight into the
+    // repo root. `textFootprint()` in `scripts/check-i18n-dead-keys.mjs` sweeps
+    // the repo root in one `grep -rFn` pass, and a directory that disappears
+    // between that grep enumerating it and descending into it makes grep exit
+    // 2 — a status that sweep rethrows deliberately, taking the whole shard
+    // down with it. objectui#9468 holds the occurrences, one of them an
+    // already-green pull request ejected from the merge queue. `node_modules`
+    // is skipped by the repo-wide scanners under `scripts/`, so nothing
+    // transient placed here is ever walked by one.
+    const scratch = fs.mkdtempSync(path.join(repoRoot, 'node_modules', '.tmp-citation-gate-'));
     try {
       execFileSync('git', ['init', '-q'], { cwd: scratch });
       execFileSync('git', ['config', 'user.email', 'gate@example.invalid'], { cwd: scratch });
@@ -467,5 +476,81 @@ describe('wiring — a gate nothing runs is not a gate', () => {
 
   it('the workflow job name matches the classified context name', () => {
     expect(workflow).toMatch(/^\s*name: Line Citation Gate$/m);
+  });
+});
+
+/**
+ * objectui#9865 — a declared fixture address is one class, read once.
+ *
+ * ⭐ THE POINT OF PUTTING IT HERE. The census and this gate share ONE carve-out
+ * list for the reason its docblock gives: two lists over one population drift,
+ * and the direction they drift in is silent. A declaration read by only one of
+ * the two readers would be that same failure wearing a new shape — the census
+ * would report a row carved out while this gate reddened a branch for adding
+ * it, with nothing anywhere saying which answer was meant.
+ *
+ * ⛔ So the firing leg comes first and every non-firing assertion is paired
+ * with it on the same code path: a gate that carves out everything reports zero
+ * for the same reason a broken differ does.
+ */
+describe('a declared fixture address is carved out by BOTH readers (objectui#9865)', () => {
+  const ADDRESS = '// the vocabulary is declared at packages/core/src/actions/ActionRunner.ts:112\n';
+  const DECLARED = `// fixture-address: control input, the reader under test reads it\n${ADDRESS}`;
+  const added = (headText: string, baseText = '') =>
+    newCitationsIn({ relPath: 'packages/example/src/notes.ts', baseText, headText }) as {
+      citedLine: number;
+    }[];
+
+  it('⛔ FIRING CONTROL — the undeclared address IS reported as added', () => {
+    // Without this leg every assertion below is satisfied by a differ that
+    // reports nothing at all, which is the one failure this file exists to stop.
+    expect(added(ADDRESS).map((a) => a.citedLine)).toEqual([112]);
+  });
+
+  it('does not report an added address the citing text declares', () => {
+    expect(added(DECLARED)).toEqual([]);
+  });
+
+  it('⛔ a marker with no reason is a mute button and the address is still reported', () => {
+    expect(added(`// fixture-address:\n${ADDRESS}`).map((a) => a.citedLine)).toEqual([112]);
+  });
+
+  it('differences the DECLARED population too, so a branch that adds one is visible', () => {
+    // Report-only, and printed: the moment a declaration is added is the one
+    // moment a reader can still object to it.
+    const declaredAdded = newCitationsIn({
+      relPath: 'packages/example/src/notes.ts',
+      baseText: '',
+      headText: DECLARED,
+      of: 'declared',
+    }) as { citedLine: number; declaredReason: string }[];
+    expect(declaredAdded).toHaveLength(1);
+    expect(declaredAdded[0].citedLine).toBe(112);
+    expect(declaredAdded[0].declaredReason).toBe('control input, the reader under test reads it');
+
+    // ...and a declaration already present at the base is NOT re-reported.
+    const unchanged = newCitationsIn({
+      relPath: 'packages/example/src/notes.ts',
+      baseText: DECLARED,
+      headText: DECLARED,
+      of: 'declared',
+    }) as unknown[];
+    expect(unchanged).toEqual([]);
+  });
+
+  it('reads the declaration from the shared scanner rather than re-declaring it', () => {
+    // Same discipline as `SELF_FILES` above: one reader, ⛔ never a second copy.
+    const source = fs.readFileSync(gatePath, 'utf8');
+    expect(source).not.toMatch(/fixture-address:\[/);
+    expect(source).not.toMatch(/const DECLARATION\s*=/);
+  });
+
+  it('carries both legs as synthetic controls, so a live run proves them again', () => {
+    const ids = (SYNTHETIC_CASES as { id: string }[]).map((c) => c.id);
+    expect(ids).toContain('a-declared-fixture-address-is-not-a-finding');
+    expect(ids).toContain('a-declaration-without-a-reason-still-reports');
+    for (const c of evaluateSyntheticCases() as { id: string; ok: boolean; detail: string }[]) {
+      expect(c.ok, `${c.id} -- ${c.detail}`).toBe(true);
+    }
   });
 });

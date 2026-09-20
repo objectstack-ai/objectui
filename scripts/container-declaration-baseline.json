@@ -74,52 +74,234 @@
       "reason": "PERMANENT, RULED EXCEPTION -- not an oversight, not pending anything. Admitted 2026-08-29 as provisional by objectui#6779, which deferred the question to a separate card; that card is objectui#6804 and the maintainer ruled it 2026-08-30: `button` does NOT declare `isContainer`. Three grounds, all re-derived on this tree. (1) SEMANTICS -- `isContainer` means LAYOUT CONTAINMENT, not `this tag renders children`. `button` reads `schema.children` only as a fallback for `schema.label` (packages/components/src/renderers/form/button.tsx, `schema.label || renderChildren(...)`), so it is not a container; declaring it would make one predicate mean two different things. (2) COST -- `button` is the only public-tier member of the 45, and `renderers/layout/react-page.tsx` skips containers when it builds the JSX scope of every `kind:'react'` page, so declaring the flag DELETES the `Button` identifier from all of them. That is an immediate, user-visible capability loss. (3) PULL -- zero measured: nothing records anyone wanting to nest layout content inside a button, so the trade is a certain cost against a hypothetical gain. ⛔ Do NOT `fix` this entry by declaring the flag, and do NOT move `button` into `undeclared` -- both override the ruling. What keeps the exception honest is the pin, which asserts all three facts it rests on (still renders children, still undeclared, still public); if any one of them changes this goes RED and the exception must be RE-RULED, not quietly re-based. Scope note for the next hand: this card deliberately did not edit that `button.tsx` line -- the `schema.body || schema.children` expression on it belongs to objectui#6771 (retirement of the `body` dialect).",
       "issue": "objectui#6804",
       "since": "2026-08-29"
+    },
+    "alert": {
+      "reason": "RULED EXCEPTION, admitted by objectui#6771's retirement of the `body` child-list dialect. This registration rendered `renderChildren(schema.body)` and never touched `schema.children`, so it was one of the dozen for which `body` was the ONLY door; the maintainer ruling of 2026-09-01 retired that spelling and it now reads `children`, which is why the runtime predicate started calling it a container. ⛔ The answer is NOT `isContainer`: objectui#6804's ruling (2026-08-30) anticipated exactly this moment and wrote the cross-card instruction verbatim — when objectui#6771 gives these registrations a `children` read and objectui#6808's predicate marks them containers, the answer is a pin exception WITH ITS GROUND, not a declaration. The ground is the same one `button` rests on: `isContainer` means LAYOUT CONTAINMENT, and this read is a content fallback behind `description`, not a layout slot, so declaring it would make one predicate mean two things. ⚠️ PUBLIC TIER: this tag is in `PUBLIC_BLOCKS`, so declaring the flag would also delete its identifier from the JSX scope of every `kind:'react'` page — the same immediate, user-visible capability loss that made `button` an exclusion rather than a ratchet line. ⚠️ AND THERE IS A MEASURED COST TO THIS EXCEPTION, recorded here rather than left for rediscovery: `validateTree`'s containment branch reads `node.children?.length`, so an author writing `children` — now the ONLY key this registration reads — draws `not-a-container` on a page that renders correctly. That is the defect objectui#6771 was filed about (a false diagnostic on the one spelling that works), moved from `body` to `children` rather than removed. It is pinned as a refusal in `container-declaration-ratchet.test.tsx`'s `schema.body` readers block and reported on objectui#6771; ⛔ do not resolve it by quietly declaring the flag, which overrides objectui#6804.",
+      "issue": "objectui#6804",
+      "since": "2026-09-18"
+    },
+    "badge": {
+      "reason": "RULED EXCEPTION, admitted by objectui#6771's retirement of the `body` child-list dialect. This registration rendered `renderChildren(schema.body)` and never touched `schema.children`, so it was one of the dozen for which `body` was the ONLY door; the maintainer ruling of 2026-09-01 retired that spelling and it now reads `children`, which is why the runtime predicate started calling it a container. ⛔ The answer is NOT `isContainer`: objectui#6804's ruling (2026-08-30) anticipated exactly this moment and wrote the cross-card instruction verbatim — when objectui#6771 gives these registrations a `children` read and objectui#6808's predicate marks them containers, the answer is a pin exception WITH ITS GROUND, not a declaration. The ground is the same one `button` rests on: `isContainer` means LAYOUT CONTAINMENT, and this read is a label fallback behind `label`, the same shape `button` was excluded for, so declaring it would make one predicate mean two things. ⚠️ PUBLIC TIER: this tag is in `PUBLIC_BLOCKS`, so declaring the flag would also delete its identifier from the JSX scope of every `kind:'react'` page — the same immediate, user-visible capability loss that made `button` an exclusion rather than a ratchet line. ⚠️ AND THERE IS A MEASURED COST TO THIS EXCEPTION, recorded here rather than left for rediscovery: `validateTree`'s containment branch reads `node.children?.length`, so an author writing `children` — now the ONLY key this registration reads — draws `not-a-container` on a page that renders correctly. That is the defect objectui#6771 was filed about (a false diagnostic on the one spelling that works), moved from `body` to `children` rather than removed. It is pinned as a refusal in `container-declaration-ratchet.test.tsx`'s `schema.body` readers block and reported on objectui#6771; ⛔ do not resolve it by quietly declaring the flag, which overrides objectui#6804.",
+      "issue": "objectui#6804",
+      "since": "2026-09-18"
+    },
+    "sidebar-content": {
+      "reason": "RULED EXCEPTION, admitted by objectui#6771's retirement of the `body` child-list dialect. This registration rendered `renderChildren(schema.body)` and never touched `schema.children`, so it was one of the dozen for which `body` was the ONLY door; the maintainer ruling of 2026-09-01 retired that spelling and it now reads `children`, which is why the runtime predicate started calling it a container. ⛔ The answer is NOT `isContainer`: objectui#6804's ruling (2026-08-30) anticipated exactly this moment and wrote the cross-card instruction verbatim — when objectui#6771 gives these registrations a `children` read and objectui#6808's predicate marks them containers, the answer is a pin exception WITH ITS GROUND, not a declaration. The ground is the same one `button` rests on: `isContainer` means LAYOUT CONTAINMENT, and this read is a chrome slot on a shadcn sidebar part rather than an authored layout region, so declaring it would make one predicate mean two things. This tag is not in `PUBLIC_BLOCKS` (the public set carries the namespaced `page:sidebar`, a different type), so no injected react-page identifier is at stake either way. ⚠️ AND THERE IS A MEASURED COST TO THIS EXCEPTION, recorded here rather than left for rediscovery: `validateTree`'s containment branch reads `node.children?.length`, so an author writing `children` — now the ONLY key this registration reads — draws `not-a-container` on a page that renders correctly. That is the defect objectui#6771 was filed about (a false diagnostic on the one spelling that works), moved from `body` to `children` rather than removed. It is pinned as a refusal in `container-declaration-ratchet.test.tsx`'s `schema.body` readers block and reported on objectui#6771; ⛔ do not resolve it by quietly declaring the flag, which overrides objectui#6804.",
+      "issue": "objectui#6804",
+      "since": "2026-09-18"
+    },
+    "sidebar-footer": {
+      "reason": "RULED EXCEPTION, admitted by objectui#6771's retirement of the `body` child-list dialect. This registration rendered `renderChildren(schema.body)` and never touched `schema.children`, so it was one of the dozen for which `body` was the ONLY door; the maintainer ruling of 2026-09-01 retired that spelling and it now reads `children`, which is why the runtime predicate started calling it a container. ⛔ The answer is NOT `isContainer`: objectui#6804's ruling (2026-08-30) anticipated exactly this moment and wrote the cross-card instruction verbatim — when objectui#6771 gives these registrations a `children` read and objectui#6808's predicate marks them containers, the answer is a pin exception WITH ITS GROUND, not a declaration. The ground is the same one `button` rests on: `isContainer` means LAYOUT CONTAINMENT, and this read is a chrome slot on a shadcn sidebar part rather than an authored layout region, so declaring it would make one predicate mean two things. This tag is not in `PUBLIC_BLOCKS` (the public set carries the namespaced `page:sidebar`, a different type), so no injected react-page identifier is at stake either way. ⚠️ AND THERE IS A MEASURED COST TO THIS EXCEPTION, recorded here rather than left for rediscovery: `validateTree`'s containment branch reads `node.children?.length`, so an author writing `children` — now the ONLY key this registration reads — draws `not-a-container` on a page that renders correctly. That is the defect objectui#6771 was filed about (a false diagnostic on the one spelling that works), moved from `body` to `children` rather than removed. It is pinned as a refusal in `container-declaration-ratchet.test.tsx`'s `schema.body` readers block and reported on objectui#6771; ⛔ do not resolve it by quietly declaring the flag, which overrides objectui#6804.",
+      "issue": "objectui#6804",
+      "since": "2026-09-18"
+    },
+    "sidebar-group": {
+      "reason": "RULED EXCEPTION, admitted by objectui#6771's retirement of the `body` child-list dialect. This registration rendered `renderChildren(schema.body)` and never touched `schema.children`, so it was one of the dozen for which `body` was the ONLY door; the maintainer ruling of 2026-09-01 retired that spelling and it now reads `children`, which is why the runtime predicate started calling it a container. ⛔ The answer is NOT `isContainer`: objectui#6804's ruling (2026-08-30) anticipated exactly this moment and wrote the cross-card instruction verbatim — when objectui#6771 gives these registrations a `children` read and objectui#6808's predicate marks them containers, the answer is a pin exception WITH ITS GROUND, not a declaration. The ground is the same one `button` rests on: `isContainer` means LAYOUT CONTAINMENT, and this read is a chrome slot on a shadcn sidebar part rather than an authored layout region, so declaring it would make one predicate mean two things. This tag is not in `PUBLIC_BLOCKS` (the public set carries the namespaced `page:sidebar`, a different type), so no injected react-page identifier is at stake either way. ⚠️ AND THERE IS A MEASURED COST TO THIS EXCEPTION, recorded here rather than left for rediscovery: `validateTree`'s containment branch reads `node.children?.length`, so an author writing `children` — now the ONLY key this registration reads — draws `not-a-container` on a page that renders correctly. That is the defect objectui#6771 was filed about (a false diagnostic on the one spelling that works), moved from `body` to `children` rather than removed. It is pinned as a refusal in `container-declaration-ratchet.test.tsx`'s `schema.body` readers block and reported on objectui#6771; ⛔ do not resolve it by quietly declaring the flag, which overrides objectui#6804.",
+      "issue": "objectui#6804",
+      "since": "2026-09-18"
+    },
+    "sidebar-header": {
+      "reason": "RULED EXCEPTION, admitted by objectui#6771's retirement of the `body` child-list dialect. This registration rendered `renderChildren(schema.body)` and never touched `schema.children`, so it was one of the dozen for which `body` was the ONLY door; the maintainer ruling of 2026-09-01 retired that spelling and it now reads `children`, which is why the runtime predicate started calling it a container. ⛔ The answer is NOT `isContainer`: objectui#6804's ruling (2026-08-30) anticipated exactly this moment and wrote the cross-card instruction verbatim — when objectui#6771 gives these registrations a `children` read and objectui#6808's predicate marks them containers, the answer is a pin exception WITH ITS GROUND, not a declaration. The ground is the same one `button` rests on: `isContainer` means LAYOUT CONTAINMENT, and this read is a chrome slot on a shadcn sidebar part rather than an authored layout region, so declaring it would make one predicate mean two things. This tag is not in `PUBLIC_BLOCKS` (the public set carries the namespaced `page:sidebar`, a different type), so no injected react-page identifier is at stake either way. ⚠️ AND THERE IS A MEASURED COST TO THIS EXCEPTION, recorded here rather than left for rediscovery: `validateTree`'s containment branch reads `node.children?.length`, so an author writing `children` — now the ONLY key this registration reads — draws `not-a-container` on a page that renders correctly. That is the defect objectui#6771 was filed about (a false diagnostic on the one spelling that works), moved from `body` to `children` rather than removed. It is pinned as a refusal in `container-declaration-ratchet.test.tsx`'s `schema.body` readers block and reported on objectui#6771; ⛔ do not resolve it by quietly declaring the flag, which overrides objectui#6804.",
+      "issue": "objectui#6804",
+      "since": "2026-09-18"
+    },
+    "sidebar-inset": {
+      "reason": "RULED EXCEPTION, admitted by objectui#6771's retirement of the `body` child-list dialect. This registration rendered `renderChildren(schema.body)` and never touched `schema.children`, so it was one of the dozen for which `body` was the ONLY door; the maintainer ruling of 2026-09-01 retired that spelling and it now reads `children`, which is why the runtime predicate started calling it a container. ⛔ The answer is NOT `isContainer`: objectui#6804's ruling (2026-08-30) anticipated exactly this moment and wrote the cross-card instruction verbatim — when objectui#6771 gives these registrations a `children` read and objectui#6808's predicate marks them containers, the answer is a pin exception WITH ITS GROUND, not a declaration. The ground is the same one `button` rests on: `isContainer` means LAYOUT CONTAINMENT, and this read is a chrome slot on a shadcn sidebar part rather than an authored layout region, so declaring it would make one predicate mean two things. This tag is not in `PUBLIC_BLOCKS` (the public set carries the namespaced `page:sidebar`, a different type), so no injected react-page identifier is at stake either way. ⚠️ AND THERE IS A MEASURED COST TO THIS EXCEPTION, recorded here rather than left for rediscovery: `validateTree`'s containment branch reads `node.children?.length`, so an author writing `children` — now the ONLY key this registration reads — draws `not-a-container` on a page that renders correctly. That is the defect objectui#6771 was filed about (a false diagnostic on the one spelling that works), moved from `body` to `children` rather than removed. It is pinned as a refusal in `container-declaration-ratchet.test.tsx`'s `schema.body` readers block and reported on objectui#6771; ⛔ do not resolve it by quietly declaring the flag, which overrides objectui#6804.",
+      "issue": "objectui#6804",
+      "since": "2026-09-18"
+    },
+    "sidebar-menu": {
+      "reason": "RULED EXCEPTION, admitted by objectui#6771's retirement of the `body` child-list dialect. This registration rendered `renderChildren(schema.body)` and never touched `schema.children`, so it was one of the dozen for which `body` was the ONLY door; the maintainer ruling of 2026-09-01 retired that spelling and it now reads `children`, which is why the runtime predicate started calling it a container. ⛔ The answer is NOT `isContainer`: objectui#6804's ruling (2026-08-30) anticipated exactly this moment and wrote the cross-card instruction verbatim — when objectui#6771 gives these registrations a `children` read and objectui#6808's predicate marks them containers, the answer is a pin exception WITH ITS GROUND, not a declaration. The ground is the same one `button` rests on: `isContainer` means LAYOUT CONTAINMENT, and this read is a chrome slot on a shadcn sidebar part rather than an authored layout region, so declaring it would make one predicate mean two things. This tag is not in `PUBLIC_BLOCKS` (the public set carries the namespaced `page:sidebar`, a different type), so no injected react-page identifier is at stake either way. ⚠️ AND THERE IS A MEASURED COST TO THIS EXCEPTION, recorded here rather than left for rediscovery: `validateTree`'s containment branch reads `node.children?.length`, so an author writing `children` — now the ONLY key this registration reads — draws `not-a-container` on a page that renders correctly. That is the defect objectui#6771 was filed about (a false diagnostic on the one spelling that works), moved from `body` to `children` rather than removed. It is pinned as a refusal in `container-declaration-ratchet.test.tsx`'s `schema.body` readers block and reported on objectui#6771; ⛔ do not resolve it by quietly declaring the flag, which overrides objectui#6804.",
+      "issue": "objectui#6804",
+      "since": "2026-09-18"
+    },
+    "sidebar-menu-item": {
+      "reason": "RULED EXCEPTION, admitted by objectui#6771's retirement of the `body` child-list dialect. This registration rendered `renderChildren(schema.body)` and never touched `schema.children`, so it was one of the dozen for which `body` was the ONLY door; the maintainer ruling of 2026-09-01 retired that spelling and it now reads `children`, which is why the runtime predicate started calling it a container. ⛔ The answer is NOT `isContainer`: objectui#6804's ruling (2026-08-30) anticipated exactly this moment and wrote the cross-card instruction verbatim — when objectui#6771 gives these registrations a `children` read and objectui#6808's predicate marks them containers, the answer is a pin exception WITH ITS GROUND, not a declaration. The ground is the same one `button` rests on: `isContainer` means LAYOUT CONTAINMENT, and this read is a chrome slot on a shadcn sidebar part rather than an authored layout region, so declaring it would make one predicate mean two things. This tag is not in `PUBLIC_BLOCKS` (the public set carries the namespaced `page:sidebar`, a different type), so no injected react-page identifier is at stake either way. ⚠️ AND THERE IS A MEASURED COST TO THIS EXCEPTION, recorded here rather than left for rediscovery: `validateTree`'s containment branch reads `node.children?.length`, so an author writing `children` — now the ONLY key this registration reads — draws `not-a-container` on a page that renders correctly. That is the defect objectui#6771 was filed about (a false diagnostic on the one spelling that works), moved from `body` to `children` rather than removed. It is pinned as a refusal in `container-declaration-ratchet.test.tsx`'s `schema.body` readers block and reported on objectui#6771; ⛔ do not resolve it by quietly declaring the flag, which overrides objectui#6804.",
+      "issue": "objectui#6804",
+      "since": "2026-09-18"
+    },
+    "sidebar-provider": {
+      "reason": "RULED EXCEPTION, admitted by objectui#6771's retirement of the `body` child-list dialect. This registration rendered `renderChildren(schema.body)` and never touched `schema.children`, so it was one of the dozen for which `body` was the ONLY door; the maintainer ruling of 2026-09-01 retired that spelling and it now reads `children`, which is why the runtime predicate started calling it a container. ⛔ The answer is NOT `isContainer`: objectui#6804's ruling (2026-08-30) anticipated exactly this moment and wrote the cross-card instruction verbatim — when objectui#6771 gives these registrations a `children` read and objectui#6808's predicate marks them containers, the answer is a pin exception WITH ITS GROUND, not a declaration. The ground is the same one `button` rests on: `isContainer` means LAYOUT CONTAINMENT, and this read is a chrome slot on a shadcn sidebar part rather than an authored layout region, so declaring it would make one predicate mean two things. This tag is not in `PUBLIC_BLOCKS` (the public set carries the namespaced `page:sidebar`, a different type), so no injected react-page identifier is at stake either way. ⚠️ AND THERE IS A MEASURED COST TO THIS EXCEPTION, recorded here rather than left for rediscovery: `validateTree`'s containment branch reads `node.children?.length`, so an author writing `children` — now the ONLY key this registration reads — draws `not-a-container` on a page that renders correctly. That is the defect objectui#6771 was filed about (a false diagnostic on the one spelling that works), moved from `body` to `children` rather than removed. It is pinned as a refusal in `container-declaration-ratchet.test.tsx`'s `schema.body` readers block and reported on objectui#6771; ⛔ do not resolve it by quietly declaring the flag, which overrides objectui#6804.",
+      "issue": "objectui#6804",
+      "since": "2026-09-18"
     }
   },
   "undeclared": {
-    "a": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "abbr": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "address": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "app": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "b": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "blockquote": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "cite": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "dd": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "del": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "div": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "dl": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "dt": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "em": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "figcaption": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "figure": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "form": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "h1": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "h2": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "h3": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "h4": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "h5": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "h6": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "home": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "i": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "ins": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "li": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "mark": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "ol": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "p": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "page": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "pre": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "q": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "record": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "scroll-area": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "small": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "span": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "strong": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "sub": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "sup": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "time": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "toggle": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "u": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "ul": { "since": "2026-08-29", "issue": "objectui#6779" },
-    "utility": { "since": "2026-08-29", "issue": "objectui#6779" }
+    "a": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "abbr": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "address": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "app": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "b": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "blockquote": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "cite": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "dd": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "del": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "div": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "dl": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "dt": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "em": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "figcaption": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "figure": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "form": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "h1": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "h2": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "h3": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "h4": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "h5": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "h6": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "home": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "i": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "ins": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "li": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "mark": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "ol": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "p": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "page": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "pre": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "q": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "record": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "scroll-area": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "small": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "span": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "strong": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "sub": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "sup": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "time": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "toggle": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "u": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "ul": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    },
+    "utility": {
+      "since": "2026-08-29",
+      "issue": "objectui#6779"
+    }
   }
 }

@@ -51,6 +51,23 @@
  * ⇒ The position is lost on BOTH paths. They differ only in WHEN the user sees
  *   it happen.
  *
+ * ── ⭐ WHAT THIS FILE ANNOUNCED, AND WHAT WAS THEN RULED ───────────────────
+ * The paragraph above is the reading this file was written to freeze, and the
+ * maintainer ruled on it: objectui#8826 letter B — the board stops claiming a
+ * capability it does not have. Two of the assertions below moved as a result,
+ * and this note is the announcement the file exists to make:
+ *  - the EXTERNAL-path asymmetry no longer leaves the card in the slot it was
+ *    dropped in. The cross-column branch appends instead of splicing at the
+ *    drop index, so the board claims membership and says nothing about
+ *    position. ⚠️ In THIS fixture appended and record order coincide (`Alpha`
+ *    is last in the record array), so what the assertion distinguishes is the
+ *    dropped slot from everything else — not "appended" from "record order".
+ *  - the internal-path snap is unchanged in outcome and no longer a snap: the
+ *    card never occupies the dropped slot to begin with.
+ * The wire, both controls and the record-order reading are untouched, and
+ * still say what they said. The ruled behaviour is pinned in
+ * `sameColumnDropIsNotClaimed-8826.test.tsx`.
+ *
  * ── The instrument ────────────────────────────────────────────────────────
  * The card's recorder: the `columns` prop the board receives, captured on every
  * render, via a module mock of `../KanbanImpl` that records and then renders the
@@ -280,27 +297,37 @@ describe('ObjectKanban — a cross-column drop loses the landing position too (#
     expect(recorder.snapshots.slice(before)).toEqual([RECORD_ORDER]);
   });
 
-  it('THE MEASUREMENT (internal data): the card visibly leaves the dropped slot in the same act', async () => {
+  it('THE MEASUREMENT (internal data): the card is never in the dropped slot', async () => {
     await mountBoard('internal', makeDataSource(acceptingUpdate() as never));
 
     await dropAlphaOntoXray();
 
-    // Dropped at slot 0; on screen at slot 2. The optimistic write re-renders
-    // the board, which re-buckets and re-syncs the mirror from the prop.
+    // Dropped at slot 0; on screen at slot 2. Two things agree on that now:
+    // the branch appends rather than honouring the drop index, and the
+    // optimistic write re-renders the board, which re-buckets and re-syncs the
+    // mirror from the prop. Before objectui#8826 this was a visible snap out of
+    // slot 0 inside this same act.
     expect(cardsIn('In Progress')).toEqual(['Xray', 'Yankee', 'Alpha']);
     expect(cardsIn('Backlog')).toEqual([]);
   });
 
-  it('THE ASYMMETRY (external data): no snapshot at all, so the dropped slot survives on screen', async () => {
+  it('THE ASYMMETRY (external data): still no snapshot at all — and the dropped slot is no longer claimed', async () => {
     const before = await mountBoard('external', makeDataSource(acceptingUpdate() as never));
 
     await dropAlphaOntoXray();
 
     // The optimistic write is skipped on this ownership, so nothing re-renders
-    // and `KanbanImpl`'s mirror is never reset — the local move stands.
+    // and `KanbanImpl`'s mirror is never reset — the local move stands, and on
+    // this path it is the ONLY thing the user sees until the parent reflows.
+    // That is exactly why it may not encode the drop index: this board would
+    // otherwise hold a position no reload reproduces, indefinitely.
     expect(recorder.snapshots.slice(before)).toEqual([]);
-    expect(cardsIn('In Progress')).toEqual(['Alpha', 'Xray', 'Yankee']);
-    // ...and it is still not persisted anywhere: the next reflow from the
+    // ⚠️ `Alpha` is last in the record array, so appended and record order are
+    // the same list here. What this distinguishes is the DROPPED slot (`Alpha`
+    // first) from everything else — which is the claim that was removed.
+    expect(cardsIn('In Progress')).toEqual(['Xray', 'Yankee', 'Alpha']);
+    expect(cardsIn('In Progress')).not.toEqual(['Alpha', 'Xray', 'Yankee']);
+    // ...and the order is still persisted nowhere: the next reflow from the
     // parent will carry membership and not order.
   });
 

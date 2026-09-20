@@ -80,6 +80,149 @@ export type { FormFieldSpec, FormSectionSpec, FormViewSpec, VisibilityPredicate 
 
 type JsonSchema = Record<string, any>;
 
+/* ----- `$ref` indirection (objectui#9912) --------------------------------- */
+
+/**
+ * JSON Schema keywords whose value is DATA, not a subschema — never walked by
+ * {@link inlineSchemaRefs}. Mirrors the producer's own position-aware walk
+ * (`@objectstack/metadata-protocol` `unauthorable-nodes.ts`), for the same
+ * reason: a metadata `default` or `const` is an author's VALUE, and a value
+ * that happens to carry a `$ref` key is not an indirection this renderer may
+ * follow.
+ */
+const REF_WALK_DATA_KEYS: ReadonlySet<string> = new Set([
+  'default', 'const', 'enum', 'examples', 'title', 'description',
+  '$schema', '$id', '$comment', 'required',
+]);
+
+/**
+ * Keywords whose value is a MAP of author-chosen NAME to subschema. The map is
+ * not a schema node; every VALUE in it is. Reading such a map as a node is how
+ * a property literally named `items` or `not` gets its own value treated as a
+ * keyword.
+ */
+const REF_WALK_MAP_KEYS: ReadonlySet<string> = new Set([
+  'properties', 'patternProperties', 'dependentSchemas',
+]);
+
+/**
+ * Inline a served schema's `$ref` nodes against its own `$defs`, so the widget
+ * decision sees the shape the document declares instead of an indirection it
+ * has no branch for (objectui#9912).
+ *
+ * ## What the platform actually serves, and which rows this moves
+ *
+ * `/meta/types` derives each type with `z.toJSONSchema()`, and Zod emits a
+ * `$defs` entry plus a `$ref` for any schema reached more than once or defined
+ * recursively. The resulting node carries no `type`, no `properties` and no
+ * `enum`, so it reaches {@link resolveFieldFace} with nothing to classify and
+ * falls to the last-resort JSON editor — while the shape it points at is right
+ * there in the same document.
+ *
+ * ⚠️ Measured on the installed `@objectstack/spec`, and the headline is a
+ * NEGATIVE: most of the served `$ref` rows are the recursive Query-DSL
+ * `FilterCondition` (`dataset.filter`, `field.relatedListFilter`,
+ * `report.runtimeFilter`, `dashboard.widgets[].filter`, …), whose target
+ * derives to `allOf: [ an open record, { $and / $or / $not } ]` — no top-level
+ * `type`, so the face after inlining is the SAME JSON editor. Those rows are
+ * NOT what this buys; `SchemaForm.refIndirection-9912.test.tsx` pins both
+ * directions so a later reader does not mistake one for the other, and the
+ * `widget: 'json'` the spec's own `report` form declares on `runtimeFilter`
+ * says the JSON editor is the intended control there.
+ *
+ * ## The cycle guard is not defensive, it is load-bearing
+ *
+ * That same `FilterCondition` target refers to ITSELF (`$and` is an array of
+ * it), so an eager resolver does not terminate. A pointer already on the
+ * resolution stack is left as the `$ref` node it is — which is exactly the
+ * behaviour this function replaces, applied one level in.
+ *
+ * ## Sibling keywords win
+ *
+ * JSON Schema 2020-12 allows keywords beside `$ref`, and the derivation uses
+ * that for the row's own `description` — its help text in the form. The inlined
+ * target is therefore the BASE and the node's own keys are laid over it, never
+ * the other way round.
+ *
+ * Pure and copy-on-write: a document with no resolvable `$ref` is returned by
+ * reference, so every type that carries none renders from the very same object
+ * it does today.
+ */
+function inlineSchemaRefs(doc: JsonSchema | undefined): JsonSchema | undefined {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return doc;
+
+  /** The target of a LOCAL pointer into this document's own definitions. */
+  const target = (ref: string): JsonSchema | undefined => {
+    const match = /^#\/(\$defs|definitions)\/(.+)$/.exec(ref);
+    if (!match) return undefined;
+    // RFC 6901 escapes, in the order the spec mandates (`~1` before `~0`).
+    const key = match[2].replace(/~1/g, '/').replace(/~0/g, '~');
+    const dictionary = doc[match[1]];
+    if (!dictionary || typeof dictionary !== 'object') return undefined;
+    const found = dictionary[key];
+    return found && typeof found === 'object' && !Array.isArray(found)
+      ? (found as JsonSchema)
+      : undefined;
+  };
+
+  function walkNode(node: unknown, stack: readonly string[]): unknown {
+    if (Array.isArray(node)) {
+      let changed = false;
+      const out = node.map((entry) => {
+        const next = walkNode(entry, stack);
+        if (next !== entry) changed = true;
+        return next;
+      });
+      return changed ? out : node;
+    }
+    if (!node || typeof node !== 'object') return node;
+    const source = node as JsonSchema;
+
+    const ref = typeof source.$ref === 'string' ? source.$ref : undefined;
+    if (ref) {
+      // A pointer already being resolved — the recursive arm. Leave it.
+      if (stack.includes(ref)) return node;
+      const found = target(ref);
+      if (!found) return node;
+      const inlined = walkNode(found, [...stack, ref]) as JsonSchema;
+      const siblings: Record<string, unknown> = { ...source };
+      delete siblings.$ref;
+      return Object.keys(siblings).length > 0 ? { ...inlined, ...siblings } : inlined;
+    }
+
+    let out: Record<string, unknown> | undefined;
+    for (const [key, entry] of Object.entries(source)) {
+      if (REF_WALK_DATA_KEYS.has(key)) continue;
+      // The definition dictionary stays byte-identical: pointers into it must
+      // keep resolving, and each target is walked when it is inlined.
+      if (key === '$defs' || key === 'definitions') continue;
+      const next = REF_WALK_MAP_KEYS.has(key)
+        ? walkMap(entry, stack)
+        : walkNode(entry, stack);
+      if (next !== entry) {
+        out ??= { ...source };
+        out[key] = next;
+      }
+    }
+    return out ?? node;
+  }
+
+  function walkMap(map: unknown, stack: readonly string[]): unknown {
+    if (!map || typeof map !== 'object' || Array.isArray(map)) return map;
+    let out: Record<string, unknown> | undefined;
+    for (const [key, entry] of Object.entries(map as Record<string, unknown>)) {
+      const next = walkNode(entry, stack);
+      if (next !== entry) {
+        out ??= { ...(map as Record<string, unknown>) };
+        out[key] = next;
+      }
+    }
+    return out ?? map;
+  }
+
+  return walkNode(doc, []) as JsonSchema;
+}
+
 /** Widgets that don't need a custom renderer — they overlay on the
  * existing default control (textarea/input/etc) and just act as a hint. */
 const KNOWN_PASSTHROUGH_WIDGETS = new Set<string>([
@@ -290,6 +433,87 @@ function inferWidget(
 }
 
 /**
+ * Does this schema admit a STRING value — looking THROUGH nested unions?
+ *
+ * ## Why this is not `schema.anyOf.some(b => b.type === 'string')`
+ *
+ * Five NAME-CONVENTION detectors below share one gate: the name says which
+ * widget a property WANTS, and this shape test says whether the property can
+ * actually hold what that widget writes. Each of them used to spell the gate
+ * inline as a ONE-LEVEL scan of `anyOf`, and a one-level scan is blind to a
+ * union nested inside a union — which is exactly the shape the platform serves
+ * for a predicate that also accepts a boolean literal. Derived from the
+ * installed `@objectstack/spec` through the same `z.toJSONSchema` call
+ * `/meta/types` is served with, an `action`'s own `visible` reads:
+ *
+ * ```
+ * anyOf: [ { type: 'boolean' },
+ *          { anyOf: [ { type: 'string', minLength: 1 },
+ *                     { type: 'object', properties: { dialect, source, … } } ] } ]
+ * ```
+ *
+ * The string arm IS there, one `anyOf` deeper, and the one-level scan returned
+ * false for it — so `detectConditionWidget` declined a key it was written to
+ * claim and the author got a plain text box for a CEL predicate, on a runtime
+ * that fails CLOSE on an unevaluable one (objectui#9830). The same `action`
+ * type's `params[].visible` carries its string arm at the TOP level and was
+ * routed all along: one property, two nesting depths, two different faces.
+ *
+ * `oneOf` is walked with `anyOf` because {@link pickBranch} and the scalar
+ * chain already read `schema.oneOf ?? schema.anyOf` as one union — a detector
+ * that disagreed with the branch picker about what a union is would reopen this
+ * same split one combinator over. `allOf` is deliberately NOT walked: it is an
+ * intersection, so an arm typed string does not mean the value may be one.
+ *
+ * ## ⛔ What this deliberately does NOT read as a string arm
+ *
+ * An EMPTY schema (`{}`). JSON Schema says `{}` admits everything, strings
+ * included, and the platform's output-mode derivation emits exactly
+ * `anyOf: [ {}, { …envelope } ]` for `hook.condition`, `sharing_rule.condition`
+ * and `field.visibleWhen` / `readonlyWhen` / `requiredWhen` — the transform on
+ * those keys erases its own input type. Reading that husk as "string allowed"
+ * would mount the condition builder on any predicate-named key whose schema
+ * derived to nothing, including one that is genuinely boolean-only, because
+ * `{}` is what "we could not derive this" and "anything goes" BOTH look like on
+ * the wire. Distinguishing them needs a signal only the DECLARATION side can
+ * send, so that half is reported rather than guessed (objectui#9830 ②).
+ *
+ * ## The precedence this gate is one third of
+ *
+ * 1. an explicit `fieldSpec.widget` wins outright — {@link resolveFieldWidget}
+ *    runs no detector at all when the form spec pinned one;
+ * 2. then THIS shape test VETOES: a name convention never mounts a widget on a
+ *    schema that cannot hold what the widget writes;
+ * 3. then the name convention SELECTS among the widgets whose shape fits.
+ *
+ * So neither side "wins" globally: the declaration decides, the shape holds a
+ * veto, the name chooses. Written down here because it was readable only by
+ * reading five copies of one expression.
+ *
+ * Iterative with a visited set rather than plain recursion: the schemas reaching
+ * this engine include hand-written objects from registries and tests, not only
+ * parsed JSON, so a self-referential one must terminate rather than blow the
+ * stack.
+ */
+function admitsString(schema: JsonSchema | undefined): boolean {
+  const seen = new Set<object>();
+  const pending: unknown[] = [schema];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (!node || typeof node !== 'object') continue;
+    if (seen.has(node as object)) continue;
+    seen.add(node as object);
+    const branch = node as JsonSchema;
+    if (branch.type === 'string') return true;
+    for (const key of ['anyOf', 'oneOf'] as const) {
+      const arms = branch[key];
+      if (Array.isArray(arms)) pending.push(...(arms as unknown[]));
+    }
+  }
+  return false;
+}
+
+/**
  * Detect a field-reference widget by NAME CONVENTION, gated on having an
  * object field catalog in `widgetContext`. This is what makes every view
  * type's field-reference config (titleField, groupByField, startDateField,
@@ -325,11 +549,7 @@ function detectFieldRefWidget(
     return 'field-multi';
   }
 
-  const isString =
-    schema?.type === 'string' ||
-    (Array.isArray(schema?.anyOf) &&
-      (schema!.anyOf as JsonSchema[]).some((b) => b?.type === 'string'));
-  if (isString && (/.Field$/.test(name) || name === 'field')) {
+  if (admitsString(schema) && (/.Field$/.test(name) || name === 'field')) {
     return 'field-ref';
   }
   return undefined;
@@ -343,10 +563,7 @@ function detectFieldRefWidget(
  */
 function detectIconWidget(name: string, schema: JsonSchema | undefined): string | undefined {
   if (Array.isArray(schema?.enum)) return undefined;
-  const isString =
-    schema?.type === 'string' ||
-    (Array.isArray(schema?.anyOf) && (schema!.anyOf as JsonSchema[]).some((b) => b?.type === 'string'));
-  if (!isString) return undefined;
+  if (!admitsString(schema)) return undefined;
   if (name === 'icon' || /Icon$/.test(name)) return 'icon';
   return undefined;
 }
@@ -358,11 +575,7 @@ function detectIconWidget(name: string, schema: JsonSchema | undefined): string 
  * conventions so color fields are consistent across every metadata type.
  */
 function detectColorWidget(name: string, schema: JsonSchema | undefined): string | undefined {
-  const isString =
-    schema?.type === 'string' ||
-    Array.isArray(schema?.enum) ||
-    (Array.isArray(schema?.anyOf) && (schema!.anyOf as JsonSchema[]).some((b) => b?.type === 'string'));
-  if (!isString) return undefined;
+  if (!admitsString(schema) && !Array.isArray(schema?.enum)) return undefined;
   if (name === 'color' || name === 'colorVariant' || /Color$/.test(name)) return 'color-picker';
   return undefined;
 }
@@ -586,14 +799,14 @@ const CONDITION_FIELD_NAMES = new Set(['visible', 'hidden', 'disabled', 'visible
 /**
  * Detect a CEL predicate field by NAME CONVENTION (`visible` / `hidden` /
  * `disabled` / `visibleOn` / `condition` / `*When`) so it renders the no-code
- * condition builder instead of a raw expression text box. String-only, no enum.
+ * condition builder instead of a raw expression text box. No enum, and the
+ * schema must admit a string — {@link admitsString} holds that veto and
+ * documents why it looks through nested unions and why an empty schema is not
+ * one (objectui#9830).
  */
 function detectConditionWidget(name: string, schema: JsonSchema | undefined): string | undefined {
   if (Array.isArray(schema?.enum)) return undefined;
-  const isString =
-    schema?.type === 'string' ||
-    (Array.isArray(schema?.anyOf) && (schema!.anyOf as JsonSchema[]).some((b) => b?.type === 'string'));
-  if (!isString) return undefined;
+  if (!admitsString(schema)) return undefined;
   if (CONDITION_FIELD_NAMES.has(name) || /When$/.test(name)) return 'condition';
   return undefined;
 }
@@ -611,12 +824,72 @@ const SECRET_FIELD_NAME_RE = /(^|_)(secret|token|api[_-]?key|access[_-]?key|clie
 function detectSecretWidget(name: string, schema: JsonSchema | undefined): string | undefined {
   if (schema?.format === 'password' || (schema as { writeOnly?: boolean } | undefined)?.writeOnly === true) return 'secret';
   if (Array.isArray(schema?.enum)) return undefined;
-  const isString =
-    schema?.type === 'string' ||
-    (Array.isArray(schema?.anyOf) && (schema!.anyOf as JsonSchema[]).some((b) => b?.type === 'string'));
-  if (!isString) return undefined;
+  if (!admitsString(schema)) return undefined;
   if (SECRET_FIELD_NAME_RE.test(name)) return 'secret';
   return undefined;
+}
+
+/**
+ * The widget a field renders with — ONE decision, reached by every layout
+ * (objectui#9859).
+ *
+ * The five NAME-CONVENTION detectors above used to be spelled out inline in
+ * `FieldRow`, which made the chain a property of THAT row component rather than
+ * of the form engine. `RepeaterField`'s grid/table layout deliberately does not
+ * go through `FieldRow` — a grid row has no `<label>`, so it names its cells
+ * from the column header by IDREF instead (objectui#5063) — and it therefore
+ * reached `FieldControl` with `inferWidget` alone. All five detectors were
+ * skipped for every grid cell, `detectSecretWidget` included: the same property
+ * in the same repeater rendered masked in the card layout and in the clear in
+ * the grid one, with no warning and nothing an author could see.
+ *
+ * Adding a `detectSecretWidget` call to the grid branch would have closed that
+ * one hole and left the next detector to be forgotten again, so the chain is
+ * lifted out whole instead and both layouts call THIS. Same shape, and for the
+ * same reason, as {@link resolveFieldFace}: one set of predicates, not two that
+ * have to be kept in step.
+ *
+ * `resolveRegisteredWidget` is part of the lift, not an extra: it is what turns
+ * a conditional widget name into the registration that actually renders
+ * (objectui#4871), and `inferWidget` alone already yields `color-picker` for a
+ * `type: 'color'` field — so a grid cell that skipped it landed on the swatch
+ * `radiogroup` even where the free-colour input was the right face.
+ */
+function resolveFieldWidget({
+  name,
+  schema,
+  fieldSpec,
+  widgetContext,
+}: {
+  name: string;
+  schema: JsonSchema | undefined;
+  fieldSpec: FormFieldSpec | undefined;
+  widgetContext?: WidgetContext;
+}): string | undefined {
+  let widget = inferWidget(fieldSpec, schema);
+  // Field-reference props become object-field pickers when a field catalog
+  // is available and the spec didn't pin an explicit widget.
+  if (!fieldSpec?.widget) {
+    const refWidget = detectFieldRefWidget(name, schema, widgetContext);
+    if (refWidget) widget = refWidget;
+    else {
+      const secretWidget = detectSecretWidget(name, schema);
+      if (secretWidget) widget = secretWidget;
+      else {
+        const iconWidget = detectIconWidget(name, schema);
+        if (iconWidget) widget = iconWidget;
+        else {
+          const colorWidget = detectColorWidget(name, schema);
+          if (colorWidget) widget = colorWidget;
+          else {
+            const condWidget = detectConditionWidget(name, schema);
+            if (condWidget) widget = condWidget;
+          }
+        }
+      }
+    }
+  }
+  return resolveRegisteredWidget(widget, schema, fieldSpec);
 }
 
 /**
@@ -734,7 +1007,12 @@ function SchemaFormBody({
     return map;
   }, [issues, locale]);
 
-  let effectiveSchema: JsonSchema | undefined = schema;
+  // objectui#9912 — follow the ONE indirection the served derivation uses
+  // before any widget decision reads the node. Memoised for cost only: the
+  // result is consumed as a VALUE, never as an identity (AGENTS.md #10).
+  const derefSchema = React.useMemo(() => inlineSchemaRefs(schema), [schema]);
+
+  let effectiveSchema: JsonSchema | undefined = derefSchema;
   if (!effectiveSchema || typeof effectiveSchema !== 'object') {
     if (value && typeof value === 'object') {
       effectiveSchema = inferSchemaFromValue(value as Record<string, unknown>);
@@ -1287,34 +1565,11 @@ function FieldRow({
   const path = joinIdPath(idPath, name);
   const id = fieldHostId(path);
 
-  // Auto-infer widget from fieldSpec.type or schema
-  let widget = inferWidget(fieldSpec, schema);
-  // Field-reference props become object-field pickers when a field catalog
-  // is available and the spec didn't pin an explicit widget.
-  if (!fieldSpec?.widget) {
-    const refWidget = detectFieldRefWidget(name, schema, widgetContext);
-    if (refWidget) widget = refWidget;
-    else {
-      const secretWidget = detectSecretWidget(name, schema);
-      if (secretWidget) widget = secretWidget;
-      else {
-        const iconWidget = detectIconWidget(name, schema);
-        if (iconWidget) widget = iconWidget;
-        else {
-          const colorWidget = detectColorWidget(name, schema);
-          if (colorWidget) widget = colorWidget;
-          else {
-            const condWidget = detectConditionWidget(name, schema);
-            if (condWidget) widget = condWidget;
-          }
-        }
-      }
-    }
-  }
-
-  // Which registration will actually render, decided BEFORE the label so the
-  // declaration below describes the surface the user gets (objectui#4871).
-  widget = resolveRegisteredWidget(widget, schema, fieldSpec);
+  // Which widget renders — the shared decision, so a card row and a grid cell
+  // holding the same property cannot resolve to different faces (objectui#9859).
+  // It ends in `resolveRegisteredWidget`, so the registration is settled BEFORE
+  // the label below declares how it will be named (objectui#4871).
+  const widget = resolveFieldWidget({ name, schema, fieldSpec, widgetContext });
 
   // Which face `FieldControl` will render — resolved HERE, before the label, from
   // the same inputs it renders from (objectui#5039). The six paths that never
@@ -2148,7 +2403,11 @@ function RepeaterField({
                           schema={sub}
                           value={row?.[s.field]}
                           readOnly={readOnly || s.readonly}
-                          widget={inferWidget(s, sub)}
+                          // The SAME widget decision the card layout's
+                          // `FieldRow` makes — detectors included, so a
+                          // credential column is masked here too
+                          // (objectui#9859).
+                          widget={resolveFieldWidget({ name: s.field, schema: sub, fieldSpec: s, widgetContext })}
                           fieldSpec={s}
                           widgetContext={widgetContext}
                           formData={row}

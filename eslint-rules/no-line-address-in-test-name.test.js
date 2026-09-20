@@ -38,6 +38,7 @@ ruleTester.run('no-line-address-in-test-name', rule, {
     // A case-table field the title never names. `$key` is spliced, `producer`
     // is not, and `producer` is spliced into the FAILURE MESSAGE instead.
     // Real shape: gridNonAuthorKeys.test.tsx.
+    // fixture-address: RuleTester input; the rule reads this token's SHAPE, so no real address would make the case any truer
     `const KEYS = [{ key: 'columnState', producer: 'app-shell/src/views/ObjectView.tsx:1848' }];
      it.each(KEYS)('the spec refuses $key as an unrecognized key', ({ key, producer }) => {
        expect(refuse(key), \`written by \${producer}\`).toBe(true);
@@ -78,6 +79,7 @@ ruleTester.run('no-line-address-in-test-name', rule, {
     },
     {
       code: `it("app-shell ObjectView chart viewDef legacy leg (views/ObjectView.tsx:2218)", () => {});`,
+      // fixture-address: RuleTester input and the expected data that must echo it; repairing either changes what this case pins
       errors: [{ messageId: 'inTitle', data: { address: 'views/ObjectView.tsx:2218' } }],
     },
     {
@@ -86,6 +88,7 @@ ruleTester.run('no-line-address-in-test-name', rule, {
     },
     {
       code: `describe('the retired member at layout.ts:66', () => {});`,
+      // fixture-address: the parsed input and its expected message data; the rule under test reads this token, and both copies must stay equal
       errors: [{ messageId: 'inTitle', data: { address: 'layout.ts:66' } }],
     },
     {
@@ -114,6 +117,7 @@ ruleTester.run('no-line-address-in-test-name', rule, {
     {
       code: `const CASES = [{ row: { src: 'packages/react/README.md:224' } }];
              it.each(CASES)('anchor for $row.src', () => {});`,
+      // fixture-address: the input the rule extracts from and the address it must report; one fixture, and neither names a line to find
       errors: [{ messageId: 'inEachCase', data: { address: 'packages/react/README.md:224' } }],
     },
     // A POSITIONAL title cannot say which field arrives, so the whole row is

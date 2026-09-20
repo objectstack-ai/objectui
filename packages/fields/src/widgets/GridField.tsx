@@ -16,7 +16,7 @@ import {
   Label,
 } from '@object-ui/components';
 import { Plus, Trash2, SlidersHorizontal, Maximize2, Copy, GripVertical } from 'lucide-react';
-import { formatDate, resolveFieldRuleState } from '@object-ui/core';
+import { formatDate, formatDateTime, resolveFieldRuleState } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { LookupField } from './LookupField.js';
 import { FileCell } from './FileField.js';
@@ -341,9 +341,13 @@ const isTemporal = (t?: string) => t === 'date' || t === 'datetime' || t === 'ti
  *   handed to `formatDate` as a `Date` INSTANCE, which the shared function uses
  *   verbatim — passing the raw string instead would re-introduce exactly the
  *   UTC-midnight parse this branch exists to avoid.
- * - `datetime` — an instant. Rendered as local day + local time, the same basis
- *   `toDateTimeInputValue` uses for the editor, so the two never disagree (and
- *   matching `DateTimeField`'s own read-only rendering).
+ * - `datetime` — an instant, rendered on `formatDateTime`'s `'compact'` face:
+ *   local day + local time, the same basis `toDateTimeInputValue` uses for the
+ *   editor, so the two never disagree. ⚠️ It no longer matches
+ *   `DateTimeField`'s readonly rendering, and that is the RULING on
+ *   objectui#8209 rather than a drift: both sites went to the one home
+ *   `formatDateTime`, each on the face of its register — a dense grid cell is
+ *   `'compact'`, a readonly form / detail field is the verbose default.
  * - `time` — a zone-less wall clock (`HH:mm[:ss]`); it is already display-ready.
  *
  * An unparseable value falls through to its raw string rather than rendering
@@ -376,7 +380,31 @@ function temporalText(type: string | undefined, value: any, locale: string): str
   }
   const dt = value instanceof Date ? value : new Date(raw);
   if (Number.isNaN(dt.getTime())) return raw;
-  return `${dt.toLocaleDateString(locale)} ${dt.toLocaleTimeString(locale)}`;
+  // `formatDateTime`'s `'compact'` face — the one home for the `datetime`
+  // display convention (objectui#7443), on the face the maintainer ruled for
+  // THIS register on objectui#8209. A sub-grid cell sits beside `datetime`
+  // cells, and `DateTimeCellRenderer`'s own default face is `'compact'`, so
+  // that is the register's face here. This branch used to compose
+  // `toLocaleDateString(locale)` and `toLocaleTimeString(locale)` with NO
+  // options bag, which put seconds in a dense cell that the `datetime` cell
+  // one component over never showed.
+  //
+  // ⛔ The style is a LITERAL, not an authored read, and that departs from the
+  // call shape the ruling wrote (`field.format ?? 'compact'`). It has to:
+  // `temporalText` is handed a column `type`, and the `GridColumn` its caller
+  // holds — like the published `GridColumnDefinition` it mirrors — declares no
+  // `format` key at all, so there is nothing here to reuse the way
+  // `DateTimeCellRenderer` reuses `DateTimeFieldMetadata.format`. Spelling the
+  // read anyway would mean DECLARING that key, which the same ruling forbids
+  // in the same breath ("reuse, not a new declaration"). The ruled FACE is
+  // delivered; only the read that would have selected it is absent, because
+  // the vocabulary it would read does not exist on this surface.
+  //
+  // The `Number.isNaN` guard above still owns the unparseable case, so this
+  // branch never reaches `formatDateTime`'s `—`: an unreadable stored value
+  // keeps showing what is actually stored (objectui#3569), exactly as the
+  // `date` branch's `!ymd` guard does.
+  return formatDateTime(dt, { style: 'compact', locale });
 }
 
 /** Read-only display text for a cell in list mode (select → option label,

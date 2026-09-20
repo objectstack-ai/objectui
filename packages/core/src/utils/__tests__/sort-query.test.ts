@@ -273,6 +273,245 @@ describe('the refusal prescribes metadata `@objectstack/spec` ACCEPTS (objectui#
 });
 
 /**
+ * objectui#9955 — the retired string clause ONE CONTAINER DEEPER.
+ *
+ * The scalar `sort: 'name asc'` is refused out loud by the arm above. The same
+ * clause written as `sort: ['name asc']` used to reach the array arm's skip,
+ * leave through the same `undefined`, and print NOTHING — so two spellings of
+ * one authoring mistake got opposite treatment, and the silent one lost an
+ * authored row order with no trace in the console.
+ *
+ * ⛔ What this suite does NOT assert, deliberately, because objectui#8221's
+ * ruling (decision batch #77, option B: one `sort` spelling, the array,
+ * everywhere) forbids it: that `['name asc']` WORKS. It does not, and it must
+ * not. Every case below pins `undefined` on the value side and a message on the
+ * diagnostic side — loud is not accepted.
+ *
+ * ⭐ Control C is the load-bearing one. `[{ order: 'asc' }]` is ALSO an entry
+ * that contributes nothing, and its silence is DECLARED in `normalizeSortEntries`'
+ * docblock ("an entry with no usable `field` is SKIPPED"). If it started talking
+ * too, the seam was cut at "entry has no field" instead of at
+ * `typeof entry === 'string'`, and a designed silence would have been converted
+ * into noise on every partially-authored view.
+ */
+describe('a retired string ENTRY of the `sort` array is REFUSED OUT LOUD (objectui#9955)', () => {
+  /** The distinctive opening of the ENTRY message, per objectui#9955. */
+  const ENTRY_REFUSAL = 'a `sort` ARRAY ENTRY is the retired string clause';
+  /** The distinctive opening of the SCALAR message, unchanged by objectui#9955. */
+  const SCALAR_REFUSAL = 'the legacy string `sort` clause is retired';
+
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    // The dedupe is module state and this project runs `isolate: false`, so a
+    // spelling another file already reported would make a "fired once"
+    // assertion observe silence and pass for entirely the wrong reason.
+    resetRetiredSortSpellingReports();
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  const messages = (): string[] => errorSpy.mock.calls.map((call: unknown[]) => String(call[0]));
+
+  it('SUBJECT — an all-strings `sort` still orders nothing, and now says why', () => {
+    expect(convertSortToQueryParams(asRuntimeValue(['name asc']))).toBeUndefined();
+    expect(normalizeSortEntries(asRuntimeValue(['name asc']))).toBeUndefined();
+
+    // ONE line, not one per call: the second call above is a second render of
+    // the same bad view, which is the case the dedupe exists for.
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const message = messages()[0];
+    expect(message).toContain(ENTRY_REFUSAL);
+    // It quotes what actually arrived, so the author can find it in their JSON…
+    expect(message).toContain('"name asc"');
+    // …names the ruling that retired it…
+    expect(message).toContain('objectui#8221');
+    // …and carries the fix rather than only the complaint.
+    expect(message).toContain("[{ field: 'name', order: 'desc' }]");
+
+    // Same severity channel as the scalar sibling. A refusal downgraded to
+    // `console.warn` would satisfy every text assertion above.
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    // CONTROL B — the declared spelling still lowers, on the same function, in
+    // the same test body, and SILENTLY. Without it a sink that refused
+    // everything would satisfy the subject on its own.
+    expect(convertSortToQueryParams([{ field: 'name', order: 'desc' }])).toEqual({ name: 'desc' });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL C — the `field`-less OBJECT entry keeps its DESIGNED silence', () => {
+    // Declared in `normalizeSortEntries`' docblock: an entry with no usable
+    // `field` names nothing to order by, so it is skipped without comment. That
+    // is not the defect objectui#9955 fixed and it must not become loud.
+    expect(convertSortToQueryParams(asRuntimeValue([{ order: 'asc' }]))).toBeUndefined();
+    expect(convertSortToQueryParams(asRuntimeValue([{ field: '' }]))).toBeUndefined();
+    expect(convertSortToQueryParams(asRuntimeValue([null]))).toBeUndefined();
+    expect(convertSortToQueryParams(asRuntimeValue([{ field: 42 }]))).toBeUndefined();
+    expect(errorSpy).not.toHaveBeenCalled();
+
+    // LIT CONTROL — the spy IS wired to this function in this run: a STRING
+    // entry, which is the only seam objectui#9955 cut, makes it fire. The
+    // silences above are therefore a reading and not a disconnected mock.
+    expect(convertSortToQueryParams(asRuntimeValue(['name asc']))).toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(messages()[0]).toContain(ENTRY_REFUSAL);
+  });
+
+  it('CONTROL A — the scalar arm is untouched, and the two messages differ', () => {
+    // The pre-existing refusal, unchanged: same return, same channel, and the
+    // sentence it could always say because refusing the WHOLE value refuses the
+    // whole ordering.
+    expect(convertSortToQueryParams(asRuntimeValue('name asc'))).toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(messages()[0]).toContain(SCALAR_REFUSAL);
+    expect(messages()[0]).not.toContain(ENTRY_REFUSAL);
+
+    // …and the ENTRY arm says something ELSE, because one bad entry among good
+    // ones does NOT mean the query carries no ordering. Sharing one raw dedupe
+    // key between the arms would have silenced this second line entirely and
+    // left the author reading a sentence about the wrong container.
+    expect(convertSortToQueryParams(asRuntimeValue(['name asc']))).toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledTimes(2);
+    expect(messages()[1]).toContain(ENTRY_REFUSAL);
+    expect(messages()[1]).not.toContain(SCALAR_REFUSAL);
+  });
+
+  it('MIXED — the good entries still lower; only the string one is refused', () => {
+    // ⭐ The reason the ENTRY message may not reuse the scalar text: this query
+    // DOES carry an `$orderby`. Telling the author their rows are unordered
+    // would send them hunting for a loss that did not happen.
+    expect(
+      convertSortToQueryParams(asRuntimeValue([{ field: 'a', order: 'asc' }, 'b desc'])),
+    ).toEqual({ a: 'asc' });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(messages()[0]).toContain('"b desc"');
+
+    // CONTROL — the SAME array with the string entry removed answers the SAME
+    // map and prints nothing new. That is what makes the line above a refusal
+    // of `'b desc'` and not a side effect of the surviving entry.
+    expect(convertSortToQueryParams([{ field: 'a', order: 'asc' }])).toEqual({ a: 'asc' });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+
+    // Authored position survives too — the refused entry is skipped, not
+    // shifted onto a neighbour.
+    expect(
+      normalizeSortEntries(
+        asRuntimeValue(['x asc', { field: 'a', order: 'desc' }, 'y asc', { field: 'b' }]),
+      ),
+    ).toEqual([
+      { field: 'a', order: 'desc' },
+      { field: 'b', order: 'asc' },
+    ]);
+  });
+
+  it('ACCEPTED INPUT SET UNCHANGED — the string entry contributes exactly nothing', () => {
+    // objectui#8221 option B is a ruling, not a preference: `['name asc']` may
+    // NOT start working. Every pair below is the same array with and without
+    // its string entries, and the two sides must answer identically.
+    const pairs: Array<[unknown, unknown]> = [
+      [['name asc'], []],
+      [[{ field: 'a', order: 'asc' }, 'b desc'], [{ field: 'a', order: 'asc' }]],
+      [['a asc', { field: 'b' }, 'c desc'], [{ field: 'b' }]],
+      [['name'], []],
+      [[''], []],
+    ];
+    for (const [withStrings, withoutStrings] of pairs) {
+      resetRetiredSortSpellingReports();
+      expect(convertSortToQueryParams(asRuntimeValue(withStrings))).toEqual(
+        convertSortToQueryParams(asRuntimeValue(withoutStrings)),
+      );
+      expect(normalizeSortEntries(asRuntimeValue(withStrings))).toEqual(
+        normalizeSortEntries(asRuntimeValue(withoutStrings)),
+      );
+    }
+
+    // CONTROL — the comparison can fail: an array whose string entry WERE
+    // honoured would differ from its string-free twin, so the equalities above
+    // are not vacuous.
+    expect(convertSortToQueryParams(asRuntimeValue(['name asc']))).not.toEqual({ name: 'asc' });
+    expect(convertSortToQueryParams([{ field: 'name', order: 'asc' }])).toEqual({ name: 'asc' });
+  });
+
+  it("the `''` entry keeps the scalar arm's silence — symmetry, not an exception", () => {
+    // `sort: ''` never reaches the loud scalar arm either: the `!sort` guard
+    // answers first, and its pin says so in words — an empty spelling is "the
+    // author asked for nothing", and reporting it would train readers to ignore
+    // the message. The entry arm mirrors that rather than inverting it.
+    expect(convertSortToQueryParams(asRuntimeValue(['']))).toBeUndefined();
+    expect(convertSortToQueryParams(asRuntimeValue(''))).toBeUndefined();
+    expect(errorSpy).not.toHaveBeenCalled();
+
+    // CONTROL — whitespace is NOT in that carve-out. `'   '` is truthy, is loud
+    // on the scalar arm today, and is loud as an entry too; so the two silences
+    // above are about EMPTINESS and not about the entry arm having gone quiet.
+    expect(convertSortToQueryParams(asRuntimeValue(['   ']))).toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(messages()[0]).toContain(ENTRY_REFUSAL);
+    expect(convertSortToQueryParams(asRuntimeValue('   '))).toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledTimes(2);
+    expect(messages()[1]).toContain(SCALAR_REFUSAL);
+  });
+
+  it('BOUNDED — N blocks inheriting one bad view print ONE line, per spelling', () => {
+    // The sink runs inside the query memo of every object-bound block, so an
+    // object with N related lists re-enters it N times per pass. The dedupe is
+    // what keeps the prescription readable instead of burying itself.
+    for (let block = 0; block < 25; block += 1) {
+      expect(convertSortToQueryParams(asRuntimeValue(['name asc']))).toBeUndefined();
+    }
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+
+    // CONTROL — it is a dedupe per SPELLING, not a one-message-ever latch: a
+    // different bad entry is a different authoring mistake and still gets its
+    // own line.
+    expect(convertSortToQueryParams(asRuntimeValue(['amount desc']))).toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledTimes(2);
+
+    // …and the reset seam really does clear it, so the bound above is the
+    // dedupe and not an exhausted spy.
+    resetRetiredSortSpellingReports();
+    expect(convertSortToQueryParams(asRuntimeValue(['name asc']))).toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it('objectui#9031 — the ENTRY message prescribes metadata the installed spec ACCEPTS', () => {
+    // Same judge, same reason as the scalar message's pin: this text is read at
+    // the moment the author is ALREADY being corrected, so an example that
+    // omitted `order` would get them refused a second time, at publish, by a
+    // different door. The entries are parsed back out of the REAL emitted
+    // string — re-typing the example here would only pin the test's copy.
+    expect(convertSortToQueryParams(asRuntimeValue(['name asc']))).toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const message = messages()[0];
+
+    const prescribed = entriesPrescribedBy(message);
+    // Anti-vacuity: a message quoting no entry at all would otherwise pass.
+    expect(prescribed.length).toBeGreaterThan(0);
+    for (const entry of prescribed) {
+      const verdict = SortItemSchema.safeParse(entry);
+      expect(verdict.success, `prescribed entry rejected by SortItemSchema: ${JSON.stringify(entry)}`).toBe(true);
+    }
+
+    // Both halves objectui#9031 ruled load-bearing survive in this arm too.
+    expect(message).not.toContain('is optional');
+    expect(message).toMatch(/`order` is required/);
+    expect(message).toContain('SortItemSchema');
+    expect(message).toContain("`'asc'`");
+    expect(message).toMatch(/runtime tolerance/);
+
+    // CONTROL — the judge can say no, so the ACCEPTs above are a reading.
+    expect(SortItemSchema.safeParse({ field: 'name' }).success).toBe(false);
+  });
+});
+
+/**
  * `normalizeSortEntries` — the decision `convertSortToQueryParams` was built
  * on, lifted out so a block that sends a DIFFERENT wire shape can share it
  * (objectui#8973).
@@ -342,6 +581,21 @@ describe('normalizeSortEntries (objectui#8973)', () => {
 });
 
 describe('convertSortToQueryParams — REGRESSION PIN: the refactor moved no behaviour', () => {
+  // The `array of strings` case below drives a REAL refusal since objectui#9955,
+  // so this pin would otherwise print a diagnostic into the run's output. The
+  // spy only silences it: every expectation here is on the RETURN value, which
+  // objectui#9955 left untouched — that is the whole point of the pin.
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    resetRetiredSortSpellingReports();
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    errorSpy.mockRestore();
+  });
+
   /**
    * Expected values were captured from the PRE-REFACTOR implementation (the
    * single map-building loop) and are written out as LITERALS on purpose.

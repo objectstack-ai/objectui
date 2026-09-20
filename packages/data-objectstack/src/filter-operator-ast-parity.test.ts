@@ -10,10 +10,16 @@
  * Adapter operator table → filter-AST parity (#2901, objectstack#3948, #3641).
  *
  * `FILTER_OPERATOR_ALIASES` is the last translation a filter passes through
- * before it goes on the wire, and `normalizeFilterOperator` ends in `?? op` —
+ * before it goes on the wire, and `toAstFilterOperator` ends in `?? op` —
  * an unmapped operator is emitted verbatim. The server then rejects the shape
  * at `isFilterAST()`, passes the array through unconverted, and driver-sql
  * skips it entirely: **no WHERE clause, no error, every row returned.**
+ *
+ * (`toAstFilterOperator` was spelled `normalizeFilterOperator` until
+ * objectui#7265 renamed it: `@objectstack/spec/ui` exports a DIFFERENT function
+ * under that name, one that folds to the canonical VIEW vocabulary rather than
+ * to the AST symbols this table produces. The rename is pinned in
+ * `scripts/__tests__/spec-symbol-ledger-data-objectstack-7265.test.ts`.)
  *
  * So a missing row in this table is not a validation failure, it is an
  * unfiltered query. `before`/`after` — canonical members of the spec's
@@ -48,7 +54,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { VALID_AST_OPERATORS } from '@objectstack/spec/data';
-import { VIEW_FILTER_OPERATORS } from '@objectstack/spec/ui';
+import { VIEW_FILTER_OPERATORS, normalizeFilterOperator } from '@objectstack/spec/ui';
 import { FILTER_OPERATOR_ALIASES } from './index';
 
 /**
@@ -106,7 +112,7 @@ describe('FILTER_OPERATOR_ALIASES lands inside the spec AST vocabulary', () => {
   });
 
   it('has a mapping row for every canonical view operator the spec defines', () => {
-    // Resolution mirrors `normalizeFilterOperator` — lowercased spelling first,
+    // Resolution mirrors `toAstFilterOperator` — lowercased spelling first,
     // then the operator as written — but stops short of its `?? op` tail. That
     // tail is production behaviour and must stay there; reproducing it HERE is
     // what cancelled this assertion (#3641), because the value it falls back to
@@ -131,5 +137,66 @@ describe('FILTER_OPERATOR_ALIASES lands inside the spec AST vocabulary', () => {
   it('maps the date comparisons that regressed', () => {
     expect(FILTER_OPERATOR_ALIASES.before).toBe('<');
     expect(FILTER_OPERATOR_ALIASES.after).toBe('>');
+  });
+});
+
+/**
+ * This table is NOT the spec's `normalizeFilterOperator` (objectui#7265).
+ *
+ * The local fold over this table was called `normalizeFilterOperator` until that
+ * card renamed it `toAstFilterOperator`, because `@objectstack/spec/ui` exports a
+ * function of that name and most of this monorepo imports it. The two take the
+ * same input and land in different vocabularies, which is the whole reason the
+ * route was RENAME and not BIND — so the difference is measured here, against the
+ * resolved pin, rather than asserted in a comment. The spec-side half of the same
+ * measurement (its fold, its `?? op` tail, its lenient non-string arm) is in
+ * `scripts/__tests__/spec-symbol-ledger-data-objectstack-7265.test.ts`.
+ */
+describe('this table is a different vocabulary from the spec fold that shares its old name', () => {
+  /** Resolution as `toAstFilterOperator` does it, minus its `?? op` tail. */
+  const row = (op: string) => FILTER_OPERATOR_ALIASES[op.toLowerCase()] ?? FILTER_OPERATOR_ALIASES[op];
+
+  it('answers an AST symbol where the spec answers a canonical view word', () => {
+    const viewVocabulary = new Set<string>(VIEW_FILTER_OPERATORS);
+
+    // Both spellings of one operator: the spec folds them together onto a view
+    // word, this table translates them together onto a wire symbol.
+    for (const spelling of ['eq', 'equals']) {
+      expect(String(normalizeFilterOperator(spelling))).toBe('equals');
+      expect(row(spelling)).toBe('=');
+    }
+    // …and the two answers are in different vocabularies, not two spellings of
+    // one. Read off the spec's own list rather than restated.
+    expect(viewVocabulary.has('equals')).toBe(true);
+    expect(viewVocabulary.has('=')).toBe(false);
+  });
+
+  it('…and it is most of the vocabulary, not one operator — enumerated, never counted', () => {
+    // Every canonical view operator this adapter is the bridge for, plus the
+    // legacy spellings this table carries rows for. The set is DERIVED so it
+    // cannot go stale, and the assertion is a floor on which members diverge
+    // rather than a number, per AGENTS.md #9.
+    const corpus = [
+      ...VIEW_FILTER_OPERATORS.filter((op) => !NOT_THIS_ADAPTERS_JOB.has(op)),
+      ...Object.keys(FILTER_OPERATOR_ALIASES),
+    ];
+    const agree: string[] = [];
+    const diverge: string[] = [];
+    for (const op of new Set(corpus)) {
+      (String(normalizeFilterOperator(op)) === String(row(op)) ? agree : diverge).push(op);
+    }
+
+    // The divergence is the finding…
+    expect(diverge).toContain('eq');
+    expect(diverge).toContain('greater_than');
+    expect(diverge).toContain('before');
+    expect(diverge.length).toBeGreaterThan(agree.length);
+
+    // …and the agreement is the lit control that keeps it from being vacuous: a
+    // comparison where NOTHING matched would mean the probe is broken, not that
+    // the functions differ. `contains` is an identity row on both sides.
+    expect(agree).toContain('contains');
+    expect(String(normalizeFilterOperator('contains'))).toBe('contains');
+    expect(row('contains')).toBe('contains');
   });
 });

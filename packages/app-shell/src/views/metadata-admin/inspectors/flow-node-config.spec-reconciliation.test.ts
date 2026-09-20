@@ -502,17 +502,28 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
    *   applies `GET` / create-mode when it runs the node is **NOT MEASURED**
    *   here — ⛔ not "measured false". If it does, the fix is upstream and this
    *   register entry is how the two ends stay connected.
+   *
+   * ⭐ **The register is EMPTY, and that is objectui#9109's resolution.** The
+   * four rows it opened with — `wait:waitEventConfig.eventType`,
+   * `boundary_event:boundaryConfig.eventType`, `http_request:config.method` and
+   * `screen:config.mode` — were repaid by DELETING the declarations, which is
+   * triage's ruling on that card and not this file's opinion: the
+   * `defaultValue` doc comment defines the property AS the spec default for its
+   * key, so a declaration the installed spec applies none of is false by that
+   * definition, and deleting it restores the invariant. ⛔ The other end —
+   * adding four `.default()`s to a published contract — was refused there as a
+   * maintainer-floor product call, so ⛔ do not "repay" a future row that way
+   * from this repo.
+   *
+   * ⚠️ Both `state` kinds stay documented above because the register stays
+   * ARMED, not because a row exists: the next unbacked declaration is recorded
+   * here with its measured state rather than asserted away.
    */
   const UNBACKED_REGISTER: ReadonlyArray<{
     region: string;
     key: string;
     state: 'required-no-default' | 'optional-no-default';
-  }> = [
-    { region: 'wait:waitEventConfig', key: 'eventType', state: 'required-no-default' },
-    { region: 'boundary_event:boundaryConfig', key: 'eventType', state: 'required-no-default' },
-    { region: 'http_request:config', key: 'method', state: 'optional-no-default' },
-    { region: 'screen:config', key: 'mode', state: 'optional-no-default' },
-  ];
+  }> = [];
 
   /**
    * The other direction's register: the spec APPLIES a default and the form
@@ -626,44 +637,133 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
     ).toEqual(UNBACKED_REGISTER.map(rowId).sort());
   });
 
-  it.each(UNBACKED_REGISTER)(
-    'register row $region · $key still measures as $state',
-    ({ region: id, key, state }) => {
-      // ⛔ A register entry is an ASSERTION, never a waiver: it re-measures the
-      // spec state it claims. An entry that outlives its divergence (the key
-      // gained a `.default()`, or turned optional) reddens here, which is what
-      // keeps the register shrinking rather than accumulating.
-      const scope = SCOPES.find((s) => scopeId(s.type, s.prefix) === id)!;
-      const withoutKey = Object.fromEntries(
-        Object.entries(scope.supplied).filter(([k]) => k !== key),
-      );
-      const schema = scope.schema() as {
-        safeParse: (v: unknown) => {
-          success: boolean;
-          data?: Record<string, unknown>;
-          error?: { issues: Array<{ path: PropertyKey[] }> };
-        };
+  /**
+   * Re-measure ONE key's claimed spec state — the assertion a register row
+   * makes, and the one objectui#9109's deletion pin makes about a key the form
+   * now declares nothing for. Shared so the two callers cannot drift into
+   * measuring "unbacked" two different ways.
+   */
+  function measureState(
+    scope: DefaultScope,
+    key: string,
+    state: 'required-no-default' | 'optional-no-default',
+    who: string,
+  ): void {
+    const withoutKey = Object.fromEntries(
+      Object.entries(scope.supplied).filter(([k]) => k !== key),
+    );
+    const schema = scope.schema() as {
+      safeParse: (v: unknown) => {
+        success: boolean;
+        data?: Record<string, unknown>;
+        error?: { issues: Array<{ path: PropertyKey[] }> };
       };
-      const parsed = schema.safeParse(withoutKey);
+    };
+    const parsed = schema.safeParse(withoutKey);
 
-      if (state === 'required-no-default') {
-        // The sharper of the two, and it needs no executor: an omitted key does
-        // not behave as the declared value, it is REFUSED at the door.
-        expect(parsed.success, `${id}.${key}: a REQUIRED key must refuse an omitted value`).toBe(false);
-        expect(
-          parsed.error?.issues.map((i) => i.path.join('.')),
-          `${id}.${key}: and the refusal must name this key`,
-        ).toContain(key);
-      } else {
-        // Optional, and the installed Zod materialises nothing. ⚠️ Evidence
-        // about SCHEMA DEFAULTING only — the executor is in `objectstack` and
-        // is NOT MEASURED by this repo.
-        expect(parsed.success, `${id}.${key}: an OPTIONAL key must parse when omitted`).toBe(true);
-        expect(
-          parsed.data && key in parsed.data,
-          `${id}.${key}: and the spec must materialise nothing for it`,
-        ).toBe(false);
-      }
+    if (state === 'required-no-default') {
+      // The sharper of the two, and it needs no executor: an omitted key does
+      // not behave as the declared value, it is REFUSED at the door.
+      expect(parsed.success, `${who}: a REQUIRED key must refuse an omitted value`).toBe(false);
+      expect(
+        parsed.error?.issues.map((i) => i.path.join('.')),
+        `${who}: and the refusal must name this key`,
+      ).toContain(key);
+    } else {
+      // Optional, and the installed Zod materialises nothing. ⚠️ Evidence
+      // about SCHEMA DEFAULTING only — the executor is in `objectstack` and
+      // is NOT MEASURED by this repo.
+      expect(parsed.success, `${who}: an OPTIONAL key must parse when omitted`).toBe(true);
+      expect(
+        parsed.data && key in parsed.data,
+        `${who}: and the spec must materialise nothing for it`,
+      ).toBe(false);
+    }
+  }
+
+  // ⛔ THE UNBACKED REGISTER'S RE-MEASUREMENT, and it walks `SCOPES` rather
+  // than `UNBACKED_REGISTER` for exactly the reason spelled out on the other
+  // register below. Written as `it.each(UNBACKED_REGISTER)` it contributed one
+  // case per ROW — so the empty register objectui#9109 left behind would
+  // contribute NO case, run nothing, and still report green, leaving a reader
+  // to see a re-measured register where nothing whatever was measured. The
+  // scope table is this file's fixed population (the vacuity guard above
+  // reddens if it stops materialising defaults), so every region answers for
+  // itself: a region carrying no row answers with the positive statement —
+  // nothing here is unbacked — and a region carrying one re-measures the spec
+  // state that row CLAIMS. A row is an ASSERTION, never a waiver: one whose key
+  // has since gained a `.default()` reddens here instead of outliving its
+  // divergence.
+  it.each(SCOPES.map((s) => ({ scope: s, region: scopeId(s.type, s.prefix) })))(
+    'region $region declares nothing the spec leaves unbacked, beyond its register rows',
+    ({ scope, region }) => {
+      const defaults = specDefaults(scope);
+      const rows = UNBACKED_REGISTER.filter((r) => r.region === region);
+
+      const unbacked = [...fieldsInScope(scope).entries()]
+        .filter(([key, field]) => field.defaultValue !== undefined && !(key in defaults))
+        .map(([key]) => key)
+        .sort();
+      expect(
+        unbacked,
+        `${region}: a declared default with no spec counterpart — register it with its measured state, or remove the declaration`,
+      ).toEqual(rows.map((r) => r.key).sort());
+
+      for (const row of rows) measureState(scope, row.key, row.state, `${region}.${row.key}`);
+    },
+  );
+
+  /**
+   * ⭐ **objectui#9109's deletion, pinned from the spec side.**
+   *
+   * The four declarations this card removed, each named with the spec state
+   * that made removal the right end to move. This is the register's
+   * re-measurement applied to keys that now carry NO row, and it is what keeps
+   * the two ends connected after the register emptied:
+   *
+   *  - if the installed spec ever starts materialising one of these keys, the
+   *    `state` row below reddens AND the table-wide "every default the spec
+   *    applies is declared by the form" assertion reddens — the form should
+   *    then DECLARE it again, derived from the spec;
+   *  - if someone re-adds a `defaultValue` here by hand, the `declares nothing`
+   *    row reddens, naming the key.
+   *
+   * ⚠️ `was` is HISTORY — the string the table used to carry — and nothing
+   * re-derives it; it is here so a failure message can say what was removed,
+   * ⛔ never as a claim about the spec. The live claims are `state` and
+   * `defaultValue === undefined`, both measured on every run.
+   *
+   * ⛔ The field itself must still EXIST and still be a `select`: this card
+   * deleted a DECLARATION, not an editor. A form that dropped the control would
+   * satisfy "declares no default" while removing the author's only way to set a
+   * key the spec REQUIRES.
+   */
+  const DELETED_BY_9109: ReadonlyArray<{
+    region: string;
+    key: string;
+    was: string;
+    state: 'required-no-default' | 'optional-no-default';
+  }> = [
+    { region: 'wait:waitEventConfig', key: 'eventType', was: 'timer', state: 'required-no-default' },
+    { region: 'boundary_event:boundaryConfig', key: 'eventType', was: 'error', state: 'required-no-default' },
+    { region: 'http_request:config', key: 'method', was: 'GET', state: 'optional-no-default' },
+    { region: 'screen:config', key: 'mode', was: 'create', state: 'optional-no-default' },
+  ];
+
+  it.each(DELETED_BY_9109)(
+    'objectui#9109: $region · $key declares no default, and the spec still measures as $state',
+    ({ region, key, was, state }) => {
+      const scope = SCOPES.find((s) => scopeId(s.type, s.prefix) === region)!;
+      const field = fieldsInScope(scope).get(key);
+
+      expect(field, `${region}.${key}: the editor must still exist — #9109 deleted a declaration, not a control`).toBeDefined();
+      expect(field!.kind, `${region}.${key}: and it is still the select the author picks the value on`).toBe('select');
+      expect(
+        field!.defaultValue,
+        `${region}.${key}: must declare NO default — it used to claim ${JSON.stringify(was)}, which the installed spec applies none of`,
+      ).toBeUndefined();
+
+      measureState(scope, key, state, `${region}.${key}`);
     },
   );
 

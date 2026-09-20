@@ -126,7 +126,7 @@ import '@testing-library/jest-dom';
 // factory uses, so the markdown pipeline is resolved before any assertion
 // waits on it — AGENTS.md 测试纪律.
 import '../widgets/MarkdownContent.js';
-import { getCellRenderer, resolveCellRendererType } from '../index';
+import { getCellRenderer, listCellRendererTypes, resolveCellRendererType } from '../index';
 
 afterEach(() => cleanup());
 
@@ -177,8 +177,31 @@ function assertCensusComplete(entries: readonly unknown[], expected: number, wha
   }
 }
 
-/** Every type `getCellRenderer` resolves to a renderer of its own. */
-const REGISTERED_TYPE_COUNT = 53;
+/**
+ * Every type `getCellRenderer` resolves to a renderer of its own — READ from
+ * the registry, ⛔ never written down (objectui#8734).
+ *
+ * This was the literal `53`. A literal is a population the census can no longer
+ * notice moving: register a 54th cell renderer and its row is simply absent
+ * from the table below, every assertion here still passes, and the new type
+ * goes out unmeasured. `listCellRendererTypes()` is `@object-ui/fields`' live
+ * reading of that same registry, so the size assertion and the set assertion
+ * below both fail — by NAME — the moment the population moves.
+ */
+const REGISTERED_TYPES: readonly string[] = listCellRendererTypes();
+const REGISTERED_TYPE_COUNT = REGISTERED_TYPES.length;
+
+/** Which types a census table is missing, and which it invented. */
+function censusDrift(entries: ReadonlyArray<readonly [string, ...unknown[]]>): {
+  missing: string[];
+  unknown: string[];
+} {
+  const measured = new Set(entries.map(([t]) => t));
+  return {
+    missing: REGISTERED_TYPES.filter((t) => !measured.has(t)),
+    unknown: [...measured].filter((t) => !REGISTERED_TYPES.includes(t)).sort(),
+  };
+}
 
 /**
  * `THE CENSUS` — what every registered type draws for `{}`, on this base.
@@ -324,7 +347,7 @@ describe('objectui#8596 — an object literal is not a cell value, and these ren
       // without this, deleting the table's rows turns every matrix below into
       // a green test that renders nothing.
       expect(() => assertCensusComplete([], REGISTERED_TYPE_COUNT, 'census')).toThrowError(
-        /expected exactly 53 registered field types, got 0/,
+        new RegExp(`expected exactly ${REGISTERED_TYPE_COUNT} registered field types, got 0`),
       );
       expect(() => assertCensusComplete(OBJECT_LITERAL_CENSUS, REGISTERED_TYPE_COUNT, 'census')).not.toThrow();
       expect(new Set(OBJECT_LITERAL_CENSUS.map(([t]) => t)).size, 'the census must not repeat a type').toBe(
@@ -332,7 +355,28 @@ describe('objectui#8596 — an object literal is not a cell value, and these ren
       );
     });
 
-    it('THE CENSUS — all 53 registered types draw their measured face for {}', async () => {
+    it('⭐ THE CENSUS IS THE REGISTRY — a newly registered type cannot escape it silently', () => {
+      // objectui#8734. The size check above is necessary and NOT sufficient:
+      // it would still pass if a type were swapped for another. These name the
+      // difference, so a 54th renderer arrives as a red row calling itself out
+      // rather than as an absence nobody can see.
+      const objectDrift = censusDrift(OBJECT_LITERAL_CENSUS);
+      expect(objectDrift.missing, 'registered types this census never measured').toEqual([]);
+      expect(objectDrift.unknown, 'types this census measures that the registry does not have').toEqual([]);
+
+      const populatedDrift = censusDrift(POPULATED_CENSUS);
+      expect(populatedDrift.missing, 'registered types the populated census never measured').toEqual([]);
+      expect(
+        populatedDrift.unknown,
+        'types the populated census measures that the registry does not have',
+      ).toEqual([]);
+
+      // The reading is a reading, not a second constant: an empty answer here
+      // would make every assertion above vacuously true.
+      expect(REGISTERED_TYPE_COUNT, 'the registry reading is not empty').toBeGreaterThan(0);
+    });
+
+    it('THE CENSUS — every registered type draws its measured face for {}', async () => {
       assertCensusComplete(OBJECT_LITERAL_CENSUS, REGISTERED_TYPE_COUNT, 'census');
       let measured = 0;
       for (const [type, text, hasAffordance] of OBJECT_LITERAL_CENSUS) {
@@ -530,7 +574,7 @@ describe('objectui#8596 — an object literal is not a cell value, and these ren
   });
 
   describe('POPULATED — these refuse an EMPTY-for-everything implementation', () => {
-    it('POPULATED — a real value in all 53 registered types NEVER draws the "No value" affordance', async () => {
+    it('POPULATED — a real value in every registered type NEVER draws the "No value" affordance', async () => {
       assertCensusComplete(POPULATED_CENSUS, REGISTERED_TYPE_COUNT, 'populated census');
       let measured = 0;
       for (const [type, value] of POPULATED_CENSUS) {
@@ -623,14 +667,26 @@ describe('objectui#8596 — an object literal is not a cell value, and these ren
       ).toBe('AL');
     });
 
-    it('POPULATED — a real file still shows its name, and a real file ARRAY still counts', () => {
+    it('POPULATED — a real file still shows its name, and a real file ARRAY reaches each file', () => {
       const single = renderCell('file', { url: 'https://cdn.example.com/c.pdf', name: 'contract.pdf' });
       expect(textOf(single.container), 'a real attachment still shows its name').toBe('contract.pdf');
       expect(affordance(single.container), 'a real attachment is not "No value"').toBeNull();
       cleanup();
 
+      // ⚠️ UPDATED by objectui#9161, and the update is the finding: this array
+      // used to render `2 files` and nothing else — the count WAS the whole
+      // rendering, so a successfully uploaded attachment could not be opened
+      // from the PC Console. Each entry now renders its own name and href.
+      // `{ url: 'a' }` carries no name, so `readFileValue` names it from the
+      // URL's last segment. ⭐ The count is not gone: it answers the arm where
+      // it is the whole truth, and THE BOUNDARY below still pins `[]` →
+      // `0 files` for `file` / `video` / `audio`.
       const many = renderCell('file', [{ url: 'a' }, { url: 'b' }]);
-      expect(textOf(many.container), 'a real file array still counts its entries').toBe('2 files');
+      expect(textOf(many.container), 'each entry now names itself').toBe('ab');
+      expect(
+        Array.from(many.container.querySelectorAll('a')).map((a) => a.getAttribute('href')),
+        'and each entry carries its own href — the affordance the count replaced',
+      ).toEqual(['a', 'b']);
     });
   });
 

@@ -402,7 +402,7 @@ describe('the real ledger', () => {
 
 // ── the card's own acceptance criterion ──────────────────────────────────────
 
-describe('objectui#7974 — the defect this gate was filed for', () => {
+describe('objectui#7974 — the defect this gate was filed for, after the repair landed', () => {
   const key = 'packages/mobile/src/useSpecGesture.ts useSpecGesture #1';
 
   it('its example is IN the compiled tier — the gate reaches the block the card named', () => {
@@ -410,16 +410,27 @@ describe('objectui#7974 — the defect this gate was filed for', () => {
     expect(census.blocks.map((b) => ledgerKey(b))).toContain(key);
   });
 
-  it('the scalar `direction` the card measured is what the block still carries', () => {
+  it('the block now passes the ARRAY its declared type asks for, not the scalar the card measured', () => {
     const source = fs.readFileSync(path.join(repoRoot, 'packages/mobile/src/useSpecGesture.ts'), 'utf8');
-    expect(source).toContain("direction: 'left'");
+    expect(source).toContain("direction: ['left']");
+    expect(source, 'the scalar the card measured').not.toContain("direction: 'left'");
   });
 
-  it('its row records TS2322 by NUMBER and names the card that owns the repair', () => {
+  it('its row no longer declares TS2322, and no longer names a card that owns a repair', () => {
     const row = UNGATED_EXAMPLES[key];
     expect(row).toBeDefined();
-    expect(row.codes).toContain(2322);
-    expect(row.card).toBe('objectui#7974');
+    expect(row.codes).not.toContain(2322);
+    expect(row.card).toBeNull();
+  });
+
+  it('the row SURVIVED the repair rather than being deleted — the block still returns outside a function', () => {
+    // The row's own instruction said to delete it when the card landed. Deleting
+    // it would have been an UNDECLARED FAILURE, not a green: repairing the
+    // example removed the TS2322 half and left the hook-body excerpt its two
+    // siblings in the same package are declared for.
+    expect(UNGATED_EXAMPLES[key].codes).toEqual([1108]);
+    expect(UNGATED_EXAMPLES['packages/mobile/src/useGesture.ts useGesture #1'].codes).toEqual([1108]);
+    expect(UNGATED_EXAMPLES['packages/mobile/src/useTouchTarget.ts useTouchTarget #1'].codes).toEqual([1108]);
   });
 
   it('the row is the ONLY thing keeping this green — remove it and the block is an undeclared failure', () => {
@@ -430,7 +441,7 @@ describe('objectui#7974 — the defect this gate was filed for', () => {
     expect(findings.map((f) => f.reason)).toEqual(['undeclared-failure']);
   });
 
-  it("when that lane repairs the example the row goes STALE, so the debt cannot outlive the defect", () => {
+  it('when the block is made self-contained the row goes STALE, so the debt cannot outlive the defect', () => {
     const { findings } = judge({
       results: [{ key, codes: [] }],
       ledger: { [key]: UNGATED_EXAMPLES[key] },

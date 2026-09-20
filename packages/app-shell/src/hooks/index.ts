@@ -30,6 +30,17 @@ export {
   type AiUsageResetKind,
   type AiUsagePlanType,
 } from './useAiUsage.js';
+export {
+  useReadRateReading,
+  classifyReadRate,
+  resolveRuntimeApiBase,
+  type UseReadRateReadingOptions,
+  type UseReadRateReadingReturn,
+  type ReadRateBannerReading,
+  type ReadRateReadingStatus,
+  type ReadRateSnapshot,
+  type ReadRateBannerCase,
+} from './useReadRateReading.js';
 export { useRecentItems, type RecentItem } from './useRecentItems.js';
 export { useRecordApprovals, type ApprovalRequestLite } from './useRecordApprovals.js';
 export { useResponsiveSidebar } from './useResponsiveSidebar.js';

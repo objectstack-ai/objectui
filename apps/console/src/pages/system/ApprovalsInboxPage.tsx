@@ -98,6 +98,7 @@ import {
   Paperclip,
   ShieldAlert,
   Trash2,
+  Link2Off,
 } from 'lucide-react';
 import {
   approvalsApi,
@@ -108,6 +109,10 @@ import {
 } from '../../services/approvalsApi';
 import { useRecordReadability } from './recordReadability';
 import { isDeletedRecordReference, useDeadRecordReferenceLabel } from './deadRecordReference';
+import {
+  isUnresolvableRecordReference,
+  useUnresolvableRecordReferenceLabel,
+} from './unresolvableRecordReference';
 import { useHiddenFieldsByObject } from './hiddenFields';
 import { holdsStudioAccess } from '../../components/studioEntry';
 
@@ -163,6 +168,29 @@ function DeadRecordReference({ label, className }: { label: string; className?: 
   return (
     <div className={cn('flex items-center gap-1.5 text-muted-foreground min-w-0', className)} title={label}>
       <Trash2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span className="truncate italic">{label}</span>
+    </div>
+  );
+}
+
+/**
+ * The cause-free affordance for a reference that neither resolves nor carries a
+ * snapshot title (objectui#8631) — never the opaque record id it replaces.
+ *
+ * ⛔ Visually distinct from the tombstone above ON PURPOSE, in the direction
+ * that claims LESS: a broken-link glyph rather than a wastebasket, because this
+ * row carries no server assertion that anything was deleted. The same reason
+ * governs the copy, which is resolved once by the page — see
+ * `unresolvableRecordReference` for why this one string is console-authored
+ * while the tombstone's deliberately is not.
+ *
+ * Like the tombstone it renders TEXT rather than an absence: a row that drops
+ * its reference silently costs the approver the fact that an approval exists.
+ */
+function UnresolvableRecordReference({ label, className }: { label: string; className?: string }) {
+  return (
+    <div className={cn('flex items-center gap-1.5 text-muted-foreground min-w-0', className)} title={label}>
+      <Link2Off className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span className="truncate italic">{label}</span>
     </div>
   );
@@ -482,11 +510,12 @@ function RequestCell({ r, tr }: { r: ApprovalRequestRow; tr: Translate }) {
  * many objects, so it is a per-row prop and not something this cell could
  * resolve for itself — see the page body, which drives it off one lookup.
  */
-function RecordCell({ r, href, hiddenKeys, deadLabel }: {
+function RecordCell({ r, href, hiddenKeys, deadLabel, unresolvableLabel }: {
   r: ApprovalRequestRow;
   href: string | null;
   hiddenKeys: ReadonlySet<string>;
   deadLabel: string | null;
+  unresolvableLabel: string | null;
 }) {
   // Surface the decision-relevant amount inline so a reviewer can triage the
   // queue without opening each request (#2762 P1-3) — minus anything the
@@ -503,16 +532,23 @@ function RecordCell({ r, href, hiddenKeys, deadLabel }: {
           bare record id. The snapshot's business identifier is not lost —
           it moves to the meta line below, where it stays readable as history
           without pretending to address anything. */}
+      {/* objectui#8631: no server assertion, no resolvable reference and no
+          snapshot title — so the slot says the one true thing left (it cannot
+          be opened) instead of degrading to the opaque id. ⛔ Ordered AFTER the
+          tombstone: a row the platform DID flag keeps the platform's stronger
+          sentence. */}
       {deadLabel !== null ? (
         <DeadRecordReference label={deadLabel} className="text-sm max-w-full" />
+      ) : unresolvableLabel !== null ? (
+        <UnresolvableRecordReference label={unresolvableLabel} className="text-sm max-w-full" />
       ) : href === null ? (
-        <div className="text-sm truncate max-w-full" title={r.record_id}>{title}</div>
+        <div className="text-sm truncate max-w-full" title={title}>{title}</div>
       ) : (
       <Link
         to={href}
         onClick={(e) => e.stopPropagation()}
         className="inline-flex items-center gap-1 text-sm hover:underline truncate max-w-full"
-        title={r.record_id}
+        title={title}
       >
         <span className="truncate">{title}</span>
         <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -759,6 +795,22 @@ export function ApprovalsInboxPage() {
     [deadReferenceLabel],
   );
 
+  /**
+   * [objectui#8631] The cause-free affordance's copy, resolved once for the
+   * page, and the predicate that decides which rows get it.
+   *
+   * It answers non-null only for a reference this viewer's own probe could not
+   * resolve AND that carries no snapshot title — the rows that used to degrade
+   * to the opaque record id. ⛔ It asserts nothing about WHY: the probe fuses
+   * "deleted" and "hidden by permissions" by design, which is exactly what
+   * makes it safe to drive cause-free copy off and exactly why it may never
+   * drive `deadLabelFor`, whose sentence is the platform's own assertion.
+   *
+   * `unresolvableLabelFor` is defined below the probe it reads — see
+   * `readability`, whose answer it takes verbatim and never widens.
+   */
+  const unresolvableReferenceLabel = useUnresolvableRecordReferenceLabel();
+
   const [tab, setTab] = useState<TabKey>('pending');
   const [rows, setRows] = useState<ApprovalRequestRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -792,6 +844,23 @@ export function ApprovalsInboxPage() {
     [rows, selected],
   );
   const readability = useRecordReadability(readabilityTargets);
+
+  /**
+   * objectui#8631 — the cause-free branch, wired to that same probe.
+   *
+   * ⛔ The probe's answer is taken exactly as it is reported: `isUnreadable` is
+   * true only once the probe has ANSWERED "not in this viewer's row set", and
+   * an unknown (unprobed, failed, no data source) target keeps today's
+   * rendering because the probe fails open. Nothing here re-asks, re-derives,
+   * or narrows what that answer means.
+   */
+  const unresolvableLabelFor = useCallback(
+    (r: ApprovalRequestRow | null | undefined): string | null =>
+      (isUnresolvableRecordReference(r, !!r && readability.isUnreadable(r))
+        ? unresolvableReferenceLabel
+        : null),
+    [readability, unresolvableReferenceLabel],
+  );
 
   /**
    * objectui#5565 + objectui#6020 — the fields each object on screen declares
@@ -1696,6 +1765,7 @@ export function ApprovalsInboxPage() {
                               href={deadLabelFor(r) !== null || readability.isUnreadable(r) ? null : recordHref(r)}
                               hiddenKeys={hiddenFields.forObject(r.object_name)}
                               deadLabel={deadLabelFor(r)}
+                              unresolvableLabel={unresolvableLabelFor(r)}
                             />
                           </TableCell>
                           <TableCell>
@@ -1763,12 +1833,20 @@ export function ApprovalsInboxPage() {
                           the mobile card renders the SAME reference for the
                           same request, so fixing only the table would leave
                           the bare id on every phone. */}
+                      {/* objectui#8631: and the same cause-free affordance as
+                          the desktop row. This card used to consult NO probe at
+                          all, so a phone kept the opaque id after the table had
+                          stopped showing it — the dead end moved viewport, not
+                          away. */}
                       {(() => {
                         const deadLabel = deadLabelFor(r);
+                        const unresolvableLabel = unresolvableLabelFor(r);
                         return (
                           <div className="text-sm truncate">
                             {deadLabel !== null ? (
                               <span className="italic text-muted-foreground">{deadLabel}</span>
+                            ) : unresolvableLabel !== null ? (
+                              <span className="italic text-muted-foreground">{unresolvableLabel}</span>
                             ) : (
                               r.record_title || formatIdentity(r.record_id)
                             )}
@@ -1991,9 +2069,18 @@ export function ApprovalsInboxPage() {
                           drawer addresses the same record, so leaving the bare
                           id here would move it one click deeper instead of
                           removing it. */}
+                      {/* objectui#8631: and the cause-free affordance too —
+                          the drawer addresses the same reference, so stopping
+                          at the row would move the opaque id one click deeper
+                          instead of removing it. */}
                       {deadLabelFor(selected) !== null ? (
                         <DeadRecordReference
                           label={deadLabelFor(selected) as string}
+                          className="text-base font-semibold"
+                        />
+                      ) : unresolvableLabelFor(selected) !== null ? (
+                        <UnresolvableRecordReference
+                          label={unresolvableLabelFor(selected) as string}
                           className="text-base font-semibold"
                         />
                       ) : readability.isUnreadable(selected) ? (

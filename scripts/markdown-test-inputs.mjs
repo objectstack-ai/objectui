@@ -238,6 +238,17 @@ export const ADJUDICATED = new Map([
       reads: ['content/docs/guide/schema-rendering.md', 'packages/react/README.md'],
     },
   ],
+  // objectui#9569. This one reads a CHANGELOG as a CONTROL, not as a spec: the
+  // test asserts a class named only by that prose is absent from the compiled
+  // stylesheet, and reads the file to prove the prose still names it -- so the
+  // negative assertion cannot pass because the token quietly went away.
+  [
+    'packages/components/src/__tests__/index-css-scan-excludes-tests.test.ts',
+    {
+      reads: ['packages/components/CHANGELOG.md'],
+      notRead: ['CHANGELOG.md'],
+    },
+  ],
   [
     'packages/components/src/__tests__/page-body-single-node-8310.test.tsx',
     {
@@ -290,6 +301,14 @@ export const ADJUDICATED = new Map([
   [
     'packages/data-objectstack/src/readme-filter-operator-table.test.ts',
     { reads: ['packages/data-objectstack/README.md'] },
+  ],
+  // objectui#7989. Reads this package's OWN README and compares the built-in
+  // locale count that document states against what the package EXPORTS -- so an
+  // edit to that README IS an edit to this test's input, and a markdown-only
+  // pull request touching it has to run the shard.
+  [
+    'packages/i18n/src/__tests__/readme-locale-count-7989.test.ts',
+    { reads: ['packages/i18n/README.md'] },
   ],
   [
     'packages/layout/src/__tests__/app-shell-branding-title-surfaces.test.ts',
@@ -467,9 +486,25 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/page-breadcrumbs-refusal-8871.test.ts',
     { reads: ['content/docs/guide/layout.md'] },
   ],
+  // objectui#8256. Reads the root README's "Kanban Board" `json` fence and runs
+  // it through `safeValidateSchema` -- so an edit to that page IS an edit to
+  // this test's input, and a README-only pull request has to run the shard.
+  [
+    'packages/types/src/__tests__/readme-kanban-example-8256.test.ts',
+    { reads: ['README.md'], notRead: ['packages/types/README.md'] },
+  ],
   [
     'packages/types/src/__tests__/schema-reference-named-list-view-keys-7923.test.ts',
     { reads: ['content/docs/api/schema-reference.md'] },
+  ],
+  // objectui#9522. Reads the zod README's own `typescript` fences and runs each
+  // worked example through the schema that fence names -- so an edit to that page
+  // IS an edit to this test's input, and a README-only pull request has to run
+  // the shard. Same relationship `readme-kanban-example-8256.test.ts` has to the
+  // root README, one page down.
+  [
+    'packages/types/src/__tests__/zod-readme-examples-9522.test.ts',
+    { reads: ['packages/types/src/zod/README.md'] },
   ],
   [
     'packages/vscode-extension/src/__tests__/export-to-react-compiles.test.ts',
@@ -496,6 +531,16 @@ export const ADJUDICATED = new Map([
       notRead: ['content/docs/guide/ci-cd-pipeline.md'],
     },
   ],
+  // objectui#9727 -- the rebuilt polarity census. It walks TWO markdown trees:
+  // the real pending corpus (through the script, for the controls and the
+  // corpus-boundary pin) and its own fixture corpus (for every instrument pin).
+  [
+    'scripts/__tests__/changeset-polarity-census.test.ts',
+    {
+      reads: ['scripts/__tests__/fixtures/changeset-polarity/corpus/**'],
+      walker: 'markdown-tree',
+    },
+  ],
   // Reads no markdown: drives the gate against a fixture repository it writes in a temp directory.
   [
     'scripts/__tests__/check-changeset-claims.test.ts',
@@ -517,7 +562,7 @@ export const ADJUDICATED = new Map([
     'scripts/__tests__/check-changeset-overwrite.test.ts',
     {
       reads: [],
-      notRead: ['.changeset/README.md', '.changeset/olive-donkeys-smile.md'],
+      notRead: ['.changeset/README.md'],
     },
   ],
   // Reads no markdown: drives the gate against a fixture repository it writes in a temp directory.
@@ -532,7 +577,16 @@ export const ADJUDICATED = new Map([
   [
     'scripts/__tests__/check-doc-component-types.test.ts',
     {
-      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**'],
+      // `packages/**` joined with objectui#7896's fourth leg (objectui#8115):
+      // `check:doc-types` now walks every `packages/NAME/README.md`, so this test
+      // reads them and a change to one must start the shard that runs it. The
+      // entry is the same shape `check-doc-snippet-types.test.ts` below carries
+      // for the same surface — the ledger has no `dir/*/name` form, and
+      // over-declaring is the safe direction here: the failure this whole file
+      // exists to prevent (objectui#8857) was a pull request changing exactly
+      // ONE package README, `packages/plugin-dashboard/README.md`, whose shard
+      // reported success in ten seconds having run nothing.
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**', 'packages/**'],
       walker: 'not-markdown: `.github/workflows/*.yml`',
     },
   ],
@@ -560,7 +614,10 @@ export const ADJUDICATED = new Map([
   [
     'scripts/__tests__/check-doc-expression-carriage.test.ts',
     {
-      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**'],
+      // `packages/**` for the same reason as the entry above: this census takes
+      // `check:doc-types`' surface by IMPORT, so objectui#7896's fourth leg
+      // reached it in the same change (objectui#8115).
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**', 'packages/**'],
       walker: 'markdown-tree',
     },
   ],
@@ -625,7 +682,7 @@ export const ADJUDICATED = new Map([
     'scripts/__tests__/check-installed-spec-pin-claims.test.ts',
     {
       reads: ['.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
-      notRead: ['.changeset/8897-installed-spec-pin-claims.md', 'CHANGELOG.md'],
+      notRead: ['CHANGELOG.md'],
     },
   ],
   [
@@ -648,6 +705,20 @@ export const ADJUDICATED = new Map([
     'scripts/__tests__/check-new-cross-file-line-citations.test.ts',
     {
       reads: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  // Reads no markdown: the three documents below are ARGUMENTS to a path
+  // predicate — `isPendingDeclaration` classifies a string and opens nothing.
+  // They are real paths on purpose (a synthetic one would prove nothing about
+  // the shapes the predicate has to decline), and permanent ones on purpose:
+  // the suite pins the gate that stops a test naming a file `changeset version`
+  // deletes, so naming a pending declaration here would make it an instance of
+  // its own subject (objectui#9583).
+  [
+    'scripts/__tests__/check-pending-changeset-literals.test.ts',
+    {
+      reads: [],
+      notRead: ['.changeset/README.md', 'CHANGELOG.md', 'packages/core/README.md'],
     },
   ],
   // Reads no markdown: reads workflow YAML and sources, no markdown.
@@ -679,6 +750,16 @@ export const ADJUDICATED = new Map([
     {
       reads: ['packages/**'],
       walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  // objectui#9502 widened this suite to read prose: the repaired carriers must
+  // point at the gate instead of restating the ruleset's membership, and the
+  // untouched `AGENTS.md` carrier is the positive control that proves the
+  // detector still fires.
+  [
+    'scripts/__tests__/check-required-check-set.test.ts',
+    {
+      reads: ['AGENTS.md', 'content/docs/guide/ci-cd-pipeline.md'],
     },
   ],
   [

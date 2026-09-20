@@ -99,9 +99,19 @@ The failing tests have discovered legitimate issues with component schemas and p
 
 ## Adding New Tests
 
-When adding a new component, follow this pattern:
+When adding a new component, follow this pattern — the imports are the ones a
+file in this directory writes, so copy the block whole:
 
+<!-- doc-snippet: fragment — this pattern is a test file for THIS suite, so it imports `vitest` — which only the repository root declares, and which `scripts/check-doc-snippet-types.mjs` refuses for that reason — and the sibling `./test-utils`, a suite-local module `@object-ui/components` does not ship (its `files` list is `dist` only, and `dist/` holds no `test-utils`). Both specifiers are correct where the reader writes them and neither resolves in a probe compiled at the repository root -->
 ```typescript
+import { describe, it, expect } from 'vitest';
+
+import {
+  getAllDisplayIssues,
+  renderComponent,
+  validateComponentRegistration,
+} from './test-utils';
+
 describe('NewComponent Renderer', () => {
   it('should be properly registered', () => {
     const validation = validateComponentRegistration('new-component');

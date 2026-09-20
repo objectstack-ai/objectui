@@ -95,8 +95,9 @@ const ActionIconRenderer = forwardRef<
     const isVisible = useCondition(toPredicateInput(schema.visible), recordData);
     // Spec `disabled` (boolean | CEL — disabled when TRUE) primary, legacy
     // non-spec `enabled` fallback (#1885 follow-through — only action-button
-    // was wired; this renderer ignored a spec-authored `disabled`).
-    const isDisabledPred = useCondition(toPredicateInput((schema as any).disabled), recordData);
+    // was wired; this renderer ignored a spec-authored `disabled`). Uncast
+    // since objectui#8648 — see `action-button.tsx` for the reading.
+    const isDisabledPred = useCondition(toPredicateInput(schema.disabled), recordData);
     const isEnabled = useCondition(toPredicateInput(schema.enabled), recordData);
 
     const Icon = resolveIcon(schema.icon);
@@ -143,6 +144,12 @@ const ActionIconRenderer = forwardRef<
           bodyExtra: schema.bodyExtra,
           // See action-button.tsx — the body-WRAPPING key (objectstack#6938).
           bodyShape: schema.bodyShape,
+          // The declarative single-record field write — forwarded as a PAIR, for
+          // the reason spelled out at `action:button`'s forward: the runner
+          // dispatches on `operation` ahead of `type`, and `patch` carries the
+          // field values, so dropping either POSTs an empty write.
+          operation: schema.operation,
+          patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
           errorMessage: schema.errorMessage,
@@ -152,8 +159,12 @@ const ActionIconRenderer = forwardRef<
           toast: schema.toast,
           // See action-button.tsx — the one-shot reveal spec (2FA setup, fresh
           // OAuth secret). Without it the runner falls back to the success
-          // toast and the value the user was meant to copy is gone.
-          resultDialog: (schema as any).resultDialog,
+          // toast and the value the user was meant to copy is gone. The READ is
+          // uncast since objectui#8648; the write-side narrowing that stood
+          // here went with objectui#9542, which made `ResultDialogSpec` derive
+          // its label members from the contract. ⛔ Never widen either end back
+          // to `as any`.
+          resultDialog: schema.resultDialog,
           // See action-button.tsx — the declared post-success hop
           // (objectui#5493). The runner reads it off the forwarded def; dropped
           // here the action succeeds and the authored navigation never runs.
@@ -200,7 +211,7 @@ const ActionIconRenderer = forwardRef<
         // reason to disable, never a reason to enable — `SchemaRenderer` emits
         // `true` or `undefined`, never `false`. See `action:button`.
         disabled={hostDisabled || (
-          hasDeclaredVisibilityGate((schema as any).disabled)
+          hasDeclaredVisibilityGate(schema.disabled)
             ? isDisabledPred
             : hasDeclaredVisibilityGate(schema.enabled)
               ? !isEnabled

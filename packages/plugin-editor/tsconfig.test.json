@@ -28,7 +28,7 @@
     "jsx": "react-jsx",
     // Measured: the single suite compiles clean against the root's ES2020
     // baseline, so the test is held to the same lib the shipped SOURCE targets.
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     // `paths` drops the root tsconfig's source-tree mappings so `@object-ui/*`
     // resolves through each workspace dependency's built `.d.ts` rather than
     // pulling sibling package sources in as program inputs. `type-check`

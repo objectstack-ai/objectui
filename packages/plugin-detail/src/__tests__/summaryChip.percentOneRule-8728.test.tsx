@@ -215,7 +215,7 @@ interface Row {
 
 const ROWS: Row[] = [
   // The card's own reproduction. Before the fix: text `0.123%`, bar 12.3%.
-  // objectui#9167 then rounded the TEXT to the field's declared precision; the
+  // objectui#9167 then rounded the TEXT to the field's declared width; the
   // bar is the same 12.3 it has drawn since objectui#8728.
   { what: 'a stored ratio — the card\'s reproduction', stored: 0.123, text: '12%', bar: 12.3 },
   // CONTROL for the SCALING — already percentage points, so the magnitude may

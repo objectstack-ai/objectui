@@ -145,8 +145,21 @@ export interface KanbanColumn {
   limit?: number;
   className?: string;
   /**
-   * Whether the lane renders collapsed. Honoured by `KanbanEnhanced` (the
-   * implementation that ships column collapsing); the plain board ignores it.
+   * Whether the lane renders collapsed: narrowed to a title spine, its cards
+   * withheld, and its heading a disclosure the viewer can open again.
+   *
+   * The AUTHORED value is the lane's initial state only — once a viewer toggles
+   * the lane, their decision holds for that session, including across the data
+   * refreshes that rebuild these lane objects. Reading it as a locked state
+   * would make a lane's cards permanently unreachable and its drop target
+   * blind.
+   *
+   * Honoured by the registered board (`@object-ui/plugin-kanban`'s `KanbanImpl`,
+   * on BOTH of its layouts — the flat lane and each row of the swimlane grid)
+   * since objectui#9628, and by `KanbanEnhanced` before it. Until that card the
+   * key was declared on both published faces and read only by `KanbanEnhanced`,
+   * which no production source imports — so an authored value parsed green and
+   * reached nothing.
    */
   collapsed?: boolean;
   /**
@@ -156,10 +169,13 @@ export interface KanbanColumn {
    * `KanbanEnhanced`, `ObjectKanban`).
    *
    * A tombstone rather than a plain removal on BOTH prongs of the
-   * discriminator the precedent changesets state (objectui#5941, #7526; the
-   * one-line form is under correction as objectui#7678) — a tombstone exists
-   * (1) to steer authors to a named live replacement KEY, or (2) to keep loud a
-   * key the docs taught as working:
+   * discriminator the precedent changesets state (objectui#5941, #7526), in
+   * the form objectui#7678 amended it to: a `?: never` tombstone is available
+   * only on a SURVIVING CARRIER — `KanbanColumn` survives this retirement,
+   * while a whole exported type name has no carrier and is removed outright —
+   * and on such a carrier it is used when either prong holds: (1) it steers
+   * authors to a named live replacement KEY, or (2) it keeps loud a key the
+   * docs taught as working. Both hold here:
    *
    *   - prong 1: `className` is that live replacement — style a lane through
    *     it;
@@ -1054,9 +1070,12 @@ export interface ChatToolInvocation {
  * UNDECLARED key is not refused, it is KEPT. That is the hazard the two-prong
  * discriminator leaves to the carrier — where there is no mirror there is "no
  * silent-strip hazard for prong 2 to guard" (`mobile.ts`, objectui#5941 /
- * #7526 / #7678: a tombstone exists to steer authors to a named live
- * replacement KEY, or to keep loud a key the docs taught as working). Here
- * there IS a mirror to host the refusal, and prong 1 holds by the letter for
+ * #7526 / #7678: a `?: never` tombstone is available only on a SURVIVING
+ * CARRIER — `ChatbotSchema` survives, while a whole exported type name has no
+ * carrier and is removed outright — and on such a carrier it is used when
+ * either prong holds: it steers authors to a named live replacement KEY, or it
+ * keeps loud a key the docs taught as working). Here there IS a mirror to host
+ * the refusal, and prong 1 holds by the letter for
  * four of the six — `userAvatar` → `userAvatarUrl`, `assistantAvatar` →
  * `assistantAvatarUrl`, `height` → `maxHeight`, `markdown` →
  * `enableMarkdown` on a `chatbot-enhanced` node. Each member's own comment
@@ -1441,6 +1460,53 @@ export interface ChatbotSchema extends BaseSchema {
    */
   floatingConfig?: FloatingChatbotConfig;
   /**
+   * REFUSED BY NAME (objectui#8572, ADR-0049) — the chat API's body params are
+   * authored as `requestBody`, and `body` on this node means what it means on
+   * every other component: the content slot. Write `requestBody`.
+   *
+   * ⚠️ The two faces were not saying the same thing, and only one of them
+   * carried the record. HERE `body` has always arrived from {@link BaseSchema}
+   * as the node slot, with the params declared beside it as `requestBody` since
+   * that rename; the record-shaped arm — "Additional API body params" — lived
+   * on the ZOD twin alone, and that is the published face this retirement
+   * narrows. The `?: never` here is what makes `tsc` say the same thing at the
+   * authoring site. ⇒ the pair stops being two meanings of one key, the
+   * collision `__tests__/zod-mirror-parity.test.ts` carried under `KnownDrift`
+   * and the state maintainer ruling A on objectui#8572 (decision batch #137,
+   * item 4, 2026-09-15) ends.
+   *
+   * ⛔ It was NOT narrowed to the node slot — that reading was option C on the
+   * card and was refused by name: `chatbot` reads NEITHER content channel, so a
+   * node-slot `body` would be legal and inert, which is the silence the
+   * retirement exists to end. It is refused instead, the disposition the
+   * sibling `children` tombstone below already carries — and that tombstone's
+   * own measurement names `body` in the same sentence.
+   *
+   * What the renderer does instead: it spells the chat runtime's `body` option
+   * off `requestBody` (`body: schema.requestBody`), which is why a `body`
+   * authored here reached nothing — `SchemaRenderer` strips both content keys
+   * out of the props bag it spreads, and no read in `packages/plugin-chatbot`
+   * names `schema.body`. ⛔ That absence is not restated here as a count: the
+   * instruments that re-derive it are the read-site census in
+   * `__tests__/content-channel-family-d-9256.test.ts` and the arm pins in
+   * `__tests__/node-recursion-point-8344.test.ts`.
+   *
+   * ⚠️ DELIVERY SURFACE, stated because it bounds what this buys. The zod
+   * refusal is PARSE-TIME and this member is COMPILE-TIME, and the runtime
+   * render path is neither: `SchemaRenderer` validates in dev builds only, and
+   * through `@object-ui/core`'s hand-written `validateSchema`, which walks base
+   * keys and recurses into content — it never consults these mirrors, so it has
+   * no per-component key to refuse. ⇒ an authored `body` that meets neither
+   * `tsc` nor a root parse (`objectui validate` / `objectui check`, which call
+   * `safeValidateSchema`) is dropped exactly as silently after this change as
+   * before it. The refusal is delivered where documents are AUTHORED and
+   * CHECKED, not where they are rendered.
+   *
+   * @deprecated Not a channel `chatbot` reads — author the chat API's body
+   * params as `requestBody`.
+   */
+  body?: never;
+  /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `chatbot` reads NEITHER content
    * channel: no renderer read consumes `body` or `children` for this node.
    *
@@ -1816,6 +1882,22 @@ export interface FloatingChatbotConfig {
    *     a non-fresh type. That is the silent no-op traded for another one.
    *   - TOMBSTONED, both paths are refused: the declared `never` makes the
    *     assignment itself ill-typed, so freshness stops mattering.
+   *
+   * ⚠️ That `tsc` contrast is the MECHANISM, not the discriminator. It applied
+   * equally to objectui#4919 and #5942, which were removed outright, so it
+   * cannot be what separates the routes. What decides the route is this
+   * package's retire-vs-remove discriminator in its amended form
+   * (objectui#7678, the same wording the `chatbot` tombstones above carry): a
+   * `?: never` tombstone is available only on a SURVIVING CARRIER —
+   * `FloatingChatbotConfig` survives this retirement, while a whole exported
+   * type name has no carrier and is removed outright — and on such a carrier
+   * it is used when either prong holds. PRONG 2 is the one that holds here:
+   * the key was advertised in the 3.3.0 release record (2026-04-17, the "New
+   * ChatbotSchema floating fields" entry, which names `triggerIcon` among
+   * `FloatingChatbotConfig`'s options) and its published JSDoc promised
+   * `@default 'MessageCircle'` — the docs taught it as working. Prong 1 does
+   * NOT hold: there is no replacement key, which is why the guidance below
+   * names the trigger's own markup instead.
    *
    * Pinned in `__tests__/floating-chatbot-trigger-icon-retired.test.ts`,
    * including the deletion contrast, so nobody can "simplify" this back into a

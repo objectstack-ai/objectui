@@ -19,6 +19,13 @@
  *   MetadataSaveOptions → MetadataClientSaveOptions
  *   ValidationError     → DataApiValidationError
  *
+ * A fourth rename joined the table later, from a different ledger:
+ * `normalizeFilterOperator` → `toAstFilterOperator` (objectui#7265, rule 1's
+ * DEBT block in `scripts/check-spec-symbol-derivation.mjs`). It is here because
+ * the guard a rename needs is this one, whichever ledger sent it; what is
+ * specific to it -- the site, the block, and the behaviour that refused BIND --
+ * is in `scripts/__tests__/spec-symbol-ledger-data-objectstack-7265.test.ts`.
+ *
  * The batch's own triage note said "data-objectstack is a direct client of the
  * spec protocol, so `SecurityPolicy` / `DroppedFieldsEvent` are probably hand
  * copies — derive them first". Half of that held: `DroppedFieldsEvent` was
@@ -142,6 +149,20 @@ const RENAMES: Array<[local: string, formerly: string, specMeaning: string]> = [
     'DataApiValidationError',
     'ValidationError',
     'a plain { field, message, code? } entry in a validation report',
+  ],
+  // objectui#7265's `@object-ui/data-objectstack` slice. Appended here rather
+  // than given a file of its own: this is the package's spec-symbol parity file
+  // and the shape it already holds is exactly the one a rename needs. Unlike the
+  // three above, the renamed symbol is a FUNCTION and a module-local one, so the
+  // probe above has to see VALUE exports as well as types -- it does, it reads
+  // the checker's `getExportsOfModule`, and the assertion below would go quiet
+  // rather than red if it ever stopped.
+  [
+    'toAstFilterOperator',
+    'normalizeFilterOperator',
+    "folding an authored spelling to the canonical VIEW vocabulary (`eq` -> `equals`), the "
+      + '`z.preprocess` step on `ViewFilterRuleSchema.operator` -- NOT a translation to the '
+      + 'filter-AST symbols this package emits',
   ],
 ];
 

@@ -204,13 +204,17 @@
  * the empty object it is today. Each row names what the example references, so
  * the row goes stale the moment the example is made self-contained.
  *
- * ⚠️ objectui#7974 is OPEN, and its row is the reason this gate ships with a
- * ledger rather than a green: `packages/mobile/src/useSpecGesture.ts` still
- * carries the scalar `direction` on `main`, its card is on another lane's queue
- * (`domain:ui`, `pm:queue`), and this gate may not fix it. The row records
- * TS2322 by number. When that lane repairs the example the row goes STALE and
- * reddens on THEIR pull request, which is the hand-off working as designed, not
- * a defect in it.
+ * ⚠️ objectui#7974 has LANDED, and the hand-off worked exactly as this paragraph
+ * said it would: the row recorded TS2322 by number, repairing the example turned
+ * the row stale, and it reddened on that lane's pull request rather than here.
+ * What the repair did NOT do is retire the row — its own text said "delete this
+ * row when that card lands", and that instruction was falsified by measurement.
+ * The example now passes the array `SpecSwipeDirection[]` declares, so TS2322 is
+ * gone; its `return` still sits outside any function, so TS1108 remains and the
+ * block is still a declared fragment, alongside the other two hook-body excerpts
+ * in `packages/mobile`. A row is RE-DERIVED when half its diagnostics are paid
+ * off, not deleted — deleting it would have made the block an undeclared
+ * failure, which is red for a different reason.
  *
  * ## The template-literal half of objectui#8258
  *
@@ -751,10 +755,10 @@ export const UNGATED_EXAMPLES = {
       'a hook-body excerpt: its `return` sits outside any function, so the block is a fragment by shape',
   },
   'packages/mobile/src/useSpecGesture.ts useSpecGesture #1': {
-    card: 'objectui#7974',
-    codes: [1108, 2322],
+    card: null,
+    codes: [1108],
     reason:
-      'the scalar `swipe.direction` this example passes is rejected by the declared `SpecSwipeDirection[]` (TS2322). objectui#7974 owns BOTH halves — the example and the lenient cast that hides it — and is on another lane. Delete this row when that card lands; the block also returns outside a function (TS1108), a hook-body excerpt',
+      'a hook-body excerpt: its `return` sits outside any function, so the block is a fragment by shape',
   },
   'packages/mobile/src/useTouchTarget.ts useTouchTarget #1': {
     card: null,

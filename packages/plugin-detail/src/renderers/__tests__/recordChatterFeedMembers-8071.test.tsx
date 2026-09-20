@@ -64,11 +64,18 @@
  * IMPLEMENTATION GAP, and it was closed in the renderer rather than written
  * into the contract.
  *
- * ⚠️ Two members of the declared shape are still unread on this path and are
- * NOT closed by that pipeline: `filterMode` (taken by the timeline as a
- * component prop, `:187` / `:212`, never off `config`) and `enableMentions`
- * (whose only reads are on the `record:activity` path). Tracked as
- * objectui#8968; ⛔ neither is pinned here, in either direction.
+ * ⚠️ Two members of the declared shape are NOT closed by that pipeline, and
+ * ⛔ neither is pinned here, in either direction: `filterMode` (which the
+ * timeline takes as a component PROP — it destructures `filterMode:
+ * controlledFilter` and resolves `controlledFilter ?? internalFilter`, never
+ * reading it off `config`) and `enableMentions`.
+ *
+ * ⭐ Both were UNREAD on this path when that sentence was first written, and
+ * that half is no longer true: objectui#8968 wired them into
+ * `renderers/record-chatter.tsx`, with its own pin in
+ * `recordChatterFilterModeMentions-8968.test.tsx`. The correction is left in
+ * place of the old claim rather than removed, because this docblock is the
+ * record of what each pin does and does not cover.
  *
  * ## Resolution
  *

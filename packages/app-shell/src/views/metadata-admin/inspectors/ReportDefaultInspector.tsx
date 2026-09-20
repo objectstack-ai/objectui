@@ -37,6 +37,7 @@ import {
   appendArray,
   moveArray,
   spliceArray,
+  rosterFrom,
 } from './_shared.js';
 import { AddFieldPopover, FieldListRow } from '../previews/ViewColumnPanes.js';
 import { toFieldName } from '../previews/object-fields-io.js';
@@ -398,6 +399,14 @@ export function ReportDefaultInspector({
               label={tr('engine.inspector.report.dataset')}
               value={datasetName}
               options={datasetOptions}
+              // objectui#8862 — the gate above keeps the picker mounted while a
+              // dataset is bound, so an in-flight catalog reaches it as `[]` and
+              // a live binding read as "(not found)" until the list landed.
+              // objectui#9651 — a catalog that FAILED reaches it the same way
+              // and never recovers, so the hook's `error` travels with the
+              // in-flight signal as one state instead of beside it.
+              roster={rosterFrom({ loading: catalog.loading, error: catalog.error })}
+              rosterFailureLabel={tr('engine.form.optionsLoadFailedTitle')}
               onCommit={(v) => onPatch({ dataset: v })}
               disabled={readOnly}
             />
@@ -480,10 +489,20 @@ export function ReportDefaultInspector({
                   }
                   disabled={readOnly}
                 />
+                {/* objectui#8862 — both axis rosters come from the bound
+                    dataset's semantic layer, which is fetched: the in-flight
+                    signal is what keeps a valid axis from being flagged while
+                    that fetch is out. objectui#9651 — `DatasetNamesEditor`
+                    above already consumes this hook's `error` too, and these two
+                    were the pickers that dropped it; a failed semantic layer
+                    flagged a real axis permanently. Both facts travel as one
+                    state. */}
                 <InspectorSelectField
                   label={tr('engine.inspector.report.chartX')}
                   value={chartX}
                   options={chartXOptions}
+                  roster={rosterFrom({ loading: semantics.loading, error: semantics.error })}
+                  rosterFailureLabel={tr('engine.form.optionsLoadFailedTitle')}
                   onCommit={(v) => commitChart({ xAxis: v })}
                   disabled={readOnly}
                 />
@@ -491,6 +510,8 @@ export function ReportDefaultInspector({
                   label={tr('engine.inspector.report.chartY')}
                   value={chartY}
                   options={chartYOptions}
+                  roster={rosterFrom({ loading: semantics.loading, error: semantics.error })}
+                  rosterFailureLabel={tr('engine.form.optionsLoadFailedTitle')}
                   onCommit={(v) => commitChart({ yAxis: v })}
                   disabled={readOnly}
                 />

@@ -46,7 +46,7 @@
  * of racing RTL's 1000ms `findBy` budget against a cold Vite transform.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import React from 'react';
 import { registerAllFields } from '@object-ui/fields';
 import type { ObjectFormSchema } from '@object-ui/types';
@@ -239,7 +239,14 @@ describe('ObjectForm mobile.fullscreenLongText → RichTextField (objectui#3301)
       richTextObjectSchema,
     );
 
-    const toggle = await screen.findByTestId('richtext-fullscreen-toggle');
+    // objectui#9778 — `customFields` MERGES over the metadata-generated set, so
+    // this form draws the object's OTHER rich-text field (`changelog`) too and
+    // there are two expand affordances on screen. The case is about `summary`,
+    // so the lookup is scoped to it; before the merge this member was the whole
+    // field set and an unscoped `findByTestId` happened to be unambiguous.
+    await waitFor(() => expect(inlineControl('summary')).toBeInTheDocument());
+    const summaryField = document.querySelector('[data-field="summary"]') as HTMLElement;
+    const toggle = within(summaryField).getByTestId('richtext-fullscreen-toggle');
     fireEvent.click(toggle);
 
     fireEvent.change(screen.getByTestId('richtext-fullscreen-input'), {

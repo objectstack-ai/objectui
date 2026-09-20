@@ -158,9 +158,19 @@ const walk = (schema: z.ZodType): z.ZodType => {
    * the day `@objectstack/spec` adopts the same principle, with nothing to roll
    * back, and today it leaves every already-clean imported schema binding by
    * reference exactly as it was before batch #90.
+   *
+   * ⚠️ `| null` on the sides, because the `tuple` arm below hands this helper
+   * `def.rest` RAW — comparing like with like is the whole of objectui#9088's
+   * repair, and zod spells a rest-less tuple's `rest` as `null`. ⛔ NOT a
+   * relaxation of the comparison: it stays `===`, so `null` still matches only
+   * `null` and `undefined` still matches only `undefined`. Widening the
+   * parameter is what lets the arm keep passing the value zod actually minted
+   * instead of normalising it back into the objectui#9088 defect to satisfy a
+   * signature (objectui#9491).
    */
-  const unchanged = (children: readonly (readonly [z.ZodType | undefined, z.ZodType | undefined])[]): boolean =>
-    children.every(([before, after]) => before === after);
+  const unchanged = (
+    children: readonly (readonly [z.ZodType | null | undefined, z.ZodType | null | undefined])[],
+  ): boolean => children.every(([before, after]) => before === after);
 
   let out: z.ZodType;
   switch (def.type) {
@@ -218,9 +228,37 @@ const walk = (schema: z.ZodType): z.ZodType => {
       out = element === def.element ? schema : cloneWithDef(schema, { element });
       break;
     }
+    // ⭐ `: def.rest`, ⛔ NOT `: undefined` (objectui#9088).
+    //
+    // Zod 4 spells "no rest element" as an OWN `rest` key holding `null` — not
+    // as an absent key — and that is the only `null` zod mints into any def
+    // member this walker reads. Normalising the absent case to `undefined` put
+    // a `null` on one side of `unchanged`'s `===` and an `undefined` on the
+    // other, so the pair never matched and EVERY rest-less tuple took the
+    // `cloneWithDef` branch whether or not anything beneath it had changed.
+    // Three published spec exports were rebuilt for no reason
+    // (`FieldOperatorsSchema`, `RangeOperatorSchema`, `ListMapConfigSchema`),
+    // and the identity property above — batch #90's reversibility argument made
+    // literal — was false wherever a rest-less tuple occurred.
+    //
+    // Copying `def.rest` compares like with like: `null` against `null`,
+    // `undefined` against `undefined`, a schema against its walked self. ⛔ The
+    // repair is NOT to relax `unchanged` to `==`; that would make
+    // `null == undefined` true for every arm at once and erase a real zod-4
+    // spelling distinction another arm may come to depend on.
+    //
+    // ⚠️ `WalkableDef.rest` is declared `z.ZodType | null` (objectui#9491) —
+    // it admits the `null` zod actually mints, so the value below is typed as
+    // what it is. Until that landed the declaration said `z.ZodType |
+    // undefined`, and that is what made `: undefined` look correct here.
+    //
+    // ⭐ PROVING REMOVAL: put `: undefined` back and
+    // `__tests__/imported-defaults-rest-less-tuple-9088.test.ts` reddens on
+    // "a rest-less tuple ... comes back REFERENCE-EQUAL", as does
+    // `__tests__/imported-defaults-describe-9034.test.ts` on the three exports.
     case 'tuple': {
       const items = (def.items ?? []).map(walk);
-      const rest = def.rest ? walk(def.rest) : undefined;
+      const rest = def.rest ? walk(def.rest) : def.rest;
       out = unchanged([...(def.items ?? []).map((it, i) => [it, items[i]] as const), [def.rest, rest] as const])
         ? schema
         : cloneWithDef(schema, { items, ...(def.rest ? { rest: rest! } : {}) });

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * Live dogfood verification for the record-level inline edit polish
@@ -28,10 +29,32 @@ if (process.env.PW_CHROMIUM_PATH) {
   test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
 }
 
+/**
+ * Rooted on THIS FILE, never on `process.cwd()` (objectui#9188): a bare relative
+ * path handed to `readFileSync` names no root, so it gets the ambient one and
+ * the read lands in a different tree depending on the directory the run was
+ * launched from.
+ *
+ * Bare `import.meta.url` taken apart by hand — the spelling PR #7796 landed and
+ * PR #7806 reused. ⛔ Not `new URL(rel, import.meta.url)`: this repo prescribes
+ * one spelling, on grounds of spelling uniqueness (objectui#9191).
+ *
+ * This is a PLAYWRIGHT spec, so the Vitest measurements behind that rule do not
+ * cover it and objectui#8953 registered this read rather than repair it blind.
+ * Measured for objectui#9188 under `playwright.live.config.ts`: `import.meta.url`
+ * arrives as this file's own absolute `file:` URL, identical from two different
+ * launch directories, while the bare relative path moved between them.
+ */
+const SELF_DEPTH_BELOW_REPO_ROOT = 3; // e2e / live / this file
+const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname)
+  .split('/')
+  .slice(0, -SELF_DEPTH_BELOW_REPO_ROOT)
+  .join('/');
+
 const EDIT_HINT = 'Double-click to edit';
 
 function authToken(): string {
-  const state = JSON.parse(readFileSync('e2e/live/.auth/state.json', 'utf8'));
+  const state = JSON.parse(readFileSync(join(REPO_ROOT, 'e2e/live/.auth/state.json'), 'utf8'));
   const entry = state.origins?.[0]?.localStorage?.find((e: any) => e.name === 'auth-session-token');
   if (!entry) throw new Error('No auth-session-token in storage state');
   return entry.value;

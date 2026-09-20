@@ -221,14 +221,20 @@ guide does not govern it; the two look alike and are unrelated.
 
 ### usePermissions hook
 
-```typescript
+<!-- os:check -->
+```tsx
 import { usePermissions } from '@object-ui/permissions';
+import { Button } from '@object-ui/components';
 
-function ContactActions({ contact }) {
-  const { check, checkField, getFieldPermissions, getRowFilter } = usePermissions();
+function ContactActions({ contact }: { contact: { salary?: number } }) {
+  const { can, checkField, getFieldPermissions, getRowFilter } = usePermissions();
 
-  const canEdit = check('contacts', 'update', contact);
-  const canDelete = check('contacts', 'delete', contact);
+  // Gate on `can`, which answers a boolean. `check` answers `{ allowed, … }`, and
+  // an object is truthy, so gated on it both buttons render for a denied user
+  // too; its `record` argument reads no field of the record, so none is passed.
+  // `: boolean` is what makes a `check(...)` here fail to compile.
+  const canEdit: boolean = can('contacts', 'update');
+  const canDelete: boolean = can('contacts', 'delete');
   const canSeeSalary = checkField('contacts', 'salary', 'read');
 
   return (
@@ -267,66 +273,102 @@ function AdminPanel() {
 
 ### Schema-level visibility with expressions
 
-Combine permissions with expression-based visibility:
+Combine permissions with expression-based visibility. The names an expression can
+read are the ones the **host published**: `PredicateScopeProvider` is that
+channel, and every key of the `scope` you hand it becomes a root — so the gate
+below works on a page whose host published `userRole`, and on no other.
 
 <!-- os:check -->
 ```json
 {
   "type": "button",
   "label": "Delete Selected",
-  "hidden": "${data.userRole !== 'admin'}"
+  "hidden": "${userRole !== 'admin'}"
 }
 ```
 
-For more complex permission checks, derive permission flags in the dataSource object:
+For more complex permission checks, publish the derived permission flags on that
+same scope. Publish `can(...)`, which answers a **boolean** — `check(...)` answers
+a `{ allowed, … }` result object, and an object is truthy, so a flag derived from
+it makes `${!flag}` permanently `false` and shows the button to everyone:
 
-```typescript
-const permissions = usePermissions();
-const dataSource = {
-  ...data,
-  canEditContacts: permissions.check('contacts', 'update'),
-  canDeleteContacts: permissions.check('contacts', 'delete'),
-};
+<!-- os:check -->
+```tsx
+import { usePermissions } from '@object-ui/permissions'
+import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
+import type { BaseSchema } from '@object-ui/types'
 
-<SchemaRendererProvider dataSource={dataSource}>
-  <SchemaRenderer schema={schema} />
-</SchemaRendererProvider>
+declare const schema: BaseSchema
+
+function ContactsPage() {
+  const permissions = usePermissions()
+  const scope = {
+    canEditContacts: permissions.can('contacts', 'update'),
+    canDeleteContacts: permissions.can('contacts', 'delete'),
+  }
+
+  return (
+    <PredicateScopeProvider scope={scope}>
+      <SchemaRenderer schema={schema} />
+    </PredicateScopeProvider>
+  )
+}
 ```
 
-Then in schema — note the `data.` root:
+Then in schema — read each flag by the name you published it under:
 <!-- os:check -->
 ```json
 {
   "type": "button",
   "label": "Delete",
-  "hidden": "${!data.canDeleteContacts}"
+  "hidden": "${!canDeleteContacts}"
 }
 ```
 
+⛔ `SchemaRendererProvider`'s `dataSource` is **not** where those names come from.
+It carries the host's `DataSource` **adapter** — the object data renderers call
+`find()` on. The renderer used to publish that adapter under the expression root
+`data`; an adapter answers no `data.*` path an author would write, so that root
+was silently constant for every conformant host, and objectui#9308 removed it
+(maintainer ruling 2026-09-13). Inject the adapter for CRUD, publish a scope for
+expressions — two channels, on purpose.
+
 ### Expression scope: which roots resolve
 
-`SchemaRenderer` evaluates every schema expression against a fixed scope:
+`SchemaRenderer` evaluates every schema expression against the scope the host
+published, plus the roots this tier answers itself:
 
 | Root | Comes from | Example |
 |---|---|---|
-| `data` | the `dataSource` passed to `SchemaRendererProvider` | `${data.canDeleteContacts}` |
-| `user` / `current_user` | the ambient host scope (app-shell's `ExpressionProvider`) | `${user.id}` |
-| `features` | the ambient host scope | `${features.multiOrgEnabled}` |
+| every key of `scope` | the host's `PredicateScopeProvider` | `${canDeleteContacts}` |
+| `user` / `current_user` | the same channel — app-shell's `ExpressionProvider` already feeds it | `${user.id}` |
+| `features` | the same channel, from `ExpressionProvider` | `${features.multiOrgEnabled}` |
+| `record` | the row a record surface is bound to, when there is one — ADR-0089 D3 makes `record` the runtime-layer row root | `${record.status}` |
 | `page` | `PageSchema.variables`, inside a Page | `${page.selectedId}` |
 
 The ambient roots exist only while a host scope is mounted — `ExpressionProvider`
 supplies them (it also aliases the signed-in user as `ctx.user` and `os.user`).
-With no host scope mounted, `data` and `page` are all you get.
+With no host scope mounted, `record` and `page` are all you get. `data` is a root
+only when **you** publish one under that name, like any other key of `scope`.
 
-**Keys of the `dataSource` object are reachable only under the `data.` root —
-they are not also spread as bare names.** Writing `${!canDeleteContacts}`
-instead of `${!data.canDeleteContacts}` does not fail loudly: the bare name
-resolves to `undefined`, `!undefined` is always `true`, and the `hidden`
-expression is therefore permanently true — the button disappears for *every*
-user, including the ones who do have the permission. Because the result no
-longer depends on the flag, flipping the user's permission to test it produces
-no change at all, so the most natural way to debug it gives no signal. The same
-trap applies to `visible`, `disabled` and any other expression-valued key.
+**A name nothing published does not fail loudly — and the two layers that read
+`${…}` fail differently.** Measured on `@object-ui/core`'s built evaluator
+over `hidden: "${!canDeleteContacts}"`:
+
+| what the scope holds | `hidden` verdict | button on screen |
+|---|---|---|
+| `canDeleteContacts: true`, published as a root | `false` | shown |
+| nothing published under that name | **fails soft to `true`** | hidden for *every* user |
+
+So a gate whose flag never reached the scope hides the button for everyone,
+including the users who do hold the permission. Because the result no longer
+depends on the flag, flipping the user's permission to test it produces no change
+at all, and the most natural way to debug it gives no signal — a
+`… is not defined` console line is the only one, and objectui#5454's reporter
+warns. Spelled `visible` the same miss flips the other way and the node is shown
+to everyone. A text key does not fail soft at all: `content` hands back the
+characters you typed, so a missing root renders the literal `${…}` on screen. The
+same applies to `disabled` and any other expression-valued key.
 
 ## Multi-tenancy
 

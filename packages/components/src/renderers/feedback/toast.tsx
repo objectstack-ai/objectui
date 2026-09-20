@@ -44,6 +44,13 @@ ComponentRegistry.register('toast',
         enum: ['default', 'success', 'warning', 'error', 'info']      },
       { name: 'duration', type: 'number' },
       { name: 'buttonLabel', type: 'string' },
+      {
+        name: 'buttonVariant',
+        type: 'enum',
+        enum: ['default', 'secondary', 'destructive', 'outline', 'ghost', 'link'],
+        description:
+          'Variant for the trigger button this node renders. Exactly the six keys of the Button variant group: `cva` contributes no variant class for any other value, so an out-of-set value renders a button with no background and no text colour, while an empty string silently renders the default look.',
+      },
       { name: 'className', type: 'string' }
     ],
     defaultProps: {

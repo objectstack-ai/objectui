@@ -19,13 +19,20 @@
  *
  * ── Why the mirror is still there ─────────────────────────────────────────
  * Deriving `boardColumns` away is NOT available, and this file's second test is
- * the reason. The drag path writes the mirror optimistically, and the `columns`
- * prop never carries card ORDER back: `handleDragEnd`'s same-column branch
- * calls no callback at all, and `ObjectKanban.handleCardMove` early-returns on
- * `fromColumnId === toColumnId` and discards `newIndex`. Order truth is local.
- * A `useMemo`-derived board would roll a committed reorder back on the next
- * prop change — which is why test 2 is a REQUIRED control, not a nicety: it
- * fails any "fix" that deletes the mirror.
+ * the reason. The CROSS-column drag path writes the mirror optimistically, and
+ * on the ownership where a parent owns the records nothing re-renders this
+ * board at all until that parent reflows — so a `useMemo`-derived board would
+ * drop the user's move on the floor until then. That is why test 2 is a
+ * REQUIRED control, not a nicety: it fails any "fix" that deletes the mirror.
+ *
+ * ⚠️ Test 2 used to defend the mirror with a SAME-column reorder instead, and
+ * that is no longer the behaviour: objectui#8826 ruled that an order which is
+ * persisted nowhere may not be shown as persisted, so the same-column branch
+ * leaves the mirror alone and the cross-column branch appends rather than
+ * honouring the dropped slot. The mirror's remaining job is MEMBERSHIP, which
+ * is what this control now drives. The ruled behaviour itself is pinned in
+ * `sameColumnDropIsNotClaimed-8826.test.tsx`, not here — this file is #8534's,
+ * and its subject is still the commit the prop reaches the DOM in.
  *
  * ── How "one commit late" is observable without layout ────────────────────
  * happy-dom performs no layout, but it does COMMIT. The harness below owns the
@@ -175,9 +182,28 @@ describe('KanbanImpl — prop-driven columns reach the DOM in the same commit (#
     expect(firstWithHeaders!.cards).toEqual(['Alpha', 'Beta', 'Gamma']);
   });
 
-  it('REQUIRED CONTROL: an optimistic same-column reorder shows the new order immediately', () => {
-    // Order truth is LOCAL — nothing pushes it back through the prop. Any fix
-    // that derives `boardColumns` from the prop fails here.
+  it('REQUIRED CONTROL: an optimistic cross-column move shows the new membership immediately', () => {
+    // MEMBERSHIP truth is local until a round-trip carries it back, and this
+    // board is mounted with a plain `columns` prop that nothing updates — the
+    // shape of the ownership where a parent owns the records. Any fix that
+    // derives `boardColumns` from the prop fails here.
+    mountHarness(POPULATED);
+    expect(cardsIn('Backlog')).toEqual(['Alpha', 'Beta']);
+
+    expect(dnd.onDragEnd).toBeTypeOf('function');
+    act(() => {
+      dnd.onDragEnd!({ active: { id: 't1' }, over: { id: 't3' } });
+    });
+
+    expect(cardsIn('Backlog')).toEqual(['Beta']);
+    // ...and it must survive the re-render that follows, not flash back.
+    expect(cardsIn('In Progress')).toEqual(['Gamma', 'Alpha']);
+  });
+
+  it('REQUIRED CONTROL: a same-column drop changes nothing — the order is the DATA order (#8826)', () => {
+    // The sibling of the control above, and the reason it had to change: the
+    // drop below asks for the reverse order and gets none of it. Pinned in
+    // full, on both data ownerships, in `sameColumnDropIsNotClaimed-8826`.
     mountHarness(POPULATED);
     expect(cardsIn('Backlog')).toEqual(['Alpha', 'Beta']);
 
@@ -186,8 +212,7 @@ describe('KanbanImpl — prop-driven columns reach the DOM in the same commit (#
       dnd.onDragEnd!({ active: { id: 't1' }, over: { id: 't2' } });
     });
 
-    expect(cardsIn('Backlog')).toEqual(['Beta', 'Alpha']);
-    // ...and it must survive the re-render that follows, not flash back.
+    expect(cardsIn('Backlog')).toEqual(['Alpha', 'Beta']);
     expect(cardsIn('In Progress')).toEqual(['Gamma']);
   });
 

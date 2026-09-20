@@ -42,3 +42,23 @@ authored icon names are still judged against the live record.
 `renderers/basic/icon.tsx` keeps its own copy deliberately and is untouched: `ui:icon`
 draws a `SquareDashed` placeholder and warns on an unresolvable name (objectui#5631), which
 the shared resolver does not do.
+
+⚠️ **Dating that sentence: its first clause has since expired, and it is kept rather than
+corrected (objectui#9772).** "Keeps its own copy" was a reading taken when this changeset was
+written, at commit `194fae184`, 2026-08-25, and there it was true: `basic/icon.tsx`
+defined its own `toPascalCase`, held its own `iconNameMap` carrying the single
+`Home -> House` entry, and indexed lucide's runtime `icons` record itself. It stopped being
+true at `e176053094`, 2026-09-03, "one lucide icon-name seam, seven resolvers down to one",
+which deleted all three from that file and routed `ui:icon` through the shared seam. The
+clause is left standing because it records why THIS change left `ui:icon` alone; rewriting
+it to match a later tree would publish an accurate sentence in place of the reason, and the
+reason is the half worth releasing. ⛔ For where `ui:icon` resolves at the commit you are
+reading this on, do not trust this paragraph — re-take it: read what
+`renderers/basic/icon.tsx` imports from `renderers/action/resolve-icon`, and the docblock
+beside that lookup, which is where the file's own account of the move lives.
+
+⛔ Only that first clause expired. "Is untouched" is scoped to THIS change — objectui#5993
+did not touch that file — and not to every change after it, so a later commit touching the
+file does not falsify it, and it is left exactly as written. The reason clause is likewise
+unaffected: `e176053094` kept the `SquareDashed` placeholder and the objectui#5631 warning
+at the `ui:icon` call site, which is why they, and not the copy, were the reason given.

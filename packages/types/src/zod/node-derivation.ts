@@ -71,7 +71,30 @@ export interface WalkableDef {
   options?: z.ZodType[];
   items?: z.ZodType[];
   element?: z.ZodType;
-  rest?: z.ZodType;
+  /**
+   * ⭐ `| null`, and the `| null` is not decoration (objectui#9491).
+   *
+   * Zod 4 spells "this tuple has no rest element" as an OWN `rest` key holding
+   * `null`, minted by `const rest = hasRest ? _paramsOrRest : null` in its
+   * `tuple` factory — ⛔ not as an absent key, which is what `rest?: z.ZodType`
+   * alone claims. The inaccurate declaration is what licensed objectui#9088:
+   * the `tuple` arm in `./imported-defaults.ts` normalised the absent case to
+   * `undefined` because the type said that was the absent case, `unchanged`
+   * compares by `===`, and so every rest-less tuple was rebuilt. The author
+   * read the type, the type was wrong, and `tsc` agreed with them.
+   *
+   * ⛔ This is NOT a wider accept set: nothing here changes what the walkers
+   * do with the value. It admits the value zod was already putting there, so
+   * the next arm written against this type is told the truth.
+   *
+   * ⚠️ `rest` is the ONLY member of this interface with that property, and
+   * "only" is the load-bearing half — a sibling arm that copies this `| null`
+   * onto `out` or `element` would be declaring something zod does not do.
+   * `../__tests__/walkable-def-null-mint-9491.test.ts` re-derives BOTH halves
+   * against the installed zod — the `null` here, and its absence everywhere
+   * else — so a zod bump that moves either one goes red rather than quiet.
+   */
+  rest?: z.ZodType | null;
   valueType?: z.ZodType;
   keyType?: z.ZodType;
   left?: z.ZodType;

@@ -238,3 +238,167 @@ describe('object-kanban — the row cap reaches the wire (objectui#4025)', () =>
     expect(params.options).toBeUndefined();
   });
 });
+
+/**
+ * objectui#8071 — the MEMBER shape of `object-kanban`.`dataSource`.
+ *
+ * ## Why this block was added to a pre-existing file
+ *
+ * `dataSource` is not written by this block at all: `Registry.register` INJECTS
+ * `ELEMENT_DATA_SOURCE_INPUT` into every registration that wraps the runtime
+ * gate, so the declaration says `type: 'object'` and nothing whatever about
+ * members. The member contract is therefore entirely the read site, and the
+ * read site is one line of this package —
+ * `OBJECT_KANBAN_DATA_SOURCE = { filter: true, limit: 'limit' }` — read by
+ * `ElementDataSourceGate` in `@object-ui/react`.
+ *
+ * The three describe blocks above were read end to end before being credited as
+ * the pin's base. They already cover `object` (the bound object is queried),
+ * `view` (its filter and page size arrive, an unresolvable one REPORTS rather
+ * than widening) and the deliberate non-mapping of `columns`. They do not cover
+ * the rest of the binding's five members, and the five are NOT alike: two are
+ * mapped, one is mapped and then contested by two other sources, and two are
+ * deliberately inert. That is what this block adds.
+ *
+ * | member    | disposition on THIS block                                      |
+ * |-----------|----------------------------------------------------------------|
+ * | `object`  | mapped, and it OUTRANKS an authored `objectName`               |
+ * | `view`    | the baseline every other member is contested against           |
+ * | `filter`  | mapped, and AND-combined with the block's own `filter` too     |
+ * | `limit`   | mapped onto the block's `limit`; binding > block > view         |
+ * | `sort`    | ⛔ NOT mapped — the board has no `$orderby` read site           |
+ *
+ * ⚠️ The inert member is the one a pin must state loudest. `sort` is a member
+ * the spec's binding declares and this block silently ignores; without a row
+ * saying so, a later contributor "completing the mapping" would wire it onto a
+ * key nothing reads and the pin would stay green.
+ */
+describe('object-kanban — the binding’s five members, each with its disposition (objectui#8071)', () => {
+  const firstQuery = async (adapter: ReturnType<typeof makeAdapter>) => {
+    await waitFor(() => expect(adapter.find).toHaveBeenCalled());
+    return adapter.find.mock.calls[0] as [string, any];
+  };
+
+  it('⭐ `object` OUTRANKS an `objectName` the board authored itself', async () => {
+    // `next[objectKey] = composed.object` is UNCONDITIONAL. The `??=` spelling
+    // a contributor would write to "not clobber the author" would leave a
+    // rebound board querying the old object with the same lanes, the same
+    // groupBy and no diagnostic — invisible whenever both objects exist.
+    const adapter = makeAdapter();
+    renderBlock(
+      {
+        type: 'object-kanban',
+        objectName: 'contact',
+        groupBy: 'status',
+        columns: LANES,
+        dataSource: { object: 'account' },
+      },
+      adapter,
+    );
+
+    const [object] = await firstQuery(adapter);
+    expect(object).toBe('account');
+  });
+
+  it('⭐ `filter` is ADDITIONAL to the board’s OWN filter, not a replacement', async () => {
+    // `mergeFilterNodes(base.filter, composed.filter)`: the block's own
+    // `schema.filter` survives and the binding narrows it further. A mapping
+    // that assigned instead of merging would silently WIDEN the board past the
+    // rows its own filter admitted.
+    const adapter = makeAdapter({});
+    renderBlock(
+      {
+        type: 'object-kanban',
+        groupBy: 'status',
+        columns: LANES,
+        filter: [['owner', '=', 'me']],
+        dataSource: { object: 'account', filter: [['rating', '=', 'hot']] },
+      },
+      adapter,
+    );
+
+    const [, params] = await firstQuery(adapter);
+    // ⚠️ MEASURED, not predicted: each source keeps its own RULE-LIST nesting
+    // under the `and`, so the combined node is `['and', <list>, <list>]` and
+    // not a flattened three-element node. A pin that asserted the flattened
+    // spelling would be asserting a shape this repo does not produce.
+    expect(params.$filter).toEqual(['and', [['owner', '=', 'me']], [['rating', '=', 'hot']]]);
+  });
+
+  it('a binding filter with NO view and no board filter passes through verbatim', async () => {
+    // The lone-source case: combining is what forces the AST lowering, so a
+    // single source must keep the shape it was authored in.
+    const adapter = makeAdapter({});
+    renderBlock(
+      {
+        type: 'object-kanban',
+        groupBy: 'status',
+        columns: LANES,
+        dataSource: { object: 'account', filter: [['rating', '=', 'hot']] },
+      },
+      adapter,
+    );
+
+    const [, params] = await firstQuery(adapter);
+    expect(params.$filter).toEqual([['rating', '=', 'hot']]);
+  });
+
+  it('⛔ `sort` is INERT on this block — it reaches no query key at all', async () => {
+    // The board groups cards into lanes and declares no ordering. Mapping this
+    // member onto something plausible would re-create the defect the wiring
+    // removed (a value accepted and dropped) one layer deeper, so it stays
+    // unmapped — and this row is what makes that a decision rather than an
+    // omission.
+    const adapter = makeAdapter({});
+    renderBlock(
+      {
+        type: 'object-kanban',
+        groupBy: 'status',
+        columns: LANES,
+        dataSource: { object: 'account', sort: [{ field: 'name', order: 'desc' }], limit: 4 },
+      },
+      adapter,
+    );
+
+    const [, params] = await firstQuery(adapter);
+    expect(params.$orderby).toBeUndefined();
+    expect(params.sort).toBeUndefined();
+    // LIT CONTROL, same binding and same query: a member that IS mapped moved,
+    // so the two negatives above are about `sort` and not about a binding that
+    // never arrived.
+    expect(params.$top).toBe(4);
+  });
+
+  it('⭐ `limit` — the binding beats the block, and the block beats the VIEW', async () => {
+    // Two different branches of one rule, and either alone is consistent with a
+    // renderer that simply takes the last writer.
+    const authored = makeAdapter();
+    renderBlock(
+      {
+        type: 'object-kanban',
+        groupBy: 'status',
+        columns: LANES,
+        limit: 11,
+        // `hot` declares `pagination: { pageSize: 7 }`.
+        dataSource: { object: 'account', view: 'hot' },
+      },
+      authored,
+    );
+    const [, authoredParams] = await firstQuery(authored);
+    expect(authoredParams.$top).toBe(11);
+
+    const bound = makeAdapter();
+    renderBlock(
+      {
+        type: 'object-kanban',
+        groupBy: 'status',
+        columns: LANES,
+        limit: 11,
+        dataSource: { object: 'account', view: 'hot', limit: 3 },
+      },
+      bound,
+    );
+    const [, boundParams] = await firstQuery(bound);
+    expect(boundParams.$top).toBe(3);
+  });
+});

@@ -333,8 +333,20 @@ decision as a defect is how a warning channel gets ignored:
   asked for, and an unauthored `limit` is `20`, so a longer feed pages with
   **Load more** rather than rendering whole.
 
-  Two members of the shape are **not** read on this path and authoring them
-  does nothing here: `filterMode` and `enableMentions` (objectui#8968).
+  Since objectui#8968 the remaining two members are read here too.
+  `filterMode` seeds which slice the panel opens on, normalized by the same
+  function `record:activity` uses, so an unrecognised value opens on `all`
+  rather than on a filter nothing matches; it seeds component **state**, so the
+  dropdown stays usable instead of freezing on the authored value.
+  `enableMentions: false` withholds the composer's @-autocomplete; the
+  protocol's default is on, so an unauthored member keeps the affordance.
+  Both values were accepted and discarded before, so a schema that already
+  authored either one changes behaviour on upgrade — unless what it authored
+  is what this path already did: `filterMode: 'all'` and
+  `enableMentions: true` both land on the same feed as before. The case worth
+  auditing is `showFilterToggle: false` alongside a `filterMode` other than
+  `all` — that slice is now **pinned** where the panel used to show
+  everything, and the dropdown that would widen it is not on screen.
 
   There is no third path left to disagree with: the host used to auto-append a
   panel below any page that omitted a discussion block, and objectui#7298

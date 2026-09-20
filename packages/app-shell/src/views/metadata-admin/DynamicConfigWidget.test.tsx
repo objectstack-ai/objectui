@@ -9,6 +9,9 @@ afterEach(cleanup);
 const Dyn = WIDGETS['dynamic-config'];
 
 const ctx = {
+  // objectui#8167 — `conditionScope` is required on `WidgetContext` now;
+  // `'flattened'` is the verdict every mount ran under before it existed.
+  conditionScope: 'flattened' as const,
   dynamicSchemas: {
     sqlite: { properties: { filename: { type: 'string', title: 'Filename' } }, required: ['filename'] },
     postgres: { properties: { host: { type: 'string', title: 'Host' }, port: { type: 'number', title: 'Port' } } },
@@ -44,7 +47,7 @@ describe('dynamic-config widget', () => {
   });
 
   it('renders a credential sub-field (format:password) via the masked secret input', () => {
-    const ctxPw = { dynamicSchemas: { mysql: { properties: { password: { type: 'string', title: 'Password', format: 'password' } } } } };
+    const ctxPw = { conditionScope: 'flattened' as const, dynamicSchemas: { mysql: { properties: { password: { type: 'string', title: 'Password', format: 'password' } } } } };
     render(<Dyn value={{}} onChange={() => {}} schema={{ type: 'object' }} fieldSpec={{ field: 'config', dependsOn: 'driver' }} formData={{ driver: 'mysql' }} context={ctxPw} />);
     // SecretWidget exposes a reveal toggle + the masked input.
     expect(screen.getByLabelText('Secret value')).toHaveAttribute('type', 'password');

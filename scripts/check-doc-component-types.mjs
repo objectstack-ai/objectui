@@ -60,6 +60,56 @@
  *     dropped the bare `object-grid` key — which 13 doc sites teach correctly.
  *     A window bug in a derivation this gate trusts shows up as a false RED on
  *     correct documentation, so the span is matched, not guessed.
+ *   - OPTIONS: `namespace` and `skipFallback` decide which keys a registration
+ *     publishes, so `resolveRegistrationOptions` reads an ALLOWLIST of exactly
+ *     two ARGUMENT shapes and REPORTS every other argument shape. Read: an
+ *     object literal whose top-level entries are all key-value pairs or spreads
+ *     of a plain identifier, and a bare identifier that resolves to one such
+ *     literal which the same file declares exactly once — counting only names
+ *     immediately after `const` / `let` / `var` or in an import clause — with
+ *     `const`, and whose `namespace` or `skipFallback` this file does not
+ *     assign, `delete` or `Object.assign` onto IN ONE OF THE THREE SPELLINGS
+ *     `optionsMutatedAfterDeclaration` matches. ⚠️ Those two qualifications are
+ *     the whole of it: the allowlist is structural about the ARGUMENT, while
+ *     following a NAME rests on premises this derivation enforces only against
+ *     the spellings it can see. `declaredObjectBody` and
+ *     `optionsMutatedAfterDeclaration` carry the exact conditions and the
+ *     measured list of shapes that slip through them SILENTLY, each pinned as a
+ *     KNOWN GAP reading in `check-doc-component-types.test.ts` —
+ *     `register('page', R, pageMeta)` and
+ *     `register('app', R, { ...pageMeta, label: 'App Page' })` are both read,
+ *     and `counters.metaViaReference` counts every site whose options arrived
+ *     that way and were read — namespaced or not — which the run summary
+ *     prints and a pin in the objectui#5115 suite asserts is non-zero.
+ *
+ *     ⛔ The allowlist is the point, and it is structural rather than a list of
+ *     idioms to keep up with. Reading only the call span found no `namespace:`
+ *     in either line above, so both were read as bare-only and their
+ *     `namespace:key` halves were lost SILENTLY — objectui#9641, five real
+ *     runtime keys absent from the universe while the firing control (the same
+ *     registration shape with its options spelled out at the call) was present,
+ *     which is what made it a defect rather than a choice. A best-effort repair
+ *     reproduces it: a cast, a member expression, a call, a spread of any of
+ *     those, a conditional spread, a computed `namespace` and a computed
+ *     `skipFallback` were each measured falling through to the same silent
+ *     bare-only reading. Any ARGUMENT shape not on the allowlist is therefore an
+ *     `unresolved-registration-meta` finding, one fixture pin per shape in
+ *     `check-doc-component-types.test.ts`. ⛔ That sentence is about the
+ *     argument only: a name the allowlist accepts can still be read against the
+ *     wrong object, and those readings are silent rather than reported. They
+ *     are enumerated where they live, and pinned.
+ *
+ *     ⚠️ The same correction had to be made twice, one layer down: the
+ *     allowlist is structural about the ARGUMENT, and the identifier route
+ *     rests on a premise about the NAME. A `const` cannot be reassigned but its
+ *     contents can be written, and a `namespace` deleted after declaration used
+ *     to mint a phantom through the very binding this derivation treats as
+ *     safe. Those conditions now live in `declaredObjectBody`, which is where
+ *     to read them —
+ *     restating them here would be a second copy to keep honest. Whether that refusal costs this tree
+ *     anything is a question for the gate, not for this comment: it reds
+ *     nothing today, and the day a registration reaches for one of these shapes
+ *     it is told so instead of losing half its keys.
  *   - LOOP: `for (const v of ['a','b'])`, `for (const v of ARR)` and
  *     `ARR.forEach(v => …)` where `ARR` is a literal array in the same file.
  *     Five registration sites use this form (`html-elements.tsx`'s `TAGS`,
@@ -69,6 +119,32 @@
  *     explicitly in `INDIRECT_REGISTRATIONS` with the collection it reads. Both
  *     entries are re-derived per run; a named collection that disappears or
  *     stops yielding keys fails the gate rather than shrinking the universe.
+ *     ⚠️ The bypass that lets these unresolvable calls through is keyed by
+ *     COLLECTION, which is what the table's coverage is keyed by. It was keyed
+ *     by FILE until objectui#9717, and the two keyings are not the same set:
+ *     ANY unresolvable registration living in a table-named file was skipped
+ *     silently, including one whose collection the table never names.
+ *     `registerAllFields()`'s `RETIRED_FIELD_TYPES` tombstone loop is the
+ *     measured instance — it shares `packages/fields/src/index.tsx` with the
+ *     `fieldWidgetMap` entry, so its key reached neither the universe nor a
+ *     finding, and its namespace was silently folded into the reconciliation of
+ *     a collection it has nothing to do with. The supplying collection is now
+ *     DERIVED at the call by `indirectSupply` and matched against the entries
+ *     declared for that file: `uncovered-indirect-collection` when no entry
+ *     names it, `unresolved-indirect-collection` when the supplier cannot be
+ *     read at all. ⛔ Neither is answered by adding the missing KEY anywhere by
+ *     hand — a hand-kept key is the construction objectui#9703 removed.
+ *     ⚠️ The NAMESPACE of those keys is read from the registration call, not
+ *     from the entry: the entry's `namespace` is a DECLARATION reconciled
+ *     against the call, and a disagreement is reported. It was an input to this
+ *     derivation until objectui#9703, with nothing checking it — a namespace
+ *     edit at one of these calls could not reach the generated universe, and
+ *     this derivation stayed green while disagreeing with the runtime. Read the
+ *     `indirect-namespace-drift` / `unresolved-indirect-namespace` reasons
+ *     below for what is reported and why the table is not consulted on a fall
+ *     back. `skipFallback` is the half that genuinely cannot be derived — these
+ *     helpers decide it per key — so `skipFallbackSet` stays declared, and a
+ *     set name that stops resolving is reported rather than read as empty.
  *   - OPEN: a handful of call sites take a key that is not knowable statically
  *     (a third-party plugin's own type, a widget manifest's `type`). Those are
  *     listed in `OPEN_REGISTRATION_SITES` with the reason. Every OTHER
@@ -177,12 +253,21 @@
  * Both halves of the row are judged, and judging the namespaced half is the point
  * objectui#5106 was filed for: this gate never judged a namespace at all. It
  * compared bare keys against a universe that happens to contain namespaced keys
- * too, so `view:dashboard` documented as `plugin-dashboard:dashboard` produced no
- * signal from any static check — the bare `dashboard` matched and the row passed.
- * Flip `namespace: 'view'` to `'dash'` in `plugin-dashboard/src/index.tsx` and
- * `deriveRegistryKeys` follows it live to `dash:dashboard`, while every doc that
- * teaches `view:dashboard` stays green. That is the hole; the namespaced cell
- * closes it.
+ * too, so the dashboard's namespaced spelling documented as any OTHER namespace
+ * over the same bare name produced no signal from any static check — the bare
+ * `dashboard` matched and the row passed. Flip `namespace: 'plugin-dashboard'`
+ * to `'dash'` on the dashboard registration in `plugin-dashboard/src/index.tsx`
+ * and `deriveRegistryKeys` follows it live to `dash:dashboard`, while every doc
+ * that teaches the old spelling stays green. That is the hole; the namespaced
+ * cell closes it.
+ *
+ * ⚠️ This paragraph used to run the same example over the literal pair
+ * `view:dashboard` / `plugin-dashboard:dashboard`, which was a live reading when
+ * it was written and is not one now: objectui#9533 converged that bare key onto
+ * `plugin-dashboard` and retired `view:dashboard`, so a reader following the old
+ * wording would look for a `namespace: 'view'` on that registration and not find
+ * it. Re-pointed with the example kept, because the example is the mechanism and
+ * the spelling was only ever an illustration of it.
  *
  * What is deliberately NOT checked, and why: when the fallback cell reads
  * "none — `skipFallback: true`", this gate does not assert that the bare name is
@@ -213,12 +298,16 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 // ── Configuration ────────────────────────────────────────────────────────────
 
 /** Where the teaching prose lives. This gate walks `content/docs`, every
- *  `apps/<app>/docs/**` tree (objectui#6600) and the root pages named below, and
- *  nothing else: not `skills/**`, not the package READMEs
- *  (`check-doc-snippet-types.mjs` covers those for its own question), not
- *  `docs/**`. The full ownership map for all three doc gates — including the
- *  trees NO gate reads, and why `skills/**` is deliberately not one of them — is
- *  stated once in `check-doc-snippet-types.mjs`, beside `UNGATED_DOCS`. */
+ *  `apps/<app>/docs/**` tree (objectui#6600), every `packages/NAME/README.md`
+ *  (objectui#7896's fourth leg, landed by objectui#8115) and the root pages named
+ *  below, and nothing else: not `skills/**`, not `docs/**`. ⚠️ This sentence used
+ *  to name the package READMEs among the trees this gate does NOT walk, and
+ *  pointed at `check-doc-snippet-types.mjs` as covering them — that gate covers
+ *  them for ITS question (it compiles their `ts` fences), which is not this one,
+ *  and the gap between the two questions is exactly what objectui#7896 was filed
+ *  for. The full ownership map for all three doc gates — including the trees NO
+ *  gate reads, and why `skills/**` is deliberately not one of them — is stated
+ *  once in `check-doc-snippet-types.mjs`, beside `UNGATED_DOCS`. */
 const DOCS_ROOT = 'content/docs';
 
 /**
@@ -265,79 +354,107 @@ export function appDocsDirs(root) {
 }
 
 /**
- * `packages/NAME/README.md` — MEASURED, DELIBERATELY NOT WALKED (objectui#7896).
+ * `packages/NAME/README.md` — WALKED (objectui#7896's fourth leg, objectui#8115).
  *
- * This gate does not walk the package READMEs, while its two sibling doc gates
- * both do: `check-doc-snippet-types.mjs` compiles their `ts` / `tsx` /
- * `typescript` fences, and `check-doc-fence-languages.mjs` labels every fence in
- * them (`join(pkgDir, entry, 'README.md')`). So a package README's `type`
- * literals are read twice and judged never — objectui#7115's geometry rebuilt one
- * directory over, on a surface that ships to npm inside each package's `files`.
- * objectui#7896 measured the gap two ways, and it still reproduces on
- * `59a3a233d`: a component `type` mutated in `packages/app-shell/README.md`
- * leaves this gate at `EXIT=0` with byte-identical counters, while the same
- * mutation in the root `README.md` gives `EXIT=1` at `README.md:272`. Identical
- * counters are the proof the file is not in the scan population at all, rather
- * than judged and forgiven.
+ * A package README is a teaching surface that ships to npm inside that package's
+ * `files` list, and until this leg landed its `type` literals were read TWICE and
+ * judged NEVER: `check-doc-snippet-types.mjs` compiles their `ts` / `tsx` /
+ * `typescript` fences and `check-doc-fence-languages.mjs` labels every fence in
+ * them, while this gate — the only one that asks whether a `type` names a
+ * component that exists — walked past them. That is objectui#7115's geometry
+ * rebuilt one directory over, and objectui#7896 measured it twice the way a
+ * coverage claim has to be measured: a component `type` mutated inside
+ * `packages/app-shell/README.md` left this gate at `EXIT=0` with counters
+ * BYTE-IDENTICAL to the unmutated run, while the same mutation in the root
+ * `README.md` gave `EXIT=1`. Identical counters are the proof a file is outside
+ * the scan population altogether rather than judged and forgiven, and moving them
+ * is what this leg is owed. The same pair re-run with this leg in place is the
+ * evidence the widening is real; the pins below `objectui#7896` in
+ * `check-doc-component-types.test.ts` are where it is kept re-derivable.
  *
- * ⚠️ Why the leg is NOT here yet, and what has to happen first. The `domain:ui`
- * ruling on objectui#7896 orders this move census-first: a change that moves a
- * gate's scan population reports before it enforces, and the widening may land in
- * the same pull request ONLY if the census reads zero. It does not. Re-derived on
- * `c30026715` with this gate's own `deriveRegistryKeys`, fence walker and `type`
- * matcher over all 39 `packages/NAME/README.md`, the census read
- * **26 unregistered `type` literals across 8 files**, plus 4 blind spots (four
- * unquoted YAML scalars in `packages/data-objectstack/README.md:603-606`, an
- * object field-type vocabulary the same-line string-literal matcher cannot read).
- * That reading is DATED, not a live claim: it belongs to the commit named above,
- * and the instrument named beside it is how the next reader re-derives it rather
- * than inheriting it. It is written that way because the sentence it replaces was
- * not — it said `12 files`, a number contradicted by the per-file table of the
- * very census PR that landed it (#8111, 8 files with a non-zero column), and it
- * had already been quoted onward into objectui#8115's brief, which instructs its
- * implementer not to re-derive the census. A file COUNT is what a later reader
- * uses to judge whether a fix is complete, so `8 of 12` reads as unfinished work
- * that does not exist (objectui#8484). This is the same class objectui#7448 ruled
- * on one file over — a count in a header that nothing re-measures will rot — and
- * the same remedy `check-doc-fence-languages.mjs` already uses for its own census
- * (`273537957`: 83 files, 105 blocks): anchor the reading to a commit instead of
- * restating a bare number and restarting the clock.
- * Landing the leg today would turn `main` red on 26 sites this card is not
- * authorised to touch. Twenty-five of the 26 are other vocabularies with real declaration sites
- * — dashboard widget kinds (`DashboardRenderer.tsx`), flow-graph node kinds,
- * gesture kinds, Gantt task and dependency kinds, grid selection modes and
- * summary aggregates, report kinds, view actions and filter kinds — i.e.
- * candidate `DOC_TYPE_EXEMPTIONS` entries, each owed the reason that table
- * demands. One is a real defect of the shape this gate exists to catch:
- * `packages/plugin-detail/README.md:168` teaches a detail tab whose
- * `content.type` is `activity-timeline`, and that content goes through
- * `SchemaRenderer` (`DetailTabs.tsx:72`) while nothing registers that key — the
- * registry's `OBJUI-001` panel, the same failure as the `line-chart` widget
- * objectui#7896 recorded in `packages/plugin-dashboard/README.md`.
+ * ⚠️ The leg is deliberately NOT recursive and stops at each package's own root.
+ * `packages/` is not an authored tree the way `content/docs` is — under pnpm every
+ * package carries a `node_modules/` of SYMLINKS back into its workspace siblings,
+ * so a recursive walk that follows them does not terminate. The sibling gate that
+ * does walk below a package root states the measured numbers beside its own
+ * `NESTED_PACKAGE_READMES`; this leg avoids the question structurally by not
+ * descending at all, which also keeps it the same shape as the surface
+ * `check-doc-snippet-types.mjs` collects in its own package-README leg.
  *
- * ⛔ Do NOT reach for the exemption table to make a first run of the widened walk
- * green. `DOC_TYPE_EXEMPTIONS` records rulings, not a switch for turning red into
- * green, and stuffing it here would bury the one real defect among 25 entries
- * nobody read.
+ * ## ⚠️ Why the leg could not land before objectui#8115, and what came with it
  *
- * ⚠️ And when the leg does land, it is not the precedent the ⛔ above refuses.
- * That ⛔ refuses widening onto an ARBITRARY unscanned tree;
- * `packages/NAME/README.md` is not one, it is the surface this gate's own two
- * siblings already walk, so the move aligns the third gate to its family rather
- * than reaching into a new tree. The distinction is the whole of the ruling, and
- * the ⛔ stays where it is.
+ * The `domain:ui` ruling on objectui#7896 ordered this move census-first: a change
+ * that moves a gate's scan population reports before it enforces, and the widening
+ * may land in the same pull request ONLY if the census reads zero. It did not, and
+ * it does not now — this leg brings unregistered `type` literals in package
+ * READMEs into a walk that judges them, and every one of them is another
+ * vocabulary with a declaration site in source. Those are the
+ * `DOC_TYPE_EXEMPTIONS` entries keyed under `packages/` below, ruled one at a time
+ * under objectui#8115 (triage `5582405961`, option A; reading A₁ in `5594701696`:
+ * the ruled entries land WITH the leg, in one change, because an entry whose
+ * `(file, value)` the walk never reaches fails as `stale-exemption` — so there is
+ * no order in which they could land first).
  *
- * Two things the implementing change owes, recorded here so they are not
- * rediscovered: the leg belongs BEFORE the root pages in `scanDocs`, which is the
- * slot the two sibling walks append it in and what keeps the three lists
- * comparable element by element; and `check-doc-expression-carriage.mjs` IMPORTS
- * this file's surface constants and pins its own walk as an EQUALITY against a
- * walk rebuilt from them — that pin compares against the CONSTANTS, not against
- * this gate's actual walk, so a fourth leg added here alone leaves the pin GREEN
- * while the two surfaces silently diverge, which is objectui#7115's shape again.
- * The carriage census must take the same leg, and its `SURFACE_LABEL` test
- * enumerates every leg by name.
+ * ⛔ The exemption table is not a switch for turning this first run green, and
+ * that fence is the reason each entry below names its vocabulary AND where that
+ * vocabulary is declared: stuffing the table here would bury a real defect among
+ * entries nobody read. Two sites of the original census were re-classified as
+ * DEFECTS rather than exempted and fixed on their own cards — the
+ * `activity-timeline` detail tab (objectui#8114) and the flow node type `action`
+ * (objectui#8483) — which is what this fence is for.
+ *
+ * ⚠️ And the census is DATED wherever it is written down. The reading this
+ * docblock used to carry (26 sites across 8 files, re-derived on `c30026715`) was
+ * already stale by the time the leg landed, because objectui#8114's fix removed
+ * one of the sites it counted. ⛔ Do not inherit a count from this file or from
+ * objectui#8115's card — re-derive it with this gate's own `deriveRegistryKeys`,
+ * its fence walker and its `type` matcher over `packageReadmePages`, and anchor
+ * whatever you write to the commit you measured it on. A file COUNT is what a
+ * later reader uses to judge whether a fix is complete, so a rotted one reads as
+ * unfinished work that does not exist (objectui#8484, and objectui#7448 one file
+ * over).
+ *
+ * ⚠️ What this is NOT: a precedent for widening onto an arbitrary unscanned tree,
+ * which is what the ⛔ beside `APP_DOCS` refuses. `packages/NAME/README.md` is the
+ * surface this gate's own two siblings already walk, so the move aligns the third
+ * gate to its family rather than reaching into a new tree.
+ *
+ * ## The two couplings this leg owes, and where they are kept
+ *
+ * The leg sits BEFORE the root pages in `scanDocs`, which is the slot the two
+ * sibling walks append it in and what keeps the three document lists comparable
+ * element by element. And `check-doc-expression-carriage.mjs` IMPORTS this file's
+ * surface constants and pins its own walk as an EQUALITY against a walk rebuilt
+ * from them — that pin compares against the CONSTANTS, not against this gate's
+ * actual walk, so a leg added here ALONE would leave the pin GREEN while the two
+ * surfaces silently diverge, which is objectui#7115's shape a third time. That
+ * census takes the same leg through `PACKAGE_READMES` / `packageReadmePages`
+ * below, and its `SURFACE_LABEL` names it.
  */
+export const PACKAGE_READMES = { dir: 'packages', name: 'README.md' };
+
+/**
+ * Every package's own `README.md`, in a stable order.
+ *
+ * An absent `packages/` yields `[]` so a throwaway fixture tree stays scannable,
+ * exactly as `appDocsDirs` and the root-page leg do. A real run cannot rely on
+ * that: the CLI refuses to publish a verdict when this leg collects nothing,
+ * because a leg that reaches no file is a surface that shrank in silence, which
+ * is the defect this whole widening exists to close.
+ *
+ * Exported so the carriage census asks this gate what the leg contains instead of
+ * rebuilding it — one walk, not two arrays that agree today.
+ */
+export function packageReadmePages(root) {
+  const pkgDir = join(root, PACKAGE_READMES.dir);
+  if (!existsSync(pkgDir)) return [];
+  const out = [];
+  for (const entry of readdirSync(pkgDir).sort()) {
+    const readme = join(pkgDir, entry, PACKAGE_READMES.name);
+    if (existsSync(readme)) out.push(readme);
+  }
+  return out;
+}
 
 /**
  * Pages at the repository ROOT that join the walk by name.
@@ -429,6 +546,25 @@ const REGISTRY_RECEIVERS = ['ComponentRegistry', 'componentRegistry', 'registry'
  * Each entry names the collection it reads; the derivation re-reads that
  * collection every run and fails if it is gone.
  *
+ * ⚠️ `namespace` here is a DECLARATION, ⛔ not the value the derivation uses.
+ * The derivation reads the namespace out of the registration call and reports
+ * `indirect-namespace-drift` when this value disagrees with it (objectui#9703).
+ * Until then this field WAS the value — a hand-kept input to a derivation with
+ * nothing reconciling it, so the derivation could be green and wrong at once.
+ * `skipFallbackSet` is the other half and is genuinely not derivable: these
+ * helpers decide `skipFallback` per key at the call, so the set is named here
+ * and read from the site file, and a name that stops resolving is reported.
+ *
+ * ⚠️ `excluded` is the OTHER disposition, and an entry carrying it contributes
+ * NO keys: it declares that this collection's registrations are known and that
+ * their keys deliberately stay out of the universe, with the reason written
+ * down. It exists because the alternative is the silence objectui#9717 was
+ * filed about — a registration nobody had reasoned about, producing the right
+ * answer by accident. ⛔ It is not a way to quiet a finding: an excluded entry
+ * is still reconciled against the call and still goes stale the moment the
+ * registration it names stops existing, and the run summary prints how many
+ * collections are being withheld, so the decision cannot sink out of view.
+ *
  * EXPORTED because the `protocol-placeholder` entry is also the DECLARATION a
  * sibling gate reads to tell a real renderer from a placeholder panel
  * (`check-prompt-component-keys.mjs`, objectui#8929). That gate must never
@@ -448,6 +584,20 @@ export const INDIRECT_REGISTRATIONS = [
       'The keys are protocol vocabulary the docs legitimately teach.',
   },
   {
+    site: 'packages/components/src/renderers/placeholders.tsx',
+    collection: 'PALETTE_PLACEHOLDER_BLOCKS',
+    kind: 'array',
+    namespace: 'protocol-placeholder',
+    reason:
+      'The same `registerPlaceholder(type)` helper the PROTOCOL_COMPONENTS entry above names is ALSO ' +
+      'handed this collection, eagerly, in every host — palette-offered page blocks must not render a ' +
+      'red unknown-type panel just because a host skipped the opt-in bootstrap. It went undeclared ' +
+      'until objectui#9717 because the bypass was keyed by file, and a sibling entry naming this file ' +
+      'answered for it. ⚠️ Its members are today a subset of PROTOCOL_COMPONENTS, so declaring it adds ' +
+      'no key — but that overlap is a coincidence nothing holds in place, and the next palette block ' +
+      'that is not protocol vocabulary would have gone missing in exactly the same silence.',
+  },
+  {
     site: 'packages/fields/src/index.tsx',
     collection: 'fieldWidgetMap',
     kind: 'object-keys',
@@ -457,6 +607,64 @@ export const INDIRECT_REGISTRATIONS = [
       '`registerField(fieldType)` registers each key of fieldWidgetMap as `field:<type>` (plus the ' +
       'bare key unless FIELD_TYPES_SKIP_FALLBACK holds it), and `registerAllFields()` runs it for ' +
       'every key at module load. Field pages teach these bare keys.',
+  },
+  {
+    site: 'packages/fields/src/index.tsx',
+    collection: 'RETIRED_FIELD_TYPES',
+    kind: 'object-keys',
+    namespace: 'field',
+    excluded:
+      'WITHHELD pending objectui#9717, which is open on exactly this question: does a RETIRED ' +
+      'TOMBSTONE SPELLING belong in a universe whose job is "does this string name a component that ' +
+      'exists"? Deciding it either way flips one switch and nothing else — DROP this `excluded` line ' +
+      'and the collection\'s keys (today `field:owner`) enter the universe, so a document teaching ' +
+      '`field:owner` turns GREEN; keep it and such a document stays RED, which is what happens today.',
+    reason:
+      '`registerAllFields()` registers every key of RETIRED_FIELD_TYPES a second time, last, under the ' +
+      '`field:` namespace with `skipFallback: true` — a tombstone widget that renders a visible refusal ' +
+      'naming the migration, which is the whole point of the table. Until objectui#9717 this ' +
+      'registration was invisible here: the bypass was keyed by file, the `fieldWidgetMap` entry above ' +
+      'named the same file, and these keys left no trace in the universe and no finding either. The ' +
+      'keys stay out — but now BY DECLARATION. ⚠️ Two things this entry is deliberately NOT: it does ' +
+      'not name the keys (the collection is read at runtime by the registration, and a hand-kept key ' +
+      'list is the construction objectui#9703 removed), and it does not read the collection literal — ' +
+      'RETIRED_FIELD_TYPES is IMPORTED into this file from `@object-ui/core`, so nothing here could ' +
+      'read it anyway. What re-checks this entry is the registration call itself: delete the tombstone ' +
+      'loop and this entry reports `stale-indirect-registration`.',
+  },
+  {
+    site: 'packages/plugin-dashboard/src/index.tsx',
+    collection: 'RETIRED_DASHBOARD_NODE_TYPES',
+    kind: 'object-keys',
+    namespace: 'view',
+    excluded:
+      'WITHHELD, the same disposition and the same open question as the RETIRED_FIELD_TYPES entry ' +
+      'above (objectui#9717): does a RETIRED TOMBSTONE SPELLING belong in a universe whose job is ' +
+      '"does this string name a component that exists"? Held the same way here so the two answers ' +
+      'cannot drift apart. ⭐ For this collection the exclusion also carries the point of the ' +
+      'retirement: objectui#8760 graded a key that passes every authoring check and fails only in ' +
+      "front of a user as the WRONG side of the line, so a spelling this package has retired must be " +
+      'named by `objectui check` rather than blessed by the generated whitelist. ⚠️ DROPPING this ' +
+      '`excluded` line does NOT re-admit `view:dashboard` — measured on this tree it makes THIS entry ' +
+      'report `stale-indirect-registration`, and `check:doc-types` and ' +
+      '`regenerate-known-schema-types.mjs --check` both exit non-zero and write nothing. Without the ' +
+      'exclusion the derivation has to read the collection literal in the site file, and ' +
+      'RETIRED_DASHBOARD_NODE_TYPES is IMPORTED there from `./retired-node-types` (the `reason` below ' +
+      'says so for its own purposes), so it resolves to no literal keys at all: the universe does not ' +
+      'regain the spelling, `KNOWN_SCHEMA_TYPES` is not rewritten, and a document teaching ' +
+      '`view:dashboard` stays RED — it just stays red for a DIFFERENT reason, with the gate now ' +
+      'refusing the whole entry. ⇒ admitting the spelling is NOT a one-line change here; the keys ' +
+      'would first have to be readable from this file. Re-derive both halves by deleting the line and ' +
+      'running those two commands.',
+    reason:
+      '`packages/plugin-dashboard` registers every key of RETIRED_DASHBOARD_NODE_TYPES last, under the ' +
+      '`view` namespace with `skipFallback: true` — a tombstone widget that renders a visible refusal ' +
+      'naming the migration to `plugin-dashboard:dashboard` (objectui#9533, director summon #24 / ' +
+      'batch #152 item 5, letter 1). ⚠️ Two things this entry is deliberately NOT: it does not name ' +
+      'the keys, and it does not read the collection literal — RETIRED_DASHBOARD_NODE_TYPES is ' +
+      'IMPORTED into the site file from `./retired-node-types`, so nothing here could read it anyway. ' +
+      'What re-checks this entry is the registration call itself: delete the tombstone loop and this ' +
+      'entry reports `stale-indirect-registration`.',
   },
 ];
 
@@ -745,6 +953,174 @@ const DOC_TYPE_EXEMPTIONS = {
     ajax: 'ActionSchema discriminant under a form\'s `onSubmit`, not a node type.',
     api: 'Data source kind under a node\'s `dataSource`, not a node type.',
   },
+
+  // ── `packages/NAME/README.md` (objectui#8115) ────────────────────────────────
+  //
+  // These arrived WITH the fourth leg (`PACKAGE_READMES` above) because the gate
+  // admits no other order: an entry whose (file, value) the walk never reaches
+  // fails as `stale-exemption`, so none of them could have landed ahead of the
+  // walk that reaches it. Ruled one at a time against the source that declares
+  // each vocabulary, ⛔ not transcribed as a group from the census that found
+  // them — that census's vocabulary column was measured WRONG for
+  // `plugin-report`'s `bar` (a chart type, not a report kind) and cited weaker
+  // declaration sites than exist for the gesture kinds. ⛔ And two of the sites it
+  // counted are deliberately NOT here: they were re-classified as DEFECTS and
+  // fixed on their own cards (objectui#8114's `activity-timeline` detail tab,
+  // objectui#8483's flow node type `action`). That absence is what the table is
+  // worth — it is a record of rulings, ⛔ never a switch for turning a first run
+  // of a widened walk green.
+
+  'packages/app-shell/README.md': {
+    // TWO vocabularies four lines apart in ONE `flows/renewal_reminder.json`
+    // block — the flow DOCUMENT's `type` and its NODES' `type` are different
+    // enums. That is the case (file, value) keying exists for: a whole-file
+    // exemption here would silence both, and a value-only one would let any page
+    // in the tree teach `start` as a component.
+    autolaunched:
+      'FlowSchema `type` — the flow PROCESS-KIND enum (`autolaunched` / `record_change` / `schedule` ' +
+      '/ `screen` / `api`), declared on `FlowSchema` in @objectstack/spec\'s automation flow schema ' +
+      'and seeded as this repo\'s canonical default by the metadata-admin flow anchor\'s ' +
+      '`createDefaults`. It types the DOCUMENT; the four entries below type the nodes inside it.',
+    start:
+      'Flow-graph node kind under `nodes[].type` — a member of `FlowNodeAction` (@objectstack/spec\'s ' +
+      'automation flow schema). `start` is one of the two STRUCTURAL kinds the engine handles without ' +
+      'a registered executor (`FLOW_STRUCTURAL_NODE_TYPES`: the start sentinel and the end ' +
+      'terminator), which is why it is a member of the enum while being absent from the editor ' +
+      'palette `NODE_PALETTE` in app-shell\'s flow canvas parts. ⚠️ Re-check this entry against the ' +
+      'ENUM, not against the palette: absence from BOTH is what made the flow node type `action` a ' +
+      'DEFECT rather than an exemption (objectui#8483).',
+    decision:
+      'Flow-graph node kind under `nodes[].type` — a member of `FlowNodeAction` (@objectstack/spec\'s ' +
+      'automation flow schema), and the `Logic` branch node the editor palette `NODE_PALETTE` offers ' +
+      'as "Decision". Not a node type in the SDUI sense — a flow graph is data the flow engine ' +
+      'executes, not a component tree `SchemaRenderer` walks.',
+    notify:
+      'Flow-graph node kind under `nodes[].type` — a member of `FlowNodeAction` (@objectstack/spec\'s ' +
+      'automation flow schema), offered by `NODE_PALETTE` under `Integration`. Same vocabulary as ' +
+      '`decision` above.',
+    end:
+      'Flow-graph node kind under `nodes[].type` — a member of `FlowNodeAction` (@objectstack/spec\'s ' +
+      'automation flow schema) and the second of the two STRUCTURAL kinds (`FLOW_STRUCTURAL_NODE_TYPES`), ' +
+      'the terminator `start` above is the sentinel for. Same vocabulary as `decision` above.',
+  },
+  'packages/mobile/README.md': {
+    'swipe-left':
+      '`useGesture` gesture kind — a member of `GestureType`, the direction-fused touch vocabulary ' +
+      'declared in `@object-ui/types`\' `mobile` module, which this package owns outright since ' +
+      '@objectstack/spec deleted its `ui/touch` surface (objectui#3363). ⚠️ The census that found ' +
+      'this site cited the `useGesture` / `useSpecGesture` hook pair as the declaration; the hooks ' +
+      'CONSUME the union, they do not declare it, and the union is the thing to re-check.',
+    'swipe-right':
+      '`useGesture` gesture kind — a member of `GestureType` (`@object-ui/types`\' `mobile` module). ' +
+      'Same vocabulary as `swipe-left` above; the two are separate entries because the table is keyed ' +
+      'by value, which is what keeps a ruling about one spelling from covering another.',
+    pinch:
+      '`useSpecGesture` gesture kind under `SpecGestureConfig.type` — a member of `SpecGestureType`, ' +
+      'which is derived from the `SPEC_GESTURE_TYPES` runtime witness in `@object-ui/types`\' `mobile` ' +
+      'module. ⚠️ A DIFFERENT union from the `GestureType` above, deliberately kept apart under the ' +
+      '`Spec` prefix: it is the retired @objectstack/spec touch vocabulary this package now owns, and ' +
+      '`pinch` happens to be a member of both. Two vocabularies sharing one spelling is exactly the ' +
+      'coincidence a reader of this entry needs told about.',
+  },
+  'packages/plugin-dashboard/README.md': {
+    line:
+      'Dashboard widget kind under `widgets[].type` — `DashboardWidgetTypeName` (`@object-ui/types`\' ' +
+      '`complex` module) declares that CLOSED vocabulary, and its spec half flows in BY REFERENCE ' +
+      'from `ChartTypeSchema` (@objectstack/spec/ui), where `line` is a member. Not a node type: the ' +
+      'node type is `dashboard`, which the enclosing snippet spells. This entry covers TWO sites in ' +
+      'this file — the TypeScript `widgets[]` example and the dataset-bound JSONC one — which is the ' +
+      '(file, value) keying doing its job. Same vocabulary as the ' +
+      '`content/docs/plugins/plugin-dashboard.mdx` entry above.',
+    pie:
+      'Dashboard widget kind under `widgets[].type` — a member of `ChartTypeSchema` ' +
+      '(@objectstack/spec/ui) reaching this repo by reference through `DashboardWidgetTypeName`. ' +
+      'Same vocabulary as `line` above.',
+    bar:
+      'Dashboard widget kind under `widgets[].type` — a member of `ChartTypeSchema` ' +
+      '(@objectstack/spec/ui) reaching this repo by reference through `DashboardWidgetTypeName`. ' +
+      'Same vocabulary as `line` above, and ⚠️ NOT the same as `packages/plugin-report/README.md`\'s ' +
+      '`bar`, which is a chart type nested under a report section\'s `chart` — one spelling, two ' +
+      'carriers, which is why neither is exempted tree-wide.',
+  },
+  'packages/plugin-gantt/README.md': {
+    milestone:
+      'Gantt TASK kind under `GanttTask.type` — `GanttTaskType` (`task` / `summary` / `milestone` / ' +
+      '`group`), declared beside `GanttTask` in this plugin\'s `GanttView` module and normalised from ' +
+      'record data by `normalizeTaskType` in `ObjectGantt`. Not a node type: the node type this ' +
+      'plugin registers is `object-gantt`.',
+    fs:
+      'Dependency LINK kind under `dependencies[].type` — `GanttLinkType` (`fs` / `ss` / `ff` / `sf`, ' +
+      'finish-to-start, start-to-start, finish-to-finish, start-to-finish), declared beside ' +
+      '`GanttTaskType` in this plugin\'s `GanttView` module and re-declared for the scheduler as ' +
+      '`SchedLinkType` in its `scheduling` module. ⚠️ A DIFFERENT vocabulary from the task kind above ' +
+      'in the same file — `type` here hangs off a dependency entry, not off a task.',
+    ss: 'Dependency LINK kind under `dependencies[].type` — `GanttLinkType` (start-to-start). Same vocabulary as `fs` above.',
+    ff: 'Dependency LINK kind under `dependencies[].type` — `GanttLinkType` (finish-to-finish). Same vocabulary as `fs` above.',
+    sf: 'Dependency LINK kind under `dependencies[].type` — `GanttLinkType` (start-to-finish). Same vocabulary as `fs` above.',
+  },
+  'packages/plugin-grid/README.md': {
+    multiple:
+      'SelectionConfig mode under `selection.type` — the spec\'s `none` / `single` / `multiple` enum ' +
+      '(`SelectionConfigSchema`, @objectstack/spec/ui, re-exported as `SelectionConfig` from ' +
+      '`@object-ui/types`). Not a node type. This entry covers THREE sites in this file, one per ' +
+      'grid example. Same vocabulary as the `content/docs/plugins/plugin-grid.mdx` entry above.',
+    count_unique:
+      'Column summary aggregation under `columns[].summary.type` — a member of `ColumnSummarySchema` ' +
+      '(@objectstack/spec/ui), which `ColumnSummaryConfigSchema` REUSES for the object form so the ' +
+      'shorthand (`summary: \'sum\'`) and the object form cannot drift into two vocabularies. This ' +
+      'plugin dispatches the value in its `useColumnSummary` hook. Not a node type.',
+  },
+  'packages/plugin-kanban/README.md': {
+    kanban:
+      '⚠️ The one entry in this group whose value belongs to the vocabulary this gate JUDGES rather ' +
+      'than to another one. It is the bare `kanban` node type key, RETIRED by objectui#8802, spelled ' +
+      'deliberately inside a warning comment so a reader who still has it in a document recognises ' +
+      'the refusal they will get. The declaration is the tombstone that performs that refusal — ' +
+      '`RetiredKanbanNodeSchema`, built by `retiredNodeType(\'kanban\', …)` in `@object-ui/types`\' ' +
+      '`zod/complex.zod.ts` — and `object-kanban`, the live key this plugin registers, is spelled in ' +
+      'the same fence a few lines below. ⇒ What re-checks this entry is the retirement itself: ' +
+      're-register the bare key and the site passes on the registry branch instead, which reports ' +
+      'THIS entry as `stale-exemption`.',
+  },
+  'packages/plugin-report/README.md': {
+    matrix:
+      'Report kind under `defineReport({ type })` — `SpecReportTypeName` (`tabular` / `summary` / ' +
+      '`matrix` / `joined`), declared in `@object-ui/types`\' `spec-report` module. Not a node type: ' +
+      'a report definition is metadata the report renderer reads, not a component tree. Same ' +
+      'vocabulary as the `content/docs/plugins/plugin-report.mdx` entry above.',
+    joined:
+      'Report kind under `defineReport({ type })` — `SpecReportTypeName`, sibling of `matrix` above ' +
+      'and the one that carries `blocks[]`. Same vocabulary as `matrix`.',
+    bar:
+      '⚠️ NOT the report-kind vocabulary its two neighbours in this file belong to, and the census ' +
+      'that found this site filed it as one. It is a CHART TYPE under a report section\'s ' +
+      '`chart.type` — a member of `ChartTypeSchema` (@objectstack/spec/ui) — classified into a ' +
+      'rendering plan by `planReportChart` in this plugin\'s `DatasetReportRenderer`. Recorded as a ' +
+      'correction rather than inherited: an entry that mis-names its vocabulary sends the next reader ' +
+      'to the wrong declaration and cannot be re-checked.',
+  },
+  'packages/plugin-view/README.md': {
+    share:
+      'View-action id under `ObjectViewSchema.viewActions[].type` — the union `share` / `settings` / ' +
+      '`duplicate` / `delete`, declared inline on that member in `@object-ui/types`\' `objectql` ' +
+      'module and mirrored on `ViewSwitcherSchema` in its `views` module. Not a node type. Same ' +
+      'vocabulary as the `content/docs/components/complex/view-switcher.mdx` entry above.',
+    kanban:
+      'ViewSwitcher `views[].type` — the VIEW-TYPE vocabulary (`ViewType`, `@object-ui/types`\' ' +
+      '`views` module), which is what a switcher tab names; the nested `schema` on the very same line ' +
+      'carries the node type. Needed from objectui#8802, which retired the bare `kanban` NODE type ' +
+      'key — until then the value passed by coincidence, the two vocabularies sharing one spelling. ' +
+      '⛔ The stored / view-type spelling is deliberately NOT retired (`ObjectView` maps a stored ' +
+      '`kanban` view onto the `object-kanban` node type). ⚠️ A DIFFERENT vocabulary from the retired ' +
+      'NODE key exempted in `packages/plugin-kanban/README.md`, with which it shares its spelling and ' +
+      'nothing else. Same vocabulary as the two `content/docs` entries above.',
+    'date-range':
+      'Filter control kind under `FilterUISchema.filters[].type` — the union `text` / `number` / ' +
+      '`select` / `multi-select` / `date` / `date-range` / `boolean`, declared inline on that member ' +
+      'in `@object-ui/types`\' `views` module, alongside the CRUD filter enum that spells ' +
+      '`date-picker` / `number-range`. Not a node type. Same vocabulary as the ' +
+      '`content/docs/components/complex/filter-ui.mdx` entry above.',
+  },
 };
 
 /**
@@ -933,6 +1309,382 @@ function resolveKeyArgument(source, callOpen) {
   return names.length ? names : null;
 }
 
+/**
+ * Split a balanced `(…)` / `{…}` / `[…]` span into its top-level,
+ * comma-separated parts, with the outer delimiters dropped. Depth and quotes
+ * are tracked, so a comma inside `inputs: [ … ]` or inside a string is not
+ * read as a separator.
+ */
+function topLevelParts(span) {
+  const inner = span.slice(1, -1);
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  let i = 0;
+  const n = inner.length;
+  while (i < n) {
+    const ch = inner[i];
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch;
+      i++;
+      while (i < n && inner[i] !== quote) {
+        if (inner[i] === '\\') i++;
+        i++;
+      }
+      i++;
+      continue;
+    }
+    if (ch === '(' || ch === '[' || ch === '{') depth++;
+    else if (ch === ')' || ch === ']' || ch === '}') depth--;
+    else if (ch === ',' && depth === 0) {
+      parts.push(inner.slice(start, i));
+      start = i + 1;
+    }
+    i++;
+  }
+  parts.push(inner.slice(start));
+  return parts.map((part) => part.trim()).filter((part) => part.length > 0);
+}
+
+const IDENTIFIER = '[A-Za-z_$][\\w$]*';
+const META_SPREAD = new RegExp(`^\\.\\.\\.\\s*(${IDENTIFIER})$`);
+const META_ENTRY = new RegExp(`^(?:(${IDENTIFIER})|'([^']*)'|"([^"]*)")\\s*:\\s*([\\s\\S]+)$`);
+const STRING_LITERAL = /^(['"])([^'"]*)\1$/;
+
+const escapeForRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Properties of a registration's options that decide which keys it publishes.
+ * A write to either of these AFTER the declaration changes the answer, so
+ * `declaredObjectBody` refuses a name whose file writes one.
+ */
+const KEY_BEARING_OPTIONS = 'namespace|skipFallback';
+
+/** Assignment operators, including the logical and compound forms. */
+const ASSIGN_OP = '(?:\\?\\?|\\|\\||&&|\\*\\*|<<|>>>|>>|[-+*/%&^|])?=(?!=)';
+
+/**
+ * Does this file contain one of THREE SPELLINGS of a write to `name`'s
+ * key-bearing options? Returns the reason, or null.
+ *
+ * ⚠️ Stated as three spellings rather than as "is it written to", because that
+ * is all this is (objectui#9641 round 3 measured the difference). What is seen:
+ *
+ *   1. an assignment whose target is `name` spelled EXACTLY, followed by a
+ *      LITERAL `namespace` / `skipFallback` — dotted, or bracketed with a
+ *      quoted string. Compound and logical assignment operators included.
+ *   2. a `delete` of that same exact-name-plus-literal-property shape.
+ *   3. an `Object.assign` whose FIRST argument is `name` spelled exactly.
+ *
+ * ⛔ NOTHING ELSE IS SEEN, and the difference is silent — no finding is raised,
+ * the declaration is read as written, and the run looks certain. A write
+ * through an ALIAS of the name, inside a CALLEE the object is passed to, with a
+ * COMPUTED property key, as a DESTRUCTURING-assignment target, through
+ * `Reflect.set` / `Reflect.deleteProperty` / `Object.defineProperty` /
+ * `Object.setPrototypeOf`, or from another module, is invisible here. Each of
+ * those is pinned as a KNOWN GAP reading in `check-doc-component-types.test.ts`
+ * so that closing one later fails a test rather than passing unnoticed; ⛔ this
+ * paragraph is not a to-do list — the ruling on objectui#9641 (batch #150 item
+ * 2, letter B) is that the reachable end state for a regex instrument is an
+ * accurate declaration of what it cannot see, not a closed set of shapes.
+ *
+ * ⛔ READ-ONLY member access is not a write and must keep reading — a file that
+ * logs or compares `name.namespace` still passes the declared object to
+ * `register()`. That is why this looks for an assignment operator, a `delete`
+ * or an `Object.assign` TARGET rather than for the property name.
+ *
+ * ⚠️ It is also POSITION-AGNOSTIC: a write spelled anywhere in the file
+ * refuses the name, including one placed after the `register()` call, which the
+ * runtime never reached before it read the namespace. That direction is LOUD
+ * (a finding on a correct registration), which is why it is left as it is.
+ */
+function optionsMutatedAfterDeclaration(source, name) {
+  const n = escapeForRegExp(name);
+  // Spelled out per quote rather than with a backreference: this fragment is
+  // embedded in regexes with different group numbering, and a backreference
+  // that outruns the group count is read as an OCTAL ESCAPE in JavaScript —
+  // it matches a control character, so the bracket form silently never fired.
+  const quoted = `(?:'(?:${KEY_BEARING_OPTIONS})'|"(?:${KEY_BEARING_OPTIONS})")`;
+  const property = `(?:\\.\\s*(?:${KEY_BEARING_OPTIONS})|\\[\\s*${quoted}\\s*\\])`;
+  if (new RegExp(`(?<![\\w$])${n}\\s*${property}\\s*${ASSIGN_OP}`).test(source)) {
+    return `\`${name}\` has its \`namespace\` or \`skipFallback\` assigned somewhere in this file`;
+  }
+  if (new RegExp(`(?<![\\w$])delete\\s+${n}\\s*${property}`).test(source)) {
+    return `\`${name}\` has its \`namespace\` or \`skipFallback\` deleted somewhere in this file`;
+  }
+  if (new RegExp(`(?<![\\w$])Object\\s*\\.\\s*assign\\s*\\(\\s*${n}(?![\\w$])`).test(source)) {
+    return `\`${name}\` is the target of an \`Object.assign\`, which can write any option onto it`;
+  }
+  return null;
+}
+
+/**
+ * The `{ … }` body of the object literal `name` is declared with in this file,
+ * or the reason it must not be followed.
+ *
+ * ⚠️ Following a name is a PREMISE — that the literal written at the
+ * declaration is the object the call passes — and every condition below is one
+ * way that premise fails. Each was measured as a defect before it was a
+ * condition (objectui#9641 review rounds 1 and 2):
+ *
+ *   more than one COUNTED      a function-scoped `const` earlier in the file
+ *   declaration                shadows the module-level one this call reads, so
+ *                              the wrong object answers — a silent MISS. ⚠️ Two
+ *                              positions are counted and no others; the
+ *                              paragraph below states which.
+ *   `let` / `var`              a binding initialised with a namespaced object
+ *                              and reassigned to one without it still derived
+ *                              the namespaced key. That is a PHANTOM: a key the
+ *                              runtime never stores, blessed by the check.
+ *   options written after      a `const` cannot be reassigned but its CONTENTS
+ *                              can: assigning `meta.namespace`, deleting it, or
+ *                              `Object.assign`-ing onto `meta` all move the keys
+ *                              the registration publishes while the declaration
+ *                              still reads the way it always did. Both
+ *                              directions were measured — an added namespace is
+ *                              a miss, a deleted one and an added
+ *                              `skipFallback` are PHANTOMS.
+ *
+ * ⭐ The phantom is the worse direction and the reason these are refusals
+ * rather than best efforts. A miss refuses a type that renders — expensive,
+ * visible, and it argues for itself. A phantom green-lights a spelling that
+ * renders NOTHING, and the author finds out in the browser.
+ *
+ * ⚠️ WHAT THIS DOES NOT GUARD, stated because nothing here enforces it
+ * (AGENTS #9), and stated as the COUNT'S OWN RULE rather than as a list of
+ * binding kinds, because the list was the over-claim (objectui#9641 round 3).
+ *
+ * The count sees a name in exactly two positions: IMMEDIATELY AFTER the
+ * keyword `const` / `let` / `var`, and inside an import clause. That is all.
+ * A name reached any other way is not a binding as far as this is concerned,
+ * so the module-level literal answers while the call passes a different
+ * object — silently, with no finding. Measured and pinned as KNOWN GAP
+ * readings in `check-doc-component-types.test.ts`: a FUNCTION PARAMETER of the
+ * same name, a DESTRUCTURING pattern (object or array), a LATER DECLARATOR of
+ * the same statement (`const first = 1, name = …`), and a `catch` binding.
+ * All four are phantom-direction.
+ *
+ * Closing any of them needs scope analysis this regex-level derivation does not
+ * do. ⛔ That is not a to-do list: the ruling on objectui#9641 (batch #150 item
+ * 2, letter B) is that the reachable end state here is an accurate declaration
+ * of what the instrument cannot see. The pins exist so that closing one later
+ * fails a test rather than passing unnoticed.
+ *
+ * ⛔ NOTHING re-derives whether a site is shadowed by one of those bindings —
+ * that is the gap itself, and no counter here should be read as covering it.
+ * What IS re-derived every run is how many sites take the by-reference route at
+ * all (`counters.metaViaReference`), which bounds how many sites the gap could
+ * reach without saying that any of them is shadowed.
+ */
+function declaredObjectBody(source, name) {
+  const escaped = escapeForRegExp(name);
+  const declarations = [
+    ...source.matchAll(new RegExp(`(?<![\\w$])(const|let|var)\\s+${escaped}(?![\\w$])`, 'g')),
+  ];
+  const imported = new RegExp(
+    `(?<![\\w$])import\\s[^;]*?(?<![\\w$])${escaped}(?![\\w$])[^;]*?from\\s*['"]`,
+  ).test(source);
+  const bindings = declarations.length + (imported ? 1 : 0);
+  if (bindings === 0) {
+    return { body: null, reason: `\`${name}\` is not declared in this file` };
+  }
+  if (bindings > 1) {
+    return {
+      body: null,
+      reason: `\`${name}\` is bound ${bindings} times in this file, so which binding this call reads depends on scope`,
+    };
+  }
+  if (imported) {
+    return { body: null, reason: `\`${name}\` is imported, so the object it names is not in this file` };
+  }
+  const [declaration] = declarations;
+  if (declaration[1] !== 'const') {
+    return {
+      body: null,
+      reason: `\`${name}\` is declared with \`${declaration[1]}\`, so it may hold a different object by the time this call runs`,
+    };
+  }
+  const mutated = optionsMutatedAfterDeclaration(source, name);
+  if (mutated) return { body: null, reason: mutated };
+  const opener = new RegExp(`^const\\s+${escaped}(?![\\w$])\\s*(?::[^=]*)?=\\s*\\{`).exec(
+    source.slice(declaration.index),
+  );
+  if (!opener) {
+    return { body: null, reason: `\`${name}\` is not initialised with an object literal` };
+  }
+  const open = declaration.index + opener[0].length - 1;
+  const end = spanEnd(source, open);
+  if (end < 0) return { body: null, reason: `the object literal \`${name}\` is initialised with is unbalanced` };
+  return { body: source.slice(open, end), reason: null };
+}
+
+/**
+ * Read `namespace` / `skipFallback` out of a meta OBJECT BODY, following
+ * top-level spreads into the object they spread (objectui#9641).
+ *
+ * Entries are read in source order, and an entry that SETS one of the two
+ * properties replaces whatever an earlier entry set. An entry that does not
+ * mention a property leaves the earlier reading standing, which is what a
+ * spread of an object without that OWN property does at runtime. So an object
+ * that spreads a base and then writes `namespace` carries the written one, and
+ * one that writes `namespace` and then spreads a base that has its own
+ * `namespace` carries the base's.
+ *
+ * ⚠️ "Sets" is tracked rather than inferred from the value: `skipFallback:
+ * false` arriving by spread must override an earlier explicit `true`, and a
+ * truthiness test cannot tell it apart from a spread that never mentions
+ * `skipFallback` at all. That was a real MISS of the bare key (objectui#9641
+ * round 3), and `skipFallbackSet` is what distinguishes the two.
+ *
+ * ⚠️ The order claim is about THESE TWO PROPERTIES only, and only for bodies
+ * where every entry was recognised — an unrecognised entry raises `unresolved`
+ * and the reading it produces is not asserted to be the runtime's.
+ *
+ * ⚠️ Every entry must be RECOGNISED, not merely searched for a `namespace:`.
+ * An entry this cannot read may be the one carrying the namespace, and the
+ * whole point of objectui#9641 is that assuming otherwise is silent.
+ *
+ * `seen` is a RECURSION STACK, not a visited set: a name is released once its
+ * body has been read, so a literal that spreads the same base TWICE re-applies
+ * it the second time as the runtime does, while a spread still on the stack is
+ * a cycle and is skipped. A visited set got that wrong in both directions at
+ * once, and silently (objectui#9641 round 3).
+ */
+function readMetaBody(source, body, seen) {
+  let namespace = null;
+  let skipFallback = false;
+  // Explicit `false` is not the same reading as "never mentioned": a spread
+  // carrying `skipFallback: false` must OVERRIDE an earlier explicit `true`,
+  // and a truthiness test cannot tell those apart. Tracked, not inferred.
+  let skipFallbackSet = false;
+  let unresolved = null;
+  const refuse = (reason) => {
+    unresolved ??= reason;
+  };
+  for (const entry of topLevelParts(body)) {
+    if (entry.startsWith('...')) {
+      const spread = META_SPREAD.exec(entry);
+      if (!spread) {
+        refuse('it spreads something that is not a plain identifier, so the object it spreads cannot be read here');
+        continue;
+      }
+      const name = spread[1];
+      // `seen` is a RECURSION STACK, not a visited set: the name is released
+      // once its body has been read, so the same base spread twice re-applies
+      // the second time, exactly as the runtime re-copies it. Only a spread
+      // that is still on the stack is a cycle, and that is what is skipped.
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const { body: nested, reason } = declaredObjectBody(source, name);
+      if (!nested) {
+        seen.delete(name);
+        refuse(reason);
+        continue;
+      }
+      const inherited = readMetaBody(source, nested, seen);
+      seen.delete(name);
+      if (inherited.namespace) namespace = inherited.namespace;
+      if (inherited.skipFallbackSet) {
+        skipFallback = inherited.skipFallback;
+        skipFallbackSet = true;
+      }
+      refuse(inherited.unresolved);
+      continue;
+    }
+    const pair = META_ENTRY.exec(entry);
+    if (!pair) {
+      refuse('it holds an entry that is neither a key-value pair nor a spread of a plain identifier');
+      continue;
+    }
+    const key = pair[1] ?? pair[2] ?? pair[3];
+    const value = pair[4].trim();
+    if (key === 'namespace') {
+      const literal = STRING_LITERAL.exec(value);
+      if (!literal) {
+        refuse('its `namespace` is not a string literal, so the key it publishes cannot be known here');
+        continue;
+      }
+      namespace = literal[2];
+      continue;
+    }
+    if (key === 'skipFallback') {
+      if (value === 'true') {
+        skipFallback = true;
+        skipFallbackSet = true;
+      } else if (value === 'false') {
+        skipFallback = false;
+        skipFallbackSet = true;
+      } else {
+        refuse('its `skipFallback` is neither `true` nor `false`, so whether the bare key exists cannot be known here');
+      }
+    }
+  }
+  return { namespace, skipFallback, skipFallbackSet, unresolved };
+}
+
+/**
+ * Resolve the registration options (`namespace`, `skipFallback`) of one
+ * `register()` / `registerLazy()` call from its argument span.
+ *
+ * Two shapes are READ: an object literal whose top-level entries are all
+ * key-value pairs or spreads of a plain identifier, and a bare identifier that
+ * resolves to such a literal in the same file. `pageMeta.namespace` is `'ui'`,
+ * so both of these store `ui:page` / `ui:app` alongside the bare fallbacks:
+ *
+ *   ComponentRegistry.register('page', PageRenderer, pageMeta)
+ *   ComponentRegistry.register('app', PageRenderer, { ...pageMeta, label: 'App Page' })
+ *
+ * ⛔ EVERY OTHER ARGUMENT SHAPE IS REPORTED, and that is the whole design.
+ * ⚠️ Argument shape, not registration shape: once a name is accepted here,
+ * whether it names the object the call passes is a premise `declaredObjectBody`
+ * enforces only against the spellings it can see, and the readings that slip
+ * through are SILENT, not reported. That half is declared and pinned there.
+ *
+ * Reading only
+ * the call span found no `namespace:` in either line above and produced the
+ * bare halves ALONE — five real runtime keys missing from a universe whose
+ * whole job is to say which keys are real, with no finding raised, so both
+ * consumers agreed on a universe neither had measured (objectui#9641). The
+ * repair for that cannot itself be a best effort: a cast, a member expression,
+ * a call, a spread of any of those, a conditional spread and a computed
+ * `namespace` were each measured resolving to a silent bare-only reading, which
+ * is the same defect with a different spelling. None of them appears in this
+ * tree today, so refusing them costs nothing here and is what lets the
+ * regeneration script's header say, truthfully, that a form this cannot resolve
+ * fails HERE rather than shrinking the universe there.
+ *
+ * `viaReference` marks a site whose options were reached through an identifier
+ * rather than spelled out at the call, and feeds `counters.metaViaReference`.
+ */
+function resolveRegistrationOptions(source, span) {
+  const parts = topLevelParts(span);
+  const bare = { namespace: null, skipFallback: false, unresolved: null, viaReference: false };
+  if (parts.length < 3) return bare;
+  const meta = parts[2];
+
+  // An options argument spelled `undefined`, `null` or `void 0` is the ABSENCE
+  // of options, which `register()` reads exactly as a missing third argument.
+  // They match the identifier pattern, so without this they were refused as
+  // "not declared in this file" — a red on a correct bare-only registration.
+  if (/^(?:undefined|null|void\s+0)$/.test(meta)) return bare;
+
+  if (new RegExp(`^${IDENTIFIER}$`).test(meta)) {
+    const { body, reason } = declaredObjectBody(source, meta);
+    if (!body) return { ...bare, unresolved: reason, viaReference: true };
+    return { ...readMetaBody(source, body, new Set([meta])), viaReference: true };
+  }
+
+  if (meta.startsWith('{') && meta.endsWith('}')) {
+    const viaReference = topLevelParts(meta).some((entry) => META_SPREAD.test(entry));
+    return { ...readMetaBody(source, meta, new Set()), viaReference };
+  }
+
+  return {
+    ...bare,
+    unresolved: 'its options argument is neither an object literal nor a plain identifier',
+  };
+}
+
 function literalArray(source, name) {
   const m = new RegExp(`(?:const|let|var)\\s+${name}\\s*(?::[^=]*)?=\\s*\\[([\\s\\S]*?)\\n\\];`, 'm').exec(source);
   if (!m) return null;
@@ -952,6 +1704,133 @@ function literalSet(source, name) {
 }
 
 /**
+ * The two shapes a collection reaches a registration helper in — a bare array
+ * binding and `Object.keys(<object>)` — which are exactly the two readings
+ * INDIRECT_REGISTRATIONS' `kind` names. Capture groups, in order: the object of
+ * an `Object.keys(…)`, then the bare array.
+ */
+const COLLECTION_EXPRESSION = `(?:Object\\s*\\.\\s*keys\\s*\\(\\s*(${IDENTIFIER})\\s*\\)|(${IDENTIFIER}))`;
+
+/**
+ * The collection a name is bound to by the last binder before `limit`:
+ * `for (const NAME of COLL)`, `for (const NAME of Object.keys(COLL))`,
+ * `COLL.forEach(NAME => …)` and `Object.keys(COLL).forEach(NAME => …)`.
+ *
+ * Returns null when no binder in this file supplies the name that way — which
+ * is reported by the caller rather than read as "no collection", because a
+ * registration whose supplier cannot be named is exactly the one this
+ * derivation must not wave through.
+ */
+function collectionOfBinder(source, name, limit) {
+  const pattern = new RegExp(
+    `for\\s*\\(\\s*(?:const|let|var)\\s+${name}\\s+of\\s+${COLLECTION_EXPRESSION}` +
+      `|${COLLECTION_EXPRESSION}\\s*\\.\\s*forEach\\s*\\(\\s*\\(?\\s*${name}\\b`,
+    'g',
+  );
+  const match = [...source.slice(0, limit).matchAll(pattern)].pop();
+  if (!match) return null;
+  const object = match[1] ?? match[3];
+  const array = match[2] ?? match[4];
+  return object ? { name: object, kind: 'object-keys' } : { name: array, kind: 'array' };
+}
+
+/**
+ * The innermost function declared in this file whose PARAMETER supplies `name`
+ * at `index`. This is the second hop these helpers take: a collection is
+ * iterated at one place and the registration lives one call deeper, inside the
+ * helper the iteration hands each member to.
+ */
+function enclosingParameterFunction(source, name, index) {
+  const declarations = [
+    ...source.matchAll(new RegExp(`function\\s+(${IDENTIFIER})\\s*\\(`, 'g')),
+    ...source.matchAll(new RegExp(`(?:const|let|var)\\s+(${IDENTIFIER})\\s*(?::[^=]*)?=\\s*(?:async\\s+)?\\(`, 'g')),
+  ];
+  let best = null;
+  for (const declaration of declarations) {
+    const open = declaration.index + declaration[0].length - 1;
+    const close = spanEnd(source, open);
+    if (close < 0 || close > index) continue;
+    const params = source.slice(open + 1, close - 1);
+    if (!new RegExp(`(?<![\\w$])${name}(?![\\w$])`).test(params)) continue;
+    const brace = source.indexOf('{', close - 1);
+    if (brace < 0 || brace > index) continue;
+    const bodyEnd = spanEnd(source, brace);
+    if (bodyEnd <= index) continue;
+    if (!best || declaration.index > best.start) {
+      best = { name: declaration[1], start: declaration.index, end: bodyEnd };
+    }
+  }
+  return best;
+}
+
+/**
+ * Which collections supply the keys of ONE collection-keyed registration call.
+ *
+ * ⭐ This is the half objectui#9717 was filed about. The bypass that lets these
+ * calls through used to be keyed by FILE while INDIRECT_REGISTRATIONS' coverage
+ * is keyed by COLLECTION, so ANY unresolvable registration living in a
+ * table-named file was skipped silently — including one whose collection the
+ * table never names. `registerAllFields()`'s `RETIRED_FIELD_TYPES` tombstone
+ * loop is the measured instance: it shares a file with the `fieldWidgetMap`
+ * entry, so its keys left no trace in the universe and no finding either.
+ *
+ * So the supplier is DERIVED here and reconciled against the table, the same
+ * treatment objectui#9703 gave the namespace. Returns every collection reaching
+ * the call, plus an `unresolved` note when some route into it cannot be read —
+ * both are returned, because a call fed by one readable and one unreadable
+ * collection must neither lose the readable half nor go quiet about the other.
+ */
+function indirectSupply(source, callOpen) {
+  const identifier = /^\s*([A-Za-z_$][\w$]*)\s*,/.exec(source.slice(callOpen + 1));
+  if (!identifier) {
+    return { collections: [], unresolved: 'its key argument is not a plain identifier' };
+  }
+  const name = identifier[1];
+  const direct = collectionOfBinder(source, name, callOpen);
+  if (direct) return { collections: [direct], unresolved: null };
+
+  const fn = enclosingParameterFunction(source, name, callOpen);
+  if (!fn) {
+    return {
+      collections: [],
+      unresolved:
+        `\`${name}\` is neither bound by a loop over a collection nor a parameter of a function ` +
+        'declared in this file',
+    };
+  }
+  const collections = [];
+  let unresolved = null;
+  const push = (collection) => {
+    if (!collections.some((c) => c.name === collection.name && c.kind === collection.kind)) {
+      collections.push(collection);
+    }
+  };
+  const passedPattern = new RegExp(`${COLLECTION_EXPRESSION}\\s*\\.\\s*forEach\\s*\\(\\s*${fn.name}\\s*\\)`, 'g');
+  for (const passed of source.matchAll(passedPattern)) {
+    push(passed[1] ? { name: passed[1], kind: 'object-keys' } : { name: passed[2], kind: 'array' });
+  }
+  const appliedPattern = new RegExp(`(?<![\\w$.])${fn.name}\\s*\\(([^)]*)\\)`, 'g');
+  for (const applied of source.matchAll(appliedPattern)) {
+    if (applied.index >= fn.start && applied.index < fn.end) continue;
+    const argument = applied[1].trim();
+    const bound = /^[A-Za-z_$][\w$]*$/.test(argument) ? collectionOfBinder(source, argument, applied.index) : null;
+    if (bound) push(bound);
+    else {
+      unresolved ??=
+        `\`${fn.name}(${argument})\` is called here with an argument this derivation cannot trace ` +
+        'back to a collection';
+    }
+  }
+  if (collections.length === 0 && !unresolved) {
+    unresolved = `nothing in this file hands \`${fn.name}\` the members of a collection`;
+  }
+  return { collections, unresolved };
+}
+
+/** One INDIRECT_REGISTRATIONS entry's coverage, keyed the way the table is. */
+const coverageKey = (site, collection) => `${site} (${collection})`;
+
+/**
  * The tables are injectable for the same reason the sibling gates' are: they are
  * keyed by real repository paths, so a fixture tree can only exercise the
  * MECHANISM if it can supply its own. The defaults are the live tables, which is
@@ -962,10 +1841,17 @@ export function deriveRegistryKeys(root, options = {}) {
   const openRegistrations = options.openRegistrationSites ?? OPEN_REGISTRATION_SITES;
   const keys = new Map();
   const findings = [];
-  const counters = { sourceFiles: 0, callSites: 0, resolved: 0, open: 0, indirect: 0 };
+  const counters = { sourceFiles: 0, callSites: 0, resolved: 0, open: 0, indirect: 0, withheld: 0, metaViaReference: 0 };
   const openSeen = new Set();
   const indirectSeen = new Set();
-  const indirectSites = new Set(indirect.map((entry) => entry.site));
+  /** `coverageKey(site, collection)` -> the options read at each call that collection feeds. */
+  const indirectCallMeta = new Map();
+  /** `<indirect site>` -> the entries the table declares FOR THAT FILE, in table order. */
+  const indirectEntriesByFile = new Map();
+  for (const entry of indirect) {
+    if (!indirectEntriesByFile.has(entry.site)) indirectEntriesByFile.set(entry.site, []);
+    indirectEntriesByFile.get(entry.site).push(entry);
+  }
 
   const add = (key, site) => {
     if (!key || key.includes('${')) return;
@@ -1000,10 +1886,59 @@ export function deriveRegistryKeys(root, options = {}) {
       const site = `${rel}:${line}`;
       const names = resolveKeyArgument(source, callOpen);
       if (!names) {
-        if (indirectSites.has(rel)) {
+        const entriesHere = indirectEntriesByFile.get(rel);
+        if (entriesHere) {
           // The key comes from a collection this file iterates; the collection
-          // itself is read below by INDIRECT_REGISTRATIONS.
-          indirectSeen.add(rel);
+          // itself is read below by INDIRECT_REGISTRATIONS. WHICH collection is
+          // derived here and matched against the entries declared for this file
+          // — the bypass is keyed by COLLECTION, the same thing the table's
+          // coverage is keyed by (objectui#9717). Keyed by FILE, as it was, this
+          // branch swallowed every unresolvable registration the file happened
+          // to hold, whether or not any entry covered it. The NAMESPACE is
+          // spelled at this call like any other, so it is read HERE and carried
+          // to the loop below, which reconciles the entry's declaration against
+          // it instead of trusting it (objectui#9703).
+          const supply = indirectSupply(source, callOpen);
+          if (supply.unresolved) {
+            findings.push({
+              reason: 'unresolved-indirect-collection',
+              site,
+              detail:
+                `INDIRECT_REGISTRATIONS names this file, but which collection feeds this ${match[1]}() ` +
+                `call could not be read: ${supply.unresolved}. A call this derivation cannot pair with a ` +
+                'collection cannot be told apart from one the table does not cover, and reading it as ' +
+                'covered is the objectui#9717 defect. Iterate the collection in a form this reads ' +
+                '(`COLL.forEach(helper)`, `for (const k of Object.keys(COLL))`), or teach ' +
+                '`indirectSupply` the form.',
+            });
+          }
+          const covered = supply.collections.filter((c) => entriesHere.some((e) => e.collection === c.name));
+          for (const collection of supply.collections) {
+            if (covered.includes(collection)) continue;
+            findings.push({
+              reason: 'uncovered-indirect-collection',
+              site,
+              detail:
+                `this ${match[1]}() call registers the members of \`${collection.name}\`, which no ` +
+                `INDIRECT_REGISTRATIONS entry for this file names (declared here: ` +
+                `${entriesHere.map((e) => `\`${e.collection}\``).join(', ')}). Its keys are in the runtime ` +
+                'registry and absent from the derived universe, and until objectui#9717 the bypass was ' +
+                'keyed by file so nothing said so. Declare the collection in INDIRECT_REGISTRATIONS, or ' +
+                'decide deliberately that these keys stay out — but not by silence.',
+            });
+          }
+          if (covered.length > 0) {
+            const indirectEnd = spanEnd(source, callOpen);
+            const indirectSpan =
+              indirectEnd < 0 ? source.slice(callOpen, callOpen + 2000) : source.slice(callOpen, indirectEnd);
+            const options = resolveRegistrationOptions(source, indirectSpan);
+            for (const collection of covered) {
+              const key = coverageKey(rel, collection.name);
+              indirectSeen.add(key);
+              if (!indirectCallMeta.has(key)) indirectCallMeta.set(key, []);
+              indirectCallMeta.get(key).push({ site, namespace: options.namespace, unresolved: options.unresolved });
+            }
+          }
           continue;
         }
         const open = openRegistrations[rel];
@@ -1025,9 +1960,20 @@ export function deriveRegistryKeys(root, options = {}) {
       counters.resolved++;
       const end = spanEnd(source, callOpen);
       const span = end < 0 ? source.slice(callOpen, callOpen + 2000) : source.slice(callOpen, end);
-      const nsMatch = /namespace\s*:\s*(['"])([^'"]+)\1/.exec(span);
-      const namespace = nsMatch && !nsMatch[2].includes('${') ? nsMatch[2] : null;
-      const skipFallback = /skipFallback\s*:\s*true/.test(span);
+      const { namespace, skipFallback, unresolved, viaReference } = resolveRegistrationOptions(source, span);
+      if (viaReference && !unresolved) counters.metaViaReference++;
+      if (unresolved) {
+        findings.push({
+          reason: 'unresolved-registration-meta',
+          site,
+          detail:
+            `the options of this ${match[1]}() call cannot be read here: ${unresolved}. A namespaced ` +
+            'registration read as bare loses its `namespace:key` half from the universe SILENTLY, which is ' +
+            'the objectui#9641 defect — so an options shape this cannot resolve is reported rather than ' +
+            'assumed namespace-free. Spell the options out at the call as key-value pairs, declare them in ' +
+            'this file as a single `const` object literal, or teach `readMetaBody` this form.',
+        });
+      }
       for (const name of names) {
         if (namespace) {
           add(`${namespace}:${name}`, site);
@@ -1052,14 +1998,16 @@ export function deriveRegistryKeys(root, options = {}) {
   }
 
   for (const entry of indirect) {
-    if (!indirectSeen.has(entry.site)) {
+    if (!indirectSeen.has(coverageKey(entry.site, entry.collection))) {
       findings.push({
         reason: 'stale-indirect-registration',
-        site: entry.site,
+        site: coverageKey(entry.site, entry.collection),
         detail:
-          'INDIRECT_REGISTRATIONS names this file, but it no longer contains a registration whose key ' +
-          'comes from a collection. The helper was probably rewritten to register literals; drop the ' +
-          'entry so the universe is not padded from a collection nothing reads.',
+          `INDIRECT_REGISTRATIONS names this file, but no registration in it takes its key from ` +
+          `\`${entry.collection}\`. The helper was probably rewritten to register literals, or the ` +
+          'iteration moved to another collection; drop the entry so the universe is not padded from a ' +
+          'collection nothing reads. ⚠️ This is keyed by COLLECTION, not by file (objectui#9717): a ' +
+          'sibling entry still reading the same file no longer answers for this one.',
       });
     }
     const abs = join(root, entry.site);
@@ -1074,9 +2022,21 @@ export function deriveRegistryKeys(root, options = {}) {
       });
       continue;
     }
-    const names =
-      entry.kind === 'array' ? literalArray(source, entry.collection) : literalObjectKeys(source, entry.collection);
-    if (!names || names.length === 0) {
+    // A WITHHELD entry declares the registration and declares that its keys stay
+    // OUT of the universe (objectui#9717). It is the other legitimate answer to
+    // `uncovered-indirect-collection`, and the point of it is that the exclusion
+    // becomes a reviewable line with a reason instead of a silence. Its
+    // collection is deliberately NOT read: nothing is derived from it, so a read
+    // would only invent a way to fail. What keeps it honest is the same
+    // staleness check every other entry gets, and that one is derived from the
+    // CALL — delete the registration and this entry reports, exclusion or not.
+    const withheld = typeof entry.excluded === 'string' && entry.excluded.length > 0;
+    const names = withheld
+      ? []
+      : entry.kind === 'array'
+        ? literalArray(source, entry.collection)
+        : literalObjectKeys(source, entry.collection);
+    if (!withheld && (!names || names.length === 0)) {
       findings.push({
         reason: 'stale-indirect-registration',
         site: `${entry.site} (${entry.collection})`,
@@ -1087,7 +2047,83 @@ export function deriveRegistryKeys(root, options = {}) {
       });
       continue;
     }
-    const skip = entry.skipFallbackSet ? literalSet(source, entry.skipFallbackSet) : new Set();
+    const skip = entry.skipFallbackSet && !withheld ? literalSet(source, entry.skipFallbackSet) : new Set();
+    if (entry.skipFallbackSet && !withheld && skip.size === 0) {
+      findings.push({
+        reason: 'stale-indirect-registration',
+        site: `${entry.site} (${entry.skipFallbackSet})`,
+        detail:
+          `the skip set \`${entry.skipFallbackSet}\` no longer resolves to a non-empty literal Set. ` +
+          'Read as empty, every key of this collection gains a bare fallback it does not really ' +
+          'publish — the universe grows SILENTLY, which is the same class as losing one. Re-point ' +
+          'the entry at the set the helper reads, or drop `skipFallbackSet` deliberately.',
+      });
+    }
+    // THE NAMESPACE IS DERIVED, NOT DECLARED (objectui#9703). It used to be read
+    // out of `entry.namespace` — a hand-kept value that was an INPUT to this
+    // derivation with nothing reconciling it against the call it described, so a
+    // namespace edit at the call could not reach the universe and the derivation
+    // stayed green while disagreeing with the runtime. The call's `namespace:` is
+    // a plain string literal at every site this covers, so it is read there and
+    // the table's value is demoted to a DECLARATION that must match.
+    //
+    // ⚠️ `skipFallback` is NOT derivable the same way and deliberately stays
+    // declared: these helpers pass it per key (`FIELD_TYPES_SKIP_FALLBACK.has(fieldType)`),
+    // so the call carries no answer for any individual key — which is exactly why
+    // `skipFallbackSet` names the set instead, and why its emptiness is reported above.
+    const calls = indirectCallMeta.get(coverageKey(entry.site, entry.collection)) ?? [];
+    const declared = entry.namespace ?? null;
+    let namespace = declared;
+    const unreadable = calls.filter((c) => c.namespace === null && c.unresolved);
+    const observed = [...new Set(calls.filter((c) => !(c.namespace === null && c.unresolved)).map((c) => c.namespace))];
+    if (calls.length === 0) {
+      // Already reported as `stale-indirect-registration` above — no call of this
+      // shape was found in the file at all, so there is nothing to reconcile.
+    } else if (unreadable.length > 0) {
+      findings.push({
+        reason: 'unresolved-indirect-namespace',
+        site: unreadable[0].site,
+        detail:
+          `this call registers the \`${entry.collection}\` collection, and its \`namespace\` could not be ` +
+          `read here: ${unreadable[0].unresolved}. Falling back to the value INDIRECT_REGISTRATIONS ` +
+          'declares would restore exactly the unreconciled reading objectui#9703 removed, so it is ' +
+          'reported instead. Spell `namespace` out as a string literal at the call.',
+      });
+    } else if (observed.length !== 1) {
+      findings.push({
+        reason: 'unresolved-indirect-namespace',
+        site: entry.site,
+        detail:
+          `the registrations fed by \`${entry.collection}\` pass ${observed.length} different ` +
+          `namespaces (${observed.map((n) => (n === null ? '(bare)' : `\`${n}\``)).join(', ')}), so the ` +
+          'namespace of its keys cannot be read from the call. One namespace per collection is what ' +
+          'this reconciliation assumes; split the collection, or give its registrations one namespace. ' +
+          '⚠️ Since objectui#9717 these are the calls THIS collection feeds, not every collection-keyed ' +
+          'call in the file — a sibling collection registering under another namespace no longer reads ' +
+          'as a disagreement here.',
+      });
+    } else {
+      namespace = observed[0];
+      if (namespace !== declared) {
+        findings.push({
+          reason: 'indirect-namespace-drift',
+          site: entry.site,
+          detail:
+            `INDIRECT_REGISTRATIONS declares namespace ${declared === null ? '(bare)' : `\`${declared}\``} for ` +
+            `\`${entry.collection}\`, but the registration really passes ` +
+            `${namespace === null ? '(bare)' : `\`${namespace}\``}. The derived universe follows the CALL; ` +
+            'update the entry so the declaration beside it stops describing a tree that moved.',
+        });
+      }
+    }
+    if (withheld) {
+      // Counted and PRINTED in the run summary rather than left to the table:
+      // a key deliberately held out of the universe is a decision, and a
+      // decision nobody can see from the gate's own output is back where it
+      // started.
+      counters.withheld++;
+      continue;
+    }
     counters.indirect += names.length;
     for (const name of names) {
       // Same shape as a direct call: the namespaced key always, plus the bare
@@ -1096,8 +2132,8 @@ export function deriveRegistryKeys(root, options = {}) {
       // the bare form there is the spelling the docs actually teach and the
       // `protocol-placeholder:` prefix is the derived one — the reverse of the
       // usual reading, but the same two keys either way.
-      if (entry.namespace) {
-        add(`${entry.namespace}:${name}`, entry.site);
+      if (namespace) {
+        add(`${namespace}:${name}`, entry.site);
         if (!skip.has(name)) add(name, entry.site);
       } else {
         add(name, entry.site);
@@ -1132,6 +2168,10 @@ export function scanDocs(root) {
   const files = walkFiles(docsDir, isDoc).sort();
   // Per-app docs trees (objectui#6600), appended sorted after the content tree.
   for (const dir of appDocsDirs(root)) files.push(...walkFiles(dir, isDoc).sort());
+  // Each package's own README (objectui#7896's fourth leg, landed by objectui#8115),
+  // in the slot the two sibling walks append it in — BEFORE the root pages — so the
+  // three gates' document lists stay comparable element by element.
+  files.push(...packageReadmePages(root));
   // Root pages join by name rather than by walk. An absent one is dropped here so
   // a throwaway fixture tree stays scannable; the CLI refuses to publish a
   // verdict when one is missing from a real run, which is where that must bite.
@@ -1384,10 +2424,43 @@ const HINTS = {
     'A ComponentRegistry registration takes a key this derivation cannot resolve to literals. Left ' +
     'unhandled it shrinks the universe, which turns CORRECT documentation red. Teach ' +
     '`resolveKeyArgument` the form, or declare the site in OPEN_REGISTRATION_SITES.',
+  'unresolved-registration-meta':
+    'A ComponentRegistry registration takes OPTIONS this derivation cannot read — a shape other than ' +
+    'an object literal of key-value pairs and plain-identifier spreads, or an identifier that is not a ' +
+    'single `const` object literal in the same file. The `namespace` such options may carry decides ' +
+    'whether the `namespace:key` half of the registration exists, so reading them as absent drops a ' +
+    'real key SILENTLY and `objectui check` then calls a document that renders perfectly unknown. ' +
+    'Spell the options out at the call, declare them as one `const` object literal in this file, or ' +
+    'teach `readMetaBody` the form. See objectui#9641.',
   'stale-open-site':
     'OPEN_REGISTRATION_SITES names a file that no longer has an unresolvable registration.',
   'stale-indirect-registration':
-    'An INDIRECT_REGISTRATIONS entry no longer resolves to keys, so the universe lost them silently.',
+    'An INDIRECT_REGISTRATIONS entry no longer resolves to keys, so the universe lost them silently — ' +
+    'or its declared skip set no longer resolves, which pads the universe with bare fallbacks that are ' +
+    'not published. Both directions are silent, so both are reported.',
+  'indirect-namespace-drift':
+    'An INDIRECT_REGISTRATIONS entry declares a namespace its registration call does not pass. The ' +
+    'universe follows the CALL, so nothing is lost — but the declaration beside it now describes a ' +
+    'tree that moved, and it is the thing the next reader will trust. Update the entry. See ' +
+    'objectui#9703.',
+  'uncovered-indirect-collection':
+    'A registration in a file INDIRECT_REGISTRATIONS names takes its keys from a collection NO entry ' +
+    'names. Those keys are in the runtime registry and missing from the derived universe, which turns ' +
+    'CORRECT documentation red. The bypass used to be keyed by FILE while the table\'s coverage is ' +
+    'keyed by COLLECTION, so this was skipped in silence — `field:owner`, registered by ' +
+    '`registerAllFields()`\'s RETIRED_FIELD_TYPES tombstone loop, is the measured instance. Declare ' +
+    'the collection, or decide deliberately that its keys stay out. See objectui#9717.',
+  'unresolved-indirect-collection':
+    'A registration in a file INDIRECT_REGISTRATIONS names could not be paired with the collection ' +
+    'that feeds it. Such a call cannot be told apart from one no entry covers, and reading it as ' +
+    'covered restores exactly the file-keyed bypass objectui#9717 removed — so it is reported. Iterate ' +
+    'the collection in a form this derivation reads, or teach `indirectSupply` the form.',
+  'unresolved-indirect-namespace':
+    'A collection-keyed registration\'s `namespace` could not be read at the call, or one file passes ' +
+    'several. The namespace of these keys is DERIVED from the call (objectui#9703) precisely so a ' +
+    'hand-kept value cannot drift away from it, so an unreadable one is reported rather than taken ' +
+    'from the table — taking it from the table is the defect. Spell `namespace` out as a string ' +
+    'literal at the call.',
   'unterminated-code-fence':
     'A doc file has an unclosed ``` fence. The scan cannot separate code from prose past that point.',
 };
@@ -1414,6 +2487,22 @@ if (invokedDirectly) {
       );
       process.exit(1);
     }
+  }
+
+  // Same check, same reason, for the package-README leg (objectui#7896): it is
+  // collected by WALK rather than by name, so a `packages/` that stops yielding
+  // READMEs does not dangle — it just returns fewer files, and every count this
+  // gate prints stays plausible while the surface shrinks back to what
+  // objectui#7896 measured. `FLOORS` cannot tell that apart from a docs edit
+  // either, because the floor it would trip is a whole-tree one.
+  if (packageReadmePages(root).length === 0) {
+    console.error(
+      `The ${PACKAGE_READMES.dir}/*/${PACKAGE_READMES.name} leg collected 0 file(s) under ${root}. That ` +
+        "leg is part of this gate's scan surface (objectui#7896), and a leg that reaches no file is a " +
+        'surface that shrank in silence — the defect the widening was filed to close. Point the leg at ' +
+        'the tree those READMEs live in, or remove it deliberately.',
+    );
+    process.exit(1);
   }
 
   let result;
@@ -1459,7 +2548,8 @@ if (invokedDirectly) {
       `${counters.codeBlocks} code block(s), ` +
       `${counters.typeSites} \`type\` literal(s) against ${counters.registryKeys} registered key(s) ` +
       `derived from ${counters.sourceFiles} source file(s) (${counters.resolved} resolved call site(s), ` +
-      `${counters.indirect} indirect, ${counters.open} open): ` +
+      `${counters.metaViaReference} via referenced options, ${counters.indirect} indirect, ` +
+      `${counters.open} open, ${counters.withheld} collection(s) declared and WITHHELD): ` +
       `${counters.registered} registered, ${counters.exempted} exempted; ` +
       `${counters.keyTables} key table(s), ${counters.keyTableRows} row(s), ` +
       `${counters.keyTableKeys} table key(s) judged (namespaced + bare), ` +

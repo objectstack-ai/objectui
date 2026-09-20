@@ -364,7 +364,15 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // `packages/types/src/navigation.ts`; data-display's were a strict SUBSET copy, so
   // that file re-points at navigation's one authority.
   ['CalendarEvent', ['packages/plugin-calendar/src/index.tsx', 'packages/types/src/complex.ts']], // the ruled-on objectui#5044 alias — see the header
-  ['CalendarSchema', ['packages/plugin-calendar/src/ObjectCalendar.tsx', 'packages/types/src/form.ts']],
+  // `CalendarSchema` sat here, colliding between
+  // `packages/plugin-calendar/src/ObjectCalendar.tsx` and
+  // `packages/types/src/form.ts`. Two unrelated meanings behind one word: the
+  // plugin's was the calendar VIEW's props schema, `@object-ui/types`' is the
+  // date-picker primitive reachable at `ui:calendar` only (objectui#8499). The
+  // remedy was the DELETE branch — the plugin-local one was absent from that
+  // package's barrel, so no importer could name it, and objectui#8651 measured
+  // that `ObjectCalendar`'s props belong at the published `ObjectCalendarSchema`
+  // instead. One authority remains, in `@object-ui/types`.
   ['ChatMessage', ['packages/plugin-chatbot/src/ChatbotEnhanced.tsx', 'packages/types/src/complex.ts']],
   ['ChatToolInvocation', ['packages/plugin-chatbot/src/ChatbotEnhanced.tsx', 'packages/types/src/complex.ts']],
   // `ComboboxOption` sat here, colliding between

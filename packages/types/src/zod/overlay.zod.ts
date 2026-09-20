@@ -307,14 +307,18 @@ export const PopoverSchema = BaseSchema.extend({
 /**
  * Tooltip Schema - Tooltip component
  *
- * ⚠️ This member used to REQUIRE `children` and declare neither `trigger` nor
- * `body` (objectui#6939). No read site has ever consumed `children` here: the
- * renderer reads `schema.trigger` (`renderers/overlay/tooltip.tsx:28`) and
- * `schema.content || renderChildren(schema.body)` (:31), and the registration's
- * own `inputs` list `trigger` / `content` / `body` and never `children`. So the
+ * ⚠️ This member used to REQUIRE `children` and declare neither `trigger` nor a
+ * rich-content slot (objectui#6939). The renderer reads `schema.trigger` and
+ * `schema.content || renderChildren(…)` (`renderers/overlay/tooltip.tsx`), and
+ * the registration's own `inputs` list `trigger` / `content` / that slot. So the
  * validator refused documents the renderer draws and blessed a spelling that
  * paints an empty trigger — `declared !== enforced`, with the corpus on the
  * right side of it.
+ *
+ * ⚠️ The slot was spelled `body` from objectui#6939 until objectui#6771 retired
+ * the spelling. It is `children` now, so the refusal below faces the other way
+ * round from the one objectui#8284 first wrote — the RULE (tombstone the channel
+ * this renderer does not read) is what is preserved, not the key it named.
  *
  * `HoverCardSchema` two entries below is the settled in-repo shape for this
  * pair of slots and is what `trigger` follows here.
@@ -334,20 +338,25 @@ export const TooltipSchema = BaseSchema.extend({
   trigger: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
     .describe('Element the tooltip attaches to (objectui#6939)'),
   content: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
-    .describe('Tooltip content, checked before `body` — optional because `body` is the fallback for the same slot (objectui#6939)'),
-  body: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
-    .describe('Rich tooltip content — the fallback for `content`, listed by the registration as the "Rich Content" slot (objectui#6939)'),
+    .describe('Tooltip content, checked before `children` — optional because `children` is the fallback for the same slot (objectui#6939)'),
+  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
+    .describe('Rich tooltip content — the fallback for `content`, published by the registration as the "Rich Content" slot (objectui#6939, objectui#6771)'),
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Tooltip side'),
   align: z.enum(['start', 'center', 'end']).optional().describe('Tooltip alignment'),
   delayDuration: z.number().optional().describe('Delay before showing (ms)'),
-  children: aliasKeyRefusal(
-    'children',
+  // AN INVERSION, not a widening. objectui#8284 tombstoned `children` here on
+  // the measured ground that the renderer read `content || body` and never
+  // `children`. objectui#6771 changed the READ, not the principle: the renderer
+  // now reads `content || children`, so the channel this node does not read is
+  // `body`, and that is where the tombstone moved.
+  body: aliasKeyRefusal(
     'body',
+    'children',
     'this tooltip node',
-    '`tooltip` reads `content` first and `body` as the fallback for that same slot, and never `children` '
+    '`tooltip` reads `content` first and `children` as the fallback for that same slot, and never `body` '
     + '(READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/overlay/tooltip.tsx`). '
-    + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + 'This registration was the one place in the tree that ADVERTISED `body` in its `inputs`, which is why '
+    + 'objectui#6771 brought it into the retirement rather than leaving it as the dialect\'s last discoverable home. objectui#8284.',
   ),
 });
 

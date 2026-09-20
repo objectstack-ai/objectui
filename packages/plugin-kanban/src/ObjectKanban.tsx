@@ -84,6 +84,75 @@ const KANBAN_DEFAULT_TRANSLATIONS: Record<string, string> = {
 export const DEFAULT_KANBAN_LIMIT = 100;
 
 /**
+ * What the contract admits as a row cap for this board.
+ *
+ * `@objectstack/spec` has already answered what `limit: 0` means. The
+ * `object-kanban` props declare the member a POSITIVE INTEGER
+ * (`z.number().int().positive().optional()`, described there as the row cap
+ * "lowered to the query's top-level `$top`"), and the element data source
+ * `limit` that a `dataSource` binding lowers into this SAME key is declared
+ * positive as well. So `0` is not a spelling whose meaning this renderer may
+ * choose; it is a value the contract refuses, and a renderer that forwards it
+ * to the wire is the only party not saying so.
+ */
+function isUsableRowLimit(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The ONE resolver for this board's row cap, for the reason objectui#9853 gave
+ * when it landed the same shape on `ObjectGrid` and objectui#9897 repeated on
+ * `ListView`: one resolver at every entry is what keeps the answer single.
+ *
+ * Before objectui#9925 this read was a bare `schema.limit ?? DEFAULT_KANBAN_LIMIT`,
+ * and `??` rejects only `null` and `undefined` — so an authored `limit: 0` was
+ * not nullish and survived as a real window. It reached the wire as `$top: 0`,
+ * the board asked the server for nothing, and the empty board named no cause.
+ * A negative goes out the same way. Both ENTRANCES converge on this key: a
+ * `dataSource` binding lowers a view's `pagination.pageSize` into `schema.limit`
+ * before this component sees it, and a board with no binding at all reads the
+ * authored `limit` from the same place — so resolving HERE covers both, which a
+ * repair at the lowering layer could not.
+ *
+ * ⚠️ The refusal is FAIL-SOFT on purpose. Throwing would take out the whole
+ * board over one declaration, which is a worse outcome than the defect. The
+ * value is dropped, this board's own default is used, and
+ * `describeRefusedRowLimit` states it once through the channel this component
+ * already uses for "you declared it, the renderer dropped it". ⛔ Not a silent
+ * clamp: without the loud half this is a substitution the author cannot see,
+ * and ⛔ not a clamp to 1 either — the author's number is not repaired, it is
+ * refused, and the board falls back to the window it documents.
+ */
+function resolveRowLimit(authored: unknown, fallback: number): number {
+  return isUsableRowLimit(authored) ? authored : fallback;
+}
+
+/**
+ * The diagnostic half. `null` means "nothing to say" — an absent `limit` is not
+ * a mistake, and a usable one is not either, so the message is CONDITIONAL and
+ * the silence controls in the pin are what keep it from being an always-on
+ * marker that states nothing.
+ *
+ * ⛔ NOT a second guard: the predicate lives once, in `isUsableRowLimit`, and
+ * this reads it. Two predicates would be free to drift, and the drift would be
+ * invisible — a value refused by one and admitted by the other.
+ */
+function describeRefusedRowLimit(authored: unknown, objectName: unknown): string | null {
+  if (authored === undefined || authored === null) return null;
+  if (isUsableRowLimit(authored)) return null;
+  const where =
+    typeof objectName === 'string' && objectName
+      ? `object-kanban on ${objectName}`
+      : 'object-kanban';
+  return (
+    `[ObjectUI] ObjectKanban row cap: ${where} declared limit: ${String(authored)}, `
+    + 'which is not a positive integer. A row cap must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and this '
+    + `board fell back to its default row cap (${DEFAULT_KANBAN_LIMIT}).`
+  );
+}
+
+/**
  * Safe wrapper for useObjectTranslation that falls back to the English defaults
  * above when no `I18nProvider` is mounted (standalone board, tests).
  * Delegates to `@object-ui/i18n`'s `createSafeTranslation`.
@@ -138,11 +207,17 @@ export function resolveKanbanCardFields(
 
 /**
  * The two spellings of the ONE card-title choice, as this board reads them off
- * a node. Structural on purpose: both declared arms of
- * {@link ObjectKanbanComponentProps.schema} satisfy it and neither declares
- * both keys — `KanbanSchema` declares `cardTitle` and tombstones `titleField`
- * (`titleField?: never`, objectui#7742), `ObjectKanbanSchema` declares
- * `titleField` and reaches `cardTitle` through `BaseSchema`'s index signature.
+ * a node. Structural on purpose: `resolveKanbanTitleField` below is exported
+ * and pure so it can be judged against a bare object, and these two keys are
+ * the whole of what it reads — it needs no node type to do that.
+ *
+ * ⛔ Do NOT restate here which published face declares which of the two keys.
+ * This docblock did (objectui#8308, 2026-09-10), naming TWO declared arms and
+ * an index-signature hop for `cardTitle`, and both halves were false inside
+ * eight days: objectui#8802 left ONE arm nine hours later, and objectui#9606
+ * declared `cardTitle` on that arm on 2026-09-17. The split is declared on
+ * `ObjectKanbanSchema` in `@object-ui/types` and `tsc` already reads it — ask
+ * the instrument, ⛔ never this comment (objectui#9726).
  */
 interface KanbanTitleFieldSource {
   /** Canonical spelling: the record field rendered as the card title. */
@@ -241,14 +316,24 @@ export interface ObjectKanbanComponentProps {
    *
    * ## What that costs, measured rather than waved past
    *
-   * `ObjectKanban` reads thirteen keys off `schema`. `ObjectKanbanSchema`
-   * declares `objectName`, `groupBy`, `limit`, `cardFields`, `titleField`; the
-   * retired arm was the only declaration of `columns`, `cardTitle`,
-   * `swimlaneField` and `grouping`. Those four now resolve through
-   * {@link BaseSchema}'s `[key: string]: any` — as `filter` always has, and as
-   * every one of them ALREADY did on an `object-kanban` document, which was
-   * never judged by the `kanban` arm. ⇒ No `object-kanban` node changes
-   * meaning; what changed is that `kanban` nodes no longer exist.
+   * Nothing, for an `object-kanban` document. Such a node was never judged by
+   * the `kanban` arm, so every key this component reads off `schema` that
+   * `ObjectKanbanSchema` does not declare reached the renderer through
+   * {@link BaseSchema}'s `[key: string]: any` BEFORE the retirement and still
+   * does. ⇒ No `object-kanban` node changes meaning; what changed is that
+   * `kanban` nodes no longer exist.
+   *
+   * ⛔ WHICH keys those are is deliberately not listed here, and neither is
+   * how many there are. This paragraph listed both (objectui#8802,
+   * 2026-09-10) and the list was stale in hours: `filter` had been a declared
+   * member for a day when the list put it on the index signature
+   * (objectui#8174), `columns` joined it six hours after the list was written
+   * (objectui#8913), and `cardTitle` a week after that (objectui#9606) —
+   * leaving `swimlaneField` and `grouping` as the only two it still fits. A
+   * source comment is the surface a changeset sentence gets copied FROM, so an
+   * inventory here is a factory for the same rot one step downstream. Read the
+   * split off `ObjectKanbanSchema`, which `tsc` already judges
+   * (objectui#9726).
    *
    * `__tests__/object-kanban-component-props-7322.test.ts` derives the
    * registered key set from `index.tsx` off disk and goes red if the prop and
@@ -459,6 +544,16 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     }
   }, [externalLoading, hasExternalData]);
 
+  // [objectui#9925] The loud half of the row-cap refusal, on the channel this
+  // component already uses for "you declared it, the renderer dropped it".
+  // Keyed on the DECLARATION, so it is one warning per declaration rather than
+  // one per render — and it fires from an effect, never from render, so a
+  // re-render with the same authored value says nothing a second time.
+  useEffect(() => {
+    const message = describeRefusedRowLimit(schema.limit, schema.objectName);
+    if (message) console.warn(message);
+  }, [schema.limit, schema.objectName]);
+
   useEffect(() => {
     // Skip internal fetch when data is managed by a parent component
     if (hasExternalData) return;
@@ -562,15 +657,23 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             // the saturation reading below (objectui#8307) compares the row
             // count against `query.$top` — the very number this request
             // carried. One spelling of the window, read back from the request
-            // itself: a second `schema.limit ?? DEFAULT_KANBAN_LIMIT` kept in a
+            // itself: a second `resolveRowLimit(schema.limit, …)` kept in a
             // local for the comparison could drift from the one on the wire,
             // and a marker computed against a window the server was never asked
-            // for is exactly the silent wrongness objectui#8307 is about.
-            // Keeping it inline here also keeps the spelling objectui#7322
-            // pins off disk (`object-kanban-group-by-limit-7322.test.ts`).
+            // for is exactly the silent wrongness objectui#8307 is about. That
+            // reasoning is why objectui#9925's refusal was put INSIDE this
+            // named object rather than beside it: the resolver runs once, and
+            // the saturation reading keeps reading the number that left.
+            // Keeping it inline here also keeps this read where objectui#7322
+            // pins it off disk (`object-kanban-group-by-limit-7322.test.ts`):
+            // that pin reads the `$top` expression out of THIS named object, so
+            // the refusal landing inside it moved the SPELLING and not the
+            // read. objectui#9925 re-pointed the pin's `READ_TEXT` entry to the
+            // expression below; the pinned fact — `schema.limit` lowered into
+            // the query's top-level `$top` — is the same one it always held.
             const query = {
                 $filter: schema.filter,
-                $top: schema.limit ?? DEFAULT_KANBAN_LIMIT,
+                $top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT),
                 ...(expand.length > 0 ? { $expand: expand } : {}),
             };
             const results = await dataSource.find(schema.objectName, query);
@@ -1094,9 +1197,14 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // precedent objectui#5903). That arm RETIRED with the bare `kanban` node key
   // (objectui#8802), and the surviving `ObjectKanbanSchema` face never declared
   // the key — so on an `object-kanban` document this read has ALWAYS ridden
-  // `BaseSchema`'s `[key: string]: any`, exactly as `filter` does. ⛔ Nothing
-  // about an `object-kanban` board changed here; what went is the only face
-  // that ever declared the key, and it only ever judged `kanban` documents.
+  // `BaseSchema`'s `[key: string]: any`. ⛔ This line used to name a companion
+  // key here — 「exactly as `filter` does」 — and that comparison was false
+  // when it was written: `filter` had been a declared member of
+  // `ObjectKanbanSchema` for 26 hours by then (objectui#8174). Ask
+  // `ObjectKanbanSchema` about any other key, ⛔ never a neighbouring comment
+  // (objectui#9726). ⛔ Nothing about an `object-kanban` board changed here;
+  // what went is the only face that ever declared the key, and it only ever
+  // judged `kanban` documents.
   // The designer face still declares it — `OBJECT_KANBAN_INPUTS` (`index.tsx`).
   // Reported on the retirement PR as a follow-up for the `object-kanban` face.
   const navConfig = schema.navigation ?? { mode: 'drawer' };

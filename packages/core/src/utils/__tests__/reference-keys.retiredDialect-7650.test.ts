@@ -40,6 +40,20 @@
  *     (it needs an eight-key maintainer ruling), and it too lands there by the
  *     rule rather than by an exclusion.
  *
+ * ## ⭐ THE THREE INVERTED PINS — objectui#8938
+ *
+ * Three assertions in this file used to read `expect(warn).not.toHaveBeenCalled()`,
+ * which pinned the ABSENCE of maintainer ruling item 3's diagnostic (objectui#7650,
+ * comment 5572018999: a loud diagnostic, not a silent drop, for a spelling the
+ * choke point cannot fold). Each is now inverted in place and tightened rather
+ * than removed — the negative behaviour each one guards (no fold, no typo
+ * correction, no overwrite) is asserted exactly as before, and the refusal is
+ * additionally required to be audible. The diagnostic's own surface — its three
+ * refusals, its two deliberate silences and its memo — is pinned in the sibling
+ * file named by the describe `the ruling’s diagnostic for a spelling the choke
+ * point CANNOT fold (objectui#8938)`, together with the width measurement that
+ * card asked for.
+ *
  * ## The contract-derivation pins
  *
  * `describe('derives the fold from the contract, not from a table')` asserts the
@@ -135,7 +149,15 @@ describe('the NEGATIVE pins the ruling required (objectui#7650)', () => {
     normalizeFieldReferenceKeys(f, 'owner', 'account');
     expect(f.idField).toBeUndefined();
     expect(f.id_field).toBe('code');
-    expect(warn).not.toHaveBeenCalled();
+    // objectui#8938: this asserted `warn` was NOT called, and that silence was
+    // the defect — maintainer ruling item 3 (objectui#7650, comment 5572018999)
+    // asked for a loud diagnostic on exactly the spelling the choke point
+    // cannot fold, and `id_field` is its type case. The pin is not dropped, it
+    // is INVERTED and tightened: the fold must still not happen (the two
+    // assertions above) and the refusal must now be audible.
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain('CANNOT');
+    expect(String(warn.mock.calls[0]?.[0])).toContain('id_field');
   });
 
   it('does NOT fold a TYPO — `sortible` never becomes `sortable`', () => {
@@ -143,7 +165,15 @@ describe('the NEGATIVE pins the ruling required (objectui#7650)', () => {
     normalizeFieldReferenceKeys(f, 'owner', 'account');
     expect(f.sortable).toBeUndefined();
     expect(f.sortible).toBe(true);
-    expect(warn).not.toHaveBeenCalled();
+    // objectui#8938: was `not.toHaveBeenCalled()`. A typo is a spelling the
+    // choke point cannot fold, so the ruling's diagnostic covers it too — and
+    // the assertion below is the load-bearing half of this test's own point:
+    // the message says it cannot fold `sortible` and ⛔ never names `sortable`,
+    // because a serve path that suggests a correction is one revision away from
+    // applying it.
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain('sortible');
+    expect(String(warn.mock.calls[0]?.[0])).not.toContain('sortable');
   });
 
   it('does NOT fold `title_format` — out of this card, and out of the rule', () => {
@@ -161,7 +191,14 @@ describe('the NEGATIVE pins the ruling required (objectui#7650)', () => {
     normalizeFieldReferenceKeys(f, 'owner', 'account');
     expect(f.displayField).toBe('canonical_name');
     expect(f.display_field).toBe('legacy_name');
-    expect(warn).not.toHaveBeenCalled();
+    // objectui#8938: was `not.toHaveBeenCalled()`. The producer's value still
+    // stands — that is what the two assertions above pin, and it is unchanged —
+    // but the retired spelling beside it reaches no consumer, and that was the
+    // third silent refusal. The diagnostic names the occupied canonical key;
+    // the behaviour here is untouched.
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain('CANNOT');
+    expect(String(warn.mock.calls[0]?.[0])).toContain('displayField');
   });
 
   it('is idempotent — a second pass changes nothing and does not warn twice', () => {
@@ -174,7 +211,10 @@ describe('the NEGATIVE pins the ruling required (objectui#7650)', () => {
     expect(warn.mock.calls.length).toBe(warnsAfterFirst);
   });
 
-  it('leaves a declared key alone even when a snake twin of it exists on the def', () => {
+  it('leaves a DECLARED key alone — it is never itself a fold source', () => {
+    // objectui#8938: the title used to say "even when a snake twin of it exists
+    // on the def", and no twin is on this def — the same declared-versus-measured
+    // drift the card is about, one file down. The fixture is what it always was.
     // `displayField` is declared, so it is never itself a fold SOURCE. Without
     // this the pass could re-enter on its own output.
     const f: Record<string, unknown> = plainField({ displayField: 'name' });

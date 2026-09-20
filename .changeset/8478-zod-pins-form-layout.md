@@ -20,5 +20,5 @@ marker site now `:52`) and `text.tsx:162,167` (actual `{schema.content}` sites n
 `:165`/`:170`). Filed back on objectstack-ai/objectui#8478 as further drift evidence for
 its own pre-committed p3-to-p2 re-grade trigger.
 
-The remaining 6 addresses (`zod/complex.zod.ts`) stay out of scope for this PR — held by
-in-flight PR objectstack-ai/objectui#8799 — and the card does not close here.
+The remaining 6 addresses (`zod/complex.zod.ts`) stayed out of scope for this PR and
+returned to the queue rather than riding this PR's scope — the card did not close here.

@@ -78,11 +78,22 @@ const SchemaRendererComponent: React.FC<any> = ImportedSchemaRenderer;
 
 /**
  * The `case 'map'` branch below builds an `object-map` schema by flattening
- * `viewOptions.map`'s CONTENTS to the top level. Whitelisted to these keys —
- * `ObjectMapConfigSchema`'s shape minus `style` — rather than the whole bag:
- * `style` is ALSO `BaseSchema.style` (inline CSS, legal on every node), and
- * spreading the raw `map` block collapsed the two namespaces onto one key
- * (objectui#5177).
+ * `viewOptions.map`'s CONTENTS to the top level — one entry per key
+ * `ObjectMapConfigSchema` declares, written under the name the FLAT form uses
+ * for that key. Whitelisted rather than a whole-bag spread: `style` is ALSO
+ * `BaseSchema.style` (inline CSS, legal on every node), and spreading the raw
+ * `map` block collapsed the two namespaces onto one key (objectui#5177). That
+ * reason is unchanged, and so is its consequence: a key the declaration does
+ * NOT carry never reaches the product.
+ *
+ * `style` IS delivered (objectui#9950) — under its flat spelling `mapStyle`,
+ * NOT by widening the whitelist to let `style` through unrenamed.
+ * `getMapConfig` in `ObjectMap.tsx` reads `schema.mapStyle || schema.map?.style`
+ * and deliberately does NOT read a top-level `style`, because that key is the
+ * base face's inline CSS (objectui#5017). `mapStyle` is itself a declared
+ * member of `ObjectMapSchema`, so the flat product stays inside the declaration
+ * at both ends. Before this, a view authoring `map: { style: '<url>' }` parsed
+ * green, was dropped here, and the map painted the PUBLIC DEMO TILES.
  *
  * HAND-LISTED, not derived at runtime — deliberately, and only here (`plugin-
  * map`'s own `FLAT_MAP_CONFIG_KEYS` in `ObjectMap.tsx` DOES derive from
@@ -99,28 +110,50 @@ const SchemaRendererComponent: React.FC<any> = ImportedSchemaRenderer;
  * gets away with the runtime import only because nothing in
  * console-starter's graph reaches `@object-ui/plugin-map` today.
  *
- * Anti-drift is a TEST, not this comment: `ObjectView.mapFlatten.test.tsx`
- * pins this exact list against `ObjectMapConfigSchema.shape` — imported only
- * from that TEST file, which the alias-closure walker explicitly excludes
- * from traversal — so a key added to or removed from the declaration still
- * fails here, loudly and by name, without reintroducing the runtime edge that
- * breaks the walker.
+ * Anti-drift is TWO mechanisms, neither of them this comment:
+ * - the type below is TOTAL — a `Record` over EVERY `keyof ObjectMapConfig`,
+ *   not a list of some of them — so a key added to the declaration fails
+ *   `tsc` here until it is given a flat spelling. A key can no longer be
+ *   left out by simply not being written down, which is how `style` was.
+ * - `ObjectView.mapFlatten.test.tsx` pins this object's key set against
+ *   `ObjectMapConfigSchema.shape` — imported only from that TEST file, which
+ *   the alias-closure walker explicitly excludes from traversal — and asserts
+ *   the RELATION (every declared key is delivered under its flat spelling).
+ *   The pre-#9950 pin could not see the omission because it compared the hand
+ *   list against `shape` MINUS `style`: the set it measured against was
+ *   narrowed by the same subtraction the defect was made of, so it stayed
+ *   green while an authored style was being discarded.
  */
-export const FLAT_MAP_CONFIG_KEYS = [
-  'latitudeField',
-  'longitudeField',
-  'locationField',
-  'titleField',
-  'descriptionField',
-  'zoom',
-  'center',
-] as const satisfies readonly (keyof Omit<ObjectMapConfig, 'style'>)[];
+export const FLAT_MAP_CONFIG_SPELLING = {
+  latitudeField: 'latitudeField',
+  longitudeField: 'longitudeField',
+  locationField: 'locationField',
+  titleField: 'titleField',
+  descriptionField: 'descriptionField',
+  zoom: 'zoom',
+  center: 'center',
+  // The one key whose flat spelling differs from its declared name — see the
+  // objectui#9950 paragraph above for why it is `mapStyle` and not `style`.
+  style: 'mapStyle',
+} as const satisfies Record<keyof ObjectMapConfig, string>;
 
-/** Pick only the declared flat map keys present on an authored `map` block. */
+/**
+ * Copy the declared map keys an author actually wrote onto the flat product,
+ * each under its flat spelling.
+ *
+ * Values travel AS WRITTEN: this is transport, not a second validation of the
+ * declared block — that reading belongs to `getMapConfig` in `ObjectMap.tsx`
+ * and stays there (objectui#5018). Discarding an ill-typed value here would
+ * reintroduce exactly the silent drop objectui#9950 closed.
+ */
 function pickFlatMapConfig(mapConfig: unknown): Record<string, unknown> {
   if (!mapConfig || typeof mapConfig !== 'object') return {};
   const source = mapConfig as Record<string, unknown>;
-  return Object.fromEntries(FLAT_MAP_CONFIG_KEYS.filter((key) => key in source).map((key) => [key, source[key]]));
+  return Object.fromEntries(
+    Object.entries(FLAT_MAP_CONFIG_SPELLING)
+      .filter(([declared]) => declared in source)
+      .map(([declared, flat]) => [flat, source[declared]]),
+  );
 }
 
 /**
@@ -128,9 +161,8 @@ function pickFlatMapConfig(mapConfig: unknown): Record<string, unknown> {
  * declares (objectui#5269).
  *
  * `ObjectGridSchema.columns` is `string[] | ListColumn[]`, but the slot the
- * non-grid branch forwards into is a names slot: both segments ahead of the
- * `table` one declare `string[]` (`NamedListView.columns`, the `views` prop),
- * and its consumers treat every entry as a field name — `ObjectKanban` indexes
+ * non-grid branch forwards into is a names slot, and its consumers treat every
+ * entry as a field name — `ObjectKanban` indexes
  * the record by it (`resolveKanbanCardFields` casts straight to `string[]`).
  * Handing a `ListColumn[]` down raw would therefore arrive as a non-empty card
  * field list naming nothing, which renders WORSE than the empty one this card
@@ -155,6 +187,44 @@ function tableColumnFieldNames(columns: unknown): string[] | undefined {
   if (!Array.isArray(columns) || columns.length === 0) return undefined;
   const names = columns.map(columnIdentity).filter((n): n is string => !!n);
   return names.length > 0 ? names : undefined;
+}
+
+/**
+ * A NAMED VIEW's `columns` as a field-name list — the same identity fold as
+ * {@link tableColumnFieldNames}, at the two name slots a named view reaches
+ * (objectui#8254).
+ *
+ * ⭐ WHY THIS EXISTS NOW, AND WHY IT IS NOT A TOLERANCE LAYER. The header above
+ * used to justify forwarding the two view segments RAW on the ground that they
+ * "declare `string[]`". That ground is what objectui#7928's option A removes:
+ * the protocol's value type for `listViews` (`ObjectListViewSchema`,
+ * `@objectstack/spec/ui`) declares `columns` as the SAME `string[] |
+ * ListColumn[]` union `table.columns` carries — measured on this branch by
+ * `__tests__/ObjectView.specShapedNamedView-8254.test.tsx`, which builds its
+ * fixture by PARSING it with that schema rather than by asserting it looks
+ * right. So a spec-shaped named view can hold the `ListColumn[]` half, and
+ * handing it down raw is verbatim the failure the header above describes: a
+ * non-empty card field list naming nothing. Narrowing a declared union to the
+ * branch a slot can hold is the boundary fix objectui#5269 already ruled for
+ * `table.columns`; it accepts no spelling `columnIdentity` did not already
+ * accept, and the union slots on the same branches (`gridSchema.columns`, the
+ * delegated `list-view` `columns`) keep taking the value raw because their
+ * declared shape holds it.
+ *
+ * ⚠️ PRESENCE-PRESERVING, and that is the ONE way it differs from
+ * {@link tableColumnFieldNames}: `[]` in, `[]` out. That sibling folds an empty
+ * list to `undefined` so its `||` chain falls through to the deprecated
+ * `table.fields` alias — a PRECEDENCE decision belonging to that chain. This
+ * fold changes SHAPE only: an authored empty `columns` (which
+ * `ObjectListViewSchema` accepts) still stops the `||` chain exactly where it
+ * stops today, so no view's source of columns moves. A list whose every entry
+ * resolves to no identity does collapse to `[]` — the improvement, not a
+ * precedence change: `ObjectKanban` then reaches its `highlightFields`
+ * fallback instead of rendering a non-empty list of nameless columns.
+ */
+function viewColumnFieldNames(columns: unknown): string[] | undefined {
+  if (!Array.isArray(columns)) return undefined;
+  return columns.map(columnIdentity).filter((n): n is string => !!n);
 }
 
 /**
@@ -357,8 +427,20 @@ export interface ObjectViewProps {
 
   /**
    * Callback when a row is clicked (for record detail navigation)
+   *
+   * TWO parameters since objectui#9462, and the second is not decoration. The
+   * view's own `handleRowClick` is what `ObjectGrid` hands to
+   * `useNavigationOverlay`, and that hook invokes it as
+   * `onRowClick(record, event)` — the modifier payload (`metaKey` / `ctrlKey` /
+   * `button`) a host needs to implement Cmd/Ctrl/middle-click for itself.
+   * `handleRowClick` used to forward one argument, so this prop delivered
+   * nothing on the second and a host's "open in a new tab" degraded to an
+   * ordinary navigation. Spelled `any` and not `HandleClickModifiers` for the
+   * reason objectui#9341 measured on `ObjectKanbanSchema.onCardClick`: a host
+   * that discovered the payload from the implementation annotated it
+   * `React.MouseEvent`, which a narrower declaration refuses contravariantly.
    */
-  onRowClick?: (record: Record<string, unknown>) => void;
+  onRowClick?: (record: Record<string, unknown>, event?: any) => void;
 
   /**
    * Callback when edit is triggered on a record
@@ -380,7 +462,13 @@ export interface ObjectViewProps {
     schema: any;
     dataSource: DataSource;
     onEdit?: (record: Record<string, unknown>) => void;
-    onRowClick?: (record: Record<string, unknown>) => void;
+    /**
+     * The view's own `handleRowClick`, verbatim — so TWO parameters since
+     * objectui#9462, for the same reason {@link ObjectViewProps.onRowClick}
+     * carries them: a custom list view that has a DOM click event in hand may
+     * pass it, and it reaches the host through the forward below.
+     */
+    onRowClick?: (record: Record<string, unknown>, event?: any) => void;
     className?: string;
     /** Current refresh counter — increment signals that a mutation occurred */
     refreshKey?: number;
@@ -1114,9 +1202,34 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   }, [layout, schema]);
 
   // Handle row click - respects NavigationConfig
-  const handleRowClick = useCallback((record: Record<string, unknown>) => {
+  //
+  // objectui#9462 — `event` is forwarded, not consumed. This callback is what
+  // `ObjectGrid` feeds to `useNavigationOverlay` (and what a host's
+  // `renderListView` receives verbatim), and `handleClick` invokes it with the
+  // modifier payload; truncating to `onRowClick(record)` here meant a host
+  // wired to this component's own prop never saw it.
+  //
+  // objectui#9806 — the branches below do NOT read it, and that is a GAP
+  // rather than a delegation. This paragraph used to close by saying what
+  // Cmd/Ctrl/middle-click does with no host handler "is the hook's own
+  // decision, taken before this callback runs". It is not, on this path:
+  // `handleClick` returns EARLY on the `onRowClick` it is handed, ahead of its
+  // own `event.metaKey` / `event.ctrlKey` / middle-button branch, and this
+  // component hands `handleRowClick` down UNCONDITIONALLY — so that branch is
+  // unreachable from here. ⇒ with no host `onRowClick`, a modifier click on an
+  // ObjectView row does exactly what a plain click does and opens no browser
+  // tab of its own. Whether it SHOULD is a behaviour change on a published
+  // component, owed its own card; objectui#9806 amended the sentence only.
+  //
+  // ⚠️ Nothing above is remembered — it is re-derived (AGENTS.md #9) by
+  // ObjectView.modifierClickInPlace-9806.test.tsx, which drives a plain click
+  // and a modifier click through the REAL hook, carries a control that reaches
+  // the hook's modifier branch, and pins this file's citation of it. Change
+  // what a modifier click does here and that pin reds together with this
+  // comment.
+  const handleRowClick = useCallback((record: Record<string, unknown>, event?: any) => {
     if (onRowClick) {
-      onRowClick(record);
+      onRowClick(record, event);
       return;
     }
 
@@ -1205,9 +1318,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `tree` view was labelled with the GRID icon. objectui#2916 fixed
         // exactly that for `chart` by adding one key, and nothing recorded
         // that the set has to be COMPLETE, so `tree` stayed missing. The
-        // annotation is the guard for the whole class: `ViewSwitcher`'s own
-        // `DEFAULT_VIEW_ICONS` — the consumer of these strings — is already
-        // `Record<ViewType, LucideIcon>`, and only this producer was partial.
+        // TOTALITY is the guard for the whole class: `ViewSwitcher`'s own
+        // `DEFAULT_VIEW_ICONS` — the consumer of these strings — is asserted
+        // total the same way, and only this producer was partial.
         //
         // The values are the spellings `ViewSwitcher.resolveIcon` PascalCases
         // back into lucide icons, so `tree: 'list-tree'` resolves to the same
@@ -1231,7 +1344,22 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `ViewSwitcher.DEFAULT_VIEW_ICONS` — draws for the same view type, and
         // `resolveIcon` looks these strings up in lucide's runtime `icons`
         // record, where a deprecated alias resolves to no icon at all.
-        const iconMap: Record<ViewType, string> = {
+        //
+        // objectui#9943 — the ANNOTATION is gone and the exhaustiveness is
+        // asserted instead. An annotated literal is exact in BOTH directions:
+        // it catches the added member (what #5321 wanted) and it also makes a
+        // RETIRED member an excess property (TS2353), whose only repair is
+        // deleting the row. objectstack#17063 retired the list-view kind
+        // `page`, so this table went red against a spec built from objectstack
+        // `main` while the `@objectstack/spec` this repository RESOLVES still
+        // publishes `page` and an author can still write one. `satisfies
+        // Record<string, string>` keeps the value constraint and drops the
+        // exactness; `_UncoveredHostViewIcon` below puts the added-member half
+        // back, so #5321's "no member can land without an icon" still holds.
+        // ⛔ Deleting that assert is the regression this shape exists to
+        // prevent — both directions are pinned in
+        // `__tests__/ViewSwitcher.viewTypeTotalsBothLegs-9943.test.ts`.
+        const iconMap = {
           kanban: 'kanban',
           calendar: 'calendar',
           map: 'map',
@@ -1244,7 +1372,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           chart: 'chart-column',
           tree: 'list-tree',
           page: 'layout-template',
-        };
+        } satisfies Record<string, string>;
+
+        /** `never` only while every {@link ViewType} has an icon name. */
+        type _AssertNever<T extends never> = T;
+        type _UncoveredHostViewIcon = _AssertNever<Exclude<ViewType, keyof typeof iconMap>>;
         return {
           type: v.type as ViewType,
           label: v.label,
@@ -1306,7 +1438,15 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // function for why raw forwarding would regress the `ListColumn[]` half.
       // The delegated `list-view` slot below declares the same union, so it
       // takes the value raw; each site gets the shape its slot declares.
-      fields: currentNamedViewConfig?.columns || activeView?.columns
+      //
+      // objectui#8254: the NAMED-VIEW segment now goes through the same fold
+      // (`viewColumnFieldNames`, presence-preserving — see its header). The
+      // protocol's value type for `listViews` declares that same union, so a
+      // spec-shaped named view reaches this names slot carrying the
+      // `ListColumn[]` half, and this is the last place that can narrow it.
+      // The `views`-prop segment beside it still declares `string[]` and is
+      // the objectui#5097 host-composition surface, so it is untouched here.
+      fields: viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns
         || tableColumnFieldNames(schema.table?.columns) || schema.table?.fields,
       className: 'h-full w-full',
       showSearch: activeView?.showSearch ?? schema.showSearch ?? false,
@@ -1317,7 +1457,51 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
     // Resolve type-specific options from current named view or active view
     // Per @objectstack/spec, type-specific config MUST be nested under the view type key
-    const viewOptions = currentNamedViewConfig?.options || activeView || {};
+    const legacyViewOptions: Record<string, any> = currentNamedViewConfig?.options || activeView || {};
+
+    // ⭐ objectui#8980 — THE CANONICAL, PROTOCOL-DECLARED PLACE FOR THE EIGHT
+    // VIEW-KIND BLOCKS, read here for the first time.
+    //
+    // The protocol carries `kanban` / `calendar` / `gallery` / `timeline` /
+    // `gantt` / `map` / `chart` / `tree` at the TOP LEVEL of a list view
+    // (`ObjectListViewSchema`, the declared value type of `ViewSchema.listViews`).
+    // objectui read them only out of the legacy untyped `options` bag above, so
+    // all eight were undeclared on `NamedListView` and an author writing the
+    // shape the protocol teaches got a view that rendered as if nothing had been
+    // configured. Director-seat ruling of 2026-09-13 on objectui#8980, item 2:
+    // each declared member gets a read point in the same delivery.
+    //
+    // MERGE, not replace, and per-KIND rather than wholesale: the legacy nesting
+    // stays working (stored views carry it, and it is where the legacy field
+    // aliases `groupField` / `imageField` / `dateField` live), while a canonical
+    // block wins key-by-key over the legacy one for the same kind. A partially
+    // declared canonical block therefore does not blank its legacy neighbour.
+    //
+    // ⚠️ IDENTITY IS PRESERVED WHEN NOTHING CANONICAL IS DECLARED — the `else`
+    // arm hands back the very object the line above produced. That is the whole
+    // population today (the keys could not be authored before this change), so
+    // this change is provably inert on every existing document.
+    const canonicalViewKindBlocks: Record<string, unknown> = {
+      kanban: currentNamedViewConfig?.kanban,
+      calendar: currentNamedViewConfig?.calendar,
+      gallery: currentNamedViewConfig?.gallery,
+      timeline: currentNamedViewConfig?.timeline,
+      gantt: currentNamedViewConfig?.gantt,
+      map: currentNamedViewConfig?.map,
+      chart: currentNamedViewConfig?.chart,
+      tree: currentNamedViewConfig?.tree,
+    };
+    const declaredKinds = Object.keys(canonicalViewKindBlocks)
+      .filter((kind) => canonicalViewKindBlocks[kind] != null);
+    const viewOptions: Record<string, any> = declaredKinds.length === 0
+      ? legacyViewOptions
+      : declaredKinds.reduce(
+          (acc, kind) => ({
+            ...acc,
+            [kind]: { ...(legacyViewOptions[kind] ?? {}), ...(canonicalViewKindBlocks[kind] as object) },
+          }),
+          { ...legacyViewOptions } as Record<string, any>,
+        );
 
     // Dev-mode warning for flat property access violations
     if (process.env.NODE_ENV === 'development') {
@@ -1455,7 +1639,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           ...(kanbanConditionalFormatting ? { conditionalFormatting: kanbanConditionalFormatting } : {}),
         };
       }
-      case 'calendar':
+      case 'calendar': {
         // objectui#7029: the SECOND route to `ObjectCalendar`. `generateViewSchema`
         // runs precisely when no host supplied `renderListView` — the authored
         // `object-view` element — so it never passes through `ListView`, and the
@@ -1465,6 +1649,28 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // screen unreachable (it decides by asking whether a start-date binding
         // is PRESENT). Ruled on objectstack#13748: ⛔ either way no invented field
         // names — so both routes forward only what the author declared.
+        //
+        // ⭐ objectui#8355 — AND IT FORWARDS THE CANONICAL KEYS ONLY. The trailing
+        // spread below used to carry the authored block RAW, so the retired
+        // `dateField` / `endField` spellings reached the generated node without
+        // this file ever naming them — the same blindness that let a text census
+        // of producers come back a confident zero on the first route
+        // (objectui#8651). `ListView`'s calendar branch strips them the same way.
+        //
+        // ⛔ STRIPPING IS ONLY THE QUIET HALF, and on its own it would make this
+        // route fail CONSISTENTLY and still mutely, which is the shape the
+        // ruling refuses. The loud half is the read door:
+        // `@object-ui/types`' `ObjectViewSchema` carries a `.check()` that
+        // refuses both spellings BY NAME under `listViews[*].calendar` and
+        // `listViews[*].options.calendar`, naming `startDateField` /
+        // `endDateField`. ⛔ Never land one half without the other.
+        //
+        // ⛔ Deliberately NOT folded onto the canonical keys: option A was put to
+        // the director seat and refused as the end state on the first route, and
+        // this route follows it rather than forking. The three reads above are
+        // already canonical-only.
+        const { dateField: _retiredDateField, endField: _retiredEndField, ...restCalendar } =
+          (viewOptions.calendar || {}) as Record<string, any>;
         return {
           type: 'object-calendar',
           ...baseProps,
@@ -1477,8 +1683,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           ...(viewOptions.calendar?.titleField
             ? { titleField: viewOptions.calendar.titleField }
             : {}),
-          ...(viewOptions.calendar || {}),
+          ...restCalendar,
         };
+      }
       case 'gallery':
         return {
           type: 'object-gallery',
@@ -1555,7 +1762,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           ...(viewOptions.gantt || {}),
         };
       case 'map':
-        // Whitelisted flatten (objectui#5177) — see `FLAT_MAP_CONFIG_KEYS`.
+        // Whitelisted flatten (objectui#5177) — see `FLAT_MAP_CONFIG_SPELLING`,
+        // which also carries `style` out as `mapStyle` (objectui#9950).
         // `viewOptions.map` is an untyped bag (`NamedListView.options`); a raw
         // spread here forwarded every key the author wrote, including `style`,
         // which `ObjectMap`'s `FlatMapConfigKeys` declares OUT of this flat form.
@@ -1716,7 +1924,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       objectName: schema.objectName,
       title: schema.table?.title,
       description: schema.table?.description,
-      fields: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.fields,
+      // objectui#8254 — the same names-slot/union-slot split the non-grid
+      // branch above makes, on the pair this memo emits together: `fields` is
+      // `ObjectGridSchema.fields` (`string[]`) so the named-view segment is
+      // folded to identities, and `columns` is `string[] | ListColumn[]` so it
+      // takes the authored value raw. One value, two slots, each given the
+      // shape it declares.
+      fields: viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns || schema.table?.fields,
       columns: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns,
       operations: {
         ...operations,
@@ -1742,6 +1956,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       sort: viewSort || schema.table?.sort,
       pagination: schema.table?.pagination,
       selection: schema.table?.selection,
+      // ⭐ objectui#8980 — the AUTHOR-REACHABLE read point for two of the
+      // seventeen. `ObjectGrid` already reads both (`schema.grouping` in its
+      // group-field memo and its reference collector, `useRowColor(schema.rowColor)`),
+      // and this default content renderer is where an authored `object-view`
+      // with a `type: 'grid'` named view actually lands — the `renderListView`
+      // delegation above runs only for a HOST (objectui#5097).
+      //
+      // NAMED-VIEW SOURCED ONLY. ⛔ No `activeView` rung: the host `views` path
+      // has never fed these two slots on this branch, and widening it here would
+      // be a behaviour change on a surface this card does not own. Undefined is
+      // what `ObjectGrid` reads today for both keys, so the value only ever
+      // changes for a document that authors the protocol key.
+      grouping: currentNamedViewConfig?.grouping,
+      rowColor: currentNamedViewConfig?.rowColor,
       pageSize: schema.table?.pageSize,
       selectable: schema.table?.selectable,
       className: schema.table?.className,
@@ -1943,7 +2171,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           viewType: currentViewType as any,
           // Active view's display label — ListView appends it to export
           // download filenames.
-          label: (currentNamedViewConfig as any)?.label ?? activeView?.label,
+          label: currentNamedViewConfig?.label ?? activeView?.label,
           // Spec-canonical key (#2890) — the view configs this reads from are
           // already `columns`-keyed, so emitting `fields` here was a pure
           // canonical→legacy downgrade.
@@ -1963,7 +2191,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           densityMode: activeView?.densityMode,
           groupBy: activeView?.groupBy,
           groupBy2: activeView?.groupBy2,
-          grouping: activeView?.grouping,
+          // objectui#8980 — the protocol declares `grouping` on a named list
+          // view and `ListView` reads it (`schema.grouping`); the named view had
+          // no rung here at all. Canonical source first, host `views` entry
+          // second — the precedence every other pair on this branch uses.
+          grouping: currentNamedViewConfig?.grouping ?? activeView?.grouping,
           options: currentNamedViewConfig?.options || activeView,
           // Toolbar policy — one vocabulary (#2890). The host node and the
           // active view may still carry the legacy bare `show*` flags, so both
@@ -1973,6 +2205,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           userActions: {
             ...(normalizeListViewSchema(schema ?? {}) as { userActions?: object }).userActions,
             ...(normalizeListViewSchema(activeView ?? {}) as { userActions?: object }).userActions,
+            // objectui#8980 — the named view is the most specific source, so it
+            // folds in LAST. Spread rather than `??` on purpose: this slot is a
+            // merge of toggle sets, not a winner-takes-all pick, and a named
+            // view that toggles one action must not blank the rest.
+            ...currentNamedViewConfig?.userActions,
           },
           compactToolbar: activeView?.compactToolbar ?? (schema as any).compactToolbar,
           allowExport: activeView?.allowExport ?? (schema as any).allowExport,
@@ -1991,7 +2228,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // the objectui#5097 HOST-COMPOSITION exemption the 2026-08-18
           // ruling fixed at 27, which is a ruling and not a refactor.
           // `grouping` above is the precedent for a view-only rung here.
-          rowColor: activeView?.rowColor,
+          // objectui#8980 adds the named-view rung ahead of it — still
+          // VIEW-SOURCED ONLY, still no `(schema as any)` fallback, so the
+          // objectui#5097 exemption stays fixed at 27 names.
+          rowColor: currentNamedViewConfig?.rowColor ?? activeView?.rowColor,
           // Propagate view-config properties (Bug 4 / items 14-22)
           inlineEdit: activeView?.inlineEdit ?? (schema as any).inlineEdit,
           wrapHeaders: activeView?.wrapHeaders ?? (schema as any).wrapHeaders,
@@ -2005,7 +2245,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // ViewData source override (spec `data` key) — e.g. gantt views fed
           // by a composite api endpoint; without this pick the api provider
           // never reaches the renderer.
-          data: (currentNamedViewConfig as any)?.data ?? (activeView as any)?.data ?? (schema as any).data,
+          // objectui#8980 / objectui#7928's open half: the cast on the
+          // named-view config is GONE — `data` is a declared `NamedListView`
+          // member now, so the read and the declaration are one fact. The
+          // `activeView` and node rungs keep their casts: the host `views` entry
+          // is an untyped host shape and `data` on the node is one of the 27
+          // objectui#5097 host-composition keys.
+          data: currentNamedViewConfig?.data ?? (activeView as any)?.data ?? (schema as any).data,
           // Propagate new spec properties (P0/P1/P2)
           navigation: activeView?.navigation ?? (schema as any).navigation,
           selection: activeView?.selection ?? (schema as any).selection,
@@ -2014,6 +2260,23 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           filterableFields: activeView?.filterableFields ?? (schema as any).filterableFields,
           resizable: activeView?.resizable ?? (schema as any).resizable,
           hiddenFields: activeView?.hiddenFields ?? (schema as any).hiddenFields,
+          // objectui#8980 — TWO SLOTS THAT HAD NO RUNG ON THIS BRANCH AT ALL.
+          //
+          // `fieldOrder` is the live third key of the protocol's
+          // `columns` x `hiddenFields` x `fieldOrder` composition — objectstack#15184
+          // ruling B (2026-09-11) KEPT it and ruled the composition into the
+          // contract: `columns` projects, `hiddenFields` (the line above)
+          // subtracts, `fieldOrder` orders what survives. `ListView` applies all
+          // three in one memo; only this relay never carried the third.
+          //
+          // `appearance` carries `showDescription` and the ADR-0047
+          // `allowedVisualizations` whitelist, both read by `ListView`.
+          //
+          // View-sourced only, like `grouping` / `rowColor` above: ⛔ no
+          // `(schema as any)` fallback, so the objectui#5097 exemption is
+          // untouched.
+          fieldOrder: currentNamedViewConfig?.fieldOrder,
+          appearance: currentNamedViewConfig?.appearance ?? activeView?.appearance,
           rowActions: activeView?.rowActions ?? (schema as any).rowActions,
           rowActionDefs: (activeView as any)?.rowActionDefs ?? (schema as any).rowActionDefs,
           bulkActions: activeView?.bulkActions ?? (schema as any).bulkActions,
@@ -2089,7 +2352,19 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         <TabsList className="w-auto">
           {entries.map(([key, view]) => (
             <TabsTrigger key={key} value={key} className="text-sm">
-              {view.label || key}
+              {/*
+                * objectui#8980 — `name` is the protocol's own identity for a
+                * view, distinct from the record KEY it is filed under. It slots
+                * between the two as the display fallback: a view that declares
+                * one shows it instead of a synthetic key.
+                *
+                * ⚠️ MEASURED INERT ON THE LIVE PRODUCER, deliberately:
+                * `@object-ui/app-shell`'s `applyViewItem` stamps `name: key` on
+                * every composed `listViews` entry, so `view.name || key` is the
+                * same string there and no existing tab label moves. It changes
+                * only for an authored view whose `name` differs from its key.
+                */}
+              {view.label || view.name || key}
             </TabsTrigger>
           ))}
         </TabsList>

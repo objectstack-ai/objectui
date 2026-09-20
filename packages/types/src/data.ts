@@ -347,6 +347,47 @@ export interface DeleteViewResult {
   published?: ViewHomeDeleteOutcome;
 }
 
+/**
+ * The backend-agnostic data contract every adapter implements.
+ *
+ * ## One rule for record ids: a record id is a `string`
+ *
+ * An id parameter on this interface is a `string`, never `string | number`,
+ * because `@objectstack/spec` declares every record door as `z.string()`. An
+ * adapter for a backend whose primary keys are numeric converts at its OWN
+ * boundary, in one typed place, rather than widening this contract for every
+ * caller. `update` narrowed at objectui#9333; `delete`, `bulkUpdate` and
+ * `bulkDelete` narrowed at objectui#9511 — none of the three had a single
+ * call site in this monorepo that had to change.
+ *
+ * ⚠️ ONE door is still wide, and it is wide for a reason that is written down
+ * rather than left to be rediscovered: `findOne`. Narrowing it is ruled
+ * (director batch #136 item 5, letter B) but not yet landed, because of what
+ * its remaining call sites turn out to read:
+ *
+ * - `ObjectForm` reads `ObjectFormSchema.recordId`, and `DetailView` reads
+ *   `DetailViewSchema.resourceId`. Both are AUTHORABLE metadata keys whose zod
+ *   mirrors accept a number today, so narrowing either one refuses author JSON
+ *   that validates now — an accept-set change this ruling does not name.
+ * - `DrawerForm`, `ModalForm`, `SplitForm`, `TabbedForm` and `WizardForm` each
+ *   read their OWN `recordId`, declared on their own exported schema face.
+ *   Those faces carry no zod mirror and no registered node type, so they are
+ *   TypeScript-only — the same class as `UseViewDataResult.fetchOne`, which
+ *   narrowed with this card. ⛔ They still cannot narrow ahead of the decision:
+ *   `ObjectForm` BUILDS all five of those schemas from its own (authorable)
+ *   `ObjectFormSchema`, so narrowing them alone only moves the same refusal
+ *   onto those hand-off sites.
+ *
+ * ⇒ closing this door means either narrowing an authoring face or converting
+ * at a reader, and the choice is carried to the decision inbox on
+ * objectui#9511 rather than picked here. ⛔ Do not narrow `findOne` without
+ * that decision.
+ *
+ * ⚠️ Narrowing a parameter here does NOT reach implementors — TypeScript
+ * compares method parameters bivariantly, so an adapter that still declares
+ * `string | number` continues to satisfy this interface. The rule binds
+ * CALLERS; adapters are asked to honour it, not forced to by the checker.
+ */
 export interface DataSource<T = any> {
   /**
    * Fetch multiple records.
@@ -383,9 +424,12 @@ export interface DataSource<T = any> {
 
   /**
    * Fetch a single record by ID.
-   * 
+   *
    * @param resource - Resource name
-   * @param id - Record identifier
+   * @param id - Record identifier. ⚠️ The one id parameter on this interface
+   *   still declared `string | number` — see the record-id rule on
+   *   {@link DataSource} for why this door is held open and what has to be
+   *   decided before it closes (objectui#9511).
    * @param params - Additional query parameters
    * @returns Promise resolving to the record or null
    */
@@ -404,7 +448,10 @@ export interface DataSource<T = any> {
    * Update an existing record.
    *
    * @param resource - Resource name
-   * @param id - Record identifier
+   * @param id - Record identifier. A `string`, as `@objectstack/spec` declares
+   *   every record door; an adapter for a backend whose primary keys are
+   *   numeric maps at its own boundary rather than widening this contract for
+   *   every caller (objectui#9333).
    * @param data - Updated data (partial)
    * @param opts - Optional write options. Pass `opts.ifMatch` to enable
    *   Optimistic Concurrency Control: the implementation forwards the
@@ -417,7 +464,7 @@ export interface DataSource<T = any> {
    */
   update(
     resource: string,
-    id: string | number,
+    id: string,
     data: Partial<T>,
     opts?: { ifMatch?: string },
   ): Promise<T>;
@@ -426,13 +473,14 @@ export interface DataSource<T = any> {
    * Delete a record.
    *
    * @param resource - Resource name
-   * @param id - Record identifier
+   * @param id - Record identifier. A `string` — see the record-id rule on
+   *   {@link DataSource} (objectui#9511).
    * @param opts - Optional write options — see {@link update} for `ifMatch`.
    * @returns Promise resolving to true if successful
    */
   delete(
     resource: string,
-    id: string | number,
+    id: string,
     opts?: { ifMatch?: string },
   ): Promise<boolean>;
 
@@ -460,13 +508,14 @@ export interface DataSource<T = any> {
    * adapter supports it; total errors throw.
    *
    * @param resource - Object/table name
-   * @param ids - Target record ids
+   * @param ids - Target record ids. Each a `string` — see the record-id rule
+   *   on {@link DataSource} (objectui#9511).
    * @param patch - Field updates applied uniformly to every id
    * @returns Number of rows reported as updated by the server
    */
   bulkUpdate?(
     resource: string,
-    ids: ReadonlyArray<string | number>,
+    ids: ReadonlyArray<string>,
     patch: Partial<T>,
   ): Promise<number>;
 
@@ -484,12 +533,13 @@ export interface DataSource<T = any> {
    * adapter supports it; total errors throw.
    *
    * @param resource - Object/table name
-   * @param ids - Target record ids
+   * @param ids - Target record ids. Each a `string` — see the record-id rule
+   *   on {@link DataSource} (objectui#9511).
    * @returns Number of rows reported as deleted by the server
    */
   bulkDelete?(
     resource: string,
-    ids: ReadonlyArray<string | number>,
+    ids: ReadonlyArray<string>,
   ): Promise<number>;
 
   /**

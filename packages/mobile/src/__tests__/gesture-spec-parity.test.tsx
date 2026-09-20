@@ -72,8 +72,12 @@ describe('the declared type drives recognition', () => {
     expect(recognizerFor({ type: 'rotate' })).toBe('rotate');
   });
 
-  it('swipe resolves per configured direction', () => {
-    expect(recognizerFor({ type: 'swipe', swipe: { direction: ['up'] } })).toBe('swipe-up');
+  it('swipe recognizes ANY direction — the declared set is filtered, not fused into the recognizer', () => {
+    // It used to fuse `direction[0]` into a direction-specific recognizer, which
+    // is how every element after the first was declared and never honoured
+    // (objectui#7974). Membership of the declared set is pinned behaviourally in
+    // `spec-gesture-direction-set.test.tsx`, against the real recognizer.
+    expect(recognizerFor({ type: 'swipe', swipe: { direction: ['up'] } })).toBe('pan');
   });
 
   it('legacy configs without a type still resolve from their sub-object', () => {

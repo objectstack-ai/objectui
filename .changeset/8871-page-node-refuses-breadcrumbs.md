@@ -8,8 +8,16 @@ Refuse `breadcrumbs` by name on the `page` node (objectui#8871, ADR-0049 enforce
 GREEN and render nothing. `PageNodeSchema` never declared the key and no renderer ever read
 it, so the array survived purely through `BaseSchema`'s `.passthrough()`. On the TypeScript
 face, `tsc` **previously accepted** it too, through `BaseSchema`'s own `[key: string]: any`
-index signature (`packages/types/src/base.ts:467`) — the same open door the zod mirror
-walked through at runtime. It now fails at parse with the remedy in the message, and the
+index signature (the `[key: string]: any` member of `BaseSchema` in
+`packages/types/src/base.ts`) — the same open door the zod mirror walked through at
+runtime.
+
+⚠️ That address was a line number (`:467`) until objectui#6771's diff pushed the member
+down the file. ⛔ It was not re-numbered: a coordinate that is true today is born false
+again on the next insertion above it, and nothing re-derives it — the objectui#9509
+reasoning, and AGENTS.md's rule that a cross-file citation names something that travels
+with the thing itself. The member is cited by its own text instead, which no edit
+elsewhere in the file can move. It now fails at parse with the remedy in the message, and the
 TypeScript twin is `breadcrumbs?: never`, so `tsc` refuses it at the authoring site before
 anything runs — both faces narrow together.
 
@@ -46,13 +54,15 @@ on a fragment inside a `json` fence the census does read, but that fragment neve
 template or customer document writes the key, so the refusal strands no authored document in
 this tree.
 
-**Migration** — the trail is a NODE, and it already ships:
+**Migration** — the trail is a NODE, and it already ships. ⚠️ The page's child list was
+spelled `body` when this change landed; objectui#6771 retired the spelling, so the
+recipe below uses `children` and parses as written:
 
 ```json
 {
   "type": "page",
   "title": "Acme Corporation",
-  "body": [
+  "children": [
     {
       "type": "breadcrumb",
       "items": [

@@ -24,15 +24,15 @@ const templates = {
   simple: {
     type: 'div',
     className: 'min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100',
-    body: {
+    children: {
       type: 'card',
       className: 'w-full max-w-md shadow-lg',
       title: 'Welcome to Object UI',
       description: 'Start building your application with JSON schemas',
-      body: {
+      children: {
         type: 'div',
         className: 'p-6 space-y-4',
-        body: [
+        children: [
           {
             type: 'text',
             content: 'This is a simple example. Edit app.json to customize your application.',
@@ -50,19 +50,19 @@ const templates = {
   form: {
     type: 'div',
     className: 'min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-100 p-4',
-    body: {
+    children: {
       type: 'card',
       className: 'w-full max-w-2xl shadow-xl',
       title: 'Contact Form',
       description: 'Fill out the form below to get in touch',
-      body: {
+      children: {
         type: 'div',
         className: 'p-6 space-y-6',
-        body: [
+        children: [
           {
             type: 'div',
             className: 'grid grid-cols-2 gap-4',
-            body: [
+            children: [
               {
                 type: 'input',
                 label: 'First Name',
@@ -99,7 +99,7 @@ const templates = {
           {
             type: 'div',
             className: 'flex gap-3',
-            body: [
+            children: [
               {
                 type: 'button',
                 label: 'Submit',
@@ -120,21 +120,21 @@ const templates = {
   dashboard: {
     type: 'div',
     className: 'min-h-screen bg-muted/10',
-    body: [
+    children: [
       {
         type: 'div',
         className: 'border-b bg-background',
-        body: {
+        children: {
           type: 'div',
           className: 'container mx-auto px-6 py-4',
-          body: {
+          children: {
             type: 'div',
             className: 'flex items-center justify-between',
-            body: [
+            children: [
               {
                 type: 'div',
                 className: 'text-2xl font-bold',
-                body: { type: 'text', content: 'Dashboard' },
+                children: { type: 'text', content: 'Dashboard' },
               },
               {
                 type: 'button',
@@ -148,37 +148,37 @@ const templates = {
       {
         type: 'div',
         className: 'container mx-auto p-6 space-y-6',
-        body: [
+        children: [
           {
             type: 'div',
             className: 'grid gap-4 md:grid-cols-2 lg:grid-cols-4',
-            body: [
+            children: [
               {
                 type: 'card',
                 className: 'shadow-sm',
-                body: [
+                children: [
                   {
                     type: 'div',
                     className: 'p-6 pb-2',
-                    body: {
+                    children: {
                       type: 'div',
                       className: 'text-sm font-medium text-muted-foreground',
-                      body: { type: 'text', content: 'Total Revenue' },
+                      children: { type: 'text', content: 'Total Revenue' },
                     },
                   },
                   {
                     type: 'div',
                     className: 'p-6 pt-0',
-                    body: [
+                    children: [
                       {
                         type: 'div',
                         className: 'text-2xl font-bold',
-                        body: { type: 'text', content: '$45,231.89' },
+                        children: { type: 'text', content: '$45,231.89' },
                       },
                       {
                         type: 'div',
                         className: 'text-xs text-muted-foreground mt-1',
-                        body: { type: 'text', content: '+20.1% from last month' },
+                        children: { type: 'text', content: '+20.1% from last month' },
                       },
                     ],
                   },
@@ -187,29 +187,29 @@ const templates = {
               {
                 type: 'card',
                 className: 'shadow-sm',
-                body: [
+                children: [
                   {
                     type: 'div',
                     className: 'p-6 pb-2',
-                    body: {
+                    children: {
                       type: 'div',
                       className: 'text-sm font-medium text-muted-foreground',
-                      body: { type: 'text', content: 'Active Users' },
+                      children: { type: 'text', content: 'Active Users' },
                     },
                   },
                   {
                     type: 'div',
                     className: 'p-6 pt-0',
-                    body: [
+                    children: [
                       {
                         type: 'div',
                         className: 'text-2xl font-bold',
-                        body: { type: 'text', content: '+2,350' },
+                        children: { type: 'text', content: '+2,350' },
                       },
                       {
                         type: 'div',
                         className: 'text-xs text-muted-foreground mt-1',
-                        body: { type: 'text', content: '+180.1% from last month' },
+                        children: { type: 'text', content: '+180.1% from last month' },
                       },
                     ],
                   },
@@ -218,29 +218,29 @@ const templates = {
               {
                 type: 'card',
                 className: 'shadow-sm',
-                body: [
+                children: [
                   {
                     type: 'div',
                     className: 'p-6 pb-2',
-                    body: {
+                    children: {
                       type: 'div',
                       className: 'text-sm font-medium text-muted-foreground',
-                      body: { type: 'text', content: 'Sales' },
+                      children: { type: 'text', content: 'Sales' },
                     },
                   },
                   {
                     type: 'div',
                     className: 'p-6 pt-0',
-                    body: [
+                    children: [
                       {
                         type: 'div',
                         className: 'text-2xl font-bold',
-                        body: { type: 'text', content: '+12,234' },
+                        children: { type: 'text', content: '+12,234' },
                       },
                       {
                         type: 'div',
                         className: 'text-xs text-muted-foreground mt-1',
-                        body: { type: 'text', content: '+19% from last month' },
+                        children: { type: 'text', content: '+19% from last month' },
                       },
                     ],
                   },
@@ -249,29 +249,29 @@ const templates = {
               {
                 type: 'card',
                 className: 'shadow-sm',
-                body: [
+                children: [
                   {
                     type: 'div',
                     className: 'p-6 pb-2',
-                    body: {
+                    children: {
                       type: 'div',
                       className: 'text-sm font-medium text-muted-foreground',
-                      body: { type: 'text', content: 'Active Now' },
+                      children: { type: 'text', content: 'Active Now' },
                     },
                   },
                   {
                     type: 'div',
                     className: 'p-6 pt-0',
-                    body: [
+                    children: [
                       {
                         type: 'div',
                         className: 'text-2xl font-bold',
-                        body: { type: 'text', content: '+573' },
+                        children: { type: 'text', content: '+573' },
                       },
                       {
                         type: 'div',
                         className: 'text-xs text-muted-foreground mt-1',
-                        body: { type: 'text', content: '+201 since last hour' },
+                        children: { type: 'text', content: '+201 since last hour' },
                       },
                     ],
                   },
@@ -284,27 +284,27 @@ const templates = {
             className: 'shadow-sm',
             title: 'Recent Activity',
             description: 'Your latest updates and notifications',
-            body: {
+            children: {
               type: 'div',
               className: 'p-6 pt-0 space-y-4',
-              body: [
+              children: [
                 {
                   type: 'div',
                   className: 'flex items-center gap-4 border-b pb-4',
-                  body: [
+                  children: [
                     {
                       type: 'div',
                       className: 'flex-1',
-                      body: [
+                      children: [
                         {
                           type: 'div',
                           className: 'font-medium',
-                          body: { type: 'text', content: 'New user registration' },
+                          children: { type: 'text', content: 'New user registration' },
                         },
                         {
                           type: 'div',
                           className: 'text-sm text-muted-foreground',
-                          body: { type: 'text', content: '2 minutes ago' },
+                          children: { type: 'text', content: '2 minutes ago' },
                         },
                       ],
                     },
@@ -313,20 +313,20 @@ const templates = {
                 {
                   type: 'div',
                   className: 'flex items-center gap-4 border-b pb-4',
-                  body: [
+                  children: [
                     {
                       type: 'div',
                       className: 'flex-1',
-                      body: [
+                      children: [
                         {
                           type: 'div',
                           className: 'font-medium',
-                          body: { type: 'text', content: 'Payment received' },
+                          children: { type: 'text', content: 'Payment received' },
                         },
                         {
                           type: 'div',
                           className: 'text-sm text-muted-foreground',
-                          body: { type: 'text', content: '15 minutes ago' },
+                          children: { type: 'text', content: '15 minutes ago' },
                         },
                       ],
                     },
@@ -335,20 +335,20 @@ const templates = {
                 {
                   type: 'div',
                   className: 'flex items-center gap-4',
-                  body: [
+                  children: [
                     {
                       type: 'div',
                       className: 'flex-1',
-                      body: [
+                      children: [
                         {
                           type: 'div',
                           className: 'font-medium',
-                          body: { type: 'text', content: 'New order placed' },
+                          children: { type: 'text', content: 'New order placed' },
                         },
                         {
                           type: 'div',
                           className: 'text-sm text-muted-foreground',
-                          body: { type: 'text', content: '1 hour ago' },
+                          children: { type: 'text', content: '1 hour ago' },
                         },
                       ],
                     },

@@ -248,7 +248,25 @@
  * `satisfies any` / angle-bracket assertion. `any` NESTED inside a larger type
  * (`Record<string, any>`, `any[]`, `Promise<any>`) is deliberately NOT flagged.
  * That boundary is the zero-false-positive line, and holding it is what keeps a
- * red meaning broken. Casts and locals are in scope and not for symmetry: a
+ * red meaning broken.
+ *
+ * ⭐ "NESTED" IS THE DIRECT PARENT AND NOTHING ELSE — read the predicate, never
+ * the ancestry (objectui#7653, ported from objectstack#14910). The operative
+ * test is `parent.type === node`: all three names above have it FALSE (the
+ * `any`'s parent is the TypeReference or ArrayType that contains it), while a
+ * function type's return `any` standing inside a type argument has it TRUE and
+ * IS a finding, labelled `return type` — in `Array<() => any>` the `any`'s
+ * parent is the FunctionTypeNode whose return slot it fills, not the
+ * TypeReference above it. So "nested" describes an `any` that is a COMPONENT of
+ * a composite type, never an `any` that merely has a type argument among its
+ * ancestors. Narrowing the function-like arm to an ancestry reading would hand
+ * an author going red the one-token evasion this rule already refuses for
+ * parameters: wrap the offending function type in a type argument and the gate
+ * goes green over an unchanged defect. The self-test's `red-positions` fixture
+ * and the suite's boundary pin both assert that LABEL, so the narrowing reds
+ * rather than passing quietly.
+ *
+ * Casts and locals are in scope and not for symmetry: a
  * parameter-only rule is defeated by exactly the edit an author reaches for
  * when it goes red — move the `any` one line down (`const c: any = ctx`) or
  * into the access (`(ctx as any).x`) — leaving the gate green over an unchanged
@@ -1020,6 +1038,19 @@ export function classifyShadowedTypes(hits, markedHits, declared = KNOWN_SHADOWE
  * finding. That boundary is this guard's zero-false-positive line; widening it
  * is a different question with a different, much larger baseline.
  *
+ * The boundary is the DIRECT parent and nothing else — see the SCOPE paragraph
+ * at the top of this file for why `Array<() => any>` IS a finding, labelled
+ * `return type`, and why reading "nested" as ancestry would open an evasion.
+ *
+ * ORDER MATTERS in one place. `ts.isFunctionLike` is true for every
+ * SignatureDeclaration kind, IndexSignatureDeclaration included, so a bare
+ * `[k: string]: any` would fall into the `return type` arm and be reported at a
+ * position it does not occupy (objectui#7653). Flagging it is right — an `any`
+ * index signature erases checking on every keyed access — so the fix is a
+ * label, not an exclusion, and the arm has to come BEFORE the function-like
+ * fallback. The label is half of a finding's row key, so a wrong one is a
+ * finding that cannot be declared or baselined the day such a site is marked.
+ *
  * Returns the human-readable position (which is also half the baseline key), or
  * `null` when this `any` is not in a checking-erasing position.
  */
@@ -1042,7 +1073,12 @@ export function describeAnyPosition(node) {
   // stays whole if that ever changes; see the header's divergence note.
   if (ts.isTypeAssertionExpression(parent) && parent.type === node)
     return 'angle-bracket `any` assertion';
-  // Return annotations: functions, methods, arrows, getters, signatures.
+  // BEFORE the function-like fallback: an IndexSignatureDeclaration IS a
+  // SignatureDeclaration, so `isFunctionLike` claims it and its `any` would be
+  // reported as a `return type` it does not have.
+  if (ts.isIndexSignatureDeclaration(parent) && parent.type === node) return 'index signature';
+  // Return annotations: functions, methods, arrows, getters, signatures —
+  // including a FunctionTypeNode standing inside a type argument.
   if (ts.isFunctionLike(parent) && parent.type === node) return 'return type';
   return null;
 }
@@ -2173,6 +2209,48 @@ export function selfTest() {
       `bare \`any\` in a ${label} position is FOUND`,
       hits.length === 1 && hits[0].where === want,
       `got ${JSON.stringify(hits.map((f) => f.where))}, want ["${want}"]`,
+    );
+  }
+
+  // ── POSITIONS (objectui#7653): the two shapes whose LABEL was the defect. ──
+  //    BOTH were already flagged before this fix, so a leg asserting only "it is
+  //    a finding" passes on the broken code and pins nothing. Each leg therefore
+  //    asserts the LABEL STRING, because the label is half a finding's row key.
+  //
+  //    1. An `any` index signature was reported as `return type`:
+  //       `ts.isFunctionLike` is true for every SignatureDeclaration kind, and an
+  //       IndexSignatureDeclaration is one. Flagging stays; the label is now
+  //       `index signature`.
+  //    2. A function type's return `any` standing inside a type argument is a
+  //       `return type` finding and STAYS one — the boundary is the DIRECT
+  //       parent, so `Array<() => any>` is the function type's return slot, not
+  //       a "nested" `any`. This leg is the header's rule made executable: the
+  //       day someone reads "nested `any` is deliberately not flagged" as
+  //       ancestry and narrows the arm, it goes red here rather than silently
+  //       handing authors a one-token evasion.
+  //
+  //    Driven as ONE snippet so the ORDER of the two arms is pinned too: the
+  //    index-signature arm must sit BEFORE the function-like fallback.
+  const positionsCode = [
+    'interface Bag {', // 1
+    '  [key: string]: any;', // 2  ← index signature, NOT a return type
+    '}', // 3
+    'const fns: Array<() => any> = [];', // 4  ← return type, inside a type argument
+    'void fns;', // 5
+    '',
+  ].join('\n');
+  {
+    const got = findBareAny(positionsCode)
+      .map((h) => `${h.line}:${h.where}`)
+      .sort();
+    const want = ['2:index signature', '4:return type'].sort();
+    t(
+      'an `any` index signature is labelled `index signature`, and a return `any` on a function type inside a type argument stays `return type`',
+      JSON.stringify(got) === JSON.stringify(want),
+      `got ${JSON.stringify(got)}, want ${JSON.stringify(want)} — an \`any\` index signature must be labelled ` +
+        `"index signature" (\`isFunctionLike\` matches an IndexSignatureDeclaration, so it used to read ` +
+        `"return type"), and a function type's return \`any\` inside a type argument must STAY a "return type" ` +
+        `finding (the boundary is the DIRECT parent, not ancestry)`,
     );
   }
 

@@ -10,6 +10,7 @@ import * as React from 'react';
 import { cn, Card, CardHeader, CardTitle, CardContent, DataEmptyState } from '@object-ui/components';
 import { Activity, Edit, PlusCircle, Trash2, MessageSquare, ArrowRightLeft } from 'lucide-react';
 import type { ActivityEntry } from '@object-ui/types';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useDetailTranslation } from './useDetailTranslation';
 
 export type ActivityFilterType = ActivityEntry['type'] | 'all';
@@ -48,7 +49,7 @@ const ACTIVITY_COLORS: Record<ActivityEntry['type'], string> = {
  */
 type ActivityTranslate = (key: string, options?: Record<string, unknown>) => string;
 
-function formatTimestamp(timestamp: string, t: ActivityTranslate): string {
+function formatTimestamp(timestamp: string, t: ActivityTranslate, locale: string): string {
   try {
     const date = new Date(timestamp);
     const now = new Date();
@@ -63,8 +64,10 @@ function formatTimestamp(timestamp: string, t: ActivityTranslate): string {
     if (diffDays < 7) return t('detail.daysAgo', { count: diffDays });
     // Past a week this is a DATE, not a relative phrase: `toLocaleDateString`
     // already localizes it, so there is no literal here to key. Byte-identical
-    // to the sibling's own tail for the same reason.
-    return date.toLocaleDateString();
+    // to the sibling's own tail for the same reason. The tag is DECLARED
+    // (objectui#9786): a bare call means the machine's locale, which is
+    // neither the tenant's nor the user's channel.
+    return date.toLocaleDateString(locale);
   } catch {
     return timestamp;
   }
@@ -145,6 +148,11 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
   className,
 }) => {
   const { t } = useDetailTranslation();
+  // The BCP-47 tag the absolute-date tail formats with. Read here because
+  // `formatTimestamp` is a plain function called from inside the `.map()`
+  // below and a hook cannot be called from there — the same shape and the same
+  // reason as `t` above (objectui#9786).
+  const displayLocale = useDisplayLocale();
   const [activeFilter, setActiveFilter] = React.useState<ActivityFilterType>(defaultFilter);
 
   const filteredActivities = React.useMemo(() => {
@@ -220,7 +228,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                         </span>
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {formatTimestamp(entry.timestamp, t)}
+                        {formatTimestamp(entry.timestamp, t, displayLocale)}
                       </p>
                     </div>
                   </div>

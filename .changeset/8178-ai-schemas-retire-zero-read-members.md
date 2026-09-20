@@ -58,7 +58,16 @@ would have been unsatisfiable. `packages/plugin-ai/README.md` taught all seven a
 working, which is prong 2 of the tombstone discriminator (objectui#5941, #7526,
 #7678) on its own.
 
-`AIInsightsSchema.objectName` is deliberately untouched: the ruling names three
-schemas, and that fourth one was neither screened nor decided. A pin holds it at
-`string | undefined` so a later sweep of "the AI `objectName`s" cannot take it
-quietly.
+`AIInsightsSchema.objectName` was deliberately left out of this retirement, and
+the reason for that exclusion has since been spent. The half that survives is the
+SCOPE: objectui#8178's ruling named three schemas, so this entry retires seven
+members on those three and touches no fourth. The half that does not survive is
+the reason — when this entry was written that fourth schema had been neither
+screened nor decided, so a pin held the member at `string | undefined` against a
+later sweep of "the AI `objectName`s". objectui#8800 has since screened it and
+the director seat decided it (decision batch #137 item 2, 2026-09-15, maintainer
+verbatim 「同意」, letter A), retiring `AIInsightsSchema` and the `ai-insights`
+node type WHOLE from the published type face: there is no member left to pin, and
+that ruling rewrote the exclusion pin — the only thing that was ever allowed to
+rewrite it. Its entry publishes in this same release, and the successor pin is
+`packages/types/src/__tests__/ai-insights-retired-8800.test.ts`.

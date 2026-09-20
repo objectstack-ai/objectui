@@ -90,7 +90,18 @@ type Case = {
    * and a case that sets a key no author may write fails at this line.
    */
   spec?: Partial<FormFieldSpec>;
-  ctx?: WidgetContext;
+  /**
+   * The CATALOGS this case's widget reads. `conditionScope` — required on
+   * `WidgetContext` since objectui#8167 — is not a catalog and is not a case's
+   * business here, so `renderCase` supplies `'flattened'`, the verdict every
+   * mount ran under before that member existed.
+   *
+   * ⚠️ Omitting `ctx` entirely still means NO `WidgetContext` reaches the form,
+   * which is a different thing and is load-bearing for the `condition` case: a
+   * widget that receives no context at all makes no scope claim, and that case
+   * pins the labelling of the builder it still renders.
+   */
+  ctx?: Omit<WidgetContext, 'conditionScope'>;
   value?: unknown;
   formData?: Record<string, unknown>;
 };
@@ -106,7 +117,7 @@ function renderCase(c: Case, readOnly: boolean) {
       value={{ [NAME]: c.value, ...(c.formData ?? {}) }}
       onChange={() => {}}
       readOnly={readOnly}
-      widgetContext={c.ctx}
+      widgetContext={c.ctx ? { conditionScope: 'flattened', ...c.ctx } : undefined}
     />,
   );
 }

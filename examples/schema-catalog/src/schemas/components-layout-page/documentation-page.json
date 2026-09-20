@@ -2,7 +2,7 @@
   "type": "page",
   "title": "Getting Started",
   "description": "Learn how to use the platform",
-  "body": [
+  "children": [
     {
       "type": "container",
       "maxWidth": false,

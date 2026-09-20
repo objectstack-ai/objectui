@@ -152,11 +152,19 @@ describe.each([
     // green before the tombstone and is green after it — the retirement changed
     // the TypeScript face only, and this pins that it changed no parse outcome.
     //
-    // ⚠️ TRIPWIRE: if objectui#6152 ever mints a `FloatingChatbotConfigSchema`,
-    // this goes RED. That is the intended signal, not a nuisance — whoever
-    // lands the mirror must add the `retirementTombstone()` half for
-    // `triggerIcon` at the same time, and flip this control rather than delete
-    // it into a vacuum.
+    // ⚠️ TRIPWIRE: if objectui#6152 ever mints a `FloatingChatbotConfigSchema`
+    // and wires it onto these twins as the `floatingConfig` arm, the assertion
+    // that fires is the SHAPE PIN at the foot of this block — the one reading
+    // `shape.floatingConfig` — and NOT this line. Measured on objectui#7678's
+    // base, arm injected on both twins and restored under a trap: a
+    // house-style non-strict `z.object` mirror reds the shape pin ONLY (2
+    // failures, one per twin) and leaves this parse-green line GREEN, because
+    // a non-strict object accepts `triggerIcon` and strips it, so `success`
+    // stays `true`; a `z.strictObject` mirror reds both (4 failures). Either
+    // shape trips the file — that is the intended signal, not a nuisance:
+    // whoever lands the mirror must add the `retirementTombstone()` half for
+    // `triggerIcon` at the same time, and flip these controls rather than
+    // delete them into a vacuum.
     const result = twin.safeParse({
       ...node,
       floatingConfig: { title: 'Chat', triggerIcon: 'Sparkles' },
@@ -175,6 +183,10 @@ describe.each([
   it('the mirror really has no `floatingConfig` key at all', () => {
     // The load-bearing fact behind everything above, asserted rather than
     // assumed: a key the mirror declares would appear in its shape.
+    //
+    // ⚠️ This is also the assertion the objectui#6152 TRIPWIRE fires through:
+    // under a house-style non-strict mirror it reds HERE and nowhere else in
+    // this file. The measurement is recorded at that comment, above.
     const shape = (twin as unknown as { shape: Record<string, unknown> }).shape;
     expect(shape.floatingConfig).toBeUndefined();
     // Lit control: a key the mirror DOES declare is present, so the reading

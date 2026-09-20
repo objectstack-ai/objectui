@@ -578,6 +578,39 @@ export interface AppMenuItem {
    * Visibility Condition
    */
   hidden?: boolean | string;
+
+  /**
+   * REFUSED (objectui#7719, director seat decision batch #70 of 2026-09-07,
+   * maintainer verbatim 「同意」, in the objectui#6124 / ADR-0049 shape).
+   *
+   * `shortcut` is not authorable on an app action ITEM. The ruling refused BOTH
+   * widening alternatives — growing this deprecated type a `shortcut` member
+   * (zero measured pull, and the type is being retired in favour of
+   * {@link NavigationItem}), and re-typing {@link AppAction.items} to the
+   * overlay `MenuItem`. What it changed is the DIAGNOSTIC: an authored value
+   * used to be stripped in silence by the zod mirror, and is now refused by
+   * name there, with this face's `never` refusing it at the authoring site
+   * before anything runs.
+   *
+   * ⚠️ NOT the same key as {@link AppAction.shortcut}, which is declared,
+   * authorable and deliberately untouched — that one is the header BUTTON's own
+   * shortcut, one level up from these items. This file declares `shortcut` TWICE,
+   * on two different interfaces, and reading one as the other is how the widening
+   * the ruling refused looks like work already done. ⛔ Resolve which declaration
+   * OWNS a hit before acting on it; a `grep` reports positions, and a position is
+   * not an owner. (⚠️ This paragraph deliberately states no ORDER between the two:
+   * an ordering claim is falsified by the next insertion into this file — including
+   * the one that introduced this very docblock, which reversed the order a previous
+   * draft of this sentence asserted.)
+   *
+   * ⛔ No read was re-added in the standalone runner's `LayoutRenderer`; the
+   * objectui#6854 pin stands. Both halves of this refusal are pinned in
+   * `__tests__/app-menu-item-shortcut-refusal-7719.test.ts`.
+   *
+   * @deprecated Not part of this contract — author the menu as a
+   * {@link NavigationItem} and put the shortcut capability there.
+   */
+  shortcut?: never;
 }
 
 // ============================================================================

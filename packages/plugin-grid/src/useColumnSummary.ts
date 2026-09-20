@@ -385,12 +385,20 @@ function formatSummaryLabel(
     // the LOCALE's rather than a literal. Taking only the first is precisely
     // the drift objectui#4576 already paid for once.
     //
-    // ⚠️ `decimals` still reads `precision`, NOT `scale`. Whether that is the
-    // right member here is a separate and deliberately unmeasured question —
-    // the currency arm above reads `scale` for the reason #2131 records — and
-    // this card's own table had precision agreeing on both sides (`12.3` reads
-    // `12%` either way), so it is left exactly where it was.
-    const decimals = column?.precision ?? 0;
+    // objectui#9295 — that unmeasured question is ANSWERED, and the answer is
+    // `scale`. `@objectstack/spec` declares the pair on the column face in its
+    // own words: `precision` is "Total digits (non-negative integer; for
+    // number/currency)" — percent is not even in that list — and `scale` is
+    // "Decimal places (non-negative integer)". Reading `precision` padded this
+    // footer out to the column's TOTAL width, so a decimal(10, 2) percent
+    // column summed to `Sum: 25.0000000000%` under a cell reading
+    // `25.0000000000%`: the identical defect #2131 removed from the currency
+    // arm above, one type over. Both percent surfaces move together, or this
+    // footer and the cell above it disagree.
+    //
+    // An ABSENT `scale` stays `0`, matching the currency arm's spelling
+    // directly above and the list cell's — the three agree by construction.
+    const decimals = column?.scale ?? 0;
     formatted = formatPercent(value, decimals, displayLocale);
   } else if (type === 'avg') {
     formatted = value.toLocaleString(displayLocale, { maximumFractionDigits: 2 });

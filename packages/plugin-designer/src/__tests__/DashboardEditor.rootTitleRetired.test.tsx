@@ -115,7 +115,11 @@ describe('DashboardEditor — the root `title` read arm is retired (objectui#750
 
     fireEvent.change(input, { target: { value: 'Net Revenue' } });
     expect(onChange).toHaveBeenCalled();
-    // Index arithmetic, not `.at(-1)`: this package's `lib` predates ES2022.
+    // Index arithmetic, not `.at(-1)`: whether `Array.prototype.at` (ES2022)
+    // type-checks here is decided by this package's `tsconfig.test.json` `lib`
+    // level, and that moves — read it off `pnpm census:tsconfig-test-parity`
+    // rather than restating it, which is how the sentence this replaces went
+    // false (objectui#9513).
     const calls = onChange.mock.calls;
     const next = calls[calls.length - 1][0] as DashboardComponentSchema;
     expect(next.widgets![0].title).toBe('Net Revenue');

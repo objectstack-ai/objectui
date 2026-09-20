@@ -10,6 +10,33 @@
  *       1 = at least one floor admits a spec that lacks one, OR the gate could
  *           not read an artifact, a published export surface, or a floor
  *
+ * ## What a GREEN run does NOT judge: key REFUSAL (objectui#9036)
+ *
+ * This gate judges SYMBOL PRESENCE, and only that. A floor that admits a spec
+ * which DECLARES the symbol but REFUSES the keys this repository's packages
+ * write into it is GREEN either way: nothing here ever parses a payload against
+ * the floor's own schema. So a green run of this gate is not evidence that the
+ * floors are behaviourally sound, and must not be read as such.
+ *
+ * That boundary is deliberate and measured, not an oversight. objectui#9036
+ * priced the behavioural leg end to end — the census of closed schemas, the
+ * false-positive rate of the cheap criterion, the fixture cost of the expensive
+ * one — and the measurement lives there. Per commandment #9 no figure from it is
+ * copied into this header: a restated number is unfalsifiable from where it sits
+ * and goes wrong the moment the tree moves, while a pointer stays true.
+ *
+ * The variance is live in this repository, not hypothetical: `GanttConfigSchema`
+ * is CLOSED (unknown keys rejected) at the floor `@object-ui/types` declares and
+ * OPEN at the floor `@object-ui/plugin-gantt` declares — one schema, two floors,
+ * opposite answers. That was true when this was written; what re-derives it is
+ * the two manifests' declared ranges read against the spec, never this sentence.
+ *
+ * One fact outlives that example, and anyone reading this section as a starting
+ * point needs it before anything else: a key ABSENT from a schema does NOT imply
+ * that the schema refuses it. Whether the schema is CLOSED decides that, and it
+ * varies per schema AND per version. Deriving refusal from a key list is the
+ * step that makes a naive version of this criterion confidently wrong.
+ *
  * ## The defect class (objectui#5793)
  *
  * `@objectstack/spec@17.1.0` added exports that 17.0.0 does not have.

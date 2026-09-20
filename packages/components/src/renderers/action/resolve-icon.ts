@@ -208,8 +208,18 @@ function lucideClassNames(recordKey: string, kebab: string, className?: string):
     .trim();
 }
 
-/** lucide's own path-data shape, taken from the component that consumes it. */
-type IconNode = React.ComponentProps<typeof Icon>['iconNode'];
+/**
+ * lucide's own path-data shape, taken from the component that consumes it.
+ *
+ * ⛔ `NonNullable` is load-bearing, not decoration. lucide 1.43.0 split `Icon`'s
+ * props into a UNION — one arm takes `iconNode` and forbids `icon`, the other
+ * takes `icon` and forbids `iconNode` — and indexing a union yields the union
+ * of the members, so this alias silently picked up the second arm's
+ * `iconNode?: undefined`. That widened {@link EMPTY_ICON_NODE} to include
+ * `undefined`, which is the one value NEITHER arm accepts, so the placeholder
+ * written to guarantee a box stopped type-checking as a box.
+ */
+type IconNode = NonNullable<React.ComponentProps<typeof Icon>['iconNode']>;
 
 /**
  * What the glyph holds before its module arrives: the same `<svg>` lucide

@@ -681,6 +681,14 @@ function MonthView({ date, events, locale = "default", onEventClick, onDateClick
           const dayEvents = eventsByDate.get(key) || []
           const isCurrentMonth = day.getMonth() === date.getMonth()
           const isToday = isSameDay(day, today)
+          // The gridcell's accessible name is the ONLY name a screen reader has
+          // for this day, so it is formatted with the SAME resolved locale the
+          // weekday column headers above already use — `locale`, which
+          // `CalendarView` fills from `effectiveLocale`. Handing `Intl` the
+          // literal `"default"` here meant the MACHINE's locale, so a `de-DE`
+          // session heard German column headers beside dates spoken in whatever
+          // the runtime happened to be set to (objectui#10144).
+          const dayLabel = day.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric", year: "numeric" })
 
           return (
             <div
@@ -688,11 +696,8 @@ function MonthView({ date, events, locale = "default", onEventClick, onDateClick
               role="gridcell"
               aria-label={
                 dayEvents.length > 0
-                  ? t('calendar.a11y.dayCell', {
-                      date: day.toLocaleDateString("default", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
-                      count: dayEvents.length,
-                    })
-                  : day.toLocaleDateString("default", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+                  ? t('calendar.a11y.dayCell', { date: dayLabel, count: dayEvents.length })
+                  : dayLabel
               }
               className={cn(
                 "border-b border-r last:border-r-0 p-2 min-h-[100px] cursor-pointer hover:bg-accent/50",

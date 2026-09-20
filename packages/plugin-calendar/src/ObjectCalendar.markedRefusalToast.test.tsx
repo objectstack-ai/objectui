@@ -49,7 +49,16 @@ const dayInThisMonth = (d: number) =>
 const SOURCE_DAY = dayInThisMonth(1);
 const TARGET_DAY = dayInThisMonth(8);
 
-/** The cell's own aria-label, built the way `MonthView` builds it. */
+/**
+ * The cell's own aria-label, as THIS render produces it.
+ *
+ * ⚠️ Not "the way `MonthView` builds it" any more: `MonthView` formats that name
+ * with its RESOLVED locale (objectui#10144), which this rebuild does not have in
+ * hand. The two agree here only for as long as this provider-less render's
+ * resolved locale and the runtime default render a date identically — mount a
+ * non-`en` `I18nProvider` in this file and this helper has to be re-derived
+ * rather than trusted.
+ */
 const cellLabel = (d: Date) =>
   d.toLocaleDateString('default', {
     weekday: 'long',

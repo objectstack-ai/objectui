@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
@@ -272,6 +274,28 @@ describe('check-upstream-port-parity is wired, not merely present', () => {
       'nothing here ends in a newline, so this test cannot tell a line from a terminator',
     ).toBeGreaterThan(0);
 
+    // objectui#10006 — reconcile the CAPTURE against the count the gate itself
+    // announces, before reading any single divergence out of it. A capture that
+    // lost its tail used to fail in the loop below as `no listing line for ID
+    // under FILE`: a specific, confident and FALSE claim about one divergence,
+    // when what had actually happened is that this process received less than
+    // the gate sent. Four unrelated pull requests were read that way. The
+    // producer no longer truncates (`--list reaches its caller whole through a
+    // pipe` pins that); this keeps the FAILURE honest if anything ever does
+    // again, and it is three-way — the pin, the gate's own announcement, and
+    // the lines that arrived must all agree.
+    for (const f of pin.files) {
+      const section = sections.get(f.ported);
+      expect(section, `no listing section for ${f.ported}`).toBeTruthy();
+      const announced = /declared divergences\s*:\s*(\d+)/.exec(section!.join('\n'))?.[1];
+      const received = section!.filter((l) => /^\s*- \S+ \(\d+ line\(s\)/.test(l)).length;
+      expect({ ported: f.ported, announced, received }).toEqual({
+        ported: f.ported,
+        announced: String((f.divergences ?? []).length),
+        received: (f.divergences ?? []).length,
+      });
+    }
+
     for (const f of pin.files) {
       const section = sections.get(f.ported);
       expect(section, `no listing section for ${f.ported}`).toBeTruthy();
@@ -284,6 +308,140 @@ describe('check-upstream-port-parity is wired, not merely present', () => {
           printed: String(wcL(d.ported)),
         });
       }
+    }
+  });
+
+  it('the gate never calls process.exit — the construct is gone, not merely unused (objectui#10006)', () => {
+    // The repair order this repo states, at its first step: remove the
+    // construct that PERMITS the error rather than add a check that detects it.
+    // `process.exit(code)` ends the process while queued stdout is still
+    // queued; `process.exitCode = code` lets the same code out through a normal
+    // exit, after the streams drain. Nothing in this gate is asynchronous and
+    // this is its last statement, so the two are equivalent in verdict and
+    // differ only in what survives — proven path by path in the pull request
+    // that landed this (clean / drift / unusable pin / uncaught throw / all
+    // four `--resync` refusals: same code, same bytes).
+    //
+    // Pinned on the SOURCE, not on a behaviour, because a reintroduction is
+    // silent: it only shows up as somebody else's pull request going red weeks
+    // later. Comment lines are dropped first, so the block above the entrypoint
+    // can name the construct it forbids.
+    const src = fs.readFileSync(path.join(ROOT, GATE), 'utf8');
+    const code = src.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l));
+    // The control leg, and it is what makes the emptiness below mean something:
+    // a filter that had eaten the entrypoint would report "no process.exit"
+    // about a file it can no longer see.
+    expect(code.join('\n'), 'the comment filter dropped the entrypoint itself').toContain(
+      'process.exitCode =',
+    );
+    expect(code.filter((l) => /process\.exit\s*\(/.test(l))).toEqual([]);
+  });
+
+  it('`--list` reaches its caller whole through a pipe, at any length (objectui#10006)', () => {
+    // The producer half of this file's own flake, and the reason four unrelated
+    // pull requests went red on a claim about `.claude/hooks/**` — including
+    // one whose entire diff was comments, and one ejected from the merge queue.
+    // Every assertion in this file reads the gate out of an `execFileSync`
+    // capture, i.e. a PIPE, and a pipe is the one stdout Node writes
+    // ASYNCHRONOUSLY on POSIX (files and TTYs are synchronous — which is why
+    // this never reproduced by hand). The gate ended on `process.exit(...)`,
+    // which discards what is still queued, so the listing arrived cut at a
+    // point set by how fast the runner drained the pipe. Same commit
+    // `0a4bf6deb`, no new commits, no rebase: red, then green.
+    //
+    // ⛔ This deliberately does NOT drive the shipped pin. That listing is
+    // ~28 KB, it fits inside the 64 KiB a pipe holds, and a producer that never
+    // flushes delivers it intact — so asserting on it cannot tell a fixed gate
+    // from a lucky one. A SYNTHETIC pin makes the writer queue.
+    //
+    // The control is the same gate writing to a regular FILE: that channel is
+    // synchronous on POSIX, so its capture is whole by construction, and the
+    // pipe is measured against it rather than against a number written down
+    // here. Measured on the unfixed gate over this shape: 96 KB / 175 KB /
+    // 162 KB of the same 957 KB listing on three consecutive runs, exit 0 each
+    // time.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'upstream-port-parity-pipe-'));
+    try {
+      // The module closure is DERIVED, never listed: a hand-kept list goes
+      // stale the day the gate grows an import, and the spawn below would then
+      // fail as a module-resolution error — a red that says nothing about
+      // truncation.
+      const copied = new Set<string>();
+      const copy = (rel: string) => {
+        if (copied.has(rel)) return;
+        copied.add(rel);
+        const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+        fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true });
+        fs.writeFileSync(path.join(dir, rel), text);
+        for (const m of text.matchAll(/(?:from|import)\s*\(?\s*'(\.[^']+)'/g)) {
+          copy(path.join(path.dirname(rel), m[1]));
+        }
+      };
+      copy(GATE);
+      expect(
+        copied.size,
+        'a closure of one means the import scan stopped recognising the gate\'s own imports',
+      ).toBeGreaterThan(1);
+
+      const count = 2500;
+      const ids = Array.from({ length: count }, (_, i) => `synthetic-${String(i).padStart(5, '0')}`);
+      fs.writeFileSync(path.join(dir, 'ported.txt'), 'the ported body\n');
+      fs.writeFileSync(
+        path.join(dir, PIN),
+        JSON.stringify({
+          upstream: { repo: 'objectstack-ai/objectstack' },
+          files: [
+            {
+              ported: 'ported.txt',
+              upstreamPath: 'upstream.txt',
+              ref: 'a'.repeat(40),
+              upstreamSha256: 'b'.repeat(64),
+              divergences: ids.map((id, i) => ({
+                id,
+                upstream: `up-${i}`,
+                ported: `po-${i}`,
+                why: `${'w'.repeat(400)} #${i}`,
+              })),
+            },
+          ],
+        }),
+      );
+
+      const gate = path.join(dir, GATE);
+      const onDisk = path.join(dir, 'listing.txt');
+      const fd = fs.openSync(onDisk, 'w');
+      let viaFile;
+      try {
+        viaFile = spawnSync('node', [gate, '--list'], { cwd: dir, stdio: ['ignore', fd, 'pipe'], encoding: 'utf8' });
+      } finally {
+        fs.closeSync(fd);
+      }
+      expect({ status: viaFile.status, stderr: viaFile.stderr }).toEqual({ status: 0, stderr: '' });
+      const whole = fs.readFileSync(onDisk, 'utf8');
+      // Non-vacuity: under the 64 KiB a pipe holds, the comparison below is
+      // satisfied by the very defect it exists to refuse.
+      expect(whole.length, 'the synthetic listing no longer exceeds what a pipe holds').toBeGreaterThan(
+        1_000_000,
+      );
+
+      const piped = execFileSync('node', [gate, '--list'], {
+        cwd: dir,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+      });
+      // Digested rather than compared whole: a megabyte-wide diff in the
+      // failure output helps nobody, and the byte count beside it says which
+      // direction it went.
+      const sha = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16);
+      expect({ chars: piped.length, sha: sha(piped) }).toEqual({ chars: whole.length, sha: sha(whole) });
+      // Named explicitly because the tail is what a truncating writer loses:
+      // the LAST divergence is the one that goes missing first.
+      expect(
+        piped.split('\n').some((l) => l.trimStart().startsWith(`- ${ids[count - 1]} (`)),
+        'the last divergence in the listing did not survive the pipe',
+      ).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 

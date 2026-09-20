@@ -337,20 +337,53 @@ action renderer forwards.
 
 ## Performance Optimization
 
-### Lazy Loading
+### Lazy loading: there is no such knob
 
-Large schemas are automatically optimized:
+There is no authorable lazy-loading key — not on `tabs`, not on any other node.
+This section used to show a `tabs` node carrying `"lazyLoad": true` beneath the
+sentence "Large schemas are automatically optimized". Nothing in this repository
+performs that optimization and nothing reads that key, so the promise is removed
+here rather than respelled.
+
+Two things mislead, so both are worth naming:
+
+- **`lazyLoad` is a real name in this repository — on a different surface.** It is
+  a member of `PerformanceConfig`, the argument type of the `usePerformance`
+  hook: a configuration object you pass in TypeScript, never a key you author on
+  a node. Finding it in a search does not make it authorable. It gates nothing
+  even there — `usePerformance` resolves it into the config it hands back and
+  never branches on it, unlike its sibling `debounceMs`, which the hook lifts
+  into a local and passes to `setTimeout`.
+- **The `tabs` renderer builds every panel on the same render pass.** It maps
+  `items` twice, unconditionally — once for the triggers and once for the
+  panels — so no tab's `content` waits for a click. It uses neither `lazy` nor
+  `Suspense`, and it never calls `usePerformance`.
+
+To defer real work behind a tab, defer the *component* rather than the node: see
+[Code Splitting](#code-splitting) below.
+
+For reference, a `tabs` node written with the keys `TabsSchema` actually declares:
 
 ```json
 {
   "type": "tabs",
-  "lazyLoad": true,
-  "tabs": [
-    { "title": "Tab 1", "body": { /* Loaded when tab is clicked */ } },
-    { "title": "Tab 2", "body": { /* Loaded when tab is clicked */ } }
+  "defaultValue": "tab1",
+  "items": [
+    { "value": "tab1", "label": "Tab 1", "content": { "type": "text", "content": "First panel" } },
+    { "value": "tab2", "label": "Tab 2", "content": { "type": "text", "content": "Second panel" } }
   ]
 }
 ```
+
+`items` is the node's tab list — there is no `tabs` key — and every item takes
+`value`, `label` and `content`: the identifier, the visible title, and the panel.
+All three are required, and the two ways of getting an item wrong fail
+differently. An item missing one of them is **refused**. An item that also
+carries the older `title` / `body` spelling is **accepted with those two keys
+dropped**, so the tab renders an empty panel with nothing naming the cause. On
+the node itself, `body` and `children` are refused by name: `tabs` reads neither
+content channel. The four keys it does render are `defaultValue`, `items`,
+`orientation` and `value`.
 
 ### Memoization
 

@@ -1482,6 +1482,9 @@ const de = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Zurück zur Startseite",
+    },
     saveAdvisoryTitle: "Gespeichert — die Autorenprüfung ergab {{count}} Hinweis(e)",
     publishAdvisoryTitle: "Veröffentlicht — die Autorenprüfung ergab {{count}} Hinweis(e)",
     importMappingsUnavailable: "Gespeicherte Importzuordnungen für {{object}} konnten nicht geladen werden",

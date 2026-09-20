@@ -1492,6 +1492,9 @@ const ru = {
     },
   },
   console: {
+    studio: {
+      backToHome: "На главную",
+    },
     saveAdvisoryTitle: "Сохранено — проверка авторинга выдала рекомендаций: {{count}}",
     publishAdvisoryTitle: "Опубликовано — проверка авторинга выдала рекомендаций: {{count}}",
     importMappingsUnavailable: "Не удалось загрузить сохранённые сопоставления импорта для {{object}}",

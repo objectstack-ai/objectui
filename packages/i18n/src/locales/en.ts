@@ -1728,6 +1728,12 @@ const en = {
     },
   },
   console: {
+    // The Studio front door's wordmark (objectui#10043). Its sibling one
+    // route away -- `StudioDesignSurface`'s header Home button -- walks back
+    // to the same place, so both read as the same affordance.
+    studio: {
+      backToHome: 'Back to home',
+    },
     saveAdvisoryTitle: 'Saved — the authoring check raised {{count}} advisory finding(s)',
     publishAdvisoryTitle: 'Published — the authoring check raised {{count}} advisory finding(s)',
     importMappingsUnavailable: 'Saved import mappings for {{object}} could not be loaded',

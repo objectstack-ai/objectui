@@ -1484,6 +1484,9 @@ const fr = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Retour à l'accueil",
+    },
     saveAdvisoryTitle: "Enregistré — le contrôle de création a signalé {{count}} recommandation(s)",
     publishAdvisoryTitle: "Publié — le contrôle de création a signalé {{count}} recommandation(s)",
     importMappingsUnavailable: "Impossible de charger les mappages d’import enregistrés pour {{object}}",

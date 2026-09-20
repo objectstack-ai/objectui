@@ -1486,6 +1486,9 @@ const es = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Volver al inicio",
+    },
     saveAdvisoryTitle: "Guardado: la comprobación de creación generó {{count}} recomendación(es)",
     publishAdvisoryTitle: "Publicado: la comprobación de creación generó {{count}} recomendación(es)",
     importMappingsUnavailable: "No se pudieron cargar las asignaciones de importación guardadas de {{object}}",

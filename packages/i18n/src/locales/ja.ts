@@ -1482,6 +1482,9 @@ const ja = {
     },
   },
   console: {
+    studio: {
+      backToHome: "ホームに戻る",
+    },
     saveAdvisoryTitle: "保存しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",
     publishAdvisoryTitle: "公開しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",
     importMappingsUnavailable: "{{object}} の保存済みインポートマッピングを読み込めませんでした",

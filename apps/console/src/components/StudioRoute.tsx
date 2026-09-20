@@ -44,6 +44,7 @@ import {
   getProductName,
   useHomePath,
 } from '@object-ui/app-shell';
+import { useObjectTranslation } from '@object-ui/i18n';
 
 import { ProtectedRoute } from './ProtectedRoute';
 import { holdsStudioAccess, useStudioEntry } from './studioEntry';
@@ -110,15 +111,23 @@ export function StudioRoute() {
  * Home button — follows the declared landing since objectui#7373, and two
  * affordances one route apart must not name two different homes (the very
  * defect objectui#7256 measured), so this one reads the same hook.
+ *
+ * The wordmark's tooltip resolves through `useObjectTranslation` and the
+ * `console.*` bundle, which is how every other user-visible string in this
+ * app is written (objectui#10043; objectui#4024 ruled the same way for the
+ * settings screen, whose chrome was hardcoded beside a keyed sibling). It
+ * shipped as a raw literal in one language before that — a title attribute
+ * is user-visible text, which AGENTS.md commandment #-1 names by category.
  */
 function StudioLanding() {
   const homePath = useHomePath();
+  const { t } = useObjectTranslation();
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="flex shrink-0 items-center border-b px-3 py-2">
         <Link
           to={homePath}
-          title="返回主页"
+          title={t('console.studio.backToHome')}
           className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] font-semibold hover:bg-muted"
         >
           {getProductName()}

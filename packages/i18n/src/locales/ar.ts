@@ -1489,6 +1489,9 @@ const ar = {
     },
   },
   console: {
+    studio: {
+      backToHome: "العودة إلى الرئيسية",
+    },
     saveAdvisoryTitle: "تم الحفظ — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
     publishAdvisoryTitle: "تم النشر — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
     importMappingsUnavailable: "تعذّر تحميل تعيينات الاستيراد المحفوظة لـ {{object}}",

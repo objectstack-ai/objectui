@@ -12,9 +12,10 @@
  * with extra `<Route>` children.
  */
 
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@object-ui/auth';
+import { AuthProvider, useAuth, createAuthenticatedFetch } from '@object-ui/auth';
+import { UploadProvider, createObjectStackUploadAdapter } from '@object-ui/providers';
 import { DevMasterDetail } from './dev/DevMasterDetail';
 import { DevLists } from './dev/DevLists';
 import { DevModal } from './dev/DevModal';
@@ -85,7 +86,8 @@ const DocsIndex = lazy(() => import('./pages/DocsIndex'));
 const DocsSlug = lazy(() => import('./pages/DocsSlug'));
 const DocPage = lazy(() => import('./pages/DocPage'));
 
-const AUTH_URL = `${import.meta.env.VITE_SERVER_URL || ''}/api/v1/auth`;
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || '';
+const AUTH_URL = `${SERVER_URL}/api/v1/auth`;
 
 /**
  * Resolve the React Router basename from an explicit `<base href>` tag.
@@ -128,6 +130,48 @@ function HomeRoute() {
 }
 
 export function App() {
+  /**
+   * The console's ONE upload destination, mounted above `ConsoleShell` so it
+   * reaches every file/image control in the console — including the ones that
+   * do NOT render inside the route tree (objectui#10131).
+   *
+   * Why the altitude is the whole fix. `ConnectedShell`'s
+   * `GlobalActionRuntimeProvider` renders `{children}` and then
+   * `{runtime.dialogs}` + `{modalElement}` as its SIBLINGS: the action-param
+   * dialog and the `ModalForm` a modal action opens (a lookup's inline
+   * "create the referenced record", a related list's New) are mounted beside
+   * the route element, not under it. This provider used to live in
+   * `AppContent`, which is the element of exactly one route — `/apps/:appName/*`
+   * — so every one of those dialogs rendered OUTSIDE it.
+   *
+   * And `useUpload()` fails OPEN: with no provider above it, it silently hands
+   * back `createObjectUrlAdapter()`, which mints a `blob:` URL from thin air
+   * and reports success. So a file picked in one of those dialogs produced
+   * ZERO requests on the wire, `fileValueForSubmit` stored the legacy inline
+   * blob instead of the `sys_file` id, and the engine answered
+   * `400 ... expected string, received object` — a payload-shaped error whose
+   * cause was a missing upload. Both halves are this one mount point.
+   *
+   * Contrast the control that already worked in those same dialogs: a lookup
+   * round-trips its opaque server-minted id because the `dataSource` it needs
+   * (`SchemaRendererProvider`) was deliberately hoisted to the level whose own
+   * docstring says it sits there "so it reaches EVERY field widget, including
+   * a relation field inside a create/edit form that renders in a Radix Dialog
+   * portal". Uploads now sit at that same altitude.
+   *
+   * `fetchImpl` is not optional here: the storage routes authenticate the
+   * caller, and `RecordAttachmentsPanel` — the one console surface that was
+   * already uploading correctly — states why the adapter's default bare
+   * `fetch` is not enough, that "the storage routes require a session and
+   * there is no cookie for `credentials: 'include'` to carry". The same
+   * wrapper also carries `X-Tenant-ID`, so an upload lands in the tenant the
+   * rest of the session is reading.
+   */
+  const uploadFetch = useMemo(() => createAuthenticatedFetch(), []);
+  const uploadAdapter = useMemo(
+    () => createObjectStackUploadAdapter({ baseUrl: SERVER_URL, fetchImpl: uploadFetch }),
+    [uploadFetch],
+  );
   return (
     <AuthProvider authUrl={AUTH_URL}>
       {/* objectui#7482 — no `position` override: the console takes
@@ -146,6 +190,7 @@ export function App() {
       <MetadataHmrReloader />
       <BrowserRouter basename={BASENAME}>
         <FaviconSync />
+        <UploadProvider adapter={uploadAdapter}>
         <ConsoleShell>
           <Routes>
             {/*
@@ -374,6 +419,7 @@ export function App() {
             <Route path="*" element={<RedirectWithSplash to="/" replace />} />
           </Routes>
         </ConsoleShell>
+        </UploadProvider>
       </BrowserRouter>
     </AuthProvider>
   );

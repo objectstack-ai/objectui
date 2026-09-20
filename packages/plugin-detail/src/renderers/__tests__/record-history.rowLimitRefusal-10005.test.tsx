@@ -139,6 +139,34 @@ describe('record:history — the refusal is SILENT, matching its sibling (object
   });
 
   /**
+   * Calls on a developer channel that are ABOUT this renderer's row cap.
+   *
+   * ⚠️ Deliberately a FILTER rather than a blanket `not.toHaveBeenCalled()`.
+   * MEASURED on this harness: rendering the timeline emits an unrelated
+   * `react-i18next` `NO_I18NEXT_INSTANCE` warning, and whether it lands inside
+   * this spy's window depends on which OTHER tests in the file ran first — so a
+   * blanket assertion pins test ORDER, not this renderer's silence, and goes red
+   * for anyone who runs this one test alone. The filter is kept wide enough that
+   * a real diagnostic cannot slip through it: any message naming the authored
+   * value, `limit`, a row cap, or this renderer counts.
+   */
+  function rowCapDiagnostics(spy: ReturnType<typeof vi.spyOn>): unknown[][] {
+    return (spy.mock.calls as unknown[][]).filter((args) => {
+      const text = args
+        .map((a) => {
+          if (typeof a === 'string') return a;
+          try {
+            return JSON.stringify(a);
+          } catch {
+            return String(a);
+          }
+        })
+        .join(' ');
+      return /limit|row cap|record:history|RecordHistory|-5/i.test(text);
+    });
+  }
+
+  /**
    * ⭐ This is a DECISION recorded as a pin, not an inevitability. The sibling
    * this card was told to match — `normalizeLimit` in `recordActivityFeed` —
    * refuses in silence, so this renderer does too. The three read points
@@ -149,7 +177,7 @@ describe('record:history — the refusal is SILENT, matching its sibling (object
    */
   it('names nothing on the developer channel when it refuses', async () => {
     expect(await topFor({ limit: -5 })).toBe(RENDERER_DEFAULT);
-    expect(warn).not.toHaveBeenCalled();
-    expect(error).not.toHaveBeenCalled();
+    expect(rowCapDiagnostics(warn)).toEqual([]);
+    expect(rowCapDiagnostics(error)).toEqual([]);
   });
 });

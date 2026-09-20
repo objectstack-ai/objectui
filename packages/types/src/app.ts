@@ -44,6 +44,7 @@
 // `spec-derived-unions.test.ts` pins the three blockers above, each written so
 // it fails the day the spec closes it.
 import type {
+  I18nLabel,
   NavigationArea as SpecNavigationArea,
   NavigationItem as SpecNavigationItem,
   ObjectNavItem as SpecObjectNavItem,
@@ -380,9 +381,39 @@ export interface AppComponentSchema extends BaseSchema {
   title?: string;
 
   /**
-   * Display Label (used in navigation and app switcher)
+   * Display Label (used in navigation and app switcher).
+   *
+   * `string | I18nLabel` — the spec's INLINE locale map (`string |
+   * Record<string, string>`), resolved against a BCP-47 display locale by the
+   * spec's own `resolveI18nLabel(label, locale)`.
+   *
+   * This restated the key as a plain `string` until objectui#9092. That was
+   * narrower than BOTH faces it sits between: `BaseSchema.label` (which
+   * objectui#4580's revised Q1 ruling, option A, widened to
+   * `string | I18nLabel`) and this pair's own mirror — `zod/app.zod.ts`'s
+   * `AppComponentSchema` never restates `label`, so it inherits the zod
+   * `BaseSchema`'s `I18nLabelSchema`. A restatement is a NARROWING override,
+   * so the mirror accepted an authored locale map and `tsc` refused it, with
+   * the narrowing on the DECLARED side where a forward mirror-vs-declaration
+   * comparison reads it as clean.
+   *
+   * ⚠️ NOT the KEYED vocabulary. {@link BaseSchema.ariaLabel} declares
+   * `string | KeyedI18nLabel` (`{ key, defaultValue?, params? }`, resolved by
+   * `resolveKeyedI18nLabel`) — objectui#4580 Q2-B withdrew the `I18nLabel`
+   * spelling there as measured-wrong. The two object shapes are structurally
+   * confusable to a READER, but neither vocabulary admits the other:
+   * `InlineLocaleMapSchema` types its map with `key?: never; defaultValue?:
+   * never`, and its `INLINE_LOCALE_KEY` pattern excludes both names, so writing
+   * one into the other's slot is refused at `tsc` AND at parse. Asserted both
+   * ways in `__tests__/inline-locale-declared-face-9092.test.ts`; an earlier
+   * draft of this docblock said the two shapes "each accept the other
+   * vacuously", which was true when objectui#4580 Q2-B wrote it and is false
+   * against the installed pin. What a wrong slot costs is a wrong ANSWER rather
+   * than a silent acceptance — `resolveI18nLabel` hands a keyed reference back
+   * as its own `key` string — so still check which resolver owns a slot before
+   * writing an object into it.
    */
-  label?: string;
+  label?: string | I18nLabel;
 
   /**
    * Application Description
@@ -547,6 +578,39 @@ export interface AppMenuItem {
    * Visibility Condition
    */
   hidden?: boolean | string;
+
+  /**
+   * REFUSED (objectui#7719, director seat decision batch #70 of 2026-09-07,
+   * maintainer verbatim 「同意」, in the objectui#6124 / ADR-0049 shape).
+   *
+   * `shortcut` is not authorable on an app action ITEM. The ruling refused BOTH
+   * widening alternatives — growing this deprecated type a `shortcut` member
+   * (zero measured pull, and the type is being retired in favour of
+   * {@link NavigationItem}), and re-typing {@link AppAction.items} to the
+   * overlay `MenuItem`. What it changed is the DIAGNOSTIC: an authored value
+   * used to be stripped in silence by the zod mirror, and is now refused by
+   * name there, with this face's `never` refusing it at the authoring site
+   * before anything runs.
+   *
+   * ⚠️ NOT the same key as {@link AppAction.shortcut}, which is declared,
+   * authorable and deliberately untouched — that one is the header BUTTON's own
+   * shortcut, one level up from these items. This file declares `shortcut` TWICE,
+   * on two different interfaces, and reading one as the other is how the widening
+   * the ruling refused looks like work already done. ⛔ Resolve which declaration
+   * OWNS a hit before acting on it; a `grep` reports positions, and a position is
+   * not an owner. (⚠️ This paragraph deliberately states no ORDER between the two:
+   * an ordering claim is falsified by the next insertion into this file — including
+   * the one that introduced this very docblock, which reversed the order a previous
+   * draft of this sentence asserted.)
+   *
+   * ⛔ No read was re-added in the standalone runner's `LayoutRenderer`; the
+   * objectui#6854 pin stands. Both halves of this refusal are pinned in
+   * `__tests__/app-menu-item-shortcut-refusal-7719.test.ts`.
+   *
+   * @deprecated Not part of this contract — author the menu as a
+   * {@link NavigationItem} and put the shortcut capability there.
+   */
+  shortcut?: never;
 }
 
 // ============================================================================

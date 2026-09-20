@@ -50,6 +50,43 @@ const COMPARE_OPS: Array<{ value: Op; label: string }> = [
  * The context subjects a record-scoped mount site binds. This is the DEFAULT
  * vocabulary — a caller that binds something else declares it via
  * {@link ConditionSubjectVocabulary.context}.
+ *
+ * ## `org.id` is gone — the objectui#8155 case, one control over (objectui#9855)
+ *
+ * It was the exact mirror of `app` in `ROW_PREDICATE_ROOTS`
+ * (`ConditionalFormattingEditor`): a root this editor ADVERTISED and its own
+ * linter REFUSES. `@objectstack/formula`'s `SCOPE_ROOTS` carries no `org`, so
+ * at `scope: 'record'` the validator reads `org.id` as a bare field and errors
+ * with the nonsense remedy `record.org` — and no host binds one either:
+ * `buildExpressionScope` (`ExpressionProvider`) publishes the identity roots
+ * and no `org`. Offering it cost the author the write, which is worse than the
+ * autocomplete half objectui#9645 closed: that one at least linted clean.
+ * `ConditionBuilder.contextSubjects.test.tsx` re-derives the verdict from the
+ * engine instead of restating it, so an engine that starts accepting `org`
+ * reddens there rather than leaving this paragraph to rot.
+ *
+ * ⚠️ This does NOT touch {@link REFERENCE_ROOTS}, which still carries `org` —
+ * see the note there. Withdrawing an OFFER is not the same act as re-reading
+ * an author's own bytes.
+ *
+ * ## `user.*` STAYS, and that is a measurement rather than an omission
+ *
+ * The card proposed removing both. `user` is the `os` case of that same
+ * objectui#8155 ruling, not the `app` case: the engine ACCEPTS it, and
+ * `buildExpressionScope` really does bind it for every predicate evaluated in
+ * the browser — so at a client-evaluated mount it is a subject an author can
+ * legitimately pick and a row that really matches. Where it is genuinely
+ * unbound is the SERVER-evaluated `condition`, and {@link
+ * RECORD_CONDITION_ROOTS} states in its own words why this component cannot
+ * tell those two apart from anything a mount passes. ⛔ So it is not narrowed
+ * by a default here; such a mount declares its own list through {@link
+ * ConditionSubjectVocabulary.context}, the way the flow trigger already does.
+ *
+ * ⚠️ The asymmetry that licensed objectui#9645's narrowing does NOT transfer
+ * to this list, which is why the two doors are not one edit. `roots` feeds the
+ * raw editor's SUGGESTIONS, so a mount that loses one loses an offer and keeps
+ * the spelling; this list is the row builder's ONLY subject control, so
+ * dropping an entry drops the author's ability to build that row at all.
  */
 const CONTEXT_SUBJECTS = [
   { value: 'record.id', label: 'record.id' },
@@ -57,7 +94,6 @@ const CONTEXT_SUBJECTS = [
   { value: 'user.email', label: 'user.email' },
   { value: 'user.role', label: 'user.role' },
   { value: 'user.isAdmin', label: 'user.isAdmin' },
-  { value: 'org.id', label: 'org.id' },
 ];
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -67,7 +103,9 @@ const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
  *
  * The builder used to hardcode one: `record.` + field name, plus `record.id` /
  * `user.*` / `org.*`. That is right for every RECORD-scoped site — which is
- * all five that mount it today — and wrong for a FLATTENED-scoped one such as
+ * most of the sites that mount it; grep the JSX tag to enumerate them, rather
+ * than trusting a figure here, which the census this paragraph used to give
+ * had already outlived (AGENTS.md #9) — and wrong for a FLATTENED-scoped one such as
  * the flow designer's entry condition, where the trigger record's fields ARE
  * the top-level evaluation context (bare `status`) and the prior values arrive
  * as `previous.FIELD`. See `flow-scope.ts`, which already computes exactly
@@ -107,10 +145,19 @@ export interface ConditionSubjectVocabulary {
  * Deliberately the roots this builder's own vocabulary already commits to —
  * not every root the CEL engine advertises:
  *
- *  - `record` / `user` / `org` — this component's own subject vocabulary
+ *  - `record` / `user` — this component's own subject vocabulary
  *    (`record.<field>` from the field catalog, plus {@link CONTEXT_SUBJECTS}).
  *    A value under one of these is the same identifier the subject dropdown
  *    emits one control to its left.
+ *  - `org` — no longer that case, and kept deliberately (objectui#9855).
+ *    {@link CONTEXT_SUBJECTS} no longer offers `org.id`, so the dropdown does
+ *    not emit it any more; this list stays wider because it answers a
+ *    different question. An author who types `org.id` into the VALUE box means
+ *    a reference, and quoting it would rebuild exactly the silently-false
+ *    predicate objectui#6293 fixed — a loud unknown-variable fault is the
+ *    better failure, and the only one a checker can see. That the two
+ *    populations must not be merged is already pinned by
+ *    `ConditionBuilder.mountRoots.test.tsx`.
  *  - `previous` — the prior persisted record, bound by `evalFieldPredicate`
  *    (`@object-ui/core`) and by the server-side hook / validation evaluators.
  *    This is the change-detection idiom the defect was measured on.
@@ -131,7 +178,7 @@ export interface ConditionSubjectVocabulary {
  * a mounting surface actually binds is caller-supplied vocabulary
  * (objectui#6296) and is that card's to declare, not this one's to guess.
  */
-const REFERENCE_ROOTS = ['record', 'previous', 'parent', 'user', 'current_user', 'org'] as const;
+export const REFERENCE_ROOTS = ['record', 'previous', 'parent', 'user', 'current_user', 'org'] as const;
 
 /**
  * A dotted path under a declared root — i.e. plainly a reference.
@@ -143,6 +190,244 @@ const REFERENCE_ROOTS = ['record', 'previous', 'parent', 'user', 'current_user',
 const REFERENCE_RE = new RegExp(
   `^(?:${REFERENCE_ROOTS.join('|')})(?:\\.[A-Za-z_][A-Za-z0-9_]*)+$`,
 );
+
+/**
+ * Scope roots the RAW CEL editor ADVERTISES at a mount that declares
+ * `scope="record"` (objectui#9645).
+ *
+ * ## Not the same population as {@link REFERENCE_ROOTS}, and not mergeable
+ *
+ * `REFERENCE_ROOTS` answers a question about the VALUE BOX — is the text an
+ * author typed to the right of an operator a reference or literal text — and
+ * is deliberately wider than any one mount's binding: it carries `org` and
+ * `parent`, which the engine's record scope does not advertise at all. This
+ * list answers what the AUTOCOMPLETE offers. A root belongs here only if the
+ * host that evaluates the authored predicate binds it. The two lists overlap
+ * without coinciding in either direction, so folding them into one would
+ * either advertise roots no host binds or stop quoting values the builder
+ * already treats as references.
+ *
+ * ## Why the engine's own advertisement is the wrong answer here
+ *
+ * `introspectScope` offers every root ANY predicate site may see, so a mount
+ * that forwards no override inherits all of them. That is how a hook
+ * `condition` came to suggest `os.user.id`: the suggestion linted CLEAN — the
+ * accept set is the engine's `SCOPE_ROOTS`, which carries `os` / `current_user`
+ * / `vars` — and objectstack's hook wrapper then evaluated the stored
+ * condition against `{ record: record ?? {}, previous }` and threw
+ * `HookConditionError`, deliberately fail-LOUD. The editor proposed the root,
+ * the linter endorsed it, and the author's write paid for it. The sibling
+ * treatment is `ROW_PREDICATE_ROOTS` in `ConditionalFormattingEditor` and
+ * `FIELD_RULE_ROOTS` / `FORMULA_ROOTS` in `ObjectFieldInspector`; this is the
+ * same treatment at this component's own forwarding site.
+ *
+ * ## Why one declared list, rather than one derived per mount
+ *
+ * This component cannot derive it. Nothing a mount passes distinguishes a
+ * SERVER-evaluated `condition` from a CLIENT-evaluated `visible`, and their
+ * hosts bind different sets: app-shell's `buildExpressionScope` publishes
+ * `current_user` / `user` / `ctx` / `os` / `features` to the client evaluator,
+ * while the hook wrapper quoted above binds `record` and `previous`. So the
+ * default is the set EVERY host of a record-scoped condition binds, and a
+ * mount that binds more declares it through the `roots` prop.
+ *
+ * Narrowing is the safe direction, and the asymmetry is the whole argument:
+ * `roots` feeds autocomplete only — the accept set is untouched — so a client
+ * mount that wants `os` offered again loses a suggestion until it declares
+ * one, never a spelling, while an over-advertised root on a server-evaluated
+ * mount costs the author the write. The numbers behind this paragraph are
+ * re-derived from the engine by `ConditionBuilder.mountRoots.test.tsx`, which
+ * reads `introspectScope` rather than restating its answer.
+ */
+export const RECORD_CONDITION_ROOTS = ['record', 'previous'];
+
+/**
+ * Scope roots a mount ADVERTISES when its predicate is evaluated in the
+ * BROWSER — the client half of the ruling {@link RECORD_CONDITION_ROOTS}
+ * states for the server (objectui#9856).
+ *
+ * ## Why the record-scoped default is wrong at these mounts, and only these
+ *
+ * {@link RECORD_CONDITION_ROOTS} is the set EVERY host of a record-scoped
+ * condition binds, which is the only safe answer for a mount whose host this
+ * component cannot see. It is not the RIGHT answer for a mount whose host is
+ * KNOWN to bind more. An action's `visible` / `disabled` is evaluated in the
+ * browser: `buildExpressionScope` (`ExpressionProvider`) publishes the identity
+ * roots and the deployment feature flags, and the row arrives separately
+ * through `usePredicateRecordContext`. Such a mount forwarding no `roots` loses
+ * the offers its own host really answers — the cost objectui#9645 declared on
+ * its face and left for this card to pay.
+ *
+ * Which tier evaluates which metadata type is NOT re-derived here:
+ * `CONDITION_HOST_BY_METADATA_TYPE` (`conditionScope.ts`) rules it per type
+ * from readings taken at each evaluator, and this list is what its `client`
+ * verdict declares.
+ *
+ * ## Every member, and the producer it is read back from
+ *
+ * `record` is the one binding `usePredicateRecordContext` makes — it returns
+ * `{ record }` and nothing else. The rest are exactly the keys
+ * `buildExpressionScope` returns. ⛔ Neither half is retyped from a docblock:
+ * `ConditionBuilder.clientMountRoots.test.tsx` rebuilds the list from both
+ * producers, so the reading fails when either side moves rather than leaving
+ * this paragraph to rot.
+ *
+ * ## `previous` is deliberately NOT here — this list narrows as well as widens
+ *
+ * It is the one root this list DROPS relative to the record-scoped default, and
+ * the drop is the same ruling as the additions rather than an exception to it.
+ * No browser host binds it: `usePredicateRecordContext` binds the row alone and
+ * `buildExpressionScope` publishes no `previous`. Offering it here would be the
+ * `app` shape objectui#8155 ruled on — an editor advertising a root nothing
+ * answers — and the predicate an author built from it could only fault. The
+ * pin derives its absence from the two producers rather than asserting it.
+ *
+ * ## Every member must also LINT clean — the objectui#8167 direction
+ *
+ * A root advertised here that the `record` scope REFUSES would re-create that
+ * defect at the other door: the engine refuses `org` and `app` at this scope
+ * today, and an editor that offers what its own linter rejects costs the author
+ * the write. So the pin lints each member through the same path the editor
+ * uses, rather than snapshotting a list.
+ */
+export const CLIENT_CONDITION_ROOTS = ['record', 'current_user', 'user', 'ctx', 'os', 'features'];
+
+/**
+ * CEL's own word-shaped literals. Spelled like identifiers, bound by nobody, so
+ * {@link celRootsMentioned} must not read one as a root.
+ */
+const CEL_WORD_LITERALS = new Set(['true', 'false', 'null', 'in']);
+
+/** A quoted string, removed before roots are read — see {@link celRootsMentioned}. */
+const CEL_STRING_LITERAL_RE = /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"/g;
+
+/** A dotted identifier path, matched whole so a member never reads as a root. */
+const CEL_IDENT_PATH_RE = /[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*/g;
+
+/**
+ * The scope roots a CEL fragment plainly MENTIONS — the head of every dotted
+ * identifier path in it.
+ *
+ * String literals are removed first, for the reason {@link fmtValue} states one
+ * control over: a quoted `'record.status'` is TEXT, and reading it as a
+ * reference is the silently-false predicate objectui#6293 fixed. Word-shaped
+ * CEL literals are excluded by {@link CEL_WORD_LITERALS}; everything else that
+ * heads a dotted path is a root this fragment teaches.
+ *
+ * Exported because the placeholder pin asserts a RELATION rather than a string
+ * — it reads whatever the editor shows and requires every root in it to be
+ * offered at that mount. A pin that asserted the literal could not fail on the
+ * day someone re-hard-codes one, which is the defect this function exists to
+ * make unrepeatable.
+ */
+export function celRootsMentioned(expr: string): string[] {
+  const code = expr.replace(CEL_STRING_LITERAL_RE, ' ');
+  const roots = new Set<string>();
+  for (const path of code.match(CEL_IDENT_PATH_RE) ?? []) {
+    const root = path.split('.')[0];
+    if (!CEL_WORD_LITERALS.has(root)) roots.add(root);
+  }
+  return [...roots];
+}
+
+/**
+ * The worked CEL example the raw editor teaches, one clause per idea — the
+ * source the placeholder is DERIVED from (objectui#9952).
+ *
+ * ⛔ Not a per-scope table and ⛔ not tagged with the roots each clause uses.
+ * Each clause carries its own roots in its own text, and {@link
+ * celExampleForRoots} reads them back out with {@link celRootsMentioned}, so a
+ * clause cannot claim a root it does not spell.
+ */
+const CEL_EXAMPLE_CLAUSES = ["record.status != 'done'", 'user.isAdmin'] as const;
+
+/**
+ * The placeholder example for a mount that offers `offered` — every clause
+ * whose roots that mount actually binds, and no other (objectui#9952).
+ *
+ * ## The defect this replaces
+ *
+ * The placeholder was a string literal, `record.status != 'done' &&
+ * user.isAdmin`, handed to `CelPredicateField` at EVERY mount, `scope` or no
+ * `scope`. So the same component that narrowed a record-scoped mount's
+ * autocomplete to {@link RECORD_CONDITION_ROOTS} — withdrawing `user`, because
+ * the hosts of a server-evaluated condition bind `record` and `previous` alone
+ * — went on teaching `user.isAdmin` there, in the one line an author reads
+ * BEFORE typing anything. `conditionScope.ts` carries that binding in its own
+ * words for both such hosts (hook and validation rule), and the hook wrapper's
+ * own docblock in objectstack (`wrapDeclarativeHook`) says the condition
+ * formula is evaluated against two bindings, `record` and `previous`. An
+ * unevaluable predicate is fail-LOUD at the hook host and fail-CLOSED at the
+ * validation one, so the copied root costs the author the write either way.
+ *
+ * ## Why a derivation, and not a second literal per scope
+ *
+ * A second hand-maintained list is exactly how the autocomplete
+ * (objectui#9645), the subject dropdown (objectui#9855) and this placeholder
+ * got out of step: three controls, three literals, edited one at a time. This
+ * has no list to keep in step. A clause survives only when every root it
+ * SPELLS is in the offered set, so a clause that references an unoffered root
+ * disappears rather than mis-teaching it — and the offered set handed here is
+ * the very value forwarded to the autocomplete, read once at the mount.
+ *
+ * ## `undefined` is the unchanged case, deliberately
+ *
+ * `undefined` means the mount forwards no narrowing and inherits the engine's
+ * own advertisement, which carries `user` — so every clause survives and such a
+ * mount's placeholder is what it always was, byte for byte. `roots` narrows
+ * SUGGESTIONS only, so this narrows TEACHING only: no accept set moves, and no
+ * mount loses a subject it could build a row with.
+ *
+ * An offered set that leaves no clause standing yields the empty string — no
+ * example rather than a false one. `ConditionBuilder.placeholderRoots.test.tsx`
+ * re-derives all of this from the offered set instead of restating it.
+ */
+export function celExampleForRoots(offered: readonly string[] | undefined): string {
+  const clauses = offered
+    ? CEL_EXAMPLE_CLAUSES.filter((c) => celRootsMentioned(c).every((r) => offered.includes(r)))
+    : [...CEL_EXAMPLE_CLAUSES];
+  return clauses.join(' && ');
+}
+
+/**
+ * Context subjects for a mount whose condition is evaluated by a SERVER host
+ * that binds `record` and `previous` alone (objectui#9855).
+ *
+ * The dropdown's mirror of {@link RECORD_CONDITION_ROOTS} — same ruling, the
+ * other door. That list narrows what the raw editor's autocomplete OFFERS at
+ * such a mount; this one narrows what the row builder's subject dropdown
+ * offers, which is the control an author actually builds rows with.
+ *
+ * ## Why this is DECLARED by the mount, never defaulted
+ *
+ * ⛔ It is deliberately not the component's default, and ⛔ it is not derived
+ * from `scope === 'record'`. That test does not separate the hosts: the action
+ * `visible` / `disabled` mounts declare `scope="record"` and are evaluated in
+ * the BROWSER, where `buildExpressionScope` really does bind `user` — so
+ * defaulting to this list would take a working subject away from them.
+ * `scope` is a claim about how the CEL is LINTED; it is not a claim about what
+ * the host binds. `CONDITION_SCOPE_BY_METADATA_TYPE` (`conditionScope.ts`)
+ * makes the same distinction for the same reason.
+ *
+ * ## The two hosts this list is measured against
+ *
+ * Both were read at source in objectstack, and both bind exactly two names:
+ *
+ *  - a hook `condition` — `wrapDeclarativeHook` (`hook-wrappers.ts`) evaluates
+ *    it against `{ record, previous }`, and an unevaluable one throws
+ *    `HookConditionError` rather than resolving false.
+ *  - an object validation rule's guard — `checkPredicate` / `checkConditional`
+ *    (`validation/rule-validator.ts`) evaluate `condition` / `when` against
+ *    `{ record, previous }`, fail-CLOSED. `conditionScope.ts` carries the same
+ *    ruling in its `validation` row.
+ *
+ * `previous` is bound at both and is reachable through
+ * {@link ConditionSubjectVocabulary.includePrevious}, which is a separate knob
+ * a mount opts into — so it is deliberately not folded in here.
+ */
+export const RECORD_CONDITION_SUBJECTS: ReadonlyArray<{ value: string; label?: string }> = [
+  { value: 'record.id', label: 'record.id' },
+];
 
 /**
  * Quote a raw value for CEL unless it is a number / boolean / null — or a
@@ -234,7 +519,7 @@ function initFrom(value: string): { rows: Row[]; join: '&&' | '||'; raw: boolean
   return { rows: [], join: '&&', raw: !!value };
 }
 
-export function ConditionBuilder({ label, value, onCommit, objectName, fields: fieldsProp, disabled, onBlockingIssuesChange, subjects }: {
+export function ConditionBuilder({ label, value, onCommit, objectName, fields: fieldsProp, disabled, onBlockingIssuesChange, subjects, scope, roots }: {
   label?: string;
   value: string;
   onCommit: (cel: string) => void;
@@ -259,12 +544,73 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
    * record-scoped default every existing consumer relies on.
    */
   subjects?: ConditionSubjectVocabulary;
+  /**
+   * Evaluation scope the raw-expression editor lints and completes against
+   * (objectui#8167) — forwarded verbatim to `CelPredicateField`, which mirrors
+   * `CelSchemaHint.scope`.
+   *
+   * ## Why this had to become a prop
+   *
+   * It was not one. Every mount ran the `celAuthoring` default, whose own
+   * spelling is `hint.scope ?? 'flattened'`, and no caller could say otherwise
+   * — so a bare `status == 'done'` typed into an action's **Visible when**
+   * linted CLEAN. It never matches: `usePredicateRecordContext` binds `record`
+   * and nothing else, and objectui#5741 Phase 2 retired the bare shorthand on
+   * runtime record surfaces. The row-predicate canon in `@object-ui/core`
+   * (`rowPredicateCanon.ts`) names an action renderer's `visible` / `disabled`
+   * as such a surface in its own words. That is objectui#7727's defect, at a
+   * component objectui#7727 does not touch.
+   *
+   * ## Undefined is the default, and that is deliberate
+   *
+   * Omitting it forwards `undefined`, so the engine hint stays exactly what it
+   * was and every mount that passes nothing is unchanged byte for byte. In
+   * particular this does **not** derive the scope from
+   * {@link ConditionSubjectVocabulary.fieldPrefix}: that would silently flip
+   * every record-prefixed mount, including the three whose tier is still an
+   * open question (the page-block, hook and schema-driven `ConditionWidget`
+   * sites — see objectui#8167). Deriving a verdict is the same thing as
+   * making one, and those are not this component's to make.
+   *
+   * ## It governs the RAW editor only
+   *
+   * The row builder compiles subjects itself from `fieldPrefix`, so passing
+   * `'record'` does not move a single emitted byte — it makes the raw editor
+   * agree with the rows the builder was already emitting at that mount, which
+   * before this prop existed it did not.
+   */
+  scope?: 'record' | 'flattened';
+  /**
+   * Scope roots the raw editor's autocomplete OFFERS (objectui#9645) —
+   * forwarded to `CelPredicateField`, which mirrors `CelSchemaHint.roots`.
+   *
+   * Declared, not inferred, for the reason {@link RECORD_CONDITION_ROOTS}
+   * states: only the mount knows what its own host binds. Omitting it leaves a
+   * `scope="record"` mount with that list — the roots every host of a
+   * record-scoped condition binds — and leaves a mount that declares no
+   * `scope` with the engine's own advertisement, unchanged.
+   *
+   * It governs SUGGESTIONS only. The accept set is the engine's `SCOPE_ROOTS`,
+   * so a root left off this list still lints clean when an author types it,
+   * and a mount whose host binds more than the default loses an offer rather
+   * than a spelling.
+   */
+  roots?: string[];
 }) {
   const { fields: hookFields } = useObjectFields(objectName);
   const fields = fieldsProp ?? hookFields;
   const fieldPrefix = subjects?.fieldPrefix ?? 'record.';
   const includePrevious = subjects?.includePrevious ?? false;
   const contextSubjects = subjects?.context ?? CONTEXT_SUBJECTS;
+  /**
+   * The scope roots THIS mount offers — read once, because two controls answer
+   * to it (objectui#9952).
+   *
+   * `undefined` is a real value here and not a missing one: it means the mount
+   * declared no narrowing, so the autocomplete inherits the engine's own
+   * advertisement and the placeholder teaches its whole example, both unchanged.
+   */
+  const offeredRoots = roots ?? (scope === 'record' ? RECORD_CONDITION_ROOTS : undefined);
   const subjectOptions = React.useMemo(() => {
     const visible = fields.filter((f) => !f.hidden);
     const fieldOpts = visible.map((f) => ({
@@ -374,9 +720,24 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
           onChange={(v) => { lastEmitted.current = v; onCommit(v); }}
           onLintChange={reportCel}
           disabled={disabled}
-          placeholder="record.status != 'done' && user.isAdmin"
+          /* objectui#9952 — DERIVED from the same offered set the autocomplete
+             gets, so the example cannot teach a root this mount does not offer.
+             It was a literal, and taught `user.isAdmin` at a record-scoped
+             mount where objectui#9645 had already stopped offering `user` and
+             the server host never binds it. See `celExampleForRoots`. */
+          placeholder={celExampleForRoots(offeredRoots)}
           objectName={objectName}
           fieldNames={fieldNames}
+          /* Forwarded verbatim, `undefined` included — see the `scope` prop's
+             own note. An omitted scope must reach `celAuthoring` as absent so
+             its `hint.scope ?? 'flattened'` default answers unchanged. */
+          scope={scope}
+          /* objectui#9645 — a record-scoped mount advertises the roots its
+             host actually binds, not the engine's whole default list. A mount
+             that binds more declares it; see `RECORD_CONDITION_ROOTS`. A mount
+             with no `scope` still forwards `undefined` here, so its offered
+             roots are the engine's own, unchanged. */
+          roots={offeredRoots}
           t={tLocal}
         />
         {value && !parse(value) && (

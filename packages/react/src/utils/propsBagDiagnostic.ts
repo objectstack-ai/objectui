@@ -255,3 +255,210 @@ export function reportDroppedPropsBag(
   console.warn(message);
   return message;
 }
+
+/* -------------------------------------------------------------------------- *
+ * objectui#9108 - the NODE-GATE half of the same bag
+ * -------------------------------------------------------------------------- */
+
+/**
+ * Refusal: a NODE-GATE PREDICATE was parked under `props` (objectui#9108,
+ * maintainer ruling 2026-09-13, verbatim 「同意」 on the `domain:spec` seat's
+ * recommendation - REFUSE).
+ *
+ * ## The defect this refuses
+ *
+ * Measured at node level on `1e0e46af9`, four rows, both spellings and both
+ * polarities:
+ *
+ *   { type: 'card', props:      { visible: false } }  -> the node RENDERED
+ *   { type: 'card', props:      { hidden:  true  } }  -> the node RENDERED
+ *   { type: 'card', properties: { visible: false } }  -> correctly hidden
+ *   { type: 'card', properties: { hidden:  true  } }  -> correctly hidden
+ *
+ * `SchemaRenderer` hoists `properties.*` onto the node; NOTHING copies
+ * `props.*`. Both node gates read the post-hoist node, so a predicate that
+ * arrived under the alias is never one of the keys either gate can see. It is
+ * fail-OPEN and silent by construction - a gate that never bit renders exactly
+ * like a gate that said yes - so no user, no screenshot and no snapshot can
+ * find it. Only counting can.
+ *
+ * ## Why REFUSE and not HONOUR - this is a ruling, not a preference
+ *
+ * The opposite arm was implemented and CLOSED (PR objectui#9144). The ruling's
+ * decisive axis: honouring the alias would have made
+ * *"8 predicate keys work while the rest stayed silently dropped - and partly
+ * working is harder to learn from than not working"*, because the author
+ * generalises "`props` is fine" and collides again on the next key with the
+ * cause now further away. The three measured readings behind it, each with a
+ * control that fires: `@objectstack/spec` already refuses `props` by name
+ * (`unrecognized_keys ["props"]`); `skills/objectui/rules/protocol.md` teaches
+ * it as an ERROR rather than as a gap; and the producer census found ZERO
+ * authored `props` bags across `examples/**` and `content/docs/**` (controls:
+ * `visibleWhen` 9 files, `type` 488 files), so there is no capability to cut.
+ *
+ * ## What it deliberately does NOT do
+ *
+ * It changes NO verdict and NO rendered byte. Every gate answers exactly what
+ * it answered before, nothing is hoisted, `schema.<KEY>` stays undefined for a
+ * renderer declared as `({ schema })`, and the bag reaches the element with the
+ * same keys it always did. The trap stops being SILENT; it does not stop being
+ * a trap, which is the same posture objectui#6708 took one card earlier and the
+ * only posture a diagnostic can take without becoming the honour arm the ruling
+ * refused.
+ *
+ * ## Why `console.error`, and why NOT dev-only
+ *
+ * Two established postures in this tree, and this leg needs a leg of each:
+ *
+ *   - SEVERITY from `unevaluatedExpression.ts`, which is this repo's REFUSAL
+ *     tier. Its neighbour {@link reportDroppedPropsBag} warns because it
+ *     reports a value that was dropped; the ruling's word here is *refused*,
+ *     and the sibling gate diagnostic states the split explicitly ("not the
+ *     refusal `reportUnevaluatedExpressions` emits").
+ *   - ALWAYS-ON from `visibilityDiagnostic.ts`'s unresolvable-predicate leg,
+ *     which the maintainer took out of `__DEV__` in objectui#6038 (ruling
+ *     2026-08-25, option B: "the silence is no longer an accepted property")
+ *     on the ground that a node gate which has stopped biting in production is
+ *     a class-1 defect that must not be able to sit live and undiscovered.
+ *     This is that class in its widest form - the gate never bit at all, on
+ *     every render - and the ruling's own confidence gap is about exactly the
+ *     population a `__DEV__` gate would silence: *"The producer census covers
+ *     this repository's `examples/**`, `content/docs/**` and skills corpus.
+ *     It does NOT measure authored metadata in production. If stored documents
+ *     out there do carry `props`, those authors are already suffering the
+ *     silent drop today."*
+ *
+ * The rate limit that makes an always-on console line affordable is the same
+ * one objectui#6038 required: the dedupe below is keyed on the MESSAGE, so the
+ * ceiling is one line per distinct authoring bug for the lifetime of the page,
+ * not one line per render and not one per node.
+ */
+export const REFUSED_PROPS_PREDICATE_PREFIX =
+  '[ObjectUI] A node-gate predicate under `props` is REFUSED';
+
+/**
+ * Node-gate predicate keys the BAG-READING family can still honour itself, so
+ * refusing them there would cry wolf.
+ *
+ * Measured on this tree, not guessed: across every renderer that reads a config
+ * bag ({@link readsPropsBag} - the five `element:*` `readProps()` sites plus
+ * `view:simple`), the only node-gate predicate key any of them reads out of the
+ * bag is `disabled`, in `elements.tsx` (`element:button`:
+ * `disabled={props.disabled || running}`) and `text-input.tsx`
+ * (`element:text-input`). No visibility-chain key is read from a bag by any
+ * renderer in this repo, and neither is `disabledOn`.
+ *
+ * So `{ type: 'element:button', props: { disabled: true } }` really does
+ * produce a disabled button - the node GATE did not bite, but the author got
+ * the effect they asked for, and a refusal there would send them looking for a
+ * defect that is not on their screen. Every other row stays refused on every
+ * family, including the `element:*` visibility rows, which nothing honours.
+ */
+const BAG_HONOURED_GATE_KEYS: ReadonlySet<string> = new Set(['disabled']);
+
+/**
+ * Build the refusal message. Separate from the emit so a test can assert the
+ * words a developer is going to read, not merely that something was logged.
+ *
+ * Carries the MIGRATION LINE the ruling requires by name - *"the implementing
+ * round should pair the refusal with a named migration line in the diagnostic,
+ * not let half the keys quietly start working"*. It names the keys it refused
+ * and the two spellings that do work, and it names nothing else: there is no
+ * per-key canonical-alias table here, because inventing one would be a second
+ * declaration of ADR-0089's normalization competing with the spec's own.
+ */
+export function formatRefusedPropsPredicateMessage(
+  type: unknown,
+  id: unknown,
+  refusedKeys: readonly string[],
+): string {
+  const keyList = refusedKeys.map(k => `\`${k}\``).join(', ');
+  const one = refusedKeys.length === 1;
+  return (
+    `${REFUSED_PROPS_PREDICATE_PREFIX} - node ${describeAddress(type, id)}\n` +
+    `  ${one ? 'Key' : 'Keys'} parked under \`props\`: ${keyList}\n` +
+    '`props` is NOT an authoring surface for the node gates. `SchemaRenderer`\n' +
+    'hoists `properties.*` onto the node and reads its visibility / enablement\n' +
+    'gates from there; nothing copies `props.*`, so this predicate is never a key\n' +
+    `either gate can see. ${one ? 'It gates' : 'They gate'} nothing - the node renders and stays enabled\n` +
+    'exactly as if the predicate said yes, which is why nothing on screen says so.\n' +
+    `  MIGRATION: move ${one ? 'it' : 'them'} out of \`props\` - onto the node itself\n` +
+    '(`{ "type": "card", "visibleWhen": ... }`, the spelling the spec declares), or\n' +
+    'into the `properties` bag, which IS hoisted. The worked pair is in\n' +
+    '`skills/objectui/rules/protocol.md`. (objectui#9108)'
+  );
+}
+
+/**
+ * Which node-gate predicate keys of the PARKED `props` bag are refused, or
+ * `null` when there is nothing to say.
+ *
+ * `nodeGateKeys` is passed IN rather than declared here: `SchemaRenderer` owns
+ * the two chain declarations and derives this union from them, so a leg added
+ * to either chain is covered by the same edit that adds it and this module
+ * never grows a twin list to drift from them (AGENTS.md #9).
+ *
+ * `parkedPropsBag` is the value of
+ * `propsWithoutCanonicalKeys(schema.props, schema.properties)` - the same
+ * subtraction the outgoing bag and the objectui#6708 diagnostic already use, so
+ * the two cases stay un-confused exactly as they are there: a key BOTH bags
+ * declare has already been subtracted (objectui#5123: `properties` wins, the
+ * author is getting the canonical answer and nothing is parked), while a key
+ * only `props` declares survives into that bag and is precisely the one no gate
+ * can see. A degenerate `props` contributes no keys through that same function,
+ * so `props: 'not-a-bag'` refuses nothing here - its defect is a different
+ * question (objectui#6752).
+ */
+export function collectRefusedPropsPredicateKeys(
+  type: unknown,
+  nodeGateKeys: ReadonlySet<string>,
+  parkedPropsBag: unknown,
+): string[] | null {
+  if (!isConfigBag(parkedPropsBag)) return null;
+  const bagReader = readsPropsBag(type);
+  const refused = Object.keys(parkedPropsBag).filter(
+    key => nodeGateKeys.has(key) && !(bagReader && BAG_HONOURED_GATE_KEYS.has(key)),
+  );
+  return refused.length > 0 ? refused : null;
+}
+
+/**
+ * Reported messages, so a re-render - or a second node carrying the same
+ * authoring bug - does not repeat the line. Module state, exactly like
+ * {@link reportDroppedPropsBag}'s `Set` next door, and reset the same way for
+ * tests.
+ */
+const _refusedPropsPredicates = new Set<string>();
+
+/**
+ * Test-only reset for the dedupe above. Without it the second test to assert
+ * the same refusal reads the first test's dedupe entry and sees silence - a
+ * green run that checked nothing.
+ */
+export function __resetRefusedPropsPredicateWarnings(): void {
+  _refusedPropsPredicates.clear();
+}
+
+/**
+ * Reports a node-gate predicate parked under `props`, in DEVELOPMENT AND IN
+ * PRODUCTION - read {@link REFUSED_PROPS_PREDICATE_PREFIX}'s docblock for why
+ * this leg carries neither the `__DEV__` gate nor the `console.warn` severity
+ * of its neighbour in this module.
+ *
+ * Returns the message it emitted (or `null`) so a caller or a test can read the
+ * decision rather than infer it from a spy.
+ */
+export function reportRefusedPropsPredicate(
+  type: unknown,
+  id: unknown,
+  nodeGateKeys: ReadonlySet<string>,
+  parkedPropsBag: unknown,
+): string | null {
+  const refusedKeys = collectRefusedPropsPredicateKeys(type, nodeGateKeys, parkedPropsBag);
+  if (!refusedKeys) return null;
+  const message = formatRefusedPropsPredicateMessage(type, id, refusedKeys);
+  if (_refusedPropsPredicates.has(message)) return null;
+  _refusedPropsPredicates.add(message);
+  console.error(message);
+  return message;
+}

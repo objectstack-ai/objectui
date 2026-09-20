@@ -225,10 +225,10 @@ The Filter Builder integrates seamlessly with Object UI's schema system and can 
 const pageSchema = {
   type: 'page',
   title: 'User Management',
-  body: [
+  children: [
     {
       type: 'card',
-      body: [
+      children: [
         {
           type: 'filter-builder',
           name: 'userFilters',

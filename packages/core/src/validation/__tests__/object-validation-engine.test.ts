@@ -152,19 +152,58 @@ describe('ObjectValidationEngine', () => {
       // An `ast`-only envelope, or a non-CEL dialect, is a BROKEN rule — the
       // server logs and skips it rather than rejecting the write. Loud, not
       // silent: the warning is what tells a developer the pre-check abstained.
+      //
+      // The spec now splits those two spellings, so this test pins them
+      // differently — and what it pins CHANGED, deliberately.
+      //
+      // A non-CEL dialect stays AUTHORABLE: `condition` takes the whole
+      // `ExpressionDialect` enum, and `cron` / `template` are not predicates,
+      // so that spelling is written through the typed slot as before.
+      //
+      // An `ast`-only envelope is no longer authorable HERE. objectstack's
+      // `evaluated-expression-slots-source-required` migration narrowed every
+      // EVALUATED slot — this `condition` among them — from
+      // `ExpressionInputSchema` to `EvaluatedExpressionInputSchema`, where
+      // `source` is required and non-blank, because the engine evaluates
+      // `source` and cannot run an `ast` alone. The PERSISTENCE union
+      // (`ExpressionInputSchema`) is deliberately not narrowed by that same
+      // ruling, so the shape still travels on the wire and still reaches this
+      // reader — which is why it is still pinned, but as wire data, through a
+      // cast that says so.
+      //
+      // It is NOT repaired by inventing a `source` beside the `ast`: this AST
+      // is synthetic (`args: []` carries no operands), so no text was ever
+      // parsed into it, and the migration's own recovery — `printCelAst(ast)`
+      // — answers `null` rather than a guess for an AST it cannot round-trip.
+      // A `source` written here would satisfy the type and lie about the value.
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const engine = new ObjectValidationEngine();
-      const rule: ScriptValidation = {
+      // Authorable: a dialect the CEL evaluator does not run.
+      const nonCelDialect: ScriptValidation = {
+        type: 'script',
+        name: 'cron_dialect',
+        severity: 'error',
+        message: 'should never be reported',
+        condition: { dialect: 'cron', source: '0 9 * * 1-5' },
+      };
+      // Wire-only: refused by the narrowed slot, still carried by persistence.
+      const astOnly: ScriptValidation = {
         type: 'script',
         name: 'ast_only',
         severity: 'error',
         message: 'should never be reported',
-        condition: { dialect: 'cel', ast: { op: '<', args: [] } },
+        condition: { dialect: 'cel', ast: { op: '<', args: [] } } as unknown as
+          ScriptValidation['condition'],
       };
 
-      const results = await engine.validateRecord([rule], { record: { amount: -5 } }, 'insert');
+      const results = await engine.validateRecord(
+        [nonCelDialect, astOnly],
+        { record: { amount: -5 } },
+        'insert'
+      );
 
       expect(results).toHaveLength(0);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('cron_dialect'));
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('ast_only'));
     });
 

@@ -19,6 +19,8 @@ import {
   AUDIT_DOCS as SNIPPET_AUDIT_DOCS,
   auditDocsPages as snippetAuditDocsPages,
   listDocuments as snippetDocuments,
+  NESTED_PACKAGE_READMES as SNIPPET_NESTED_PACKAGE_READMES,
+  nestedPackageReadmePages as snippetNestedPackageReadmes,
   ROOT_DOCS as SNIPPET_ROOT_DOCS,
   rootDocsPages as snippetRootDocsPages,
   ROOT_PAGES as SNIPPET_ROOT_PAGES,
@@ -167,22 +169,40 @@ describe('check-doc-fence-languages: the scan surface is check-doc-snippet-types
    * OTHER divergence still fails here, which is the whole point of keeping the
    * comparison rather than deleting it.
    */
-  /** The snippet gate's three root-`docs/` legs, taken from the gate itself. */
+  /**
+   * The snippet gate's own legs, taken from the gate itself: its three
+   * root-`docs/` legs, plus objectui#7308's nested package READMEs.
+   *
+   * ⭐ objectui#7308 is the fourth enumerator and it arrives the way card 1 built
+   * this for: `check-doc-links` had already closed the same hole on the same four
+   * files (objectui#6026), but moving `check:doc-fences`' own surface is not that
+   * card's to do — so the divergence is SUBTRACTED BY IMPORT and every other
+   * drift between the two walks still fails here. A fifth nested README landing
+   * under `packages/` tomorrow travels into the snippet gate's side and into this
+   * subtraction by itself; a hand-written list of today's four filenames would
+   * have had to be re-typed for it.
+   */
   const snippetDocsLegs = () => [
     ...snippetRootDocsPages(ROOT),
     ...snippetAdrDocsPages(ROOT),
     ...snippetAuditDocsPages(ROOT),
+    ...snippetNestedPackageReadmes(ROOT),
   ];
 
-  it('walks exactly the documents the snippet gate walks, minus that gate’s three docs/ legs', () => {
+  it('walks exactly the documents the snippet gate walks, minus that gate’s own legs', () => {
     const legOnly = new Set(snippetDocsLegs());
     expect(fenceDocuments(ROOT)).toEqual(snippetDocuments(ROOT).filter((d: string) => !legOnly.has(d)));
   });
 
   it('…and that subtraction is non-empty, so it is not silently subtracting nothing', () => {
     // Each leg separately: a union that is non-empty overall would stay green
-    // with one of its three members returning nothing at all.
-    for (const leg of [snippetRootDocsPages(ROOT), snippetAdrDocsPages(ROOT), snippetAuditDocsPages(ROOT)]) {
+    // with one of its four members returning nothing at all.
+    for (const leg of [
+      snippetRootDocsPages(ROOT),
+      snippetAdrDocsPages(ROOT),
+      snippetAuditDocsPages(ROOT),
+      snippetNestedPackageReadmes(ROOT),
+    ]) {
       expect(leg.length).toBeGreaterThan(0);
     }
     // Every subtracted document really is on the snippet gate's side only.
@@ -190,6 +210,53 @@ describe('check-doc-fence-languages: the scan surface is check-doc-snippet-types
       expect(snippetDocuments(ROOT), `${doc} is not in the snippet gate's walk`).toContain(doc);
       expect(fenceDocuments(ROOT), `${doc} reached the fence guard's walk`).not.toContain(doc);
     }
+  });
+
+  /**
+   * objectui#7308's leg, pinned where it stops rather than only that it is
+   * non-empty.
+   *
+   * Two claims a reading of the code cannot make: that the leg collects a README
+   * BELOW a package root and never the package's own top-level one (the
+   * no-double-collect guarantee objectui#6026 got structurally, by rooting the
+   * walk at each package's SUBdirectories), and that it does not follow pnpm's
+   * workspace symlinks out of the authored tree. The second is not hypothetical:
+   * `statSync` follows symlinks, and `packages/a/node_modules/@object-ui/b` leads
+   * back into `packages/b`, so an unguarded walk does not terminate.
+   */
+  it('the nested-README leg collects below package roots only, and the tracked tree exactly', () => {
+    expect(SNIPPET_NESTED_PACKAGE_READMES).toEqual({
+      dir: 'packages',
+      name: 'README.md',
+      recursive: true,
+    });
+    const nested = snippetNestedPackageReadmes(ROOT);
+    // Below a package root, every one of them — never `packages/<name>/README.md`.
+    for (const doc of nested) {
+      expect(doc, `${doc} is not a README.md`).toMatch(/\/README\.md$/);
+      expect(doc, `${doc} sits at a package root, so the leg above already has it`).not.toMatch(
+        /^packages\/[^/]+\/README\.md$/,
+      );
+      expect(doc.split('/'), `${doc} left the authored tree`).not.toContain('node_modules');
+    }
+    // The leg plus the top-level README leg is EXACTLY the tracked population —
+    // measured against git, not against a hand-written list, so the walk cannot
+    // quietly gain a generated page or lose an authored one.
+    const tracked = execFileSync('git', ['ls-files', '--', 'packages/'], { cwd: ROOT, encoding: 'utf8' })
+      .split('\n')
+      .filter((f) => /(^|\/)README\.md$/.test(f))
+      .sort();
+    const walked = snippetDocuments(ROOT)
+      .filter((d: string) => d.startsWith('packages/') && d.endsWith('/README.md'))
+      .sort();
+    expect(walked).toEqual(tracked);
+    // Non-vacuous on both halves: the tracked population is not empty, and it
+    // really does contain pages at both depths.
+    expect(tracked.length).toBeGreaterThan(0);
+    expect(nested.length).toBeGreaterThan(0);
+    expect(tracked.filter((f) => /^packages\/[^/]+\/README\.md$/.test(f)).length).toBeGreaterThan(0);
+    // No document is collected twice by the two package legs together.
+    expect(new Set(walked).size).toBe(walked.length);
   });
 
   /**

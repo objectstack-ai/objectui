@@ -8,8 +8,26 @@ Canonicalize the retired object-schema dialect once, at the ingestion choke poin
 `normalizeSchemaReferenceKeys` now has two arms. The `reference` / `reference_to` pair
 is unchanged. The new arm folds any key a served field def carries that
 `@objectstack/spec`'s `FieldSchema` does **not** declare, but whose snake/camel twin it
-does — `display_field` onto `displayField`, `description_field` onto `descriptionField`,
-`lookup_filters` onto `lookupFilters`, and `lookup_columns` onto `lookupColumns`.
+does — `display_field` onto `displayField`, `lookup_filters` onto `lookupFilters`, and so
+on.
+
+**The accepted set is MEASURED, not enumerated — and it grows with the linked spec**
+(corrected on objectui#8938; this paragraph previously read as though the keys the cards
+in this family happened to name were the whole of it). One spelling rule is applied to
+`FieldSchema`'s **entire** declared key set at run time, so the accepted set is a property
+of the installed `@objectstack/spec` and widens the moment the spec grows a camel key.
+Besides the four above, today's spec puts the gate keys `visible_when` / `readonly_when` /
+`required_when`, `default_value`, `required_permissions`, `masking_rule`, `track_history`,
+`delete_behavior`, `external_id`, `depends_on`, `lookup_page_size`, the `related_list*` and
+`inline_*` families, and the managed-by lock keys `_lock_reason` / `_lock_source` /
+`_lock_docs_url` / `_package_id` / `_package_version` inside it — and case / kebab variants
+of every one of them fold too. A stored legacy spelling of any of these is therefore
+**active** on the client where consumers previously ignored it.
+
+No count of that surface is written here on purpose: it is derived from the installed spec,
+and a number in this paragraph would be derived once and never again. The instrument that
+re-derives it on every run is the pin named `the width IS the spec's declared key set, not
+a list anyone typed`, beside the classes above as a live membership assertion.
 
 **Why this is needed at all.** The object-schema serve path never parses:
 `ObjectStackAdapter.getObjectSchema` fetches the document, applies two mutations and
@@ -35,8 +53,10 @@ share. And it does not "correct" anything: a key that probes onto no declared ke
 alone, so a typo (`sortible`) stays a typo and `id_field` — which has no declared
 successor — stays as it is.
 
-**Not covered.** `id_field` needs a `@objectstack/spec` release carrying the
-`FIELD_KEY_GUIDANCE.id_field` row before its diagnostic can quote the contract rather than
-a copy of it; that row is in no published version yet. `title_format` is out of scope
-pending a separate maintainer ruling. Both land in the leave arm by the same rule, with no
-special case.
+**Not covered.** `id_field` and `title_format` are not folded — `id_field` has no declared
+successor and `title_format` is out of scope pending a separate maintainer ruling. Both land
+in the leave arm by the same rule, with no special case. What still waits on a
+`@objectstack/spec` release carrying the `FIELD_KEY_GUIDANCE.id_field` row is the
+**successor guidance** for `id_field`, which no published version carries; the leave arm
+itself is no longer silent (objectui#8938 — the diagnostic states what it measured against
+the linked spec rather than quoting a copy of contract prose).

@@ -461,7 +461,7 @@ const schema: ObjectViewSchema = {
     cheap: {
       label: 'Under 100',
       type: 'grid',
-      filter: [{ field: 'price', operator: 'lessThan', value: 100 }],
+      filter: [{ field: 'price', operator: 'less_than', value: 100 }],
     },
   },
   defaultListView: 'all',

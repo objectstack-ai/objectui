@@ -80,7 +80,6 @@ export {
   ComponentMetaSchema,
   ComponentConfigSchema,
   HTMLAttributesSchema,
-  EventHandlersSchema,
   ClassNameStylePropsSchema,
 } from './base.zod.js';
 
@@ -117,6 +116,17 @@ export {
   PageTypeSchema,
   PageNodeSchema,
   LayoutSchema,
+  // ⛔ `SemanticElementSchema` and `HtmlElementSchema` are deliberately NOT
+  // exported (objectui#9067, decision batch #121 item 5, maintainer 2026-09-12).
+  // Both are FAMILY schemas keyed by a tag `z.enum`, so a name bound to either
+  // would hand a consumer a schema accepting every tag in the family rather than
+  // the one node type every other name on this barrel stands for. objectui#8499's
+  // changeset stated the reason when it armed them and deferred the naming:
+  // exporting the pair "would publish a NAMED authoring surface (`z.enum`
+  // families, not per-tag schemas)". Splitting them into per-tag schemas was
+  // ruled out in the same breath — expansion for a consumer nobody has measured.
+  // `__tests__/arm-named-export-8784.test.ts` carries the rows that re-read this
+  // on every run; that ledger, not this comment, is what fails if it stops being true.
 } from './layout.zod.js';
 
 // ============================================================================
@@ -132,6 +142,10 @@ export {
   FieldConditionSchema,
   ButtonSchema,
   InputSchema,
+  // The `email` / `password` shorthand arm, named here by the objectui#9067
+  // ruling (decision batch #121 item 5): it stands for two `type` literals, so
+  // naming it keeps this barrel's meaning — one name, one node type.
+  InputShorthandSchema,
   TextareaSchema,
   SelectSchema,
   CheckboxSchema,
@@ -142,6 +156,10 @@ export {
   FileUploadSchema,
   DatePickerSchema,
   CalendarSchema,
+  // `ui:calendar` — the date-picker primitive `renderers/form/calendar.tsx`
+  // registers, a different component from the `calendar` plugin VIEW above.
+  // One `type` literal, so the same objectui#9067 ruling names it.
+  UiCalendarSchema,
   InputOTPSchema,
   ComboboxSchema,
   LabelSchema,
@@ -435,7 +453,12 @@ import { ViewComponentSchema } from './views.zod.js';
  * ⚠️ BOTH of the above are live here, and the composition is the whole resolution:
  * objectui#8498 changed WHICH arm reports, objectui#8344 changed WHERE this union is
  * consulted. The discriminated union is what gets written into the node option slot,
- * so `defineNodeComponentUnion` wraps it rather than replacing it. The slot itself is
+ * unchanged: `defineNodeComponentUnion` installs it as it stands. ⚠️ AMENDED
+ * (objectui#9659) — this used to read "so `defineNodeComponentUnion` wraps it rather
+ * than replacing it", which named the `superRefine` clause objectui#8344 carried on the
+ * installed arm. Ruling A on objectui#8572 retired the key that clause narrowed,
+ * objectui#9659 measured that it could no longer fire for any input, and it is gone; the
+ * fill is an installation and nothing more. The slot itself is
  * still a plain `z.union` in `base.zod.ts` — that is what keeps its option array by
  * reference, and it is untouched by the discrimination.
  */

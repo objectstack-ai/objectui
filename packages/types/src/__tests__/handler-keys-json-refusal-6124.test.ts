@@ -53,7 +53,11 @@
  *     UNDECLARED; 40 since objectui#7804 declared
  *     `ObjectKanbanSchema.onCardClick` / `.onQuickAdd`, that same shape again on
  *     the face that INHERITED those reads when objectui#8802 retired the
- *     sibling `kanban` arm). A key nothing reads
+ *     sibling `kanban` arm; ⛔ this running tally is PROSE and has never carried
+ *     objectui#7655's six or objectui#8802's removals, so it is not today's
+ *     figure — read `RUNTIME_SLOT`'s own docblock and the length pin beside it,
+ *     which objectui#7804's `DataTableSchema` slice moved by seven and its
+ *     `objectql.ts` slice by a further nine). A key nothing reads
  *     gets the `?: never` tombstone (22 sites, `RETIRED` below; the `crud.ts`
  *     `confirm` / `base.ts` convention).
  *
@@ -86,9 +90,20 @@ import { retirementTombstone } from '../zod/tombstone.zod';
 // `kanban` arm.
 import {
   ObjectDataTableSchema as ObjectDataTableZod,
+  ObjectFormSchema as ObjectFormZod,
+  ObjectGallerySchema as ObjectGalleryZod,
+  ObjectGridSchema as ObjectGridZod,
   ObjectKanbanSchema as ObjectKanbanZod,
+  ObjectViewSchema as ObjectViewZod,
 } from '../zod/objectql.zod';
-import type { ObjectDataTableSchema, ObjectKanbanSchema } from '../objectql';
+import type {
+  ObjectDataTableSchema,
+  ObjectFormSchema,
+  ObjectGallerySchema,
+  ObjectGridSchema,
+  ObjectKanbanSchema,
+  ObjectViewSchema,
+} from '../objectql';
 import {
   CalendarViewSchema as CalendarViewZod,
   CarouselSchema as CarouselZod,
@@ -216,12 +231,18 @@ const objectOf = (mirror: z.ZodType, key: string): z.ZodObject<z.ZodRawShape> =>
 };
 
 /**
- * 44 keys whose function value REACHES a renderer at runtime — the TypeScript
+ * 60 keys whose function value REACHES a renderer at runtime — the TypeScript
  * interface keeps the function type (36 at the objectui#6124 census; 38 since
  * `ObjectDataTableSchema.onRowClick`, objectui#6576, and `AlertDialogSchema.onAction`,
  * objectui#7104, joined; 44 since objectui#7655 gave `chatbot-enhanced` and
  * `chatbot-floating` their own faces, each carrying the three slots its
- * registration forwards). Channel measured per key on this tree:
+ * registration forwards; 51 since objectui#7804's `DataTableSchema` slice
+ * declared the seven keys that arm's renderer had been reading undeclared;
+ * 60 since the same card's `objectql.ts` slice declared nine more across four
+ * arms in that one mirror file).
+ * ⛔ Do not add a delta to this figure — the pin that cannot rot is
+ * `expect(RUNTIME_SLOT).toHaveLength(…)` below; count the constant.
+ * Channel measured per key on this tree:
  * `schema.onX` read/forwarded (kanban, chatbot, data-table, form, code-editor,
  * menu items), `props.onX` called after `SchemaRenderer`'s spread (input,
  * textarea, select, checkbox, file-upload, date-picker, input-otp, pagination,
@@ -270,6 +291,45 @@ const RUNTIME_SLOT: readonly Site[] = [
   ['data-display.zod.ts', 'DataTableSchema', 'onRowDelete', DataTableZod],
   ['data-display.zod.ts', 'DataTableSchema', 'onSelectionChange', DataTableZod],
   ['data-display.zod.ts', 'DataTableSchema', 'onColumnsReorder', DataTableZod],
+  // ⭐ objectui#7804 — the `DataTableSchema` slice, seven keys the REGISTERED
+  // `data-table` renderer read off the authored document while this arm declared
+  // none of them, so `BaseSchema.passthrough()` ACCEPTED and KEPT an authored
+  // `{ "action": "toast" }` and handed it to a call site that CALLS it.
+  //
+  // Each channel measured on its own, and they do NOT all share one — which is
+  // why six siblings are not evidence for the seventh:
+  //   - `onAddRecord` / `onBatchSave` / `onCellChange` / `onRowSave` are React
+  //     props on `ObjectGridComponentProps`; `ObjectGrid` puts them on the
+  //     `data-table` node it builds (`onRowSave ?? defaultRowSave` and
+  //     `onBatchSave ?? defaultBatchSave` install a dataSource-backed default
+  //     only when the host wired none);
+  //   - `onRowActionDef` is `RelatedList`'s own `onRowAction` React prop,
+  //     forwarded onto the node it builds;
+  //   - `onRowClick` has THREE suppliers — `ObjectGrid`'s `navigation.handleClick`,
+  //     `ObjectDataTable`'s `schema.onRowClick ?? handleRowClick`, and
+  //     `RelatedList`'s own prop — and its forwarding face,
+  //     `ObjectDataTableSchema.onRowClick`, is already a site in this ledger;
+  //   - ⚠️ `onColumnResize` has NO host prop at all. `ObjectGrid` supplies its own
+  //     closure, folding the resize into the merged `{ order, widths }` layout it
+  //     persists and reports through `onColumnStateChange`. A live function still
+  //     reaches the renderer through the TypeScript face, so the slot is real;
+  //     `'retired'` would have published "no renderer reads this key" for a read
+  //     objectui#6175 wired on purpose.
+  ['data-display.zod.ts', 'DataTableSchema', 'onAddRecord', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onBatchSave', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onCellChange', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onColumnResize', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onRowActionDef', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onRowClick', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onRowSave', DataTableZod],
+  // objectui#7804 — the `TreeViewSchema` slice, one site. `tree-view.tsx` gates on
+  // `if (schema.onNodeClick)` and CALLS `schema.onNodeClick(node)`; the TS face
+  // already declared the callable twin, so the mirror's named refusal is what the
+  // JSON face was missing. ⚠️ `'retired'` was refused even though NO in-repo host
+  // builds a `tree-view` node carrying it: the read is live, and this ledger's two
+  // `TreeViewSchema` tombstones below (`onSelectChange`, `onExpandChange`) are the
+  // keys that really are dead — the contrast is measured, not stylistic.
+  ['data-display.zod.ts', 'TreeViewSchema', 'onNodeClick', TreeViewZod],
   ['disclosure.zod.ts', 'AccordionSchema', 'onValueChange', AccordionZod],
   ['disclosure.zod.ts', 'CollapsibleSchema', 'onOpenChange', CollapsibleZod],
   ['disclosure.zod.ts', 'ToggleGroupSchema', 'onValueChange', ToggleGroupZod],
@@ -300,13 +360,59 @@ const RUNTIME_SLOT: readonly Site[] = [
   //     and is live anyway through the other channel — `SchemaRenderer` spreads
   //     the authored key as a React prop, `ObjectKanbanComponentProps` declares
   //     it, and the substituted wrapper CALLS it.
-  // ⚠️ The third key `KanbanRenderer` forwards, `onCardMove`, is NOT here. Its
+  // ⚠️ The third key, `onCardMove`, is NOT in this half and never was: its
   // authored value reaches nothing on this entry, which is the `'retired'`
-  // disposition, and `check:handler-key-reads` refuses that spelling while the
-  // renderer still reads the key — so it keeps its `KNOWN_UNDECLARED_READS` row
-  // on objectui#7804 instead of being guessed into either half of this ledger.
+  // disposition. It is filed in `RETIRED` below since objectui#9342, which
+  // moved `KanbanRenderer`'s read off the document and onto an explicit React
+  // prop — until then `check:handler-key-reads` refused the tombstone spelling
+  // while the renderer still read the key.
   ['objectql.zod.ts', 'ObjectKanbanSchema', 'onCardClick', ObjectKanbanZod],
   ['objectql.zod.ts', 'ObjectKanbanSchema', 'onQuickAdd', ObjectKanbanZod],
+  // ⭐ objectui#7804 — the `objectql.ts` slice: nine keys across FOUR plain
+  // `export interface X extends BaseSchema` faces in one file, every one read
+  // off the authored document by a registered renderer while its arm declared
+  // nothing, so `BaseSchema.passthrough()` ACCEPTED and KEPT an authored
+  // `{ "action": "toast" }` and handed it to a call site that CALLS it.
+  //
+  // Each channel measured on its own, and they do NOT all share one — which is
+  // why the group is not evidence for any member of it:
+  //   - the five `ObjectFormSchema` keys are forwarded off `schema.*` by
+  //     `ObjectForm` onto the variant node it renders;
+  //     `ObjectFormComponentProps` declares only `schema` / `dataSource` /
+  //     `className`, so the `object-form` NODE a host builds in TypeScript is
+  //     the channel. `onSuccess` / `onCancel` have ten in-repo suppliers
+  //     between them, `onOpenChange` three, `onError` one;
+  //   - ⚠️ `onStepChange` has NONE. `ObjectForm` forwards it onto the wizard
+  //     node and `WizardForm` calls `schema.onStepChange(step)`, so the channel
+  //     is wired end to end and only the supplier is missing;
+  //   - ⚠️ the two `ObjectGallerySchema` keys are this ledger's PROPS-half
+  //     shape: `SchemaRenderer` spreads an authored node's leftover keys into
+  //     the props bag, and `ObjectGallery` reads BOTH on one line
+  //     (`props.onRowClick ?? props.onCardClick`). `onRowClick` is supplied by
+  //     `ListView`'s `baseProps` and `RelatedList`'s mobile branch;
+  //     `onCardClick` is the `??` fallback spelling with no in-repo supplier;
+  //   - ⚠️ `ObjectGridSchema.onNavigate` has no in-repo supplier either. Its
+  //     read is deliberate (maintainer ruling 2026-08-19 on objectui#5234,
+  //     option C: declared for programmatic callers, off the authoring
+  //     surface), and `gridNonAuthorKeys.test.tsx` supplies it from a schema
+  //     and asserts the call still fires;
+  //   - `ObjectViewSchema.onNavigate` is read at four sites in `plugin-view`'s
+  //     `ObjectView` and supplied by `@object-ui/app-shell`'s `ObjectView`.
+  //     ⚠️ Same key NAME as the grid's, different signature, different
+  //     supplier, judged separately.
+  //
+  // ⛔ `'retired'` was refused for all nine: it publishes "no renderer reads
+  // this key" against reads the renderers demonstrably make. A missing SUPPLIER
+  // is not a missing read.
+  ['objectql.zod.ts', 'ObjectFormSchema', 'onCancel', ObjectFormZod],
+  ['objectql.zod.ts', 'ObjectFormSchema', 'onError', ObjectFormZod],
+  ['objectql.zod.ts', 'ObjectFormSchema', 'onOpenChange', ObjectFormZod],
+  ['objectql.zod.ts', 'ObjectFormSchema', 'onStepChange', ObjectFormZod],
+  ['objectql.zod.ts', 'ObjectFormSchema', 'onSuccess', ObjectFormZod],
+  ['objectql.zod.ts', 'ObjectGallerySchema', 'onCardClick', ObjectGalleryZod],
+  ['objectql.zod.ts', 'ObjectGallerySchema', 'onRowClick', ObjectGalleryZod],
+  ['objectql.zod.ts', 'ObjectGridSchema', 'onNavigate', ObjectGridZod],
+  ['objectql.zod.ts', 'ObjectViewSchema', 'onNavigate', ObjectViewZod],
   ['overlay.zod.ts', 'DialogSchema', 'onOpenChange', DialogZod],
   ['overlay.zod.ts', 'AlertDialogSchema', 'onOpenChange', AlertDialogZod],
   // objectui#7104 — the action button's `onClick`; the renderer read `schema.onAction` UNDECLARED until then.
@@ -320,8 +426,12 @@ const RUNTIME_SLOT: readonly Site[] = [
 ];
 
 /**
- * 22 keys NO renderer reads — the TypeScript interface carries the `?: never`
- * tombstone. Measured per key: the renderer takes `({ schema })` only, or
+ * The keys NO renderer reads — the TypeScript interface carries the `?: never`
+ * tombstone. ⚠️ The population is whatever this array holds and the length
+ * assertion below states; a figure repeated in this sentence would be derived
+ * once and never again (AGENTS.md #9), and it already drifted here — it read
+ * `22` while the assertion read `20`, across objectui#8802's arm retirement.
+ * Measured per key: the renderer takes `({ schema })` only, or
  * strips the key through a `toFormControlDomProps` whitelist, or spreads it
  * onto a DOM element / primitive that has no such prop (React warns about an
  * unknown event handler and attaches nothing). `CommandSchema.onChange` is the
@@ -352,16 +462,28 @@ const RETIRED: readonly Site[] = [
   ['navigation.zod.ts', 'BreadcrumbItemSchema', 'onClick', BreadcrumbItemZod],
   ['navigation.zod.ts', 'SidebarSchema', 'onCollapsedChange', SidebarZod],
   ['navigation.zod.ts', 'ButtonGroupButtonSchema', 'onClick', ButtonGroupButtonZod],
+  // ⭐ objectui#9342 — the THIRD `ObjectKanbanSchema` handler key, and the one
+  // its own slice could not file. Its disposition was measured `'retired'` by
+  // objectui#7804 (an authored value reaches nothing: `ObjectKanban`
+  // substitutes its own mover and declares no `onCardMove` React prop), but
+  // `check:handler-key-reads` refuses a tombstone while a renderer still reads
+  // the key off the document, so the row sat in that gate's
+  // `KNOWN_UNDECLARED_READS` instead. `KanbanRenderer` now takes `onCardMove`
+  // as an explicit React prop — the objectui#7742 remedy `objectFields` took —
+  // and the tombstone is spelled on both faces.
+  ['objectql.zod.ts', 'ObjectKanbanSchema', 'onCardMove', ObjectKanbanZod],
   ['overlay.zod.ts', 'AlertDialogSchema', 'onConfirm', AlertDialogZod],
   ['overlay.zod.ts', 'AlertDialogSchema', 'onCancel', AlertDialogZod],
 ];
 
 const ALL_SITES: readonly Site[] = [...RUNTIME_SLOT, ...RETIRED];
 
-/** The nine mirror files the census covers; `base.zod.ts` holds only
- *  `EventHandlersSchema` (a record, objectui#6910's card) and no named key.
- *  `objectql.zod.ts` joined with objectui#6576 — it declared no handler key
- *  at all until `ObjectDataTableSchema.onRowClick`. */
+/** The nine mirror files the census covers; `base.zod.ts` is not among them —
+ *  it declares no named handler key. The record-valued `EventHandlersSchema`
+ *  that once stood there was never one either, and objectui#6910 retired it;
+ *  the NOTE left at its site records why no JSON-authorable handler record
+ *  replaces it. `objectql.zod.ts` joined with objectui#6576 — it declared no
+ *  handler key at all until `ObjectDataTableSchema.onRowClick`. */
 const MIRROR_FILES = [
   'complex.zod.ts',
   'data-display.zod.ts',
@@ -429,7 +551,7 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     ]);
   });
 
-  it('64 sites are ledgered, 44 runtime slots + 20 retired, with no key filed twice', () => {
+  it('82 sites are ledgered, 61 runtime slots + 21 retired, with no key filed twice', () => {
     // 58 from objectui#6124; the 59th is `ObjectDataTableSchema.onRowClick`,
     // minted with its arm by objectui#6576 / #6914; the 60th is
     // `AlertDialogSchema.onAction`, declared by objectui#7104 for a key the
@@ -449,14 +571,35 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     // ⭐ 62 → 64: objectui#7804 declared `ObjectKanbanSchema.onCardClick` and
     // `.onQuickAdd`, two of the three reads the retirement above left on the
     // SURVIVING face with nothing declaring them. ⚠️ TWO, not three — the
-    // third (`onCardMove`) is measured `'retired'` and the gate of record
-    // refuses that spelling while the renderer still reads the key, so it stays
+    // third (`onCardMove`) was measured `'retired'` and the gate of record
+    // refused that spelling while the renderer still read the key, so it stayed
     // in `KNOWN_UNDECLARED_READS` rather than being filed here under a
     // disposition nothing measured.
-    expect(RUNTIME_SLOT).toHaveLength(44);
-    expect(RETIRED).toHaveLength(20);
+    //
+    // ⭐ 64 → 65: objectui#9342 moved that read to an explicit React prop on
+    // `KanbanRendererProps`, which is what let the arm carry the tombstone the
+    // measurement always asked for. A ledger GROWTH on the retired half, and
+    // the disposition is the one objectui#7804 measured — not a new reading.
+    //
+    // ⭐ 72 → 81: objectui#7804's `objectql.ts` slice — nine keys across FOUR
+    // arms in one mirror file, all nine on the RUNTIME SLOT half. Larger than
+    // the `DataTableSchema` slice below, and unlike it spread over four faces,
+    // so the per-key measurement had to be taken four times over: three of the
+    // nine (`ObjectFormSchema.onStepChange`, `ObjectGallerySchema.onCardClick`,
+    // `ObjectGridSchema.onNavigate`) have NO in-repo supplier, and the site
+    // comment beside the rows records why that is a missing supplier and not a
+    // missing read.
+    //
+    // ⭐ 65 → 72: objectui#7804's `DataTableSchema` slice, the largest single
+    // growth this ledger has taken — seven keys the registered `data-table`
+    // renderer read off the authored document with the arm declaring none of
+    // them. All seven land on the RUNTIME SLOT half, each measured at its own
+    // channel; `onColumnResize` is the one that does not share the group's, and
+    // the site comment beside the rows records why that mattered.
+    expect(RUNTIME_SLOT).toHaveLength(61);
+    expect(RETIRED).toHaveLength(21);
     const ids = ALL_SITES.map(([file, schema, key]) => `${file}#${schema}.${key}`);
-    expect(new Set(ids).size).toBe(64);
+    expect(new Set(ids).size).toBe(82);
   });
 
   it.each(ALL_SITES)('%s %s.%s is DECLARED on the mirror shape, with the objectui#6124 guidance as its description', (_file, _schema, key, mirror) => {
@@ -616,6 +759,33 @@ export type assertionRuntimeSlotsKeepTheirFunctionType = [
   Expect<KeepsFunction<DataTableSchema['onRowDelete']>>,
   Expect<KeepsFunction<DataTableSchema['onSelectionChange']>>,
   Expect<KeepsFunction<DataTableSchema['onColumnsReorder']>>,
+  // objectui#7804 — the `DataTableSchema` slice. Each TS twin stays callable
+  // because the function value REACHES the renderer; the mirror refuses by name.
+  Expect<KeepsFunction<DataTableSchema['onAddRecord']>>,
+  Expect<KeepsFunction<DataTableSchema['onBatchSave']>>,
+  Expect<KeepsFunction<DataTableSchema['onCellChange']>>,
+  Expect<KeepsFunction<DataTableSchema['onColumnResize']>>,
+  Expect<KeepsFunction<DataTableSchema['onRowActionDef']>>,
+  // objectui#7804 — the `TreeViewSchema` slice. Same rule: the TS twin stays
+  // callable because the function value REACHES the renderer and is INVOKED there.
+  Expect<KeepsFunction<TreeViewSchema['onNodeClick']>>,
+  Expect<KeepsFunction<DataTableSchema['onRowClick']>>,
+  Expect<KeepsFunction<DataTableSchema['onRowSave']>>,
+  // objectui#7804 — the `objectql.ts` slice. Each TS twin stays callable
+  // because the function value REACHES the renderer; the mirror refuses by
+  // name. The two `ObjectGallerySchema` keys are DECLARED here by this slice:
+  // they reached the renderer through `SchemaRenderer`'s props spread while
+  // `BaseSchema`'s index signature admitted them untyped, so declaring them is
+  // a narrowing on this face as well as on the mirror.
+  Expect<KeepsFunction<ObjectFormSchema['onCancel']>>,
+  Expect<KeepsFunction<ObjectFormSchema['onError']>>,
+  Expect<KeepsFunction<ObjectFormSchema['onOpenChange']>>,
+  Expect<KeepsFunction<ObjectFormSchema['onStepChange']>>,
+  Expect<KeepsFunction<ObjectFormSchema['onSuccess']>>,
+  Expect<KeepsFunction<ObjectGallerySchema['onCardClick']>>,
+  Expect<KeepsFunction<ObjectGallerySchema['onRowClick']>>,
+  Expect<KeepsFunction<ObjectGridSchema['onNavigate']>>,
+  Expect<KeepsFunction<ObjectViewSchema['onNavigate']>>,
   Expect<KeepsFunction<AccordionSchema['onValueChange']>>,
   Expect<KeepsFunction<CollapsibleSchema['onOpenChange']>>,
   Expect<KeepsFunction<ToggleGroupSchema['onValueChange']>>,

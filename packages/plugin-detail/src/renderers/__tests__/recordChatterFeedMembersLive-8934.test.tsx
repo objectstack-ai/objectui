@@ -55,10 +55,17 @@
  * `showSubscription && subscription` and `RecordChatterRenderer` passes no
  * `subscription`, so the component is where its live subject is.
  *
- * ⚠️ NOT covered here, and not claimed: `filterMode` and `enableMentions` are
- * also members of the declared shape and are still unread on this path
- * (`applyFeedConfig` covers the four filter members only). That gap is
- * objectui#8968, and pinning it either way is that card's business.
+ * ⚠️ NOT covered here, and still not claimed here: `filterMode` and
+ * `enableMentions` are also members of the declared shape, and `applyFeedConfig`
+ * covers the four filter members only — so this file asserts nothing about
+ * either of them, in either direction.
+ *
+ * ⭐ What this paragraph used to add, and no longer may: that the two are
+ * "still unread on this path". They are read now. objectui#8968 wired both into
+ * `renderers/record-chatter.tsx` and pinned them in
+ * `recordChatterFilterModeMentions-8968.test.tsx`. The SCOPE sentence above
+ * survives that card; the claim about the implementation did not, and is
+ * corrected rather than deleted so the next reader can see which half moved.
  *
  * ## Resolution
  *

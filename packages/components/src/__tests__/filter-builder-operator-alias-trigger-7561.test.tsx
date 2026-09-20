@@ -88,9 +88,12 @@ function operatorTriggerText() {
  *   - `canonical` — `@objectstack/spec`'s snake_case set, what the mirror
  *     (`FilterOperatorSchema`) accepts and what `foldFilterGroupToSpecRules`
  *     persists;
- *   - `alias` — the spec's alias table (`eq` / `lt` / `gt` / `ne` / `nin`),
- *     the THIRD spelling, authored today by `product-search.json`,
- *     `with-conditions.json` and the builder nested in `search-interface.json`;
+ *   - `alias` — the spec's alias table (`eq` / `lt` / `gt` / `ne` / `nin`), the
+ *     THIRD spelling. ⚠️ It was authored by three schema-catalog entries when
+ *     this pin was written; objectui#6939's remainder rewrote those to the
+ *     canonical members, so the dialect now reaches this builder from STORED
+ *     filters rather than from the corpus — which is the reason the row stays
+ *     here rather than following the corpus;
  *   - `overlap` — the three ids both vocabularies share. NOT controls.
  */
 const SPELLINGS: ReadonlyArray<{

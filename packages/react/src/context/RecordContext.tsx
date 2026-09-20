@@ -113,8 +113,26 @@ const EMPTY_SET: ReadonlySet<string> = new Set<string>();
 export interface RecordContextValue<TData = any, TObjectSchema = any> {
   /** Object machine name, e.g. "crm_opportunity". */
   objectName: string;
-  /** Primary key value of the record being displayed. */
-  recordId: string | number | null | undefined;
+  /**
+   * Primary key value of the record being displayed, as a `string` -- the one
+   * spelling `@objectstack/spec` declares on every record door (get, update,
+   * delete and the batch operation are all `z.string()`), so this consumer
+   * type is no longer wider than the protocol (objectui#9333).
+   *
+   * A host whose primary keys are numeric does NOT stringify at its call
+   * sites: `RecordContextProviderProps` still accepts `string | number`, and
+   * the provider pays the conversion once, below.
+   *
+   * `LineItemsPanel` reads this member as a `string` and hands it to a
+   * `string` parameter with no assertion in between, which is what
+   * objectui#9304 had to leave behind. That is a statement about that one
+   * reader, not about every reader: three `record:*` renderers in
+   * `@object-ui/plugin-detail` -- `record-details`, `record-quick-actions` and
+   * `record-alert` -- still read it through an `as any`. Those casts are
+   * redundant now rather than load-bearing, and removing them was left outside
+   * objectui#9333 deliberately.
+   */
+  recordId: string | null | undefined;
   /**
    * The data adapter the page is bound to, as the host resolved it — the same
    * object the host hands `SchemaRendererProvider`, forwarded so that
@@ -171,14 +189,34 @@ export interface RecordContextValue<TData = any, TObjectSchema = any> {
 
 const RecordContext = React.createContext<RecordContextValue | null>(null);
 
-export interface RecordContextProviderProps extends RecordContextValue {
+/**
+ * Props of `RecordContextProvider` -- THE injection boundary (objectui#9333).
+ *
+ * Identical to `RecordContextValue` except for `recordId`, the one member a
+ * host may still hand over in the wider shape its backend actually holds. The
+ * provider narrows it to the protocol's `string` exactly once, here, so no
+ * consumer downstream carries a `String(...)` or a cast.
+ */
+export interface RecordContextProviderProps extends Omit<RecordContextValue, 'recordId'> {
+  /** Primary key as the host holds it; narrowed to `string` on the way in. */
+  recordId: string | number | null | undefined;
   children: React.ReactNode;
 }
 
 export const RecordContextProvider: React.FC<RecordContextProviderProps> = ({
   children,
-  ...value
+  recordId,
+  ...rest
 }) => {
+  // The whole conversion for this contract, in one typed place. Gated on
+  // `typeof` rather than written as an unconditional `String(...)`: `null` and
+  // `undefined` mean "no record bound", and stringifying them would hand
+  // consumers the literal ids "null" / "undefined". A falsiness gate would be
+  // wrong in the other direction -- a numeric `0` is a real primary key.
+  const value: RecordContextValue = {
+    ...rest,
+    recordId: typeof recordId === 'number' ? String(recordId) : recordId,
+  };
   // Memoize so consumers that rely on referential equality don't re-render
   // on unrelated parent renders.
   const memo = React.useMemo<RecordContextValue>(() => value, [

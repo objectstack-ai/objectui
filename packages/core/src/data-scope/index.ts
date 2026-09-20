@@ -28,6 +28,7 @@ export {
   ELEMENT_DATA_SOURCE_INPUT,
   ELEMENT_DATA_SOURCE_KEY,
   elementDataSourceBlock,
+  elementDataSourceRefusedLimitMessage,
   elementDataSourceViewNotFoundMessage,
   isElementDataSourceBlock,
   isElementDataSourceConfig,

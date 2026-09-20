@@ -49,11 +49,27 @@
  *   - **Indentation is not capped at three spaces.** CommonMark says a marker
  *     indented four or more spaces is indented code, not a fence. The replaced
  *     predicates accepted any leading whitespace, and tightening that here would
- *     silently DROP fences the gates read today -- a behaviour change this card
- *     did not ask for. Measured over every tracked `.md`/`.mdx` file in the tree
- *     at the time of writing: 12 marker lines are indented past three spaces and
- *     every one of them is in `.github/prompts/component.prompt.md`, which is on
- *     neither gate's scan surface. Tightening is a separate card.
+ *     silently DROP fences the gates read today -- a behaviour change no card has
+ *     asked for. Tightening is still a separate card, but it is no longer a FREE
+ *     one, and this passage used to say it was.
+ *
+ *     Counted, not recalled: every marker line under `.github/prompts/**`, read
+ *     at fdd4ab90a7 -- 34 of them, 22 indented zero to three spaces and 12
+ *     indented four. All 12 are in `.github/prompts/component.prompt.md` (lines
+ *     57, 68, 99, 107, 115, 123, 129, 139, 164, 171, 202, 208, every one of them
+ *     at indent exactly 4), and they pair into SIX fenced blocks, not twelve.
+ *     Re-derive rather than trusting this block if it matters -- it is a reading
+ *     with a date on it, not a contract.
+ *
+ *     ⚠️ This passage used to close with "which is on neither gate's scan
+ *     surface". That was true when written, of the two gates this module then
+ *     served -- and objectui#9331 falsified it: `check-prompt-component-keys.mjs`
+ *     became a consumer, and its scan surface is exactly `.github/prompts` (its
+ *     `PROMPT_DIR`). So capping indentation would now change how that gate reads
+ *     six blocks of `component.prompt.md`: from fenced code, which it skips, to
+ *     prose, which it judges. Nothing moves TODAY -- this module and both
+ *     predicates it replaced all accept any leading whitespace, which is exactly
+ *     what makes objectui#9331's conversion behaviour-neutral on that file.
  *   - **Blank-info and multi-token info are both accepted as openers.** The
  *     replaced predicates required the whole info string to be one non-space
  *     token (`\s*$` after the capture), so a ```` ```ts title="a.ts" ```` line

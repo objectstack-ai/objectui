@@ -40,6 +40,7 @@ import {
 import {
   Button, Label, Textarea,
 } from '@object-ui/components';
+import { usePermissions } from '@object-ui/permissions';
 import type { MetadataDefaultInspectorProps } from '../default-inspector-registry.js';
 import { SchemaForm } from '../SchemaForm.js';
 import { t } from '../i18n.js';
@@ -55,7 +56,7 @@ import {
 import { useObjectOptions } from '../previews/useObjectOptions.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
 import { useMetaOptions } from '../previews/useMetaOptions.js';
-import { ConditionBuilder } from './ConditionBuilder.js';
+import { ConditionBuilder, CLIENT_CONDITION_ROOTS } from './ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from './expression-envelope.js';
 import { IconPickerWidget } from '../widgets.js';
 
@@ -228,10 +229,50 @@ function ActionTargetField({ type, value, onCommit, cfg, readOnly }: {
   );
 }
 
+/**
+ * What `@objectstack/spec` REFUSES beside `operation: 'update'`.
+ *
+ * The write is performed on the platform action route as the caller, so every
+ * key here describes a DIFFERENT execution surface — a request this action does
+ * not make (`target`, `body`, `method`, `bodyExtra`, `bodyShape`), a record
+ * selector the route resolves itself (`recordIdParam`, `recordIdField`), or a
+ * navigation the write has no business doing (`onSuccess`, `opensInNewTab`,
+ * `newTabUrl`). Pairing any of them with `patch` is a hard parse rejection, so
+ * the form clears them when the author switches into an update action rather
+ * than letting a draft be composed that cannot be saved.
+ *
+ * Mirrored from the contract, not restated as a judgement: the spec is what
+ * enforces this, and `ActionSchema.safeParse` is what proves it.
+ */
+const UPDATE_OPERATION_REFUSES = [
+  'target', 'body', 'method', 'bodyExtra', 'bodyShape',
+  'recordIdParam', 'recordIdField', 'onSuccess', 'opensInNewTab', 'newTabUrl',
+] as const;
+
+/**
+ * `list_toolbar` is refused in `locations` beside `operation: 'update'`: the
+ * bar is a MULTI-record surface and this write is single-record by contract.
+ * A list view's `bulkActionDefs` is that bar's home for the same intent.
+ */
+const UPDATE_OPERATION_REFUSED_LOCATION = 'list_toolbar';
+
+/** What a script action DOES — `operation` is authored beside `type`, not in it. */
+const SCRIPT_OPERATIONS = [
+  { value: '', label: 'Run a script — sandboxed JS / expression body' },
+  { value: 'update', label: 'Update fields on this record — no code' },
+];
+
 /** Keys this inspector edits with its own controls — hidden from the fallback. */
 const CURATED_FIELDS = [
   'name', 'label', 'objectName', 'icon', 'variant', 'component',
   'type', 'target', 'execute', 'body', 'method',
+  // The declarative single-record write, edited by the Behavior section's
+  // "What it does" control and its field-value editor. Curated — and therefore
+  // hidden from the fallback form — because the spec's refusal set around
+  // `operation` cannot be expressed by an independent field: the fallback would
+  // happily let an author pair `patch` with `target` and produce a draft that
+  // cannot be saved.
+  'operation', 'patch',
   'params', 'locations',
   'confirmText', 'successMessage', 'errorMessage', 'refreshAfter', 'undoable', 'mode',
   'visible', 'disabled', 'aiExposed', 'aiDescription',
@@ -440,6 +481,77 @@ export function ActionDefaultInspector({
   const params: ActionParam[] = Array.isArray(draft.params) ? (draft.params as ActionParam[]) : [];
   const locations: string[] = Array.isArray(draft.locations) ? (draft.locations as string[]) : [];
 
+  /* ─── objectui#7551 — `operation` is authored BESIDE `type`, not inside it ──
+   *
+   * `ActionType` gained no member for the declarative write: the spec
+   * materializes `type: 'script'` on an `operation: 'update'` action, because
+   * the write is performed on the platform action route — which is the script
+   * type's own route. So this is a second axis on the Behavior section, not a
+   * seventh entry in the Type list, and the Type control is pinned while it is
+   * set (every other `type` is a parse rejection beside this key).
+   */
+  const operation = str('operation');
+  const isUpdateOperation = operation === 'update';
+  const patch: Record<string, unknown> =
+    (draft.patch && typeof draft.patch === 'object' && !Array.isArray(draft.patch))
+      ? (draft.patch as Record<string, unknown>)
+      : {};
+  const patchRows = Object.entries(patch);
+
+  /**
+   * Switching INTO an update action clears the keys the spec refuses beside it
+   * and the placement it refuses, so the draft the author is holding stays
+   * saveable. Switching OUT drops `patch`, which the spec refuses without its
+   * `operation` (it would be silently dropped on the way to the runtime).
+   */
+  const commitOperation = (next: string) => {
+    if (next === 'update') {
+      const cleared: Record<string, unknown> = { operation: 'update', type: 'script' };
+      for (const key of UPDATE_OPERATION_REFUSES) cleared[key] = undefined;
+      if (locations.includes(UPDATE_OPERATION_REFUSED_LOCATION)) {
+        cleared.locations = locations.filter((l) => l !== UPDATE_OPERATION_REFUSED_LOCATION);
+      }
+      onPatch(cleared);
+      return;
+    }
+    onPatch({ operation: undefined, patch: undefined });
+  };
+
+  const commitPatch = (rows: Array<[string, unknown]>) => {
+    const next: Record<string, unknown> = {};
+    for (const [key, value] of rows) if (key.trim() !== '') next[key.trim()] = value;
+    onPatch({ patch: next });
+  };
+
+  /* ─── objectui#7234 — the OTHER way a correctly-placed action never appears ──
+   *
+   * `requiredPermissions` (ADR-0066 D4, `action.requiredPermissions`: "Enforced
+   * with 403 on the platform action route … and mirrored as a UI hide") filters
+   * the action out of every ticked surface at once — no button, no greyed-out
+   * control, no message, no 4xx. The card was opened by an admin who had
+   * configured the buttons, saw none of them anywhere, and read it as a broken
+   * feature; nothing in the product said otherwise.
+   *
+   * Maintainer ruling 2026-09-08 (option B): end-user behaviour is UNCHANGED —
+   * the action stays hidden — and the REASON becomes visible where the person
+   * who configures the app looks. This panel is that channel; the sibling
+   * notice below it (the empty-`locations` case) is the same idea for the other
+   * way an action never surfaces.
+   *
+   * The held set comes from `MePermissionsProvider` via `usePermissions()` —
+   * the same signal `useCanAuthorMetadata` reads, NOT a second client-side
+   * permission derivation. `undefined` there means the host reported nothing
+   * (no provider, or a backend predating ADR-0066), which the gate itself
+   * treats as unknown and fails OPEN on, so the "you do not hold it" half stays
+   * silent rather than guessing. */
+  const requiredPermissions: string[] = Array.isArray(draft.requiredPermissions)
+    ? (draft.requiredPermissions as unknown[]).filter((c): c is string => typeof c === 'string')
+    : [];
+  const { systemPermissions: heldCapabilities } = usePermissions();
+  const unheldCapabilities = Array.isArray(heldCapabilities)
+    ? requiredPermissions.filter((c) => !heldCapabilities.includes(c))
+    : [];
+
   // AI exposure — flattened keys (objectui/server convention, read by ActionPreview).
   const aiExposed = draft.aiExposed === true;
   const aiDescription = typeof draft.aiDescription === 'string' ? (draft.aiDescription as string) : '';
@@ -523,10 +635,85 @@ export function ActionDefaultInspector({
       {/* 2 ─ Behavior (type-first) */}
       <div className="border-t pt-3 space-y-3">
         <SectionHeader title="Behavior" hint="What happens when the action is triggered." />
-        <InspectorSelectField label="Type" value={type} options={ACTION_TYPES} onCommit={(v) => onPatch({ type: v })} disabled={readOnly} />
+        <InspectorSelectField label="Type" value={type} options={ACTION_TYPES} onCommit={(v) => onPatch({ type: v })} disabled={readOnly || isUpdateOperation} />
+        {isUpdateOperation && (
+          <div className="text-[11px] text-muted-foreground/70">
+            Pinned to <code>script</code>: the field write is performed on the platform action
+            route, which is this type’s own route. Any other type is refused beside it.
+          </div>
+        )}
 
         {type === 'script' ? (
           <>
+            <InspectorSelectField
+              label="What it does"
+              value={operation}
+              options={SCRIPT_OPERATIONS}
+              onCommit={commitOperation}
+              disabled={readOnly}
+            />
+            {isUpdateOperation ? (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Field values</Label>
+                {patchRows.length === 0 ? (
+                  <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2.5 text-center text-[11px] text-muted-foreground">
+                    No field values yet — add one, or collect the value as an input below.
+                  </p>
+                ) : (
+                  patchRows.map(([key, value], i) => (
+                    <div key={i} className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <InspectorTextField
+                          label="Field"
+                          value={key}
+                          onCommit={(v) => commitPatch(patchRows.map((row, j) => (j === i ? [v, row[1]] : row)))}
+                          placeholder="status"
+                          disabled={readOnly}
+                          mono
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <InspectorTextField
+                          label="Value"
+                          value={typeof value === 'string' ? value : JSON.stringify(value ?? '')}
+                          onCommit={(v) => commitPatch(patchRows.map((row, j) => (j === i ? [row[0], v] : row)))}
+                          placeholder="done"
+                          disabled={readOnly}
+                          mono
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        disabled={readOnly}
+                        aria-label="Remove field value"
+                        onClick={() => commitPatch(patchRows.filter((_, j) => j !== i))}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={readOnly}
+                  onClick={() => commitPatch([...patchRows, ['', '']])}
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Add field value
+                </Button>
+                <div className="text-[11px] text-muted-foreground/70">
+                  Written to the current record as the caller — object permissions, hooks and
+                  validations fire as for a user edit. An input collected below with the same name
+                  overrides the fixed value here.
+                </div>
+              </div>
+            ) : (
+              <>
             <InspectorSelectField
               label="Script language"
               value={(typeof body.language === 'string' ? body.language : undefined) || 'expression'}
@@ -547,6 +734,8 @@ export function ActionDefaultInspector({
               />
               <div className="text-[11px] text-muted-foreground/70">Runs in the sandbox as <code>(input, ctx) =&gt; Promise&lt;output&gt;</code>.</div>
             </div>
+              </>
+            )}
           </>
         ) : (
           <>
@@ -621,9 +810,15 @@ export function ActionDefaultInspector({
       <div className="border-t pt-3 space-y-2">
         <SectionHeader title="Placement" hint="Where this action surfaces in the UI." />
         <div className="grid grid-cols-1 gap-1">
-          {LOCATIONS.map((loc) => (
-            <InspectorCheckboxField key={loc.value} label={loc.label} value={locations.includes(loc.value)} onCommit={(v) => toggleLocation(loc.value, v)} disabled={readOnly} />
-          ))}
+          {/* `list_toolbar` is not OFFERED on an update action — the spec refuses
+              it there, and a placement an author can tick but not save is worse
+              than one that is absent. A list view's `bulkActionDefs` is that
+              bar's home for the same intent. */}
+          {LOCATIONS
+            .filter((loc) => !(isUpdateOperation && loc.value === UPDATE_OPERATION_REFUSED_LOCATION))
+            .map((loc) => (
+              <InspectorCheckboxField key={loc.value} label={loc.label} value={locations.includes(loc.value)} onCommit={(v) => toggleLocation(loc.value, v)} disabled={readOnly} />
+            ))}
         </div>
         {/* [#3142] No placement = renders in no located surface. Saying so
             here is the difference between an author seeing an empty list and
@@ -634,6 +829,31 @@ export function ActionDefaultInspector({
           <div className="text-[11px] text-destructive">
             No placement selected — this action will not appear on any record or list surface. Tick a
             placement above, or place it from a view’s bulk actions.
+          </div>
+        )}
+        {/* [#7234] The capability gate, stated where the person configuring the
+            app looks. Deliberately NOT an error: the hide is correct behaviour
+            under ADR-0066 D4 and the maintainer ruled it stays. What was
+            missing is that it was the one kind of disappearance nothing
+            anywhere explained. See the decode block above for the ruling. */}
+        {requiredPermissions.length > 0 && (
+          <div className="text-[11px] text-amber-700" data-testid="action-capability-gate-note">
+            Capability-gated on{' '}
+            <span className="font-mono">{requiredPermissions.join(' + ')}</span> — every placement
+            ticked above hides this action from anyone who does not hold{' '}
+            {requiredPermissions.length > 1 ? 'all of them' : 'it'}. Not greyed out and not an
+            error: the button is simply absent, and the server refuses the invocation with a 403
+            either way.
+            {unheldCapabilities.length > 0 && (
+              <>
+                {' '}
+                <span data-testid="action-capability-gate-self">
+                  This session does not hold{' '}
+                  <span className="font-mono">{unheldCapabilities.join(' + ')}</span>, so the button
+                  is hidden from you too — grant it through a permission set to see it in the app.
+                </span>
+              </>
+            )}
           </div>
         )}
         <div className="grid grid-cols-2 gap-2 pt-1">
@@ -668,8 +888,30 @@ export function ActionDefaultInspector({
         {/* Both are `ExpressionInputSchema` in the spec (`disabled` as
             `boolean | ExpressionInput`), so a persisted action carries the
             ADR-0089 envelope — same read/write pair as the hook guard (#3218). */}
-        <ConditionBuilder label="Visible when" value={expressionSource(draft.visible)} onCommit={(v) => onPatch({ visible: writeExpressionSource(draft.visible, v) })} objectName={objectName} disabled={readOnly} onBlockingIssuesChange={(n) => reportCel('visible', n)} />
-        <ConditionBuilder label="Disabled when" value={expressionSource(draft.disabled)} onCommit={(v) => onPatch({ disabled: writeExpressionSource(draft.disabled, v) })} objectName={objectName} disabled={readOnly} onBlockingIssuesChange={(n) => reportCel('disabled', n)} />
+        {/* `scope="record"` is CONFORMANCE, not taste (objectui#8167). The
+            row-predicate canon in `@object-ui/core` (`rowPredicateCanon.ts`)
+            names an action renderer's `visible` / `disabled` as a row surface
+            in its own words, and `usePredicateRecordContext` binds `record`
+            and nothing else — so a bare `status == 'done'` can never match.
+            Without the scope these two editors linted it CLEAN: the default is
+            `celAuthoring`'s `hint.scope ?? 'flattened'`, which is right for RLS
+            and wrong here. It also ends a disagreement inside this very
+            control — the row builder was already emitting `record.<field>`
+            while its own raw editor accepted the retired bare spelling. */}
+        {/* `roots` is the second declaration this pair owes, and it answers a
+            different question than `scope` does (objectui#9856). `scope` says
+            how the CEL is LINTED; `roots` says what the HOST binds, and
+            objectui#9645 could not derive the second from the first — so a
+            `scope="record"` mount that declares nothing inherits
+            `RECORD_CONDITION_ROOTS`, the set every host of a record-scoped
+            condition binds. These two are evaluated in the BROWSER, where
+            `buildExpressionScope` binds more than that, and
+            `CONDITION_HOST_BY_METADATA_TYPE` rules the `action` tier `client`
+            from a reading taken at that evaluator. Declared here rather than
+            defaulted, for the reason `RECORD_CONDITION_ROOTS` gives: the
+            component cannot see which host is on the other end. */}
+        <ConditionBuilder label="Visible when" value={expressionSource(draft.visible)} onCommit={(v) => onPatch({ visible: writeExpressionSource(draft.visible, v) })} objectName={objectName} disabled={readOnly} scope="record" roots={CLIENT_CONDITION_ROOTS} onBlockingIssuesChange={(n) => reportCel('visible', n)} />
+        <ConditionBuilder label="Disabled when" value={expressionSource(draft.disabled)} onCommit={(v) => onPatch({ disabled: writeExpressionSource(draft.disabled, v) })} objectName={objectName} disabled={readOnly} scope="record" roots={CLIENT_CONDITION_ROOTS} onBlockingIssuesChange={(n) => reportCel('disabled', n)} />
       </div>
 
       {/* 7 ─ AI exposure */}

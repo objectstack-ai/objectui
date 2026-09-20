@@ -327,9 +327,12 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
       ['detail.historyEmpty', DETAIL_VIEW, 'No history yet'],
       ['empty.appNotAvailable', APP_CONTENT, 'App not available'],
       [
+        // objectui#9262 retired the publishing clause: the screen asserted a
+        // transient deploy state it had never measured, over seven causes only
+        // one of which is a publish. What is left says nothing about why.
         'empty.appNotAvailableDescription',
         APP_CONTENT,
-        'This app is not available yet — it may still be publishing. Try again in a moment.',
+        'This app is not available — try again in a moment.',
       ],
       [
         'empty.interfacePageSourceMissing',
@@ -786,13 +789,33 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
     expect(at(builtInLocales.ru, 'kanban.addColumn')).toBe('Добавить колонку');
     expect(at(builtInLocales.ru, 'kanban.columns')).toBe('колонок');
     expect(at(builtInLocales.ko, 'kanban.columns')).toBe('열');
-    // `preview.history.items` is the repo's OTHER bare-unit-word call site, and it
-    // is untouched by this card — pinned so a reader can see that the shape still
-    // exists elsewhere and that route 3 was a decision about this region, not a
-    // repo-wide ban.
-    expect(at(builtInLocales.en, 'preview.history.items')).toBe('item(s)');
-    expect(at(builtInLocales.ko, 'preview.history.items')).toBe('항목');
-    expect(at(builtInLocales.ru, 'preview.history.items')).toBe('элементов');
+    // `preview.history.items` WAS the repo's other bare-unit-word call site, and
+    // this comment used to offer it as evidence that the shape "still exists
+    // elsewhere". ⚠️ That reading is retired by objectui#9266, and the sentence
+    // is rewritten rather than left standing: pointing at a live instance of a
+    // defect as proof that a ruling was narrow is how the shape propagated — the
+    // next author copies the structure the comment vouches for. What the kanban
+    // ruling was narrow ABOUT is stated directly instead: objectui#9170 dropped
+    // the NUMBER there because a kanban's lanes are visible anyway, and that
+    // reasoning does not transfer to a commit row, where the count is the only
+    // thing saying how much a build changed. objectui#9266 therefore kept the
+    // number and moved it INSIDE the pack value, so each pack owns the
+    // agreement — the repair `fields.textarea.charactersRemaining` already
+    // carries. The three values below are RE-DERIVED against that change, not
+    // deleted and not copied: the old ones pinned `ru`'s bare genitive plural
+    // `элементов` as correct, which rendered `1 элементов`.
+    expect(at(builtInLocales.en, 'preview.history.items')).toBe('{{count}} item(s)');
+    expect(at(builtInLocales.ko, 'preview.history.items')).toBe('{{count}} 항목');
+    expect(at(builtInLocales.ru, 'preview.history.items')).toBe('Элементов: {{count}}');
+    // The property those three strings now have and the old ones could not:
+    // the pack states the count itself. `kanban.columns` above still does not —
+    // it has no call site at all, which is the difference this file records.
+    for (const lang of ['en', 'ko', 'ru'] as const) {
+      expect(
+        at(builtInLocales[lang], 'preview.history.items'),
+        `${lang} preview.history.items`,
+      ).toContain('{{count}}');
+    }
   });
 
   it('detail.concurrentUpdateRecordLabel is grammatical in the sentence that embeds it', () => {
@@ -859,9 +882,13 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
     for (const key of KEYS) {
       expect((at(builtInLocales.fr, key) as string).includes('’'), `fr ${key} used a curly apostrophe`).toBe(false);
     }
-    expect(at(builtInLocales.fr, KEY)).toContain("n'est pas encore disponible");
-    // ru writes ё (163 values in the pack).
-    expect(at(builtInLocales.ru, KEY)).toContain('ещё');
+    expect(at(builtInLocales.fr, KEY)).toContain("n'est pas disponible");
+    // ru writes ё (163 values in the pack). This read `ещё`, which lived in the
+    // publishing clause objectui#9262 retired from this value; the habit is
+    // pinned on the sibling the same screen gained in that pass, where the ё is
+    // in `учётной записи`. Moved rather than dropped: a pack that reverts to
+    // `учетной` is the regression this line exists to catch.
+    expect(at(builtInLocales.ru, 'empty.appNotFoundDescription')).toContain('учётной');
     // The quote style around `{{name}}` follows the sibling empty-state value in
     // the SAME pack: zh curly, ja corner brackets, the rest ASCII.
     expect(at(builtInLocales.zh, 'empty.objectNotFoundDescription')).toContain('“{{name}}”');
@@ -998,7 +1025,7 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
       const { t } = result.current;
       expect(t('common.editInStudio')).toBe('在 Studio 中编辑');
       expect(t('empty.appNotAvailable')).toBe('应用不可用');
-      expect(t('empty.appNotAvailableDescription')).toBe('此应用尚不可用 —— 可能仍在发布中。请稍后重试。');
+      expect(t('empty.appNotAvailableDescription')).toBe('此应用不可用 —— 请稍后重试。');
       expect(t('empty.interfacePageSourceMissing', { name: 'crm_lead' })).toBe(
         '此界面页引用了 “crm_lead”，但该来源不可用。',
       );

@@ -42,20 +42,50 @@
  * "the metric is left to move and said out loud instead" and "whoever wants
  * the number back down should treat naming these families as its own
  * decision". objectui#8499's ceiling review raised the omission as blocking
- * F1 (`5597569641`), a delta commit carrying the eight barrel lines was
- * prepared, and the review then PASSed the deferral "on the surface-widening
- * reason alone" (`5598263402`). ⛔ So this is NOT `d908a82f4` recurring: no
- * one forgot, and the four rows below say "a decision is owed", not "someone
- * slipped".
+ * F1 (`5597569641`), whose remedy NAMED "one additive commit on `90fcf4f2`
+ * with the eight barrel lines" — ⛔ named, not prepared. `5598263402` recorded
+ * the sha later offered for that commit, `b7af6b52`, as a phantom ("Option (a)
+ * had nothing to lean on"), and the review PASSed the deferral "on the
+ * surface-widening reason alone" instead. Re-derive by asking this repository's
+ * commits endpoint for `b7af6b52`: it answers 422 "No commit found for SHA"
+ * where the controls `90fcf4f2`, `fb010227` and `005409fc1` answer 200.
+ *
+ * ⛔ So this is NOT `d908a82f4` recurring: no
+ * one forgot — the barrel was left alone on a reason, and the decision that
+ * reason deferred has since been TAKEN.
+ *
+ * ⭐ objectui#9067 settled it and split the four (director seat, decision batch
+ * #121 item 5, maintainer 2026-09-12). The barrel means one name, one node type:
+ * `InputShorthandSchema` (two `type` literals) and `UiCalendarSchema` (one) fit
+ * that meaning and are now exported by name; `SemanticElementSchema` and
+ * `HtmlElementSchema` are `z.enum` families keyed by a tag, do not, and are the
+ * two `ABSENT_BY_DECISION` rows below carrying the reason. Splitting the families
+ * into per-tag schemas was ruled out in the same record as expansion for a
+ * consumer nobody has measured. ⛔ So no row below says "a decision is owed" any
+ * more, and the card's own framing — that these were unnamed by accident — is
+ * corrected by that record: the omission was declared, reviewed and passed.
  *
  * ⚠️ It is still exactly what this pin is for, and the reason is where the
  * declaration LIVES. A `.changeset/*.md` is consumed and deleted at release —
  * measured, e.g. `59f61cfb8` "chore: release packages (#4655)" removes the
- * batch it versioned. The absence outlives its own explanation, and once the
- * explanation is gone a deferred non-export and a collateral drop are the same
- * two lines of nothing in `index.zod.ts`. The rows below move that reason into
- * the tree, where it is re-read on every run and deleted only when it stops
- * being true.
+ * batch it versioned.
+ *
+ * ⛔ But the explanation does NOT die with the file, and this docblock used to
+ * say it did. A changeset that declares a bump has its prose copied into the
+ * bumped package's CHANGELOG by that same release commit; only one with EMPTY
+ * frontmatter — this repository's "no release" declaration — is deleted with
+ * nowhere for its reason to go. `.changeset/8499-node-slot-registered-arms.md`
+ * declares `'@object-ui/types': minor`, so its reason lands in
+ * `packages/types/CHANGELOG.md` at the next release. Re-derive on any release
+ * commit by diffing its `.changeset/` deletions against the `*CHANGELOG.md`
+ * lines it adds; ⛔ nothing in this repository re-derives it for you, so treat
+ * this paragraph as the one-off reading it is.
+ *
+ * ⇒ The operative argument is narrower and survives intact: nothing in the tree
+ * re-reads that CHANGELOG entry and nothing reddens when it stops being true, so
+ * a deferred non-export and a collateral drop still read as the same two lines
+ * of nothing in `index.zod.ts`. The rows below move the reason to where it IS
+ * re-read on every run, and deleted only when it stops being true.
  *
  * ## Why the existing checks could not see it
  *
@@ -89,8 +119,15 @@
  *    PARENT sub-union re-exported under the arm's name — satisfies a name-based
  *    check and every behavioural leg of that pin. Only identity catches it, and
  *    the arm's identity chain deliberately starts at the union OPTION, so no
- *    containing union is ever a candidate. `the parent union under the arm's
- *    name is still unnamed` below is that property as a control.
+ *    containing union is ever a candidate. TWO controls below carry that
+ *    property: `still reports the arm when the PARENT union carries the arm
+ *    name`, on probe schemas, and `still reports the REAL arm when the barrel
+ *    binds its name to the parent union`, on the real barrel — the leg that
+ *    catches a `namesOn` weakened from identity to a name match, since a probe
+ *    schema has no declaring name for such a check to match on. ⛔ Cited by
+ *    title, not by line: the title this sentence used to give belonged to no
+ *    `it()` in this file at any point, and a line number would have rotted the
+ *    same way (the shape objectui#7853 established and objectui#8478 applied).
  *
  * ⛔ The arm list is DERIVED on every run and no count is hard-coded: arms land
  * (four did, mid-card), and a number stated in a comment that nothing checks is
@@ -128,9 +165,9 @@ import * as viewsZod from '../zod/views.zod.js';
 /* ── The ledger ──────────────────────────────────────────────────────────────
  *
  * ⛔ NOT a claim that every arm must be exported — only that the answer is
- * DECLARED, in the tree, where it is re-read on every run. Neither row below
- * records a slip: one is a decision taken and four are a decision deferred with
- * its reason on the record. A row is keyed by ONE `type` literal of the
+ * DECLARED, in the tree, where it is re-read on every run. ⛔ No row below
+ * records a slip — every one is a decision taken, with its reason. A row is
+ * keyed by ONE `type` literal of the
  * arm, because an arm with no barrel export has, by definition, no barrel name
  * to key on; `every ledger row still names an arm` below fails if that literal
  * stops existing, so the key cannot rot into a comment.
@@ -143,39 +180,47 @@ const ABSENT_BY_DECISION: Readonly<Record<string, string>> = {
     + 'The decision is written on the barrel itself, beside the `complex.zod.js` block: '
     + '"it is deliberately NOT exported — nothing outside this package parses against a '
     + 'refusal arm" (objectui#8802, maintainer ruling 2026-09-09).',
+
+  // ⭐ The two rows objectui#9067 moved here out of ABSENT_PENDING_DECISION. They
+  // quote `.changeset/8499-node-slot-registered-arms.md` rather than cite it,
+  // because that file is consumed and deleted at release and the reason has to
+  // outlive it — which is the whole point of ledgering them (see the docblock
+  // above). Both are FAMILY schemas keyed by a tag `z.enum`: a name bound to
+  // either hands a consumer a schema accepting every tag in the family, not the
+  // one node type every other name on this barrel stands for.
+  aside:
+    'layout.zod.ts#SemanticElementSchema — a `z.enum` family of HTML sectioning tags, not one '
+    + 'node type. NOT named on the barrel by the objectui#9067 ruling (director seat, decision '
+    + 'batch #121 item 5, maintainer 2026-09-12), on the reason objectui#8499 recorded when it '
+    + 'armed the arm and deferred the naming: exporting a `SemanticElementSchema` / '
+    + '`HtmlElementSchema` pair "would publish a NAMED authoring surface (`z.enum` families, not '
+    + 'per-tag schemas) that this card\'s ruling does not cover". Splitting the family into '
+    + 'per-tag schemas was ruled out in the same record as expansion for a consumer nobody has '
+    + 'measured. The non-export is also written on the barrel, beside the `layout.zod.js` block.',
+  h1:
+    'layout.zod.ts#HtmlElementSchema — the same ruling, the same reason, the other family: a '
+    + '`z.enum` of the safe flow/inline tags `renderers/basic/html-elements.tsx` registers. '
+    + 'objectui#8499\'s changeset names this pair together — exporting them "would publish a '
+    + 'NAMED authoring surface (`z.enum` families, not per-tag schemas)" — and objectui#9067 '
+    + 'ruled the pair absent by decision rather than split into per-tag schemas.',
 };
 
 /**
- * Arms whose absence from the barrel was DEFERRED, with the decision still owed.
+ * Arms whose absence from the barrel is DEFERRED, with the decision still owed.
  *
- * ⛔ These are not oversights, and reading them as oversights is the mistake
- * this comment exists to prevent. All four were armed by `507b61bf7`
- * (objectui#8499), which left the barrel alone deliberately: its changeset,
- * `.changeset/8499-node-slot-registered-arms.md`, declares the omission, states
- * that exporting a `SemanticElementSchema` / `HtmlElementSchema` pair "would
- * publish a NAMED authoring surface (`z.enum` families, not per-tag schemas)
- * that this card's ruling does not cover", and closes by saying "whoever wants
- * the number back down should treat naming these families as its own decision".
- * The objectui#8499 ceiling review raised the omission as blocking F1
- * (`5597569641`) and then PASSed the deferral "on the surface-widening reason
- * alone" (`5598263402`).
+ * ⭐ Empty on purpose, and kept rather than deleted: it is one of the three
+ * answers the failure message below offers, so a card that arms an arm it has no
+ * ruling to name has somewhere to say so instead of leaving the answer to be
+ * inferred from an absence. ⛔ Do not repurpose it as a second
+ * `ABSENT_BY_DECISION` — a row here means "nobody has decided yet", and `states
+ * each absence once` below refuses a literal that claims to be both.
  *
- * ⇒ The state is "a decision is owed", which is what these rows record, and the
- * argument AGAINST naming them is on the record too. objectui#9067 carries the
- * decision; anyone acting on it should read the changeset passage first, not
- * only the case for exporting.
- *
- * ⚠️ They are ledgered anyway rather than left to that changeset, because a
- * `.changeset/*.md` is consumed and deleted at release (measured: `59f61cfb8`
- * "chore: release packages (#4655)" removes the batch it versioned). The rows
- * keep the reason next to the state it explains.
+ * It last held four rows, all four armed by `507b61bf7` (objectui#8499) and all
+ * four settled by objectui#9067: two are exported by name from `index.zod.ts`
+ * now, two moved to `ABSENT_BY_DECISION` above with the reason. See the file
+ * docblock for that split and why the reason had to leave the changeset.
  */
-const ABSENT_PENDING_DECISION: Readonly<Record<string, string>> = {
-  aside: 'layout.zod.ts#SemanticElementSchema — deferred by objectui#8499, decision owed on objectui#9067',
-  h1: 'layout.zod.ts#HtmlElementSchema — deferred by objectui#8499, decision owed on objectui#9067',
-  email: 'form.zod.ts#InputShorthandSchema — deferred by objectui#8499, decision owed on objectui#9067',
-  'ui:calendar': 'form.zod.ts#UiCalendarSchema — deferred by objectui#8499, decision owed on objectui#9067',
-};
+const ABSENT_PENDING_DECISION: Readonly<Record<string, string>> = {};
 
 const LEDGER: Readonly<Record<string, string>> = { ...ABSENT_BY_DECISION, ...ABSENT_PENDING_DECISION };
 
@@ -206,7 +251,22 @@ interface ZodDef {
   readonly entries?: Readonly<Record<string, unknown>>;
 }
 
-/** Zod 4 keeps a schema's definition on `_zod`; nothing public exposes it. */
+/**
+ * A schema's definition. Zod 4 stores it at `_zod.def` and ALSO exposes it
+ * publicly as `.def` — the same object, not a copy. ⛔ This docblock used to say
+ * "nothing public exposes it", which is false. Measured on the zod version
+ * `packages/types/package.json` resolves today (4.4.3): `schema.def ===
+ * schema._zod.def` holds for every shape this file walks — object, literal,
+ * enum, union, discriminated union and lazy — and zod's own `ZodType`
+ * interface declares `def` while carrying `_def` only as deprecated, with a
+ * doc comment pointing at `.def` as the replacement.
+ *
+ * ⇒ The spelling below is therefore not load-bearing and reading `.def` would be
+ * equally correct; it is kept because the cast is written against the internal
+ * shape. ⚠️ That is a claim about a third-party runtime, which is the class
+ * that goes stale in silence: re-measure it against the zod version
+ * `packages/types/package.json` resolves, ⛔ never against this sentence.
+ */
 function defOf(schema: unknown): ZodDef | undefined {
   return (schema as { _zod?: { def?: ZodDef } } | null | undefined)?._zod?.def;
 }
@@ -407,15 +467,42 @@ describe('the census reads the real union, and reads all of it', () => {
     if (button === undefined) return;
     expect(namesOn(BARREL, button)).toContain('ButtonSchema');
   });
+
+  it('still reports the REAL arm when the barrel binds its name to the parent union', () => {
+    // ⭐ Property 2 as a control ON THE REAL BARREL, and the leg this file was
+    // missing. `still reports the arm when the PARENT union carries the arm
+    // name` states the same property on probe schemas, and a probe schema has no
+    // declaring name — so a `namesOn` weakened from identity to "identity OR the
+    // arm's declaring name" leaves that control, and every other test here,
+    // green: with the barrel intact AND with `export { NavigationSchema as
+    // BreadcrumbSchema }` written to `index.zod.ts`. Only this leg reddens under
+    // that weakening, because the arm below is declared as `BreadcrumbSchema` in
+    // `navigation.zod.ts` and the namespace it is judged against carries that
+    // very name — bound to the PARENT union, which is exactly the write
+    // adversarial probing of #8777's pin found.
+    const breadcrumb = CENSUS.arms.find((arm) => arm.literals.includes('breadcrumb'));
+    expect(breadcrumb).toBeDefined();
+    if (breadcrumb === undefined) return;
+    // The intact barrel names it, so the substitution below is the only variable.
+    expect(namesOn(BARREL, breadcrumb)).toContain('BreadcrumbSchema');
+    expect(
+      namesOn({ ...BARREL, BreadcrumbSchema: BARREL.NavigationSchema }, breadcrumb),
+      'The barrel binds `BreadcrumbSchema` to the PARENT union rather than to the arm, so the '
+      + 'arm has no name of its own and must read as unnamed. A `namesOn` that answers this by '
+      + 'name instead of by identity reports `BreadcrumbSchema` here and the pin goes quiet.',
+    ).toEqual([]);
+  });
 });
 
 describe('the census fires — controls', () => {
   // Every control below is built on schemas the census has never seen, so each
   // one is free to be red: the arm under test is absent from the namespace it
   // is judged against, which is precisely the state the real reading must
-  // detect. A census that reported nothing would leave all four green only if
-  // it reported nothing for the real union too, and the `recurses BELOW` and
-  // `matches a known arm` legs above already refuse that.
+  // detect. A census that reported nothing would leave every control in this
+  // block green only if it reported nothing for the real union too, and the
+  // `recurses BELOW` and `matches a known arm` legs above already refuse that.
+  // ⛔ No count is written here: this block said "all four" while carrying five,
+  // which is the objectui#8606 shape in the very file that names it.
   const armA = z.object({ type: z.literal('probe-a') });
   const armB = z.object({ type: z.literal('probe-b') });
   const armC = z.object({ type: z.literal('probe-c') });
@@ -464,11 +551,28 @@ describe('the census fires — controls', () => {
   });
 
   it('accepts either side of a `z.lazy` as the arm name, and neither is still unnamed', () => {
-    // `z.union` rather than a discriminated one: a bare `z.lazy` member
-    // computes no `propValues`, which zod 4 refuses as a discriminated option
-    // (`any-component-union-fanout.test.ts` measures that refusal). The real
-    // tree reaches its lazy arm through an annotated member; what matters here
-    // is only which objects count as the arm's identity.
+    // `z.union`, and ⛔ nothing forbids a discriminated one here — this comment
+    // used to say a bare `z.lazy` member "computes no `propValues`, which zod 4
+    // refuses as a discriminated option", and all three parts of that are wrong
+    // on the zod version `packages/types/package.json` resolves today (4.4.3),
+    // and on this repo's tsc (6.0.3):
+    //  - a bare `z.lazy` over an object schema DOES compute `propValues` — it
+    //    inherits its member's;
+    //  - `z.discriminatedUnion('type', [lazyArm])` both type-checks and parses,
+    //    green for the declared literal and red for anything else;
+    //  - what zod 4.4.3 refuses as a discriminated option is a plain `z.union`
+    //    MEMBER, which computes no `propValues` — and it refuses at the first
+    //    PARSE, not at construction (`Invalid discriminated union option at
+    //    index "N"`). That is the refusal `any-component-union-fanout.test.ts`
+    //    measures, in `lets both nested unions declare their literals too`; ⛔ it
+    //    measures nothing about a lazy.
+    // ⚠️ Nor is the real tree's cast owed to `z.lazy`: `crud.zod.ts`'s action arm
+    // needs one because of its maintainer-ruled `z.ZodType<…>` annotation
+    // (objectui#7760), whose internals type `propValues` as `PropValues |
+    // undefined` — the annotation, not the lazy, is what `tsc` cannot see
+    // through. `censusOf` reads `def.type === 'union'`, which a discriminated
+    // union also is, so this choice changes nothing either way; what matters
+    // here is only which objects count as the arm's identity.
     const lazyArm = z.lazy(() => armC);
     const lazyUnion = z.union([lazyArm]);
     const unnamedAgainst = (namespace: Readonly<Record<string, unknown>>) =>

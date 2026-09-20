@@ -49,6 +49,11 @@ import { dirname, join } from 'node:path';
 // measure it rather than restate it. `@objectstack/spec` is a declared
 // dependency of this package; `ComponentPropsMap` is its published UI surface.
 import { ComponentPropsMap } from '@objectstack/spec/ui';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 import { ObjectCalendarSchema, ObjectGanttSchema, safeValidateSchema } from '../zod/index.zod';
 import { BaseSchema } from '../zod/base.zod';
@@ -375,22 +380,248 @@ describe('objectui#7313 — `data` and `staticData` are DECLARED, not passthroug
   });
 });
 
+/* ── objectui#9676 — the plugin page's `object-calendar` literals, ENUMERATED ── */
+
+/**
+ * objectui#9676 — the TOTAL property in this file ("no bare `object-calendar`
+ * literal is left unannotated on the page") used to be carried by a single
+ * pattern, `/^const \w+ = \{\n\s+type: 'object-calendar'/gm` asserted
+ * `.toBeNull()`, and that pattern could not fail for most of the class it named.
+ * Four samples through it, re-measured on this branch before the repair:
+ *
+ *     column 0, discriminant first       -> MATCHES
+ *     the same text indented by two      -> null
+ *     column 0, discriminant SECOND      -> null
+ *     indented, NO discriminant at all   -> null
+ *
+ * Rows two and three are the two blindnesses the card names: `^` under the `m`
+ * flag anchors at column 0, so a literal declared inside a function is invisible;
+ * and the pattern required the discriminant to be the literal's FIRST member.
+ *
+ * ⭐ Row four is why this row is an ENUMERATION and not a wider regex. The anchor
+ * and the member-order requirement are both loosenable, but a literal that omits
+ * the discriminant ENTIRELY — the failure mode the page's own prose is about — is
+ * invisible to ANY pattern keyed on `type: 'object-calendar'`, at every anchor
+ * and in every member order. Widening the pattern would have left the class open
+ * while reading as a repair. The specimen that proves it is historical now:
+ * `MyObjectCalendar`'s `const schema = { objectName: 'events', … }` sat indented
+ * and discriminant-less inside this pin's own input from objectui#7313 until PR
+ * objectui#9678 annotated it, and the pin read green for every day of that.
+ *
+ * So the population is read off the page rather than matched. Every
+ * `const NAME = { … }` declaration inside a fence is brace-matched out, then
+ * classified as an `object-calendar` literal by either of two INDEPENDENT
+ * signals, so that neither one alone can hide a member of the class:
+ *
+ *   S1  it carries `type: 'object-calendar'` among its OWN members, at any
+ *       indentation and in any position — rows one through three;
+ *   S2  it is handed to an `<ObjectCalendar …>` element as that element's
+ *       `schema` prop — row four, which S1 structurally cannot reach.
+ *
+ * Scope is the FENCE, not the page. `schema` is declared five times on this page
+ * in five separate blocks, so a page-wide name match would read the
+ * `calendar-view` fragment's `const schema` as the one `<ObjectCalendar>`
+ * consumes and go red on a healthy page.
+ *
+ * ⚠️ WHERE THIS STILL CANNOT FAIL — written down rather than left to be assumed
+ * (AGENTS.md #9, and the reason this card exists at all): a literal carrying
+ * NEITHER the discriminant NOR an `<ObjectCalendar>` consumption inside its own
+ * fence remains invisible. Nothing in the page text identifies such a literal as
+ * an `object-calendar`, so that is the BOUNDARY of the claim, not a gap in the
+ * reading — and the row below is named to that boundary rather than to a wider
+ * one. The row that follows it feeds both blind shapes through this reading, so
+ * the ability to fail is a measured fact here and not a claim.
+ */
+
+/** A `const NAME[: T] = { … }` declaration, brace-matched out of a code fence. */
+interface ConstObjectDecl {
+  readonly name: string;
+  /** Whether the declaration carries an explicit type annotation. */
+  readonly annotated: boolean;
+  /** The object literal, from its opening brace to its matching close. */
+  readonly body: string;
+}
+
+/** The page's fenced code blocks, fence lines removed. */
+function fencedBlocks(source: string): string[] {
+  const out: string[] = [];
+  let buf: string[] | null = null;
+  for (const line of source.split('\n')) {
+    if (line.startsWith('```')) {
+      if (buf === null) buf = [];
+      else {
+        out.push(buf.join('\n'));
+        buf = null;
+      }
+      continue;
+    }
+    if (buf !== null) buf.push(line);
+  }
+  // An unterminated fence would swallow the rest of the page into nothing and
+  // shrink the population silently — the exact failure direction this card is
+  // about, so it is thrown rather than tolerated.
+  if (buf !== null) throw new Error('unterminated code fence');
+  return out;
+}
+
+/** Every `const NAME[: T] = { … }` declaration in `source`, brace-matched. */
+function constObjectDeclarations(source: string): ConstObjectDecl[] {
+  const out: ConstObjectDecl[] = [];
+  const decl = /\bconst\s+([A-Za-z_$][\w$]*)\s*(:[^=\n]+)?=\s*\{/g;
+  for (let m = decl.exec(source); m !== null; m = decl.exec(source)) {
+    const open = decl.lastIndex - 1;
+    let depth = 0;
+    let end = open;
+    for (; end < source.length; end += 1) {
+      if (source[end] === '{') depth += 1;
+      else if (source[end] === '}') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    if (depth !== 0) throw new Error(`unbalanced object literal for \`const ${m[1]}\``);
+    out.push({ name: m[1], annotated: m[2] !== undefined, body: source.slice(open, end + 1) });
+  }
+  return out;
+}
+
+/** The members of a brace-matched object literal, split at ITS OWN depth. */
+function ownMembers(body: string): string[] {
+  const out: string[] = [];
+  let buf = '';
+  let d = 0;
+  for (const ch of body.slice(1, -1)) {
+    if ('([{'.includes(ch)) d += 1;
+    else if (')]}'.includes(ch)) d -= 1;
+    if (ch === ',' && d === 0) {
+      out.push(buf.trim());
+      buf = '';
+      continue;
+    }
+    buf += ch;
+  }
+  out.push(buf.trim());
+  return out.filter((s) => s.length > 0);
+}
+
+/** Every `<TAG …>` opening element in `source`. */
+function jsxOpeningElements(source: string, tag: string): string[] {
+  const out: string[] = [];
+  const open = new RegExp(`<${tag}\\b`, 'g');
+  for (let m = open.exec(source); m !== null; m = open.exec(source)) {
+    let depth = 0;
+    let end = m.index;
+    for (; end < source.length; end += 1) {
+      const ch = source[end];
+      if (ch === '{') depth += 1;
+      else if (ch === '}') depth -= 1;
+      // A `>` inside a `{…}` expression is an operator (`=>`, `a > b`), not the
+      // element's end; depth is what separates the two.
+      else if (ch === '>' && depth === 0) break;
+    }
+    out.push(source.slice(m.index, end + 1));
+  }
+  return out;
+}
+
+/** One enumerated declaration, with the two classification signals kept apart. */
+interface ClassifiedDecl extends ConstObjectDecl {
+  readonly byDiscriminant: boolean;
+  readonly byConsumption: boolean;
+}
+
+/** Enumerate a page's `const` object literals, fence by fence, and classify each. */
+function objectCalendarLiterals(page: string): ClassifiedDecl[] {
+  return fencedBlocks(page).flatMap((block) => {
+    const consumers = jsxOpeningElements(block, 'ObjectCalendar');
+    return constObjectDeclarations(block).map((d) => ({
+      ...d,
+      byDiscriminant: ownMembers(d.body).some((m) => /^type\s*:\s*'object-calendar'(?![\w-])/.test(m)),
+      byConsumption: consumers.some((el) => el.includes(`schema={${d.name}}`)),
+    }));
+  });
+}
+
 describe('objectui#7313 — the declaration names a live read, in the declared order', () => {
   it('the renderer resolves its records through the shared ladder, on the ARRAY arm', () => {
-    const src = readFileSync(join(REPO_ROOT, RENDERER), 'utf8');
-    // ⭐ objectui#8348 — the arm is part of the call now, and asserting it here
-    // is what keeps this row honest. The previous spelling looked for the bare
-    // `resolveRecordSourceConfig(schema)`, which this file's own renderer
-    // satisfies from a DOCBLOCK line that merely names the function — so it
-    // would have stayed green through a call site that had stopped existing.
-    expect(src, `${RENDERER} no longer calls the shared ladder with its declared arm`).toContain(
-      "resolveRecordSourceConfig(schema, 'array')",
-    );
+    // ⭐ objectui#8348 — the arm is part of the call, and asserting it here is
+    // what keeps this row honest. The spelling before that card looked for the
+    // bare `resolveRecordSourceConfig(schema)`, which this renderer satisfies
+    // from a DOCBLOCK line that merely names the function — so it would have
+    // stayed green through a call site that had stopped existing.
+    //
+    // ⭐ objectui#8651 re-anchored it a second time, for the objectui#8832
+    // reason: the literal `resolveRecordSourceConfig(schema, 'array')` pinned
+    // how the FIRST ARGUMENT is written, and that card had to change it — the
+    // ladder's parameter declares `data?: ViewData` while this block's
+    // published `data` row is the ARRAY arm, so the three members it documents
+    // itself as reading are now passed one by one. The call, the arm and the
+    // refusal of the other arm are the FACTS; the argument's shape is
+    // formatting. So the arms are read out of the call's own argument list,
+    // located by paren matching, with comments masked FIRST — which retires the
+    // docblock false green structurally rather than by wording.
+    const src = mask(readFileSync(join(REPO_ROOT, RENDERER), 'utf8'));
+    const at = src.indexOf('resolveRecordSourceConfig(');
+    expect(at, `${RENDERER} no longer calls the shared ladder at all`).toBeGreaterThan(-1);
+    let depth = 0;
+    let end = at + 'resolveRecordSourceConfig'.length;
+    let closed = false;
+    for (; end < src.length; end += 1) {
+      if (src[end] === '(') depth += 1;
+      else if (src[end] === ')') {
+        depth -= 1;
+        if (depth === 0) {
+          closed = true;
+          break;
+        }
+      }
+    }
+    const call = src.slice(at, end + 1);
+    expect(closed, 'the paren match ran away — every assertion below is void').toBe(true);
+
+    // ⭐ READ THE ARGUMENT LIST, do not search the slice for the arm's TEXT.
+    //
+    // This row shipped with `call.length < src.length` and `call.endsWith(')')`
+    // as its control, and objectui#8651's contract review showed both are
+    // satisfied by a paren match that RAN AWAY — a runaway slice is shorter
+    // than the file and ends in a paren. The control passed in exactly the case
+    // it existed to catch.
+    //
+    // ⚠️ And the obvious repairs do not close it either, which is worth writing
+    // down so the next person does not re-derive it: delete this call's own
+    // closing paren and the matcher simply closes on `useMemo`'s instead,
+    // swallowing the dependency array. That runaway slice still reports
+    // `closed`, is still balanced on every bracket kind, and still contains no
+    // declaration — a dependency array is a legal call argument, so NO
+    // structural test on the slice can separate the two. Measured: 179 chars
+    // genuine, 249 runaway.
+    //
+    // What DOES separate them is the thing this row actually claims — the arm
+    // is the call's LAST ARGUMENT, not a string that appears somewhere inside
+    // it. Splitting the argument list at depth 0 gives `['{…}', "'array'"]` for
+    // the real call and a third `[…]` argument for the runaway, so the arity
+    // assertion fires. It is also reformat-stable, which a length ceiling is
+    // not.
+    const inner = call.slice(call.indexOf('(') + 1, -1);
+    const args: string[] = [];
+    let buf = '';
+    let d = 0;
+    for (const ch of inner) {
+      if ('([{'.includes(ch)) d += 1;
+      else if (')]}'.includes(ch)) d -= 1;
+      if (ch === ',' && d === 0) { args.push(buf.trim()); buf = ''; continue; }
+      buf += ch;
+    }
+    args.push(buf.trim());
+    const positional = args.filter((a) => a.length > 0);
+    expect(positional, `${RENDERER}: the ladder call no longer takes exactly (schema, arm)`)
+      .toHaveLength(2);
     // The arm is the one `ComponentPropsMap['object-calendar'].data` declares
     // (`z.array(z.unknown())`, "Pre-fetched records"), which is why it is
     // `'array'` here and `'view-data'` on `object-grid` / `object-map` /
     // `object-gantt`.
-    expect(src).not.toContain("resolveRecordSourceConfig(schema, 'view-data')");
+    expect(positional[1], `${RENDERER} no longer calls the shared ladder with its declared arm`)
+      .toBe("'array'");
   });
 
   it('the ladder reads `data`, then `staticData`, then `objectName` — the order the refinement rests on', () => {
@@ -413,8 +644,96 @@ describe('objectui#7313 — the declaration names a live read, in the declared o
     const page = readFileSync(join(REPO_ROOT, DOC_PAGE), 'utf8');
     expect(page).toContain("const schema: ObjectCalendarSchema = {\n  type: 'object-calendar',\n  staticData: [");
     expect(page).toContain("const valueProviderCalendar: ObjectCalendarSchema = {\n  type: 'object-calendar',\n  staticData: [");
-    // No bare `object-calendar` literal is left unannotated on the page.
-    expect(page.match(/^const \w+ = \{\n\s+type: 'object-calendar'/gm)).toBeNull();
+    // These two rows name two specific consts and verify those two — that is the
+    // whole of what they claim. The TOTAL property that used to be asserted here
+    // alongside them lives in its own row below (objectui#9676), because the
+    // pattern that carried it could not fail for most of the class it named.
+  });
+
+  it('⭐ no `object-calendar` literal on the page is left unannotated — the page\'s literals ENUMERATED, not pattern-matched (objectui#9676)', () => {
+    const page = readFileSync(join(REPO_ROOT, DOC_PAGE), 'utf8');
+    const declared = objectCalendarLiterals(page);
+
+    // Control: splitting the page into fences may not LOSE a declaration. Every
+    // `const NAME = {…}` the whole page carries has to come back out of some
+    // fence, or the verdict below is a verdict on a population that shrank on
+    // the way in.
+    expect(declared.map((d) => d.name).sort()).toEqual(
+      constObjectDeclarations(page)
+        .map((d) => d.name)
+        .sort(),
+    );
+
+    const calendar = declared.filter((d) => d.byDiscriminant || d.byConsumption);
+
+    // Control: the reader has to SEE the population before its verdict on that
+    // population means anything — `every()` over an empty set is exactly the
+    // silent green this card was filed for. Named subjects, not a count: a count
+    // moves every time the page grows an example, and then gets relaxed.
+    expect(calendar.map((d) => d.name)).toEqual(
+      expect.arrayContaining([
+        'fieldMappedCalendar',
+        'objectProviderCalendar',
+        'valueProviderCalendar',
+        'eventClickCalendar',
+        'dateClickCalendar',
+        'appointmentCalendar',
+        'eventCalendar',
+        'taskCalendar',
+      ]),
+    );
+
+    expect(
+      calendar.filter((d) => !d.annotated).map((d) => d.name),
+      `${DOC_PAGE}: these \`object-calendar\` literals carry no type annotation`,
+    ).toEqual([]);
+  });
+
+  it('…and that reading CAN fail: both shapes the retired pattern was blind to are caught (objectui#9676)', () => {
+    // The blind shapes, as their own one-fence pages. The second is the shape
+    // that stood on the real page until PR objectui#9678 — indented inside a
+    // function and carrying no discriminant at all.
+    const indentedWithDiscriminant = [
+      '```tsx',
+      'function Host() {',
+      '  const blindOne = {',
+      "    objectName: 'events',",
+      "    type: 'object-calendar'",
+      '  };',
+      '  return <ObjectCalendar schema={blindOne} />;',
+      '}',
+      '```',
+    ].join('\n');
+    const indentedWithoutDiscriminant = [
+      '```tsx',
+      'function Host() {',
+      '  const blindTwo = {',
+      "    objectName: 'events',",
+      "    calendar: { startDateField: 'startDate', titleField: 'title' }",
+      '  };',
+      '  return <ObjectCalendar schema={blindTwo} onEventClick={(r) => console.log(r)} />;',
+      '}',
+      '```',
+    ].join('\n');
+
+    // The retired pattern, kept here as a NEGATIVE control: it must miss both,
+    // or this row is not measuring the delta it claims to measure.
+    const retired = /^const \w+ = \{\n\s+type: 'object-calendar'/gm;
+    expect(indentedWithDiscriminant.match(retired)).toBeNull();
+    expect(indentedWithoutDiscriminant.match(retired)).toBeNull();
+
+    const unannotated = (page: string): string[] =>
+      objectCalendarLiterals(page)
+        .filter((d) => (d.byDiscriminant || d.byConsumption) && !d.annotated)
+        .map((d) => d.name);
+
+    expect(unannotated(indentedWithDiscriminant)).toEqual(['blindOne']);
+    expect(unannotated(indentedWithoutDiscriminant)).toEqual(['blindTwo']);
+
+    // …and the same two, annotated, are clean — so the row above is refusing the
+    // missing annotation and not the indentation.
+    expect(unannotated(indentedWithDiscriminant.replace('const blindOne = {', 'const blindOne: ObjectCalendarSchema = {'))).toEqual([]);
+    expect(unannotated(indentedWithoutDiscriminant.replace('const blindTwo = {', 'const blindTwo: ObjectCalendarSchema = {'))).toEqual([]);
   });
 });
 

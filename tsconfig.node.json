@@ -5,7 +5,7 @@
 //
 // `noEmit` below is load-bearing, not cruft — DO NOT REMOVE IT. This file
 // declares no `include`, so it compiles the ENTIRE repository, and
-// `tsconfig.base.json` turns on `declaration` / `declarationMap` / `sourceMap`
+// `tsconfig.tier-base.json` turns on `declaration` / `declarationMap` / `sourceMap`
 // with NO `outDir`. So one stray `tsc -p tsconfig.node.json` used to write
 // ~5,850 `.js` / `.d.ts` / `.map` files next to every source across
 // `packages/`, `apps/`, `examples/`, `scripts/` and the repo root, none of them
@@ -25,7 +25,7 @@
 // (objectui#3515 rejected "widen the root config and give it a runner" for
 // exactly that reason).
 {
-  "extends": "./tsconfig.base.json",
+  "extends": "./tsconfig.tier-base.json",
   "compilerOptions": {
     "lib": ["ES2020"],
     "noEmit": true

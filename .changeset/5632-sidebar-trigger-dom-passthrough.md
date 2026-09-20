@@ -9,8 +9,9 @@ The renderer forwarded its whole prop bag to `SidebarTrigger`, which spreads its
 own rest onto the `<button>` it renders — so every authored SDUI key on the node
 became an attribute. Fourteen of them, one more than the shape this target
 derives from, because this registration also never destructured `schema`: every
-other registration in `renderers/navigation/sidebar.tsx` names it (they need
-`schema.body`), while this one renders no children and named only `className`,
+other registration in `renderers/navigation/sidebar.tsx` names it (they need the
+node's child list — spelled `schema.body` when this change landed, `schema.children`
+since objectui#6771 retired that spelling), while this one renders no children and named only `className`,
 so the node `SchemaRenderer` injects on every render rode the spread and landed
 as `schema="[object Object]"`.
 

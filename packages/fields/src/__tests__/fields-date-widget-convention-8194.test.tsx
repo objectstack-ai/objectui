@@ -32,8 +32,15 @@
  * 5 and 6 are DATETIME faces. Their one home is `formatDateTime`, which has
  * its own face vocabulary (`'compact'` from objectui#7443 versus the verbose
  * default) — picking one of those is a display-convention decision the #7620
- * ruling does not reach, so they are recorded separately and left alone. The
- * last describe block below is the fence that keeps them that way.
+ * ruling does not reach, so THIS card recorded them separately and left them
+ * alone.
+ *
+ * ⚠️ That fence has since been LIFTED by a ruling of its own (objectui#8209:
+ * per register, both sites through `formatDateTime`). The last describe block
+ * below is what the fence became — the same verbatim copy of the former bare
+ * pair, now asserting both sites have LEFT it. The face each one arrived at is
+ * pinned in `datetime-widget-faces-8209.test.tsx`; the two halves together are
+ * the flip, which is why neither is a witness on its own.
  *
  * ── What moved, measured in five locales ─────────────────────────────────
  * `en-US`, for the SAME ISO date-only value:
@@ -282,31 +289,60 @@ describe('what an unreadable value does at each site', () => {
   });
 });
 
-describe('SCOPE FENCE — the two datetime sites this card did NOT converge', () => {
+describe('FENCE LIFTED (objectui#8209) — the two datetime sites have left the bare pair', () => {
   /**
-   * Enumerated alongside the four and deliberately left alone: their one home
-   * is `formatDateTime`, whose named faces (`'compact'` versus the verbose
-   * default) are a display-convention choice the objectui#7620 ruling does not
-   * reach. These two cases assert they still render the bare pair they always
-   * did, so this PR's boundary is measured rather than asserted in prose. A
-   * future ruling that converges them updates these two cases deliberately —
-   * that is the point of pinning the boundary.
+   * What the `SCOPE FENCE` block became. It pinned, verbatim, the string these
+   * two sites rendered while objectui#8194 deliberately left them alone; the
+   * maintainer's ruling on objectui#8209 then converged them, per register,
+   * onto the one home `formatDateTime`. The pinned spelling is kept EXACTLY as
+   * it was and the assertion is flipped — that is what makes this pair a
+   * witness to the move rather than a fresh description of wherever the code
+   * happens to be. A test written only against the new faces would pass
+   * identically if the sites had never carried a second convention at all.
+   *
+   * ⛔ Deliberately negative-only. WHICH face each site landed on is a
+   * different claim with a different failure mode, and it is pinned — with the
+   * `en` literals the ruling names, in five locales — in
+   * `datetime-widget-faces-8209.test.tsx`. Asserting it twice would leave two
+   * copies of one convention to drift, which is the objectui#4576 shape this
+   * whole family of cards exists to close.
    */
   const DT = `${new Date().getFullYear()}-07-04T07:00:00.000Z`;
+  /**
+   * The spelling REMOVED from both sites, copied verbatim: `toLocaleDateString`
+   * and `toLocaleTimeString`, neither carrying an options bag, joined by a
+   * space. ⛔ Never replace this with a literal — it is locale- and
+   * runner-dependent, and the point is to compare against what the code USED
+   * to compute, not against what someone once observed it computing.
+   */
   const formerDateTimePair = (locale: string) => {
     const d = new Date(DT);
     return `${d.toLocaleDateString(locale)} ${d.toLocaleTimeString(locale)}`;
   };
 
-  it.each(LOCALES)('%s — readonly DateTimeField is unchanged by this card', (locale) => {
+  /**
+   * FIXTURE VALIDITY, the same discipline the top of this file applies to the
+   * `date` sites: if the former spelling ever stopped differing from the face
+   * the site now renders, every case below would pass for free. The `en` seconds
+   * are the concrete half of it — both new faces dropped them.
+   */
+  it.each(LOCALES)('%s — the removed bare pair is still a distinct string', (locale) => {
+    expect(formerDateTimePair(locale)).toMatch(/\d/);
+  });
+
+  it('the removed bare pair still carries the seconds neither new face shows', () => {
+    expect(formerDateTimePair('en')).toContain(':00:00');
+  });
+
+  it.each(LOCALES)('%s — readonly DateTimeField no longer renders the bare pair', (locale) => {
     const { container } = session(
       locale,
       <DateTimeField value={DT} onChange={() => {}} field={{ type: 'datetime', name: 'at' } as any} readonly />,
     );
-    expect(container.textContent).toBe(formerDateTimePair(locale));
+    expect(container.textContent).not.toBe(formerDateTimePair(locale));
   });
 
-  it.each(LOCALES)('%s — the sub-grid datetime cell is unchanged by this card', (locale) => {
+  it.each(LOCALES)('%s — the sub-grid datetime cell no longer renders the bare pair', (locale) => {
     session(
       locale,
       <GridField
@@ -316,6 +352,6 @@ describe('SCOPE FENCE — the two datetime sites this card did NOT converge', ()
         field={{ columns: [{ name: 'at', label: 'At', type: 'datetime' as const }] } as any}
       />,
     );
-    expect(gridCellText()).toBe(formerDateTimePair(locale));
+    expect(gridCellText()).not.toBe(formerDateTimePair(locale));
   });
 });

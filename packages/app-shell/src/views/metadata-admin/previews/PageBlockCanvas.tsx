@@ -143,6 +143,27 @@ function childGroups(block: Block): Array<{ label: string; pathSuffix: string; c
       // Seeded cards nest under `properties.children`; older specs used
       // `properties.body`. Prefer children, fall back to body so neither
       // shape leaves the card's content unreachable on the canvas.
+      //
+      // ⚠️ KEPT through objectui#6771's retirement of the `body` dialect: this
+      // is the designer half of `page:card`'s stored-document read
+      // (`renderers/layout/containers.tsx`). ⛔ Removing it makes a stored
+      // card's content unreachable on the canvas — the same silent loss the
+      // renderer-side read exists to prevent.
+      //
+      // ⛔ NOT "until the conversion lands": that precondition is stale.
+      // `pageCardBodyToChildren` carries `toMajor: 17` and
+      // `retiredFromLoadPath: true`, and this repo installs spec 17.4.0, so what
+      // holds the read is stored rows that have not been replayed through it —
+      // a database question, not a release one.
+      //
+      // ⚠️ And the three thin `page:*` containers DO share this ground (the
+      // spec says so on `PageContainerProps`); they kept their renderer arms
+      // too. What they lack is a CONVERSION — the registry has one for
+      // `page:card` and none for them. ⭐ This file does NOT extend the same
+      // courtesy to `page:section` below, which returns `properties.children`
+      // alone: runtime and canvas therefore disagree about a stored `body`
+      // under that block. Recorded on objectui#9916 (comment 5733844778), ⛔ not
+      // repaired here — widening the canvas is that card's call, not this one's.
       if (Array.isArray(props.body) && !Array.isArray(props.children)) {
         return [{ label: 'Body', pathSuffix: 'properties.body', children: props.body }];
       }

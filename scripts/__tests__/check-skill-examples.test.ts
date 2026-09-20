@@ -1023,6 +1023,40 @@ describe('the bare-`any` assertion', () => {
     expect(findBareAny(code)).toEqual([]);
   });
 
+  // ── The two shapes whose LABEL was the defect (objectui#7653, ported from
+  //    objectstack#14910). BOTH were already flagged before the fix, so a pin
+  //    asserting only "it is a finding" passes on the broken code and proves
+  //    nothing. Both legs therefore assert the LABEL STRING, because the label
+  //    is the bug — and it is half a finding's baseline row key, so a wrong one
+  //    is a finding that cannot be declared the day such a site is marked.
+  it('labels an `any` index signature `index signature`, not `return type`', () => {
+    // `ts.isFunctionLike` is true for every SignatureDeclaration kind and an
+    // IndexSignatureDeclaration IS one, so before the fix this read
+    // `return type` — a position the `any` does not occupy. Flagging is right
+    // either way (an `any` index signature erases checking on every keyed
+    // access), so the fix is a LABEL and the arm sits BEFORE the function-like
+    // fallback. This pin fails on the broken code because it asserts the label.
+    const hits = findBareAny('interface Bag {\n  [key: string]: any;\n}\n') as { where: string }[];
+    expect(hits.map((h) => h.where)).toEqual(['index signature']);
+  });
+
+  it('keeps a return `any` on a function type inside a type argument as `return type`', () => {
+    // The boundary is the DIRECT parent (`parent.type === node`), never
+    // ancestry: in `Array<() => any>` the `any`'s parent is the FunctionTypeNode
+    // whose return slot it fills, not the TypeReference above it. The three
+    // shapes the header calls "nested" all have that predicate FALSE; this one
+    // has it TRUE, so it is a finding and stays one.
+    //
+    // ⛔ This pin is the header's rule made executable, and its value is that it
+    // can FAIL: the day someone reads "nested `any` is deliberately not flagged"
+    // as ancestry and narrows the function-like arm, this goes red instead of
+    // quietly handing authors the one-token evasion the rule already refuses for
+    // parameters — wrap the offending function type in a type argument and the
+    // gate would go green over an unchanged defect.
+    const hits = findBareAny('const fns: Array<() => any> = [];\nvoid fns;\n') as { where: string }[];
+    expect(hits.map((h) => h.where)).toEqual(['return type']);
+  });
+
   it('parses as TSX, so a JSX example is not mis-read as a type assertion', () => {
     // `compileSnippets` parses every block as TSX regardless of the fence
     // label. A guard walking a different tree would be reporting about a

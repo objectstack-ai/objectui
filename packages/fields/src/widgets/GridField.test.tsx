@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { UploadProvider } from '@object-ui/providers';
+import { formatDate, formatDateTime } from '@object-ui/core';
 import { GridField, LineItemsField, sumColumn, lookupAutofillPatch } from './GridField';
 
 const columns = [
@@ -293,15 +294,38 @@ describe('GridField / LineItemsField — editable line items', () => {
      */
     describe('read-only display formats each temporal type as itself', () => {
       const row = { merchant: 'Chipotle', incurred_on: '2026-06-17T00:00:00.000Z', incurred_at: STORED_ISO, started_at: '14:30' };
-      // Spelled `'en'` rather than bare `toLocaleDateString()` (objectui#4468):
-      // the bare call reads the MACHINE's locale, so these pins agreed with the
+      // Spelled `'en'` rather than a bare `toLocale*` call (objectui#4468): the
+      // bare call reads the MACHINE's locale, so these pins agreed with the
       // widget only by the accident of a CI runner set to en-US — and they
       // would have kept agreeing with it after the widget started following the
       // session locale, which is the bug this suite has to be able to see.
       // `'en'` is what `useDisplayLocale()` resolves to with no provider.
-      const expectedDay = new Date(2026, 5, 17).toLocaleDateString('en');
+      //
+      // Both faces are asked of the SHARED functions rather than spelled out,
+      // the `date-locale-channel.test.tsx` idiom: which face each register
+      // renders is pinned by `fields-date-widget-convention-8194.test.tsx` and
+      // `datetime-widget-faces-8209.test.tsx`, while this block's own claim is
+      // that the three temporal types render as three DIFFERENT things.
+      const expectedDay = formatDate(new Date(2026, 5, 17), undefined, { locale: 'en' });
       const dt = new Date(STORED_ISO);
-      const expectedInstant = `${dt.toLocaleDateString('en')} ${dt.toLocaleTimeString('en')}`;
+      // objectui#8209 — the sub-grid `datetime` cell took `'compact'`, the face
+      // of its register. Before it, this column composed a bare
+      // `toLocaleDateString` + `toLocaleTimeString` pair.
+      const expectedInstant = formatDateTime(dt, { style: 'compact', locale: 'en' });
+
+      /**
+       * FIXTURE VALIDITY. ⚠️ The `date` expectation used to be `Intl`'s bare
+       * numeric default (`6/17/2026`), which the `datetime` cell beside it
+       * CONTAINS — so `toContain(expectedDay)` was satisfied by the wrong
+       * column and would have stayed green with the `date` column rendering
+       * anything at all. That is only visible once the two faces are named, so
+       * it is asserted here rather than left to the next reader.
+       */
+      it('the three temporal faces are three distinct strings', () => {
+        expect(expectedInstant).not.toContain(expectedDay);
+        expect(expectedDay).not.toBe('14:30');
+        expect(expectedInstant).not.toBe('14:30');
+      });
 
       it('formats date / datetime / time in the read-only table', () => {
         render(<GridField value={[row]} onChange={() => {}} field={temporalField} readonly />);

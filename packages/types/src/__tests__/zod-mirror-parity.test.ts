@@ -4,6 +4,31 @@
  * Every hand-written zod mirror in `../zod/` accepts everything its TypeScript
  * declaration declares (objectui#5684).
  *
+ * ## Which instrument checks which assertion (stated, because they differ)
+ *
+ * The `Expect< Equal< … > >` lines and the `: never`-typed `assertion*` declarations
+ * are TYPE-level and are judged by `pnpm --filter @object-ui/types type-check`, whose
+ * third leg is `tsc -p tsconfig.test.json` — the project that exists precisely because
+ * `tsconfig.json` excludes every `.test.ts` file. ⛔ They are NOT judged by `vitest`,
+ * which strips types. Read that against this file's own extension, which is the whole
+ * reason it is said here rather than left to be inferred (objectui#9546): the obvious
+ * way to "check parity" is to run a `.test.ts` with vitest, and that exercises the one
+ * half of this file which cannot see the ratchet.
+ *
+ * The `expect(…)` lines in the `describe` blocks at the bottom are RUNTIME and are
+ * judged by vitest. They check that the population is CLOSED and that the figures this
+ * header writes down are derived from the ledgers — they never compare any mirror's
+ * keys against the declaration it restates, which is the parity claim itself. ⛔ So
+ * reading the runtime half for evidence about drift measures the wrong instrument and
+ * concludes the guard does nothing; the same warning stands beside `UnmirroredDeclared`
+ * below, where it was first written for that one ledger rather than for the file.
+ *
+ * Measured both ways on one tree, `.omit()`-ing both content channels off a registered
+ * mirror (objectui#9256's verification, re-measured on objectui#9546): `vitest` exited 0
+ * with its summary line unmoved from the clean run, while `tsc -p tsconfig.test.json`
+ * exited 2 with `TS2322`. That clause RECORDS a measurement and is historical; the
+ * guidance above it is LIVE, under this file's own split.
+ *
  * ## The class
  *
  * A mirror restates a TS declaration by hand. When the declaration widens and the
@@ -129,8 +154,76 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **41 entries** in `KnownDrift`, **63 keys** across them — 40 / 61 until
- *     objectui#7804 DECLARED `objectql.zod.ts#ObjectKanbanSchema`'s
+ *   - **46 entries** in `KnownDrift`, **85 keys** across them — 46 / 83 until
+ *     objectui#9447 DECLARED `onNavigate` and `onAddComment` on
+ *     `views.zod.ts#DetailViewSchema`, an EXISTING entry (it already held `onBack`),
+ *     so the key total moved by two and the entry count did not. ⭐ A pure TRANSFER,
+ *     the `DataTableSchema` shape at a smaller size: both keys came out of
+ *     `RuntimeOnlyDeclared`'s entry for the SAME pair, so the two ledgers' key totals
+ *     move by the same two in opposite directions — read the two bullets together or
+ *     the arithmetic looks like growth from nowhere. ⚠️ And read it beside the
+ *     objectui#8572 sentence below, which is the OTHER asymmetry: there one key moved
+ *     and no entry did because the entry survived on its remainder; here neither
+ *     ledger's entry count moves because BOTH entries survive — this one already
+ *     existed and that one keeps `onTabChange`, whose disposition is still open on
+ *     objectui#7804. It was 46 / 84 until
+ *     objectui#8572 RULED `complex.zod.ts#ChatbotSchema`'s `body`, the naming collision
+ *     this ledger carried as "two different meanings of one key": the record arm is
+ *     retired on both faces, the key measures clean and LEFT. ⚠️ One key moved and NO
+ *     entry did — the entry survives on its two runtime slots — so this figure moved
+ *     while the entry count above did not, and the objectui#7733 block stayed green
+ *     while this one failed. That asymmetry is the shape a whole-entry departure does
+ *     NOT have; read it before assuming both figures always travel together.
+ *     It was 45 / 83 until
+ *     objectui#7804's `TreeViewSchema` slice DECLARED `onNodeClick` on
+ *     `data-display.zod.ts#TreeViewSchema`, a NEW entry here (that pair had no
+ *     `KnownDrift` entry at all), so entry count and key total moved by one
+ *     together. ⚠️ Its sibling move next door is not symmetric with the earlier
+ *     ones: `RuntimeOnlyDeclared` lost a whole ENTRY, and with it the only pair
+ *     that ledger held which `UnmirroredDeclared` did not — see the
+ *     cross-ledger sentence under that bullet, which now states CONTAINMENT
+ *     where it used to state a difference. It was 41 / 72 until
+ *     objectui#7804's `objectql.ts` slice DECLARED nine handler keys across FOUR
+ *     arms in that one mirror file, three of them NEW entries here
+ *     (`ObjectFormSchema`, `ObjectGridSchema`, `ObjectViewSchema`) plus a fourth
+ *     (`ObjectGallerySchema`) — the entry count moved by four because every one
+ *     of the four was absent from this ledger. ⚠️ The key total moved by
+ *     ELEVEN, not nine, and the two extra are NOT keys of the slice: declaring
+ *     the form and grid arms propagated into `ObjectViewSchema`'s nested `form`
+ *     and `table` slots, which are those sibling mirrors BY REFERENCE while the
+ *     declaration types them off `ObjectFormSlotKey` / `ObjectGridSlotKey` —
+ *     two unions that list exactly these handler keys. ⚠️ And only SEVEN of the
+ *     nine came out of `RuntimeOnlyDeclared` below; the two
+ *     `ObjectGallerySchema` keys were in NEITHER ledger, because they were
+ *     declared on NEITHER face. ⛔ Read those three sentences together, or the
+ *     arithmetic (+4 entries, +11 keys, −3 entries and −7 keys next door) reads
+ *     as growth from nowhere. It was 41 / 65 until
+ *     objectui#7804's `DataTableSchema` slice DECLARED seven handler keys on
+ *     `data-display.zod.ts#DataTableSchema`, an existing entry (so the entry
+ *     count did not move). ⭐ The largest single move this ledger has taken, and
+ *     the first that is a pure TRANSFER: all seven came out of
+ *     `RuntimeOnlyDeclared`'s entry for the same pair, so this ledger's key
+ *     total and that one's move by the same seven in opposite directions — read
+ *     the two bullets together or the arithmetic looks like growth from nowhere.
+ *     The keys were declared on the TypeScript face and nowhere else while
+ *     `renderers/complex/data-table.tsx` read and RAN each one; declaring the
+ *     mirror's named refusal beside the callable twin is what turns a
+ *     passthrough accept into a refusal BY NAME. It was 41 / 63 until
+ *     objectui#7804's `plugin-detail` slice (batch #69) DECLARED `onNavigate`
+ *     and `onAddComment` on `crud.zod.ts#DetailSchema`, an existing entry (so
+ *     the entry count did not move). ⭐ The first keys this ledger has gained
+ *     from a pair that declared them on NEITHER face: the TypeScript side typed
+ *     them `any` through `BaseSchema`'s index signature and the mirror kept
+ *     them through `.passthrough()`, while the registered renderer read and RAN
+ *     them — so the pair was not "in parity", it was mutually silent, and
+ *     declaring the callable twin against the mirror's named refusal is what
+ *     makes the drift visible. Growth by REPAIR, in a ledger whose entries
+ *     usually shrink by it. ⚠️ Two slices of objectui#7804 land in this bullet
+ *     back to back and both are real, and neither is a copy-paste of the other:
+ *     the `plugin-detail` one here, the `plugin-kanban` one directly below.
+ *     It was 40 / 61 until
+ *     objectui#7804's `plugin-kanban` slice DECLARED
+ *     `objectql.zod.ts#ObjectKanbanSchema`'s
  *     `onCardClick` and `onQuickAdd` (director seat, decision batch #69), a new
  *     entry carrying TWO of the three keys the retirement below stranded on the
  *     surviving face. ⭐ The first entry this ledger has gained from an arm
@@ -197,7 +290,12 @@
  *     and 37 / 53 until objectui#7344 swept the string / `z.any()` handler mirrors:
  *     `DetailSchema` and `DetailViewSchema` entered (one `onBack` each) and
  *     `CalendarViewSchema` grew by `onEventClick`.
- *   - **14 entries** in `UnmirroredDeclared`, **86 keys** across them — 14 / 87 until
+ *   - **13 entries** in `UnmirroredDeclared`, **85 keys** across them — 14 / 86 until
+ *     objectui#8072 MIRRORED `InputSchema.wrapperClass`, the LAST `schema.wrapperClass`
+ *     reader whose value the mirror admitted unexamined; it was that entry's ONLY key,
+ *     so the entry emptied and BOTH figures moved together — read it against the next
+ *     clause, where one key off a fifteen-key entry moved only the key total: 14 / 87
+ *     until
  *     objectui#7762 MIRRORED `ObjectGridSchema.exportOptions` (the entry kept its other
  *     fourteen keys, so the entry count held); 14 / 96 until
  *     objectui#7779 closed nine of `ObjectViewSchema`'s ten keys (maintainer ruling
@@ -244,21 +342,69 @@
  *     seeded long after the 121). It is ⛔ not replaced with a fresh digit, for the
  *     reason above. The full statement is on that ledger, which owns it — read it
  *     there, and ⛔ do not copy it back.
- *   - **7 entries** in `RuntimeOnlyDeclared`, **24 keys** across them.
- *     **6 of the 7** are a subset of the **14** pairs above; `TreeViewSchema` is
- *     NOT — it is the first pair whose ONLY ledger entry is a runtime-only one
- *     (objectui#6150 declared `onNodeClick` on an otherwise clean pair), which is why
- *     the union of the two unmirrored ledgers is **15** pairs and not **14**.
- *     ⚠️ Four live figures sit in those two sentences and all four are pinned: the
- *     `6` (a quantity of its own — how many entries the two unmirrored ledgers
- *     share), and three RESTATEMENTS — the `7` beside it, and the `14` twice — of
- *     counts already stated above. The `6` and the `7` were spelled as English WORDS
+ *   - **3 entries** in `RuntimeOnlyDeclared`, **7 keys** across them — 3 / 9
+ *     until objectui#9447 DECLARED `onNavigate` and `onAddComment` on the mirror for
+ *     `views.zod.ts#DetailViewSchema`, so both left for `KnownDrift` above — the
+ *     drain this ledger is meant to take, never a refiling. ⭐ The entry SHORTENED
+ *     rather than departing, which is the `DataTableSchema` shape and not the
+ *     `TreeViewSchema` one below: `onTabChange` stays because it is read through an
+ *     `(schema as any)` cast and its disposition is still open on objectui#7804, so
+ *     there was something left to shorten. ⚠️ The containment sentence below is
+ *     therefore UNDISTURBED — no entry moved, so this ledger is still a subset of
+ *     `UnmirroredDeclared` and the union still equals it. It was 4 / 10
+ *     until objectui#7804's `TreeViewSchema` slice took the whole
+ *     `data-display.zod.ts#TreeViewSchema` entry out (its one key `onNodeClick`
+ *     declared on the mirror as a named refusal, moved to `KnownDrift` above).
+ *     ⭐ The consequence is not the digit: that entry was the ONLY member of
+ *     this ledger absent from `UnmirroredDeclared`, so this ledger is now a
+ *     SUBSET of that one and the union equals it — the sentence below says so,
+ *     and it used to say the opposite. It was 7 / 17
+ *     until objectui#7804's `objectql.ts` slice took three WHOLE entries out —
+ *     `objectql.zod.ts#ObjectFormSchema` (five keys),
+ *     `objectql.zod.ts#ObjectGridSchema` and `objectql.zod.ts#ObjectViewSchema`
+ *     (one each) — the mirror having declared every one as a named refusal.
+ *     ⭐ The first time this ledger lost ENTRIES rather than keys: each pair's
+ *     whole runtime-only debt went at once, so there was nothing left to
+ *     shorten. ⚠️ Read it beside the `KnownDrift` bullet above, which gained
+ *     eleven keys where this lost seven — the difference is the two
+ *     `ObjectGallerySchema` keys that were in neither ledger and the two nested
+ *     `ObjectViewSchema` slots the declaration propagated into. It was 7 / 24
+ *     until objectui#7804's `DataTableSchema` slice took seven keys out of
+ *     `data-display.zod.ts#DataTableSchema` and into `KnownDrift` above, the
+ *     mirror having declared each as a named refusal. The entry SURVIVES with
+ *     five keys, so the entry count did not move; ⚠️ this ledger shrinking while
+ *     `KnownDrift` grows by the same seven is ONE move seen from both sides, not
+ *     two. ⭐ The direction is the one this ledger is meant to drain in: a
+ *     runtime-only key leaves by being declared on the mirror, never by being
+ *     quietly refiled.
+ *     **3 of the 3** are a subset of the **13** pairs above, so
+ *     the union of the two unmirrored ledgers is **13** pairs — `UnmirroredDeclared`
+ *     itself, exactly. ⭐ This sentence read `3 of the 4` / `15 pairs and not 14`
+ *     until objectui#7804's `TreeViewSchema` slice, and the pair it named as the
+ *     exception was the whole content of the difference: objectui#6150 had declared
+ *     `onNodeClick` on an otherwise clean pair, making `TreeViewSchema` the first
+ *     and only pair whose sole ledger entry was a runtime-only one, and #7804
+ *     drained it by MIRRORING the key as a named refusal. ⛔ The difference figure
+ *     is not recoverable by editing this sentence — it is a fact about the ledgers,
+ *     and it returns only when some pair is again runtime-only and nothing else.
+ *     ⚠️ Three live figures sit in these sentences and all three are pinned: the
+ *     `3` (a quantity of its own — how many entries the two unmirrored ledgers
+ *     share), and two RESTATEMENTS — the `3` beside it, and the `14` — of
+ *     counts already stated above. They were spelled as English WORDS
  *     until objectui#8222, which is why no instrument had ever read them: a figure
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **22 entries** in `WiderThanDeclared`, **35 keys** across them, and **45 arms**
- *     under those keys — split **6** SCHEMA-NODE, **29** CONCRETE, **0** MIXED, **10** unions.
+ *   - **19 entries** in `WiderThanDeclared`, **29 keys** across them, and **36 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **24** CONCRETE, **0** MIXED, **7** unions.
+ *     It read 20 / 30 / 37 — 5 / 25 / 0 / 7 — until objectui#8572 RETIRED
+ *     `complex.zod.ts#ChatbotSchema::body`, that entry's whole content, so the entry, its
+ *     one key and its one arm left together. ⚠️ Compare the objectui#8338 move below: the
+ *     same DEPARTURE shape, but that key carried TWO arms, so CONCRETE and `arms` fell by
+ *     different amounts there and by the same amount here — which is why the arithmetic is
+ *     ⛔ not steppable by hand in either direction, and why both moves are written out.
+ *     ⭐ The key left because the mirror stopped being wider, not because it was reclassified:
+ *     the retirement makes the mirror REFUSE what the declaration also refuses.
  *     ⭐ objectui#8517 taught the operator to tell an OPEN record — `z.record(z.string(), V)`
  *     — from a partial record over a finite key union, and NOT ONE figure on this line moved
  *     with it. ⛔ Do not read that as the clause measuring nothing. It was built on two live
@@ -374,9 +520,55 @@
  * runtime leg at the bottom of this file bounds the excluded region by pinning that
  * every lazy node under the registry is that one const.
  *
+ * ## And a FOURTH direction: MIRRORED but UNDECLARED (objectui#9711)
+ *
+ * ⚠️ **This heading exists because the three above were once cited for a guarantee
+ * they do not give.** A maintainer ruling justified mirroring a twin "so the
+ * `zod-mirror-parity` ratchet stays at zero drift" — and for a key the MIRROR
+ * declares and the TypeScript twin does NOT, none of the three operators above could
+ * see it. The ruling's INSTRUCTION was unaffected; only its stated reason was. That
+ * asymmetry is the whole of objectui#9711, and the repair is an operator, not a
+ * reworded sentence.
+ *
+ * Each of the three was blind for a DIFFERENT structural reason, which is why the
+ * gap survived the card that closed its mirror image:
+ *
+ *   - `WithoutIndexSignature` strips `BaseSchema`'s `[key: string]: any`, so a key
+ *     the declaration never states has nothing to be stripped FROM and
+ *     `DeclaredKeys< D >` cannot enumerate it;
+ *   - `UnmirroredDeclaredKeys` is declared-minus-mirrored — the other subtraction;
+ *   - `WiderThanDeclaredKeys` maps over the INTERSECTION, so the key is outside its
+ *     domain and LEAVES THE COMPARISON — the same shape objectui#6058 measured in
+ *     the opposite direction, unfixed in this one.
+ *
+ * ⭐ This is the mirror image of a hole this file already closed BY NAME. objectui#6058
+ * added `UnmirroredDeclaredKeys` for declared-but-unmirrored; its reverse stood open,
+ * and nothing in this file said so. `MirroredUndeclaredKeys` → `MirroredUndeclared`
+ * is the fourth ledger, reconciled by `assertionMirroredUndeclaredMatchesLedger` and
+ * seeded at its own measured debt.
+ *
+ * All four operators are pinned on ONE synthetic pair at
+ * `assertionMirroredUndeclaredOperatorReportsAMirroredOnlyKey` and the three
+ * `…IsBlindToAMirroredOnlyKey` assertions beside it, each firing on a DIFFERENT key of
+ * that pair — so every blindness claim is a zero read beside a LIT CONTROL on the same
+ * instrument and the same corpus, rather than a zero read alone.
+ *
+ * ⛔ **The seed is a MEASUREMENT, not a worklist.** Declaring a key this direction
+ * reports, on a published TypeScript face, ENLARGES AN ACCEPT SET — an at-tier
+ * contract decision, per key, and deliberately outside the card that built the
+ * instrument. Narrowing a mirror to make the direction read zero is the same decision
+ * pointing the other way, and is also how a tool's output gets grepped away. ⛔ Neither
+ * is the local fix for a red reconciliation.
+ *
+ * ⛔ No figure for this direction is written in this header. Its entry count and key
+ * total live in exactly one place — the `MirroredUndeclared` docstring — and are
+ * derived from that ledger's own AST by 'the fourth direction is enumerated and sized
+ * at test time' at the bottom of this file. ⛔ Do not add a second copy here; that is
+ * the defect objectui#7433, #7733, #8222 and #8243 each repaired one level up.
+ *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 41 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 46 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -522,6 +714,40 @@ export type DeclaredKeys< D > = Extract< keyof WithoutIndexSignature< D >, strin
  * refused outright. Either way `declared !== enforced`.
  */
 export type UnmirroredDeclaredKeys< M, D > = Exclude< DeclaredKeys< D >, MirroredKeys< M > >;
+
+/**
+ * Mirrored on the zod side and ABSENT from the declaration's own members entirely.
+ *
+ * The REVERSE of `UnmirroredDeclaredKeys` directly above, and the direction this
+ * file measured in no operator until objectui#9711 added this one. The three that
+ * stood before it are each blind to it, for three DIFFERENT structural reasons —
+ * which is why the gap survived the card that closed its mirror image:
+ *
+ *   - `WithoutIndexSignature` strips `BaseSchema`'s `[key: string]: any`, so a key
+ *     the declaration never states has nothing to be stripped FROM — it is simply
+ *     not a member, and `DeclaredKeys< D >` cannot enumerate it;
+ *   - `UnmirroredDeclaredKeys` is `Exclude< DeclaredKeys< D >, MirroredKeys< M > >`,
+ *     declared-minus-mirrored — the other subtraction by construction;
+ *   - `WiderThanDeclaredKeys` maps over `MirroredKeys< M > & DeclaredKeys< D >`, the
+ *     INTERSECTION, so a mirrored-but-undeclared key is outside its domain and
+ *     LEAVES THE COMPARISON exactly as objectui#6058's declared-but-unmirrored keys
+ *     left `NarrowerThanDeclared`'s.
+ *
+ * `assertionMirroredUndeclaredOperatorReports…` and the three blindness pins beside
+ * it are the recognition cases; they are what distinguishes this operator from one
+ * that reports nothing because it can report nothing.
+ *
+ * Why it is a defect and not bookkeeping: the two faces are published together, and
+ * this direction is the one an AUTHOR meets first. The mirror hands a green
+ * `safeParse` to a key the published TypeScript does not declare, so a metadata
+ * author writing it gets a validator's blessing for a spelling the declared surface
+ * never invited — and under `BaseSchema`'s `.passthrough()` index signature `tsc`
+ * does not object either, so nothing at all tells them the key is outside the
+ * contract. ⛔ The remedy is NOT automatic: DECLARING such a key on a published
+ * TypeScript face ENLARGES AN ACCEPT SET and is a contract decision, so this
+ * operator's output is a ledgered measurement and each key is a separate question.
+ */
+export type MirroredUndeclaredKeys< M, D > = Exclude< MirroredKeys< M >, DeclaredKeys< D > >;
 
 /** `any`, told apart from `unknown` — `[unknown] extends [T]` accepts both. */
 export type IsAny< T > = 0 extends 1 & T ? true : false;
@@ -1073,6 +1299,132 @@ export type assertionNarrowerOperatorIsBlindToAnOpenRecord =
 export type assertionUnmirroredOperatorIsBlindToAnOpenRecord =
   Expect< Equal< UnmirroredDeclaredKeys< SyntheticOpenRecordMirror, SyntheticFiniteKeyedDeclaration >, never > >;
 
+/* ── Recognition: the FOURTH direction fires, and the three before it stay blind ─ */
+
+/**
+ * ONE synthetic pair on which ALL FOUR operators fire, each on a DIFFERENT key.
+ *
+ * Built this way deliberately, and it is the board's control discipline rather than
+ * a flourish: every claim below that an operator is SILENT about a key is a zero, and
+ * a zero is only worth reading beside a LIT CONTROL on the SAME instrument and the
+ * SAME corpus. Four separate synthetic pairs would give each operator its own corpus
+ * and prove nothing about the others; here each operator is shown FIRING on this pair
+ * and SILENT on this pair, so its silence is a measurement and not a broken instrument.
+ *
+ * The declaration carries `[key: string]: any`, which is what `BaseSchema` really
+ * carries and what makes the fourth direction hard to measure at all: `keyof D`
+ * resolves to bare `string`, so the obvious spelling of "mirrored but undeclared"
+ * subtracts every key and reads `never` for every pair forever.
+ * `assertionNaiveMirroredUndeclaredIsAbsorbedByTheIndexSignature` below pins that
+ * failing spelling beside the working one, so the reason `DeclaredKeys` is used here
+ * is a measurement in this file and not a remembered fact.
+ *
+ *   `size`   — on both faces, and the mirror accepts exactly what the declaration
+ *              states. It is the key NO operator may report, which is what makes
+ *              this pair a control against a matcher that catches everything.
+ *   `stray`  — mirrored only            -> the FOURTH direction, and only it.
+ *   `missing`— declared only            -> `UnmirroredDeclaredKeys`, and only it.
+ *   `wide`   — mirror accepts `string`, declaration states two literals
+ *                                       -> `WiderThanDeclaredKeys`, and only it.
+ *   `narrow` — mirror accepts `number`, declaration states `number | string`
+ *                                       -> `NarrowerThanDeclared`, and only it.
+ */
+type SyntheticFourWayMirror = {
+  shape: { size: z.ZodString; stray: z.ZodBoolean; wide: z.ZodString; narrow: z.ZodNumber };
+};
+interface SyntheticFourWayDeclaration {
+  size: string;
+  wide: 'a' | 'b';
+  narrow: number | string;
+  missing: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the shape `BaseSchema` really has; the whole point of this pair
+  [key: string]: any;
+}
+
+/**
+ * The fourth direction FIRES, and reports EXACTLY the mirrored-only key.
+ *
+ * `Equal` is invariant, so this is two facts in one line: `stray` IS reported, and
+ * `size` — a key that is BOTH mirrored and declared — is NOT. A matcher that
+ * returned every mirrored key would fail here, which is the control the zeros below
+ * are read against.
+ */
+export type assertionMirroredUndeclaredOperatorReportsAMirroredOnlyKey =
+  Expect< Equal< MirroredUndeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, 'stray' > >;
+
+/**
+ * The lit control stated on its own, because it is the claim a reader will doubt:
+ * the key that is on BOTH faces is not in the output.
+ */
+export type assertionMirroredUndeclaredDoesNotReportAnAgreedKey =
+  Expect< Equal<
+    Extract< MirroredUndeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, 'size' >,
+    never
+  > >;
+
+/**
+ * The obvious spelling — `keyof D` instead of `DeclaredKeys< D >` — reads `never` on
+ * this pair. This is the defect, reproduced: the declaration's index signature
+ * absorbs every literal name, so the subtraction has nothing left to report.
+ */
+type NaiveMirroredUndeclaredKeys< M, D > = Exclude< MirroredKeys< M >, Extract< keyof D, string > >;
+
+export type assertionNaiveMirroredUndeclaredIsAbsorbedByTheIndexSignature =
+  Expect< Equal< NaiveMirroredUndeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, never > >;
+
+/**
+ * …and the lit control for THAT zero, on the same naive instrument: strip the index
+ * signature off the declaration and the naive spelling finds `stray` after all. So
+ * the `never` above is the index signature absorbing the comparison, ⛔ not a naive
+ * operator that cannot report anything.
+ */
+interface SyntheticFourWayDeclarationWithoutIndexSignature {
+  size: string;
+  wide: 'a' | 'b';
+  narrow: number | string;
+  missing: number;
+}
+
+export type assertionNaiveMirroredUndeclaredFiresWithoutAnIndexSignature =
+  Expect< Equal<
+    NaiveMirroredUndeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclarationWithoutIndexSignature >,
+    'stray'
+  > >;
+
+/** And the real operator reads the same key on that declaration — the index signature is all that differed. */
+export type assertionMirroredUndeclaredIsIndifferentToTheIndexSignature =
+  Expect< Equal<
+    MirroredUndeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclarationWithoutIndexSignature >,
+    'stray'
+  > >;
+
+/**
+ * `UnmirroredDeclaredKeys` is blind to `stray` — it reports `missing` on this very
+ * pair, so the instrument is LIT and the omission is a measurement. It subtracts in
+ * the other direction by construction: declared minus mirrored.
+ */
+export type assertionUnmirroredOperatorIsBlindToAMirroredOnlyKey =
+  Expect< Equal< UnmirroredDeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, 'missing' > >;
+
+/**
+ * `WiderThanDeclaredKeys` is blind to `stray` — it reports `wide` on this very pair,
+ * so it is LIT here too. It maps over `MirroredKeys< M > & DeclaredKeys< D >`, the
+ * INTERSECTION, and a mirrored-but-undeclared key is outside that domain: it LEAVES
+ * THE COMPARISON, exactly as objectui#6058's declared-but-unmirrored keys left
+ * `NarrowerThanDeclared`'s.
+ */
+export type assertionWiderOperatorIsBlindToAMirroredOnlyKey =
+  Expect< Equal< WiderThanDeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, 'wide' > >;
+
+/**
+ * `NarrowerThanDeclared` is blind to `stray` — it reports `narrow` on this very pair.
+ * It maps over `MirroredKeys< M > & keyof D`, and with the index signature present
+ * `D['stray']` resolves to `any`, which absorbs the comparison and is found equal.
+ */
+export type assertionNarrowerOperatorIsBlindToAMirroredOnlyKey =
+  Expect< Equal< NarrowerThanDeclared< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, 'narrow' > >;
+
+
 /* ── The registry ───────────────────────────────────────────────────────────── */
 
 /** Mirror VALUES, keyed `<file>#<export>`. Runtime, so the census below can read the keys. */
@@ -1419,6 +1771,10 @@ export type UnmirroredOf< K extends MirrorKey > = UnmirroredDeclaredKeys< (typeo
 /** The third direction: mirrored, and the mirror ACCEPTS more than the declaration admits. */
 export type WiderOf< K extends MirrorKey > = WiderThanDeclaredKeys< (typeof MIRRORS)[K], Declared[K] >;
 
+/** The fourth direction (objectui#9711): mirrored on the zod side, undeclared on the TS side. */
+export type MirroredUndeclaredOf< K extends MirrorKey > =
+  MirroredUndeclaredKeys< (typeof MIRRORS)[K], Declared[K] >;
+
 /** What one registered pair's mirror ACCEPTS for one key — the static INPUT face. */
 export type MirrorInputOf< K extends MirrorKey, P extends MirroredKeys< (typeof MIRRORS)[K] > > =
   InputOf< ShapeOf< (typeof MIRRORS)[K] >[P] >;
@@ -1441,15 +1797,25 @@ interface KnownDrift {
    */
   'complex.zod.ts#CalendarViewSchema': 'onEventClick' | 'onViewChange';
   /**
-   * `body` — TS declares `SchemaNode | SchemaNode[]` (a rendered slot); the mirror
-   * declares `Record<string, unknown>` ("additional API body params"). Two different
-   * meanings of one key — a naming collision to rule on, not a widening.
+   * ⭐ `body` — RULED, and therefore GONE from this row (objectui#8572, maintainer
+   * ruling A, decision batch #137 item 4, 2026-09-15). It was ledgered here as two
+   * different meanings of one key: `SchemaNode | SchemaNode[]` on the declaration (the
+   * content slot) against `Record<string, unknown>` on the mirror ("Additional API body
+   * params") — the naming collision this entry recorded as "to rule on, not a widening",
+   * and the thing that made `chatbot` the one arm whose output was not assignable to
+   * `SchemaNode`. The ruling does not pick one of the two meanings: it RETIRES the
+   * record arm — `retirementTombstone()` on the mirror, `?: never` on the declaration —
+   * and leaves the chat API's params where the renderer already read them,
+   * `requestBody`. ⇒ the two faces now say the same thing about the key, it measures
+   * clean, and the entry would be STALE if it kept naming it (the `a listed key that has
+   * been fixed` half of this ledger's own ratchet). ⛔ Do not re-add `body` to keep the
+   * history readable — the history is this paragraph, beside the keys that remain.
    *
    * `onError` / `onSend` — RUNTIME SLOT (objectui#6124): `plugin-chatbot` forwards both off
    * `schema.*` into `useObjectChat`, so the TS side keeps the callables; the mirror
    * refuses them by name (`handlerKeyRefusal`). See the class note above `ButtonSchema`.
    */
-  'complex.zod.ts#ChatbotSchema': 'body' | 'onError' | 'onSend';
+  'complex.zod.ts#ChatbotSchema': 'onError' | 'onSend';
   /**
    * RUNTIME SLOT (objectui#6124) — pairs born ledgered by objectui#7655, which gave
    * the `chatbot-enhanced` and `chatbot-floating` registrations their own faces.
@@ -1516,18 +1882,30 @@ interface KnownDrift {
    * refused BY NAME by `RetiredKanbanNodeSchema`, pinned in
    * `./bare-kanban-node-key-retired-8802.test.ts`.
    *
-   * ⚠️ Recorded rather than repaired: `KanbanRenderer` still forwards all three,
-   * and the SURVIVING `objectql.zod.ts#ObjectKanbanSchema` pair declares none of
-   * them, so they are read-but-undeclared on the surviving face. Declaring them
-   * there would WIDEN a published accept set, which is a ruling and not a
-   * repair — reported on the retirement PR.
+   * ⚠️ Recorded rather than repaired AT THE TIME: `KanbanRenderer` forwarded
+   * all three and the SURVIVING `objectql.zod.ts#ObjectKanbanSchema` pair
+   * declared none, so they were read-but-undeclared on the surviving face.
+   * Both halves of that have since landed — objectui#7804 declared the two
+   * live slots, and objectui#9342 moved the `onCardMove` READ to an explicit
+   * React prop and tombstoned the key on both faces.
    */
   /**
    * RUNTIME SLOT (objectui#7344): `register('detail', DetailView)` — `DetailView`'s
    * `handleBack` calls `onBack()` when set. The mirror was `z.any()` (wider than
    * the declared callable, objectui#7069's direction); it now refuses by name.
+   *
+   * `onNavigate` and `onAddComment` joined with objectui#7804 (batch #69), and
+   * they drift for the SAME reason `onBack` does — a callable twin against a
+   * named refusal — but they reach that state from the opposite side. `onBack`
+   * was declared on both faces and the mirror was too WIDE. These two were
+   * declared on NEITHER: the TypeScript face typed them `any` through
+   * `BaseSchema`'s index signature and the mirror kept them through
+   * `.passthrough()`, while `DetailView` read and ran them. ⇒ this entry
+   * GREW by a repair, which is the direction this ledger's drift entries
+   * normally shrink in; the growth is the declaration arriving, not a
+   * regression.
    */
-  'crud.zod.ts#DetailSchema': 'onBack';
+  'crud.zod.ts#DetailSchema': 'onBack' | 'onNavigate' | 'onAddComment';
   /**
    * `rowActions` was the FIFTH key here until objectui#6940 settled the ruling
    * this entry was explicitly waiting on. It read: DISJOINT — TS declares
@@ -1544,12 +1922,52 @@ interface KnownDrift {
    * `resolveSelectionMode` in `renderers/complex/data-table.tsx` implements
    * `'single'` as a real mode.)
    *
-   * The four callbacks — RUNTIME SLOT (objectui#6124) ×4: `renderers/complex/data-table.tsx`
+   * The eleven callbacks — RUNTIME SLOT (objectui#6124) ×11: `renderers/complex/data-table.tsx`
    * CALLS every one of them off `schema.*` (`schema.onRowEdit?.(r)`,
    * `schema.onSelectionChange(selectedData)`, …), so the TS side keeps them callable
    * and the mirror refuses them by name.
+   *
+   * ⭐ It was FOUR until objectui#7804's `DataTableSchema` slice. The other seven
+   * — `onAddRecord`, `onBatchSave`, `onCellChange`, `onColumnResize`,
+   * `onRowActionDef`, `onRowClick`, `onRowSave` — arrived from
+   * `RuntimeOnlyDeclared` below, where they sat as declared-on-TS-only keys while
+   * the registered renderer read and ran each one and `BaseSchema.passthrough()`
+   * ACCEPTED an authored `{ "action": "toast" }` for any of them.
+   *
+   * ⚠️ The disposition was measured per key, and one of the seven does NOT share
+   * the group's channel: `onColumnResize` has no host prop anywhere — `ObjectGrid`
+   * supplies its own closure and folds the resize into the merged column layout it
+   * persists, while the other six arrive as React props a host hands `ObjectGrid`
+   * or `RelatedList`. Still a live function reaching the renderer through the TS
+   * face, so still a runtime slot; had it been read as `'retired'` off its
+   * siblings, the arm would publish "no renderer reads this key" to every author
+   * who trips it, and objectui#6175 wired that read on purpose.
    */
-  'data-display.zod.ts#DataTableSchema': 'onRowEdit' | 'onRowDelete' | 'onSelectionChange' | 'onColumnsReorder';
+  'data-display.zod.ts#DataTableSchema':
+    | 'onRowEdit' | 'onRowDelete' | 'onSelectionChange' | 'onColumnsReorder'
+    | 'onAddRecord' | 'onBatchSave' | 'onCellChange' | 'onColumnResize'
+    | 'onRowActionDef' | 'onRowClick' | 'onRowSave';
+  /**
+   * RUNTIME SLOT (objectui#6124), arrived with objectui#7804's `TreeViewSchema`
+   * slice — a NEW entry here, not growth on an existing one, because
+   * `TreeViewSchema` had no `KnownDrift` entry at all.
+   *
+   * `renderers/data-display/tree-view.tsx` gates on `if (schema.onNodeClick)`
+   * and CALLS `schema.onNodeClick(node)`, so the TS side keeps it callable and
+   * the mirror refuses it by name. The key came from `RuntimeOnlyDeclared`
+   * below, which LOST ITS ONLY `TreeViewSchema` ENTRY in the same move — ⚠️ one
+   * move seen from both sides, and the move that finally made
+   * `RuntimeOnlyDeclared` a subset of `UnmirroredDeclared`; the cross-ledger
+   * sentence in this file's header records that, and the pin that reads it
+   * changed shape for it.
+   *
+   * ⚠️ Measured `'runtime-slot'` and NOT `'retired'` although NO in-repo host
+   * builds a `tree-view` node carrying it: the read is live and invoked, so
+   * `'retired'` would publish "no renderer reads this key" to the author who
+   * trips it. Same shape as `ObjectFormSchema.onStepChange` in this card's
+   * `objectql.ts` slice — channel wired end to end, supplier absent.
+   */
+  'data-display.zod.ts#TreeViewSchema': 'onNodeClick';
   /** RUNTIME SLOT (objectui#6124): the `accordion` renderer spreads leftover props onto the Radix `Accordion` root, where `onValueChange` is a real prop. */
   'disclosure.zod.ts#AccordionSchema': 'onValueChange';
   /** RUNTIME SLOT (objectui#6124): the `collapsible` renderer spreads leftover props onto the Radix `Collapsible` root. */
@@ -1639,6 +2057,88 @@ interface KnownDrift {
    */
   'objectql.zod.ts#ObjectDataTableSchema': 'onRowClick';
   /**
+   * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) ×5 — the
+   * `objectql.ts` slice, which drained this pair's whole `RuntimeOnlyDeclared`
+   * entry rather than shortening it. `plugin-form`'s `ObjectForm` reads every
+   * one off `schema.*` and forwards it onto the variant node it renders, and
+   * `ObjectFormComponentProps` declares only `schema` / `dataSource` /
+   * `className` — so the `object-form` NODE a host builds in TypeScript is the
+   * channel, and the TS side keeps all five callable while the mirror refuses
+   * them by name.
+   *
+   * ⚠️ The disposition was measured per key, and one of the five does NOT share
+   * the group's supplier: `onStepChange` has NO in-repo host filling it, while
+   * `onSuccess` / `onCancel` have ten between them, `onOpenChange` three and
+   * `onError` one. Its channel is wired end to end all the same — forwarded
+   * onto the wizard node, then CALLED as `schema.onStepChange(step)` — so what
+   * is missing is a supplier, not a read, and `'retired'` would have published
+   * "no renderer reads this key" against a read that runs.
+   */
+  'objectql.zod.ts#ObjectFormSchema':
+    | 'onCancel' | 'onError' | 'onOpenChange' | 'onStepChange' | 'onSuccess';
+  /**
+   * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) ×2 — the
+   * `objectql.ts` slice again, and the only pair in it whose keys were declared
+   * on NEITHER face before. They are this ledger's PROPS-half shape:
+   * `SchemaRenderer` spreads an authored node's leftover keys into the props
+   * bag, and `ObjectGallery` reads both on ONE line
+   * (`props.onRowClick ?? props.onCardClick`) before handing the winner to
+   * `useNavigationOverlay` as the function it calls. So an authored value
+   * reached a renderer through a face that declared nothing — with
+   * `BaseSchema`'s index signature admitting it untyped — which is why
+   * declaring them is a NARROWING on both faces at once.
+   *
+   * ⚠️ Measured per key: `onRowClick` has two in-repo suppliers (`ListView`'s
+   * `baseProps`, `RelatedList`'s mobile branch), `onCardClick` has none and is
+   * the `??` fallback spelling `ObjectGalleryProps` declares for a host that
+   * uses that name.
+   */
+  'objectql.zod.ts#ObjectGallerySchema': 'onCardClick' | 'onRowClick';
+  /**
+   * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) — the key the
+   * maintainer's 2026-08-19 ruling on objectui#5234 (option C) kept DECLARED
+   * for programmatic callers and kept OFF the authoring surface. "Not offered"
+   * was true of the manifest and the designer panel; the validator still said
+   * yes, because `BaseSchema` is `.passthrough()`. The named refusal closes
+   * that half, and it makes this mirror agree with `@objectstack/spec`, whose
+   * `ComponentPropsMap['object-grid']` `strictObject` already refused the key.
+   *
+   * ⚠️ No in-repo host builds an `object-grid` node carrying it — measured. The
+   * read is live and deliberate (`onNavigate: schema.onNavigate` into
+   * `useNavigationOverlay`), and `plugin-grid`'s `gridNonAuthorKeys.test.tsx`
+   * supplies it from a schema and asserts the call fires.
+   */
+  'objectql.zod.ts#ObjectGridSchema': 'onNavigate';
+  /**
+   * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) — the same
+   * key NAME as the entry above and nothing else in common: a different second
+   * parameter (`mode: 'view' | 'edit'` rather than `action?: string`), a
+   * different renderer, a different supplier. Judged separately for exactly
+   * that reason.
+   *
+   * `plugin-view`'s `ObjectView` invokes it at four sites —
+   * `schema.onNavigate('new', 'edit')` on create, and the record id with
+   * `'edit'` / `'view'` on the other three. Supplied by `@object-ui/app-shell`'s
+   * `ObjectView`, which builds the `object-view` node in TypeScript and puts
+   * `onNavigate: (recordId, mode) => …` on it.
+   *
+   * ⭐ `form` and `table` are the SAME slice reaching one level down, and they
+   * are here by measurement rather than by intent: this pair's two nested
+   * config slots are the sibling mirrors BY REFERENCE
+   * (`ObjectFormSchema.omit({ type, objectName, mode }).partial()` and
+   * `ObjectGridSchema.omit({ type, objectName }).partial()`), while the
+   * declaration types them `Partial<Pick<…, ObjectFormSlotKey>>` /
+   * `Partial<Pick<…, ObjectGridSlotKey>>` — and those two slot-key unions list
+   * exactly the handler keys this slice declared (`onCancel`, `onError`,
+   * `onOpenChange`, `onStepChange`, `onSuccess` on the form union;
+   * `onNavigate` on the grid union). So the named refusals propagate into the
+   * nested config and an authored `form: { onSuccess: … }` is refused there
+   * too. ⛔ NOT worked around by omitting the keys from the nested lazy: that
+   * would keep accepting an un-authorable function value one level down, which
+   * is the defect, not the fix.
+   */
+  'objectql.zod.ts#ObjectViewSchema': 'onNavigate' | 'form' | 'table';
+  /**
    * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) ×2 — the
    * SECOND handler entry on this mirror, and the first anywhere in this ledger
    * that was born from an ARM RETIREMENT rather than from a mirror or a
@@ -1655,12 +2155,18 @@ interface KnownDrift {
    * spread — arrives instead as the React PROP `ObjectKanbanComponentProps`
    * declares, which `ObjectKanban`'s own wrapper CALLS.
    *
-   * ⚠️ The THIRD key, `onCardMove`, is deliberately NOT here and is not drift:
-   * neither face declares it, so `undefined` meets `undefined`. Its authored
-   * value reaches nothing on this entry — the `'retired'` disposition — and
-   * `check:handler-key-reads` refuses that spelling while the renderer still
-   * reads the key, so it keeps its `KNOWN_UNDECLARED_READS` row on
-   * objectui#7804 rather than joining either face.
+   * ⚠️ The THIRD key, `onCardMove`, is still NOT here, and the reason CHANGED
+   * with objectui#9342 — it is not drift either way. It used to be absent
+   * because NEITHER face declared it (`undefined` meeting `undefined`); since
+   * objectui#9342 BOTH faces declare it as a tombstone — `?: never` on the
+   * TypeScript twin, `handlerKeyRefusal(…, 'retired', …)` on this mirror — and
+   * a matched pair of tombstones is the shape `complex.zod.ts#CarouselSchema`
+   * already carries for `onSlideChange`, which is likewise not in this ledger.
+   * Its `'retired'` reading is objectui#7804's measurement (an authored value
+   * reaches nothing: `ObjectKanban` substitutes its own mover and declares no
+   * `onCardMove` React prop); what was missing was the precondition, and
+   * objectui#9342 supplied it by moving `KanbanRenderer`'s read onto an
+   * explicit React prop so `check:handler-key-reads` would accept a tombstone.
    */
   'objectql.zod.ts#ObjectKanbanSchema': 'onCardClick' | 'onQuickAdd';
   /**
@@ -1690,8 +2196,18 @@ interface KnownDrift {
    * `DetailView`, whose `handleBack` calls `onBack()`. The TS twin declared the
    * handler-expression STRING (objectui#6182: not an authoring form) and now
    * declares the callable the renderer invokes; the mirror refuses by name.
+   *
+   * ⭐ `onNavigate` and `onAddComment` JOINED with objectui#9447, arriving from
+   * `RuntimeOnlyDeclared` below — ONE move seen from both sides, not a refiling,
+   * the same drain the `objectql.zod.ts` departures took. Both are objectui#6124
+   * runtime slots on the SAME component this entry already names: `detail-view`
+   * registers `DetailViewRenderer`, whose data-source gate returns the node
+   * unchanged or a shallow `{ ...base }` spread, so an authored value reaches
+   * `DetailView`'s `schema.onNavigate` / `schema.onAddComment` by identity —
+   * exactly as it does under `'detail'`, whose twin arm refused both by name
+   * with objectui#7804. The TS face keeps the callable on all three.
    */
-  'views.zod.ts#DetailViewSchema': 'onBack';
+  'views.zod.ts#DetailViewSchema': 'onBack' | 'onNavigate' | 'onAddComment';
 }
 
 /* ── The measured unmirrored-declared ledger (objectui#6058) ────────────────── */
@@ -1711,7 +2227,7 @@ interface KnownDrift {
  *
  * objectui#6058 seeded this ledger at **121 keys**, and — on ONE line, because the
  * pin below reads this sentence off disk —
- * **86 keys** is what this ledger records today.
+ * **85 keys** is what this ledger records today.
  * The movements between the two are different facts. objectui#6152 measured the 23
  * callback-shaped (`on*`) keys and ruled that mirroring is the wrong remedy for every
  * one of them;
@@ -1873,7 +2389,12 @@ interface KnownDrift {
  *     spec schema does not model, which is objectui#2231's unification question and
  *     NOT a local mirror edit. They are marked, not exempted: exempting them in the
  *     instrument would re-blind exactly the pairs objectui#5927 leaned on hardest.
- *   - **LOCAL (11 entries, 69 keys)** — plain omissions from a hand-written mirror.
+ *   - **LOCAL (10 entries, 68 keys)** — plain omissions from a hand-written mirror.
+ *     It was 11 / 69 until objectui#8072 MIRRORED `InputSchema.wrapperClass`: the entry's
+ *     ONLY key, so the entry left this half with it and no entry crossed to the
+ *     SPEC-DERIVED half — `form.zod.ts#InputSchema` is not in `SPEC_DERIVED_PAIRS`, so
+ *     that half did not move at all. A plain LOCAL repair of the kind objectui#6152's
+ *     worklist is made of — ⛔ no reclassification, no retirement, no spec reference.
  *     It was 12 / 84 until objectui#7762 MIRRORED `ObjectGridSchema.exportOptions`: one key
  *     REPAIRED and the entry's other fourteen carried out of this half with it, because the
  *     spec reference that repair introduced re-derives the pair into the SPEC-DERIVED half
@@ -1912,10 +2433,13 @@ interface KnownDrift {
  * `ObjectGridSchema` with ONE key: mirroring `exportOptions` as the spec's object arm by
  * reference shrank the ledger 87 → 86 and re-derived the entry (fourteen keys) from the
  * LOCAL half into the SPEC-DERIVED one, so the entry count held while BOTH split figures
- * moved. The seeded pair is no longer
+ * moved. objectui#8072 then MIRRORED `InputSchema.wrapperClass` — the opposite shape on
+ * every axis: one key that was its entry's WHOLE key set, on a pair no spec reference
+ * touches, so the entry emptied, the LOCAL half lost an entry and a key, and the
+ * SPEC-DERIVED half did not move. The seeded pair is no longer
  * among them, and the ledger now totals — on ONE line, because the pin below reads
  * this sentence off disk —
- * **14 entries / 86 keys** — 3 / 17 spec-derived, 11 / 69 local.
+ * **13 entries / 85 keys** — 3 / 17 spec-derived, 10 / 68 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -2013,11 +2537,12 @@ interface UnmirroredDeclared {
   'form.zod.ts#FormSchema':
     | 'defaultFieldTab' | 'fieldContainerClass' | 'fieldPanes' | 'fieldPanesOrientation'
     | 'fieldPanesResizable' | 'fieldTabs' | 'fieldTabsPosition' | 'mobileStickyActions';
-  /**
-   * LOCAL. Verified by hand against both sources while measuring: declared once in
-   * `../form.ts`, zero occurrences in the mirror.
-   */
-  'form.zod.ts#InputSchema': 'wrapperClass';
+  // `form.zod.ts#InputSchema` recorded `wrapperClass` here (LOCAL) — the entry's
+  // ONLY key, so objectui#8072 MIRRORING it took the whole entry with it. The pair
+  // keeps its `KnownDrift` entry above (`onChange`, a runtime slot the mirror
+  // refuses by name) and records nothing here. ⭐ That is why this move shrank the
+  // entry count and the key total together where objectui#7762's did not: one key
+  // off a one-key entry empties it, one key off a fifteen-key entry does not.
   /** LOCAL. */
   'form.zod.ts#LabelSchema': 'content';
   /** LOCAL. */
@@ -2094,18 +2619,20 @@ interface UnmirroredDeclared {
    *     `viewTabBar` — zero reads; the tab-bar config is `ViewTabBar`'s `config` PROP
    *     from the host, never a node key.
    * ⚠️ `listViews` STAYS, on the ruling's own fallback clause, with the measurement
-   * that triggered it: the declaration's value is the local `NamedListView`, 47
-   * declared top-level members, six of which the renderer reads — `label`, `type`,
-   * `columns`, `filter`, `sort`, `options`. The renderer reads a seventh key off a
-   * named view, `data`, and it is NOT a declared member: it arrives through an
-   * `as any` cast on the named-view config in `plugin-view/src/ObjectView.tsx`, so
-   * it is outside the 47 this ledger counts. The spec slot `ViewSchema.listViews` is
+   * that triggered it — RE-TAKEN at objectui#8980, which moved both halves of it.
+   * The declaration's value is the local `NamedListView`, now 64 declared
+   * top-level members (47 plus the seventeen the protocol declares on this
+   * surface and objectui did not), 21 of which the renderer reads off a named
+   * view. `data` is one of the 21: it used to arrive through an `as any` cast on
+   * the named-view config in `plugin-view/src/ObjectView.tsx` and be outside the
+   * count, and objectui#8980's ruling declared it, which is objectui#7928's open
+   * half answered. The spec slot `ViewSchema.listViews` is
    * a record of the STRICT `ObjectListViewSchema`, which requires `columns` and
    * refuses `options`, ObjectQL tuple filters and `default` — the named views
    * `plugin-view`'s README and `content/docs/api/schema-reference.md` teach fail it
    * at `columns` / `filter.0` / unrecognized_keys. Mirroring the spec value loses
-   * documented behaviour; mirroring the local value enforces 41 unread members
-   * (47 declared, minus the 6 that are both declared and read) into the contract
+   * documented behaviour; mirroring the local value enforces 43 unread members
+   * (64 declared, minus the 21 that are both declared and read) into the contract
    * (the reason ruling B
    * refused option A for the six local keys). Neither is a mirror edit this ledger can
    * authorise; ⛔ `z.any()` was ruled out by name. The value type is the maintainer's
@@ -2134,7 +2661,7 @@ interface UnmirroredDeclared {
  *
  * `UnmirroredDeclared` above was seeded at **121 keys** by objectui#6058, and — on
  * ONE line, because the pin below reads this sentence off disk —
- * `UnmirroredDeclared` records **86 keys** today.
+ * `UnmirroredDeclared` records **85 keys** today.
  * These 23 moved here whole. Keys have since left that ledger by MIRRORING and by
  * RETIREMENT, but the move recorded HERE is neither and repaired nothing. ⛔ Nothing
  * was mirrored by it, no declaration was removed, no defect was repaired and nothing was
@@ -2245,7 +2772,17 @@ interface UnmirroredDeclared {
  */
 interface RuntimeOnlyDeclared {
   /**
-   * 12 of `DataTableSchema`'s former 29. OVERSIGHT group — this mirror already
+   * ⭐ 5 of `DataTableSchema`'s former 29, down from 12 with objectui#7804's
+   * `DataTableSchema` slice: `onAddRecord`, `onBatchSave`, `onCellChange`,
+   * `onColumnResize`, `onRowActionDef`, `onRowClick` and `onRowSave` are now
+   * DECLARED on the mirror as named refusals and moved to `KnownDrift` above.
+   * The entry survives because the five below are not that class — four of them
+   * (`onPageChange`, `onPageSizeChange`, `onSearchChange`, `onSortChange`) are
+   * host-driven pagination/sort/search slots the grid forwards, and
+   * `onColumnReorder` is read nowhere at all, which is the open ruling recorded
+   * below. ⛔ Draining the rest of this entry is NOT a follow-on of that slice.
+   *
+   * OVERSIGHT group — this mirror already
    * declares four callbacks. ⚠️ `onColumnReorder` is still read NOWHERE, and
    * deliberately so. objectui#6175 repaired the persistence half this entry used to
    * describe: `onColumnResize` is now invoked by `data-table.tsx` (at the end of a
@@ -2261,8 +2798,8 @@ interface RuntimeOnlyDeclared {
    * and that ruling is still OPEN. Nothing about this entry's membership changed.
    */
   'data-display.zod.ts#DataTableSchema':
-    | 'onAddRecord' | 'onBatchSave' | 'onCellChange' | 'onColumnReorder' | 'onColumnResize'
-    | 'onPageChange' | 'onPageSizeChange' | 'onRowActionDef' | 'onRowClick' | 'onRowSave'
+    | 'onColumnReorder'
+    | 'onPageChange' | 'onPageSizeChange'
     | 'onSearchChange' | 'onSortChange';
   /**
    * 1 of `FormSchema`'s former 9. OVERSIGHT group — `onSubmit`, `onChange` and
@@ -2271,47 +2808,62 @@ interface RuntimeOnlyDeclared {
    */
   'form.zod.ts#FormSchema': 'onDirtyChange';
   /**
-   * 5 of `ObjectFormSchema`'s former 26. POLICY group — `objectql.zod.ts` mirrors no
-   * callback at all. All five are read in `plugin-form/src/ObjectForm.tsx`.
-   */
-  'objectql.zod.ts#ObjectFormSchema':
-    | 'onCancel' | 'onError' | 'onOpenChange' | 'onStepChange' | 'onSuccess';
-  /** 1 of `ObjectGridSchema`'s former 17. POLICY group. Read at `ObjectGrid.tsx:1334`. */
-  'objectql.zod.ts#ObjectGridSchema': 'onNavigate';
-  /**
-   * 1 of `ObjectViewSchema`'s former 11 — the one key that sits in both stories. Of
-   * its other ten keys, nine closed with objectui#7779 (eight mirrored, `viewTabBar`
-   * retired) and `listViews` stays in `UnmirroredDeclared`; reclassifying its callback
-   * did not re-route the pair, and neither did objectui#7279's move of that entry from
-   * the split's SPEC-DERIVED half to its LOCAL one (the pair had never been
-   * spec-derived until #7779 gave the mirror real spec references — see the entry
-   * above). POLICY group.
-   */
-  'objectql.zod.ts#ObjectViewSchema': 'onNavigate';
-  /**
-   * `TreeViewSchema`'s ONLY entry in either ledger — the pair was clean before
-   * objectui#6150 and this key is the whole of its debt.
+   * ⭐ THREE `objectql.zod.ts` entries LEFT this ledger with objectui#7804's
+   * `objectql.ts` slice, and they left the way this ledger is meant to drain —
+   * by the mirror DECLARING each key as a named refusal, never by refiling:
    *
-   * OVERSIGHT group by mirror shape (`onSelectChange` and `onExpandChange` are
-   * mirrored beside it as `z.function()`), but it arrives here as a DECLARATION,
-   * not a discovery: objectui#6150's census measured `schema.onNodeClick` INVOKED
-   * at `renderers/data-display/tree-view.tsx:98,99` against a type that declared
-   * nothing, and the card declared it. A function cannot appear in an authored
-   * JSON document, so the key is a runtime slot and objectui#6152's ruling routes
-   * it here rather than to a mirror — the step-3 exception in the header above,
-   * used exactly as written.
+   *   - `ObjectFormSchema` — all five (`onCancel`, `onError`, `onOpenChange`,
+   *     `onStepChange`, `onSuccess`), so the entry is gone, not shortened;
+   *   - `ObjectGridSchema` — `onNavigate`, the key the 2026-08-19 ruling on
+   *     objectui#5234 kept declared for programmatic callers and off the
+   *     authoring surface; the mirror now says on this face what
+   *     `@objectstack/spec`'s `strictObject` already said on the other;
+   *   - `ObjectViewSchema` — `onNavigate`, a DIFFERENT key of the same name:
+   *     different signature, different supplier, judged separately.
    *
-   * ⚠️ This is the first pair to sit in `RuntimeOnlyDeclared` without also sitting
-   * in `UnmirroredDeclared`; the two counts in the file header record that.
+   * ⚠️ The pairs are gone from this ledger and present in `KnownDrift` above,
+   * which is ONE move seen from both sides. And `KnownDrift` gained NINE keys
+   * where this one lost SEVEN: the other two are `ObjectGallerySchema`'s
+   * `onCardClick` / `onRowClick`, which were in NEITHER ledger because they
+   * were declared on NEITHER face — they reached the renderer through
+   * `SchemaRenderer`'s props spread while `BaseSchema`'s index signature
+   * admitted them untyped. ⛔ Read the two bullets together or the arithmetic
+   * looks like growth from nowhere.
    */
-  'data-display.zod.ts#TreeViewSchema': 'onNodeClick';
   /**
-   * 3 of `DetailViewSchema`'s former 14 — the exact three the 2026-07 audit named. By
-   * mirror SHAPE this is the oversight group (`onBack` is mirrored, as `z.string()`),
-   * but this is also the pair where "a props bag wearing a schema's clothes" was
-   * written, and `onTabChange` is the key read through an `(schema as any)` cast.
+   * ⭐ `data-display.zod.ts#TreeViewSchema` WAS HERE and is GONE — objectui#7804's
+   * `TreeViewSchema` slice. Its one key `onNodeClick` is now DECLARED on the
+   * mirror as a named refusal and sits in `KnownDrift` above; the entry had
+   * nothing else in it, so the entry went with the key.
+   *
+   * ⚠️ THIS REMOVAL CHANGED THE SHAPE OF A CROSS-LEDGER FIGURE, which is why it
+   * is recorded here rather than only as a smaller digit in the header.
+   * `TreeViewSchema` was the ONE pair in this ledger that was not also in
+   * `UnmirroredDeclared` — the whole reason the union of the two unmirrored
+   * ledgers was one pair LARGER than `UnmirroredDeclared` itself. With it gone
+   * this ledger is a SUBSET of that one, the union equals it exactly, and the
+   * header sentence plus the two pin legs that read it were rewritten to state
+   * the containment instead of a difference. ⛔ Do not "restore" a difference
+   * figure here: the pin now reads the containment, and a re-seeded
+   * runtime-only-only pair has to move both together.
    */
-  'views.zod.ts#DetailViewSchema': 'onAddComment' | 'onNavigate' | 'onTabChange';
+  /**
+   * What is LEFT of the three `DetailViewSchema` keys the 2026-07 audit named.
+   *
+   * ⭐ `onNavigate` and `onAddComment` LEFT this ledger with objectui#9447, and
+   * they left the way this ledger is meant to drain — by the mirror DECLARING
+   * each key as a named refusal, never by refiling. Both are in `KnownDrift`
+   * above, which is ONE move seen from both sides; read the two entries together
+   * or this one looks like it simply shrank.
+   *
+   * `onTabChange` is the one of the three that could NOT go with them: it is
+   * read through an `(schema as any)` cast rather than a plain member access,
+   * its disposition is still open on objectui#7804, and objectui#9447's rows
+   * were the two keys whose twin on `crud.zod.ts#DetailSchema` already refused
+   * them. This is also the pair where the audit wrote "a props bag wearing a
+   * schema's clothes".
+   */
+  'views.zod.ts#DetailViewSchema': 'onTabChange';
 }
 
 /**
@@ -2454,24 +3006,27 @@ export type assertionLedgerHalvesAreDisjoint = Expect< Equal< DoubleFiledKey, ne
  */
 interface WiderThanDeclared {
   /**
-   * CONCRETE `label` + SCHEMA-NODE `areas`. (`actions` left under objectui#7760: its
-   * element is a schema-node slot, and once `SchemaNodeSchema` carried its input face
-   * the key measured clean.)
-
-   * `label` is the INLINE-LOCALE class: `BaseSchema`'s mirror spells the key
-   * `I18nLabelSchema` — a plain string OR an inline locale map — while this
-   * declaration restates `label?: string` and so refuses the map its own mirror
-   * accepts. The narrowing lives on the DECLARED side, which is why the forward
-   * comparison reads the pair as clean.
+   * SCHEMA-NODE `areas`. (`actions` left under objectui#7760: its element is a
+   * schema-node slot, and once `SchemaNodeSchema` carried its input face the key
+   * measured clean.)
+   *
+   * `label` LEFT under objectui#9092, the INLINE-LOCALE class: the mirror spelled
+   * the key `I18nLabelSchema` — a plain string OR an inline locale map — while the
+   * declaration restated `label?: string` and refused the map its own mirror
+   * accepted. The declaration now states `string | I18nLabel`, the form
+   * objectui#4580's revised Q1 ruling (option A) put on `BaseSchema.label`, so the
+   * pair measures clean and this entry would be STALE if it stayed.
    */
-  'app.zod.ts#AppComponentSchema': 'label' | 'areas';
-  /**
-   * CONCRETE, and DISJOINT rather than strictly wider — the pair also carries a
-   * `KnownDrift` entry for the same key, one of the measured cases where each face
-   * refuses something the other admits. The mirror restates `body` as an arbitrary
-   * record; the declaration inherits the base's schema-node-or-list.
-   */
-  'complex.zod.ts#ChatbotSchema': 'body';
+  'app.zod.ts#AppComponentSchema': 'areas';
+  // `complex.zod.ts#ChatbotSchema` recorded `body` here (CONCRETE, and DISJOINT rather
+  // than strictly wider — the pair carried a `KnownDrift` entry for the same key, one of
+  // the measured cases where each face refuses something the other admits: the mirror
+  // restated `body` as an arbitrary record, the declaration inherited the base's
+  // schema-node-or-list). objectui#8572 ruled the collision — the record arm is retired on
+  // both faces and the chat API's params stay at `requestBody` — so the mirror accepts
+  // nothing the declaration refuses and the entry is GONE, per clause 4 of this ledger's
+  // "when it fires" note. The pair keeps its `KnownDrift` entry above, which records the
+  // ruling beside the two runtime slots that remain.
   /**
    * CONCRETE. `header` and `globalFilters` carry the inline-locale widening one level
    * down (a nested `label`) and `dateRange.defaultRange` is a bare string on the
@@ -2539,12 +3094,21 @@ interface WiderThanDeclared {
    */
   'layout.zod.ts#ContainerSchema': 'maxWidth';
   /**
-   * MIXED: `aria` carries the inline-locale widening one level down; `slots` is
-   * SCHEMA-NODE. (`regions` left under objectui#7760 — its element's content is a
-   * schema-node list, so its reading WAS the annotation. `slots` did not move, so the
-   * unconstrained position on ITS path is not one of the ten consts that card filled.)
+   * SCHEMA-NODE `slots`. (`regions` left under objectui#7760 — its element's content
+   * is a schema-node list, so its reading WAS the annotation. `slots` did not move, so
+   * the unconstrained position on ITS path is not one of the ten consts that card
+   * filled.)
+   *
+   * `aria` LEFT under objectui#9092: it carried the inline-locale widening one level
+   * down, on `ariaLabel`. The mirror receives the spec's own `AriaPropsSchema` BY
+   * REFERENCE through `SpecPageFields` (the spec's `PageSchema` declares `aria` at its
+   * top level), and that schema spells `ariaLabel` as `z.union([z.string(),
+   * InlineLocaleMapSchema])`; the declaration restated the string arm alone. It now
+   * states `string | I18nLabel` — the NESTED slot's vocabulary, not the FLAT
+   * `BaseSchema.ariaLabel`'s KEYED one, which objectui#4580 Q2-B deliberately left
+   * narrow.
    */
-  'layout.zod.ts#PageNodeSchema': 'aria' | 'slots';
+  'layout.zod.ts#PageNodeSchema': 'slots';
   /**
    * CONCRETE. `variant` is DISJOINT — one variant spelling on each side the other
    * refuses; also in `KnownDrift`. `logo` ENTERED under objectui#7760: the mirror is
@@ -2557,14 +3121,6 @@ interface WiderThanDeclared {
    * deep.
    */
   'navigation.zod.ts#HeaderBarSchema': 'logo' | 'variant';
-  /** CONCRETE, INLINE-LOCALE: both keys are `I18nLabelSchema` on the mirror and restated as plain strings on this declaration. */
-  'objectql.zod.ts#ObjectGridSchema': 'label' | 'description';
-  /**
-   * SCHEMA-NODE. (`form` left under objectui#7760; `table` did not. Both are inline
-   * `z.lazy` slots with no exported const — `UNNAMED_LAZY_SLOTS` below records them —
-   * and neither carries an annotation of its own, so what moved is what they REACH.)
-   */
-  'objectql.zod.ts#ObjectViewSchema': 'table';
   /**
    * CONCRETE. ENTERED under objectui#7760, unmeasurable before it: the mirror is
    * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` and the declaration states
@@ -2694,9 +3250,7 @@ type WiderArmClass = 'SCHEMA-NODE' | 'CONCRETE';
 const WIDER_ARM_ROW_SEPARATOR = '::';
 
 const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
-  'app.zod.ts#AppComponentSchema::label': ['CONCRETE', 'CONCRETE'],
   'app.zod.ts#AppComponentSchema::areas': ['SCHEMA-NODE'],
-  'complex.zod.ts#ChatbotSchema::body': ['CONCRETE'],
   'complex.zod.ts#DashboardComponentSchema::header': ['CONCRETE'],
   'complex.zod.ts#DashboardComponentSchema::globalFilters': ['CONCRETE'],
   'complex.zod.ts#DashboardComponentSchema::dateRange': ['CONCRETE'],
@@ -2717,13 +3271,9 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'form.zod.ts#SliderSchema::defaultValue': ['CONCRETE', 'CONCRETE'],
   'form.zod.ts#SliderSchema::value': ['CONCRETE', 'CONCRETE'],
   'layout.zod.ts#ContainerSchema::maxWidth': ['CONCRETE', 'CONCRETE'],
-  'layout.zod.ts#PageNodeSchema::aria': ['CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'navigation.zod.ts#HeaderBarSchema::logo': ['CONCRETE', 'CONCRETE'],
   'navigation.zod.ts#HeaderBarSchema::variant': ['CONCRETE'],
-  'objectql.zod.ts#ObjectGridSchema::label': ['CONCRETE', 'CONCRETE'],
-  'objectql.zod.ts#ObjectGridSchema::description': ['CONCRETE', 'CONCRETE'],
-  'objectql.zod.ts#ObjectViewSchema::table': ['SCHEMA-NODE'],
   'overlay.zod.ts#TooltipSchema::content': ['CONCRETE', 'CONCRETE'],
   'views.zod.ts#DetailViewFieldSchema::options': ['CONCRETE'],
   'views.zod.ts#DetailViewSchema::fields': ['SCHEMA-NODE'],
@@ -2790,14 +3340,20 @@ export const assertionDriftMatchesLedger: never = 0 as unknown as LedgerMismatch
  * Six of `RuntimeOnlyDeclared`'s seven
  * pairs are a measured subset of `UnmirroredDeclared`'s 14, so objectui#6152's
  * reclassification left the clean population unchanged; objectui#6150 then added
- * `TreeViewSchema`, whose only entry is runtime-only, which is why the union is one
- * pair larger than `UnmirroredDeclared` itself. (objectui#6576 took the union to 18;
+ * `TreeViewSchema`, whose only entry was runtime-only, which is why the union was for
+ * a time one pair larger than `UnmirroredDeclared` itself. (objectui#6576 took the
+ * union to 18;
  * objectui#7129 brought it back to 17 by retiring `DetailViewSectionSchema`'s only
  * ledgered key, objectui#7623 to 16 by retiring `DashboardComponentSchema`'s,
  * objectui#7352 to 14 by MIRRORING both `drillDown` entries — each leaving its
  * pair with no entry in either half — and objectui#7655 to 15 by registering
  * `ChatbotFloatingSchema` born ledgered. ⚠️ Two of those pairs still carry a
  * `KnownDrift` entry: "no entry in either" is about the two UNMIRRORED ledgers.)
+ * ⭐ objectui#7804's `TreeViewSchema` slice closed that gap: the key was MIRRORED as
+ * a named refusal, the pair's runtime-only entry went with it, and the union is
+ * `UnmirroredDeclared` exactly — ⛔ so the present-tense clause this paragraph used
+ * to carry ("which is why the union is one pair larger") is now history, and the
+ * live figure lives in the file header where it is pinned.
  *
  * ⚠️ **The discriminating signal is the PER-PAIR set, not this file's exit code.**
  * The exit code is a whole-file verdict, so it moves only while the rest of the
@@ -2811,11 +3367,23 @@ export const assertionDriftMatchesLedger: never = 0 as unknown as LedgerMismatch
  *
  * ⚠️ And it is a COMPILE-TIME assertion. The `describe` block at the bottom of this
  * file is a population census — it checks that the registry is closed and that
- * `SPEC_DERIVED_PAIRS` re-derives, and it never compares keys at all. Its
- * `Tests 12 passed (12)` line does not move when this half reddens, correctly, and
+ * `SPEC_DERIVED_PAIRS` re-derives, and it never compares keys at all. Its passing
+ * test count does not move when this half reddens, correctly, and
  * it did not move under the ablation either. (It read `5 passed (5)` until
  * objectui#6705 added the seven-fixture suite pinning the re-check's scanner.) Reading the runtime half for evidence
  * about drift measures the wrong instrument and concludes the guard does nothing.
+ *
+ * ⛔ The count this clause used to RESTATE is GONE, not refreshed (objectui#9603 —
+ * a GUIDANCE clause, so the header's LIVE / HISTORICAL split obliges a later card to
+ * amend it and to name itself doing so; the two RECORD clauses beside it are left
+ * byte-identical). It said 12, true when objectui#6705 wrote it; the card measured
+ * 32 on `origin/main` when it was filed; `vitest run` printed `37 passed (37)` at
+ * `4b577229` two days later when it was worked. ⭐ Refreshing it would have bought
+ * about one merge, and the reason generalises: this suite grows whenever a pin is
+ * added, which is this file WORKING, so a restated case count rots ON GOOD NEWS and
+ * nothing short of deleting it makes the sentence durable. ⛔ Do not put a number
+ * back — the figure-free spelling is already here, in `WiderLedgerMismatch` below
+ * ("their passing test counts do not move when this reddens"), which never rotted.
  *
  * When it fires, fix it by MEASURING (the compiler-API recipe and the
  * error-printing trap are in the ledger's header above):
@@ -2889,6 +3457,340 @@ export type WiderLedgerKeyDrift = {
 }[MirrorKey];
 
 export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderLedgerKeyDrift;
+
+/* ── The FOURTH direction's ledger (objectui#9711) ──────────────────────────── */
+
+/**
+ * Exact MIRRORED-BUT-UNDECLARED key set per pair — the seed of the direction
+ * objectui#9711 opened, measured on the tree this ledger landed on.
+ *
+ * `this ledger seeds **8 entries** carrying **102 keys**` — and ⛔ read that off the
+ * census at the bottom of this file, not off this sentence: both figures are pinned
+ * to this ledger's own AST by 'the fourth direction is enumerated and sized at test
+ * time', so an entry or an arm added here moves them or the file reddens.
+ *
+ * ## ⛔ What this ledger is NOT
+ *
+ * ⛔ It is NOT a worklist to be drained by DECLARING the keys it names. Declaring a
+ * key on a published TypeScript face ENLARGES AN ACCEPT SET — a contract decision,
+ * at-tier, per key, and deliberately outside the card that built this instrument.
+ * ⛔ It is NOT drained by narrowing a mirror either: that removes a key an author can
+ * write today and is the same decision pointing the other way. Either remedy is a
+ * separate card with a separate review; this ledger is the MEASUREMENT that makes
+ * either one arguable.
+ *
+ * ## It is a FLOOR, not a waiver — the same ratchet the other three carry
+ *
+ * A NEW mirrored-but-undeclared key on any pair reddens the reconciliation
+ * immediately, seeded pair or not (`assertionRatchetRejectsFreshDrift` and
+ * `assertionRatchetRejectsGrowth` pin both shapes). A key that LEAVES the
+ * measurement — mirrored key removed, or the declaration widened to state it —
+ * reddens it as STALE until the entry is corrected (`assertionRatchetRejectsStaleKey`,
+ * `assertionRatchetRejectsStaleEntry`). So the seed can only shrink.
+ *
+ * ## The two CLASSES this seed holds, because they call for different remedies
+ *
+ * ⚠️ Stated as a reading of the entries below, ⛔ not as a rule the instrument
+ * applies: nothing here classifies, and the split is re-derivable from
+ * `SPEC_DERIVED_PAIRS` plus each declaration's own shape.
+ *
+ *   - **SPEC-OWNED INFLOW.** The mirror is built `.extend(SpecXFields.shape)`, so
+ *     every spec-owned key flows in BY REFERENCE while the hand-written TypeScript
+ *     interface restates only the subset objectui's renderers read. The remedy axis
+ *     is the same one objectstack#4115 opened when it made the keys flow in at all,
+ *     and it is a spec-alignment decision, not a typo.
+ *   - **`Omit` COLLAPSE.** The declaration is `Omit< Base, K >` over an interface
+ *     that carries `BaseSchema`'s index signature, so `Exclude< keyof Base, K >`
+ *     resolves through `string` and the `Pick` collapses EVERY member into the index
+ *     signature. That face has never declared the keys its docblock describes —
+ *     measured, not assumed, and pinned independently of this file for the calendar
+ *     twin. The mirror propagates because zod `.extend()` carries the shape. ⭐ This
+ *     class is why the operator must not be "fixed" to read fewer keys: it is
+ *     reporting a real property of the published declaration, loudly, which is
+ *     precisely what a degenerate `DeclaredKeys< D >` should do. A vacuous reading
+ *     here over-reports and is caught; the naive `keyof D` spelling under-reports to
+ *     `never` and would never be caught at all.
+ */
+interface MirroredUndeclared {
+  /**
+   * SPEC-OWNED INFLOW. The mirror is `BaseSchema.extend(SpecAppFields.shape).extend({…})`,
+   * so the spec's App surface — the `_lock*` / `_package*` / `_provenance` package-lock
+   * envelope, `protection`, `sharing`, `embed`, `objects`, `apis`, `homePageId`,
+   * `version`, `isDefault`, `_unpublished`, `aria`, `mobileNavigation`, `defaultAgent` —
+   * is validated here while the TypeScript interface restates only the component
+   * envelope its renderers read. `contextSelectors` is the one LOCAL arm: the spec
+   * fields deliberately omit it and the mirror's own `.extend({…})` adds it back, so
+   * it is mirrored by this file's own hand and still undeclared.
+   */
+  "app.zod.ts#AppComponentSchema":
+    | "contextSelectors"
+    | "_lock"
+    | "_lockReason"
+    | "_lockSource"
+    | "_provenance"
+    | "_packageId"
+    | "_packageVersion"
+    | "_lockDocsUrl"
+    | "version"
+    | "isDefault"
+    | "_unpublished"
+    | "homePageId"
+    | "objects"
+    | "apis"
+    | "sharing"
+    | "embed"
+    | "mobileNavigation"
+    | "defaultAgent"
+    | "aria"
+    | "protection";
+
+  /**
+   * SPEC-OWNED INFLOW, same envelope as the App pair above plus this surface's own
+   * `refreshInterval` and `performance`. ⚠️ This pair already carries entries in
+   * `KnownDrift` and has carried them in `UnmirroredDeclared`; the three directions
+   * are independent measurements of one pair and an entry in one says nothing about
+   * the others.
+   */
+  "complex.zod.ts#DashboardComponentSchema":
+    | "_lock"
+    | "_lockReason"
+    | "_lockSource"
+    | "_provenance"
+    | "_packageId"
+    | "_packageVersion"
+    | "_lockDocsUrl"
+    | "aria"
+    | "protection"
+    | "refreshInterval"
+    | "performance";
+
+  /**
+   * LOCAL, and a single key: the mirror states `aria` and the declaration does not.
+   * The smallest entry in this ledger, and the shape the direction was filed to make
+   * visible — one key, on one pair, invisible to all three operators that stood
+   * before the fourth.
+   */
+  "complex.zod.ts#DashboardConfigSchema":
+    | "aria";
+
+  /**
+   * `Omit` COLLAPSE. The declaration is `Omit< InputSchema, 'type' | 'inputType' >`
+   * and `InputSchema` reaches `BaseSchema`'s index signature, so the `Omit` resolves
+   * through `Exclude< string, … >` = `string` and every member collapses into that
+   * signature. What survives as a DECLARED member is what this interface writes
+   * itself. Every other key the mirror states therefore reads as undeclared — which
+   * is a true statement about the published face, not an artefact: the checker
+   * answers `any` for each of them. ⛔ Do not "repair" this entry by editing the
+   * measurement; repairing the FACE is a declaration-side decision and a different
+   * card.
+   */
+  "form.zod.ts#InputShorthandSchema":
+    | "label"
+    | "error"
+    | "description"
+    | "id"
+    | "name"
+    | "pattern"
+    | "placeholder"
+    | "className"
+    | "style"
+    | "data"
+    | "bind"
+    | "body"
+    | "children"
+    | "visible"
+    | "visibleWhen"
+    | "visibleOn"
+    | "hidden"
+    | "hiddenOn"
+    | "disabled"
+    | "disabledOn"
+    | "testId"
+    | "defaultValue"
+    | "ariaLabel"
+    | "required"
+    | "value"
+    | "min"
+    | "max"
+    | "step"
+    | "onChange"
+    | "wrapperClass"
+    | "readOnly"
+    | "maxLength";
+
+  /**
+   * `Omit` COLLAPSE, the second instance and the one measured independently of this
+   * file: the declaration is `Omit< CalendarSchema, 'type' >`, the collapse is
+   * described in that declaration's own docblock, and both halves are pinned by the
+   * content-channel family-D twin test. This entry is what that reading looks like
+   * when a general operator meets it instead of a per-key tripwire.
+   */
+  "form.zod.ts#UiCalendarSchema":
+    | "label"
+    | "description"
+    | "id"
+    | "name"
+    | "placeholder"
+    | "className"
+    | "style"
+    | "data"
+    | "bind"
+    | "body"
+    | "children"
+    | "visible"
+    | "visibleWhen"
+    | "visibleOn"
+    | "hidden"
+    | "hiddenOn"
+    | "disabled"
+    | "disabledOn"
+    | "testId"
+    | "defaultValue"
+    | "ariaLabel"
+    | "value"
+    | "onChange"
+    | "mode"
+    | "minDate"
+    | "maxDate";
+
+  /**
+   * SPEC-OWNED INFLOW. The package-lock envelope again, plus `source`,
+   * `interfaceConfig` and `requires` — page-level spec keys the mirror validates and
+   * the TypeScript node does not state.
+   */
+  "layout.zod.ts#PageNodeSchema":
+    | "source"
+    | "_lock"
+    | "_lockReason"
+    | "_lockSource"
+    | "_provenance"
+    | "_packageId"
+    | "_packageVersion"
+    | "_lockDocsUrl"
+    | "interfaceConfig"
+    | "requires";
+
+  /**
+   * LOCAL, one key — and the row STAYS after its ruling, which is the thing to
+   * read here before assuming it should have gone.
+   *
+   * `operators` was mirrored with a comment on its own line saying it was missing
+   * from an earlier TypeScript scan — so the gap was NOTICED at authoring time,
+   * written down in a comment, and then measured by nothing for as long as the
+   * fourth direction did not exist. That was objectui#9729's thesis in one key.
+   *
+   * ⭐ objectui#9739 (maintainer, 2026-09-18, letter C) ruled it: the mirror no
+   * longer ACCEPTS the key, it REFUSES it by name and prints the spelling
+   * `@objectstack/spec` declares on `object-grid` — `operations`, re-derived
+   * against the installed pin by `object-grid-operators-tombstone-9739.test.ts`,
+   * not copied from prose. The twin is deliberately untouched (declaring the key
+   * was the refused option), so `BaseSchema`'s index signature still absorbs an
+   * authored `operators` as `any`.
+   *
+   * ⚠️ WHY THE ROW DOES NOT LEAVE THIS LEDGER. This direction measures "the zod
+   * mirror STATES a key the TypeScript twin does not", and a retirement tombstone
+   * is still a stated member — that is precisely what lets it refuse rather than
+   * be passed through unexamined. The same is true of the `aria` entry above,
+   * which has been a tombstone all along. ⇒ ⛔ Do not read a row here as an
+   * unrepaired defect; the ledger reports SHAPE, and the per-key consequence —
+   * silently absorbed, or loudly refused — is measured elsewhere and differs
+   * between rows that look identical from here.
+   */
+  "objectql.zod.ts#ObjectGridSchema":
+    | "operators";
+
+  /**
+   * LOCAL, one key. An author writing `dueLike` on a detail-view field gets a green
+   * `safeParse` from a published validator for a key the published `DetailViewField`
+   * never invited — and, because that twin carries no index signature, the SAME
+   * document is refused by the compiler (`TS2353`). The two published faces
+   * contradict each other rather than one of them being merely quiet.
+   *
+   * ⛔ This entry once justified itself with "a `git grep` finds it in the mirror and
+   * nowhere in this package's TypeScript declarations", which is FALSE as written and
+   * is corrected here rather than repeated: `field-types.ts` declares `dueLike` on
+   * `DateFieldMetadata` and on `DateTimeFieldMetadata`, both in this package. ⭐ A
+   * NAME is not a KEY — a key is (interface, name) — and a package-wide grep for the
+   * name answers a question this ledger is not asking. What the operator measures,
+   * and what stays true, is that the key is absent from THIS PAIR'S twin.
+   *
+   * The per-key consequences — that the mirror judges the key rather than merely
+   * passing it, and that objectui's own detail-view path READS it at runtime — are
+   * measured by `mirror-only-published-keys-9729.test.ts` and by the two probes
+   * objectui#9729 landed beside the renderers that read it. ⛔ No remedy is implied.
+   */
+  "views.zod.ts#DetailViewFieldSchema":
+    | "dueLike";
+}
+
+/**
+ * Every ledgered pair names a REGISTERED pair — the same guard the other three
+ * ledgers carry, for the same reason: a misspelled pair key is ignored by the map
+ * below while the real pair reads as having no entry, so the failure points at the
+ * wrong thing.
+ */
+export type assertionMirroredUndeclaredLedgerKeysAreRegistered =
+  Expect< Equal< Exclude< keyof MirroredUndeclared, MirrorKey >, never > >;
+
+/**
+ * The FOURTH direction reconciled: every pair's mirrored-but-undeclared key set
+ * equals what `MirroredUndeclared` records for it — `never` for every pair with no
+ * entry, which is the population minus that ledger's size. ⛔ That difference is
+ * derived by the census at the bottom of this file, never written down here.
+ *
+ * Spelled INLINE rather than through a named alias, for the reason the header's
+ * measurement section gives: through a named alias TypeScript prints the ALIAS NAME
+ * and elaborates exactly ONE member with no ellipsis, so a failure on many pairs
+ * reads as a failure on one.
+ *
+ * When it fires, fix it by MEASURING, never by editing the assertion:
+ *   1. the message names a pair, possibly with `... N more ...` after it;
+ *   2. resolve `MirroredUndeclaredOf< '<pair>' >`;
+ *   3. a key APPEARED — a mirror now accepts a spelling the published TypeScript does
+ *      not declare. ⛔ Declaring it is NOT the local fix: that enlarges an accept set
+ *      and is an at-tier contract decision. File it, and record it here only with that
+ *      decision's card named in its docblock;
+ *   4. a key DISAPPEARED — the entry must be corrected or deleted. That is the
+ *      ratchet doing its job, and it is the only direction this seed may move in.
+ */
+export const assertionMirroredUndeclaredMatchesLedger: never = 0 as unknown as {
+  [K in MirrorKey]: ReconcileAgainstLedger<
+    K,
+    MirroredUndeclaredOf< K >,
+    K extends keyof MirroredUndeclared ? MirroredUndeclared[K] : never
+  >;
+}[MirrorKey];
+
+/**
+ * The same reconciliation, reported by KEY instead of by pair — the pairing
+ * `assertionWiderLedgerRecordsEveryKey` established, and not a duplicate: the
+ * assignment above resolves to the PAIR, which is what makes a failure locatable,
+ * and says nothing about which key moved. This resolves to the symmetric difference,
+ * so the compiler prints the key names. Both are needed and neither is sufficient.
+ */
+export type MirroredUndeclaredLedgerKeyDrift = {
+  [K in MirrorKey]:
+    | Exclude< MirroredUndeclaredOf< K >, K extends keyof MirroredUndeclared ? MirroredUndeclared[K] : never >
+    | Exclude< K extends keyof MirroredUndeclared ? MirroredUndeclared[K] : never, MirroredUndeclaredOf< K > >;
+}[MirrorKey];
+
+export const assertionMirroredUndeclaredRecordsEveryKey: never =
+  0 as unknown as MirroredUndeclaredLedgerKeyDrift;
+
+/**
+ * No pair's FOURTH-direction measurement has degenerated to `any`.
+ *
+ * `any` is assignable to `never`, so a measurement that collapsed to `any` would
+ * reconcile SILENTLY GREEN against any entry at all — the sibling
+ * `assertionNoVacuousWiderMeasurement` exists because that was observed once on the
+ * third direction, and this half of the file does not get to assume it cannot happen.
+ */
+export type VacuousMirroredUndeclaredMeasurement = {
+  [K in MirrorKey]: IsAny< MirroredUndeclaredOf< K > > extends true ? K : never;
+}[MirrorKey];
+
+export type assertionNoVacuousMirroredUndeclaredMeasurement =
+  Expect< Equal< VacuousMirroredUndeclaredMeasurement, never > >;
 
 /**
  * No pair's WIDER measurement has degenerated to `any`.
@@ -2995,8 +3897,6 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'base.zod.ts#ComponentInputControlTypeSchema':
     "a bare vocabulary with no `.shape`; it is checked where a mirrored KEY declares it",
   'base.zod.ts#HTMLAttributesSchema':
-    "an index signature, not a declared key set — there are no keys to compare",
-  'base.zod.ts#EventHandlersSchema':
     "an index signature, not a declared key set — there are no keys to compare",
   'complex.zod.ts#CalendarViewModeSchema':
     "a bare vocabulary with no `.shape`; it is checked where a mirrored KEY declares it",
@@ -3152,6 +4052,13 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   //     i18n label union, or the widget's comparison directive moves ONE side too.
   // Either way it is exactly what this list exists to make legible rather than
   // mysterious.
+  // objectui#8651: the `calendar` CONTAINER is the spec's own
+  // `SpecCalendarConfigSchema` — spec-derived, extended with objectui's single
+  // local knob (`allDayField`, the lane objectui#8466 took for the flat spelling
+  // of the same vocabulary) and kept `.passthrough()`. So a spec bump that moves
+  // the four-key calendar config vocabulary moves ONE side of this pair, which
+  // is exactly what this list exists to make legible rather than mysterious.
+  'objectql.zod.ts#ObjectCalendarSchema',
   'objectql.zod.ts#ObjectChartSchema',
   'objectql.zod.ts#ObjectGallerySchema',
   'objectql.zod.ts#ObjectGanttSchema',
@@ -3191,8 +4098,13 @@ const EXPECTED_MIRROR_PAIRS = 161;
  * objectui#8252 — one union arm, no new code, the way `KnownDrift` joined at
  * objectui#8222 — so the fifth ledger is sized by the SAME instrument as the other
  * four rather than by a second definition of the word "key".
+ *
+ * ⭐ `MirroredUndeclared` joined the same way at objectui#9711 — one union arm again,
+ * no new code again. That sentence above RECORDS objectui#8252's move and is left
+ * byte-identical; this one records the next move, which is how this list grows.
  */
-type LedgerName = 'KnownDrift' | 'RuntimeOnlyDeclared' | 'UnmirroredDeclared' | 'WiderThanDeclared';
+type LedgerName =
+  | 'KnownDrift' | 'RuntimeOnlyDeclared' | 'UnmirroredDeclared' | 'WiderThanDeclared' | 'MirroredUndeclared';
 
 /** This file, so the census can read its own type-level ledgers. */
 const SELF = fileURLToPath(import.meta.url);
@@ -3716,8 +4628,17 @@ describe('the header key totals and cross-ledger figures are derived, not prose 
     const [inBoth, ofRuntimeOnly, unmirroredPairs] = headerFigures(
       /\*\*(\d+) of the (\d+)\*\* are a subset of the \*\*(\d+)\*\* pairs above/,
     );
-    const [unionPairs, notUnmirroredPairs] = headerFigures(
-      /the union of the two unmirrored ledgers is \*\*(\d+)\*\* pairs and not \*\*(\d+)\*\*/,
+    // ⭐ RESHAPED by objectui#7804's `TreeViewSchema` slice. This spelling used to
+    // read `is **15** pairs and not **14**` and carried TWO figures — the union and
+    // a fourth restatement of `UnmirroredDeclared`'s entry count. Draining that
+    // pair emptied the difference: the union now EQUALS `UnmirroredDeclared`, and
+    // the old spelling would have had to read `is **14** pairs and not **14**`,
+    // which is a sentence no reader can act on. So the header states the
+    // containment and this reads ONE figure off it. ⛔ The restatement is not
+    // "missing": `unmirroredEntriesRestated` above still reads that count from the
+    // sentence beside it, so the figure is still pinned twice, not once.
+    const [unionPairs] = headerFigures(
+      /the union of the two unmirrored ledgers is \*\*(\d+)\*\* pairs — `UnmirroredDeclared`/,
     );
 
     expect({
@@ -3727,7 +4648,6 @@ describe('the header key totals and cross-ledger figures are derived, not prose 
       runtimeOnlyEntriesRestated: ofRuntimeOnly,
       unmirroredEntriesRestated: unmirroredPairs,
       unionOfUnmirroredLedgers: unionPairs,
-      unmirroredEntriesRestatedAgain: notUnmirroredPairs,
     }, `
 The header's key totals or cross-ledger figures disagree with the ledgers.
 
@@ -3781,7 +4701,6 @@ the two is stated ONCE, in this file's header.`)
         runtimeOnlyEntriesRestated: runtimeOnly.length,
         unmirroredEntriesRestated: unmirrored.size,
         unionOfUnmirroredLedgers: new Set([...unmirrored, ...runtimeOnly]).size,
-        unmirroredEntriesRestatedAgain: unmirrored.size,
       });
   });
 
@@ -3803,17 +4722,29 @@ the two is stated ONCE, in this file's header.`)
         .toBeGreaterThan(members.size);
     }
 
-    // The cross-ledger figures are only meaningful if the two ledgers really do
-    // overlap and really do differ: a union equal to either side, or an empty
-    // intersection, would make `6 of the 7` and `15 pairs` pass while measuring a
-    // degenerate case. `TreeViewSchema` is the single member outside the overlap —
-    // the reason the union is 15 and not 14 in the first place.
+    // The cross-ledger figures are only meaningful if the reader really reads both
+    // ledgers: an EMPTY `RuntimeOnlyDeclared`, or an empty intersection, would make
+    // the subset and union figures pass while measuring a degenerate case.
+    //
+    // ⭐ RESHAPED by objectui#7804's `TreeViewSchema` slice, and this is the one
+    // leg in this file whose DIRECTION the slice inverted. It used to assert that
+    // `RuntimeOnlyDeclared` is NOT a subset of `UnmirroredDeclared`, because a
+    // subset would make the old header figure (`15 pairs and not 14`) vacuous —
+    // `TreeViewSchema` was the single member outside the overlap and the entire
+    // content of that difference. Draining it made the containment TRUE, so the
+    // old leg is not a guard that got weakened: it is a claim about the ledgers
+    // that stopped holding, and keeping it would have forced a real key back onto
+    // a ledger to satisfy a sentence — route 1, the thing this file exists to
+    // refuse. The header now states the containment, and this asserts it, with the
+    // two non-vacuity legs the old shape relied on kept explicit.
     const unmirrored = new Set(ledgerEntryKeys('UnmirroredDeclared'));
     const runtimeOnly = ledgerEntryKeys('RuntimeOnlyDeclared');
+    expect(runtimeOnly.length, 'RuntimeOnlyDeclared read as EMPTY — the subset and union figures are then vacuous')
+      .toBeGreaterThan(0);
     expect(runtimeOnly.filter((pair) => unmirrored.has(pair)).length, 'the two unmirrored ledgers read as DISJOINT')
       .toBeGreaterThan(0);
-    expect(runtimeOnly.filter((pair) => !unmirrored.has(pair)), 'RuntimeOnlyDeclared read as a SUBSET of UnmirroredDeclared — the union figure is then vacuous')
-      .not.toEqual([]);
+    expect(runtimeOnly.filter((pair) => !unmirrored.has(pair)), 'RuntimeOnlyDeclared holds a pair UnmirroredDeclared does not — the header says the union equals UnmirroredDeclared, so that sentence and this ledger disagree')
+      .toEqual([]);
   });
 });
 
@@ -4428,6 +5359,126 @@ that way anyway: no ledger in this file records what it held at a past revision.
     // would make "pairs" and "emptied" the same quantity, and the ambiguity that
     // produced objectui#8458 could not be seen from the sentence.
     expect(reduced, 'the reduced half read as 0 — then "pairs" and "emptied" state one quantity twice')
+      .toBeGreaterThan(0);
+  });
+});
+
+
+/* ── The FOURTH direction is enumerated and sized at test time (objectui#9711) ── */
+
+describe('the fourth direction is enumerated and sized at test time (objectui#9711)', () => {
+  const members = (): Map< string, string[] > => ledgerEntryMembers('MirroredUndeclared');
+  const keyTotal = (): number =>
+    Array.from(members().values()).reduce((n, keys) => n + keys.length, 0);
+
+  it('the ledger docstring states the entry count and key total the ledger actually holds', () => {
+    // The card that opened this direction asked for what it catches ON TODAY'S TREE,
+    // BY NAME, with the count DERIVED AT TEST TIME. The names are the ledger's own
+    // union arms — `assertionMirroredUndeclaredMatchesLedger` is what makes them the
+    // measurement rather than a list — and this is the derivation: both figures are
+    // read off the ledger's AST here and compared to the ONE place a human writes
+    // them down. A `const EXPECTED_MIRRORED_UNDECLARED_KEYS` would be a second place
+    // the number lives and would reproduce the defect objectui#7433, #7733, #8222 and
+    // #8243 each repaired one level up.
+    //
+    // ⛔ The spelling is read off the docstring's OWN words, so a reword that drops a
+    // digit is red rather than quietly unpinned.
+    const [entries, keys] = headerFigures(/this ledger seeds \*\*(\d+) entries\*\* carrying \*\*(\d+) keys\*\*/);
+
+    expect({ entries, keys }, `
+The MirroredUndeclared docstring's figures disagree with the ledger it describes.
+
+WHICH SIDE TO CHANGE — decide by what your diff touched, not by which number looks
+right (git diff -- packages/types/src/__tests__/zod-mirror-parity.test.ts):
+
+  * you added or removed a ledger KEY (an arm of an entry's union), or an ENTRY
+    => correct the docstring figures to the derived ones below. An arm added is a NEW
+       mirrored-but-undeclared key on a published pair, and
+       \`assertionMirroredUndeclaredMatchesLedger\` will have named the pair first;
+       read that message before this one.
+
+  * you edited a figure by hand, or carried one in from a card or a review comment
+    => put it back to the derived value. The ledger is the measurement; the docstring
+       only records it.
+
+⛔ Never reconcile the two by editing a ledger KEY SET: the key sets are reconciled
+against the mirrors themselves by the compile-time assignment above, so a key edited
+to satisfy a sentence fails there instead — route 1, which objectui#6141 predicted and
+this file has watched recur ever since.
+
+⛔ And never reconcile a GROWTH by DECLARING the new key on the TypeScript face. That
+enlarges a published accept set and is an at-tier contract decision, deliberately
+outside the card that built this instrument.`)
+      .toEqual({ entries: members().size, keys: keyTotal() });
+  });
+
+  it('every ledgered pair is a REGISTERED pair, and the ledger is not empty', () => {
+    const registered = new Set(Object.keys(MIRRORS));
+    const unregistered = Array.from(members().keys()).filter((pair) => !registered.has(pair));
+    expect(unregistered, 'a MirroredUndeclared entry names a pair MIRRORS does not register — the compile-time half ignores it while the real pair reads as clean')
+      .toEqual([]);
+    // Non-vacuity for the line above: an EMPTY ledger has no unregistered entry
+    // either, and would pass it while checking nothing.
+    expect(members().size, 'MirroredUndeclared read as EMPTY — then the registration check above is vacuous')
+      .toBeGreaterThan(0);
+  });
+
+  it('the member reader can see MirroredUndeclared (non-vacuity)', () => {
+    // The same control the other ledgers carry: a reader that returned no members
+    // would derive 0 for both figures above, red today but green the moment someone
+    // "fixed" it by writing 0 down. Each leg is a fact about the ledger, not about
+    // the reader.
+    const read = members();
+    expect(Array.from(read.keys()), 'MirroredUndeclared: the member reader and the entry reader disagree on the entry list')
+      .toEqual(ledgerEntryKeys('MirroredUndeclared'));
+    for (const [entry, keys] of read) {
+      expect(keys.length, `MirroredUndeclared['${entry}'] read as having no keys`).toBeGreaterThan(0);
+    }
+    expect(keyTotal(), 'MirroredUndeclared: no entry read as a union of more than one literal — the reader is not walking union arms')
+      .toBeGreaterThan(read.size);
+  });
+
+  it('the seed spans BOTH mirror-construction styles — it is not an artefact of one', () => {
+    // A seed drawn entirely from spec-derived mirrors would be evidence about
+    // `.extend(SpecXFields.shape)` and nothing else; one drawn entirely from LOCAL
+    // mirrors would be evidence about hand-written shapes and nothing else. Both
+    // halves non-empty is what makes the direction a property of the FILE PAIRING
+    // rather than of one authoring habit. Derived from `SPEC_DERIVED_PAIRS`, which
+    // is itself re-derived from the mirror sources by the census above — ⛔ so this
+    // is not a second hand-kept classification.
+    const entries = Array.from(members().keys());
+    const specDerived = entries.filter((pair) => SPEC_DERIVED_PAIRS.includes(pair));
+    const local = entries.filter((pair) => !SPEC_DERIVED_PAIRS.includes(pair));
+    expect(specDerived.length, 'no SPEC-DERIVED pair in the seed — then the ledger says nothing about spec inflow')
+      .toBeGreaterThan(0);
+    expect(local.length, 'no LOCAL pair in the seed — then the ledger says nothing about hand-written mirrors')
+      .toBeGreaterThan(0);
+    expect(specDerived.length + local.length, 'the two halves do not account for every entry')
+      .toBe(entries.length);
+  });
+
+  it('the fourth direction is a DIFFERENT measurement from the three before it', () => {
+    // ⭐ The lit control for the whole card, at ledger granularity. If this ledger's
+    // pair set were a subset of an existing one, the new operator could be reporting
+    // the same facts under a new name. It is not: at least one pair is in this
+    // ledger and in NONE of the other three, so the fourth direction sees something
+    // no prior direction records.
+    //
+    // ⚠️ Overlap is EXPECTED and is not a finding — the four directions are
+    // independent measurements of one pair, and a pair can owe on several at once.
+    // The claim under test is only that the new set is not CONTAINED in the old ones.
+    const others = new Set([
+      ...ledgerEntryKeys('KnownDrift'),
+      ...ledgerEntryKeys('UnmirroredDeclared'),
+      ...ledgerEntryKeys('RuntimeOnlyDeclared'),
+      ...ledgerEntryKeys('WiderThanDeclared'),
+    ]);
+    const onlyHere = Array.from(members().keys()).filter((pair) => !others.has(pair));
+    expect(onlyHere.length, 'every pair this direction reports is already reported by another ledger — then it may be measuring nothing new')
+      .toBeGreaterThan(0);
+    // Non-vacuity: the union of the other three ledgers must be non-empty, or
+    // `onlyHere` is just the whole ledger and the comparison is trivially satisfied.
+    expect(others.size, 'the other ledgers read as EMPTY — the comparison above is then vacuous')
       .toBeGreaterThan(0);
   });
 });

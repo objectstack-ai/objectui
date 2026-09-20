@@ -27,11 +27,14 @@ face was the one layer that refused them, so a spec-valid, renderer-honoured,
 registry-published document got `TS2353` — the same reverse-direction defect
 objectui#8583 fixed on `sections[]`, one level up.
 
-⚠️ The retired `layout` on the same interface is NOT removed here. The contract
-refuses it by name (ADR-0087 D2 tombstone, removed in `@objectstack/spec`
-17.0.0), so it remains a published key `tsc` accepts and publish rejects.
-Removing it is a retirement with its own obligations — it breaks an in-repo
-consumer that triage scoped out of objectui#9040 — and it needs its own change
-and its own FROM/TO changeset. The divergence is now signposted at the
-declaration and pinned by `record-details-top-level-9040.test.ts` so it cannot
-rot into a stale comment.
+⚠️ The retired `layout` on the same interface was NOT removed by this change.
+The contract refuses it by name (ADR-0087 D2 tombstone, removed in
+`@objectstack/spec` 17.0.0), and it stayed a published key `tsc` accepted and
+publish rejected — signposted at the declaration and pinned by
+`record-details-top-level-9040.test.ts` rather than removed, because a
+retirement carries its own obligations and its own FROM/TO changeset.
+
+✅ It is retired in the same release, as item 1 of the same card: see
+`.changeset/9040-retire-record-details-layout.md`, which carries the FROM/TO and
+the consumer survey. That is why the two halves of objectui#9040 appear here as
+two entries.

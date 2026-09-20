@@ -18,8 +18,8 @@ description) was measured to have already drifted — the cited line is now unre
 permissions code; the real read site is `ObjectKanban.tsx:365`. Filed back on
 objectstack-ai/objectui#8478 as the drift evidence its own re-grade trigger asked for.
 
-The remaining 15 addresses (`form.zod.ts`, `layout.zod.ts`, `complex.zod.ts`) are out of
-scope for this PR — held by in-flight PR objectstack-ai/objectui#8763 (`form.zod.ts` /
-`layout.zod.ts`); `complex.zod.ts`'s hold (PR objectstack-ai/objectui#8766) cleared when
-that PR merged during this round, so its 6 addresses return to the queue rather than
-riding this PR's scope.
+The remaining 15 addresses (`form.zod.ts`, `layout.zod.ts`, `complex.zod.ts`) were out
+of scope for this PR — `form.zod.ts` / `layout.zod.ts` were held while PR
+objectstack-ai/objectui#8763 was open; `complex.zod.ts`'s hold (PR
+objectstack-ai/objectui#8766) cleared when that PR merged during this round, so its 6
+addresses returned to the queue rather than riding this PR's scope.

@@ -25,7 +25,7 @@ prop, a type annotation in an example.
 
 Reach for `SchemaNode` only where the wider union is genuinely correct. `SchemaNode` is
 `BaseSchema` **plus** the primitive members that render as text, so it is the right word
-for a slot that also accepts a bare string (`body`, `children`) and the wrong word for a
+for a slot that also accepts a bare string (`children`) and the wrong word for a
 position that must be an object: a renderer that narrows a slot with
 `typeof node === 'object'` before reading its keys drops those primitive members on the
 floor. Naming the union where only the object half is accepted is the mismatch
@@ -60,7 +60,7 @@ All schema types extend `BaseSchema`. These shared properties are available on e
   "disabledOn": "${data.isLocked}",
   "testId": "wrapper-element",
   "ariaLabel": "Content wrapper",
-  "body": []
+  "children": []
 }
 ```
 
@@ -78,8 +78,8 @@ One row per declared member, in declaration order, so the list can be checked ag
 | `style` | `Record<string, string \| number>` | Inline CSS styles. Use sparingly — prefer `className`. |
 | `data` | `any` | Arbitrary data attached to the node. `any` because the shape is defined by the consuming component rather than by `BaseSchema`. |
 | `bind` | `string` | Data-scope path this node draws its rows or value from, resolved by `useDataScope()`. Honoured only by components that call it. |
-| `body` | `SchemaNode \| SchemaNode[]` | Child components rendered inside this component — **as `BaseSchema` declares it**. Which of the two channels a given node type actually renders is per component; see the note below. |
-| `children` | `SchemaNode \| SchemaNode[]` | A second content channel `BaseSchema` declares beside `body`. ⚠️ **Not an alias** — nothing folds one into the other at runtime, and this row used to say it was. See the note below. |
+| `body` | *retired* | ⛔ Refused by name (objectui#6771). `body` was a second child-list spelling `BaseSchema` declared beside `children`; it is now `never` on the TypeScript face and an alias refusal on the Zod mirror, and the refusal names `children`. |
+| `children` | `SchemaNode \| SchemaNode[]` | Child components rendered inside this component — the child-list key, and since objectui#6771 the only one. Whether a given node type renders a child list at all is still per component; see the note below. |
 | `visible` | `boolean \| string \| { dialect?: string; source: string }` | Visibility control. Accepts a boolean, a predicate expression string, **or** the CEL envelope object (`{ dialect: 'cel', source }` — what `objectstack build` emits for every authored predicate) — the renderer evaluates this key rather than reading it as a boolean. The string-or-envelope half is `ExpressionWire`, the one wire type `visibleWhen` on form fields already carries. |
 | `visibleWhen` | `string` | Canonical conditional-visibility predicate (ADR-0089); the element is shown when it evaluates truthy. Evaluated **before** `visible` and `visibleOn`, and outranks both. |
 | `visibleOn` | `string` | Expression for conditional visibility. **Deprecated** (ADR-0089) — use `visibleWhen`. |
@@ -93,7 +93,7 @@ One row per declared member, in declaration order, so the list can be checked ag
 Two things the table cannot show in a cell:
 
 - **A concrete schema may narrow an inherited member, and its own declaration wins.** Many component schemas restate `label`, `description` or `disabled` more narrowly than `BaseSchema` declares them, so the unions above are what a node gets when its own schema does not restate the key. Check the component's own property table before writing a predicate string or a locale map into an inherited slot.
-- **⚠️ `body` and `children` are TWO channels, not one key with two spellings, and which one a node type renders is decided PER COMPONENT.** Each renderer reads one, the other, both, or neither, and `SchemaRenderer` strips both out of the props bag it spreads — so writing the channel a renderer does not read rendered an EMPTY element, with no error at authoring time, none at validation time and none at render time. That is the defect objectui#8284 named after seven cards had repaired one page of it each. It is being closed per component, by measurement: each schema narrows to the channel its renderer actually reads and **tombstones the other as `never`**, refused by name on both published faces (objectui#9254 for the components that read exactly one channel, objectui#9256 for the ones that read neither). ⇒ check the component's own section before writing either key; the types in this row are `BaseSchema`'s, and a concrete schema's own declaration wins.
+- **⚠️ `body` and `children` WERE two channels, not one key with two spellings — and the second one is retired (objectui#6771).** Each renderer read one, the other, both, or neither, and `SchemaRenderer` strips both out of the props bag it spreads — so writing the channel a renderer did not read rendered an EMPTY element, with no error at authoring time, none at validation time and none at render time. That is the defect objectui#8284 named after seven cards had repaired one page of it each, and it was closed per component by measurement: each schema narrows to the channel its renderer actually reads and **tombstones the other as `never`**, refused by name on both published faces (objectui#9254 for the components that read exactly one channel, objectui#9256 for the ones that read neither). objectui#6771 then closed the class at its source: `children` is the one child-list spelling and `body` is refused on `BaseSchema` itself. ⇒ **whether a node type accepts a child list at all is still per component** — check the component's own section, where a node that renders no children tombstones `children` too.
 - **This list is exhaustive for *declared* members, not for *accepted* keys.** `BaseSchema` carries an index signature (`[key: string]: any`) and its Zod mirror is `.passthrough()`, so an undeclared key — a misspelling included — is still accepted by both halves. Absence from this table does not mean a key is rejected.
 
 ---
@@ -118,11 +118,11 @@ Top-level page container. Defines a full page with optional regions (header, sid
   "regions": [
     {
       "name": "header",
-      "body": [{ "type": "text", "body": "Welcome back" }]
+      "children": [{ "type": "text", "content": "Welcome back" }]
     }
   ],
-  "body": [
-    { "type": "card", "title": "Activity", "body": [] }
+  "children": [
+    { "type": "card", "title": "Activity", "children": [] }
   ]
 }
 ```
@@ -136,7 +136,7 @@ Top-level page container. Defines a full page with optional regions (header, sid
 | `template` | `string` | Template name for page layout. |
 | `variables` | `PageVariable[]` | Page-level variables with types and defaults. |
 | `regions` | `PageRegion[]` | Named layout regions (header, sidebar, footer). |
-| `body` | `SchemaNode \| SchemaNode[]` | Main page content — one node, or a list of them. |
+| `children` | `SchemaNode \| SchemaNode[]` | Main page content when the page declares no regions — one node, or a list of them. Spelled `body` until objectui#6771 retired that spelling. |
 | `isDefault` | `boolean` | Whether this is the default page for the object. |
 | `assignedProfiles` | `string[]` | Security profiles that can access this page. |
 
@@ -153,7 +153,7 @@ A generic container element. The simplest layout primitive.
   "type": "div",
   "className": "flex items-center gap-4 p-6",
   "children": [
-    { "type": "text", "body": "Hello World" },
+    { "type": "text", "content": "Hello World" },
     { "type": "button", "label": "Click me" }
   ]
 }
@@ -181,7 +181,7 @@ A styled container with optional header, body, and footer regions.
   "header": [
     { "type": "badge", "label": "Live", "variant": "secondary" }
   ],
-  "body": [
+  "children": [
     { "type": "statistic", "label": "Total Revenue", "value": "$12,400" }
   ],
   "footer": [
@@ -198,7 +198,7 @@ A styled container with optional header, body, and footer regions.
 | `hoverable` | `boolean` | Add hover elevation effect. |
 | `clickable` | `boolean` | Make the entire card a click target. |
 | `header` | `SchemaNode \| SchemaNode[]` | Content rendered in the card header. |
-| `body` | `SchemaNode \| SchemaNode[]` | Main card content. |
+| `children` | `SchemaNode \| SchemaNode[]` | Main card content. Spelled `body` until objectui#6771 retired that spelling. |
 | `footer` | `SchemaNode \| SchemaNode[]` | Content rendered in the card footer. |
 
 **Related:** [DivSchema](#divschema), [GridSchema](#gridschema)
@@ -215,9 +215,9 @@ A responsive grid layout. Columns can be a fixed number or responsive breakpoint
   "columns": { "sm": 1, "md": 2, "lg": 3 },
   "gap": 6,
   "children": [
-    { "type": "card", "title": "Card 1", "body": [] },
-    { "type": "card", "title": "Card 2", "body": [] },
-    { "type": "card", "title": "Card 3", "body": [] }
+    { "type": "card", "title": "Card 1", "children": [] },
+    { "type": "card", "title": "Card 2", "children": [] },
+    { "type": "card", "title": "Card 3", "children": [] }
   ]
 }
 ```
@@ -246,7 +246,7 @@ A tabbed interface for organizing content into switchable panels.
       "value": "overview",
       "label": "Overview",
       "icon": "Info",
-      "content": { "type": "div", "body": [{ "type": "text", "body": "Overview content" }] }
+      "content": { "type": "div", "children": [{ "type": "text", "content": "Overview content" }] }
     },
     {
       "value": "settings",
@@ -443,7 +443,7 @@ did; authoring them is now refused by validation instead of silently ignored).
     { "id": 1, "customer": "Acme Corp", "amount": "$1,200", "status": "Paid" },
     { "id": 2, "customer": "Globex Inc", "amount": "$3,400", "status": "Pending" }
   ],
-  "footer": { "type": "text", "body": "Showing 2 of 156 orders" }
+  "footer": { "type": "text", "content": "Showing 2 of 156 orders" }
 }
 ```
 
@@ -712,6 +712,8 @@ A single-record detail view with grouped fields, actions, and tabs.
 | `showBack` | `boolean` | Show a back navigation button. |
 | `loading` | `boolean` | Show loading state. |
 
+> **Handler keys are not authorable in JSON, and this face refuses three of them by name.** `onBack` has been a named refusal since objectui#7344; since objectui#7804 this face also declares `onNavigate` and `onAddComment` as objectui#6124 **runtime slots**: a React host supplies the function through the TypeScript interface or as a React prop, and the validator **refuses the key by name** — the message leads with the slot's label (`SPA navigation callback`, `New comment callback`), states that the key "is a RUNTIME SLOT for a host-supplied function, not authorable metadata (objectui#6124): JSON has no function value, and no handler key consumes a declarative action object", and closes by pointing at the node-type spelling (`{ "type": "toast", … }`, an `action:button` node). Until then an authored `onNavigate: { "action": "toast" }` parsed **green** — `BaseSchema` is `.passthrough()`, so a key no arm declares is not refused, it stops being judged and the value is kept — and because every read site only tests the key for truthiness, the kept object then reached a call site expecting a function: `handleBack`, `handleEdit` and the post-delete redirect call `schema.onNavigate(url, { replace })` in `DetailView`'s own body, while `onAddComment` is forwarded as a prop into the comment composer, which renders *because* the key is truthy and then awaits it on send. ⚠️ `onTabChange` is a fourth handler key this view reads and it is **still undeclared** — and where the `object-kanban` board's third key, `onCardMove`, has been a **tombstone** refused by name since objectui#9342, an authored `onTabChange` is not refused at all: it is **kept**, read through a cast and handed to the tab strip's `onValueChange`, so it still reaches a call site expecting a function at the first tab switch. That gap is open on objectui#7804.
+
 **Related:** [DetailViewSchema](#detailviewschema), [ObjectGridSchema](#objectgridschema)
 
 ---
@@ -925,8 +927,7 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
   "objectName": "tasks",
   "groupBy": "status",
   "titleField": "title",
-  "cardFields": ["assignee", "due_date"],
-  "quickAdd": true
+  "cardFields": ["assignee", "due_date"]
 }
 ```
 
@@ -939,12 +940,12 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
 | `cardFields` | `string[]` | Fields rendered on each card. |
 | `filter` | `any[]` | Query filter, forwarded verbatim as `$filter`. |
 | `limit` | `number` | Fetch window for the board (default 100). |
-| `quickAdd` | `boolean` | Show a Quick Add button at the bottom of each column. |
 | `coverImageField` | `string` | Field whose URL renders as the card cover image. |
-| `allowCollapse` | `boolean` | Allow lanes to collapse and expand. |
 | `conditionalFormatting` | `KanbanConditionalFormattingRule[]` | Card colouring rules — native `{ field, operator, value }` or spec `{ condition, style }`. |
 
 > `groupField` is refused by name (objectui#7322): the renderer reads `groupBy`.
+
+> **`quickAdd` and `allowCollapse` were rows of the table above and are not authorable on this board.** `allowCollapse` is **refused by name** by the strict authoring face, which does not declare it at all — a document carrying it fails validation rather than merely going unread, and `@object-ui/plugin-kanban` has no read site for it. `quickAdd` still parses, because the strict face does declare it, but an object-bound board never honours it: the Quick Add control is gated on an `onQuickAdd` runtime slot and no `object-kanban` path supplies one, so `@object-ui/sdui-parser` answers an authored `quickAdd: true` with an `inert-quick-add` warning. objectui#8285 ruled that key retired (director seat, decision batch 91). ⚠️ `@object-ui/types` still declares **both** on its mirror of this face, so a reader will find them there; that half is objectui#8801, not this table.
 
 > `columns` is declared on this face since objectui#8913, as the pair of array shapes `@objectstack/spec` declares — an array of `{ id, title }` lanes, **or** an array of bare value strings. A **mixed** array is refused: the renderer decides which shape it has from the first element alone, so a mix yields a blank lane and mis-bucketed cards. A lane accepts `id`, `title`, `cards`, `limit`, `className` and `collapsed`, which are the members the board implementations read; `id` is a **string** — the authored face keeps that narrowing, and since objectui#8993 a non-string lane id no longer renders every card twice: the bucketer's leftover sweep keys membership the way the injection already did (a lane `1` takes the group `'1'`). When a lane carries `cards`, each card is judged — a card with no `title` is refused. An undeclared lane key is accepted and dropped, not refused, which is this tolerant face's posture; the strict authoring face refuses it by name.
 >
@@ -952,7 +953,7 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
 >
 > The other keys the retired `kanban` arm alone declared — `cardTitle`, `swimlaneField`, `grouping` and `navigation` — are still undeclared on this face. The renderer reads them, so a board may carry them; they are simply not judged.
 
-> **Handler keys are not authorable in JSON, and two of the three now say so by name.** Since objectui#7804 this face declares `onCardClick` and `onQuickAdd` as objectui#6124 **runtime slots**: a React host supplies the function through the TypeScript interface or as a React prop, and this validator **refuses the key by name** with a message pointing at the node-type spelling (`{ "type": "toast", … }`, an `action:button` node). Until then an authored `onCardClick: { "action": "toast" }` parsed **green** — `BaseSchema` is `.passthrough()`, so a key no arm declares is not refused, it stops being judged and the value is kept, then reaches a call site expecting a function. ⚠️ `onCardMove` is the third key the board component reads and it is **still undeclared**: an authored one is accepted and dropped, because on an object-bound board the renderer substitutes its own mover. That gap is open on objectui#7804.
+> **Handler keys are not authorable in JSON, and all three now say so by name.** Since objectui#7804 this face declares `onCardClick` and `onQuickAdd` as objectui#6124 **runtime slots**: a React host supplies the function through the TypeScript interface or as a React prop, and this validator **refuses the key by name** with a message pointing at the node-type spelling (`{ "type": "toast", … }`, an `action:button` node). Until then an authored `onCardClick: { "action": "toast" }` parsed **green** — `BaseSchema` is `.passthrough()`, so a key no arm declares is not refused, it stops being judged and the value is kept, then reaches a call site expecting a function. ⭐ The third key, `onCardMove`, is a **tombstone** since objectui#9342, not a runtime slot: an authored one reached **nothing** even as a function, because an object-bound board substitutes its own mover — so the TypeScript twin is `?: never` rather than callable, and the mover lives on `KanbanRenderer`'s React prop of the same name, a sibling of its `schema`.
 
 > `data` and `bind` are [`BaseSchema`](#baseschema) members, not narrowed here, but this face requires **one of** `bind`, `data`, `objectName` — the renderer's own record-source ladder (an external `data` prop → `bind` via `useDataScope` → this schema's own `data` → a fetch keyed by `objectName`). A purely static board (lanes carrying their own cards, no record source) authors `"groupBy"` and `"data": []`. ⚠️ The record-source rule is **separate** from the lane key and is unaffected by objectui#8990: omitting `groupBy` is fine, omitting all of `bind` / `data` / `objectName` is still refused, at the refinement rather than at `groupBy`.
 
@@ -1262,7 +1263,7 @@ Schemas are designed to compose. Nest any `SchemaNode` inside another to build c
 {
   "type": "page",
   "title": "CRM Dashboard",
-  "body": [
+  "children": [
     {
       "type": "grid",
       "columns": { "sm": 1, "lg": 2 },
@@ -1271,7 +1272,7 @@ Schemas are designed to compose. Nest any `SchemaNode` inside another to build c
         {
           "type": "card",
           "title": "Quick Stats",
-          "body": {
+          "children": {
             "type": "dashboard",
             "columns": 2,
             "widgets": [
@@ -1283,7 +1284,7 @@ Schemas are designed to compose. Nest any `SchemaNode` inside another to build c
         {
           "type": "card",
           "title": "Recent Activity",
-          "body": {
+          "children": {
             "type": "tabs",
             "items": [
               { "value": "deals", "label": "Deals", "content": { "type": "table", "columns": [], "data": [] } },

@@ -316,7 +316,18 @@ export function ViewVariantInspector({
         objectFields.map((f) => ({ name: f.name, label: f.label, type: f.type })),
       );
     }
-    return { objectFields: fieldCatalog };
+    // objectui#8167 — `none`, and the reason is recorded here rather than
+    // inherited: this inspector edits a VIEW VARIANT body, and `view` is one of
+    // the ruling's "any type without a row" types, whose verdict is `none`.
+    //
+    // It reads the same way from the surface itself. The one predicate-bearing
+    // key a variant carries is `conditionalFormatting[].condition`, and that key
+    // is authored by the curated `ConditionalFormattingEditor` mounted above —
+    // which declares `scope="record"` at its own mount (objectui#8164). So the
+    // generic form below has no surface of its own to make a claim about, and
+    // `none` states exactly that instead of letting `flattened` answer by
+    // default.
+    return { conditionScope: 'none', objectFields: fieldCatalog };
   }, [objectFields, objectFieldsLoading, objectFieldsError]);
 
   // Graft server-only fields onto the bundled variant form so new server

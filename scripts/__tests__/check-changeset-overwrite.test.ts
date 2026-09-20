@@ -48,6 +48,26 @@ const GATE = 'scripts/check-changeset-overwrite.mjs';
 const WORKFLOW = '.github/workflows/changeset-guard.yml';
 
 /**
+ * The peer release declaration every fixture repository starts with — the file
+ * the objectui#6336 overwrite lands on.
+ *
+ * ⛔ Never a filename this repository's own changeset directory carries, and
+ * that is correctness, not tidiness (objectui#9472). The scanner in
+ * `scripts/markdown-test-inputs.mjs` resolves markdown path literals out of
+ * every test's source and offers only the ones that EXIST in the tree, so a
+ * literal naming a PENDING declaration becomes a ledger entry — and
+ * `pnpm changeset:version` deletes exactly those files, which turned that entry
+ * into a `stale-not-read` finding and reddened `Validate the post-version tree`
+ * on every scheduled release run. The fixture writes its own file instead, and
+ * the `fixture-` prefix belongs to neither namespace a committed name can come
+ * from: `pnpm changeset` generates `adjective-animal-verb`, and this repository
+ * commits an issue-number-and-slug name (the convention `.changeset/README.md`
+ * states). The tail is kept so the fixture still shows the generated shape the
+ * hazard wears.
+ */
+const PEER_CHANGESET = '.changeset/fixture-olive-donkeys-smile.md';
+
+/**
  * A workflow's YAML with whole-line comments removed.
  *
  * Required, not cosmetic: this workflow's header discusses `paths` and its own
@@ -116,9 +136,10 @@ function fixtureRepo(label: string): Fixture {
   // must still never be reported.
   write('.changeset/README.md', '# Changesets\n\nDocumentation, not a declaration.\n');
   // The shape of the near-miss: somebody else's pending release declaration,
-  // sitting under a `pnpm changeset` adjective-animal-verb name.
+  // sitting under a name wearing the `pnpm changeset` adjective-animal-verb
+  // shape. The file is the fixture's own — see `PEER_CHANGESET`.
   write(
-    '.changeset/olive-donkeys-smile.md',
+    PEER_CHANGESET,
     '---\n"@fixture/charts": minor\n---\n\nChart widgets render at their resolved height.\n',
   );
   write('.changeset/plum-pandas-wave.md', '---\n"@fixture/alpha": patch\n---\n\nAn unrelated pending fix.\n');
@@ -223,14 +244,14 @@ describe("a change that OVERWRITES a pre-existing changeset — the objectui#633
   // Exactly the near-miss: a heredoc onto a name that already existed, carrying
   // an unrelated declaration.
   fixture.write(
-    '.changeset/olive-donkeys-smile.md',
+    PEER_CHANGESET,
     '---\n"@fixture/alpha": patch\n---\n\nMy own unrelated fix, written over somebody else.\n',
   );
   fixture.commit('fix: something else entirely');
   const run = runGate(fixture.root, lastCommitRange(fixture));
 
   it('reports the file', () => {
-    expect(run.output).toContain('.changeset/olive-donkeys-smile.md');
+    expect(run.output).toContain(PEER_CHANGESET);
     expect(run.output).toContain('1 changeset(s) it did not add');
   });
 
@@ -272,7 +293,7 @@ describe('a change that DELETES a pre-existing changeset', () => {
 
 describe('the release emptying the queue', () => {
   const fixture = fixtureRepo('release');
-  fixture.remove('.changeset/olive-donkeys-smile.md');
+  fixture.remove(PEER_CHANGESET);
   fixture.remove('.changeset/plum-pandas-wave.md');
   fixture.write('packages/alpha/CHANGELOG.md', '# @fixture/alpha\n\n## 1.1.0\n\n- An unrelated pending fix.\n');
   fixture.write('packages/alpha/package.json', JSON.stringify({ name: '@fixture/alpha', version: '1.1.0' }));

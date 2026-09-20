@@ -141,7 +141,13 @@ const VISIT_FIELDS: Record<string, { type: string; label: string; reference_to?:
   amount: { type: 'currency', label: 'Amount' },
   owner: { type: 'user', label: 'Owner' },
   account: { type: 'lookup', label: 'Account', reference_to: 'account' },
-  parent_visit: { type: 'tree', label: 'Parent', reference_to: 'visit' },
+  // No target key. It carried the retired snake_case spelling, which
+  // `FieldSchema` refuses BY NAME, so the line annotated nothing and the
+  // `$expand` expectation is derived from the declared TYPE. On a `tree` the
+  // target is optional; this map's object is `visit` and the value named it,
+  // so renaming would turn a refused key into an accepted self-annotation
+  // this fixture never made (objectui#8031).
+  parent_visit: { type: 'tree', label: 'Parent' },
   line_item: { type: 'master_detail', label: 'Line item', reference_to: 'line_item' },
 };
 

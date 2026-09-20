@@ -73,7 +73,11 @@
  */
 
 import React from 'react';
-import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import {
+  assertNoOtherNetworkEscape,
+  installRecordSecurityExplainDouble,
+} from '@object-ui/test-support';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { registerAllFields } from '@object-ui/fields';
@@ -91,7 +95,27 @@ beforeAll(() => {
   }
 });
 
-afterEach(() => cleanup());
+/**
+ * objectui#9299 — this renderer's record overlay mounts the shared
+ * `RecordDetailPanel` now, and its `DetailView` asks
+ * `POST /api/v1/security/explain` whether the record may be updated and
+ * deleted. With no host `apiFetch` that call degrades to the global `fetch`,
+ * which under happy-dom is a real HTTP client — so it is served from a double
+ * rather than from the network. Nothing below reads the verdict: the double is
+ * permissive and `useRecordEditable` fails open, so no assertion here moves.
+ */
+beforeEach(() => installRecordSecurityExplainDouble(vi));
+afterEach(() => {
+  // A request to any OTHER endpoint reds here rather than vanishing into
+  // `useRecordEditable`'s best-effort `catch`.
+  assertNoOtherNetworkEscape(expect);
+  // Unmount BEFORE restoring the real `fetch`: vitest runs `afterEach` hooks in
+  // reverse registration order, so this one runs before the root setup's RTL
+  // cleanup, and unstubbing first would leave the tree mounted with the real
+  // global back in place (objectui#7439).
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 /** The hinted column's value — the one that MUST become a `tel:` anchor. */
 const HINTED_PHONE = '+15551234567';

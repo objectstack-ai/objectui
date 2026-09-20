@@ -75,6 +75,17 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'fields.recipient.selectBusinessUnit': 'Select a business unit',
   'fields.recipient.selectPosition': 'Select a position',
   'fields.recipient.selectUnitAndSubordinates': 'Select a business unit',
+  // objectui#7613 — the `field` recipient kind (maintainer ruling
+  // objectstack#14103, executor objectstack#15072). It picks a user-valued
+  // COLUMN of the shared object rather than a record, so its three sentences
+  // are about columns and none of the per-type placeholders above fits.
+  // `noUserFields` exists rather than reusing `fields.recipient.empty`
+  // ("No matches") because an empty list here is not a failed search: it is
+  // the object having no column the evaluator could read as users, and an
+  // admin who is not told that has no way to act on it.
+  'fields.recipient.selectField': 'Select a user field',
+  'fields.recipient.noUserFields': 'No user fields on this object',
+  'fields.recipient.fieldNotUserTyped': '{{name}} — not a user field',
   'fields.filterCondition.selectObjectFirst': 'Select an object first.',
   // objectstack#3896 — this used to be 'All records'. An empty criteria never
   // meant "share everything"; it meant the predicate was missing, and the
@@ -129,6 +140,21 @@ const FIELD_DEFAULTS: Record<string, string> = {
     'Not saved: {{name}} "{{text}}" is not a number. Enter plain decimals (example: 30.2741, 120.1551).',
   'fields.location.refusedResidue':
     'Not saved: {{name}} "{{text}}" and {{otherName}} "{{otherText}}" are not numbers. Enter plain decimals (example: 30.2741, 120.1551).',
+  // objectui#8148 — the FIFTH refusal sentence of objectui#6755's class, and
+  // the only SHARED one: `numberBadInput.tsx` produces it for `NumberField`,
+  // `CurrencyField`, `PercentField` and both of `GeolocationField`'s boxes.
+  // `GeolocationField` sits beside `LocationField`, whose refusals are all
+  // keyed above, so two adjacent coordinate widgets refused in two languages.
+  //
+  // `{{example}}` is a HOLE, not five per-widget keys: five different decimals
+  // reach this one sentence, and a pack that spelled one of them could
+  // legitimately write `1234,56`, which reads as the `latitude, longitude` pair
+  // the widget above asks for. The widget fills the hole in ASCII instead.
+  //
+  // Byte-identical to the literal it replaces, so English and provider-less
+  // rendering are unchanged.
+  'fields.number.badInput':
+    'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
   // objectui#3342 — the tags widget's input hint. Used only when the field
   // author declared no `placeholder` of their own (author declaration wins).
   'fields.tags.placeholder': 'Type and press Enter to add…',

@@ -187,7 +187,20 @@ describe('the module-local copy is gone, not shadowed (objectui#8253)', () => {
 
   it('CONTROL: and the resolver still returns that type', () => {
     // Proves the derived type is WIRED IN, not merely declared and orphaned.
-    expect(src).toMatch(/function getTreeConfig\(schema: any\): ResolvedTreeConfig/);
+    //
+    // ⚠️ The RETURN type is what this control is about; the PARAMETER is matched
+    // loosely on purpose. It read `schema: any` until objectui#8655, which typed
+    // it at the node so `checker.getPropertyOfType` could answer for the six keys
+    // read in the body — pinning that spelling here would make an unrelated
+    // package's type repair red this file for no reason it is about.
+    expect(src).toMatch(/function getTreeConfig\(schema: \w+\): ResolvedTreeConfig/);
+  });
+
+  it('CONTROL: …and that parameter is NOT `any` any more (objectui#8655)', () => {
+    // The loosened matcher above must not read as indifference: `any` is the one
+    // spelling that makes the census below unanswerable, so it is named and
+    // refused rather than merely not required.
+    expect(src).not.toMatch(/function getTreeConfig\(schema: any\)/);
   });
 });
 

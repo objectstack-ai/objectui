@@ -150,10 +150,21 @@ const ARIA_KEY_ALIASES: Record<string, string> = {
  * a future non-visualization list type (another `page`) pass this site in
  * silence, which is the exact failure being fixed.
  *
+ * ⭐ What it subtracts is {@link UndrawableViewKind} — the keys of
+ * {@link UNDRAWABLE_VIEW_KINDS} the current `ViewType` still carries — and
+ * never a literal list of kinds (objectui#9880). A literal list is a second
+ * hand-written copy of the vocabulary, the failure class objectui#8127 removed
+ * from `ViewType` itself, and it rots in the direction the spec actually moved:
+ * `Exclude<ViewType, 'list' | 'detail' | 'page'>` kept subtracting `'page'`
+ * after objectstack RETIRED it, where `Exclude` of a non-member is a silent
+ * no-op no compiler reads. The sibling record's excess `page:` key is what went
+ * red; this line stayed green while saying something that had stopped being
+ * true.
+ *
  * It happens to equal `@objectstack/spec/ui`'s `VisualizationType` today. That
- * is a fact about 17.3.0, not the definition.
+ * is a fact about the resolved spec, not the definition.
  */
-export type ListViewVisualization = Exclude<ViewType, 'list' | 'detail' | 'page'>;
+export type ListViewVisualization = Exclude<ViewType, UndrawableViewKind>;
 
 /**
  * The view kinds `ListView` actually draws.
@@ -190,20 +201,58 @@ const LIST_VIEW_KINDS: Record<ListViewVisualization, true> = {
  * with the reason — and, where the answer is "the author authored something
  * valid and will get a grid", the sentence to say out loud.
  *
- * Total over `Exclude<ViewType, ListViewVisualization>` so the two records
- * together partition the derived union: a member the spec adds must be classed
- * as drawable or explained HERE, and until it is, neither record compiles.
+ * The two tables together still partition the derived union — a member the spec
+ * ADDS must be classed as drawable or explained HERE, and until it is the build
+ * is red — but the red lands on {@link LIST_VIEW_KINDS} alone, because a kind
+ * neither table classes is not extracted into {@link UndrawableViewKind} and so
+ * stays inside {@link ListViewVisualization}, whose record is total. A key
+ * MISSPELLED here fails the same way, for the same reason: the kind it was
+ * meant to class is not extracted either. Both directions are pinned in
+ * `__tests__/normalize-list-view.undrawableBothLegs-9880.test.ts` rather than
+ * asserted in this sentence.
+ *
+ * ⛔ NOT annotated `Record<Exclude<ViewType, ListViewVisualization>, …>`, and
+ * the `satisfies` is not a style choice (objectui#9880). An annotation makes
+ * the literal EXACT in BOTH directions: a kind the spec adds is a missing key
+ * (wanted) and a kind the spec RETIRES is an EXCESS PROPERTY — a TS2353 that
+ * demands a deletion this repository cannot make while it resolves a published
+ * spec which still carries the kind. `satisfies` keeps the value constraint
+ * (every reason is a `string` or `null`) and drops the exactness, which is what
+ * lets one spelling compile against both the pinned published spec and one
+ * built from objectstack `main`.
  *
  * `null` means silence is correct — these are objectui view CATEGORIES, never
  * authored as a list-view kind:
  *  - `list` is the view CATEGORY, not a kind — it already folds to `grid`.
  *  - `detail` is a different renderer (`plugin-detail`), never a ListView case.
+ *
+ * ⚠️ `page` is a RETIRED spec kind and is kept on purpose. objectstack#17063
+ * removed `type: 'page'` from the list-view enum, and until this repository's
+ * `@objectstack/spec` resolution moves onto a release carrying that removal an
+ * author can still write one, so this table still has to answer for it. Once
+ * the resolution moves, `Extract` stops extracting the row and it becomes inert
+ * of its own accord — deletable, on the day the residual pins that hold it
+ * (`normalize-list-view.pageResidual-8429.test.ts`) are converted, and not
+ * before.
  */
-const UNDRAWABLE_VIEW_KINDS: Record<Exclude<ViewType, ListViewVisualization>, string | null> = {
+const UNDRAWABLE_VIEW_KINDS = {
   list: null,
   detail: null,
   page: 'it mounts a published page (bound through `pageName`) in place of rows, which this renderer has no branch for',
-};
+} satisfies Record<string, string | null>;
+
+/**
+ * The members of the current {@link ViewType} that {@link UNDRAWABLE_VIEW_KINDS}
+ * classes — the other half of the partition, derived rather than written out.
+ *
+ * `Extract` over the table's keys, not the table's raw `keyof`, is the load-
+ * bearing operator (objectui#9880): the table may carry a row for a kind the
+ * spec has since RETIRED, and `Extract` drops that row from the TYPE without
+ * the table having to lose it at runtime. That is what makes one spelling
+ * correct against both the pinned published spec (which still publishes `page`)
+ * and a spec built from objectstack `main` (which retired it).
+ */
+type UndrawableViewKind = Extract<ViewType, keyof typeof UNDRAWABLE_VIEW_KINDS>;
 
 /** One warning per undrawable kind per process — see {@link warnUndrawableViewKind}. */
 const warnedUndrawableKinds = new Set<string>();

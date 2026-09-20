@@ -44,6 +44,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { RECORD_OVERLAY_DEFAULT_WIDTH } from '@object-ui/plugin-detail';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import type { ObjectKanbanSchema } from '@object-ui/types';
 import { ObjectKanban } from './ObjectKanban';
@@ -55,19 +56,42 @@ import { ObjectKanban } from './ObjectKanban';
 // makes the component's own lazy factory resolve immediately.
 import './KanbanImpl';
 
-/** The width the kanban's drawer has always resolved to. Must not drift. */
-const EXPECTED_WIDTH = 'min(960px, 60vw)';
+/**
+ * The width this surface's record overlay resolves to when nothing is authored.
+ *
+ * ⭐ objectui#9299 moved WHERE this is expressed without moving WHAT it resolves
+ * to. It used to be an inline `max-width` on the drawer panel, spelled exactly.
+ * The shared shell publishes an authored width as a FLOOR on the `--ov-w`
+ * custom property — `max(WIDTH, min(60vw, 880px))` — and for this value that
+ * expression reduces to `min(960px, 60vw)` at every viewport:
+ *
+ *   60vw <= 880px        -> max(60vw,  60vw)  = 60vw  = min(960px, 60vw)
+ *   880px < 60vw <= 960px-> max(60vw,  880px) = 60vw  = min(960px, 60vw)
+ *   60vw > 960px         -> max(960px, 880px) = 960px = min(960px, 60vw)
+ *
+ * so the pixels are unchanged — which is what objectui#6584 ruled must hold
+ * across all four surfaces. ⛔ The literal is NOT retyped here: it lives in one
+ * place, `RECORD_OVERLAY_DEFAULT_WIDTH`, and is imported.
+ */
+const EXPECTED_WIDTH = `max(${RECORD_OVERLAY_DEFAULT_WIDTH}, min(60vw, 880px))`;
+
+/** What an explicitly authored `720px` resolves to under the same floor. */
+const EXPECTED_AUTHORED_WIDTH = 'max(720px, min(60vw, 880px))';
 
 // Record the props ObjectKanban hands down, then delegate to the REAL drawer so
 // half 2 measures the actual resolution rather than a stub's idea of it.
-let drawerProps: any = null;
-vi.mock('@object-ui/plugin-detail', async (importOriginal) => {
+// objectui#9299: the width now crosses into the shared `NavigationOverlay`;
+// `RecordDetailDrawer` is no longer on this path at all. Record what the
+// renderer hands the shell, then delegate to the REAL shell so half 2 measures
+// the actual resolution rather than a stub's idea of it.
+let overlayProps: any = null;
+vi.mock('@object-ui/components', async (importOriginal) => {
   const actual = await importOriginal<any>();
-  const Real = actual.RecordDetailDrawer;
+  const Real = actual.NavigationOverlay;
   return {
     ...actual,
-    RecordDetailDrawer: (props: any) => {
-      drawerProps = props;
+    NavigationOverlay: (props: any) => {
+      overlayProps = props;
       return <Real {...props} />;
     },
   };
@@ -90,7 +114,7 @@ async function openDrawer(navigation?: Record<string, unknown>) {
   );
   const card = await screen.findByText('On the board');
   fireEvent.click(card);
-  await waitFor(() => expect(drawerProps).not.toBeNull());
+  await waitFor(() => expect(overlayProps).not.toBeNull());
   await waitFor(() => expect(screen.getByRole('dialog')).toBeDefined());
 }
 
@@ -102,12 +126,12 @@ async function openDrawer(navigation?: Record<string, unknown>) {
 function readPanelWidth(): string {
   const panel = document.querySelector('[role="dialog"]') as HTMLElement | null;
   expect(panel, 'drawer panel').not.toBeNull();
-  // The drawer applies the resolved width as an inline style on its panel, as
-  // BOTH `width` and `max-width`. happy-dom's CSS parser drops the `width`
-  // longhand when the value is a `min()` expression but keeps `max-width`, so
-  // the surviving declaration is what we read — it is the same resolved
-  // string, not a proxy for it.
-  return panel!.style.maxWidth;
+  // objectui#9299: the shared shell publishes the resolved width as the
+  // `--ov-w` custom property and caps the panel with
+  // `sm:max-w-[var(--ov-w,42rem)]`, so the custom property IS the resolved
+  // value. Reading `style.maxWidth` here would return an empty string in BOTH
+  // worlds and pin nothing.
+  return panel!.style.getPropertyValue('--ov-w').trim();
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -190,7 +214,7 @@ function installExplainDouble() {
 
 describe('kanban drawer width with no declared `navigation` (objectui#6303)', () => {
   beforeEach(() => {
-    drawerProps = null;
+    overlayProps = null;
     try { window.localStorage.clear(); } catch { /* ignore */ }
     installExplainDouble();
   });
@@ -207,19 +231,30 @@ describe('kanban drawer width with no declared `navigation` (objectui#6303)', ()
   vi.unstubAllGlobals();
   });
 
-  it('half 1: the kanban injects no width of its own (so the drawer default applies)', async () => {
+  it('half 1: the renderer defaults an unauthored width to the ONE ruled literal', async () => {
     await openDrawer();
-    expect(drawerProps.width).toBeUndefined();
+    // objectui#9299: an unauthored `navigation.width` used to reach
+    // `RecordDetailDrawer` as `undefined` so that component's own default
+    // applied. The renderer no longer goes through that component, so it reads
+    // the exported constant instead — and it must, because the shell's own
+    // fallback is `42rem`, which is NARROWER than the ruled value.
+    expect(overlayProps.width).toBe(RECORD_OVERLAY_DEFAULT_WIDTH);
   });
 
-  it('half 2: the width the real drawer resolves is still the pinned value', async () => {
+  it('half 2: the width the real shell resolves is still the pinned value', async () => {
     await openDrawer();
     expect(readPanelWidth()).toBe(EXPECTED_WIDTH);
   });
 
   it('an authored `navigation.width` still reaches the drawer unchanged', async () => {
     await openDrawer({ mode: 'drawer', width: '720px' });
-    expect(drawerProps.width).toBe('720px');
-    expect(readPanelWidth()).toBe('720px');
+    expect(overlayProps.width).toBe('720px');
+    // ⚠️ objectui#9299 consequence, pinned rather than left to be discovered:
+    // the shared shell treats an authored width as a FLOOR, so an authored
+    // value below `min(60vw, 880px)` widens to it. That is the policy
+    // `ObjectGrid` and `ObjectTree` have always had; the three drawer-only
+    // renderers adopt it along with the shell. The authored value still reaches
+    // the shell unchanged — that is the assertion above.
+    expect(readPanelWidth()).toBe(EXPECTED_AUTHORED_WIDTH);
   });
 });

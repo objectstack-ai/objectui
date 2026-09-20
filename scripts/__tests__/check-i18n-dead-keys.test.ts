@@ -292,6 +292,41 @@ describe('textFootprint()', () => {
 });
 
 /**
+ * objectui#9468 — the half of that card's repair that lives on THIS side.
+ *
+ * The defect was a test scratch directory created directly in the repo root and
+ * removed while this sweep was walking it: `grep` exits 2, `textFootprint()`
+ * rethrows every status but 1 on purpose, and the whole shard dies. The repair
+ * moved the producer under `node_modules/`, and that move is only safe while
+ * this sweep genuinely never descends there.
+ *
+ * ⚠ So this is not a restatement of the skip set — it is the property the
+ * producer's placement rests on, asserted through the real `grep` invocation.
+ * Drop `node_modules` from the sweep's skip set and this goes red, which is the
+ * only warning the producer would otherwise get.
+ */
+describe('the repo-wide sweep never descends into node_modules (objectui#9468)', () => {
+  it('cannot see a key spelled under node_modules, while finding the same key beside it', () => {
+    const root = repoWith({
+      'packages/x/src/Reader.tsx': "export const label = t('common.save');\n",
+      'node_modules/some-dep/index.js': "t('common.save');\n",
+    });
+
+    // ⚠ The dependency path carries NO second skip-set name in it. An earlier
+    // draft wrote `node_modules/some-dep/dist/index.js`, and `dist` is in the
+    // skip set too — so the ablation that removes `node_modules` from the set
+    // left this test green, pinning nothing. Keep the only excluded segment on
+    // this path the one under test.
+    //
+    // The first path is the positive control: a sweep that returned nothing at
+    // all — a broken instrument — would satisfy the node_modules half on its own.
+    expect(textFootprint(root, ['common.save']).get('common.save')).toEqual([
+      'packages/x/src/Reader.tsx',
+    ]);
+  });
+});
+
+/**
  * objectui#6666 — the property-chain leg.
  *
  * A consumer that imports a locale PACK OBJECT and reads it by property access

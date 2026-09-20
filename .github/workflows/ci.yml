@@ -180,6 +180,16 @@ jobs:
       # objectui#3723. `scripts/__tests__/merge-queue-reporting.test.ts` holds
       # every `CHANGED=$(git diff …)` in this file and in `lint.yml` to the
       # fail-open form, so a new gate cannot be added in the closed spelling.
+      #
+      # ⛔ This job has NO markdown second stage, and objectui#9241 measured
+      # what that costs rather than asserting it away: traced under the `fs`
+      # harness objectui#9096 built, this job's population DOES open markdown --
+      # `pnpm check:spec-symbols` reads every page under `content/docs/**`,
+      # which the pathspec below excludes. ⇒ a documentation-only pull request
+      # skips the gate that reads that documentation. The reading, and the fence
+      # around acting on it, are on the `test` job's decide step below; the
+      # widening is objectui#9241's to grade, ⛔ not a thing to add here on
+      # sight.
       - name: Decide whether this change needs a full run
         id: relevant
         run: |
@@ -801,8 +811,44 @@ jobs:
           # above dropped: does a test READ it? `markdown-test-inputs.mjs` holds
           # the derived class -- which documents, and which test reads each --
           # and audits itself against the tree. Only THIS job carries the extra
-          # stage, because only this job runs the tests that read markdown
-          # (measured: `type-check` reads no document, and no e2e spec does).
+          # stage.
+          #
+          # ⚠️ objectui#9241: the reason that used to stand here was an
+          # ASSERTION -- "only this job runs the tests that read markdown
+          # (measured: `type-check` reads no document, and no e2e spec does)".
+          # Nothing had measured it. Both populations have now been run under
+          # the same `fs` trace objectui#9096 used -- every `readFileSync` /
+          # `openSync` / `promises.readFile` door recorded, the opened markdown
+          # written out -- and the two answers differ:
+          #
+          #   e2e         ZERO. That job's Playwright suite opens no markdown
+          #               document at all. Stable across two runs, and in a run
+          #               of the same suite the same harness -- extension filter
+          #               moved off `.md` -- recorded reads from inside the
+          #               Playwright worker process, so the zero is a reading
+          #               and not a harness that never fired. ⚠️ The bound on
+          #               it: 23 of that job's 46 tests skip for want of a docs
+          #               site and a backend, in CI exactly as when this was
+          #               taken (`DOCS_BASE_URL` is set nowhere in this file and
+          #               that job starts no backend), so their bodies are
+          #               outside the reading. Static complement: no spec under
+          #               `e2e/` outside `record-header-title-width.spec.ts`
+          #               names `node:fs` at all, and that one ran.
+          #   type-check  ⛔ NOT zero. Its `check:spec-symbols` gate reads EVERY
+          #               page under `content/docs/**` -- objectui#7995 widened
+          #               that gate onto published prose deliberately, after a
+          #               wrong spec claim shipped in
+          #               `content/docs/fields/lookup.mdx` (objectui#7537).
+          #               Those pages are excluded by the very pathspec above,
+          #               so a documentation-only pull request skips the gate
+          #               whose input it just edited -- the objectui#8857 shape,
+          #               one job over.
+          #
+          # ⛔ The second reading is a FINDING, not a licence to widen anything
+          # here: objectui#9241 returns it for re-grading before a markdown
+          # stage is wired into `type-check`, and this job's stage is unchanged
+          # by it. Both readings are a SNAPSHOT -- re-take them with the trace,
+          # do not trust this block.
           #
           # ⚠️ objectui#9096: that class is now TOTAL over markdown, and this
           # comment used to claim the opposite ("the widening is deliberately
@@ -1033,10 +1079,48 @@ jobs:
       # defect wearing the other hat — and dropping the other two restores
       # objectui#9177. `scripts/__tests__/coverage-shard-reporter-readability.test.ts`
       # fails in both directions.
+      # ── Why this lane carries its own `--testTimeout` (objectui#9271) ────
+      #
+      # `vitest.config.mts` sets `testTimeout: 15000`. That budget is calibrated
+      # for the UNINSTRUMENTED lane (`test:` above, which runs on every event
+      # except push). This lane runs the same files under v8 coverage, and
+      # instrumentation is not free: the repo-sweeping rows under
+      # `scripts/__tests__/` — the ones that call `sweep(repoRoot)` /
+      # `analyze(repoRoot)` and walk the whole tree — take several times longer
+      # with the provider attached than without it.
+      #
+      # ⇒ the 15s budget has comfortable headroom uninstrumented and NONE here,
+      # so rows that pass everywhere else die in this lane on a timeout. A dead
+      # shard is not a failed gate, it is NO gate: `coverage-report` below gates
+      # every merge step on `needs.test-coverage.result == 'success'`, so one
+      # timed-out row skips the merge and the thresholds are never evaluated at
+      # all. objectui#9271 measured 116 consecutive pushes to `main` in that
+      # state; the comment above records objectui#8545 pricing two earlier
+      # episodes of the same shape at 84 and 87 pushes.
+      #
+      # ⛔ This is NOT a performance budget and must not be read as one. The
+      # timeout is a hung-test detector, and the detector that guards day-to-day
+      # work is the 15s one in the uninstrumented lane — which is UNCHANGED, and
+      # is the lane that actually runs before a merge. This number only stops
+      # this lane from killing rows that are doing exactly what they should.
+      #
+      # ⭐ Re-derive the ratio rather than trusting a figure written here
+      # (AGENTS.md #5 rule #9) — same tree, same runner, the flag set below as
+      # the only variable:
+      #
+      #     pnpm exec vitest run --project unit --testTimeout=900000 \
+      #       --reporter=verbose scripts/__tests__/check-i18n-dead-keys.test.ts
+      #     # then again with --coverage and compare the per-row ms
+      #
+      # ⚠️ Raising this cannot cost the job its own budget: `timeout-minutes: 40`
+      # above is roughly twice the wall clock the slowest shard has been using,
+      # and letting a row finish instead of killing it at 15s adds only the
+      # difference, not a re-run.
       - name: Run tests with coverage (shard ${{ matrix.shard }}/4)
         run: >-
           pnpm test:coverage --reporter=blob --reporter=default
           --reporter=github-actions --shard=${{ matrix.shard }}/4
+          --testTimeout=60000
           --coverage.thresholds.lines=0 --coverage.thresholds.functions=0
           --coverage.thresholds.branches=0 --coverage.thresholds.statements=0
 
@@ -1326,6 +1410,13 @@ jobs:
       # `type-check` job above (objectui#3523). The exclusion list must stay
       # identical across the gated jobs of this workflow;
       # `scripts/__tests__/merge-queue-reporting.test.ts` fails if it drifts.
+      #
+      # This job has no markdown second stage and, unlike `type-check`, that is
+      # now a MEASUREMENT: objectui#9241 ran this job's suite under the `fs`
+      # trace objectui#9096 built and it opened no markdown document, twice, in
+      # a run where the same harness recorded non-markdown reads from inside the
+      # Playwright worker. The bound on that zero, and the `type-check` reading
+      # that did NOT come back zero, are on the `test` job's decide step above.
       - name: Decide whether this change needs a full run
         id: relevant
         run: |
@@ -1713,7 +1804,7 @@ jobs:
             'scripts/vite-*.ts' \
             'scripts/vitest-invocation-guard.mjs' \
             'tsconfig.json' \
-            'tsconfig.base.json' \
+            'tsconfig.tier-base.json' \
             'package.json' \
             'pnpm-lock.yaml' \
             'pnpm-workspace.yaml' \

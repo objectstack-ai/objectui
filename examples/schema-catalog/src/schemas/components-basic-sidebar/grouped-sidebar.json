@@ -1,25 +1,25 @@
 {
   "type": "sidebar-provider",
-  "body": [
+  "children": [
     {
       "type": "sidebar",
-      "body": [
+      "children": [
         {
           "type": "sidebar-content",
-          "body": [
+          "children": [
             {
               "type": "sidebar-group",
               "label": "Main",
-              "body": [
+              "children": [
                 {
                   "type": "sidebar-menu",
-                  "body": [
+                  "children": [
                     {
                       "type": "sidebar-menu-item",
-                      "body": [
+                      "children": [
                         {
                           "type": "sidebar-menu-button",
-                          "body": [
+                          "children": [
                             {
                               "type": "text",
                               "content": "Dashboard"
@@ -30,10 +30,10 @@
                     },
                     {
                       "type": "sidebar-menu-item",
-                      "body": [
+                      "children": [
                         {
                           "type": "sidebar-menu-button",
-                          "body": [
+                          "children": [
                             {
                               "type": "text",
                               "content": "Analytics"
@@ -49,16 +49,16 @@
             {
               "type": "sidebar-group",
               "label": "Management",
-              "body": [
+              "children": [
                 {
                   "type": "sidebar-menu",
-                  "body": [
+                  "children": [
                     {
                       "type": "sidebar-menu-item",
-                      "body": [
+                      "children": [
                         {
                           "type": "sidebar-menu-button",
-                          "body": [
+                          "children": [
                             {
                               "type": "text",
                               "content": "Projects"
@@ -69,10 +69,10 @@
                     },
                     {
                       "type": "sidebar-menu-item",
-                      "body": [
+                      "children": [
                         {
                           "type": "sidebar-menu-button",
-                          "body": [
+                          "children": [
                             {
                               "type": "text",
                               "content": "Team"
@@ -91,7 +91,7 @@
     },
     {
       "type": "sidebar-inset",
-      "body": [
+      "children": [
         {
           "type": "box",
           "className": "p-4",

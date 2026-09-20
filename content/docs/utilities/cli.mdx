@@ -195,7 +195,7 @@ Scan the project for ObjectUI schema files and report on the ones it
 recognises. No flags.
 
 A JSON file with a root `type` is recognised when its root carries an ObjectUI
-structural key (`children`, `body`, `className`, …) **or** when the whole
+structural key (`children`, `className`, …) **or** when the whole
 document validates as an ObjectUI component schema. Recognised files have their
 `type` checked against the component types this build registers.
 
@@ -257,10 +257,10 @@ Analyze the built application.
 {
   "type": "div",
   "className": "min-h-screen flex items-center justify-center",
-  "body": {
+  "children": {
     "type": "card",
     "title": "Hello World",
-    "body": { "type": "text", "content": "Welcome to Object UI!" }
+    "children": { "type": "text", "content": "Welcome to Object UI!" }
   }
 }
 ```
@@ -270,10 +270,10 @@ Analyze the built application.
 ```yaml
 type: div
 className: min-h-screen flex items-center justify-center
-body:
+children:
   type: card
   title: Hello World
-  body:
+  children:
     type: text
     content: Welcome to Object UI!
 ```

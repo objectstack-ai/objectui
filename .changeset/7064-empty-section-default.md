@@ -2,6 +2,14 @@
 '@object-ui/plugin-detail': minor
 ---
 
+⚠️ **Partly superseded inside this same release — read the `hideEmpty`
+restoration entry for what ships.** What survives below: the direct-`fields`
+fallback body and the `detail-view` node keep an all-empty section's skeleton
+with zero app-side authoring, and the label-graveyard guard is untouched. What
+does not: on an AUTHORED `record:details` section the empty-section default is
+`hideEmpty` again, so an all-empty one hides unless the page writes
+`hideEmpty: false`.
+
 **Behaviour change.** `record:details` no longer forces `hideEmpty` on the
 sections it synthesizes, so a sparse record keeps its section skeleton instead
 of collapsing. Applications relying on the old auto-hide of *unauthored*
@@ -25,7 +33,10 @@ default.
 What changes, precisely:
 
 - an **all-empty** section renders its heading, every field label and one
-  empty-value placeholder per field (it used to render nothing at all);
+  empty-value placeholder per field (it used to render nothing at all)
+  — ⚠️ re-reversed for AUTHORED `record:details` sections later in this same
+  release, where the restored `hideEmpty` owns this case and `false` is the
+  spelling that keeps the skeleton;
 - a **small** partly-empty section — below `DetailSection`'s auto-hide
   threshold of 4 fields / 25% empty (3 / 20% on mobile) — now shows its empty
   rows;
@@ -44,3 +55,17 @@ Reference-app hit inside this repo: the Studio metadata-admin page preview
 (`PagePreview`) binds a real sample record, so a `record:details` block over a
 sparse sample now previews the skeleton rather than a collapsed body. No
 application metadata needs editing — that is the point of the change.
+
+⚠️ **Dated note, 2026-09-16 — the closing sentence above is a reading of
+2026-09-01 and no longer holds for an AUTHORED `record:details` section.**
+⛔ Its text is kept, not rewritten: it was true of the tree this entry
+describes, and overwriting it would erase that. objectui#8603 (director seat
+batch #137 item 3, maintainer 2026-09-15) restored the `record:details` read of
+`hideEmpty`, shipped by PR objectui#9627 later in this same release. As of
+2026-09-16 an all-empty AUTHORED section hides again unless the page writes
+`hideEmpty: false` — so a page that wants the skeleton back does have
+application metadata to edit, and the preview sentence before it holds only for
+a block that authors no section. Where nothing is authored — the
+direct-`fields` fallback body and the `detail-view` node — the closing sentence
+still holds as of the same date. The `hideEmpty` restoration entry is the one
+that states what ships.

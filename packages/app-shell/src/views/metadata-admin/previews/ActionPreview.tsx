@@ -10,8 +10,9 @@
  *      and `label` so authors can see the visual weight before they
  *      ship it (primary buttons are highlighted, danger turns red,
  *      icon-only actions render a compact icon button).
- *   2. A metadata strip: type, target, locations
- *      flag, AI exposure, refreshAfter, confirmText.
+ *   2. A metadata strip: type, target, locations, the
+ *      `requiredPermissions` capability gate, AI exposure,
+ *      refreshAfter, confirmText.
  *   3. A params table when the action prompts the user — this is the
  *      modal/drawer it would open on click. We render it as a static
  *      preview, not an interactive form, because previews must be
@@ -160,6 +161,19 @@ export function ActionPreview({ name, draft }: MetadataPreviewProps) {
   const variant = (d.variant as string | undefined) || undefined;
   const component = String(d.component ?? '');
   const locations = Array.isArray(d.locations) ? (d.locations as string[]) : [];
+  /* [objectui#7234] `requiredPermissions` (ADR-0066 D4) is the reason a
+     correctly-placed action can be absent from every surface at once, with no
+     error and no message. Until this line the preview was silent about it while
+     "Where it appears" below drew the button in every declared frame — the
+     exact shape the `global_nav` note in `PlacementPreview` rules against: a
+     designer promising a surface the running app does not draw. Maintainer
+     ruling 2026-09-08 keeps the hide for end users and puts the reason here,
+     where the author looks. Declaration-side only — whether THIS session holds
+     the capability is answered in the inspector beside this preview, which
+     reads the live held set. */
+  const requiredPermissions = Array.isArray(d.requiredPermissions)
+    ? (d.requiredPermissions as unknown[]).filter((c): c is string => typeof c === 'string')
+    : [];
   // No `shortcut` / `bulkEnabled` here: both are spec-17 `retiredKey()`
   // tombstones, so a preview of them could only ever render for metadata the
   // platform now refuses to parse. See ActionDefaultInspector's RETIRED_FIELDS.
@@ -221,6 +235,20 @@ export function ActionPreview({ name, draft }: MetadataPreviewProps) {
                 ))}
               </div>
             )}
+            {requiredPermissions.length > 0 && (
+              <div
+                className="flex flex-wrap items-center gap-1 pt-1"
+                data-testid="action-preview-required-permissions"
+              >
+                <Lock className="h-3 w-3 text-amber-700" />
+                <span className="text-muted-foreground">Requires:</span>
+                {requiredPermissions.map((c) => (
+                  <span key={c} className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono">
+                    {c}
+                  </span>
+                ))}
+              </div>
+            )}
             {Boolean(typeof visible === 'string' || (visible && typeof visible === 'object')) && (
               <ConditionLine label="Visible when" value={visible} icon={Eye} />
             )}
@@ -254,6 +282,13 @@ export function ActionPreview({ name, draft }: MetadataPreviewProps) {
           {/* Placement simulation — where this action surfaces */}
           {locations.length > 0 && (
             <Section title="Where it appears">
+              {requiredPermissions.length > 0 && (
+                <div className="text-[11px] text-amber-700" data-testid="action-preview-capability-gate-note">
+                  Hidden from anyone who does not hold{' '}
+                  <span className="font-mono">{requiredPermissions.join(' + ')}</span> — the frames
+                  below show the placement, not who can see it.
+                </div>
+              )}
               <PlacementPreview locations={locations} label={label} icon={icon} variant={variant} iconOnly={iconOnly} />
             </Section>
           )}

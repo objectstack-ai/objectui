@@ -19,8 +19,15 @@ import { didYouMeanClause } from '../utils/known-type-case-suggestion.js';
 /**
  * Root keys that positively identify a file as an ObjectUI schema node.
  *
- * Every entry is a property DECLARED on `BaseSchema`
- * (`packages/types/src/base.ts`) — this set is read out of the protocol's own
+ * Every entry is a property `BaseSchema` DECLARES — with one deliberate
+ * exception, `body`, which objectui#6771 retired to a `?: never` tombstone.
+ * ⛔ It stays in this list ON PURPOSE and the distinction is the whole point of
+ * the list: this is a file-IDENTIFICATION marker, not an accept set. A file
+ * authored under the retired spelling must still be RECOGNISED as an ObjectUI
+ * node, so that the tier can refuse it by name; drop the marker and the same
+ * file stops being judged at all, which is the silence the retirement ends.
+ * ⇒ read this set as "keys that identify the vocabulary", which is a superset
+ * of "keys you may author". Otherwise it is read out of the protocol's own
  * node contract, not invented here, and it is closed: it grows only when
  * `BaseSchema` grows.
  *
@@ -35,6 +42,8 @@ import { didYouMeanClause } from '../utils/known-type-case-suggestion.js';
  */
 const OBJECTUI_STRUCTURAL_KEYS: readonly string[] = [
   // Composition — the `children`/`body`-class keys the ruling names.
+  // `body` is the RETIRED spelling, kept so old files are still identified and
+  // then refused — see the docblock above (objectui#6771).
   'body',
   'children',
   // Presentation.

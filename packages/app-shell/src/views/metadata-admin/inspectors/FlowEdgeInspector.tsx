@@ -33,29 +33,20 @@ import { useFlowScope } from './useFlowScope.js';
 import { VariableTextInput } from './VariableTextInput.js';
 import { findUnknownRefs, scopeRoots, describeUnknownRefs } from './flow-ref-check.js';
 import { writeExpressionSource } from './expression-envelope.js';
-import type { ExpressionInput } from '@objectstack/spec/shared';
+// objectui#7265 — the selected edge as this panel reads it out of the draft.
+// This file used to declare its own `interface FlowEdge`, a THIRD hand copy of
+// the designer dialect below: `FlowNodeInspector` and `FlowPreview` already
+// take the same shape from `flow-canvas-layout`, and that module is where the
+// divergence from `@objectstack/spec/automation`'s `FlowEdge` is reasoned and
+// written down (`id` absent while an edge is being drawn; `type` left `string`
+// so the canvas round-trips whatever an authored flow carries). The copy here
+// restated the divergence without the reasoning and under the SPEC's name,
+// which is the mirror rule 1 flags. `FlowDesignerEdge` is the package's
+// declared dialect for it and already carries the rename ratchet in
+// `spec-symbol-parity.test.ts`, so this panel uses that name outright rather
+// than aliasing the spec's over it.
+import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 
-/**
- * The selected edge as this panel reads it out of the draft.
- *
- * `condition` is the spec's `ExpressionInput`: a bare CEL string, or the
- * ADR-0089 envelope whose `dialect` discriminant is REQUIRED. It used to be
- * typed `string | { source?: string }` — an envelope the server's own
- * `FlowEdgeSchema` rejects. Nothing here ever wrote that shape (this panel only
- * ever commits the bare-string form, see `patchEdge` below), but the type said
- * it could, which is how objectui#3171 came to be filed against a defect that
- * does not reproduce. Mirroring the spec keeps the read side honest (#3202).
- */
-interface FlowEdge {
-  id?: string;
-  source: string;
-  target: string;
-  condition?: ExpressionInput;
-  type?: string;
-  label?: string;
-  isDefault?: boolean;
-  [k: string]: unknown;
-}
 
 /** Read-only display of an edge endpoint (source / target node id). */
 function EndpointRow({ label, value }: { label: string; value: string }) {
@@ -70,7 +61,7 @@ function EndpointRow({ label, value }: { label: string; value: string }) {
 }
 
 export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection, locale, readOnly }: MetadataInspectorProps) {
-  const edges = Array.isArray((draft as any).edges) ? ((draft as any).edges as FlowEdge[]) : [];
+  const edges = Array.isArray((draft as any).edges) ? ((draft as any).edges as FlowDesignerEdge[]) : [];
   const index = edges.findIndex((e, i) => edgeKey(e, i) === selection.id);
   const edge = index >= 0 ? edges[index] : null;
   // References available on this edge are those in scope at its SOURCE node
@@ -94,8 +85,8 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
   // array, so the row index is stable; but an edge without an explicit `id`
   // keys off `source->target#index`, so we re-point the selection to the fresh
   // key after the patch to keep the panel attached to the same edge.
-  const patchEdge = (updates: Partial<FlowEdge>) => {
-    const next: FlowEdge = { ...edge, ...updates };
+  const patchEdge = (updates: Partial<FlowDesignerEdge>) => {
+    const next: FlowDesignerEdge = { ...edge, ...updates };
     // Prune empty optional keys so a cleared field doesn't linger in the draft.
     for (const k of ['label', 'condition', 'isDefault'] as const) {
       const v = next[k];

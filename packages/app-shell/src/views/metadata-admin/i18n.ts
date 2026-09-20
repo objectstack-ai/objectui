@@ -1306,6 +1306,22 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.admin.assignableSets': 'Assignable permission sets',
   'perm.admin.noSets': 'No permission sets loaded.',
   'perm.loading': 'Loading permission set {name}…',
+  // objectui#9420 — the package door refuses rather than PUTs when the
+  // save-time layered re-read REJECTS: without it the merge base falls back
+  // to the already-sliced draft and the write deletes every other package's
+  // permission rows with a 200. Worded as a refusal plus the retry, because
+  // nothing was written and retrying is the whole remedy.
+  'perm.save.rereadFailed':
+    'Save cancelled: the current permission set could not be re-read, so rows contributed by other packages cannot be preserved. Nothing was saved — please try again.',
+  // objectui#9484 — the ENVIRONMENT door's re-read runs AFTER the write, so
+  // its rejection is not a failed save and must not be worded like one. It
+  // opens with the outcome that is certain ("Saved."), then says exactly what
+  // is degraded: the matrix on screen is the accepted body, not a fresh read.
+  // Deliberately shares no wording with `perm.save.rereadFailed` above — that
+  // one cancels a save, this one confirms one, and a permission surface cannot
+  // afford the two reading alike.
+  'perm.save.rereadStale':
+    'Saved. The follow-up read that refreshes this view did not answer, so the matrix below shows what was just saved rather than the server\'s copy. Reopen this permission set to confirm.',
   // objectui#4446 — names the gate that actually tripped. The old wording
   // ("OS_METADATA_WRITABLE not enabled") blamed a deployment env var for a
   // per-type registry declaration, and had no reachable honest case: the env
@@ -3276,6 +3292,12 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.admin.assignableSets': '可分配权限集',
   'perm.admin.noSets': '未加载权限集。',
   'perm.loading': '加载权限集 {name}…',
+  // objectui#9420 — 见 EN 表同键注释。
+  'perm.save.rereadFailed':
+    '保存已取消：无法重新读取当前权限集，其他包贡献的权限行将无法保留。本次未写入任何内容，请重试。',
+  // objectui#9484 — 见 EN 表同键注释。
+  'perm.save.rereadStale':
+    '已保存。用于刷新此视图的后续读取没有返回，因此下方矩阵显示的是刚刚保存的内容，而不是服务端的副本。请重新打开该权限集以确认。',
   // objectui#4446 — 见 EN 表同键注释：旧文案把「每类型注册表声明」说成「部署环境变量未启用」。
   'perm.readOnly': '只读（该元数据类型没有运行时写入通道）',
   'perm.readOnly.hint':
@@ -4105,10 +4127,18 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   end: {
     outcome: {
       label: '结果',
-      help: '运行在此处如何结束。“已完成”是普通终态,也是省略该键时的取值。“已拒绝”把拒绝记为一等结果 —— 它是一次成功的评估,只是结论为否 —— 并要求给出拒绝理由 message({token} 模板),在“高级”中填写。',
+      help: '运行在此处如何结束。“已完成”是普通终态,也是省略该键时的取值。“已拒绝”把拒绝记为一等结果 —— 它是一次成功的评估,只是结论为否 —— 并要求在下方字段中给出拒绝理由 message({token} 模板)。',
       opts: { completed: '已完成', refused: '已拒绝' },
     },
-    outputVariable: { label: '输出变量' },
+    // objectui#9336 —— 仅在“结果”选为“已拒绝”时出现(见 flow-node-config 的
+    // `showWhen`);契约两个方向都校验:已拒绝必须有 message,已完成则拒收它。
+    message: {
+      label: '拒绝原因',
+      help: '当结果为“已拒绝”时必填;结果为“已完成”时则被拒收 —— 已完成的结束节点不渲染任何文本,该键会成为静默的空操作。支持 {token} 模板(如 {record.name}),与屏幕节点的“描述”一致。',
+    },
+    // objectui#9335 — an `outputVariable` overlay lived here and went with the
+    // descriptor it localized: `EndConfigSchema` refuses that key by name, so
+    // the end group no longer offers a field for it (see flow-node-config).
   },
   decision: {
     conditions: {

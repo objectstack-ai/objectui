@@ -27,7 +27,7 @@ describe('view-ref widget', () => {
         value="default"
         onChange={() => {}}
         schema={{ type: 'string' }}
-        context={{ objectViews: loaded([
+        context={{ conditionScope: 'flattened', objectViews: loaded([
           { name: 'default', label: 'All records' },
           { name: 'mine', label: 'My records' },
         ]) }}
@@ -42,7 +42,7 @@ describe('view-ref widget', () => {
         value={undefined}
         onChange={() => {}}
         schema={{ type: 'string' }}
-        context={{ objectViews: loaded([]) }}
+        context={{ conditionScope: 'flattened', objectViews: loaded([]) }}
       />,
     );
     expect(screen.getByRole('combobox')).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe('view-ref widget', () => {
         value="renamed_view"
         onChange={() => {}}
         schema={{ type: 'string' }}
-        context={{ objectViews: loaded([{ name: 'default', label: 'All records' }]) }}
+        context={{ conditionScope: 'flattened', objectViews: loaded([{ name: 'default', label: 'All records' }]) }}
       />,
     );
     expect(screen.getByRole('combobox')).toBeInTheDocument();

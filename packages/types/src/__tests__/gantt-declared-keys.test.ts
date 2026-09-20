@@ -114,7 +114,10 @@ describe('ObjectGanttSchema — the ten cast-read keys are declared (objectui#59
       holidays: ['2024-06-05'],
       persistLayout: false,
       viewName: 'shift-plan',
-      navigation: { mode: 'page' as const, view: 'task_detail', openNewTab: false },
+      // ⛔ No `view` member: objectstack#18619 retired `navigation.view` as an
+      // ADR-0049 tombstone (objectui#9667). `mode` + `openNewTab` keep this a
+      // multi-member well-typed value, which is all this leg needs.
+      navigation: { mode: 'page' as const, openNewTab: false },
       markers: [{ date: '2024-06-05', label: 'Release', color: '#ef4444' }],
       criticalPath: true,
       showBaselines: false,
@@ -188,7 +191,11 @@ describe('ObjectGanttSchema (TS) — compile-time pin on the same ten keys', () 
       holidays: ['2024-06-05'],
       persistLayout: false,
       viewName: 'shift-plan',
-      navigation: { mode: 'page', view: 'task_detail', openNewTab: false },
+      // ⛔ No `view` member — see the sibling leg above (objectui#9667). This
+      // literal IS annotated `ObjectGanttSchemaTS`, so it is the one of the two
+      // that a spec carrying the tombstone reddens with
+      // `TS2322: Type 'string' is not assignable to type 'undefined'`.
+      navigation: { mode: 'page', openNewTab: false },
       markers: [{ date: '2024-06-05', label: 'Release', color: '#ef4444' }],
       criticalPath: true,
       showBaselines: false,

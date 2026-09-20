@@ -106,6 +106,13 @@ export interface MasterDetailFormSchema {
    *  Defaults to `tax_rate`; the stack only appears if the field is present. */
   taxRateField?: string;
   onSuccess?: (parent: any) => void | Promise<void>;
+  /**
+   * Called after a refused save, for bookkeeping only (logging, custom focus
+   * handling, …) — NOT for showing the failure to the user. The form
+   * renderer already toasts every rejected write for any host `submitHandler`
+   * (objectui#7354); a host that also toasts here puts the same refusal on
+   * screen twice.
+   */
   onError?: (err: Error) => void;
   onCancel?: () => void;
   className?: string;
@@ -870,14 +877,35 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
     [isEdit, schema.onSuccess, schema.title, entries.length, releaseSave, outcomeToastId],
   );
 
-  /** Surface failures (validation / network / atomic rollback) to the user. */
+  /**
+   * Release the save guard and forward the failure to the host's own
+   * `onError`, WITHOUT toasting it here.
+   *
+   * This form's parent `<ObjectForm>` always re-throws after calling this
+   * callback (see its `handleSubmit` catch), and that throw surfaces in the
+   * form renderer's own catch (`packages/components/.../form.tsx`), which
+   * ALREADY toasts every rejected write for ANY host `submitHandler` — not
+   * just this one. Toasting here too put the identical message on screen
+   * twice, under two different sonner ids (`form-outcome:<id>` where `<id>`
+   * is each site's own independently-generated `React.useId()` — the shared
+   * PREFIX from objectui#7345 never bought de-duplication across the two
+   * raisers, only within each one's own retries) — objectui#7354.
+   *
+   * Removing the toast from THIS raiser, rather than the renderer's, is the
+   * fix that generalizes: the renderer's catch is the one raiser every
+   * `submitHandler` host shares, so it is the one that must stay. It is also
+   * the richer of the two — `declaredUserMessage` / `isPermissionError` /
+   * `extractWriteErrorMessage` — where this callback only ever showed the
+   * raw `err.message`. `schema.onError` is still called: a host may still
+   * want to know the write failed for its own bookkeeping (logging, focusing
+   * a field, etc.) even though it no longer owns display.
+   */
   const handleError = useCallback(
     (err: Error) => {
       releaseSave();
-      toast.error(err?.message || 'Save failed', { id: outcomeToastId });
       schema.onError?.(err);
     },
-    [schema, releaseSave, outcomeToastId],
+    [schema, releaseSave],
   );
 
   // Persistence ALWAYS goes through dataSource.batchTransaction: the parent and

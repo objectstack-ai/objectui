@@ -45,6 +45,12 @@
  * `cancel_reason`, and by the paragraph above nothing else on the wire
  * separates "deleted" from "not visible" for them. They therefore get NO
  * tombstone here, on purpose. See the PR for the measurement.
+ *
+ * ⚠️ What they get instead is a strictly WEAKER statement, and it is not this
+ * module's: objectui#8631 renders a cause-free "cannot be opened" affordance
+ * for a reference that neither resolves nor carries a snapshot title. It
+ * claims no deletion — see `unresolvableRecordReference`, which is reached only
+ * when `isDeletedRecordReference` has already answered false.
  */
 
 import { useMemo } from 'react';
@@ -93,6 +99,15 @@ export function isDeletedRecordReference(
  * ⛔ Deliberately no objectui-authored string on either path: a second copy of
  * this sentence in this repo would be a second de-facto contract, localized on
  * its own schedule, drifting from the platform's.
+ *
+ * ⚠️ `unresolvableRecordReference`, one file over, DOES author a console string
+ * — deliberately, and without contradicting this. This rule binds a sentence
+ * the PLATFORM owns and publishes as a `cancel_reason` option label; that one
+ * renders an affordance the console decided on, for which no upstream option
+ * label exists and (per objectui#8631's fence) none may be asked for, so it
+ * forks no published text. That module's header carries the reconciliation in
+ * full, so a reader meeting the two strings under opposite rules is not left to
+ * assume one of them is a mistake.
  */
 export function useDeadRecordReferenceLabel(): string {
   const { fieldOptionLabel } = useSafeFieldLabel();

@@ -19,6 +19,14 @@
  */
 
 export {
+  SECURITY_EXPLAIN_ROUTE,
+  assertNoOtherNetworkEscape,
+  installRecordSecurityExplainDouble,
+  recordedExplainRequests,
+} from './record-security-explain-double';
+export type { ExpectCapable, StubGlobalCapable } from './record-security-explain-double';
+
+export {
   ATTRIBUTE_TO_IDL_ALIAS,
   GLOBAL_HTML_ATTRIBUTES,
   HAPPY_DOM_IDL_GAPS,

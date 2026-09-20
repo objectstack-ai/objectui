@@ -1,5 +1,5 @@
 {
-  "extends": "./tsconfig.base.json",
+  "extends": "./tsconfig.tier-base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2020", "DOM", "DOM.Iterable"]

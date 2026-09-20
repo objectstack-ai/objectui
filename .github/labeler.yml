@@ -104,11 +104,6 @@
   - changed-files:
     - any-glob-to-any-file: 'packages/data-*/**/*'
 
-# Designer
-'designer':
-  - changed-files:
-    - any-glob-to-any-file: 'packages/designer/**/*'
-
 # Documentation
 'documentation':
   - changed-files:

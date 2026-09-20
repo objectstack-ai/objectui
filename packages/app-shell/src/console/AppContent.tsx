@@ -29,6 +29,7 @@ import {
 } from '../providers/ExpressionProvider.js';
 import { buildExpressionUser } from '../providers/expressionUser.js';
 import { useTrackRouteAsRecent } from '../hooks/useTrackRouteAsRecent.js';
+import { useHomePath } from '../hooks/useHomePath.js';
 import { resolveRecordFormTarget, resolveFormViewLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget } from '../utils/recordFormNavigation.js';
 import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-view';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
@@ -170,6 +171,12 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const location = useLocation();
   const { appName } = useParams();
   const { apps, objects: allObjects, loading: metadataLoading, ensureType, error: metadataError, refresh: refreshMetadata } = useMetadata();
+  // objectui#7373 — where this file's two "you cannot be here" exits land. Both
+  // sit BELOW the readiness gate further down (`metadataLoading` &c), so the
+  // list they resolve against has settled; an app list that failed to load is
+  // `[]`, which resolves to the launcher — the unchanged status quo, never a
+  // worse answer than the literal it replaced.
+  const homePath = useHomePath();
   const previewDrafts = usePreviewDrafts();
   const { t } = useObjectTranslation();
   const { objectLabel } = useObjectLabel();
@@ -316,11 +323,20 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // for every kind of absence). The maintainer ruling put the answer there
   // rather than as a flag in the list, so nothing below re-reads the list.
   //
-  // Only the measured verdict `denied` changes what renders. `unknown` — an
-  // absent app, an unreachable server, a host that injected an adapter without
-  // the probe — keeps the existing screen exactly as it is today: this fix
-  // exists because the console asserted a state it had not measured, and
-  // guessing in the other direction would be the same defect mirrored.
+  // Every verdict here is a MEASURED one, and the screen says only what was
+  // measured — never what it guesses. objectui#4252 applied that rule to
+  // `denied`; objectui#9262 applied the same rule to the rest of this screen's
+  // population, which was seven further causes wearing one sentence about
+  // publishing. `not_found` and `unreachable` are separate answers the
+  // transport had always given and the probe used to fold into one `unknown`
+  // (see `AppAccessVerdict`), so the branches below un-fold a collapse rather
+  // than ask anything new — the enumeration surface the 2026-08-12 ruling
+  // guarded is untouched, and the control plane still answers the same way for
+  // every app the caller may not see.
+  //
+  // `unknown` now means only "nothing was asked": a host injected a DataSource
+  // that cannot answer this (AGENTS #1). Guessing a cause for it would be the
+  // same defect mirrored, so it keeps the screen that asserts nothing.
   // The verdict is stored WITH the app it describes, and read back only for
   // that app. Two missing apps in a row keep `requestedAppMissing` true the
   // whole way across, so nothing in this branch is reset by the transition — a
@@ -341,7 +357,8 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     const probe = dataSource?.probeAppAccess;
     if (typeof probe !== 'function') {
       // AGENTS #1 — the console is protocol-agnostic: a host may inject a
-      // DataSource that cannot answer this. Degrade to today's copy.
+      // DataSource that cannot answer this. `unknown` is exactly that: the
+      // question was never put, so the screen asserts nothing (objectui#9262).
       setAccessProbe({ app: appName, verdict: 'unknown' });
       return;
     }
@@ -349,7 +366,11 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     const probed = appName;
     void Promise.resolve(probe.call(dataSource, probed))
       .then(verdict => { if (!cancelled) setAccessProbe({ app: probed, verdict }); })
-      .catch(() => { if (!cancelled) setAccessProbe({ app: probed, verdict: 'unknown' }); });
+      // A probe that REJECTS has failed — `probeAppAccess` itself never throws,
+      // so reaching here means a host implementation did. That is the absence
+      // of an answer, not the absence of an app: `unreachable`, never `unknown`
+      // (which now means nothing was asked at all) — objectui#9262.
+      .catch(() => { if (!cancelled) setAccessProbe({ app: probed, verdict: 'unreachable' }); });
     return () => { cancelled = true; };
   }, [requestedAppMissing, previewDrafts, missingRecheck, appName, accessProbe, dataSource]);
   // Never the previous app's answer: while a probe for a newly-requested app is
@@ -679,7 +700,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // objectui#5619 — `isWorkspaceAdminResolved` belongs in this readiness gate
   // for the same reason `metadataLoading` does: everything below branches on
   // the verdict. The guard at the "no active app" strand turns a `false` into a
-  // `<Navigate to="/home" replace>` that the later flip to `true` cannot undo,
+  // replacing redirect to home that the later flip to `true` cannot undo,
   // and the chrome this mounts (ConsoleLayout -> UnifiedSidebar / AppHeader)
   // reads the same verdict to decide which navigation exists. Waiting for three
   // of four inputs and acting on the fourth mid-flight is the defect itself.
@@ -731,13 +752,17 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     //
     // No Retry here — retrying a permission decision cannot change it, and a
     // button that promises otherwise is the same misdirection one layer down.
-    // The way back is `/home` instead, because this screen (like every no-app
+    // The way back is HOME instead, because this screen (like every no-app
     // surface in this file) returns ABOVE the single `ConsoleLayout` mount and
     // so carries no header, no navigation and no workspace switcher — the
-    // objectui#4473 strand, which a dead end here would recreate. Router-relative
-    // for the same reason as that fix: `<Navigate>`/`navigate` resolve through
-    // the host's `basename`, and `/home` is part of the outer skeleton every
-    // host mounting this component provides (see this file's header).
+    // objectui#4473 strand, which a dead end here would recreate. Which home is
+    // the DECLARED one (objectui#7373): a control-plane customer bounced to the
+    // environment launcher lands among cards that act on an environment their
+    // deployment does not have. Router-relative for the same reason as the
+    // #4473 fix: `<Navigate>`/`navigate` resolve through the host's `basename`,
+    // and both the declared landing and the launcher fallback are part of the
+    // outer skeleton every host mounting this component provides (see this
+    // file's header).
     if (accessVerdict === 'denied') {
       return (
         <div className="h-screen flex items-center justify-center">
@@ -752,7 +777,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
               })}
             </EmptyDescription>
             <div className="mt-4">
-              <Button onClick={() => navigate('/home')} data-testid="app-access-denied-home">
+              <Button onClick={() => navigate(homePath)} data-testid="app-access-denied-home">
                 {t('empty.appAccessDeniedHome', { defaultValue: 'Back to home' })}
               </Button>
             </div>
@@ -760,17 +785,55 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
         </div>
       );
     }
+    // objectui#9262 — the remaining verdicts, each saying only what the probe
+    // obtained. The screen this replaced asserted ONE transient deploy state
+    // ("it may still be publishing") over every one of them; that sentence is
+    // retired by the ruling, and a genuine post-publish lag now reads as
+    // `not_found` — the forced `refreshMetadata()` above is what gives that lag
+    // its chance to resolve before anything is said about it.
+    //
+    // Retry is offered on all three because all three can change on their own:
+    // an absence ends when the app is created or published, an unreachable
+    // server comes back, and an unasked question is still unasked. That is the
+    // opposite of `denied` above, which no retry can move.
+    //
+    // ⭐ `granted` lands on the NEUTRAL screen deliberately, with `unknown`.
+    // Reaching here with `granted` means the by-name route served the app while
+    // the refreshed list still does not carry it (objectui#9262 cause 8, and the
+    // one shape measured on a real server before this branch was written). The
+    // console has no app document to render from and no account of the
+    // disagreement, so the screen that asserts nothing is the honest one.
+    const verdictScreen =
+      accessVerdict === 'not_found'
+        ? {
+            testId: 'app-not-found',
+            title: t('empty.appNotFound', { defaultValue: "This app can't be opened" }),
+            description: t('empty.appNotFoundDescription', {
+              defaultValue: 'The server did not return this app for your account.',
+            }),
+          }
+        : accessVerdict === 'unreachable'
+          ? {
+              testId: 'app-unreachable',
+              title: t('empty.appUnreachable', { defaultValue: "Couldn't reach the server" }),
+              description: t('empty.appUnreachableDescription', {
+                defaultValue: 'This app could not be checked. Try again in a moment.',
+              }),
+            }
+          : {
+              testId: 'app-not-available',
+              title: t('empty.appNotAvailable', { defaultValue: 'App not available' }),
+              description: t('empty.appNotAvailableDescription', {
+                defaultValue: 'This app is not available — try again in a moment.',
+              }),
+            };
     return (
       <div className="h-screen flex items-center justify-center">
-        <Empty>
-          <EmptyTitle>{t('empty.appNotAvailable', { defaultValue: 'App not available' })}</EmptyTitle>
-          <EmptyDescription>
-            {t('empty.appNotAvailableDescription', {
-              defaultValue: 'This app is not available yet — it may still be publishing. Try again in a moment.',
-            })}
-          </EmptyDescription>
+        <Empty data-testid={verdictScreen.testId}>
+          <EmptyTitle>{verdictScreen.title}</EmptyTitle>
+          <EmptyDescription>{verdictScreen.description}</EmptyDescription>
           <div className="mt-4">
-            <Button onClick={() => setMissingRecheckRun(null)} data-testid="app-not-available-retry">
+            <Button onClick={() => setMissingRecheckRun(null)} data-testid={`${verdictScreen.testId}-retry`}>
               {t('common.retry', { defaultValue: 'Retry' })}
             </Button>
           </div>
@@ -798,16 +861,24 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // WORKSPACE-level fact ("no apps are registered") that a per-user-filtered
   // list cannot establish, and offers two actions — create an app, open system
   // settings — that a non-admin cannot perform. For a workspace admin it stays
-  // the deliberate first-run surface (#3573 / #3590). For everyone else `/home`
-  // is the honest destination: it renders inside the shell (top bar + workspace
+  // the deliberate first-run surface (#3573 / #3590). For everyone else HOME is
+  // the honest destination: it renders inside the shell (top bar + workspace
   // switcher) and already carries the role-aware copy for this state ("No
   // applications yet — your workspace is being set up…", `home/HomePage.tsx`).
   // `replace`, so the strand is not left in history behind them.
   //
+  // WHICH home is `homePath` (objectui#7373), not the launcher literal this
+  // line used to carry: on a deployment that DECLARES a landing the launcher is
+  // the wrong screen to strand someone on — cloud's control plane has no
+  // environment for its "Build an app" cards to act on. Where nothing is
+  // declared `homePath` IS the launcher, so this branch is unchanged for every
+  // ordinary environment.
+  //
   // Router-relative on purpose: `<Navigate>` resolves through the host's
   // `basename`, so the console's `/_console` mount is preserved without
   // building a URL by hand (`resolveConsoleUrl` is for full-page navigations
-  // that leave the router — see `organizations/resolveHomeUrl.ts`). `/home` is
+  // that leave the router — see `organizations/resolveHomeUrl.ts`). Both the
+  // declared landing and the launcher fallback are
   // part of the outer skeleton every host that mounts this component provides
   // (see this file's header), and `RequireAiSurface` in `ConsoleShell.tsx`
   // already bounces the same way for a surface this runtime cannot serve.
@@ -828,7 +899,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // (`LegacyMetadataRedirect`, `ShorthandRecordRedirect`) deliberately do NOT
     // convert -- they fire INSIDE `ConsoleLayout`, with the console already on
     // screen, and a splash there would cover a layout that never went away.
-    return <RedirectWithSplash to="/home" replace />;
+    return <RedirectWithSplash to={homePath} replace />;
   }
 
   if (!activeApp && !isCreateAppRoute && !isSystemRoute && !isMetadataRoute) return (

@@ -46,6 +46,7 @@ one has its own section below.
 | `governed-surface-guard.yml` | Governed Surface Queue Guard | PR to `main`, `develop` (incl. `ready_for_review`) — **no path filter**; merge-queue builds | **Yes on a queue build only** — a governed-surface diff with no authorized approval record (on any commit) is refused there, and so is any merge group whose queued pull requests still carry `needs:contract-review`; on the pull request itself it is deliberately green and prints an early warning |
 | `performance-budget.yml` | Bundle Analysis | Push / PR touching `packages/**`, `apps/console/**`, `pnpm-lock.yaml` | **Yes** — the console entry gzip budget |
 | `lockfile-integrity.yml` | Lockfile Integrity Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own two files; manual | No — **deliberately not a blocking context** ([#8326](https://github.com/objectstack-ai/objectui/issues/8326)); it names the packages and the Dependabot merge gate classifies it `NOT_A_GATE` |
+| `lockfile-dedupe.yml` | Lockfile Dedupe Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own runtime closure; manual | **Yes, when it runs** — classified `OPTIONAL_CONTEXTS`, so a red stops a Dependabot auto-merge ([#8333](https://github.com/objectstack-ai/objectui/issues/8333)) |
 | `live-e2e.yml` | Live E2E (informational) | PR to `main`, `develop` (code paths); nightly cron `30 6 * * *`; manual | No — informational lane: not in the required-check set, and it declares no `merge_group` trigger |
 | `labeler.yml` | Auto Label PRs | PR `opened`, `synchronize`, `reopened` | No |
 | `dependabot-auto-merge.yml` | Dependabot Auto-merge | PR to `main`/`develop` authored by `dependabot[bot]` | No — but it gates *its own* merge, and goes red instead of merging when the check set is not green |
@@ -59,6 +60,7 @@ one has its own section below.
 | `node-esm-load-gate.yml` | Node ESM Load Scan | Nightly cron `17 4 * * *`; push to `main` touching the gate; manual | No — the per-PR half is `pnpm check:esm-specifiers` in **Type Check** |
 | `half-state-patrol.yml` | Half-State Patrol | 6-hourly cron `37 1,7,13,19 * * *`; manual; PR touching the sweeper or the workflow | No — **report-only**; it fails only when the sweep could not run, or a *configured* anchor could not be written |
 | `merge-queue-head-patrol.yml` | Merge queue head patrol | Every 15 minutes (cron `7,22,37,52 * * * *`); manual | No — it gates no branch and blocks no queue, but it **goes red on a finding**: a merge-queue head with no `merge_group` build is a live repo-wide block |
+| `required-check-set-patrol.yml` | Required check set patrol | Daily (cron `23 5 * * *`); manual | No — it gates no branch and blocks no queue, but it **goes red on a finding**: a merge queue whose required set has lost `Type Check` validates nothing that a type error would fail |
 | `hook-selftests.yml` | Hook Self-Tests | PR / push touching `.claude/hooks/**` or the workflow | **Yes** |
 
 The path filters explain most "why did nothing run on my PR?" questions:
@@ -132,8 +134,16 @@ no required checks, and merges. On 2026-08-07 three pull requests
 2. Make the contexts report on *every* pull request, by moving path filtering out of
    `on.pull_request.paths-ignore` and into the jobs.
 3. Only then may a maintainer add context names to the branch-protection and merge-queue required
-   sets. This is a **repository-settings** change; nothing in this repository can do it, and
-   nothing here can read the current state of it either.
+   sets. This is a **repository-settings** change and nothing in this repository can *do* it:
+   `GET /repos/{owner}/{repo}/branches/{branch}/protection` answers
+   `403 Resource not accessible by integration` to an Actions token, so enrolling a context is a
+   maintainer action. The current state, by contrast, **can** be read — and is, on a schedule.
+   ⛔ This page does not restate it. Run `pnpm check:required-check-set`, or read
+   [Required Check Set Patrol](#required-check-set-patrol-required-check-set-patrolyml) below for
+   what that gate does with the answer. A membership copied into prose is exactly what
+   [#9502](https://github.com/objectstack-ai/objectui/issues/9502) had to repair: the sentence that
+   stood here said nothing could read it, which was true when written and stopped being true when
+   the ruleset was edited.
 
 Step 3 before step 1 is the deadlock: a required context that never reports does not fail a queue
 build, it stalls it until the ruleset's 60-minute status-check timeout assumes failure — every
@@ -145,10 +155,11 @@ Two things follow for anyone editing this directory:
   Nothing has to be added to a list for that to be enforced: name the context in
   `REQUIRED_CONTEXTS` (`scripts/dependabot-merge-gate.mjs`), which is where this repository already
   writes down that a check is blocking and reports on every pull request, and the workflow is
-  inside the derived floor from that moment. "May this context be required?" is still a property of
-  the repository's settings that no test here can read — `REQUIRED_CONTEXTS` is a human's answer to
-  it, and deriving from that answer beats writing it down a second time and watching the copies
-  drift ([#6160](https://github.com/objectstack-ai/objectui/issues/6160)). A gate that carries no path filter
+  inside the derived floor from that moment. "May this context be required?" is not the question
+  step 3 points the gate at: a live reading says which contexts **are** required, never which ones
+  *ought to be*, and no test in a checkout reads either one. `REQUIRED_CONTEXTS` is a human's answer
+  to the normative half, and deriving from that answer beats writing it down a second time and
+  watching the copies drift ([#6160](https://github.com/objectstack-ai/objectui/issues/6160)). A gate that carries no path filter
   *precisely so that it can be required* is the mirror image of the bullet below, and the sequence
   matters there too: name its context in `REQUIRED_CONTEXTS` and subscribe `merge_group` in the
   same commit that creates the workflow, rather than acquiring either afterwards
@@ -1001,6 +1012,16 @@ Runs `scripts/check-doc-component-types.mjs`, which reads every fenced code bloc
 `content/docs/**` and asks, of each `type` string literal in one, whether the repository registers a
 component under that name.
 
+**A second gate in the same job, and it can stop your pull request.** The job then runs
+`scripts/check-prompt-component-keys.mjs` in a step of its own — no `continue-on-error` — over
+`.github/prompts/**`. Those are markdown, so `ci.yml`'s `type-check` diff excludes them under
+`'**/*.md'` and a prompt-only PR starts that gate nowhere: the same blind spot, one file further
+out. It asks the stricter question a file read by an AI *author* has to survive — not "does this
+`type` exist" but "does it render, or is it answered only by the opt-in placeholder panel". A
+retired key passes the first question and fails this one, which is the whole of
+[#8929](https://github.com/objectstack-ai/objectui/issues/8929). Run it locally with
+`pnpm check:prompt-keys`.
+
 **Why the teaching surface needed its own ratchet.** The catalog side has had one since
 [#4616](https://github.com/objectstack-ai/objectui/issues/4616):
 `examples/schema-catalog/test/catalog-gallery-render.test.tsx` renders every catalog entry and fails
@@ -1574,6 +1595,15 @@ reject while `BaseSchema` carries an index signature and its Zod mirror is `.pas
 exports the name. Run it locally with `pnpm check:readme-exports` after a build, or
 `node scripts/check-readme-exports.mjs --list` to see every self-import it judged.
 
+`--list` is the diagnostic you reach for in the state where the gate just failed, so it answers in
+that state rather than dying in it (objectui#9220): on a tree where a tracked package is unbuilt it
+prints every row and the census it *could* derive, then `PRECONDITION NOT MET (exit 2)` naming the
+unbuilt packages and a build command scoped to them. The separate exit code is the point — exit 1
+means "a verdict was read and a README is wrong", exit 2 means "nothing above is a verdict". Before
+that card the same state was an uncaught `TypeError` in the row formatter, which printed no census,
+no row past the first unjudgeable declaration, and left exit 1, indistinguishable from the
+fabricated-name failure the gate exists to report.
+
 ## Docs Route Eager Closure (`docs-route-eager-closure.yml`)
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
@@ -1856,6 +1886,60 @@ build-tooling churn. And it says nothing about bytes; `Bundle Analysis` measures
 [#3523](https://github.com/objectstack-ai/objectui/issues/3523)'s rule makes it unrequirable while
 that filter stands. Enrolling it is a maintainer decision with its own cost, written up on #8326's
 pull request as input.
+
+## Lockfile Dedupe (`lockfile-dedupe.yml`)
+
+**Trigger:** Pull requests to `main` and `develop` that touch `pnpm-lock.yaml`, this gate's own
+runtime closure (`scripts/check-lockfile-dedupe.mjs`, `scripts/invoked-as.mjs`,
+`scripts/ci-setup-pnpm.sh`) or the workflow file itself, plus manual dispatch. It appears in the
+checks list as **Lockfile Dedupe Check**.
+
+Runs `scripts/check-lockfile-dedupe.mjs`, which shells out to `pnpm dedupe --check` and requires the
+committed lockfile to be **already deduped** — that is, `pnpm dedupe` must have nothing left to
+collapse.
+
+**How it differs from its neighbour.** `Lockfile Integrity Check` reports a **delta** against the
+merge base ("did *this* change duplicate something?") and needs two revisions of one file.
+This gate reports a **property of one tree** ("would `pnpm dedupe` still have work to do here?") and
+needs no base — but it does need pnpm and the registry. The two are independent: a tree can be
+delta-clean and still carry years of accumulated duplication, which is the state `main` was in until
+[#9215](https://github.com/objectstack-ai/objectui/issues/9215) collapsed 47 identities out of it.
+
+**Why it exists.** [#8333](https://github.com/objectstack-ai/objectui/issues/8333) measured the
+sequence: a dependency bump re-resolves part of the peer graph and forks a package that was
+single-copy — no declaration, range or override anywhere in the workspace changes — and
+`Bundle Analysis` then reads a bundle that grew and attributes the growth to the bump. The remedy is
+`pnpm dedupe`, but `pnpm dedupe` is **not surgical**: run on a tree carrying old duplication it
+collapses all of it, and the reviewer reads the combined delta as the bump's — the same
+misattribution, aimed at a different pull request. So the remedy is only honest once the tree is
+already deduped, which is why #8333's ruling was **B then A**: pay the accumulated debt down in its
+own dedicated pull request first (#9215), then require the remedy in bump pull requests. This gate is
+that second half, and it is also what keeps the first half true.
+
+**It IS a blocking context**, and that is a decision rather than a default.
+`scripts/dependabot-merge-gate.mjs` classifies it in `OPTIONAL_CONTEXTS`, so a red stops a Dependabot
+auto-merge; its path filter makes it unrequirable under
+[#3523](https://github.com/objectstack-ai/objectui/issues/3523)'s rule, the same terms
+`Bundle Analysis` is enrolled on. It blocks where `Lockfile Integrity Check` deliberately does not
+because the two differ in **remedy**: #8326's gate names a duplication and leaves the answer open
+(re-lock, pin, or accept), a judgement call its header reserves for the maintainer, while this gate
+has exactly one mechanical remedy and pnpm prints it — run `pnpm dedupe` and commit the lockfile,
+changing no declaration, range or override. To stop it blocking, move the name to `NOT_A_GATE`;
+`scripts/__tests__/check-lockfile-dedupe.test.ts` fails on that demotion so it has to be taken
+deliberately.
+
+**⛔ What its green does not mean.** It does not say the lockfile is *minimal* — packages whose
+ranges genuinely do not overlap keep their separate copies and are not findings. It does not measure
+bytes; `Bundle Analysis` does. And it is not a check that drifts with the registry: `pnpm dedupe`
+collapses copies already in the tree rather than chasing the newest version a range admits, which
+#8333 measured directly (`better-auth` declared `^1.7.2`, locked at `1.7.2`, with `1.7.4` published
+and admitted by that range — and this gate green on that tree).
+
+**⛔ What it does not do.** It does not run `pnpm dedupe` for you, and it never edits the lockfile —
+`--check` reports without writing. A finding is fixed in the pull request that caused it, by running
+the command and committing the result. ⛔ Pinning a version, adding a `pnpm.overrides` entry or
+widening a range are **not** acceptable ways to satisfy it: #8333 rejected all three, on the grounds
+that they spend a declaration to fix a resolution artefact.
 
 ## Link Checking (`check-links.yml`)
 
@@ -2329,6 +2413,38 @@ covers change, and if so, does this change **add** a `.changeset/*.md`?
   ([#3523](https://github.com/objectstack-ai/objectui/issues/3523)). It would also be a second copy
   of the guarded surface, free to drift from the config the script reads.
 
+**A second job — `Changeset Claim Re-read`, report-only.** The same workflow runs
+`scripts/check-changeset-claims.mjs` in a job of its own, asking the *opposite* question: not
+whether this change declares a changeset, but whether somebody else's **pending** declaration still
+describes the tree once this change has touched a file it names. It has no enforcing switch at all,
+deliberately — "a pending changeset names a file you edited" is usually still true, and a gate that
+failed a build on prose being adjacent is the one triage said would be switched off within a month.
+So a finding here never turns the declaration gate's context red. It lives in *this* workflow rather
+than beside the other changeset gates in `changeset-guard.yml` because that one carries a `paths:`
+filter, and this gate's subject — an ordinary source change that falsifies a pending claim — is
+under no obligation to touch `.changeset/**` at all. Run it locally with
+`pnpm check:changeset-claims`.
+
+**That finding is delivered onto the pull request, not left in the job log.**
+[#9140](https://github.com/objectstack-ai/objectui/issues/9140) re-ran the gate over five live
+instances of the shape it exists for: it named four of them, and **none of the four was acted on**.
+The finding calls itself a *request to read*, and it was addressed to a job log nobody opens on a
+green check. So the job now runs `scripts/check-changeset-claims.mjs --json claims.json`, renders
+that hand-off with `scripts/render-changeset-claims-comment.mjs`, and posts it as a comment on the
+pull request through `actions/github-script` — the same channel the Console Performance Budget
+report uses, on the same existing `pull-requests: write` grant, declared on this job only.
+
+- **One comment per pull request, updated in place.** The job finds its previous comment by the
+  first line of the body, which is a plain-text marker rather than the usual hidden HTML comment:
+  GitHub deletes tag-shaped fragments from a stored body — an HTML comment alone on the first line
+  included — and a marker that vanishes makes every re-run post a *new* comment. See AGENTS.md.
+- **A revision that resolves the finding updates the same comment** to say so, rather than leaving
+  a stale request at the top of the thread. A pull request with nothing to re-read and no earlier
+  comment gets no comment at all.
+- **Nothing about enforcement moved.** The step still exits 0 on findings, the job is still not a
+  required context, and the comment says both in its own opening lines. Failing a build over prose
+  being adjacent is the shape triage fenced, and it stays fenced.
+
 **Why this is separate from `changeset-guard.yml`, which also polices changesets:** that workflow's
 trigger is `paths: ['.changeset/**']`, and the inversion is deliberate — on a PR that adds *only* a
 changeset, every gate inside `ci.yml` and `lint.yml` short-circuits, so nothing in either of them
@@ -2552,6 +2668,76 @@ detection could ship without it. All four recorded heads were Dependabot pull re
 a correlation the patrol does not encode — Dependabot pull requests have merged through this queue
 (`1a4381083`, 2026-08-25), so the failure is conditional and nobody has established on what.
 
+### Required Check Set Patrol (`required-check-set-patrol.yml`)
+
+**Trigger:** daily (cron `23 5 * * *`) and manual dispatch. No pull-request leg — see below.
+
+Runs `scripts/check-required-check-set.mjs`, which asks one question: **is `Type Check` still in the
+set of contexts `main`'s merge queue requires?** That set is the defence installed by
+[#3523](https://github.com/objectstack-ai/objectui/issues/3523) after the 2026-08-07 incident, and it
+lives in repository ruleset 11776024 — GitHub-side configuration. Dropping a member from it reds no
+gate, fires no alarm, and leaves no trace in any diff a reviewer reads
+([#9422](https://github.com/objectstack-ai/objectui/issues/9422)).
+
+**The reading, and the read/write split it rests on.** The three ordered steps above draw the line
+this patrol lives on. The *write* half is unchanged and this patrol does not touch it — it never
+enrols, removes or renames a context, and it asks for no write permission at all. The *read* half is
+a different question: true of a test in a checkout, false of a job with network.
+`GET /repos/{owner}/{repo}/rules/branches/{branch}` answers HTTP 200 with the full rule list,
+measured 2026-09-14. So the steps' rule for deciding which contexts *may* be required still stands
+(`REQUIRED_CONTEXTS` is a human's answer, and nothing derives it from settings); what this patrol
+adds is that the set which *is* required can be observed.
+
+Until [#9502](https://github.com/objectstack-ai/objectui/issues/9502) several sentences in this tree
+answered that second question for themselves rather than pointing here — written when the answer was
+"no", left standing after a ruleset edit made it "yes". The docblock of
+`scripts/check-required-check-set.mjs` inventories them by name, including the one deliberately left
+alone and why. ⛔ Do not add another: point at the gate, do not copy its answer.
+
+**Two tiers, because a job rename must not manufacture a red.** `PINNED_CONTEXTS` is `Type Check`
+alone — the leg the recorded incident actually failed on — and its absence fails the job.
+`WATCHED_CONTEXTS` is the other eight; their absence is reported in the run summary and fails
+nothing. Pinning a name is pinning a spelling, and a check that goes red on healthy work is how a
+repository learns to ignore red ([#6596](https://github.com/objectstack-ai/objectui/issues/6596)).
+The shard names are the riskiest of the nine to pin: the 4-way matrix is itself a shape this
+repository has already changed once (`71be244d52`, 2026-07-17). ⚠️ The accepted cost is stated
+plainly — a silent removal of any of the eight is *observable*, not *enforced*. Promoting one is a
+one-line move between the two lists.
+
+**The rule TYPES are pinned as well**, and that is not the same kind of claim: `Type Check` being in
+a `required_status_checks` rule means nothing if the `merge_queue` rule is gone. A rule type is not a
+job name, so no rename can move it.
+
+**An empty answer is a breach, never a clean read.** The endpoint answers `200 []` for a branch no
+ruleset targets — measured here against `zzz-no-such-branch-9422` — which is indistinguishable from
+"every rule on `main` was deleted", i.e. the 2026-08-07 state. The patrol reports both causes and
+passes on neither. The branch comes from `github.event.repository.default_branch` rather than a
+literal, so the benign cause is not reachable by a typo.
+
+**What watches the patrol.** Its *logic* is watched offline on every pull request by
+`scripts/__tests__/check-required-check-set.test.ts`, which drives the real CLI over a committed
+fixture of the live API response with `Type Check` removed and asserts it exits 3, against the
+unablated fixture as its control. Its *wiring* — this file, its schedule, its permissions and the
+script it calls — is pinned by the same test, and the section and row you are reading are required by
+`scripts/__tests__/ci-cd-pipeline-doc.test.ts`. Its *transport* is watched by the exit contract: a
+reading that could not be taken is exit 2 and a red job, never a green one. ⚠️ What is **not**
+watched, and is declared rather than dissolved: GitHub delaying or dropping scheduled runs, and an
+admin disabling the workflow in the Actions UI. Two measurements bound it — the 60-day-inactivity
+rule that disables schedules is nowhere near holding (3392 commits to `origin/main` in the last 60
+days; longest gap between consecutive commits over the most recent 400 was 0.13 days), and the reader
+is stateless, so a dropped tick costs detection latency and never coverage.
+
+**Daily rather than every fifteen minutes**, unlike its sibling above: a settings edit has no
+self-healing window, so a second read four minutes later reads the same thing. One run a day is one
+API call a day, and the job takes no write permission at all.
+
+**No `pull_request` leg, deliberately**, for the sibling's reason: every job of a
+`pull_request`-triggered workflow produces a check run that `scripts/dependabot-merge-gate.mjs` must
+classify. ⛔ A `merge_group` leg is ruled out by a sharper one — a check outside the required set does
+not gate the queue, and putting *this* check inside it would make the gate that watches the required
+set the thing whose silent removal it exists to detect. The set can never be self-watching, which is
+what makes an out-of-band clock the right home.
+
 ### Hook Self-Tests (`hook-selftests.yml`)
 
 **Trigger:** PR to `main`/`develop`, and push to `main`, **when `.claude/hooks/**` or this
@@ -2634,10 +2820,14 @@ the job goes red, and a comment on the PR names what refused.
 
 Two properties are worth keeping in mind when editing it:
 
-- The gate does **not** ask GitHub which checks are required, because that set is a
-  repository-settings surface nothing here can read (see the three ordered steps under
-  [Merge Queue](#merge-queue)) — and it provably does not contain the shards today, since a merge
-  happened while all four were `in_progress`. Reading it would reproduce the hole.
+- The gate does **not** ask GitHub which checks are required. That set is a repository-settings
+  surface nothing here can **change** (see the three ordered steps under
+  [Merge Queue](#merge-queue)); it can be *read*, and
+  [Required Check Set Patrol](#required-check-set-patrol-required-check-set-patrolyml) reads it
+  daily. Delegating to it anyway would reproduce the hole for a reason that survives every ruleset
+  edit: the required set is the *narrower* of the two — a subset a maintainer chose, changeable
+  off-repo with no diff — while the wait declared in `scripts/dependabot-merge-gate.mjs` covers
+  every unfiltered blocking context this repository produces, and a test holds it to that.
 - It does **not** replace `--auto` with a direct merge. `main` is behind an enforced merge queue,
   where a direct merge is rejected with 405; enabling auto-merge *is* the enqueue action. What
   changed is that it happens after the check set is green on that SHA, not 29 seconds after the

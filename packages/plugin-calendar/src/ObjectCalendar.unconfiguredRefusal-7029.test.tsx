@@ -12,11 +12,11 @@
  *
  * Ruled on objectstack#13748 (director batch #19, option A). Nothing in this
  * file's component changed: `getCalendarConfig` already returned null for a
- * schema with no date binding, and the early return already rendered "Calendar
- * configuration required. Please specify startDateField and titleField."
- * What changed is upstream — `ObjectView` and `ListView` stopped fabricating
- * `due_date` / `start_date` bindings — so the props this component actually
- * receives for an unconfigured view now carry no binding at all.
+ * schema with no date binding, and the early return already rendered the
+ * "Calendar configuration required" screen. What changed is upstream —
+ * `ObjectView` and `ListView` stopped fabricating `due_date` / `start_date`
+ * bindings — so the props this component actually receives for an unconfigured
+ * view now carry no binding at all.
  *
  * These cases are therefore written as the SEAM: the two prop shapes the fixed
  * upstream emits, asserted against the two screens they must produce. They are
@@ -25,6 +25,12 @@
  *
  * ⛔ The refusal screen itself is deliberately NOT redesigned by this card —
  * these cases read its existing copy verbatim.
+ *
+ * ⚠️ objectui#8170 DID later reword that copy, and these cases still hold
+ * because they match the clause it deliberately left alone: the `REFUSAL`
+ * matcher below is the first clause only. The second clause — which key to
+ * specify, and where it lives on each door — is pinned in this directory's
+ * `ObjectCalendar.refusalRemedy-8170.test.tsx`, not here.
  *
  * Both directions are pinned, because a fix that refused EVERY view would pass
  * a refusal-only test: the CONTROL case asserts a correctly configured calendar

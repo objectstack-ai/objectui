@@ -88,7 +88,7 @@ const schema: CardSchema = {
   title: 'Team Directory',
   description: 'Rendered from JSON metadata',
   className: 'mx-auto max-w-3xl',
-  body: {
+  children: {
     type: 'data-table',
     caption: 'Users',
     columns: [
@@ -133,7 +133,7 @@ Open [http://localhost:5173](http://localhost:5173). You should see a card and d
 
 ## What Just Happened?
 
-1. **Schema** - the UI was described as JSON with `type`, visual props, and nested `body`.
+1. **Schema** - the UI was described as JSON with `type`, visual props, and nested `children`.
 2. **Registry** - importing the component packages registered renderers for `card` and `data-table`.
 3. **Renderer** - `SchemaRenderer` resolved each `type` and rendered React components.
 4. **Provider** - `SchemaRendererProvider` is where a host injects its `DataSource`; this app has none, so it passes `undefined`.

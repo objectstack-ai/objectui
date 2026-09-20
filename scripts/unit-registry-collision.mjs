@@ -63,8 +63,22 @@ export const SINGLETON = 'ComponentRegistry';
 /** Directory names never walked when collecting the project population. */
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', 'cypress', 'e2e']);
 
+/**
+ * The script kind is chosen from the FILE NAME, and that is load-bearing rather
+ * than tidy: parsing a `.tsx` source as plain TS does not fail, it mis-parses.
+ * The JSX in a renderer's inline component argument swallows the rest of the
+ * argument list, so a registration's meta object literal is simply not there —
+ * and a call carrying `skipFallback: true` then reads as one that claims the
+ * bare key. Silent, and in the direction that manufactures false findings
+ * (objectui#9264, measured on the `ui:calendar` registration, which is
+ * `skipFallback: true` and read as a bare-name claimant before this line).
+ *
+ * Inert for objectui#7134's own population: the `unit` project holds no `.tsx`
+ * file at all, which `unit-registry-absence-collision.test.ts` pins.
+ */
 function parse(sourceText, fileName = 'file.ts') {
-  return ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const kind = /\.tsx$/i.test(fileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  return ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true, kind);
 }
 
 function lineOf(sf, node) {
@@ -251,25 +265,174 @@ export function readAbsenceAssertions(sourceText, fileName = 'file.ts') {
 }
 
 /**
- * Keys the file itself writes into the singleton from a test body — the
- * registrations no import-closure measurement can see, because they only
- * happen when the test runs.
- *
- * `register(type, c, { namespace: n })` writes `n:type` AND the bare `type`
- * fallback unless `skipFallback` is set (`Registry.register`), so both are
- * reported.
+ * String-literal arrays declared in the file, for resolving a registration key
+ * that arrives through a loop variable rather than as a literal argument.
+ * `new Set([...])` is read too — the same declaration wearing a different
+ * constructor.
  */
-export function readOwnRegistrations(sourceText, fileName = 'file.ts') {
+function localStringArrays(sf) {
+  const arrays = new Map();
+  const literals = (expr) => {
+    if (!expr) return null;
+    let target = expr;
+    // `as const`, `satisfies T` and parentheses wrap the array without changing
+    // it. Both dynamic-tag factories in `@object-ui/components` write `as
+    // const`, so skipping this unwrap loses 44 registrations and reports them
+    // as unresolvable instead.
+    for (;;) {
+      if (ts.isAsExpression(target) || ts.isParenthesizedExpression(target)
+          || (ts.isSatisfiesExpression && ts.isSatisfiesExpression(target))
+          || ts.isTypeAssertionExpression?.(target)) {
+        target = target.expression;
+        continue;
+      }
+      break;
+    }
+    if (ts.isNewExpression(target) && ts.isIdentifier(target.expression) && target.expression.text === 'Set'
+        && target.arguments && target.arguments.length) {
+      target = target.arguments[0];
+    }
+    if (!ts.isArrayLiteralExpression(target)) return null;
+    const out = [];
+    for (const el of target.elements) if (ts.isStringLiteralLike(el)) out.push(el.text);
+    return out.length ? out : null;
+  };
+  const visit = (node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+      const values = literals(node.initializer);
+      if (values) arrays.set(node.name.text, values);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return { arrays, literalsOf: literals };
+}
+
+/**
+ * The names a loop variable used as a registration key can take, or `null`
+ * when the loop is not statically knowable.
+ *
+ * Two shapes, both live in this repository's console registration module:
+ * `for (const variant of ['chart', 'bar-chart'])` and the same loop over a
+ * named array. `forEach` is read as well because the array-driven form is one
+ * refactor away from it.
+ *
+ * ⛔ OFF by default. `readOwnRegistrations` must keep answering exactly what it
+ * answered before this reader existed — objectui#7134's gate floors the sites
+ * it reports UNRESOLVED, and quietly resolving more of them would shrink a
+ * population that gate reads as a measurement.
+ */
+function resolveLoopNames(identifier, arrays, literalsOf) {
+  const name = identifier.text;
+  let cur = identifier.parent;
+  while (cur) {
+    if (ts.isForOfStatement(cur) && cur.initializer && ts.isVariableDeclarationList(cur.initializer)) {
+      const decl = cur.initializer.declarations[0];
+      if (decl && ts.isIdentifier(decl.name) && decl.name.text === name) {
+        const inline = literalsOf(cur.expression);
+        if (inline) return inline;
+        if (ts.isIdentifier(cur.expression) && arrays.has(cur.expression.text)) return arrays.get(cur.expression.text);
+        return null;
+      }
+    }
+    if ((ts.isArrowFunction(cur) || ts.isFunctionExpression(cur)) && cur.parent && ts.isCallExpression(cur.parent)
+        && ts.isPropertyAccessExpression(cur.parent.expression) && cur.parent.expression.name.text === 'forEach') {
+      const param = cur.parameters[0];
+      if (param && ts.isIdentifier(param.name) && param.name.text === name) {
+        const subject = cur.parent.expression.expression;
+        const inline = literalsOf(subject);
+        if (inline) return inline;
+        if (ts.isIdentifier(subject) && arrays.has(subject.text)) return arrays.get(subject.text);
+        return null;
+      }
+    }
+    cur = cur.parent;
+  }
+  return null;
+}
+
+/**
+ * Is this registration call PRE-EMPTED by an existence check — the
+ * `if (!ComponentRegistry.get(type)) { ... }` shape the placeholder registrar
+ * in `@object-ui/components` uses?
+ *
+ * It matters for bare-name ownership: a guarded registration writes the bare
+ * key only when nothing holds it, so it cannot take a key from another
+ * claimant. Reported rather than filtered, because "did not contest" and "was
+ * not seen" must not collapse into one answer.
+ */
+function isGuardedByExistenceCheck(node, receivers) {
+  let cur = node.parent;
+  let child = node;
+  while (cur) {
+    if (ts.isIfStatement(cur) && cur.thenStatement && cur.thenStatement.pos <= child.pos
+        && child.end <= cur.thenStatement.end) {
+      const condition = cur.expression;
+      let hit = false;
+      const look = (n) => {
+        if (hit) return;
+        if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression)
+            && ts.isIdentifier(n.expression.expression) && receivers.has(n.expression.expression.text)
+            && REGISTRY_READERS.has(n.expression.name.text)) {
+          hit = true;
+          return;
+        }
+        ts.forEachChild(n, look);
+      };
+      look(condition);
+      if (hit) return true;
+    }
+    child = cur;
+    cur = cur.parent;
+  }
+  return false;
+}
+
+/**
+ * Every registration CLAIM the file makes, one record per (call site, key
+ * name) pair — the shared walker underneath `readOwnRegistrations`, exported
+ * so a caller that needs the CLAIMANT rather than the key can have it without
+ * a second AST walker over the same calls (objectui#9264).
+ *
+ * A claim carries what `Registry.register`'s own fallback branch reads: the
+ * namespace, the `skipFallback` opt-out, and therefore whether this
+ * registration claims the BARE key as well as the namespaced one. `method`
+ * separates `register` from `registerLazy`, which matters because only the
+ * former carries the runtime collision warning.
+ *
+ * Options, all defaulting to the behaviour `readOwnRegistrations` has always
+ * had, so that function's answer is unchanged by this factoring:
+ *   - `receivers`      — receiver identifiers whose `.register(` counts.
+ *   - `resolveLoops`   — follow a key that arrives as a loop variable.
+ *
+ * Call sites whose key expression stays unresolved are REPORTED, never
+ * dropped: a silent zero is the failure mode every population in this file is
+ * written to refuse.
+ */
+export function readRegistrationClaims(sourceText, fileName = 'file.ts', options = {}) {
+  const receivers = new Set(options.receivers ?? [SINGLETON]);
+  const resolveLoops = options.resolveLoops ?? false;
   const sf = parse(sourceText, fileName);
   const consts = localStringConsts(sf);
-  const keys = [];
+  const { arrays, literalsOf } = localStringArrays(sf);
+  const claims = [];
   const unresolved = [];
   const visit = (node) => {
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
-        && ts.isIdentifier(node.expression.expression) && node.expression.expression.text === SINGLETON
+        && ts.isIdentifier(node.expression.expression) && receivers.has(node.expression.expression.text)
         && (node.expression.name.text === 'register' || node.expression.name.text === 'registerLazy')) {
-      const type = resolveKeyExpression(node.arguments[0], consts);
-      if (type === null) {
+      const arg = node.arguments[0] ?? null;
+      const single = resolveKeyExpression(arg, consts);
+      let names = single === null ? null : [single];
+      let origin = 'literal';
+      if (names === null && resolveLoops && arg && ts.isIdentifier(arg)) {
+        const looped = resolveLoopNames(arg, arrays, literalsOf);
+        if (looped) {
+          names = looped;
+          origin = 'loop';
+        }
+      }
+      if (names === null) {
         unresolved.push({ line: lineOf(sf, node), text: node.getText(sf).replace(/\s+/g, ' ').slice(0, 100) });
       } else {
         const meta = node.arguments.find((a) => ts.isObjectLiteralExpression(a));
@@ -283,17 +446,53 @@ export function readOwnRegistrations(sourceText, fileName = 'file.ts') {
             if (name === 'skipFallback') skipFallback = prop.initializer.kind === ts.SyntaxKind.TrueKeyword;
           }
         }
-        if (namespace) {
-          keys.push(`${namespace}:${type}`);
-          if (!skipFallback) keys.push(type);
-        } else {
-          keys.push(type);
+        const guarded = isGuardedByExistenceCheck(node, receivers);
+        for (const type of names) {
+          claims.push({
+            type,
+            namespace,
+            fullType: namespace ? `${namespace}:${type}` : type,
+            skipFallback,
+            claimsBare: !namespace || !skipFallback,
+            guarded,
+            method: node.expression.name.text,
+            receiver: node.expression.expression.text,
+            line: lineOf(sf, node),
+            origin,
+          });
         }
       }
     }
     ts.forEachChild(node, visit);
   };
   visit(sf);
+  return { claims, unresolved };
+}
+
+/**
+ * Keys the file itself writes into the singleton from a test body — the
+ * registrations no import-closure measurement can see, because they only
+ * happen when the test runs.
+ *
+ * `register(type, c, { namespace: n })` writes `n:type` AND the bare `type`
+ * fallback unless `skipFallback` is set (`Registry.register`), so both are
+ * reported.
+ *
+ * A thin projection of `readRegistrationClaims` at its DEFAULT options, which
+ * is what keeps this function's answer identical to the one objectui#7134's
+ * gate has been reading.
+ */
+export function readOwnRegistrations(sourceText, fileName = 'file.ts') {
+  const { claims, unresolved } = readRegistrationClaims(sourceText, fileName);
+  const keys = [];
+  for (const claim of claims) {
+    if (claim.namespace) {
+      keys.push(claim.fullType);
+      if (!claim.skipFallback) keys.push(claim.type);
+    } else {
+      keys.push(claim.type);
+    }
+  }
   return { keys: [...new Set(keys)], unresolved };
 }
 

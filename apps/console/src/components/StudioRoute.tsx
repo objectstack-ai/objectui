@@ -42,6 +42,7 @@ import {
   LoadingScreen,
   StudioDesignSurface,
   getProductName,
+  useHomePath,
 } from '@object-ui/app-shell';
 
 import { ProtectedRoute } from './ProtectedRoute';
@@ -56,12 +57,18 @@ import { holdsStudioAccess, useStudioEntry } from './studioEntry';
  */
 export function RequireStudioAccess({
   children,
-  redirectTo = '/home',
+  redirectTo,
 }: {
   children: ReactNode;
-  /** Where a non-holder lands. Home, not a dead end — same posture as `RequireAiSurface`. */
+  /**
+   * Where a non-holder lands. Home, not a dead end — same posture as
+   * `RequireAiSurface`. Defaults to the DECLARED landing (objectui#7373), which
+   * is the environment launcher wherever no app declares one; an explicit value
+   * still wins.
+   */
   redirectTo?: string;
 }) {
+  const homePath = useHomePath();
   const entry = useStudioEntry();
 
   // Loading window. The builder must not mount for a single frame while the
@@ -76,7 +83,7 @@ export function RequireStudioAccess({
   }
 
   if (!holdsStudioAccess(entry.systemPermissions)) {
-    return <Navigate to={redirectTo} replace />;
+    return <Navigate to={redirectTo ?? homePath} replace />;
   }
 
   return <>{children}</>;
@@ -98,13 +105,19 @@ export function StudioRoute() {
  *
  * Standalone frame — the landing must never be a navigation dead end, so the
  * wordmark walks back to the platform Home.
+ *
+ * Its sibling screen inside the same frame — `StudioDesignSurface`'s header
+ * Home button — follows the declared landing since objectui#7373, and two
+ * affordances one route apart must not name two different homes (the very
+ * defect objectui#7256 measured), so this one reads the same hook.
  */
 function StudioLanding() {
+  const homePath = useHomePath();
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="flex shrink-0 items-center border-b px-3 py-2">
         <Link
-          to="/home"
+          to={homePath}
           title="返回主页"
           className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] font-semibold hover:bg-muted"
         >

@@ -778,7 +778,23 @@ const grid: ObjectGridSchema = {
 // Row callbacks are COMPONENT props, not schema keys.
 const gridProps: ObjectGridComponentProps = {
   schema: grid,
+  // TWO parameters (objectui#9357). The second is the modifier payload the grid
+  // forwards from the DOM click — read `metaKey` / `ctrlKey` / `button` to
+  // implement Cmd/Ctrl/middle-click yourself. It is optional in both
+  // directions: a one-parameter handler like the one below stays valid.
   onRowClick: (record) => console.log('Row clicked:', record)
+};
+
+// The same prop, taking the payload:
+const gridPropsWithModifiers: ObjectGridComponentProps = {
+  schema: grid,
+  onRowClick: (record, event) => {
+    if (event?.metaKey || event?.ctrlKey || event?.button === 1) {
+      window.open(`/users/${record.id}`, '_blank');
+      return;
+    }
+    console.log('Row clicked:', record);
+  }
 };
 ```
 

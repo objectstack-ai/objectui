@@ -46,11 +46,11 @@ import { RecordMetaFooter } from './RecordMetaFooter';
 import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate } from '@object-ui/react';
 import { buildExpandFields, getRecordDisplayName, formatTitleTemplate, userActionPredicates } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
-import { useLocalization, resolveFieldCurrency } from '@object-ui/i18n';
+import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import type { DetailViewSchema, DataSource, ActionSchema, SchemaNode } from '@object-ui/types';
 import { useDetailTranslation } from './useDetailTranslation';
 import { useRecordEditable } from './useRecordEditable';
-import { getCellRenderer, resolveCellRendererType, coerceToSafeValue } from '@object-ui/fields';
+import { getCellRenderer, resolveCellRendererType, coerceToSafeValue, formatPercent } from '@object-ui/fields';
 import { hasCellValue } from './emptiness';
 import { enrichDetailField } from './fieldEnrichment';
 import { chipTakesCellRenderer } from './summaryChipRenderers';
@@ -295,6 +295,13 @@ export const DetailView: React.FC<DetailViewProps> = ({
   const { t } = useDetailTranslation();
   // Tenant default currency (ADR-0053) for summary metrics whose field omits one.
   const { currency: tenantCurrency } = useLocalization();
+  // The BCP-47 tag every `Intl`-backed renderer on this page formats with
+  // (objectui#9167). Read here, at the top of the component, because the
+  // summary-chip map below is inside this render and a hook cannot be called
+  // from it. `useDisplayLocale` is the composition — tenant locale, then the
+  // active UI language, then `'en'` — and NOT `undefined`, which would hand
+  // `Intl` the machine's locale, a channel neither the tenant nor the user set.
+  const displayLocale = useDisplayLocale();
   const { fieldOptionLabel, fieldLabel } = useSafeFieldLabel();
 
   // Field-level permission gate. Filter section.fields and top-level
@@ -1129,17 +1136,35 @@ export const DetailView: React.FC<DetailViewProps> = ({
                   let display: string = String(val);
                   let percentValue: number | null = null;
                   try {
+                    // -- The locale these four option bags format in ---------------
+                    //
+                    // `displayLocale`, never the literal `undefined` (objectui#9453).
+                    // `useDisplayLocale`'s own doc comment names that literal as "the
+                    // one thing a caller must not do": `undefined` means the MACHINE's
+                    // locale, which is neither the tenant channel nor the UI-language
+                    // one. A German tenant read a German date in the list and an en-US
+                    // one beside the H1 of the record it opened, for one stored value.
+                    // The percent branch below already reads this same binding.
+                    //
+                    // The number of fraction digits, the date style and the time style
+                    // are NOT part of that repair. They are this chip's own
+                    // deliberately compact face, and whether a KPI chip beside a title
+                    // should instead read exactly like its list cell is an OPEN
+                    // question objectui#9453 recorded and did not answer.
+                    // `EN_CONTROL_ROWS` in `summaryChip.displayLocale-9453.test.tsx`
+                    // is what holds that line: those rows are green before this change
+                    // and after it, and go red the moment one of those options moves.
                     if (ftype === 'currency') {
                       const num = Number(val);
                       if (!Number.isNaN(num)) {
                         const cur = resolveFieldCurrency({ ...(objField as any), ...(sectionField as any) }, tenantCurrency);
                         display = cur
-                          ? new Intl.NumberFormat(undefined, {
+                          ? new Intl.NumberFormat(displayLocale, {
                               style: 'currency',
                               currency: cur,
                               maximumFractionDigits: 0,
                             }).format(num)
-                          : new Intl.NumberFormat(undefined, {
+                          : new Intl.NumberFormat(displayLocale, {
                               maximumFractionDigits: 0,
                             }).format(num);
                       }
@@ -1147,26 +1172,67 @@ export const DetailView: React.FC<DetailViewProps> = ({
                       const d = new Date(val);
                       if (!Number.isNaN(d.getTime())) {
                         display = ftype === 'datetime'
-                          ? d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-                          : d.toLocaleDateString(undefined, { dateStyle: 'medium' } as any);
+                          ? d.toLocaleString(displayLocale, { dateStyle: 'medium', timeStyle: 'short' })
+                          : d.toLocaleDateString(displayLocale, { dateStyle: 'medium' } as any);
                       }
                     } else if (ftype === 'percent') {
                       const num = Number(val);
                       if (!Number.isNaN(num)) {
-                        // ONE number, read by both halves of this chip: the
-                        // text states it, the bar below draws it clamped to
-                        // its track. They used to scale `num` by two different
-                        // rules, so a stored `0.123` said `0.123%` beside a bar
-                        // at 12.3% (objectui#8728). That number is now the
-                        // repo's — `percentDisplayValue` in `@object-ui/core`,
-                        // the same authority the list cell and the dashboard
-                        // measure read, so one record cannot state two
-                        // percentages in two places (objectui#9071). Which
-                        // predicate was deleted to get there, and which half of
-                        // that authority this chip still does not take, are in
-                        // `./summaryChipPercent`.
+                        // ── ONE number, ONE spelling, and neither is this
+                        //    file's (objectui#8728 → #9071 → #9167) ──────────
+                        //
+                        // The chip draws a percent TWICE: the text states it,
+                        // the bar below draws it clamped to its track. They
+                        // used to scale `num` by two different rules, so a
+                        // stored `0.123` said `0.123%` beside a bar at 12.3%
+                        // (objectui#8728). objectui#9071 put both halves onto
+                        // the repo's SCALING — `percentDisplayValue` in
+                        // `@object-ui/core` — and stopped there, so the chip
+                        // still appended a bare `%` to the full JavaScript
+                        // number while the list cell rendered the same stored
+                        // value through the locale's percent affix at the
+                        // field's precision. One record, two readings again,
+                        // one contract-half further down.
+                        //
+                        // ⭐ The TEXT now takes the other half from the same
+                        // place: `formatPercent` is the list cell's own body
+                        // (`PercentCellRenderer` calls it with exactly these
+                        // three arguments), and it applies `percentDisplayValue`
+                        // itself — so this is not a second entry into the
+                        // scaling, it is the doorway that carries BOTH halves,
+                        // which is what `percentDisplayValue`'s doc comment
+                        // asks of a third surface. ⛔ Nothing here rounds or
+                        // appends a sign of its own; that local rule is the
+                        // shape objectui#9071 deleted.
+                        //
+                        // The BAR still reads `summaryChipPercentPoints`,
+                        // deliberately: a bar draws the UNROUNDED magnitude —
+                        // the list cell's own bar does the same, off its
+                        // `barValue` before formatting — so rounding the fill
+                        // to the field's precision would make this chip
+                        // disagree with the cell it just started agreeing with.
+                        const percentField = { ...(objField as any), ...(sectionField as any) };
+                        // The field's declared width, resolved with the same
+                        // view-over-object precedence the currency branch above
+                        // spells, and floored at the cell's own default:
+                        // `PercentCellRenderer` reads `field.scale ?? 0`.
+                        //
+                        // ⭐ The MEMBER moved and the AUTHORITY did not
+                        // (objectui#9295). This read was `precision ?? 0` until
+                        // `@objectstack/spec` was read at source: it declares
+                        // `precision` as the "Total digits" of a decimal(p, s)
+                        // column and `scale` as its "Decimal places", so the
+                        // cell was padding a decimal(10, 2) percent field out to
+                        // ten fraction digits and this chip mirrored it there.
+                        // objectui#9167 routed this chip onto the LIST CELL as
+                        // the authority — its ruling turns on the two being
+                        // byte-equal — so when the cell's member moved, staying
+                        // on `precision` is what would have BROKEN that ruling,
+                        // not what would have kept it. Whatever the cell reads,
+                        // this reads; that is the whole of the coupling.
+                        const scale = percentField.scale ?? 0;
+                        display = formatPercent(num, scale, displayLocale);
                         const points = summaryChipPercentPoints(num);
-                        display = `${points}%`;
                         percentValue = Math.max(0, Math.min(100, points));
                       }
                     } else if (ftype === 'select' || ftype === 'status' || ftype === 'multiselect') {

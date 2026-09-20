@@ -32,7 +32,20 @@ import { SchemaRenderer } from '@object-ui/react';
 // `hookTimeout` and races the assertions (AGENTS.md §测试纪律, objectui#3010).
 import '../renderers';
 
-/** The showcase master-detail page, reduced to the parts that render headings. */
+/**
+ * The showcase master-detail page, reduced to the parts that render headings.
+ *
+ * ⚠️ `type: 'app'` below is EVIDENCE about a real stored document, ⛔ not a
+ * convenience (objectui#9642). It is the spec page KIND, which the app-shell
+ * page view writes verbatim into the SchemaNode discriminator, so this fixture
+ * exercises the page-kind to node-type channel as the shipped page does. On
+ * objectui#9263 it was edited to `'page'` so a change removing the `'app'`
+ * registration would keep passing — that PR was closed without merging and the
+ * card was re-ruled letter E, "⛔ not a defect". ⇒ If a change turns this file
+ * red, read `page-kind-node-type-channel-9642` in this directory before
+ * touching the value: a fixture that mirrors a real document is a reading, and
+ * editing it to agree with a change destroys the signal instead of taking it.
+ */
 function masterDetailPage(headerProps: Record<string, unknown> | null, extra?: Record<string, unknown>) {
   return {
     type: 'app',
@@ -118,6 +131,29 @@ describe('PageRenderer — one page, one h1 (objectui#3434)', () => {
     const h1s = screen.getAllByRole('heading', { level: 1 });
     expect(h1s).toHaveLength(1);
     expect(h1s[0].textContent).toBe('New Project + Tasks');
+  });
+
+  it('treats a whitespace-only title as no title at all (objectui#9174)', () => {
+    // No `{`, so `interpolate()`'s fast path used to return the template
+    // VERBATIM, skipping the trim the token path applies. Truthy whitespace
+    // then passed PageHeaderRenderer's `explicitTitle && <h1>` gate, drawing a
+    // blank `h1` — and because `literalTitleText` (page.tsx) already trims and
+    // correctly read "no title", PageRenderer also drew its own implicit `h1`,
+    // for two `h1` elements on the document.
+    renderPage(masterDetailPage({ title: '   ' }));
+
+    const h1s = screen.getAllByRole('heading', { level: 1 });
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0].textContent).toBe('New Project + Tasks');
+  });
+
+  it('still renders a real header title verbatim (lit control)', () => {
+    // A normal, non-empty title must still render through the untouched fast
+    // path — this is the control the trim-unification must not break.
+    renderPage(masterDetailPage({ title: 'Welcome to the CRM' }));
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Welcome to the CRM');
   });
 
   it('honours an inline-translation map as a real header title', () => {

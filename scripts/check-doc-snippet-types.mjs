@@ -424,11 +424,20 @@
  * be read off the collector:
  *
  *     every `.mdx` and `.md` page under `content/docs`, every page under an
- *     `apps/<app>/docs` tree, every `packages/<name>/README.md`, every `.md` /
- *     `.mdx` page at the TOP LEVEL of the repository-root `docs/` tree
- *     (objectui#7856 card 1), every page under `docs/adr/**` and under
- *     `docs/audits/**` (objectui#7856 card 2, recursively), and the root
- *     `README.md`.
+ *     `apps/<app>/docs` tree, every `README.md` under `packages/` AT ANY DEPTH
+ *     (objectui#7308), every `.md` / `.mdx` page at the TOP LEVEL of the
+ *     repository-root `docs/` tree (objectui#7856 card 1), every page under
+ *     `docs/adr/**` and under `docs/audits/**` (objectui#7856 card 2,
+ *     recursively), and the root `README.md`.
+ *
+ * ⚠️ The package-README clause used to read `every packages/<name>/README.md`,
+ * one level, literally — and that is what objectui#7308 reported: the sentence
+ * above is where the surface is SPECIFIED, so a walk that stopped at the package
+ * root was not drift from this paragraph, it was this paragraph drawn too small.
+ * Four nested pages were therefore neither compiled nor ledgered, i.e. neither
+ * covered NOR declared ungated, one directory down from where objectui#5174
+ * found the same state one level up. The sibling gate `check-doc-links` had
+ * already closed the identical hole on the identical four files (objectui#6026).
  *
  * ⚠️ Card 2 is the widening whose whole delivery is the LEDGER, and reading it
  * as coverage would be reading it backwards. Every page in those two subtrees
@@ -700,6 +709,101 @@ export function auditDocsPages(root) {
   return subtreeDocPages(root, AUDIT_DOCS);
 }
 
+/**
+ * The package-README leg, at EVERY depth (objectui#7308).
+ *
+ * The leg above this one — `packages/<name>/README.md` — was stated in this
+ * header's SCAN SURFACE paragraph as if the one level were the specification,
+ * so this was never implementation drift: the specification itself was drawn
+ * too small, and a page one directory deeper was "neither covered NOR declared
+ * ungated" — objectui#5174's phrase for the state that is strictly worse than a
+ * named debt, arriving here one directory down instead of one level up.
+ *
+ * Re-derived on `9ba7e9c3`, naming the population in words each time: of the 43
+ * tracked files under `packages/` whose basename is `README.md`, 39 sit at a
+ * package root and 4 sit deeper, so 4 pages were in no gate's accounting. They
+ * are not private notes — `packages/types` lists the whole of `src/` in its
+ * manifest `files`, so `packages/types/src/zod/README.md` is inside the npm
+ * tarball a reader downloads.
+ *
+ * objectui#6026 closed exactly this hole, on exactly these four files, in the
+ * sibling gate `check-doc-links` — same defect, same count, different gate. This
+ * is that fix arriving here.
+ *
+ * ### Why this is its own leg rather than a `recursive` flag on the one above
+ *
+ * Two reasons, and the first is the same one `ADR_DOCS` / `AUDIT_DOCS` carry: a
+ * divergence between this gate's walk and `check-doc-fence-languages`' has to be
+ * something a pin can SUBTRACT by import rather than a hand-written list of
+ * today's four filenames, so the guard's walk-equality test keeps failing on any
+ * OTHER drift. The second is objectui#6026's own no-double-parse guarantee,
+ * inherited structurally: this leg is rooted at the SUBdirectories of each
+ * package, so a package's own top-level `README.md` is not inside any of them
+ * and cannot be collected twice. Nothing here has a notion of "top level".
+ *
+ * ### ⚠️ Why the skip set is load-bearing, measured rather than assumed
+ *
+ * Every other recursive leg in this file walks an authored tree with nothing
+ * generated inside it. `packages/` is not that tree. Under pnpm each package has
+ * its own `node_modules/` holding SYMLINKS to its workspace siblings, and
+ * `statSync` follows symlinks — so `packages/a/node_modules/@object-ui/b` leads
+ * back into `packages/b`, whose own `node_modules` leads onward. Measured on
+ * `9ba7e9c3` with the workspace installed: an unguarded recursive walk does not
+ * merely overshoot, it does not TERMINATE; capped at depth 12 it had already
+ * reached 17,354 files named `README.md`, against the 43 the repository tracks.
+ * With `UNSCANNED_DIRS` applied the walk yields exactly 43 — the tracked
+ * population, to the file.
+ */
+export const NESTED_PACKAGE_READMES = { dir: PACKAGES_DIR, name: 'README.md', recursive: true };
+
+/**
+ * Directory names this file's `packages/` walk never enters.
+ *
+ * The same set, for the same reason, that `check-doc-links.mjs` walks its own
+ * disk surfaces with (`UNSCANNED_DIRS` there): none of these holds authored
+ * prose — they hold installed dependencies and build output — and the first of
+ * them is what makes the walk above terminate at all.
+ */
+const UNSCANNED_DIRS = new Set(['node_modules', 'dist', 'build', '.next', '.turbo', '.git']);
+
+/**
+ * Every `README.md` strictly BELOW a package's own root, in a stable order.
+ *
+ * An absent `packages/` yields `[]` so a throwaway fixture tree stays listable,
+ * exactly as the legs above do.
+ *
+ * Exported so a sibling census can ask this gate what this leg contains instead
+ * of re-spelling it — which is what `check-doc-fence-languages.test.ts` does: the
+ * fence guard does NOT carry this leg (moving `check:doc-fences`' surface is not
+ * this card), and its walk-equality pin subtracts this enumerator BY IMPORT.
+ */
+export function nestedPackageReadmePages(root) {
+  const base = join(root, NESTED_PACKAGE_READMES.dir);
+  if (!existsSync(base) || !statSync(base).isDirectory()) return [];
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir).sort()) {
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) {
+        if (!UNSCANNED_DIRS.has(entry)) walk(p);
+        continue;
+      }
+      if (entry === NESTED_PACKAGE_READMES.name) out.push(relative(root, p).split(sep).join('/'));
+    }
+  };
+  for (const entry of readdirSync(base).sort()) {
+    const pkg = join(base, entry);
+    if (!statSync(pkg).isDirectory()) continue;
+    // Rooted at each package's SUBdirectories: the package's own README.md is
+    // not inside any of them, so the leg above cannot double-collect it.
+    for (const sub of readdirSync(pkg).sort()) {
+      const p = join(pkg, sub);
+      if (statSync(p).isDirectory() && !UNSCANNED_DIRS.has(sub)) walk(p);
+    }
+  }
+  return out;
+}
+
 /** Fence languages treated as compilable TypeScript. `js` / `jsx` are NOT in the
  *  set: they are not type-annotated, so a strict program judges them on rules
  *  their authors never opted into. */
@@ -718,12 +822,14 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  *   apps/<app>/docs/**              ✓        ✓       ✓     objectui#6600
  *   README.md                       ✓        ✓       ✓     objectui#7115
  *   packages/<name>/README.md       ✓        ✓       ✗     ships inside `files`
+ *   nested packages README.md       ✗        ✓       ✗     objectui#7308
  *   docs/*.md (top level only)      ✗        ✓       ✗     objectui#7856 card 1
  *   docs/adr/**                     ✗        ✓       ✗     objectui#7856 card 2
  *   docs/audits/**                  ✗        ✓       ✗     objectui#7856 card 2
  *
- * The three `docs/` rows are the legs THIS gate carries alone, and the asymmetry
- * is deliberate rather than an oversight to be tidied up later: objectui#7856
+ * The three `docs/` rows and the nested-README row are the legs THIS gate carries
+ * alone, and the asymmetry is deliberate rather than an oversight to be tidied up
+ * later: objectui#7856
  * card 1 moves this gate's population only, so `check-doc-fence-languages` and
  * `check-doc-component-types` keep the surface they had. `check-doc-fence-
  * languages.test.ts` therefore no longer compares the two walks for equality
@@ -735,6 +841,12 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * where it stops, and `docs/adr/**` being GOVERNED is the reason the boundary
  * between the rows is worth a line of code rather than a comment.
  *
+ * objectui#7308's nested-README row extends that same subtraction with
+ * `nestedPackageReadmePages()` — a fourth enumerator, imported rather than
+ * re-spelled — for the reason card 1 exported its own: moving `check:doc-fences`'
+ * surface is not this card's to do, so the divergence is NAMED and every OTHER
+ * drift between the two walks still fails that pin.
+ *
  * `check-doc-component-types` does not read the package READMEs — it asks
  * whether a documented `type` literal is a registered component key, and a
  * package README teaches its own package's API rather than the schema vocabulary.
@@ -744,7 +856,8 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * ⚠️ EVERYTHING ELSE authored in markdown is read by no doc gate at all. That is
  * a statement of what the roots are today, ⛔ not a plan and not a promise. In
  * descending order of size, the unscanned population is: non-README `.md` under
- * `packages/**` (by far the largest); the PUBLISHED
+ * `packages/**`, at any depth, which stays the largest of them — objectui#7308
+ * brought the nested `README.md` files in and NOTHING else; the PUBLISHED
  * `skills/objectui/**`; the root pages that are not `README.md` (`AGENTS.md`,
  * `CONTRIBUTING.md`, `ROADMAP.md` and the rest); `examples/**`; the `apps/**`
  * pages that are not under an `apps/<app>/docs/` tree; `.claude/**`;
@@ -764,7 +877,7 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * "which":
  *
  *     git ls-files '*.md' '*.mdx' \
- *       | grep -vE '^(content/docs/|apps/[^/]+/docs/|packages/[^/]+/README\.md$|README\.md$|docs/[^/]+\.mdx?$|docs/adr/|docs/audits/|\.changeset/)'
+ *       | grep -vE '^(content/docs/|apps/[^/]+/docs/|packages/.*README\.md$|README\.md$|docs/[^/]+\.mdx?$|docs/adr/|docs/audits/|\.changeset/)'
  *
  * ⚠️ A subdirectory of `docs/` that is NEITHER `adr/` NOR `audits/` is in no leg
  * and therefore still in that population — the exclusion above names the two
@@ -918,6 +1031,56 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * stays here because this ledger keeps the record of why each declaration
  * existed, not because the page still carries them.
  *
+ * Batch 5 (objectui#9412) paid down objectui#7308's three NESTED package-README
+ * rows, the whole of that card's debt half. Re-derived first on `8196b10631`
+ * with this gate's own analyzer, the rows temporarily lifted — `analyze({ ungated
+ * })` for the population, `compileSnippets()` for the phases, over the closure
+ * `--build-filter` names (35/35 turbo tasks successful) — and every figure the
+ * rows recorded on `9ba7e9c3` still held: 20 blocks, 13 failing (3 syntax-phase,
+ * 10 semantic), 37 diagnostics, split across the pages exactly as written. In
+ * the same runs the sentinel produced TS2305, the positive control 0, and both
+ * bound controls TS2307, so the zeros below are readings from a program that
+ * demonstrably reports non-zero.
+ *
+ * Its defect was the one objectui#7308 named first, and it is the kind this gate
+ * exists for: `packages/core/src/adapters/README.md`'s custom-adapter template
+ * declared `implements DataSource<T>` while omitting `getObjectSchema` (TS2420),
+ * and wrote `// Your implementation` as the whole body of six methods annotated
+ * non-`void` (TS2355 x6). A reader who copied it got a class that does not
+ * satisfy the interface it claims. The template now implements all six REQUIRED
+ * members — `find`, `findOne`, `create`, `update`, `delete`, `getObjectSchema` —
+ * and each unimplemented body throws rather than falling off the end, so the
+ * reader's class type-checks at every step of filling it in.
+ *
+ * Routes, in the two the batches above established: 19 blocks compile (the two
+ * `{ ... }` elisions on the zod page written as real initialisers, six excerpts
+ * given their own imports or a `declare const` stand-in, one before/after fence
+ * split into the two programs it was really holding, and the shape sketch
+ * re-fenced ```text, which takes it out of the ts/tsx population), and ONE block
+ * is a declared fragment: `packages/components/src/__tests__/README.md`'s
+ * "Adding New Tests" pattern. Both of its specifiers were measured refused in
+ * this program before the marker was written — `vitest` is the ROOT-DECLARED
+ * control specifier itself, so the row's own first remedy ("the block imports
+ * `describe`/`it`/`expect` from `vitest`") produces a `[bound]` failure by
+ * construction, and `./test-utils` is TS2307 because every block compiles at the
+ * repository root while that helper is suite-local and unshipped
+ * (`@object-ui/components` lists `dist` in `files`, and `dist/` holds no
+ * `test-utils`). The row anticipated exactly that and named the marker as its
+ * alternative. The block imports the two specifiers anyway, because they are the
+ * ones a file in that directory really writes, and a stand-in would have taught a
+ * spelling nobody should copy; the marker costs no coverage here, since the block
+ * imports no documented package surface at all.
+ *
+ * ⚠️ One claim in the retired zod row was FALSE and is corrected rather than
+ * carried forward: it said `packages/types` "lists the whole of `src/` in its
+ * manifest `files`", so `src/zod/README.md` ships in the npm tarball. It does
+ * not. That manifest's `files` is `['dist', 'README.md', 'CHANGELOG.md',
+ * 'LICENSE']`, and `npm pack --dry-run --json` in that package reports 134
+ * entries, none of them under `src/` and exactly one README — the package-root
+ * one. The page was still worth clearing, on the reason every other row here
+ * gives: it is a page a reader copies from. It is not worth clearing because it
+ * ships, and a later card should not plan around that.
+ *
  * objectui#5343 then read that list back and cleared it for the getting-started
  * pages: no entry for `content/docs/guide/**` or for
  * `content/docs/api/schema-reference.md` names a missing export any more. Every
@@ -944,6 +1107,9 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * @type {Record<string, string>}
  */
 const UNGATED_DOCS = {
+  // objectui#7308's three nested-package-README rows were PAID DOWN by
+  // objectui#9412 and are gone from this object. Their record is in the header
+  // above, under "Batch 5"; nothing was softened here to retire them.
   // objectui#7856 card 2. Measured on `fedfa3e4` with this gate's own analyzer
   // against the closure `--build-filter` names (35/35 turbo tasks successful):
   // `analyze({ ungated: {} })` for the population, `compileSnippets()` for the
@@ -1205,6 +1371,9 @@ export function listDocuments(root = repoRoot) {
       if (existsSync(readme)) out.push(relative(root, readme).split(sep).join('/'));
     }
   }
+  // Every README.md BELOW a package root (objectui#7308), its own leg so the
+  // fence guard's walk-equality pin can subtract exactly this set by import.
+  out.push(...nestedPackageReadmePages(root));
   // The root `docs/` tree, TOP LEVEL only (objectui#7856 card 1). Enumerated by
   // directory entry and filtered to files by `rootDocsPages`, so `docs/adr/**`
   // (governed) and `docs/audits/**` cannot arrive through THIS leg by accident —

@@ -271,6 +271,13 @@ configuration on it, so a calendar whose title and end keys are spelled correctl
 still renders the "Calendar configuration required" refusal screen and never
 reads them.
 
+`startDateField` is the only key that gate asks for — `titleField` is optional,
+and an event with no explicit title resolves one through the ADR-0079 record
+display-name chain. The refusal screen says so, and it also names where the key
+belongs: the view's `calendar` block. That matters on an **interface page**,
+whose `interfaceConfig` has no calendar slot of its own — the only lever there
+is `sourceView`, pointed at a view that declares the block (objectui#8170).
+
 ```typescript
 import type { ObjectCalendarSchema } from '@object-ui/types';
 

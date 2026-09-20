@@ -219,11 +219,24 @@ export function SearchResultsPage() {
       </div>
 
       {/* Results count */}
+      {/*
+        Both branches select their key on `=== 1`, and they have to: the browse
+        branch used to ask for `search.itemsAvailable` at every count, so English
+        shipped `1 items available` at a single searchable item (objectui#9664).
+
+        The repo's two-key plural convention (`common.itemCount`/`itemCountOne`,
+        `detail.reactionCount`/`reactionCountOne`), NOT an i18next `_one`/`_other`
+        family. Key parity caps a family at base + `_one` + `_other`, so every
+        other CLDR category falls through to the base key — and on THIS key the
+        base would be the plural, which is what `ar` meets at 2, 3-10 and 11-99
+        and `ru` at 2-4. Picking the key here keeps `Intl.PluralRules` and
+        `fallbackLng` out of the path entirely.
+      */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>
           {query.trim()
             ? t(totalCount === 1 ? 'search.resultsCount' : 'search.resultsCountPlural', { count: totalCount, query })
-            : t('search.itemsAvailable', { count: allItems.length })}
+            : t(allItems.length === 1 ? 'search.itemsAvailableOne' : 'search.itemsAvailable', { count: allItems.length })}
         </span>
         {recordsSearching && (
           <span

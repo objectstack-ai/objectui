@@ -18,12 +18,14 @@ import type { RecordDetailsComponentProps } from '@object-ui/types';
 import {
   columnIdentity,
   deriveTitleField,
+  formatTitleTemplate,
   isObjectInlineEditable,
   recordDisplayValueAt,
   resolveNameField,
 } from '@object-ui/core';
 import { DetailView } from '../DetailView';
 import { deriveFieldGroupDetailSections } from '../synth/buildDefaultPageSchema';
+import { useRecordAriaProps } from './recordComponentAria';
 
 /** Normalize a field entry (string | {field} | {name}) to its machine name. */
 const fieldName = (entry: any): string | null => columnIdentity(entry) ?? null;
@@ -120,7 +122,18 @@ export interface RecordDetailsRendererProps {
 }
 
 export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
-  schema = {} as any,
+  // ⛔ NOT `{} as any` (objectui#8649). A destructuring default's type joins
+  // the annotated property type at the binding, so `any` here ERASED
+  // `RecordDetailsRendererProps` for every read site in this file: declared
+  // keys (`hideFields`, `sections`, `columns`, …) and undeclared ones
+  // (`enforceFieldSecurity`, …) all read `any`, indistinguishably. That is what
+  // made objectui#8327's checker census unable to classify eleven of this
+  // card's twelve reads, and it is a LOCAL type defect — the exported
+  // annotation above was always correct, so repairing it moves no published
+  // surface. Spelled THROUGH the annotation rather than restating it, so a
+  // later change to `RecordDetailsRendererProps` cannot silently re-erase it.
+  // Pinned by `__tests__/detailRendererUndeclaredKeys-8649.test.ts`.
+  schema = {} as NonNullable<RecordDetailsRendererProps['schema']>,
   className,
   ...props
 }) => {
@@ -136,6 +149,18 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // Keep all hooks here; move all conditional returns below them.
   const ctx = useRecordContext();
   const { designer } = splitDesigner(props);
+  /**
+   * The block's authored `aria` bag, honoured through the family's ONE read
+   * point (objectui#9556). Called here, with the other hooks, because every
+   * renderer below it has early returns.
+   *
+   * ⛔ No `defaultRole`: with nothing authored this container stays the bare
+   * `div` it has always been, so a page that never wrote `aria` renders
+   * byte-identical DOM. An author who does write one gets a `region` to carry
+   * it — see `recordComponentAria.ts` for why the attribute alone would reach
+   * nobody.
+   */
+  const ariaProps = useRecordAriaProps(schema.aria);
 
   const objectName = ctx?.objectName || '';
   const perms = usePermissions();
@@ -344,14 +369,26 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // lets the fall-through happen here too. When nothing is declared the two
   // return the same name and the first one simply wins.
   //
-  // ⚠️ Two disagreements with the header chain are KNOWN and deliberately NOT
-  // repaired here — both are rungs that name no FIELD, so there is no row to
-  // hide for either, and closing them is a separate ruling:
-  //   - `page:header`'s own `schema.title`, which this package cannot see;
-  //   - `objectSchema.titleFormat`, a render-only template the header ranks
-  //     ABOVE the declared pointer (pinned in `@object-ui/components`'
-  //     `__tests__/page-header-title.test.tsx`, "titleFormat still outranks
-  //     nameField"), interpolating any number of fields.
+  // ⚠️ Two rungs of the header chain name no FIELD at all, so a dedupe keyed
+  // on "which single field is the H1" is structurally unable to answer them
+  // (objectui#8351). They are NOT symmetric and only ONE is answered here:
+  //   - `objectSchema.titleFormat` — ANSWERED, below, by the ruled option B:
+  //     the template's rendered output is compared against the candidates'
+  //     values, and a composite that is no field's value hides no row.
+  //   - `page:header`'s own `schema.title` — NOT answered, and not answerable
+  //     from this package: it is a key on the HEADER schema, which
+  //     `record:details` never receives. Same shape, its own card.
+  //
+  // ⛔ Neither of those is the ORDER question. `PageHeaderRenderer` ranks the
+  // interpolated `titleFormat` ABOVE the ADR-0079 declared pointer, while
+  // `getRecordDisplayName` documents it BELOW (step 3) — pinned green in
+  // `@object-ui/components`' `__tests__/page-header-title.test.tsx` as
+  // "titleFormat still outranks nameField". Closing that divergence moves what
+  // the H1 SHOWS on existing records and retires that pin, so it is a
+  // maintainer ruling and carries its own `needs-user-decision` card. This
+  // ladder deliberately does not depend on which of the two wins: it asks
+  // whether the rendered template IS some candidate's value, which answers the
+  // dedupe under either order.
   //
   // ⛔ `objSchema?.primaryField` used to top this list, and it is gone
   // (objectui#7586). It is a `DetailViewSchema` key (`@object-ui/types`
@@ -406,10 +443,61 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // down: it would still disagree with the header about an expanded lookup
   // object whose display chain yields nothing (`{ id: 'u1' }` is not a title),
   // which the raw test — and a trim of it — both read as a value.
-  for (const candidate of titleCandidates) {
-    if (recordDisplayValueAt(data, candidate) !== undefined) {
-      hideFieldNames.add(candidate);
-      break;
+  //
+  // ⭐ THE `titleFormat` RUNG (objectui#8351, maintainer ruling option B).
+  //
+  // A `titleFormat` H1 is a rendered TEMPLATE, not a field. On a multi-field
+  // format it is no single field's value, so NO row duplicates it and the walk
+  // below must not run at all — it would hide `resolveNameField`'s row, a row
+  // the H1 never showed, exactly the "a field silently vanished" shape
+  // objectui#8175 closed one rung higher.
+  //
+  // ⚠️ "Fully interpolates" is measured, not assumed, and it is measured with
+  // the instruments already here — no new predicate, which is the same rule
+  // the emptiness note below states:
+  //   - `formatTitleTemplate` is THE renderer of this rung. It is what
+  //     `getRecordDisplayName` step 3 calls and what this package's own
+  //     `DetailView.resolveDisplayTitle` step 2 calls, so all three agree
+  //     about what the template produces on a given record.
+  //   - `recordDisplayValueAt` then answers the only question a dedupe has:
+  //     is that string some candidate's value?
+  //
+  // Three outcomes, and the two that are NOT the ruled case are what keep this
+  // honest:
+  //   - composite (no candidate's value equals it) → hide NOTHING. The ruled
+  //     case: "the H1 is not any single field's value, so there is no row to
+  //     hide".
+  //   - empty (no placeholder resolved on this record) → the header has
+  //     ALREADY walked past this rung onto the declared pointer, so the
+  //     value-keyed walk below runs unchanged. Suppressing on the mere
+  //     PRESENCE of a `titleFormat` would blind the dedupe on every record
+  //     where the template renders nothing.
+  //   - collapsed onto ONE field's value (a blank placeholder was dropped with
+  //     its orphan separator, or the format names a single field) → that row
+  //     IS the duplicate, and it still goes. A presence-only rule prints
+  //     "Contract No: HT-0001" directly beneath an H1 reading `HT-0001`, which
+  //     is the duplication Phase P.0 exists to remove.
+  //
+  // Pinned in `__tests__/record-details.titleFormatNoDedupe-8351.test.tsx`,
+  // which asserts which row RENDERS and which row DROPS — never the heading,
+  // which this package does not draw.
+  //
+  // ⚠️ The match is a SCAN of the candidates, not a peek at the first one with
+  // a value: with `titleFormat: '{name}'` over `nameField: 'contract_no'` the
+  // first resolving candidate is `contract_no` and the H1 is `name`'s value,
+  // so stopping early would hide the wrong row AND leave the real duplicate.
+  const interpolatedTitle = formatTitleTemplate(objSchema?.titleFormat, data);
+  if (interpolatedTitle) {
+    const shownAs = titleCandidates.find(
+      (candidate) => recordDisplayValueAt(data, candidate) === interpolatedTitle,
+    );
+    if (shownAs) hideFieldNames.add(shownAs);
+  } else {
+    for (const candidate of titleCandidates) {
+      if (recordDisplayValueAt(data, candidate) !== undefined) {
+        hideFieldNames.add(candidate);
+        break;
+      }
     }
   }
 
@@ -509,36 +597,73 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
         // flat sections stay borderless so the page chrome alone provides
         // containment. Authors can override explicitly via `showBorder`.
         showBorder: s.showBorder ?? (translatedTitle ? true : false),
-        // ⛔ There is deliberately NO `hideEmpty` slot here, and re-adding one
-        // would reopen objectui#7129.
+        // The authored empty-section key, and THE RENDERER DEFAULT ITSELF.
         //
-        // ⚠️ Measured, so the next reader does not have to: this slot's removal
-        // is a STATEMENT change, not the behavioural one. The `...s` above
-        // spreads every authored key verbatim, so an off-spec document
-        // carrying `hideEmpty` still delivers it to `DetailSection` — which no
-        // longer reads it. Re-adding the slot alone changes nothing; the
-        // behaviour lives in `DetailSection`, and that is where the ablation
-        // for this change turns red.
+        // `@objectstack/spec` declares `hideEmpty` on this renderer's section
+        // entry with no schema default, and states the fallback as the
+        // renderer's: hiding is on, so a section whose fields are ALL empty
+        // renders nothing at all — no heading, no skeleton — and `false` keeps
+        // the heading and the label skeleton a brand-new record needs.
         //
-        // Emptiness on a section is decided by
-        // `DetailSection`'s auto-hide heuristic alone — hide empty rows only
-        // while the section still has at least one filled row, never on an
-        // all-empty section (there the labels ARE the structural skeleton a
-        // sparse or brand-new record needs), with the reader's "Show N empty
-        // fields" toggle as the escape hatch.
+        // ⭐ The default is resolved HERE, on an AUTHORED section, and that
+        // placement is the whole design. `DetailSection` tests `=== true`, so
+        // the default reaches exactly the surface that declares the key.
+        // Sections nobody can write it on stay out: the direct-`fields`
+        // fallback body below and the `detail-section` node each synthesize a
+        // section, and a hide there would be one with no declarable spelling
+        // to ask the skeleton back — the defect upstream declared this key to
+        // fix, reintroduced one surface over.
         //
-        // This slot used to force `s.hideEmpty ?? true`, then (objectui#7064)
-        // passed the authored value through verbatim. The pass-through
-        // measured the key on all four contracts and found three answers:
-        // `@object-ui/types` declared it, this renderer honoured it, the
-        // `DetailViewSectionSchema` zod mirror omitted it, and
-        // `@objectstack/spec` REFUSES it — `RecordDetailsProps.safeParse` on a
-        // section carrying it returns `unrecognized_keys` naming `hideEmpty`,
-        // so on any spec-validated page the key never reached this line at
-        // all. The maintainer converged the four on the spec's answer
-        // (2026-09-01, objectui#7129): the declaration is retired and the
-        // heuristic is the whole contract. Pinned four ways in
+        // ⚠️ `?? true` is the spelling objectui#7064 removed, and it is back
+        // deliberately. ⛔ Read that ruling's ground as it was written, not as
+        // this line makes convenient: the maintainer ruled on 2026-08-31 that
+        // an empty detail body is a PLATFORM concern and that a metadata
+        // application should not have to author its way out of one. (The
+        // ruling's own wording is on objectui#7064; it is deliberately not
+        // transcribed here — AGENTS.md commandment #-1 keeps this codebase
+        // English-only, and a translation of a ruling is not the ruling.) The
+        // objection was to the AUTHORING
+        // SHAPE — every application hand-writing `hideEmpty: false` per section
+        // as per-app tax — and it was made KNOWING the key was declared
+        // upstream (objectstack PR #11662); the deliverable was a sparse record
+        // keeping a full structural skeleton with zero app-side authoring. The
+        // spec-refusal reading came later, out of that card's own execution,
+        // and was routed to objectui#7129; ⛔ it was not this ruling's ground.
+        //
+        // ⇒ objectui#8603 REVERSES the behavioural half of that ruling, and
+        // the authoring it rejected is what a page now writes to keep the
+        // skeleton. The reversal is undisclosed — the #8603 ruling does not
+        // name objectui#7064 — and its standing was ruled on this change's
+        // isolated at-tier contract review (Decision 1): a director-seat batch
+        // item carrying the maintainer's assent has the same authority as the
+        // live ruling it reverses, so it stands. ⛔ Whether it SHOULD is not a
+        // question this file answers.
+        //
+        // What the spelling does here is narrower than either ruling: it
+        // CONFINES the default to the authored surface instead of applying it
+        // to every section this file hands on.
+        //
+        // ⚠️ Measured, so the next reader does not have to: the `...s` above
+        // already spreads an authored value through, which is why #7129's
+        // ablation found deleting this slot alone changed nothing and left its
+        // suite green. This line is not a pass-through — it is the default —
+        // but an ablation that only deletes it still has to reach
+        // `DetailSection` to turn anything red on an AUTHORED `true`.
+        //
+        // History, because this key has been reversed twice: the slot forced
+        // `s.hideEmpty ?? true` until objectui#7064 passed the authored value
+        // through, and objectui#7129 (maintainer 2026-09-01) then retired the
+        // key outright — four contracts, three answers, and
+        // `@objectstack/spec` REFUSING it at the 17.2.0 pin. The pin moved to
+        // 17.3.0, which DECLARES `hideEmpty` on the `record:details` section
+        // entry with a describe() promising the behaviour this repo had just
+        // removed, so that premise expired. objectui#8603 (director seat batch
+        // #137 item 3, maintainer 2026-09-15) ruled the protocol correct and
+        // restored the read; #7129's Q1-A is superseded for this key, and its
+        // Q2-C — the auto-hide heuristic owning the empty ROWS of a
+        // partly-filled section — is untouched. Pinned four ways in
         // `__tests__/record-details.hideEmptyRetired-7129.test.tsx`.
+        hideEmpty: s.hideEmpty ?? true,
         fields: dropHidden(normaliseList(filterList(s.fields))),
       });
       })
@@ -600,7 +725,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // consumes that shared context; `inlineEdit` gates the affordance to this
   // object's lifecycle/permission.
   return (
-    <div className={className} {...designer}>
+    <div className={className} {...designer} {...ariaProps}>
       <DetailView
         schema={synthesized}
         dataSource={ctx.dataSource}

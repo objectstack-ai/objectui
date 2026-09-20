@@ -61,6 +61,21 @@
  *   - give `useHomeInbox` a second scheduler of its own and
  *     "one feed's cadence, not one per consumer" goes RED while the single-
  *     consumer case stays green — a second scheduler is not a faster one.
+ *
+ * ## Later — objectui#7392 narrowed that receipt read's PAYLOAD
+ *
+ * The `top=200` receipt read named above is the shape #7249 measured, and is
+ * left standing as the record of that measurement. objectui#7392 replaced it
+ * with a read scoped to the notification ids the message read just listed, and
+ * with that made it CONDITIONAL: a window listing nothing joinable issues no
+ * receipt read at all.
+ *
+ * The subject of this file is the CADENCE, which that change does not touch —
+ * but its fixture now lists rows, because "the receipt read is exactly as
+ * frequent as the message read" is not assertable on a window where no receipt
+ * read is due. The equality is unchanged; what changed is that it is now
+ * exercised on a window that has something to join, with the empty window
+ * pinned separately below.
  */
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -72,10 +87,42 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
   useAuth: () => ({ user: userFixture }),
 }));
 
+/**
+ * The `mine` window this fixture lists — two messages, each carrying the
+ * `notification_id` its receipt is keyed by (ADR-0030).
+ *
+ * Rows rather than an empty array because of objectui#7392: the receipt read
+ * is now issued only when the window lists something a receipt could belong
+ * to, so an empty inbox is the one window where counting receipt reads against
+ * message reads asserts nothing.
+ */
+const INBOX_ROWS: Array<Record<string, unknown>> = [
+  {
+    id: 'ibx_1',
+    user_id: 'u1',
+    notification_id: 'ntf_1',
+    topic: 'collab.assignment',
+    title: 'Assigned to you: Ship it',
+    created_at: '2026-09-02T09:00:00Z',
+  },
+  {
+    id: 'ibx_2',
+    user_id: 'u1',
+    notification_id: 'ntf_2',
+    topic: 'approval.request',
+    title: 'Approval reminder: INV-1008',
+    created_at: '2026-09-01T09:00:00Z',
+  },
+];
+
+/** What the fake inbox answers with — emptied by the case that pins that path. */
+let inboxRows: Array<Record<string, unknown>> = INBOX_ROWS;
+
 const findCalls: Array<{ object: string }> = [];
 const fakeAdapter = {
   find: (object: string) => {
     findCalls.push({ object });
+    if (object === 'sys_inbox_message') return Promise.resolve({ data: inboxRows });
     return Promise.resolve({ data: [] });
   },
   getClient: () => undefined,
@@ -117,6 +164,7 @@ function setHidden(hidden: boolean): void {
 beforeEach(() => {
   vi.useFakeTimers();
   userFixture = { id: 'u1' };
+  inboxRows = INBOX_ROWS;
   findCalls.length = 0;
   setHidden(false);
   // Module-scoped stores outlive any one render tree.
@@ -149,8 +197,29 @@ describe('objectui#7249 — the inbox feed holds ONE declared cadence', () => {
     expect(inboxReads()).toBe(READS_IN_WINDOW);
     // The join travels with the rows: the receipt read is issued by the same
     // runner, so it can neither lag the message read nor double it. The card's
-    // `top=200` receipt read is exactly as frequent as the pair, no more.
+    // receipt read is exactly as frequent as the pair, no more — the claim is
+    // the same one #7249 made, now asserted on a window that lists something a
+    // receipt can belong to (objectui#7392 made the read conditional on that,
+    // and the case below is where the empty window is pinned).
     expect(receiptReads()).toBe(inboxReads());
+  });
+
+  it('issues NO receipt read on a window with nothing to join (objectui#7392)', async () => {
+    // The other half of the equality above. The receipt read exists to decorate
+    // the listed messages with read-state; with no messages listed there is
+    // nothing it could decorate, and every row it would return is one
+    // `mergeInboxRows` drops. So the correct count here is zero, per tick,
+    // forever — not "as frequent as the message read".
+    inboxRows = [];
+
+    renderHook(() => useSharedInboxFeed());
+    await settle();
+    await advance(WINDOW_MS);
+
+    // Same window, same cadence — the message read is untouched …
+    expect(inboxReads()).toBe(READS_IN_WINDOW);
+    // … and not one receipt read went out behind it.
+    expect(receiptReads()).toBe(0);
   });
 
   it('is one FEED cadence, not one per consumer', async () => {

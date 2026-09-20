@@ -46,10 +46,20 @@
  *
  * ## Deliberately untouched
  *
- * The header-arrow reader `parseSchemaSort` (objectui#8961, `pm:blocked`) and
- * the export path's `{field, direction}` projection. The `headerSort` arm also
- * keeps sending `SortNode[]` objects rather than a join string — a documented,
- * deliberate difference, not a defect.
+ * The export path's `{field, direction}` projection, and the header-arrow
+ * reader `parseSchemaSort` — untouched BY THIS CARD. ⛔ Do not read the latter
+ * as a standing description of that reader: objectui#8961 has since narrowed it
+ * to the declared `[{ field, order }]` array (ruled letter A, director batch
+ * #135 item 5), so a retired string spelling now lights no arrow either and the
+ * two readers of this key agree. Nothing below reads the header indicators, so
+ * this file's pins are unaffected. The `headerSort` arm also keeps sending
+ * `SortNode[]` objects rather than a join string — a documented, deliberate
+ * difference, not a defect.
+ *
+ * ⚠️ The sentence this replaces cited objectui#8961 by its LABEL
+ * (`pm:blocked`), which had moved before anyone read the line again. A card's
+ * label is state nothing in this file re-derives; its RULING does not move, so
+ * that is what is named here.
  *
  * ⭐ The CONTROL rows are what make the rest a measurement rather than a block
  * that mangles everything: if the fix had broken lowering outright, the
@@ -175,11 +185,28 @@ describe('object-grid array `sort` arm — the card’s six-row probe table (obj
     const params = await findParamsFor({ ...BASE, sort: ['name desc'] });
     // Was `"undefined undefined"` — a hard 400 at the server.
     expectNoOrderBy(params);
-    // ⚠️ Deliberately NOT a new refusal diagnostic. objectui#8767 landed route
-    // C for the retired STRING clause; widening that refusal to cover the
-    // array-of-strings is that card's business, not this one's. This entry is
-    // dropped exactly as the shared sink drops an unusable entry — silently.
-    expect(errorSpy).not.toHaveBeenCalled();
+    // ⭐ The RETURN value above is the half a later reader is most likely to get
+    // wrong, so it stays first and it stays unchanged: objectui#9955 moved
+    // nothing about it. A string entry still names no field, still survives
+    // nothing, and this block still sends no `$orderby`.
+    //
+    // ⚠️ The DIAGNOSTIC half is what moved. This comment used to read
+    // "Deliberately NOT a new refusal diagnostic … dropped exactly as the shared
+    // sink drops an unusable entry — silently", and routed the widening to
+    // whichever card would own it. objectui#9955 is that card and it landed: the
+    // shared sink now REFUSES a string ENTRY out loud, in its own words, because
+    // the retirement is about the SPELLING and not about the container the
+    // spelling arrives in. ⛔ Loud is still not accepted — that is the line above.
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const message = String(errorSpy.mock.calls[0][0]);
+    // Assert what ONLY the entry message says. A bare `toHaveBeenCalled()`, or a
+    // match on `objectui#8221`, would be satisfied just as well by the SCALAR
+    // refusal — and the input here is an ARRAY, so a pin that cannot tell the two
+    // messages apart is not reading this arm at all.
+    expect(message).toContain('a `sort` ARRAY ENTRY is the retired string clause');
+    expect(message).not.toContain('the legacy string `sort` clause is retired');
+    // …and it quotes the entry that arrived, so an author can find it in their JSON.
+    expect(message).toContain('"name desc"');
   });
 
   it('`field` omitted names nothing to order by, so the entry is skipped', async () => {

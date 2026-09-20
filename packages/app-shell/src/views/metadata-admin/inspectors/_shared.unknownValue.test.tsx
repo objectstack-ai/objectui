@@ -36,13 +36,15 @@
  * half (empty draws the placeholder) and it must keep owning it, so the two
  * states are read side by side here rather than one at a time.
  *
- * ## Boundary, measured and deliberately NOT repaired here
+ * ## Boundary, measured here and CLOSED by objectui#8862
  *
- * The primitive cannot tell "roster is empty" from "roster has not loaded yet",
- * so a valid value briefly wears the flag while an async picker
- * (`useMetaOptions`, `useObjectFields`, `datasetOptions`) is still fetching.
- * That is inherited behaviour, not new: `ViewColumnInspector`'s hand-rolled
- * copy had exactly the same blind spot before this change. Filed separately.
+ * This suite was written while the primitive could not tell "roster is empty"
+ * from "roster has not loaded yet", so a valid value briefly wore the flag
+ * while an async picker was still fetching. objectui#8862 gave it the missing
+ * term (`loading`); the tri-state that replaced the blind spot is pinned in
+ * `_shared.rosterPending.test.tsx`, and every case below is the ANSWERED arm of
+ * it — no case here passes `loading`, which is what keeps them reading the
+ * settled roster they were written about.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';

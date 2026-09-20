@@ -16,7 +16,7 @@
  * @packageDocumentation
  */
 
-import type { PageType as SpecPageType } from '@objectstack/spec/ui';
+import type { I18nLabel, PageType as SpecPageType } from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { BreakpointName } from './mobile.js';
 
@@ -60,8 +60,10 @@ export interface BoxSchema extends BaseSchema {
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
    * docblock mention is not a read; the `BoxSchema` docblock in
-   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
-   * it): the `schema.children` read in
+   * `renderers/layout/box.tsx` SAID `schema.body` in prose and grep counted it,
+   * until objectui#6771 rewrote that docblock — the example is spent, the
+   * hazard is not, which is why the measurement is a type-checker sweep and
+   * never a grep): the `schema.children` read in
    * `packages/components/src/renderers/layout/box.tsx`. The same sweep finds zero `body` reads
    * for this node type.
    *
@@ -96,8 +98,10 @@ export interface TextSpanSchema extends BaseSchema {
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
    * docblock mention is not a read; the `BoxSchema` docblock in
-   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
-   * it): the `schema.children` read in
+   * `renderers/layout/box.tsx` SAID `schema.body` in prose and grep counted it,
+   * until objectui#6771 rewrote that docblock — the example is spent, the
+   * hazard is not, which is why the measurement is a type-checker sweep and
+   * never a grep): the `schema.children` read in
    * `packages/components/src/renderers/basic/span.tsx`. The same sweep finds zero `body` reads
    * for this node type.
    *
@@ -170,6 +174,72 @@ export interface TextSchema extends BaseSchema {
    * Text alignment
    */
   align?: 'left' | 'center' | 'right' | 'justify';
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `text` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `align`, `className`, `content`, `variant` (in `packages/components/src/renderers/basic/text.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "text" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:text`
+   * as the SOLE claimant of the bare key, because `element:text` and `field:text` pass
+   * `skipFallback: true` and never write it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `text` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `text` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `align`, `className`, `content`, `variant` (in `packages/components/src/renderers/basic/text.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "text" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:text`
+   * as the SOLE claimant of the bare key, because `element:text` and `field:text` pass
+   * `skipFallback: true` and never write it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `text` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -197,6 +267,72 @@ export interface ImageSchema extends BaseSchema {
    * Object fit property
    */
   objectFit?: 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `image` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `alt`, `src` (in `packages/components/src/renderers/basic/image.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "image" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:image`
+   * as the SOLE claimant of the bare key, because `element:image` and `field:image` pass
+   * `skipFallback: true` and never write it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `image` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `image` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `alt`, `src` (in `packages/components/src/renderers/basic/image.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "image" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:image`
+   * as the SOLE claimant of the bare key, because `element:image` and `field:image` pass
+   * `skipFallback: true` and never write it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `image` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -248,6 +384,72 @@ export interface IconSchema extends BaseSchema {
    * Icon color
    */
   color?: string;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `icon` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `className`, `color`, `icon`, `name`, `size` (in `packages/components/src/renderers/basic/icon.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "icon" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:icon`
+   * as the SOLE claimant of the bare key, because `action:icon` passes
+   * `skipFallback: true` and never writes it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `icon` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `icon` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `className`, `color`, `icon`, `name`, `size` (in `packages/components/src/renderers/basic/icon.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "icon" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:icon`
+   * as the SOLE claimant of the bare key, because `action:icon` passes
+   * `skipFallback: true` and never writes it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `icon` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -345,8 +547,10 @@ export interface ContainerSchema extends BaseSchema {
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
    * docblock mention is not a read; the `BoxSchema` docblock in
-   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
-   * it): the `schema.children` read in
+   * `renderers/layout/box.tsx` SAID `schema.body` in prose and grep counted it,
+   * until objectui#6771 rewrote that docblock — the example is spent, the
+   * hazard is not, which is why the measurement is a type-checker sweep and
+   * never a grep): the `schema.children` read in
    * `packages/components/src/renderers/layout/container.tsx`. The same sweep finds zero `body` reads
    * for this node type.
    *
@@ -471,8 +675,10 @@ export interface FlexSchema extends BaseSchema, FlexLayoutProps {
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
    * docblock mention is not a read; the `BoxSchema` docblock in
-   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
-   * it): the `schema.children` read in
+   * `renderers/layout/box.tsx` SAID `schema.body` in prose and grep counted it,
+   * until objectui#6771 rewrote that docblock — the example is spent, the
+   * hazard is not, which is why the measurement is a type-checker sweep and
+   * never a grep): the `schema.children` read in
    * `packages/components/src/renderers/layout/flex.tsx`. The same sweep finds zero `body` reads
    * for this node type.
    *
@@ -503,8 +709,10 @@ export interface StackSchema extends BaseSchema, FlexLayoutProps {
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
    * docblock mention is not a read; the `BoxSchema` docblock in
-   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
-   * it): the `schema.children` read in
+   * `renderers/layout/box.tsx` SAID `schema.body` in prose and grep counted it,
+   * until objectui#6771 rewrote that docblock — the example is spent, the
+   * hazard is not, which is why the measurement is a type-checker sweep and
+   * never a grep): the `schema.children` read in
    * `packages/components/src/renderers/layout/stack.tsx`. The same sweep finds zero `body` reads
    * for this node type.
    *
@@ -552,8 +760,10 @@ export interface GridSchema extends BaseSchema {
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
    * docblock mention is not a read; the `BoxSchema` docblock in
-   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
-   * it): the `schema.children` read in
+   * `renderers/layout/box.tsx` SAID `schema.body` in prose and grep counted it,
+   * until objectui#6771 rewrote that docblock — the example is spent, the
+   * hazard is not, which is why the measurement is a type-checker sweep and
+   * never a grep): the `schema.children` read in
    * `packages/components/src/renderers/layout/grid.tsx`. The same sweep finds zero `body` reads
    * for this node type.
    *
@@ -587,11 +797,27 @@ export interface CardSchema extends BaseSchema {
    */
   header?: SchemaNode | SchemaNode[];
   /**
-   * Card body/content (Legacy, use children)
+   * RETIRED (objectui#6771, maintainer ruling 2026-09-01) — the `body`
+   * child-list spelling. Author {@link CardSchema.children}.
+   *
+   * This key was already labelled "Legacy, use children" and the renderer
+   * read `renderNodeSlot(schema.children || schema.body, …)`, so `card` was
+   * one of the fallback readers whose `body` arm the ruling drops in the
+   * same change as the `body`-only registrations converge.
+   *
+   * Refused by name rather than deleted: `BaseSchema` carries
+   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a
+   * deleted member is ACCEPTED silently and rendered by nothing. The
+   * `?: never` is what makes `tsc` answer at the authoring site, and the
+   * mirror's `aliasKeyRefusal` names `children` at parse time.
+   *
+   * @deprecated Retired spelling of `children` — author `children`.
    */
-  body?: SchemaNode | SchemaNode[];
+  body?: never;
   /**
-   * Child components
+   * Card content — the card's child list, and since objectui#6771 its only
+   * spelling. READ SITE: `renderNodeSlot(schema.children, …)` in
+   * `packages/components/src/renderers/layout/card.tsx`.
    */
   children?: SchemaNode | SchemaNode[];
   /**
@@ -674,6 +900,72 @@ export interface TabsSchema extends BaseSchema {
    * its own `onValueChange`.
    */
   onValueChange?: (value: string) => void;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `tabs` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `defaultValue`, `items`, `orientation`, `value` (in `packages/components/src/renderers/layout/tabs.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "tabs" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:tabs`
+   * as the SOLE claimant of the bare key, because `page:tabs` passes
+   * `skipFallback: true` and never writes it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `tabs` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `tabs` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `defaultValue`, `items`, `orientation`, `value` (in `packages/components/src/renderers/layout/tabs.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "tabs" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:tabs`
+   * as the SOLE claimant of the bare key, because `page:tabs` passes
+   * `skipFallback: true` and never writes it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `tabs` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -730,8 +1022,10 @@ export interface ScrollAreaSchema extends BaseSchema {
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
    * docblock mention is not a read; the `BoxSchema` docblock in
-   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
-   * it): the `schema.children` read in
+   * `renderers/layout/box.tsx` SAID `schema.body` in prose and grep counted it,
+   * until objectui#6771 rewrote that docblock — the example is spent, the
+   * hazard is not, which is why the measurement is a type-checker sweep and
+   * never a grep): the `schema.children` read in
    * `packages/components/src/renderers/complex/scroll-area.tsx`. The same sweep finds zero `body` reads
    * for this node type.
    *
@@ -871,11 +1165,25 @@ export interface AspectRatioSchema extends BaseSchema {
    */
   alt?: string;
   /**
-   * Child components (alternative to image)
+   * RETIRED (objectui#6771, maintainer ruling 2026-09-01) — the `body`
+   * child-list spelling. Author {@link AspectRatioSchema.children}.
+   *
+   * `aspect-ratio` read `renderChildren(schema.children || schema.body)`
+   * whenever no `image` was set, so it is one of the fallback readers whose
+   * `body` arm drops in the same change.
+   *
+   * Refused by name rather than deleted: `BaseSchema` carries
+   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a
+   * deleted member is ACCEPTED silently and rendered by nothing. The
+   * `?: never` is what makes `tsc` answer at the authoring site, and the
+   * mirror's `aliasKeyRefusal` names `children` at parse time.
+   *
+   * @deprecated Retired spelling of `children` — author `children`.
    */
-  body?: SchemaNode | SchemaNode[];
+  body?: never;
   /**
-   * Child components (alternative syntax)
+   * Child components rendered inside the ratio box when no `image` is set —
+   * the one child-list spelling (objectui#6771).
    */
   children?: SchemaNode | SchemaNode[];
 }
@@ -993,13 +1301,13 @@ export interface PageNodeSchema extends BaseSchema {
    *
    * `PageRenderer` has no read point for it: a `page` node carrying
    * `actions: [{type:'button',label:'Add Product'}, …]` drew 0 buttons through
-   * the real `SchemaRenderer`, while the SAME two buttons in {@link body} drew
+   * the real `SchemaRenderer`, while the SAME two buttons in {@link PageNodeSchema.children} drew
    * 2. `BaseSchema` is `.passthrough()`, so the array was not dropped — it was
    * kept, and before objectui#7933 it reached the DOM as
    * `actions="[object Object],[object Object]"`.
    *
    * The remedy is a NODE, not a key: put a `button` (or an `action:button` with
-   * a declared `actionType`) in {@link body}; on a record page declare them on a
+   * a declared `actionType`) in {@link PageNodeSchema.children}; on a record page declare them on a
    * `page:header` block, whose own `actions` are ACTION IDS resolved from the
    * object's metadata (objectui#7182) rather than nodes.
    *
@@ -1036,7 +1344,7 @@ export interface PageNodeSchema extends BaseSchema {
    *
    * The remedy is a NODE that already ships: put
    * `{ "type": "breadcrumb", "items": [{ "label": "Home", "href": "/" }] }` in
-   * {@link body}. `breadcrumb` is a registered renderer taking that exact item
+   * {@link PageNodeSchema.children}. `breadcrumb` is a registered renderer taking that exact item
    * shape, plus `separator`, `maxItems` and a per-item `icon`.
    * ⛔ Not the `page:header` block's `breadcrumb`: that one is SINGULAR and a
    * BOOLEAN display toggle, not a list of links.
@@ -1094,21 +1402,41 @@ export interface PageNodeSchema extends BaseSchema {
   // blankLayout removed — the `blank` page type has no renderer and was dropped
   // from @objectstack/spec PageTypeSchema (framework#2265, enforce-or-remove).
   /**
-   * Main content (Legacy/Simple mode) — ONE node, or a list of them.
+   * RETIRED (objectui#6771, maintainer ruling 2026-09-01) — the `body`
+   * child-list spelling. Author {@link PageNodeSchema.children}.
+   *
+   * `PageRenderer`'s `FlatContent` read `schema.body || schema.children`, and
+   * the registration published `body` as the flat content list on all five
+   * page kinds. Both moved to `children` in the retirement; the ARITY ruling
+   * this key carried (objectui#8310 — one node OR a list) moved with it and
+   * is restated on `children` below, because that is now the key it governs.
+   *
+   * Refused by name rather than deleted: `BaseSchema` carries
+   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a deleted
+   * member is ACCEPTED silently and rendered by nothing.
+   *
+   * @deprecated Retired spelling of `children` — author `children`.
+   */
+  body?: never;
+  /**
+   * Main content when a page declares no regions — ONE node, or a list of
+   * them.
    *
    * The union is the declaration catching up to its reader, not a widening for
-   * convenience (objectui#8310, maintainer ruling 2026-09-07). This key read
-   * `SchemaNode[]` and was the OUTLIER in this file: `CardSchema.body` and
-   * `AspectRatioSchema.body` already spell the union, and so does
-   * `BaseSchema.body` — the channel this interface inherits and then narrowed.
+   * convenience (objectui#8310, maintainer ruling 2026-09-07). The ruling was
+   * made about the `body` spelling this interface used to declare; objectui#6771
+   * retired that spelling, so the union lives here, on the key the same reader
+   * now takes. `CardSchema.children` and `AspectRatioSchema.children` spell the
+   * same union, and so does `BaseSchema.children`.
    * `PageRenderer`'s `FlatContent` fallback
    * (`packages/components/src/renderers/layout/page.tsx`) has always accepted a
    * bare node, normalizing it into a one-element list; under the narrowing that
    * branch was unreachable through the renderer's own declared props and stood
    * only behind a `content as SchemaNode` cast, which the same ruling deletes.
    *
-   * The refused value is authored on this project's own landing page: the root
-   * `README.md` "Basic Usage" example gives `body` a single `grid` node. It
+   * The refused value was authored on this project's own landing page: the root
+   * `README.md` "Basic Usage" example gives this key a single `grid` node (it
+   * spelled the key `body` until objectui#6771 moved the corpus). It
    * type-checked only because that snippet is annotated `BaseSchema` — the
    * WIDER parent — so nothing on the authoring path ever asked this key about
    * its arity. Pinned by `__tests__/page-body-arity-8310.test.ts`.
@@ -1118,10 +1446,6 @@ export interface PageNodeSchema extends BaseSchema {
    * WRONG TYPE (TS2322) and never a MISSPELLED key (an undeclared key is
    * absorbed by the index signature, zero diagnostics). This union repairs the
    * first case only.
-   */
-  body?: SchemaNode | SchemaNode[];
-  /**
-   * Alternative content prop
    */
   children?: SchemaNode | SchemaNode[];
   /**
@@ -1153,9 +1477,26 @@ export interface PageNodeSchema extends BaseSchema {
   /**
    * ARIA accessibility attributes.
    * Aligned with @objectstack/spec AriaPropsSchema.
+   *
+   * `ariaLabel` is `string | I18nLabel` — the spec's INLINE locale map. This is
+   * the spec's OWN spelling for this slot: `AriaPropsSchema.ariaLabel` is
+   * `z.union([z.string(), InlineLocaleMapSchema])`, and the spec's `PageSchema`
+   * carries that object as its own top-level `aria`, so the mirror
+   * (`zod/layout.zod.ts`'s `PageNodeSchema`) receives it BY REFERENCE through
+   * `SpecPageFields`. The restatement here stated the string arm alone until
+   * objectui#9092, so an authored locale map parsed green and `tsc` refused it.
+   *
+   * ⚠️ This is the NESTED slot, and its vocabulary is the INLINE one — the same
+   * split objectui#5134 measured on `ListView`, where the read now goes through
+   * `resolveI18nLabel` against the display locale. The FLAT
+   * {@link BaseSchema.ariaLabel} is the OTHER vocabulary (KEYED
+   * `{ key, defaultValue?, params? }`, resolved by `resolveKeyedI18nLabel` in
+   * `SchemaRenderer`), and objectui#4580 Q2-B withdrew the `I18nLabel` spelling
+   * THERE for exactly that reason. Two spellings one level apart; neither
+   * resolver accepts the other's shape.
    */
   aria?: {
-    ariaLabel?: string;
+    ariaLabel?: string | I18nLabel;
     ariaDescribedBy?: string;
     role?: string;
   };
@@ -1256,8 +1597,10 @@ export interface PageSlotMap {
  * that rendered correctly in the browser was refused by `objectui check`.
  *
  * The renderer is one factory over all seven tags: it renders
- * `renderChildren(schema.children || schema.body)` inside the tag and declares
- * exactly one authoring input, `className` (a {@link BaseSchema} member). The
+ * `renderChildren(schema.children)` inside the tag and declares exactly one
+ * authoring input, `className` (a {@link BaseSchema} member). It read
+ * `schema.children || schema.body` until objectui#6771 retired the second
+ * spelling. The
  * mirror is `zod/layout.zod.ts#SemanticElementSchema`, and
  * `__tests__/node-slot-registered-arms-8499.test.ts` compares the tag list below
  * against `semantic.tsx`'s own `tags` array.
@@ -1265,7 +1608,8 @@ export interface PageSlotMap {
 export interface SemanticElementSchema extends BaseSchema {
   type: 'aside' | 'main' | 'header' | 'nav' | 'footer' | 'section' | 'article';
   /**
-   * Child components — read as `schema.children || schema.body`.
+   * Child components. The factory read `schema.children || schema.body` until
+   * objectui#6771 retired the second spelling; it reads `schema.children`.
    */
   children?: SchemaNode | SchemaNode[];
 }
@@ -1296,8 +1640,9 @@ export interface HtmlElementSchema extends BaseSchema {
     | 'ul' | 'ol' | 'li' | 'dl' | 'dt' | 'dd'
     | 'figure' | 'figcaption' | 'img' | 'hr' | 'br' | 'time' | 'address' | 'cite' | 'q';
   /**
-   * Child components — read as `schema.children ?? schema.body`; ignored for the
-   * void tags `img` / `hr` / `br`.
+   * Child components; ignored for the void tags `img` / `hr` / `br`. The factory
+   * read `schema.children ?? schema.body` until objectui#6771 retired the second
+   * spelling.
    */
   children?: SchemaNode | SchemaNode[];
   /** `a` link target; scheme-sanitised (`javascript:` / `data:` / `vbscript:` are dropped). */

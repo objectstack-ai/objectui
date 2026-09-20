@@ -146,7 +146,9 @@ const nestedPills = (chip: HTMLElement) =>
 
 describe('objectui#8464 — an object-valued summary chip beside the H1', () => {
   /**
-   * The four object-valued kinds whose renderer was MEASURED to fit the pill.
+   * The object-valued kinds whose renderer was MEASURED to fit the pill.
+   * ⚠️ `file` was a fourth row here until objectui#9161; it is now its own case
+   * below, on the REFUSED side, for the reason stated there.
    * `expected` is the whole chip: the `sr-only` field-name prefix that carries
    * the accessible name plus the value the renderer drew. Asserting the exact
    * string pins BOTH halves the defect broke.
@@ -180,12 +182,6 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
       // expectation cannot be satisfied by echoing the input back.
       value: { latitude: 30.2741567, longitude: 120.1551234 },
       expected: 'office_location: 30.2742, 120.1551',
-    },
-    {
-      field: 'contract',
-      type: 'file',
-      value: { name: 'contract.pdf', url: 'https://cdn.example.com/contract.pdf' },
-      expected: 'contract: contract.pdf',
     },
     {
       field: 'payload',
@@ -314,6 +310,45 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
     );
   });
 
+  it('FILE — a file value reads its coerced name; the download link does not enter the pill', () => {
+    // ⚠️ MOVED here from `RENDERER_BACKED` by objectui#9161, and the move is the
+    // finding. That card gave `FileCellRenderer` a view/download `<a href>` per
+    // file — its whole subject: a read-only `file` field named its attachments
+    // and offered no way to open one, while the record read, the signing
+    // endpoint and the signed URL all answered 200. This chip's own rule is
+    // unchanged and is what moves `file` across it: "the pill hosts text, not a
+    // control", beside the page H1.
+    //
+    // ⭐ The VALUE half of the old expectation is asserted unchanged below:
+    // `coerceToSafeValue` reads the same `name` the cell renderer reads, so the
+    // reader sees the same word they saw before. What this case adds is the
+    // absence of the control — the fact the move is about. The file itself
+    // stays reachable one band down, in the field's own cell.
+    const { container } = renderPage({
+      summaryFields: ['contract'] as any,
+      fields: [{ name: 'contract', label: 'contract', type: 'file' }] as any,
+      data: {
+        id: 'A5',
+        name: 'Acme',
+        contract: { name: 'contract.pdf', url: 'https://cdn.example.com/contract.pdf' },
+      },
+    });
+
+    const chip = requireChip(container, 'contract');
+    expect(textOf(chip), 'the chip must not carry the String() placeholder').not.toContain(
+      '[object Object]',
+    );
+    expect(textOf(chip), 'the chip reads the coerced file name').toBe('contract.pdf');
+    expect(
+      chip.querySelectorAll('a[href],button,[role="button"],input').length,
+      'no view/download control inside the page title row',
+    ).toBe(0);
+    expect(
+      chip.getAttribute('aria-label'),
+      'a string-path chip keeps the accessible name it always had',
+    ).toBe('contract: contract.pdf');
+  });
+
   it('UNNAMEABLE OBJECT — an object with no name reads the page\'s own word for it', () => {
     // `coerceToSafeValue`'s answer for an object carrying no name/label/id is
     // `[Object]` — the SAME text objectui#8596 pinned for eleven families. It is
@@ -418,14 +453,22 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
     );
 
     /**
-     * ⚠️ The expected text moved from `0.123%` to `12.3%` in objectui#8728, and
-     * the pin is still doing its job. Its subject is ROUTING — that a percent
-     * keeps the chip's own text path and its own single bar instead of being
-     * handed to a cell renderer — and the routing is unchanged. What that card
-     * found is that this chip's two halves scaled the same stored number by two
-     * different rules, so the `0.123%` this line used to require was the text
-     * disagreeing with the bar drawn beside it. The agreement itself is pinned
-     * in `summaryChip.percentOneRule-8728.test.tsx`.
+     * ⚠️ The expected text has now moved TWICE, and the pin is still doing its
+     * job both times, because its subject is ROUTING — that a percent keeps the
+     * chip's own text path and its own single bar instead of being handed to a
+     * cell renderer — and the routing is unchanged by either card.
+     *
+     *  - objectui#8728: `0.123%` → `12.3%`. That card found the chip's two
+     *    halves scaling the same stored number by two different rules, so the
+     *    `0.123%` this line used to require was the text disagreeing with the
+     *    bar drawn beside it. The agreement itself is pinned in
+     *    `summaryChip.percentOneRule-8728.test.tsx`.
+     *  - objectui#9167: `12.3%` → `12%`. The chip's text now goes through
+     *    `formatPercent`, the list cell's own call, so it rounds to the field's
+     *    declared precision (`0` here, undeclared) and renders the locale's own
+     *    affix. ⭐ Note what did NOT move: the bar-span count below, which is
+     *    the actual assertion of this case. The spelling is pinned across both
+     *    surfaces in `summaryChip.percentConvention-9167.test.tsx`.
      */
     it('PERCENT — keeps its own text AND its single decorative bar', () => {
       const { container } = renderPage({
@@ -435,14 +478,14 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
       });
 
       const chip = requireChip(container, 'ratio');
-      expect(textOf(chip), 'the percent chip keeps its own text').toBe('12.3%');
+      expect(textOf(chip), 'the percent chip keeps its own text').toBe('12%');
       // The chip's OWN bar is two `rounded-full` spans — track and fill. A cell
       // renderer routed in here would add its own, so the exact count is the pin.
       expect(nestedPills(chip).length, 'exactly the chip\'s own two-span bar, no renderer bar').toBe(2);
       expect(
         chip.getAttribute('aria-label'),
         'and the accessible name still comes from that same string',
-      ).toBe('Ratio: 12.3%');
+      ).toBe('Ratio: 12%');
     });
   });
 

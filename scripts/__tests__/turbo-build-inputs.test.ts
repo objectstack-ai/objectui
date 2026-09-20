@@ -27,7 +27,7 @@ import { CONFIG_FILES as VITEST_CONFIG_FILES } from './helpers/vitest-config-pro
  *
  *  - 14 packages build with a bare `tsc` whose `tsconfig.json` extends the
  *    repo-root `tsconfig.json` (and `examples/byo-backend-console` extends the
- *    root `tsconfig.base.json`). Compiler options are as load-bearing as
+ *    root `tsconfig.tier-base.json`). Compiler options are as load-bearing as
  *    source: flipping `strict` there changes every package's output.
  *  - `apps/console`'s `vite.config.ts` imports `../../scripts/vite-crypto-stub.ts`
  *    and `../../scripts/vite-maplibre-worker.ts`. `type-check` covers those;
@@ -37,7 +37,7 @@ import { CONFIG_FILES as VITEST_CONFIG_FILES } from './helpers/vitest-config-pro
  *
  *     @object-ui/core#build      baseline                     3f85d1417964dce6
  *                                after touching tsconfig.json 3f85d1417964dce6  <- frozen
- *                                after touching tsconfig.base.json
+ *                                after touching tsconfig.tier-base.json
  *                                                             3f85d1417964dce6  <- frozen
  *     @object-ui/console#build   baseline                     a17b12650e52ce28
  *                                after touching

@@ -482,6 +482,14 @@ const ABSENCES: Record<string, Absence> = {
   // ── The runtime-only half of the intersection ─────────────────────────────
   onNavigate: { kind: 'host-runtime', reason: 'Host callback. This host wires record navigation through the `onRowClick` prop on the `<ListView>` element instead; a view record cannot carry a function.' },
   refreshTrigger: { kind: 'host-runtime', reason: 'Host refresh counter, supplied by the caller; not view metadata.' },
+  // ⭐ objectui#7804 declared these three on `ListViewRuntimeProps`, so they
+  // entered this census's population with that slice and owe an answer here.
+  // All three are host callbacks `ListView` reads off its PROPS bag; this host
+  // supplies none of them and a view RECORD cannot carry a function, so there is
+  // no rung to add — the absence is the whole of their contract on this path.
+  onAddRecord: { kind: 'host-runtime', reason: 'Host callback for the toolbar "+ New" affordance. This host routes record creation through its own action layer rather than through ListView, and a view record cannot carry a function.' },
+  onBulkAction: { kind: 'host-runtime', reason: 'Host callback for non-delete bulk actions. This host wires bulk delete through the `onBulkDelete` prop on the `<ListView>` element and offers no other bulk action here; a view record cannot carry a function.' },
+  onPageSizeChange: { kind: 'host-runtime', reason: 'Host callback for the pager\'s page-size select. This host lets ListView keep page size as session state rather than persisting it, the same posture as `onFilterChange` (objectui#4155); a view record cannot carry a function.' },
 };
 
 // ---------------------------------------------------------------------------

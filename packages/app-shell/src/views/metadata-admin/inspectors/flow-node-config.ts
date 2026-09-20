@@ -249,12 +249,30 @@ export interface FlowConfigField {
    * is cheap, a first write site is not this file's to add.
    *
    * ⚠️ A declaration here is a claim about the installed spec and is acted on
-   * as one; `flow-node-config.spec-reconciliation.test.ts` reconciles the
-   * approval-escalation block against `ApprovalEscalationSchema` so a drift
-   * there reddens on the bump. That ledger does NOT yet cover the other
-   * declaring fields (objectui#6830 measured four of them declaring a default
-   * the installed spec applies none of), so a new declaration outside that
-   * block is currently unchecked — derive it from the spec, never from taste.
+   * as one; `flow-node-config.spec-reconciliation.test.ts` reconciles EVERY
+   * declaring field against its own per-node-type spec schema, so a drift
+   * reddens on the bump. objectui#9109 widened that ledger from the
+   * approval-escalation block, which it used to walk alone — declarations the
+   * installed spec applies none of had been sitting outside it, unchecked, for
+   * exactly that reason. A declaration added in a region the ledger has no spec
+   * schema for now fails there by name rather than going unnoticed.
+   *
+   * ⭐ Those unbacked declarations were then DELETED (objectui#9109's second
+   * half, triage's direction B). The reasoning is this doc comment applied to
+   * itself: it defines the property AS the spec default for its key, so a
+   * declaration with no spec counterpart is FALSE by that definition, and
+   * removing it restores an invariant rather than deciding anything. ⛔ The
+   * other end — adding the missing `.default()`s to a published contract —
+   * changes what omitting the key MEANS; that is a maintainer's call and a
+   * `packages/spec` change, ⛔ never made from this file. What the deletion
+   * cost is DISPLAY only, and it was measured as such: a declared default is
+   * shown, never written (objectui#6263), so the submit side cannot observe one.
+   *
+   * What the ledger cannot decide is which END of a divergence to move: it
+   * RECORDS an unbacked declaration (and the reverse case, a spec default this
+   * table states nowhere) in registers that re-measure themselves, and leaves
+   * the choice to a human. ⇒ derive a new value from the spec, never from
+   * taste.
    */
   defaultValue?: string;
   /**
@@ -491,9 +509,70 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       // no typed control for yet: it REQUIRES a `message` saying why, as a
       // {token} template. Named here so picking it is not a one-click route to
       // a flow that will not load; the key itself stays authorable in Advanced.
-      help: 'How the run ends here. "Completed" is the ordinary terminal and is what an omitted key applies. "Refused" records a first-class refusal — a successful evaluation that says no — and requires a message saying why (a {token} template), which is set in Advanced.',
+      help: 'How the run ends here. "Completed" is the ordinary terminal and is what an omitted key applies. "Refused" records a first-class refusal — a successful evaluation that says no — and requires a message saying why (a {token} template), authored in the field below.',
     }),
-    cfg('outputVariable', 'Output variable', 'text', { placeholder: 'result' }),
+    // objectui#9336 — the other half of that cross-field rule, which
+    // `EndConfigSchema` enforces in BOTH directions via a `superRefine`:
+    // `refused` REQUIRES `message`, `completed` (including an omitted key,
+    // which the declared default resolves to `completed`) REFUSES it. With no
+    // typed control, picking `refused` in this form was a blocked authoring
+    // path — the one key the chosen outcome requires was reachable only through
+    // Advanced JSON, so the most direct route through the repaired dropdown
+    // produced a flow that fails to load.
+    //
+    // `textarea` is derived, not chosen: the spec's own `message` description
+    // says it is "interpolated at run time exactly like a screen `description`",
+    // and that field IS a `textarea` in this table — as is the sibling
+    // `message` key on `notify`. The label and placeholder are the spec's own
+    // words (its describe opens "Why the run was refused", and both the
+    // describe and the refusal message give this exact example), so the form
+    // states the contract rather than a second vocabulary.
+    //
+    // ⛔ No `defaultValue`: `message` is `z.string().min(1).optional()` with no
+    // `.default()`, and a declaration here is read as a claim about the
+    // installed spec (see the `defaultValue` doc comment above).
+    //
+    // The gate is what makes the pair authorable in both directions. An unset
+    // `outcome` resolves through the declared `completed` default, so the field
+    // stays off screen until the author actually picks `refused`; a STORED
+    // `message` re-shows it regardless (`isFieldVisible`'s stored-value rule),
+    // which is what lets an author clear a stale message after switching back
+    // to `completed` — the case the contract's other direction refuses. The
+    // clearing itself lands: `setAtPath` deletes the leaf on an empty commit,
+    // so the key goes away rather than becoming `''`, which this schema refuses
+    // under BOTH outcomes (`min(1)`, and the completed-forbids-message rule).
+    cfg('message', 'Why the run was refused', 'textarea', {
+      placeholder: 'Refused: {record.name} is a confirmed duplicate',
+      help: 'Required when the outcome is "Refused", and refused on a completed end — a completion renders nothing, so the key would be a silent no-op. A {token} template interpolated at run time (e.g. {record.name}), exactly like a screen Description.',
+      showWhen: { field: 'outcome', equals: ['refused'] },
+    }),
+    // objectui#9335 — there is deliberately NO `outputVariable` row here.
+    //
+    // `EndConfigSchema` is a STRICT object whose whole key surface is the pair
+    // above, so the loader refuses `outputVariable` BY NAME (`Unrecognized
+    // key(s) on this end node config`). A typed control for it could therefore
+    // only ever produce a flow that fails to load — not a nicety that happened
+    // to be ignored at run time, but a route to an unsavable draft, on a box
+    // that looked as ordinary as the ones beside it. An `end` node terminates
+    // rather than producing a value to bind, so there is nothing to name.
+    //
+    // ⛔ Not kept as a `__legacy__` render-only row either (the treatment
+    // `condition` on `decision` and the retired `script` keys get). That
+    // pattern is for keys the schema ACCEPTS and the runtime ignores — showing
+    // them costs nothing because the document still loads. A key the schema
+    // REFUSES needs no control at all, and a stored one is NOT hidden by this
+    // absence: an unowned config key falls through to the Advanced (JSON)
+    // block, which auto-opens when non-empty, so it stays visible and
+    // clearable. The key is real product vocabulary on the groups whose spec
+    // config declares it; those keep theirs.
+    //
+    // ⭐ The removal also UN-HIDES objectui#9336's rule: an unrecognized key
+    // short-circuits `EndConfigSchema`'s `superRefine`, so while this box
+    // existed a `refused` end that used it reported only `unrecognized_keys`
+    // and never the missing-`message` refusal.
+    //
+    // All of the above is re-derived rather than restated by
+    // `FlowNodeInspector.endOutputVariable-9335.test.tsx`.
   ],
   decision: [
     cfg('conditions', 'Branches', 'objectList', {
@@ -531,7 +610,17 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
   ],
   loop: [
     cfg('collection', 'Collection', 'expression', { placeholder: '{leadList}', refMode: 'template', help: 'Expression resolving to the items to iterate.' }),
-    cfg('iteratorVariable', 'Item variable', 'text', { placeholder: 'currentItem' }),
+    // objectui#9340 — the hint is the identifier the runtime binds when this box is
+    // left blank, so it may not name a DIFFERENT one. It hinted `currentItem` while
+    // `LoopConfigSchema` applies its own default to the omitted key: an author who
+    // read the box and wrote that reference in the body got an unresolved one at run
+    // time. ⛔ Not repaired by declaring a `defaultValue` — a `text` control reads
+    // `placeholder` and NONE of the three sites the `defaultValue` doc comment above
+    // names (objectui#9109 fence 4 owns that wiring). The value is reconciled against
+    // the installed spec by `FlowNodeInspector.loopItemVariable-9340.test.tsx`; the
+    // twin on `map` already agreed and is pinned there too, so a drift on EITHER
+    // reddens rather than being re-derived by hand here.
+    cfg('iteratorVariable', 'Item variable', 'text', { placeholder: 'item' }),
   ],
   // Sequential multi-instance (ADR-0037 A2): a per-item subflow, one at a time;
   // each item may durably pause (e.g. a per-item approval).
@@ -563,7 +652,16 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     cfg('outputVariable', 'Output variable', 'text', { placeholder: 'records' }),
   ],
   http_request: [
-    cfg('method', 'Method', 'select', { options: HTTP_METHODS, defaultValue: 'GET' }),
+    // ⛔ No `defaultValue` (objectui#9109): `HttpConfigSchema.method` is
+    // `z.string().optional()` with NO `.default()`, so an omitted key
+    // materialises nothing and a declaration here would be a claim about the
+    // installed spec with nothing behind it (see the `defaultValue` doc comment
+    // above). ⚠️ That is a statement about SCHEMA DEFAULTING only — the flow
+    // EXECUTOR lives in `objectstack` and may well apply `GET`; this repo does
+    // NOT MEASURE that, and ⛔ does not claim it false. If it is true the repair
+    // is a `.default('GET')` upstream, which this table would then mirror — the
+    // direction #0.1 requires (fix the contract, not the view).
+    cfg('method', 'Method', 'select', { options: HTTP_METHODS }),
     cfg('url', 'URL', 'text', { placeholder: 'https://api.example.com/v1/contracts' }),
     cfg('headers', 'Headers', 'keyValue', { help: 'Request headers (e.g. Authorization, Content-Type).' }),
     cfg('body', 'Body', 'textarea', { placeholder: '{ "key": "value" }', help: 'Request payload (JSON or expression).' }),
@@ -657,12 +755,16 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       placeholder: 'account_id',
       help: 'Object form only: variable bound to the saved record\u2019s id, for later steps.',
     }),
+    // ⛔ No `defaultValue` (objectui#9109): `ScreenConfigSchema.mode` is an
+    // OPTIONAL enum with no `.default()`, so an omitted key materialises
+    // nothing. Same shape as `http_request.method` above — whether the executor
+    // applies create-mode is NOT MEASURED here, and a declaration would state a
+    // spec default that does not exist.
     cfg('mode', 'Form mode', 'select', {
       options: [
         { value: 'create', label: 'Create' },
         { value: 'edit', label: 'Edit' },
       ],
-      defaultValue: 'create',
       help: 'Object form only.',
     }),
     cfg('defaults', 'Form defaults', 'keyValue', {
@@ -785,7 +887,17 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       placeholder: '1',
       help: 'Approvals required — total for quorum, per group for per_group. Clamped server-side so it can never deadlock.',
     }),
+    // `defaultValue` mirrors the spec's `.default(true)` (objectui#9277): an
+    // approval config that OMITS `lockRecord` parses as LOCKED, so a table
+    // declaring nothing drew the box UNCHECKED — the inspector told the author
+    // the record stayed editable while the node was pending, and the runtime
+    // locked it. Since objectui#8451 seeded the boolean control from this
+    // property, an absent declaration is not a missing claim here; it is the
+    // wrong one. Derived from the installed `ApprovalNodeConfigSchema`, never
+    // from taste — `FlowNodeInspector.declaredDefault.test.tsx` re-derives it
+    // from that schema rather than restating the literal.
     cfg('lockRecord', 'Lock record', 'boolean', {
+      defaultValue: 'true',
       help: 'Lock the triggering record from edits while this node is pending.',
     }),
     cfg('approvalStatusField', 'Status field', 'reference', {
@@ -845,6 +957,21 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     }),
   ],
   wait: [
+    // ⛔ No `defaultValue` (objectui#9109), and here the declaration was not
+    // merely unbacked — it was the WRONG SHAPE of statement. `eventType` is
+    // REQUIRED on the spec's `waitEventConfig` block: an omitted key does not
+    // behave as `timer`, it FAILS TO PARSE. Declaring one told the author (and
+    // an AI author reading the reference page) that leaving the key alone was a
+    // working configuration, in two ways at once — `controllerAdmits` revealed
+    // `timerDuration` below on a node that had stored no `eventType` at all, and
+    // the select trigger stated `Timer` as its placeholder.
+    //
+    // ⭐ Deleting it does NOT leave the required key without a value: a declared
+    // default is SHOWN, NEVER WRITTEN (objectui#6263), so the key was unset
+    // before and after. What changes is DISPLAY only — `timerDuration` now stays
+    // off screen until the author picks `timer`, which is the correct prompt for
+    // a key they must set. A STORED value re-shows regardless
+    // (`isFieldVisible`'s stored-value rule), so no existing config hides.
     at('waitEventConfig', 'eventType', 'Wait for', 'select', {
       options: [
         { value: 'timer', label: 'Timer' },
@@ -853,7 +980,6 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
         { value: 'manual', label: 'Manual' },
         { value: 'condition', label: 'Condition' },
       ],
-      defaultValue: 'timer',
       fallbackPath: ['config', 'eventType'],
     }),
     at('waitEventConfig', 'timerDuration', 'Duration', 'text', {
@@ -937,6 +1063,12 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
   join_gateway: [],
   boundary_event: [
     at('boundaryConfig', 'attachedToNodeId', 'Attached to', 'reference', { ref: { kind: 'node' }, placeholder: 'host node id', help: 'Host node this boundary event monitors.' }),
+    // ⛔ No `defaultValue` (objectui#9109) — same REQUIRED-key shape as
+    // `wait.waitEventConfig.eventType` above: the spec's `boundaryConfig` block
+    // requires `eventType`, so an omitted key does not behave as `error`, it
+    // fails to parse. `errorCode` below is the sibling the declaration used to
+    // reveal on a node storing no `eventType`; it now waits for the author to
+    // pick `error`, and a stored value re-shows it regardless.
     at('boundaryConfig', 'eventType', 'Event type', 'select', {
       options: [
         { value: 'error', label: 'Error' },
@@ -944,9 +1076,17 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
         { value: 'signal', label: 'Signal' },
         { value: 'cancel', label: 'Cancel' },
       ],
-      defaultValue: 'error',
     }),
-    at('boundaryConfig', 'interrupting', 'Interrupting', 'boolean', { help: 'Cancel the host activity when this event fires.' }),
+    // `defaultValue` mirrors the spec's `.default(true)` (objectui#9277): a
+    // `boundaryConfig` that OMITS `interrupting` parses as INTERRUPTING, so a
+    // table declaring nothing drew the box UNCHECKED and told the author the
+    // host activity would keep running — it is cancelled. Same shape as
+    // `lockRecord` above, derived from the installed `FlowNodeSchema` boundary
+    // block and re-derived in `FlowNodeInspector.declaredDefault.test.tsx`.
+    at('boundaryConfig', 'interrupting', 'Interrupting', 'boolean', {
+      defaultValue: 'true',
+      help: 'Cancel the host activity when this event fires.',
+    }),
     at('boundaryConfig', 'errorCode', 'Error code', 'text', {
       placeholder: 'TIMEOUT (empty = all)',
       showWhen: { field: 'boundaryConfig.eventType', equals: ['error'] },

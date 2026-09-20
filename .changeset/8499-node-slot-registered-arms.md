@@ -16,8 +16,9 @@ document … and save it as `src/app-data/pages/index.json`" — got a document 
 expensive direction: the likely reaction is to stop trusting the validator.
 
 It was invisible because `check:doc-types` judges a `type` literal against the
-RENDERER REGISTRY (656 keys) and not against `AnyComponentSchema` (107 arm literals).
-The two faces disagreed by construction and nothing compared them at a node slot.
+RENDERER REGISTRY — the key set whose size that gate prints in its own summary
+line — and not against `AnyComponentSchema`. The two faces disagreed by
+construction and nothing compared them at a node slot.
 
 **What is now authorable.** Four new arms, 47 new `type` literals, taking the union
 from 107 to 154:
@@ -88,7 +89,10 @@ pins the absence together with its reason, so registering the key for real turns
 
 **Downstream.** `objectui check` stops reporting these documents. Its
 `check-validity-recogniser` suite measured 658 registered types against 102 arm
-literals when it was written; re-measured here it is 656 against 154, so the
-"registered but not modelled" bucket goes from 558 to 505 and its fixture moved off
-the HTML primitives (they are modelled now) onto `metric-card`, whose absence from the
-union is ruled rather than pending.
+literals when it was written; no replacement figure is copied in here, because a
+count written into a published entry is re-derived by nothing afterwards — read
+the two sides off `KNOWN_SCHEMA_TYPES` and `AnyComponentSchema` themselves. The
+literals armed here are registered types that now have a member, so they leave the
+"registered but not modelled" bucket. Its fixture moved off the HTML primitives
+(they are modelled now) onto `metric-card`, whose absence from the union is ruled
+rather than pending.

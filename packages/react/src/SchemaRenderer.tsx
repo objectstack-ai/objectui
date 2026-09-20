@@ -23,6 +23,7 @@ import {
   hasResponsiveStyles,
   scopeClassFor,
   compileScopedStyles,
+  recordSourceDataArmForType,
 } from '@object-ui/core';
 import { SchemaRendererContext } from './context/SchemaRendererContext.js';
 import { useRecordContext } from './context/RecordContext.js';
@@ -31,7 +32,7 @@ import { usePageVariables } from './hooks/usePageVariables.js';
 import { resolveKeyedI18nLabel } from './utils/i18n.js';
 import { isConfigBag } from './utils/configBag.js';
 import { reportUnevaluatedExpressions } from './utils/unevaluatedExpression.js';
-import { reportDroppedPropsBag } from './utils/propsBagDiagnostic.js';
+import { reportDroppedPropsBag, reportRefusedPropsPredicate } from './utils/propsBagDiagnostic.js';
 import { expressionBindableTextKeysFor } from '@objectstack/spec/ui';
 import {
   reportUnresolvableVisibilityPredicate,
@@ -69,6 +70,7 @@ const _warnedSchemas: WeakSet<object> =
   typeof WeakSet !== 'undefined' ? new WeakSet() : ({ add() {}, has() { return false; } } as any);
 
 function validateSchemaOnce(schema: any): _ValidationCacheEntry {
+  // Render is not a validation door: a dev-only STRUCTURAL check, not the contract — the doors are named in "Render is not a validation door", content/docs/guide/schema-rendering.md.
   if (!__DEV__ || !schema || typeof schema !== 'object') {
     return { valid: true, messages: [] };
   }
@@ -328,6 +330,25 @@ const PREDICATE_CHAIN_KEYS: ReadonlySet<string> = new Set<string>([
   ...VISIBILITY_CHAIN_KEYS,
   ...ENABLEMENT_NODE_GATE_KEYS,
   ...ENABLEMENT_RENDERER_KEYS,
+]);
+
+/**
+ * Every key a NODE GATE in this file actually consults, as ONE lookup for the
+ * objectui#9108 refusal below. DERIVED from the same two declarations the gates
+ * are built from, so a leg added to either chain is refused under `props` by the
+ * same edit that adds it.
+ *
+ * {@link PREDICATE_CHAIN_KEYS} minus {@link ENABLEMENT_RENDERER_KEYS}, and the
+ * subtraction is the whole reason this is a second derivation rather than a
+ * reuse: `enabled` is in that union because the config-bag evaluation loops
+ * flatten it, but NO gate here consults it - the action renderers read it one
+ * layer down off the schema and negate it. Refusing it here would state, of a
+ * key this file never asks about, that a gate in this file could not see it.
+ * Its own `props` drop is objectui#6708's subject and is reported there.
+ */
+const NODE_GATE_PREDICATE_KEYS: ReadonlySet<string> = new Set<string>([
+  ...VISIBILITY_CHAIN_KEYS,
+  ...ENABLEMENT_NODE_GATE_KEYS,
 ]);
 
 /**
@@ -673,6 +694,90 @@ export class SchemaErrorBoundary extends Component<
 const NO_DATA_SOURCE: Record<string, any> = {};
 
 /**
+ * Warn ONCE per distinct refused node, not once per render (objectui#9571).
+ *
+ * The strip below runs on every render of the node, and a warning that floods
+ * the console is a warning that gets muted — the same warn-once discipline
+ * `ObjectMap`'s legacy-config notice and the visibility-predicate diagnostics
+ * already use. Keyed on the node's type plus its id, which is the pair an
+ * author can act on; a node with no `id` is keyed on its type alone and so
+ * warns once per type, which is the honest ceiling for something that cannot be
+ * told apart.
+ */
+const warnedRefusedDataPropNodes = new Set<string>();
+
+/**
+ * Say why an authored `data` key did not reach the block (objectui#9571,
+ * ruling objectui#8348 Q2-C, decision batch #136 item 3, maintainer 「同意」).
+ *
+ * ## Why this diagnostic is part of the change and not decoration
+ *
+ * ⛔ MEASURED, and it corrects the card's own premise: the ladder emits NO
+ * runtime signal when it refuses an off-arm `data`. `resolveRecordSourceConfig`
+ * returns `null` and falls through silently, and `validateSchema` — the
+ * `__DEV__` pass in this file — never reads `data` against the block's row at
+ * all. The refusal is loud at AUTHORING time (`os validate`, the save gate and
+ * the zod row all reject a bare array) and mute at render time.
+ *
+ * So without this line, retiring the props carrier is exactly the failure shape
+ * AGENTS.md #0.1 and `ObjectGrid`'s own column diagnostic exist to prevent:
+ * renderer and author disagree, and the author gets a success receipt — a page
+ * whose rows were on screen yesterday is blank today, with nothing anywhere
+ * naming the key that was dropped or the spelling that would work.
+ *
+ * Read-only and `__DEV__`-only: it reports the decision made at the call site
+ * and changes nothing about what is rendered.
+ */
+function reportRefusedDataPropSpread(type: string, id: string | undefined): void {
+  const key = id === undefined ? type : `${type}#${id}`;
+  if (warnedRefusedDataPropNodes.has(key)) return;
+  warnedRefusedDataPropNodes.add(key);
+  console.warn(
+    `[ObjectUI] SchemaRenderer: the authored \`data\` key on <${type}${
+      id === undefined ? '' : ` id="${id}"`
+    }> was NOT passed to the component as a React prop. This block's published ` +
+      '`data` row is the `ViewData` OBJECT arm, so `data` is read from the schema ' +
+      'and judged by that row (objectui#8348). Inline rows go at ' +
+      '`data: { provider: "value", items: [...] }`; a bare array under `data` is ' +
+      'refused. A HOST passing rows down as a React `data` prop is unaffected.',
+  );
+}
+
+/**
+ * One outgoing bag, minus an authored `data` key, on the object arm
+ * (objectui#9571, extended to the legacy alias by objectui#9758).
+ *
+ * ## Why a shared helper and not two copies of four lines
+ *
+ * `createElement` below spreads the node's own non-metadata keys and the legacy
+ * `props` alias bag as two separate spreads, in that order. objectui#9571
+ * stripped the first; the alias spread ran AFTER it, so the identical authored
+ * key spelled `props: { data }` walked straight back into the seat the ruling
+ * had just taken away — the same defect, one alias over (objectui#9758,
+ * decision batch #167 item 2, letter 剥, maintainer 「其他同意」). Two call
+ * sites answering the same question is exactly how the first carrier survived
+ * the first ruling, so the question is asked once, here.
+ *
+ * ## Identity is the signal, and that is load-bearing
+ *
+ * The `in` test comes FIRST, so a bag that declares no `data` — the
+ * overwhelmingly common one — is handed back ITSELF, with no copy allocated and
+ * no key moved. Callers read that same identity (`result !== bag`) to decide
+ * whether to warn, so the decision is never computed twice and cannot disagree
+ * with what was actually spread.
+ *
+ * ⛔ The HOST path is NOT routed through here. `...props` — this component's own
+ * React props, spread LAST — is how `plugin-list`'s `ListView` and `ObjectView`
+ * hand down rows they already fetched; gating that was Option B, and it was
+ * REFUSED on objectui#9571. Only the AUTHORED key loses its seat.
+ */
+function withoutAuthoredDataKey<T extends object>(bag: T, refuse: boolean): T {
+  if (!refuse || !('data' in bag)) return bag;
+  const { data: _refusedAuthoredData, ...rest } = bag as Record<string, unknown>;
+  return rest as T;
+}
+
+/**
  * The props `SchemaRenderer` DECLARES and reads itself (objectui#4548).
  *
  * ## Why `schema` is spelled as this union and not as a `SchemaNode`
@@ -823,11 +928,33 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // an object spread.
     if (!schema || typeof schema !== 'object') return schema;
 
-    // `data` (record/datasource) plus the ambient host scope. `current_user`
-    // is aliased to `user` so both `user.email` and `current_user.email`
-    // resolve in component `visible`/`visibleOn` expressions. `page` exposes
-    // page-local state so predicates can gate on `page.<var>` (e.g. a record
-    // picker's selection toggling another component's visibility).
+    // The ambient host scope, plus the roots this tier can answer itself.
+    // `current_user` is aliased to `user` so both `user.email` and
+    // `current_user.email` resolve in component `visible`/`visibleOn`
+    // expressions. `page` exposes page-local state so predicates can gate on
+    // `page.<var>` (e.g. a record picker's selection toggling another
+    // component's visibility).
+    //
+    // ⛔ `data` is NOT here, and the absence is the decision (objectui#9308,
+    // maintainer ruling 2026-09-13 option B). This used to read
+    // `data: dataSource` — the host's injected ADAPTER, published as an
+    // expression root. `ExpressionProvider` states the governing principle for
+    // the tier above: "Every root below is one the engine accepts AND one this
+    // tier can actually answer", and objectui#8155 (`app`) and objectui#8166
+    // (`data`) applied it there. Against a conformant `DataSource` adapter
+    // every `data.*` path resolves `undefined`, so this tier could not answer
+    // the root it bound: it published a name that was silently constant on
+    // every row. ADR-0089 D3 puts `data` at the METADATA layer
+    // (`CANONICAL_ROOT_BY_LAYER = { runtime: 'record', metadata: 'data' }`) and
+    // the engine's per-surface `FIELD_RULE_BOUND_ROOTS` is
+    // `['record','previous','parent']`. The row is `record`.
+    //
+    // ⭐ Ordering consequence, and the second half of the same ruling: the
+    // spread below used to be followed by `data: dataSource`, so a host that
+    // legitimately published `data` through the documented scope channel
+    // (`PredicateScopeProvider`) was silently OVERWRITTEN by the adapter.
+    // Removing the line un-shadows that channel — a host root named `data` now
+    // survives, like every other root a host publishes.
     //
     // `record` is written AFTER the ambient spread so a page's own row wins
     // over anything a host put in the scope — the same precedence
@@ -844,7 +971,6 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       ...(boundRecord && typeof boundRecord === 'object' && !Array.isArray(boundRecord)
         ? { record: boundRecord }
         : null),
-      data: dataSource,
       page: pageVariables,
     });
     // Shallow copy
@@ -959,7 +1085,19 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         // `false`. Verdict untouched — `verdict` is returned exactly as
         // computed, which is what keeps the ruling's "no verdict changes" true
         // by construction rather than by review.
-        reportAdapterOnlyDataPredicate(newSchema.type, newSchema.id, key, raw, dataSource);
+        //
+        // objectui#9308: the object handed over is the `data` the HOST
+        // published in the ambient scope — the one the evaluator above
+        // actually resolved `data.*` against — and no longer the adapter. The
+        // renderer binds no `data` of its own, so passing the adapter here
+        // would report reads the evaluator never made against it.
+        reportAdapterOnlyDataPredicate(
+          newSchema.type,
+          newSchema.id,
+          key,
+          raw,
+          (predicateScope as any)?.data,
+        );
         return verdict;
       } catch (err) {
         reportUnresolvableVisibilityPredicate(
@@ -1073,7 +1211,15 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         },
       });
       if (__DEV__ && !faulted) {
-        reportAdapterOnlyDataPredicate(newSchema.type, newSchema.id, key, raw, dataSource, 'enablement');
+        // objectui#9308 — same re-aim as the visibility leg above.
+        reportAdapterOnlyDataPredicate(
+          newSchema.type,
+          newSchema.id,
+          key,
+          raw,
+          (predicateScope as any)?.data,
+          'enablement',
+        );
       }
       return verdict;
     };
@@ -1381,6 +1527,45 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       }
       newSchema.props = newProps;
     }
+
+    /**
+     * REFUSE, by name, a node-gate predicate parked under the legacy `props`
+     * alias (objectui#9108, maintainer ruling 2026-09-13, verbatim 「同意」 on
+     * the `domain:spec` seat's recommendation).
+     *
+     * ## Sited HERE, immediately in front of the two gates
+     *
+     * This is the one point where the gates' own input is final: the
+     * `properties` hoist above has run, both config-bag evaluation loops have
+     * run, and neither gate has consulted anything yet. It is also the only
+     * placement that survives its own subject - the late diagnostics near
+     * `createElement` are downstream of `if (shouldHide) return null`, so a node
+     * that parks `visible` under `props` while ALSO hiding through the canonical
+     * spelling would never reach them, and the refusal would go missing on the
+     * one shape that carries both spellings at once.
+     *
+     * ## Read-only, and that is the ruled outcome rather than a limitation
+     *
+     * Nothing below changes. The gates still read the post-hoist node only, so
+     * every verdict, every hoisted value and every byte the element receives is
+     * what it was - the alias is REFUSED, not honoured. The opposite arm was
+     * built and closed (PR objectui#9144): honouring it would have made *"8
+     * predicate keys work while the rest stayed silently dropped - and partly
+     * working is harder to learn from than not working"*.
+     *
+     * The bag handed over is {@link propsWithoutCanonicalKeys}'s, the SAME
+     * subtraction the outgoing props bag uses, so a key the canonical bag also
+     * declares is not reported as parked: there the author is already getting
+     * the canonical answer (objectui#5123). The key SET is
+     * {@link NODE_GATE_PREDICATE_KEYS}, derived from the two chain declarations
+     * above rather than re-listed here.
+     */
+    reportRefusedPropsPredicate(
+      newSchema.type,
+      newSchema.id,
+      NODE_GATE_PREDICATE_KEYS,
+      propsWithoutCanonicalKeys(newSchema.props, newSchema.properties),
+    );
 
     // Evaluate visibility: visibleWhen / visible / visibleOn / visibility / hidden / hiddenOn
     const shouldHide = (() => {
@@ -1702,14 +1887,25 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // `${…}` about to be placed verbatim in front of a user.
   //
   // Sited HERE, after the metadata destructure, on purpose. `componentProps` is
-  // precisely the set of values that leaves this component for the DOM — it is
-  // spread as React props below, and the same values are what renderers read as
-  // `schema.<key>`. Everything the destructure stripped is schema METADATA:
+  // the set of values the node OFFERS the component — spread as React props
+  // below, and the same values renderers read as `schema.<key>`. Everything the
+  // destructure stripped is schema METADATA:
   // `visible` / `visibleWhen` / `hidden` / `disabled` / … hold raw predicate
   // SOURCE by design (they are evaluated as conditions, never placed), so
   // scanning before the strip would report every correctly-authored predicate
   // in the repo. The strip list is therefore the diagnostic's exclusion list,
   // for free and without a second copy of it to drift.
+  //
+  // ⚠️ It scans `componentProps` and the raw `props` / `properties` bags, NOT
+  // the narrowed bags the objectui#9571 / objectui#9758 strips build below.
+  // Deliberate, and the objectui#8268 `testId` precedent applied a second time:
+  // `data` loses its PROPS seat on the object arm, but it is still authored,
+  // still evaluated, and still read off the schema by the block — so an
+  // unevaluated expression inside it is still in front of a user, and excluding
+  // it here would narrow objectui#4795's coverage by one key for exactly the
+  // blocks the ruling touches. That holds for BOTH carriers: an authored
+  // `props: { data: '${…}' }` is still reported after objectui#9758 refused it
+  // a prop seat.
   //
   // Read-only: it reports what evaluation already produced and changes nothing
   // about what is rendered — no DOM attribute either, so no snapshot moves.
@@ -1740,10 +1936,21 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // nothing about what any renderer receives moves — but it removes the one way
   // this diagnostic could go wrong: reporting a set of keys that is not the set
   // actually handed to the component.
-  const outgoingPropsBag = propsWithoutCanonicalKeys(
+  //
+  // objectui#9758 narrows it once more, for the same key and on the same arm as
+  // the strip below — see {@link withoutAuthoredDataKey}. The arm is read ONCE,
+  // here, and handed to both call sites: two independent lookups of the same
+  // question is the shape that let the alias keep the seat in the first place.
+  const refusesAuthoredDataProp =
+    recordSourceDataArmForType(evaluatedSchema.type) === 'view-data';
+  const aliasBagAsAuthored = propsWithoutCanonicalKeys(
     evaluatedSchema.props,
     evaluatedSchema.properties
   );
+  const outgoingPropsBag = withoutAuthoredDataKey(aliasBagAsAuthored, refusesAuthoredDataProp);
+  if (__DEV__ && outgoingPropsBag !== aliasBagAsAuthored) {
+    reportRefusedDataPropSpread(evaluatedSchema.type, evaluatedSchema.id);
+  }
 
   // Dev-build diagnostic (objectui#6708, maintainer ruling 2026-08-29, option
   // 2): those keys are spread as React props and never hoisted onto the node,
@@ -1759,6 +1966,17 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // memo rebuilds `props` with an object spread, which turns a degenerate
   // `props: 'text'` into `{ '0': 't', … }` long before this line. See
   // `collectDroppedPropsKeys`.
+  //
+  // ⚠️ It reads the POST-strip bag (objectui#9758), and that direction is the
+  // opposite of its objectui#4795 neighbour above ON PURPOSE. This message
+  // states that the key "is spread as React props on the created element" and
+  // tells the author to "write them under `properties` instead" — after the
+  // strip BOTH sentences are false for `data` on this arm: it is not spread,
+  // and the canonical spelling loses the seat as well. Its subject stops being
+  // true, so it stops naming the key, and `reportRefusedDataPropSpread` is what
+  // tells the author instead. The objectui#4795 scan reads the WIDER bag for
+  // the mirror-image reason: an unevaluated `${…}` is still in front of a user
+  // after the strip, so its subject survives.
   if (__DEV__) {
     reportDroppedPropsBag(
       evaluatedSchema.type,
@@ -1766,6 +1984,64 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       (schema as { props?: unknown } | null | undefined)?.props,
       outgoingPropsBag
     );
+  }
+
+  /**
+   * objectui#9571 (ruling objectui#8348 Q2-C, decision batch #136 item 3,
+   * maintainer 「同意」): an authored `data` key does NOT take a React prop seat
+   * on a block whose published `data` row is the OBJECT arm (`ViewData`).
+   *
+   * ## The defect this closes
+   *
+   * The spread below hands every non-metadata node key to the component, so an
+   * authored `data` reached such a block TWICE — as `schema.data`, which the
+   * shared ladder judges against the block's row (`resolveRecordSourceConfig`,
+   * objectui#8348), and as the `data` PROP, which `ObjectGrid` (`passedData`),
+   * `ObjectMap` (`dataProp`) and `ObjectGantt` each lift with an unconditional
+   * `Array.isArray` at HIGHER priority than that ladder. The ruling had one
+   * carrier it did not reach, and it was the one that wins: a bare array under
+   * `data` still drew through this renderer after the ladder had retired it.
+   *
+   * ## ⛔ The HOST path is NOT touched, and that is the ruled half
+   *
+   * Option B — gating the PROP on the arm — was refused, because the prop is how
+   * a host (`plugin-list`'s `ListView`, `ObjectView`) hands down rows it already
+   * fetched. Only the AUTHORED key loses its seat: `...props` below is this
+   * component's own React props, spread LAST, so a host rendering
+   * `<SchemaRenderer data={rows} …/>` still delivers `rows`, and a host that
+   * renders the block component directly never passes through here at all.
+   *
+   * ## Scope is the ARM, not a block list
+   *
+   * `recordSourceDataArmForType` answers per registered type, and every type it
+   * does not list keeps today's behaviour verbatim. ⛔ No allowlist of block
+   * NAMES is minted here — that is the second de-facto contract AGENTS.md #0.1
+   * forbids, and the ruling is stated over the arm, not over a census.
+   *
+   * ## Byte-identical when nothing is authored
+   *
+   * The `in` test comes FIRST, so a node that authors no `data` is handed
+   * `componentProps` itself — the same object, in the same spread position, with
+   * no copy allocated. Same discipline as the conditional `data-testid` below,
+   * and for the same measured reason.
+   *
+   * ## ⚠️ TWO bags reach the spread, and this one is only the first
+   *
+   * objectui#9758: the legacy `props` alias bag is spread AFTER this one, so for
+   * the first ruling's whole life an author who spelled the identical key
+   * `props: { data: [...] }` kept the seat this block takes away — the arm
+   * predicate was right and the corpus was one bag short. Both bags now go
+   * through {@link withoutAuthoredDataKey} with the ONE arm reading computed
+   * above (decision batch #167 item 2, letter 剥, maintainer 「其他同意」).
+   * ⛔ Still no validator refusal: whether the alias exists at all is
+   * objectui#4795's pending question ②, and nothing else it carries moves.
+   */
+  const outgoingComponentProps = withoutAuthoredDataKey(
+    componentProps,
+    refusesAuthoredDataProp
+  );
+  if (__DEV__ && outgoingComponentProps !== componentProps) {
+    reportRefusedDataPropSpread(evaluatedSchema.type, evaluatedSchema.id);
   }
 
   // SDUI scoped styling (ADR-0065) — computed in the memo hoisted above the
@@ -1797,11 +2073,15 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       ) : null}
       {React.createElement(Component, {
         schema: schemaForComponent,
-        ...componentProps,  // Spread non-metadata schema properties as props
+        // Spread non-metadata schema properties as props — minus an authored
+        // `data` on the object arm, which the objectui#9571 strip above removed.
+        ...outgoingComponentProps,
         // The legacy `props` alias still overrides plain top-level keys, but no
         // longer overrides the canonical `properties` bag (objectui#5123,
-        // maintainer ruling 2026-08-18). Computed above rather than inline, so
-        // the objectui#6708 diagnostic names this exact bag — see there.
+        // maintainer ruling 2026-08-18) — and, since objectui#9758, no longer
+        // re-seats an authored `data` on the object arm that the spread above
+        // just refused. Computed above rather than inline, so the objectui#6708
+        // diagnostic names this exact bag — see there.
         ...outgoingPropsBag,
         ...ariaProps,  // Inject ARIA attributes from AriaPropsSchema
         ...debugAttrs, // Debug-mode data attributes

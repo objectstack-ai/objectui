@@ -23,6 +23,7 @@ import { FormSectionContainer } from './FormSection';
 import { SchemaRenderer, useSafeFieldLabel, usePredicateScope } from '@object-ui/react';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
 import { seedCreateValues, omitServerResolvedDefaults, isCreateFormMode } from './schemaDefaults';
+import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
 import { resolveSuccessNavigate, type SubmitBehavior } from './successBehavior';
@@ -485,7 +486,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           // Declared static defaults are this wizard's opening values (#4047)
           // — see `schemaDefaults` for the create-only boundary and for why
           // runtime defaults are left to the server.
-          setFormData(seedCreateValues(objectSchema, schema.initialData || schema.initialValues, { currentUserId }));
+          setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
           seededRef.current = true;
         }
         setLoading(false);
@@ -767,7 +768,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
               // Back to a fresh step 1 for the next entry — "fresh" means the
               // same opening values the wizard had, defaults included (#4047),
               // not a blank object the first entry never started from.
-              setFormData(seedCreateValues(objectSchema, schema.initialData || schema.initialValues, { currentUserId }));
+              setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
               setCompletedSteps(new Set());
               setCurrentStep(0);
               setResetNonce((n) => n + 1);
@@ -824,7 +825,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           if (schema.resetOnSuccess && schema.mode === 'create') {
             // Back to a fresh step 1 for the next entry — same opening values
             // as the first entry, defaults included (#4047).
-            setFormData(seedCreateValues(objectSchema, schema.initialData || schema.initialValues, { currentUserId }));
+            setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
             setCompletedSteps(new Set());
             setCurrentStep(0);
             setResetNonce((n) => n + 1);

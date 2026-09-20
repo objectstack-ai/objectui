@@ -22,16 +22,21 @@
  * declare the key on the TS face, and five do not, on either face. That is the
  * batch below — the card's five, measured, not inherited.
  *
- * ## The sixth asymmetry, deliberately NOT in the batch
+ * ## The sixth asymmetry, deliberately NOT in the batch — and since CLOSED
  *
- * `InputSchema` declares `wrapperClass` on the TS face (`../form.ts`) and NOT on
- * its zod mirror. That is a recorded, reconciled row of the parity ledger —
+ * `InputSchema` declared `wrapperClass` on the TS face (`../form.ts`) and NOT on
+ * its zod mirror. That was a recorded, reconciled row of the parity ledger —
  * `UnmirroredDeclared['form.zod.ts#InputSchema']` in `zod-mirror-parity.test.ts`
  * — whose entry and key counts are pinned by that file's own census. Mirroring
- * it moves those counts; it is that ledger's remedy, not this card's. The sweep
- * carries it as a SELF-EXPIRING exemption: valid only while the mirror still
- * lacks the key AND the ledger row is still on disk. Mirror it and the exemption
- * turns red until it is deleted, so the carve-out cannot outlive the debt.
+ * it moved those counts, so it was that ledger's remedy and not this card's. The
+ * sweep carried it as a SELF-EXPIRING exemption: valid only while the mirror
+ * still lacked the key AND the ledger row was still on disk.
+ *
+ * ⭐ objectui#8072 mirrored it, and the exemption expired exactly as built —
+ * `LEDGERED_UNMIRRORED` is EMPTY now, and the sweep judges all nine readers
+ * alike. ⛔ The carve-out was deleted, not weakened to stay green: that is the
+ * whole return on writing an exemption that asserts its own precondition rather
+ * than one that simply names a type.
  *
  * ## What this file pins, and the two shapes it borrows
  *
@@ -261,10 +266,14 @@ describe('objectui#7722 — the five renderers read `wrapperClass`, which is the
  * exact ledger row text; the exemption holds only while that text is on disk
  * AND the mirror still lacks the key. Mirror the key and BOTH conditions flip —
  * the exemption must then be deleted, never left to cover nothing.
+ *
+ * ⭐ EMPTY since objectui#8072 mirrored `InputSchema.wrapperClass`, the one entry
+ * this ever carried. An empty map makes the sweep below judge every reader alike,
+ * which is the state it is meant to reach — ⛔ it is not an invitation to refill.
+ * A new row belongs here only when the parity ledger really records the pair, and
+ * it expires the same way this one did.
  */
-const LEDGERED_UNMIRRORED: Record<string, string> = {
-  InputSchema: "'form.zod.ts#InputSchema': 'wrapperClass'",
-};
+const LEDGERED_UNMIRRORED: Record<string, string> = {};
 
 interface Reader {
   /** Renderer file, relative to the repo root. */

@@ -51,11 +51,31 @@
  * ## The contract: declared = enforced, and absence is never green
  *
  * The gate does NOT ask GitHub "are the required checks green?" — that question
- * is answered by the branch-protection required set, which is a
- * repository-SETTINGS surface this repository can neither read nor change
- * (`content/docs/guide/ci-cd-pipeline.md`, "Merge Queue", step 3), and which is
- * demonstrably not carrying the shards today: a merge occurred while all four
- * were `in_progress`, so none of them can be in it.
+ * is answered by the branch-protection required set, a repository-SETTINGS
+ * surface this repository cannot WRITE (`content/docs/guide/ci-cd-pipeline.md`,
+ * "Merge Queue", step 3): enrolling, removing or renaming a context there is a
+ * maintainer action, and `GET /repos/{owner}/{repo}/branches/{branch}/protection`
+ * answers `403 Resource not accessible by integration` to the token a job here
+ * runs under.
+ *
+ * ⛔ What that set currently HOLDS is deliberately not restated here, and no
+ * decision in this file turns on it. It IS readable from a job with network, and
+ * this repository already reads it: `scripts/check-required-check-set.mjs`
+ * (`pnpm check:required-check-set`, patrolled by
+ * `.github/workflows/required-check-set-patrol.yml`) takes a live reading of the
+ * ruleset and exits 2 when it could not take one — never 0. Ask that
+ * instrument. A comment cannot be re-run.
+ *
+ * ⚠️ An earlier version of this paragraph did restate it: "demonstrably not
+ * carrying the shards today", derived from #4959, where a merge landed while all
+ * four shards were `in_progress`, which is possible only if none of them was
+ * required. It was true when it was written and false by the time it was read —
+ * the ruleset was edited afterwards and the prose was not (objectui#9502). So
+ * the declaration below rests on two things no ruleset edit can move: it is
+ * BROADER than a required set (every unfiltered blocking context this repository
+ * produces, not the subset a maintainer chose to enforce), and it is visible to
+ * review and to `dependabot-merge-gate.test.ts`, which off-repo configuration is
+ * not.
  *
  * So the set is declared here, and three rules keep the declaration honest:
  *
@@ -205,6 +225,8 @@ export const OPTIONAL_CONTEXTS = Object.freeze({
     "performance-budget.yml filters on paths: packages/**, apps/console/**, pnpm-lock.yaml. Blocking when it runs (console gzip budget); absent on a PR that touches none of them.",
   'Changeset Bump Policy':
     'changeset-guard.yml filters on paths: .changeset/**. A Dependabot PR carries no changeset, so it normally does not report at all.',
+  'Lockfile Dedupe Check':
+    "lockfile-dedupe.yml (objectui#8333) runs `pnpm dedupe --check`: the committed lockfile must already be deduped, so a dependency bump cannot leave a forked peer group behind for `Bundle Analysis` to misattribute to the bump. Blocking when it runs; its pull_request trigger is path-filtered to `pnpm-lock.yaml` plus its own runtime closure, so a change touching none of them does not report at all. ⚠️ Enrolled as blocking where its neighbour `Lockfile Integrity Check` deliberately is NOT, and the difference is the remedy: #8326's gate names a duplication and leaves the answer open (re-lock, pin, or accept), which is a judgement call its header reserves for the maintainer, while this one has exactly one mechanical remedy that pnpm itself prints — run `pnpm dedupe` and commit the lockfile, changing no declaration, range or override. Cost of enrolling it, measured on objectui#8333 before it was taken: green on `main` as it stands (objectui#9215 collapsed the accumulated duplication first), red on the same tree with `better-auth` bumped. ⇒ nothing currently mergeable is blocked by it, and what it defends is that objectui#9215's paydown does not silently accrue again. To stop it blocking, move this name to `NOT_A_GATE`; ⛔ removing it from both buckets fails the partition test instead.",
   'Hook Self-Tests':
     'hook-selftests.yml filters on paths: .claude/hooks/**, plus the workflow file itself (objectui#5754). Blocking when it runs (the PreToolUse guard self-test matrices must pass); a Dependabot dependency bump never touches .claude/hooks/**, so it normally does not report at all.',
 });

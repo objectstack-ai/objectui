@@ -35,15 +35,31 @@ import { createSafeTranslation } from '@object-ui/i18n';
 import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
+// Two resolvers, two vocabularies — the repo spells the distinction into the
+// NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
+// `resolveI18nLabel`: it resolves the INLINE per-locale map
+// (`{ en: …, 'fr-FR': … }`) that `I18nLabel` carries. It does NOT accept
+// objectui's keyed `{ key, defaultValue, params }` ref — that vocabulary lives
+// on the FLAT `schema.ariaLabel` and is resolved by `SchemaRenderer` instead.
+// Needed here since objectui#9092 restored `ObjectGridSchema.label` to the
+// `string | I18nLabel` form `BaseSchema` has carried since objectui#4580: the
+// two reads below put the label in STRING positions, so a map-valued label used
+// to reach them as an object and the compiler could not say so.
+import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
 import { stateMachineNextValues, isFieldInlineEditable } from './inline-edit-options';
 import {
   Badge, Button, NavigationOverlay, EmptyValue,
+  legacyRecordDrawerWidthKey, recordOverlayWidthStorageKey, useOverlayAnchor,
   Popover, PopoverContent, PopoverTrigger,
   RefreshIndicator,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
+import {
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+  RecordDetailPanel,
+} from '@object-ui/plugin-detail';
 import { ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Download, Rows2, Rows3, Rows4, AlignJustify, Type, Hash, Calendar, CheckSquare, User, Tag, Clock, Loader2 } from 'lucide-react';
 import { useRowColor } from './useRowColor';
 import { useGroupedData, usableGroupingFields } from './useGroupedData';
@@ -62,27 +78,6 @@ import { BulkActionDialog } from './components/BulkActionDialog';
 import type { BulkResult } from './hooks/useBulkExecutor';
 import type { BulkActionDef } from '@object-ui/types';
 
-/**
- * A view's declared `sort` → the shape the table's header indicators read.
- *
- * `[{ field, order }, …]` is the ONE spelling `@objectstack/spec` still
- * declares (objectui#8221 retired the string clauses). The headers have to
- * agree with the fetch path on it: a view that arrives sorted by
- * `created_at desc` should show that arrow before anyone clicks anything —
- * otherwise the first click on that column produces `asc` while the list was
- * already `desc`, and the arrow tells the truth only from the second click on.
- *
- * ⚠️ This reader is WIDER than the fetch path as of objectui#8767, and the
- * sentence this docblock used to carry — that the fetch path reads all three
- * spellings — is no longer true. The fetch path now REFUSES a string and sends
- * no `$orderby` at all, while this reader still parses `"name desc"` and
- * `["name desc", …]`, so a grid authored with a retired spelling shows an
- * arrow for an ordering its query does not carry. Narrowing this reader moves
- * the wire shape and takes the export path with it — the route the #8767
- * ruling deliberately did not take. It is NOT fixed here.
- *
- * Exported for the test that pins it against the fetch path's own reading.
- */
 /**
  * A declared `sort` → the `"field order"` join string THIS block sends as
  * `$orderby` (objectui#8973).
@@ -115,14 +110,44 @@ function toOrderByClause(sort: QuerySortEntry[] | undefined | null): string | un
   return ordered.map((s) => `${s.field} ${s.order}`).join(', ');
 }
 
+/**
+ * A view's declared `sort` → the shape the table's header indicators read.
+ *
+ * `[{ field, order }, …]` is the ONE spelling `@objectstack/spec` still
+ * declares for `ObjectGridPropsSchema.sort` (objectui#8221 retired the string
+ * clauses), and since objectui#8961 it is the only spelling this reader
+ * admits. The headers agree with the fetch path on it: a view that arrives
+ * sorted by `created_at desc` shows that arrow before anyone clicks anything —
+ * otherwise the first click on that column produces `asc` while the list was
+ * already `desc`, and the arrow tells the truth only from the second click on.
+ *
+ * ⭐ A retired string spelling (`"name desc"`, `["name desc", …]`) yields
+ * NOTHING here, so it lights no arrow. That is the agreement, not an omission:
+ * the fetch path REFUSES the same spelling and sends no `$orderby`
+ * (objectui#8767). Between #8767 and objectui#8961 this reader was WIDER than
+ * that path — it parsed the string and drew a confident arrow for an ordering
+ * the query did not carry, a UI element stating something untrue about the rows
+ * beside it, with nothing but a console line to say so.
+ *
+ * ⛔ Do not re-widen it for a stored `sys_metadata` row still carrying the old
+ * spelling. The author is already told, once per spelling, by PR #8758's own
+ * diagnostic at the fetch path — it quotes the offending value and prescribes
+ * the array form. A second reading here would restore exactly the arrow the
+ * wire cannot honour.
+ *
+ * The wire shape is NOT what moved: this block still sends its own
+ * `"field order"` join string (see {@link toOrderByClause}), the shared sink's
+ * `{field: direction}` map stays declined, and the server-side export path
+ * reads `schema.sort` itself rather than through this function, so it was
+ * already array-only and is untouched.
+ *
+ * Exported for the test that pins it against the fetch path's own reading.
+ */
 export function parseSchemaSort(sort: unknown): TableSortItem[] {
-  const entries = typeof sort === 'string' ? [sort] : Array.isArray(sort) ? sort : [];
+  const entries = Array.isArray(sort) ? sort : [];
   const items: TableSortItem[] = [];
   for (const entry of entries) {
-    if (typeof entry === 'string') {
-      const [field, order] = entry.trim().split(/\s+/);
-      if (field) items.push({ field, order: order?.toLowerCase() === 'desc' ? 'desc' : 'asc' });
-    } else if (entry && typeof entry === 'object' && typeof (entry as any).field === 'string') {
+    if (entry && typeof entry === 'object' && typeof (entry as any).field === 'string') {
       const { field, order } = entry as { field: string; order?: string };
       items.push({ field, order: String(order).toLowerCase() === 'desc' ? 'desc' : 'asc' });
     }
@@ -505,7 +530,21 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
    * one selected row's `false` must not silently drop the other rows' action.
    */
   rowOperations?: (record: any) => ObjectGridRowOperations | null | undefined;
-  onRowClick?: (record: any) => void;
+  /**
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (record: any, event?: any) => void;
   onEdit?: (record: any) => void;
   onDelete?: (record: any) => void;
   onBulkDelete?: (records: any[]) => void;
@@ -1101,6 +1140,108 @@ function resolveRowHeightMode(rowHeight: unknown): RowHeightMode {
   return rowHeight as RowHeightMode;
 }
 
+/**
+ * The three page-size defaults this component falls back to, named so the
+ * divergence between them is DECLARED rather than a by-product of three
+ * hand-spelled fallback chains that happened to end in different literals.
+ *
+ * They are three different quantities and that is why they are three
+ * constants: one sizes a page of ROWS in the client-paged table, one sizes a
+ * page of GROUPS in the grouped view, and one sizes the `$top` WINDOW the
+ * server-paged fetch asks for. ⚠️ What is NOT settled here is whether the
+ * first and the third should be the same number — the same grid with no
+ * authored `pagination` shows the server-window default per page while it
+ * fetches its own rows and the flat default when it does not, which is a
+ * visible inconsistency an author never declared. Changing either literal
+ * changes what every undeclared grid renders, so it is handed back as a
+ * question (objectui#9853) rather than decided here.
+ */
+const DEFAULT_FLAT_PAGE_SIZE = 10;
+const DEFAULT_GROUPS_PER_PAGE = 10;
+const DEFAULT_SERVER_WINDOW_SIZE = 50;
+
+/**
+ * The ONE resolver for an authored page size, for the reason the `rowHeight`
+ * resolver just above exists: one resolver at every entry is what keeps the
+ * answer single (objectui#4443).
+ *
+ * Before objectui#9853 this value was spelled out separately at each of its
+ * three read points, and the spellings disagreed about a non-positive number:
+ * the flat site used `||`, so `0` was falsy and fell through to a default,
+ * while both seeds used `??`, so `0` was not nullish and survived as a real
+ * page size. It then divided the grouped pager and reached the wire as
+ * `$top: 0`, so the grid asked the server for nothing and drew an empty table
+ * — with no error, no warning and no empty state naming the cause.
+ *
+ * ## Why refusing `0` is not this renderer inventing a meaning
+ *
+ * `@objectstack/spec` has already answered what a `pageSize` of `0` means.
+ * Its pagination config declares the member as a POSITIVE integer with a
+ * default, and the spec's own suite pins that refusal under the names
+ * `should reject zero pageSize` and `should reject negative pageSize`. The
+ * `limit` that this block's `ElementDataSourceMapping` lowers
+ * `pagination.pageSize` into is declared positive as well. So `0` is not a
+ * spelling whose meaning a consumer may choose; it is a value the contract
+ * refuses, and a renderer that quietly divides by it is the only party not
+ * saying so.
+ *
+ * ⚠️ The refusal is FAIL-SOFT on purpose. Throwing would take out the whole
+ * subtree for a declaration the flat path already tolerated, which is a worse
+ * outcome than the defect. The value is dropped, the site's own default is
+ * used, and `describeNonPositivePageSize` states it once through the channel
+ * this component already uses for "you declared it, the renderer dropped it".
+ *
+ * Reads the canonical key first and the deprecated flat shorthand second, in
+ * that precedence, with `??` so an explicit `0` is SEEN by the guard instead
+ * of skipped by falsiness — that skipping is the defect, not the fix.
+ */
+function readAuthoredPageSize(schema: {
+  pagination?: unknown;
+  pageSize?: unknown;
+}): unknown {
+  const fromObject = (schema.pagination as { pageSize?: unknown } | undefined)?.pageSize;
+  return fromObject ?? schema.pageSize;
+}
+
+function isUsablePageSize(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+function resolvePageSize(
+  schema: { pagination?: unknown; pageSize?: unknown },
+  fallback: number,
+): number {
+  const authored = readAuthoredPageSize(schema);
+  return isUsablePageSize(authored) ? authored : fallback;
+}
+
+/**
+ * The diagnostic half. `null` means "nothing to say" — an absent key is not a
+ * mistake, and a usable page size is not either, so the message is CONDITIONAL
+ * and a control asserting its silence is what keeps it from being an
+ * always-on marker that states nothing.
+ */
+function describeNonPositivePageSize(
+  schema: { pagination?: unknown; pageSize?: unknown },
+  context: { blockType?: unknown; objectName?: unknown },
+): string | null {
+  const authored = readAuthoredPageSize(schema);
+  if (authored === undefined || authored === null) return null;
+  if (isUsablePageSize(authored)) return null;
+  const where = [
+    typeof context.blockType === 'string' ? context.blockType : 'object-grid',
+    typeof context.objectName === 'string' ? context.objectName : undefined,
+  ]
+    .filter(Boolean)
+    .join(' on ');
+  return (
+    `[ObjectUI] ObjectGrid pagination: ${where} declared pageSize: ${String(authored)}, `
+    + 'which is not a positive integer. A page size must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and this '
+    + 'grid fell back to its default page size.'
+  );
+}
+
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   schema,
   dataSource,
@@ -1167,7 +1308,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // pages). Defaults to the schema page size, falling back to 10 groups/page.
   const [groupedPage, setGroupedPage] = useState(1);
   const [groupedPageSize, setGroupedPageSize] = useState<number>(
-    (schema.pagination as any)?.pageSize ?? schema.pageSize ?? 10,
+    resolvePageSize(schema, DEFAULT_GROUPS_PER_PAGE),
   );
 
   // Sync internal rowHeightMode when schema.rowHeight prop changes (e.g., parent ListView density toggle).
@@ -1586,7 +1727,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // makes records beyond the first batch reachable at all (framework #2212).
   const [serverPage, setServerPage] = useState(1);
   const [serverPageSize, setServerPageSize] = useState<number>(
-    (schema.pagination as any)?.pageSize ?? schema.pageSize ?? 50,
+    resolvePageSize(schema, DEFAULT_SERVER_WINDOW_SIZE),
   );
 
   // Column-header sort, when this grid fetches its own rows (objectui#3106).
@@ -1978,10 +2119,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // spelling and answers `undefined`, so the query carries no
               // `$orderby`. Its return value is deliberately unused — the wire
               // shape stays this block's, and the array arm below is untouched
-              // (with it the export path and `parseSchemaSort`). Routing the
-              // whole key through the sink is a different card: it would send
-              // the sink's `{field: direction}` map where every grid today
-              // sends a `"field order"` string.
+              // (with it the export path). The header-arrow reader
+              // `parseSchemaSort` was left parsing the string HERE, and read
+              // this same key more widely than this refusal until objectui#8961
+              // narrowed it to the declared array; the two now agree. Routing
+              // the whole key through the sink is still a different card: it
+              // would send the sink's `{field: direction}` map where every grid
+              // today sends a `"field order"` string.
               //
               // Read through `unknown`, exactly as the sink does: types are
               // erased, so the array-only `ObjectGridSchema.sort` declaration
@@ -2211,6 +2355,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     onRowClick,
   });
 
+  // objectui#9299 item 3 — `popover` anchors to the ROW the user clicked. The
+  // grid reaches `handleClick` from several places that carry no DOM event
+  // (`DataTable`'s own row handler, `LinkCell.onActivate`), so the anchor is
+  // recorded by a capture listener on this component's container.
+  const { anchorRef, anchorCaptureProps } = useOverlayAnchor();
+
   // --- Action support for action columns ---
   const { execute: executeAction, updateContext: updateActionContext } = useAction();
 
@@ -2398,6 +2548,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     });
     if (message) console.warn(message);
   }, [bulkDefsDiagnosticSlice, columnDiagnosticBlockType, schema.objectName, columnDiagnosticLabel]);
+
+  // [objectui#9853] The same channel again, for a `pagination.pageSize` (or the
+  // deprecated flat shorthand) that is not a positive integer. `resolvePageSize`
+  // drops such a value at all three read points and uses the site's default; on
+  // its own that is a quieter version of the defect, because substituting a
+  // number the author never wrote is exactly what the flat site already did in
+  // silence. This is the half that makes it a diagnosis.
+  //
+  // Keyed on the authored slice, so it is one warning per declaration and not
+  // one per render. NOT a second guard — the predicate lives once, in
+  // `isUsablePageSize`, and this reads it.
+  const pageSizeDiagnosticObject = schema.pagination;
+  const pageSizeDiagnosticFlat = schema.pageSize;
+  useEffect(() => {
+    const message = describeNonPositivePageSize(
+      { pagination: pageSizeDiagnosticObject, pageSize: pageSizeDiagnosticFlat },
+      { blockType: columnDiagnosticBlockType, objectName: schema.objectName },
+    );
+    if (message) console.warn(message);
+  }, [pageSizeDiagnosticObject, pageSizeDiagnosticFlat, columnDiagnosticBlockType, schema.objectName]);
 
   const generateColumns = useCallback((): ObjectGridColumnDraft[] => {
     // Map field type to column header icon (Airtable-style)
@@ -3205,7 +3375,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       prefix: exportConfig?.fileNamePrefix,
       label: objectSchema?.label,
       objectName: objectName || schema.objectName,
-      viewLabel: schema.label || schema.title,
+      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
     });
 
     // Server-streamed path: csv / xlsx / json via dataSource.exportDownload.
@@ -4078,7 +4248,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // refresh so the grid reflects persisted values. Throwing on failure is
   // important: DataTable's saveRow/saveBatch keep pending changes when the save
   // promise rejects, so a failed write doesn't silently lose the user's edits.
-  const resolveRecordId = (row: any): string | number | undefined =>
+  // The one place a row's primary key is read for a write. `string`, as
+  // `@objectstack/spec` declares every record door — the union this used to
+  // annotate was a claim about `any`-typed row data, not a measurement of it
+  // (objectui#9333).
+  const resolveRecordId = (row: any): string | undefined =>
     row?._id ?? row?.id;
 
   const defaultRowSave = async (
@@ -4124,9 +4298,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     ? true 
     : (schema.showPagination !== undefined ? schema.showPagination : true);
   
-  const pageSize = schema.pagination?.pageSize 
-    || schema.pageSize 
-    || 10;
+  // Through the same resolver as the two seeds above (objectui#9853). This
+  // site used `||` and the seeds used `??`, so one authored `pageSize: 0`
+  // reached three read points and got two different answers.
+  const pageSize = resolvePageSize(schema, DEFAULT_FLAT_PAGE_SIZE);
 
   // Determine search settings
   const searchEnabled = schema.searchableFields !== undefined
@@ -4223,10 +4398,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // arrow, and the first click on that column would ask for `asc` on a list
   // that was already `desc`.
   //
-  // ⚠️ One spelling now escapes that agreement: since objectui#8767 the fetch
-  // path REFUSES a string `sort` and sends no `$orderby`, while
-  // {@link parseSchemaSort} still parses one. Closing that gap narrows this
-  // reader and moves the wire shape with it — the route #8767 did not take.
+  // ⭐ That agreement now covers the SPELLING too (objectui#8961). One used to
+  // escape it: since objectui#8767 the fetch path REFUSES a string `sort` and
+  // sends no `$orderby`, while {@link parseSchemaSort} went on parsing one, so
+  // a grid authored `sort: 'name desc'` painted a descending arrow over rows
+  // the server returned in no declared order. That reader now admits only the
+  // declared `[{ field, order }]` array — the one spelling the fetch path
+  // still lowers — so the arrow on screen and the `$orderby` on the wire read
+  // the same key the same way, and a retired spelling lights nothing on either
+  // side. What did NOT move is the wire shape: the array arm still lowers to
+  // this block's own `"field order"` join string, and the shared sink's
+  // `{field: direction}` map stays declined (see {@link toOrderByClause}).
   //
   // A plain expression, not a `useMemo`: this sits below the component's early
   // returns, where a hook would be skipped on some renders and change the hook
@@ -4288,7 +4470,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   const dataTableSchema: ObjectGridDataTableSchema = {
     type: 'data-table',
-    caption: schema.label || schema.title,
+    caption: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
     columns: orderedColumns,
     data,
     pagination: paginationEnabled,
@@ -4376,12 +4558,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               onChange={(v: any) => (discrete ? ctx.commit(v) : ctx.stage(v))}
               // The record a dependent widget scopes itself by (objectui#7165,
               // finished by objectui#7188). `LookupField` resolves
-              // `dependentValues ?? ctx.formValues ?? ctx.data ?? {}`, and only
-              // the FIRST link is suppliable by any host: `SchemaRendererContextType`
-              // declares exactly `dataSource` / `debug` / `debugFlags` / `apiFetch`,
-              // so the tail is unconditionally empty repo-wide (objectui#7206) —
-              // which is why the repair is this prop and could not have been a
-              // provider. A grid that supplied none of the three rendered every
+              // `dependentValues ?? {}`, so this prop is the only channel that
+              // can carry a record. The chain used to end
+              // `?? ctx.formValues ?? ctx.data`, but `SchemaRendererContextType`
+              // declares exactly `dataSource` / `debug` / `debugFlags` /
+              // `apiFetch`, so that tail was unconditionally empty repo-wide and
+              // has been retired (objectui#7206) — which is why the repair is
+              // this prop and could not have been a provider. A grid that supplied none of the three rendered every
               // `dependsOn` column as a permanently gated, disabled trigger
               // ("Select region first") even when the row carried the parent —
               // a field that could never be filled, with no diagnostic. PR
@@ -4564,13 +4747,54 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `Contacts Detail` / `Record Detail`), including with no `I18nProvider`
   // mounted — `createSafeTranslation`'s fallback interpolates `{{label}}` from
   // `GRID_DEFAULT_TRANSLATIONS`.
-  const detailTitle = schema.label
-    ? t('detail.recordDetailWithLabel', { label: schema.label })
+  //
+  // ⚠️ The label is RESOLVED before it reaches `t()` (objectui#9092). This is an
+  // UNTYPED sink: `t`'s options are `Record<string, unknown>`, so when
+  // `ObjectGridSchema.label` was restored to `string | I18nLabel` the compiler
+  // named the two `string`-typed reads above and said nothing about this one.
+  // Unresolved, an inline locale map interpolates as `[object Object]` on BOTH
+  // paths — i18next substitutes the raw value, and the provider-less
+  // `interpolateFallback` runs it through `String(v)` — and this value IS the
+  // overlay's visible heading (`NavigationOverlay title=`, below), so the
+  // failure is user-facing rather than diagnostic.
+  //
+  // The fallthrough is deliberate: `resolveI18nLabel` answers `undefined` for an
+  // entry-less map and `''` for an empty entry, and both are falsy, so a label
+  // that resolves to nothing lands on the `objectName` branch exactly as a
+  // missing label always did. Testing `schema.label` itself could not do that —
+  // every object is truthy, so an entry-less map used to take the label branch.
+  const resolvedDetailLabel = resolveInlineI18nLabel(schema.label, displayLocale);
+  const detailTitle = resolvedDetailLabel
+    ? t('detail.recordDetailWithLabel', { label: resolvedDetailLabel })
     : schema.objectName
       ? t('detail.recordDetailWithLabel', {
           label: schema.objectName.charAt(0).toUpperCase() + schema.objectName.slice(1),
         })
       : t('detail.recordDetail');
+
+  /**
+   * The shell-side props every one of this component's three
+   * `NavigationOverlay` call sites shares (objectui#9299).
+   *
+   * Spelled once because three copies of a set like this is how two of them
+   * end up carrying a `popoverAnchorRef` and the third silently keeps falling
+   * back to the `Dialog` the ruling closed.
+   *
+   * - `popoverAnchorRef` (item 3): the row the user clicked. Before this card
+   *   NO renderer passed an anchor, so `popover` degraded to a `Dialog` on all
+   *   five surfaces — measured, not inferred.
+   * - `storageKey` / `legacyStorageKey` (item 4): one drag-resize
+   *   implementation, one key per object across every view type, and a width
+   *   persisted under the retired `objectui.drawerWidth.OBJECT` carries over.
+   * - `width`: an unauthored width lands on the ruled default (objectui#6584)
+   *   rather than on the shell's own `42rem` floor.
+   */
+  const recordOverlayShellProps = {
+    popoverAnchorRef: anchorRef,
+    storageKey: schema.objectName ? recordOverlayWidthStorageKey(schema.objectName) : undefined,
+    legacyStorageKey: schema.objectName ? legacyRecordDrawerWidthKey(schema.objectName) : undefined,
+    width: navigation.width ?? RECORD_OVERLAY_DEFAULT_WIDTH,
+  };
 
   // Form-based record detail renderer (replaces simple key-value dump).
   // Hoisted above the mobile card-view's early return (below) so both the
@@ -4578,6 +4802,64 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // this same type-aware renderer instead of the card view falling back to
   // a raw `String(value)` dump (which showed "[object Object]" for lookups).
   const renderRecordDetail = (record: any) => {
+    // ⭐ objectui#9299 — ONE payload on every view type.
+    //
+    // `ObjectGrid` already honoured all four `navigation.mode` values through
+    // `NavigationOverlay`, but it drew its OWN read-only key/value panel inside
+    // them while the gantt/kanban/calendar drew the rich
+    // `InlineEditProvider` -> `DetailView` -> `InlineEditSaveBar` payload. The
+    // card measured that as "nobody gets both": the renderers that honoured the
+    // mode drew the poorer body. The ruling closes it in one direction — one
+    // payload everywhere.
+    //
+    // ⚠️ READ-ONLY here, and deliberately so: capability is handler presence,
+    // and this renderer has no per-field write path to hand the panel. What
+    // changes is the FIDELITY of the reading (declared labels, typed widgets,
+    // honoured `hidden`, the object's own field order), not the ability to edit.
+    // ⚠️ DECLARED-FIELDS GATE, measured rather than assumed. The shared payload
+    // renders the object's DECLARED fields: `RecordDetailPanel` derives widgets
+    // from `objectSchema.fields[name].type`. The panel below renders the same
+    // values by INFERRING from them — a date-shaped string on a `*_date` key,
+    // a number on an `amount`-ish key — which is what objectui#4541 (locale-
+    // aware date fallback), objectui#8491 (the localized `Empty` placeholder)
+    // and objectui#8920 (the `format` hint) put here. A grid with no object
+    // schema — inline `value` rows, or a DataSource with no `getObjectSchema`
+    // — has NOTHING declared, so handing it to the shared payload renders raw
+    // ISO strings where a localized date used to be. Measured on this branch:
+    // `recordDetailDateLocale` read back `close_date2024-03-15` in a zh
+    // session. So the shared payload takes every grid that HAS declared
+    // fields — every console surface — and the inference reading stands where
+    // there is nothing to declare. ⛔ Not a preference: it is which of the two
+    // can render the value at all.
+    const panelRecordId = rowRecordId(record);
+    const hasDeclaredFields = !!objectSchema?.fields
+      && Object.keys(objectSchema.fields as Record<string, unknown>).length > 0;
+    if (schema.objectName && panelRecordId != null && hasDeclaredFields) {
+      return (
+        <div className="px-6 pt-6 pb-6" data-testid="record-detail-panel">
+          {/*
+            objectui#9722: `dataSource` is passed straight through — no cast.
+            This hand-off carried an `as any` too; measured on this branch, it
+            was paying for NOTHING (both sides declare `DataSource | undefined`
+            from `@object-ui/types`), so removing it restores a real check at
+            zero cost. The `objectSchema` cast below is a different question
+            and is deliberately left alone.
+          */}
+          <RecordDetailPanel
+            record={record}
+            objectName={schema.objectName}
+            recordId={panelRecordId}
+            dataSource={dataSource}
+            objectSchema={objectSchema as any}
+            onClose={navigation.close}
+          />
+        </div>
+      );
+    }
+    // No addressable record behind this row — a grid over inline `value` rows
+    // with no object name. The payload needs an object and an id to render
+    // field widgets against, so the plain reading of what the row carries is
+    // the honest answer; inventing an id would not be.
     const entries = Object.entries(record);
     // Honor `hidden: true` on the schema field def — internal/system fields
     // (e.g. database_url, environment_id, is_system) shouldn't leak into the
@@ -4764,7 +5046,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
     return (
       <>
-        <div className="space-y-2 p-2">
+        <div className="space-y-2 p-2" {...anchorCaptureProps}>
           {data.map((row, idx) => {
             // Collect secondary fields (skip the title column)
             const secondaryCols = displayColumns.slice(1, 5);
@@ -4890,7 +5172,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           })}
         </div>
         {navigation.isOverlay && (
-          <NavigationOverlay {...navigation} title={detailTitle}>
+          <NavigationOverlay
+            {...navigation}
+            title={detailTitle}
+            {...recordOverlayShellProps}
+          >
             {(record) => renderRecordDetail(record)}
           </NavigationOverlay>
         )}
@@ -5164,6 +5450,22 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   );
 
   // Rendered BulkActionDialog (shared across both render branches).
+  //
+  // ⭐ objectui#9722: `dataSource` reaches this hand-off through a `!`, and
+  // that non-null assertion is ALL that is erased here. It used to be an
+  // `as any`, and measured on this branch that cast was paying for two
+  // separate things at once: the optional-vs-required arm (this grid declares
+  // `dataSource?: DataSource`, the dialog demands one) AND the structural
+  // assignability of the four data-source members — which did not hold,
+  // because the executor's face still spelled the pre-objectui#9511
+  // `ReadonlyArray<string | number>` for the two bulk doors. Deriving those
+  // two doors from `DataSource` (see `BulkExecutorOptions`) makes the second
+  // one hold for real, so only the first still needs erasing, and any future
+  // drift of that face reddens HERE instead of passing silently.
+  //
+  // ⚠️ The `!` is not an idle tidy-up of the same lie: it preserves exactly
+  // today's runtime behaviour (a grid with no `dataSource` still hands the
+  // dialog `undefined`), and it is the one arm a type cannot check for us.
   const bulkDialog = (
     <BulkActionDialog
       def={activeBulkDef}
@@ -5171,7 +5473,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       skippedCount={activeBulkSkipped}
       open={!!activeBulkDef}
       onClose={handleBulkDialogClose}
-      dataSource={dataSource as any}
+      dataSource={dataSource!}
       resource={schema.objectName ?? ''}
       objectFields={objectSchema?.fields}
       runAction={runBulkActionRecord}
@@ -5179,13 +5481,29 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     />
   );
 
-  // For split mode, wrap the grid in the ResizablePanelGroup
-  if (navigation.isOverlay && navigation.mode === 'split') {
+  // For split mode, wrap the grid in the ResizablePanelGroup.
+  //
+  // ⭐ objectui#9299, MEASURED WHILE REPAIRING THIS CARD and repaired here.
+  // This branch used to be entered on the authored mode alone, and the shell's
+  // split branch opens `if (!isOpen || !mainContent) return null` — so a grid
+  // authored `split` rendered NOTHING until a record was selected, and a record
+  // could never be selected because there was no grid to click. Same defect
+  // class as the `ObjectTree` blank the card names, on the renderer the card
+  // calls correct; the card's measurement read only that `mainContent` is
+  // PASSED here, never that the closed state renders. Ruling item 2 requires
+  // `split` to work on all five, so the guard joins the open state.
+  if (
+    navigation.isOverlay
+    && navigation.mode === 'split'
+    && navigation.isOpen
+    && navigation.selectedRecord
+  ) {
     return (
       <>
         <NavigationOverlay
           {...navigation}
           title={detailTitle}
+          {...recordOverlayShellProps}
           mainContent={
             <div className="flex flex-col h-full">
               {gridToolbar}
@@ -5214,7 +5532,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }
 
   return (
-    <div ref={pullRef} className="relative h-full flex flex-col">
+    <div ref={pullRef} className="relative h-full flex flex-col" {...anchorCaptureProps}>
       {/* Re-fetch indicator while existing rows remain visible (filter/sort
           change). The initial-load skeleton above handles the empty case. */}
       <RefreshIndicator active={loading && data.length > 0} />
@@ -5245,6 +5563,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         <NavigationOverlay
           {...navigation}
           title={detailTitle}
+          {...recordOverlayShellProps}
         >
           {(record) => renderRecordDetail(record)}
         </NavigationOverlay>

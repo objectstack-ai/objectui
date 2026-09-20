@@ -155,9 +155,13 @@ export interface BuildPageOptions {
    * Opt in to the Reference Rail (aside region with
    * `record:reference_rail`). The rail is OFF by default — it fans out a
    * collection query per related list, which is wasteful on records the
-   * author never intended to summarize. Set `showReferenceRail: true`
-   * (per object via `detail.showReferenceRail`) to surface it; it then
+   * author never intended to summarize. Set `showReferenceRail: true` on
+   * this options object to surface it — that is the only route: ADR-0085
+   * removed the per-object `detail` hints block, so no object definition
+   * can switch the rail on, and a per-page rail is an authored
+   * `record:reference_rail` node in an assigned Page schema. It then
    * emits only when `related` has at least 2 entries.
+   * Pinned by `__tests__/referenceRailRoute-9816.test.ts`.
    */
   showReferenceRail?: boolean;
   /**

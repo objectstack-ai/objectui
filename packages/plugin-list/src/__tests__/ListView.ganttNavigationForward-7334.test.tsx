@@ -175,14 +175,21 @@ describe('ListView forwards an authored `navigation` down the gantt view-schema 
   });
 
   it('FORWARDS the whole authored block, not just `mode`', async () => {
-    // `useNavigationOverlay` reads `view`, `size` and `width` off the same
-    // object (`resolveOverlayWidth`), so forwarding a mode-only projection
-    // would trade this defect for a narrower one.
+    // `useNavigationOverlay` reads `size` and `width` off the same object
+    // (`resolveOverlayWidth`), so forwarding a mode-only projection would trade
+    // this defect for a narrower one. A non-`mode` member is what makes this
+    // case different from the two above it, and `size` is that member.
+    //
+    // ⛔ The block used to carry `view` as well, and no longer does:
+    // objectstack#18619 retired `navigation.view` as an ADR-0049 tombstone
+    // (objectui#9667), and objectui#9874 / PR objectui#9936 had already removed
+    // the matching read — `useNavigationOverlay` no longer has a `view` member
+    // to resolve, so naming it here described a read that is gone.
     const node = await viewSchema({
       ...BASE,
-      navigation: { mode: 'split', view: 'leave_summary', size: 'lg' },
+      navigation: { mode: 'split', size: 'lg' },
     });
-    expect(node.navigation).toEqual({ mode: 'split', view: 'leave_summary', size: 'lg' });
+    expect(node.navigation).toEqual({ mode: 'split', size: 'lg' });
   });
 
   it('REGRESSION GUARD: a gantt view authoring NO navigation gets no key — the `drawer` fallback stays reachable', async () => {

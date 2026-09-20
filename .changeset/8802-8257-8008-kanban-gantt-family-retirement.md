@@ -58,7 +58,31 @@ change.** That arm was the only schema face that ever declared `columns`,
 refused `allowCollapse` / `cardTemplates` / `columnWidths` / `titleField` /
 `draggable` / `onColumnAdd` / `onCardAdd` by name, and — through
 `columns: KanbanColumn[]` — the only one that judged a lane's `cards`
-(objectui#6939). The surviving `ObjectKanbanSchema` face declares none of them.
+(objectui#6939).
+
+⭐ **The sentence that stood here — «The surviving `ObjectKanbanSchema` face
+declares none of them» — is retired, and the two reasons it failed are DIFFERENT
+defects (objectui#9713).** It is replaced by a dated reading rather than silently
+overwritten, because half of it was true when written and erasing that would be a
+false record of its own:
+
+| key named just above | on `ObjectKanbanSchema` when this entry was written (`adf581278`, 2026-09-10) | on `main`, 2026-09-17 | what moved |
+| --- | --- | --- | --- |
+| `columns` | not declared | **declared** | objectui#8913 (PR objectui#8989), six hours after this entry was written |
+| `cardTitle` | not declared | **declared** | objectui#9606 (PR objectui#9709) |
+| `titleField` | **declared** | **declared** | nothing — the sentence was never true of this key |
+| `allowCollapse` | **declared**, a live `z.boolean().optional()` | **declared**, as a `retirementTombstone()` | objectui#8801 retired it; it was declared on this face throughout |
+| `swimlaneField`, `grouping`, `navigation`, `cardTemplates`, `columnWidths`, `draggable`, `onColumnAdd`, `onCardAdd`, and a lane's `cards` | not declared | not declared | nothing |
+
+⇒ For `columns` and `cardTitle` the claim **ROTTED**: it was true on 2026-09-10 and
+was falsified afterwards by cards that had no reason to read this file. For
+`titleField` and `allowCollapse` it was **BORN FALSE**: those two are named above as
+keys the `kanban` arm refused BY NAME — which the surviving face indeed does not do
+— but the surviving face declared both of them the whole time, and «declares none of
+them» said otherwise. ⛔ Do not restate any of this in the present tense: a pending
+entry publishes verbatim into the CHANGELOG, and an undated present-tense claim
+about another file is the construction that failed here.
+
 ⛔ Nothing about an `object-kanban` document changes: it was never judged by the
 `kanban` arm, so all of those keys have always ridden `BaseSchema`'s index
 signature there. What is gone is the `kanban` document that had them. Declaring

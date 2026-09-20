@@ -8,8 +8,8 @@ no longer accepts (objectui#4765).
 
 Comment-only — no runtime behaviour changes. `patch` rather than an empty frontmatter
 because the JSDoc sits on an **exported** declaration and therefore ships to consumers:
-measured with the package's own build (`tsc`, and `tsconfig.base.json` deliberately sets
-`removeComments: false`), `dist/data-protocol.d.ts` goes 40218 → 41781 bytes and the new
+measured with the package's own build (`tsc`, with `removeComments` set nowhere in its
+config chain, so the default `false` holds), `dist/data-protocol.d.ts` goes 40218 → 41781 bytes and the new
 prose is present in the emitted `.d.ts`. What a consumer reads on hover changes, so it
 is declared. The emitted `dist/data-protocol.js` is byte-identical (sha256
 `a3de34c5…`, 207 bytes both ways) — that file is a types-only module whose entire JS

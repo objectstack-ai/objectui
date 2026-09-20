@@ -194,7 +194,6 @@ const en = {
   form: {
     noPermissionToSave: "You don't have permission to save this record.",
     submitFailed: 'Could not save. Please try again.',
-    addItem: 'Add item',
     removeItem: 'Remove item',
     fieldRequired: 'This field is required',
     invalidFormat: 'Invalid format',
@@ -297,6 +296,9 @@ const en = {
       selectBusinessUnit: 'Select a business unit',
       selectPosition: 'Select a position',
       selectUnitAndSubordinates: 'Select a business unit',
+      selectField: 'Select a user field',
+      noUserFields: 'No user fields on this object',
+      fieldNotUserTyped: '{{name}} — not a user field',
     },
     filterCondition: {
       selectObjectFirst: 'Select an object first.',
@@ -345,6 +347,30 @@ const en = {
         'Not saved: {{name}} "{{text}}" is not a number. Enter plain decimals (example: 30.2741, 120.1551).',
       refusedResidue:
         'Not saved: {{name}} "{{text}}" and {{otherName}} "{{otherText}}" are not numbers. Enter plain decimals (example: 30.2741, 120.1551).',
+    },
+    // objectui#8148 — the FIFTH refusal sentence of objectui#6755's class, and
+    // the only SHARED one. The four above are each ONE widget's; this one is
+    // produced by `numberBadInput.tsx` for `NumberField`, `CurrencyField`,
+    // `PercentField` and both of `GeolocationField`'s boxes. That last is the
+    // sharpest case: it sits beside `LocationField`, whose refusals are keyed
+    // right above, so two adjacent coordinate widgets refused bad input in two
+    // different languages on the same form.
+    //
+    // ⭐ `{{example}}` is a HOLE, and that is what keeps decimal numerals out
+    // of every pack. Five different values reach this one sentence (`1234`,
+    // `1234.56`, `12.5`, `30.2741`, `120.1551`), so keying the example per
+    // widget would be five keys times ten packs — and each pack would then
+    // hold a decimal it could legitimately re-punctuate, where `1234,56` reads
+    // as the `latitude, longitude` PAIR `refusedFormat` above asks for. The
+    // widget fills the hole in ASCII; no pack spells a digit.
+    //
+    // The English value is byte-identical to the literal it replaces
+    // (`FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
+    // carries the same one), so English and provider-less rendering are
+    // unchanged.
+    number: {
+      badInput:
+        'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
     },
     // objectui#3342 — the tags widget's input hint, shown while the tag list
     // is empty. The author-declared `field.placeholder` always wins over this.
@@ -1344,7 +1370,6 @@ const en = {
   },
   dashboard: {
     addWidget: 'Add widget',
-    removeWidget: 'Remove widget',
     editLayout: 'Edit layout',
     saveLayout: 'Save layout',
     resetLayout: 'Reset layout',
@@ -1524,7 +1549,6 @@ const en = {
     addGroup: 'Add Group',
     addUrl: 'Add URL',
     addSeparator: 'Add Separator',
-    noNavItems: 'No navigation items yet.',
     logoUrl: 'Logo URL',
     primaryColor: 'Primary Color',
     faviconUrl: 'Favicon URL',
@@ -1557,7 +1581,6 @@ const en = {
     stepBrandingDesc: 'Logo, colors, and favicon',
     noObjectsFound: 'No objects found.',
     noNavItemsHint: 'No navigation items yet. Select objects in the previous step or add items manually.',
-    separator: 'Separator',
     separatorLabel: '— Separator —',
     newGroup: 'New Group',
     newLink: 'New Link',
@@ -2201,7 +2224,6 @@ const en = {
       importedToast: 'Imported {{count}} row(s).',
       importedWithSkipped: 'Imported {{ok}} row(s); skipped {{skipped}}.',
       configureView: 'Configure View',
-      toolbar: 'Toolbar',
       toolbarEnabledCount: '{{count}} of {{total}} enabled',
       searchFields: 'Search fields…',
       title: 'Title',
@@ -2273,7 +2295,6 @@ const en = {
       xAxisFieldHelp: 'The categorical or time dimension.',
       yAxisField: 'Y-axis field',
       yAxisFieldHelp: 'The numeric field to aggregate.',
-      groupBy: 'Group by',
       endDateField: 'End date field',
       ufTabs: 'Tabs',
       ufAddField: '+ Add filter field…',
@@ -2574,6 +2595,15 @@ const en = {
       role: 'Role',
       save: 'Save Changes',
     },
+    language: {
+      title: 'Language',
+      description: 'The language used for notifications and messages sent to you. The interface language is chosen separately, from the globe menu.',
+      label: 'Preferred language',
+      systemDefault: 'Use the deployment default',
+      save: 'Save',
+      saved: 'Language preference updated.',
+      readOnly: 'Your administrator manages the language for your account.',
+    },
     password: {
       changeTitle: 'Change Password',
       setTitle: 'Set Local Password',
@@ -2606,7 +2636,6 @@ const en = {
     label: 'Workspaces',
     default: 'My Workspace',
     switch: 'Switch workspace',
-    create: 'Create workspace',
     createTitle: 'Create a workspace',
     createDescription: 'A workspace is a shared space for your team to collaborate.',
     createButton: 'Create workspace',
@@ -2629,7 +2658,6 @@ const en = {
   },
   sidebar: {
     settings: 'Settings',
-    help: 'Help',
     helpTooltip: 'Help & Documentation',
     activityFeed: 'Activity feed',
     notifications: 'Notifications',
@@ -2669,7 +2697,6 @@ const en = {
   },
   home: {
     title: 'Home',
-    subtitle: 'Your workspace dashboard',
     nav: 'Home',
     allApps: 'All Applications',
     yourApps: 'Your apps',
@@ -2697,8 +2724,6 @@ const en = {
     },
     open: 'Open',
     loading: 'Loading workspace…',
-    recent: 'Recent',
-    starred: 'Starred',
     welcome: 'Build your business system with AI',
     welcomeDescription: 'Describe your business in one sentence — AI generates the objects, screens, APIs and agent tools. Or start from scratch.',
     welcomeAdminDescription: 'Describe your business in one sentence — AI generates the objects, screens, APIs and agent tools. Or set things up yourself from the menu on the left.',
@@ -2822,6 +2847,7 @@ const en = {
     resultsCount: '{{count}} result for "{{query}}"',
     resultsCountPlural: '{{count}} results for "{{query}}"',
     itemsAvailable: '{{count}} items available',
+    itemsAvailableOne: '{{count}} item available',
     noResults: 'No results found',
     noResultsHint: 'Try adjusting your search terms',
     typeObjects: 'Objects',
@@ -2848,7 +2874,11 @@ const en = {
     noAppsConfigured: 'No Apps Configured',
     noAppsConfiguredDescription: 'No applications have been registered. Create your first app or visit System Settings to configure your environment.',
     appNotAvailable: 'App not available',
-    appNotAvailableDescription: 'This app is not available yet — it may still be publishing. Try again in a moment.',
+    appNotAvailableDescription: 'This app is not available — try again in a moment.',
+    appNotFound: "This app can't be opened",
+    appNotFoundDescription: 'The server did not return this app for your account.',
+    appUnreachable: "Couldn't reach the server",
+    appUnreachableDescription: 'This app could not be checked. Try again in a moment.',
     appAccessDenied: "You don't have access to this app",
     appAccessDeniedDescription: 'This app exists, but your account is not authorized to open it. Ask an administrator to grant you access.',
     appAccessDeniedHome: 'Back to home',
@@ -2926,7 +2956,20 @@ const en = {
       revertLabel: 'Reverted a change',
       applyLabel: 'Build change',
       revert: 'revert',
-      items: 'item(s)',
+      // objectui#9266 — the count is INSIDE the value, one interpolated string
+      // per pack. It used to be a bare unit word that `CommitTimeline` glued to
+      // a number it rendered itself, which no pack could make agree: `de` read
+      // `1 Elemente`, `ru` `1 элементов`, `ar` `1 عناصر`. Each pack now states
+      // the count in its own count-INVARIANT idiom — `en` keeps the `(s)` marker
+      // it already dodged with, `zh`/`ja`/`ko` keep the inline counter their
+      // grammar needs no plural for, and `de`/`fr`/`es`/`pt`/`ru`/`ar` use the
+      // label-colon form (`Elemente: 3`, `Элементов: 3`), which is the shape
+      // `fields.textarea.charactersRemaining` already uses for this exact
+      // reason. ⛔ Do not "upgrade" this to a `_one`/`_other` family: identical
+      // key sets across ten packs (all-locales-key-parity) leave `ru` without
+      // `_few` and `ar` without `_two`/`_many`, so those categories land on the
+      // base key and `ru` goes back to reading `2 элементов`.
+      items: '{{count}} item(s)',
       revertAction: 'Revert',
       reverted: 'Reverted — the change has been undone.',
       revertFailed: 'Revert failed',
@@ -3668,14 +3711,6 @@ const en = {
         storage: 'Storage',
         other: 'Other',
       },
-      pricing: {
-        free: 'Free',
-        freemium: 'Freemium',
-        paid: 'Paid',
-        subscription: 'Subscription',
-        'usage-based': 'Usage-based',
-        'contact-sales': 'Contact Sales',
-      },
       relativeTime: {
         today: 'today',
         daysAgo: '{{count}}d ago',
@@ -3683,15 +3718,8 @@ const en = {
         yearsAgo: '{{count}}y ago',
       },
     },
-  approvals: {
-    approve: 'Approve',
-    reject: 'Reject',
-    comment: 'Comment (optional)',
-    approveSuccess: 'Approved',
-    rejectSuccess: 'Rejected',
-    rejectConfirm: 'Reject this approval request?',
-  },
   approvalsInbox: {
+    recordUnresolvable: 'This record cannot be opened',
     loadMore: 'Load more',
     loadingMore: 'Loading…',
     loadedOf: 'Loaded {{loaded}} of {{total}}',

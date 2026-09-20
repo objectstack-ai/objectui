@@ -20,7 +20,28 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import type { DataSource, TreeViewConfig } from '@object-ui/types';
+/**
+ * The `object-tree` NODE this renderer draws, imported BY NAME from the
+ * published barrel (objectui#8655 step ①; objectui#9550 is what put the name
+ * on that barrel, which is what makes a named import possible at all).
+ *
+ * ⛔ Not a second declaration of the node's shape. `ObjectTreeSchema` in
+ * `@object-ui/types` is the one declaration — the interface whose own docblock
+ * calls itself the "Object Tree (tree-grid) Component Schema", and which
+ * `views.ts` names as "the node an author writes". Every key and every key TYPE
+ * arrives from there, so a key added, renamed or retyped on it reaches this
+ * renderer without an edit here: the property a hand-copied interface cannot
+ * have, and the same derivation `ResolvedTreeConfig` below already uses against
+ * `TreeViewConfig`.
+ *
+ * ⛔ Never re-declared LOCALLY under this name, and not aliased on the way in:
+ * a module-local type under a published type's name is the two-layers-one-word
+ * trap objectui#8651 recorded when a local `CalendarSchema` shadowed the
+ * published one. That is what makes the line below a plain named import, and
+ * the warning is MORE load-bearing now that the published name is importable,
+ * not less.
+ */
+import type { DataSource, ObjectTreeSchema, TreeViewConfig } from '@object-ui/types';
 import {
   useNavigationOverlay,
   useSafeFieldLabel,
@@ -30,7 +51,17 @@ import {
   applyNonGridRowCeiling,
   NonGridRowCeilingNote,
 } from '@object-ui/react';
-import { NavigationOverlay, cn } from '@object-ui/components';
+import {
+  NavigationOverlay,
+  cn,
+  legacyRecordDrawerWidthKey,
+  recordOverlayWidthStorageKey,
+  useOverlayAnchor,
+} from '@object-ui/components';
+import {
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+  RecordDetailPanel,
+} from '@object-ui/plugin-detail';
 import { createSafeTranslation } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import {
@@ -69,10 +100,50 @@ const useTreeTranslation = createSafeTranslation(
 );
 
 export interface ObjectTreeProps {
-  schema: any;
+  /**
+   * The `object-tree` node this renderer draws.
+   *
+   * Both of this package's registrations (`object-tree` and `tree`, in this
+   * package's `index.tsx`) publish one `treeInputs` list and one renderer, so one
+   * props type covers both tags — the shape `plugin-map` already has under two
+   * tags, and the shape objectui#8651 gave `ObjectCalendar`.
+   *
+   * ## What typing this BUYS, stated rather than assumed (objectui#8655)
+   *
+   * It was `any`, and an `any` is not a weaker answer than a type — it is NO
+   * answer. `checker.getPropertyOfType` through `any` returns `undefined` for
+   * `objectName`, which this schema certainly declares, exactly as it does for a
+   * nonsense token; so every "is this key declared?" asked of this prop came back
+   * "unknown" while LOOKING like "undeclared". That ordering is the card's — type
+   * FIRST, classify second — and it is objectui#8410's standing ruling that an
+   * absence returned by an instrument structurally unable to see a declaration is
+   * not a reading at all.
+   *
+   * ## ⚠️ The CEILING, so nobody reads this as more than it is
+   *
+   * `BaseSchema` ends in `[key: string]: any`, so an UNDECLARED key read off this
+   * type still compiles and still types `any`. What the annotation buys is that the
+   * question becomes ANSWERABLE by the checker, ⛔ not that an undeclared read is
+   * refused — the same ceiling objectui#5155 / objectui#7927 record for the mirror.
+   */
+  schema: ObjectTreeSchema;
   dataSource?: DataSource;
   className?: string;
-  onRowClick?: (record: any) => void;
+  /**
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (record: any, event?: any) => void;
   /** Inline data (passed by ListView/ObjectView for non-grid views). */
   data?: any[];
   loading?: boolean;
@@ -146,12 +217,22 @@ function fieldKey(f: any): string | undefined {
  *     `labelField` to `'name'` before the node is built, so the `??` chain never
  *     fell through.
  *
+ * ## Why the PARAMETER is typed, and not left `any` (objectui#8655)
+ *
+ * The sole call site hands this function the `schema` PROP. Typing the prop and
+ * leaving this parameter `any` would move the card's own defect one hop down
+ * rather than close it: the six reads below would still be asked of `any`, and
+ * `checker.getPropertyOfType` cannot say declared-or-not through `any` — it
+ * answers `undefined` for a key this node certainly declares exactly as it does
+ * for a nonsense token. The annotation is what makes those six ANSWERABLE; it
+ * refuses nothing, because `BaseSchema` ends in `[key: string]: any`.
+ *
  * objectui#8253's ruling said to declare the key only if the console writes it —
  * measured, it does not (`CreateViewDialog.tsx`'s `tree` slot collects
  * `parentField` alone) — else delete the read. This is that deletion, executed
  * on objectui#8841.
  */
-function getTreeConfig(schema: any): ResolvedTreeConfig {
+function getTreeConfig(schema: ObjectTreeSchema): ResolvedTreeConfig {
   const nested = (schema.tree || schema.filter?.tree || {}) as TreeViewConfig;
   const rawFields = Array.isArray(schema.fields)
     ? schema.fields
@@ -680,7 +761,18 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
         }
 
         // Otherwise fall back to inline/static data (tests, value provider).
-        const passed = (rest as any).data ?? (schema as any).data;
+        //
+        // ⭐ `schema.data` is read WITHOUT a cast since objectui#8655, and the
+        // missing cast is the finding rather than a tidy-up. This was one of
+        // that card's two class-(d) reads — reported "unanswerable", not
+        // "undeclared", because the prop was `any` and
+        // `checker.getPropertyOfType` cannot tell those apart through one.
+        // Typed at the node, the checker answers: `data` IS declared, on
+        // `BaseSchema` ("Arbitrary data attached to the component"), so the
+        // `as any` was hiding a declaration rather than reaching past its
+        // absence. ⛔ The sibling cast on `rest` stays — `rest` is the
+        // untyped remainder of the props bag, a different question.
+        const passed = (rest as any).data ?? schema.data;
         if (Array.isArray(passed)) {
           if (!cancelled) {
             setRecords(passed);
@@ -797,6 +889,22 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   });
 
   const navigation = useNavigationOverlay({
+    // ⛔ The cast STAYS, and it stays on purpose (objectui#8655). This is the
+    // card's other class-(d) read, and typing the node made it answerable:
+    // measured with `checker.getPropertyOfType` against the node type, this key
+    // is UNDECLARED — it survives only on `BaseSchema`'s `[key: string]: any`.
+    // Dropping the cast would compile through that index signature and type
+    // `any` with nothing marking it, which is the defect rather than the
+    // absence of one (objectui#8651 records that shape).
+    //
+    // ⛔ And this card does NOT rule it. `navigation` is objectui#8652's
+    // family: maintainer-ruled option B — declare on the PLATFORM element
+    // schemas first, then mirror — blocked on objectstack#17987, whose unlock
+    // criterion is a released `@objectstack/spec` carrying the declaration
+    // being installable here. Measured on the installed spec: `navigation` is
+    // declared on exactly one `ComponentPropsMap` entry, `object-grid`, and
+    // this element has no entry at all. ⇒ not declared here, not retired here,
+    // read untouched.
     navigation: (schema as any).navigation,
     // The record-page URL names the object the ROWS came from, not the block's
     // bare top-level key (objectui#7638). objectui#6939 published `objectName`
@@ -814,6 +922,11 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     objectName: resolveRecordSourceObjectName(schema, dataConfig) ?? schema.objectName,
     onRowClick,
   });
+
+  // objectui#9299 item 3 — `popover` anchors to the NODE the user clicked. The
+  // row's own click handler carries the DOM event, so the anchor is recorded
+  // there rather than through a container-level listener.
+  const { anchorRef, captureAnchor } = useOverlayAnchor();
 
   // Heading of the record-detail overlay rendered at the bottom of this file.
   // Must stay above the conditional returns below — rules-of-hooks.
@@ -843,7 +956,96 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     );
   }
 
-  return (
+  /**
+   * The record overlay — the ONE shared payload, in whichever shell the author
+   * declared.
+   *
+   * ⭐ objectui#9299. `ObjectTree` already honoured all four modes through
+   * `NavigationOverlay`, but it rendered its OWN key/value dump inside them
+   * while the three drawer-only renderers rendered the rich
+   * `InlineEditProvider` -> `DetailView` -> `InlineEditSaveBar` payload. The
+   * card measured that as "nobody gets both": the renderers that honoured the
+   * mode drew the poorer body. The ruling closes it in one direction — one
+   * payload everywhere — so this site now mounts {@link RecordDetailPanel}.
+   *
+   * ⚠️ It is a READ-ONLY panel here, and deliberately so: capability is handler
+   * presence, and `ObjectTree` has no write path to hand it. That is a strict
+   * gain over the dump it replaces (typed widgets, declared labels, honoured
+   * `hidden`), not a new edit surface.
+   *
+   * `mainContent` is what `split` needs — and its absence is exactly what
+   * objectui#9299 measured as the `ObjectTree` blank: the split branch of the
+   * shell is `if (!isOpen || !mainContent) return null`, and nothing here ever
+   * passed one, so an authored `split` rendered NOTHING on this renderer
+   * (item 2). `popoverAnchorRef` is what `popover` needs (item 3).
+   */
+  const renderRecordOverlay = (mainContent?: React.ReactNode): React.ReactNode => {
+    if (!navigation.isOverlay) return null;
+    const overlayObjectName =
+      resolveRecordSourceObjectName(schema, dataConfig) ?? schema.objectName;
+    return (
+      <NavigationOverlay
+        {...navigation}
+        /* Keyed, not a bare literal (objectui#3459). This value is handed to
+           `NavigationOverlay`'s `title` prop, so the overlay's own
+           `detail.recordDetail` default never applies here — whatever this
+           resolves to IS the visible heading of the drawer/modal/split/popover.
+           Reusing that very key rather than minting a twin keeps one control on
+           one translation. */
+        title={t('detail.recordDetail')}
+        mainContent={mainContent}
+        popoverAnchorRef={anchorRef}
+        // One drag-resize implementation, one key per object across every view
+        // type, and a width persisted under the retired
+        // `objectui.drawerWidth.OBJECT` carries over (item 4).
+        storageKey={overlayObjectName ? recordOverlayWidthStorageKey(overlayObjectName) : undefined}
+        legacyStorageKey={overlayObjectName ? legacyRecordDrawerWidthKey(overlayObjectName) : undefined}
+        width={navigation.width ?? RECORD_OVERLAY_DEFAULT_WIDTH}
+      >
+        {(record) => {
+          const rec = record as Record<string, any>;
+          const recordId = rec.id ?? rec._id;
+          // ⚠️ DECLARED-FIELDS GATE — the same reading `ObjectGrid` carries, for
+          // the same measured reason: the shared payload renders the object's
+          // DECLARED fields, so a tree with no object schema has nothing for it
+          // to render typed and the plain reading of the row is the better
+          // answer.
+          const hasDeclaredFields = !!objectSchema?.fields
+            && Object.keys(objectSchema.fields as Record<string, unknown>).length > 0;
+          if (!overlayObjectName || recordId == null || !hasDeclaredFields) {
+            // No addressable record, or nothing declared to render against —
+            // the plain reading of what the row carries is the honest answer.
+            return (
+              <div className="space-y-3 p-4">
+                {Object.entries(rec).map(([key, value]) => (
+                  <div key={key} className="flex flex-col">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {key.replace(/_/g, ' ')}
+                    </span>
+                    <span className="text-sm">{formatCellValue(value, cellContext(key)) || '—'}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          }
+          return (
+            <div className="px-6 pt-6 pb-6">
+              <RecordDetailPanel
+                record={rec}
+                objectName={overlayObjectName}
+                recordId={recordId}
+                dataSource={dataSource}
+                objectSchema={objectSchema as any}
+                onClose={navigation.close}
+              />
+            </div>
+          );
+        }}
+      </NavigationOverlay>
+    );
+  };
+
+  const treeView = (
     <div className={cn('w-full overflow-auto', className)} data-testid="object-tree">
       <table className="w-full border-collapse text-sm">
         <thead>
@@ -868,7 +1070,12 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
                 className="border-b hover:bg-accent/50 cursor-pointer"
                 data-testid="object-tree-row"
                 data-depth={node.depth}
-                onClick={(e) => navigation.handleClick(node.record, e)}
+                onClick={(e) => {
+                  // Record the clicked row BEFORE opening, so `popover` mode
+                  // has an anchor by the time it renders (objectui#9299).
+                  captureAnchor(e);
+                  navigation.handleClick(node.record, e);
+                }}
               >
                 <td className="px-3 py-2">
                   <div
@@ -922,31 +1129,29 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
         truncated={rowCeiling.truncated}
       />
 
-      {navigation.isOverlay && (
-        /* Keyed, not a bare literal (objectui#3459). This value is handed to
-           `NavigationOverlay`'s `title` prop, so the overlay's own
-           `detail.recordDetail` default never applies here — whatever this
-           resolves to IS the visible heading of the drawer/modal/split/popover.
-           Reusing that very key rather than minting a twin keeps one control on
-           one translation. Visible English changes `Record Details` →
-           `Record Detail` (the singular the whole `detail.*` family already
-           spells); nothing in `e2e/` or the unit suites addressed the plural. */
-        <NavigationOverlay {...navigation} title={t('detail.recordDetail')}>
-          {(record) => (
-            <div className="space-y-3">
-              {Object.entries(record).map(([key, value]) => (
-                <div key={key} className="flex flex-col">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    {key.replace(/_/g, ' ')}
-                  </span>
-                  <span className="text-sm">{formatCellValue(value, cellContext(key)) || '—'}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </NavigationOverlay>
-      )}
     </div>
+  );
+
+  // `split` (item 2): the tree IS the main content — it moves into the
+  // overlay's left panel with the record panel beside it. Before objectui#9299
+  // this renderer passed no `mainContent` at all, so the shell's split branch
+  // (`if (!isOpen || !mainContent) return null`) rendered NOTHING for an
+  // authored `split` — the measured blank.
+  if (
+    navigation.isOverlay
+    && navigation.mode === 'split'
+    && navigation.isOpen
+    && navigation.selectedRecord
+  ) {
+    const splitOverlay = renderRecordOverlay(treeView);
+    if (splitOverlay) return <>{splitOverlay}</>;
+  }
+
+  return (
+    <>
+      {treeView}
+      {renderRecordOverlay()}
+    </>
   );
 };
 

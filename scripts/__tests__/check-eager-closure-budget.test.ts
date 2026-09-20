@@ -37,6 +37,11 @@ import {
   validateReport,
 } from '../check-eager-closure-budget.mjs';
 
+// The classifier this gate's prose now CITES instead of paraphrasing
+// (objectui#9155). Imported so the must-stay leg of that pin reads the real
+// tables rather than a copy of them. Same `allowJs` inference as above.
+import { OPTIONAL_CONTEXTS, REQUIRED_CONTEXTS } from '../dependabot-merge-gate.mjs';
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const workflowPath = path.join(repoRoot, '.github/workflows/performance-budget.yml');
 const viteConfigPath = path.join(repoRoot, 'apps/console/vite.config.ts');
@@ -663,10 +668,11 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
     // literal is `BASELINE.gzipBytes` rendered, re-taken each time the baseline
     // moves (objectui#6683 down to 3177.7, objectui#6776 down to 3146.8,
     // objectui#7122 UP to 3468.0 on the authorised raise, objectui#7479 down to
-    // 3090.6 when nine locale catalogues left the eager closure) — a
+    // 3090.6 when nine locale catalogues left the eager closure, objectui#9251
+    // down to 3060.0 when lucide's 1,781-icon record left it) — a
     // rendering derived in the test would agree with the renderer by
     // construction and pin nothing.
-    expect(result.message).toContain('3090.6');
+    expect(result.message).toContain('3060.0');
   });
 
   it('is exactly one regression wide, from either side of the line', () => {
@@ -848,13 +854,22 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
 
     /**
      * A declared row's hinge is its pinned figure LESS one grain, and the pair
-     * is taken at that exact boundary. 4,289 is the live `ui-components`
-     * headroom the allowance was read from, so this is the ratchet at its own
-     * hinge rather than a rounded neighbourhood of it.
+     * is taken at that exact boundary.
+     *
+     * ⭐ The allowance below is SYNTHETIC and that is deliberate (objectui#9251).
+     * It used to be read live out of {@link EXHAUSTED_HEADROOM_ALLOWANCES}, and
+     * when `ui-components` paid its debt off the table went empty — which would
+     * have left this whole block with no subject, silently retiring the ratchet
+     * on the run that proved it worked. A mechanism must stay pinned when
+     * nothing currently uses it, or the day someone needs it again is the day
+     * they find out it was never checked. 4,289 is kept as the figure because it
+     * is the one the ratchet was designed and measured against; the LIVE table
+     * is pinned separately, under "the allowance table is a ratchet, pinned".
      */
     describe('a declared row', () => {
       const CEILING = PER_CHUNK_GZIP_CEILINGS['ui-components'];
-      const ALLOWANCE = EXHAUSTED_HEADROOM_ALLOWANCES['ui-components'];
+      const ALLOWANCE = 4_289;
+      const DECLARED = { 'ui-components': ALLOWANCE };
       const GRAIN =
         REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE;
 
@@ -862,6 +877,7 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
       const atHeadroom = (headroom: number) =>
         evaluateHeadroomSensitivity({
           report: sensitivityReport(BASELINE.gzipBytes, { 'ui-components': CEILING - headroom }),
+          allowances: DECLARED,
         });
 
       it('is held open at its pinned figure', () => {
@@ -930,7 +946,7 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         const at = (headroom: number, allowance: number) =>
           evaluateHeadroomSensitivity({
             report: sensitivityReport(BASELINE.gzipBytes, { 'ui-components': CEILING - headroom }),
-            allowances: { ...EXHAUSTED_HEADROOM_ALLOWANCES, 'ui-components': allowance },
+            allowances: { 'ui-components': allowance },
           }).status;
 
         expect(at(Math.floor(paidDown - GRAIN), paidDown)).toBe('error');
@@ -942,11 +958,18 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
     it('names every declared row in the PASSING verdict, not only when one fires', () => {
       // A debt list that is only legible on the run that reds is the parenthetical
       // this card is about: noticing stays manual, and it already failed twice.
+      //
+      // ⭐ Driven by a SYNTHETIC table, and the live one is folded in beside it.
+      // Reading only the live table made this case vacuous the moment the last
+      // debt was paid off (objectui#9251) — a green tick over an empty `for`.
+      const declared = { ...EXHAUSTED_HEADROOM_ALLOWANCES, 'ui-components': 4_289 };
       const result = evaluateHeadroomSensitivity({
         report: sensitivityReport(BASELINE.gzipBytes),
+        allowances: declared,
       });
       expect(result.status).toBe('pass');
-      for (const [name, allowance] of Object.entries(EXHAUSTED_HEADROOM_ALLOWANCES)) {
+      expect(Object.keys(declared).length).toBeGreaterThan(0);
+      for (const [name, allowance] of Object.entries(declared)) {
         expect(result.message).toContain(`chunk \`${name}\``);
         expect(result.message).toContain(`declared ${allowance}-byte allowance`);
       }
@@ -959,23 +982,32 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
      * enforcement: an edit in either direction has to come here and be argued.
      */
     describe('the allowance table is a ratchet, pinned', () => {
-      it('holds exactly the rows measured under the floor on the day it landed', () => {
-        // ⚠️ `i18n-locales: 8_804` was here until objectui#7479 and is REMOVED,
-        // not lowered: its chunk ceased to exist when nine of the ten
-        // catalogues became `import()`ed, and the one that stays is budgeted
-        // under `i18n-locale-en` at a headroom ABOVE the floor, needing no
-        // allowance. That is the only way a row leaves this table.
-        expect(EXHAUSTED_HEADROOM_ALLOWANCES).toEqual({
-          'ui-components': 4_289,
-        });
+      it('holds exactly the rows still in debt — today, none', () => {
+        // ⚠️ Two rows have left this table and NEITHER was lowered, which is the
+        // distinction the ratchet is made of:
+        //
+        //   `i18n-locales: 8_804`  — objectui#7479. Its CHUNK ceased to exist.
+        //   `ui-components: 4_289` — objectui#9251. Its ROW cleared the floor:
+        //     lucide's 1,781-icon record came off the eager path, the ceiling
+        //     was re-pinned DOWN to 289,000 over a 265,937 measurement, and the
+        //     headroom went 0.02x -> 0.25x.
+        //
+        // ⛔ An empty table is NOT this mechanism being retired. Every case in
+        // "a declared row" above now drives a SYNTHETIC entry for exactly that
+        // reason, so the ratchet stays measured with nothing currently owing.
+        expect(EXHAUSTED_HEADROOM_ALLOWANCES).toEqual({});
       });
 
       it('every entry is real debt — strictly under the floor it excuses', () => {
         // An allowance at or above the floor is not debt, it is a second floor
         // for one row, and the row should simply have been dropped from here.
+        // ⚠️ The live table is empty today, so the rule is also asserted the way
+        // it FAILS — otherwise this case is a green tick over an empty loop.
         for (const allowance of Object.values(EXHAUSTED_HEADROOM_ALLOWANCES)) {
           expect(allowance).toBeLessThan(FLOOR);
         }
+        expect(4_289).toBeLessThan(FLOOR);
+        expect(FLOOR).toBeLessThan(FLOOR + 1);
       });
 
       it('is compared at the coarser of the two grids this gate renders on', () => {
@@ -999,10 +1031,13 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         expect(grain).toBeGreaterThan(1);
         expect(grain).toBeLessThan(floor);
         // Every declared row must still have a reachable trip point above zero,
-        // or its entry would be decorative.
+        // or its entry would be decorative. Asserted on the live table AND on
+        // the synthetic figure the ratchet was measured against, so an empty
+        // live table cannot make this read as checked.
         for (const allowance of Object.values(EXHAUSTED_HEADROOM_ALLOWANCES)) {
           expect(allowance - grain).toBeGreaterThan(0);
         }
+        expect(4_289 - grain).toBeGreaterThan(0);
       });
 
       it('every entry names a ceiling that exists', () => {
@@ -1012,6 +1047,10 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         for (const key of Object.keys(EXHAUSTED_HEADROOM_ALLOWANCES)) {
           expect(judged).toContain(key);
         }
+        // Non-vacuity for an empty live table: the key the last entry named is
+        // still a budgeted chunk, and an invented one is still not.
+        expect(judged).toContain('ui-components');
+        expect(judged).not.toContain('a-chunk-nothing-budgets');
       });
     });
   });
@@ -1107,7 +1146,7 @@ describe('main', () => {
     // about the FIXTURE while the gate under test behaved correctly. The number
     // this case is actually about is "the report's chunk count, echoed".
     expect(outputs.closure_chunks).toBe(String(fixture.files.length));
-    expect(outputs.closure_gzip_kb).toBe('3090.6');
+    expect(outputs.closure_gzip_kb).toBe('3060.0');
   });
 
   it('exits 1 — a verdict about the BUNDLE — when over budget', () => {
@@ -1423,9 +1462,16 @@ describe('main', () => {
 });
 
 /**
- * objectui#6245 — the fourth half. `Bundle Analysis` is a required context, and
- * GitHub does not re-run a PR's checks when the base branch moves, so a green
- * verdict can be computed against ceilings `main` has since replaced.
+ * objectui#6245 — the fourth half. GitHub does not re-run a PR's checks when the
+ * base branch moves, so a green verdict can be computed against ceilings `main`
+ * has since replaced.
+ *
+ * ⛔ This docblock classified `Bundle Analysis` against the branch-protection
+ * set until objectui#9155 and no longer does, in either direction — that set is
+ * not readable from inside a checkout. `evaluateCeilingFreshness`'s own docblock
+ * carries what the tree can re-derive instead, cited to
+ * `scripts/dependabot-merge-gate.mjs` and to the workflow's `on:` block; the pin
+ * at the bottom of this file keeps all three files off the claim.
  *
  * Not hypothetical: run 32804357171 started 6m50s after `0409b766d` lowered the
  * aggregate ceiling from 4,086,000 to 3,345,000 and published
@@ -1920,15 +1966,30 @@ describe('the prose attached to the baselines (objectui#7046)', () => {
 
   /**
    * What each baseline carries AS DATA, recorded so the pin above cannot go
-   * vacuous in silence. Measured on `main`: `BASELINE` carries exactly one
-   * commit string; `PER_CHUNK_BASELINE` carries NONE — its per-key provenance
+   * vacuous in silence. Measured on `main`: `BASELINE` carries exactly two
+   * commit strings; `PER_CHUNK_BASELINE` carries NONE — its per-key provenance
    * commits live only in prose, with no exported value to check them against,
    * which is why the pin above says nothing about it and the claim pin below is
    * what guards its block. Add a `commit` field there and this reds, and the pin
    * above starts covering it.
+   *
+   * The second string is objectui#9355's `squashMerge`: the tree the reading
+   * was taken on cannot be resolved from a `main` checkout, so the squash that
+   * landed it is carried beside it as the handle that can. ⭐ Carrying it as
+   * DATA rather than leaving it in prose is the point of the change — a prose
+   * hash is guarded by nothing, while a carried one is dragged under the
+   * positive pin above and cannot go stale in silence, which is the
+   * objectui#6778 defect one column over.
+   *
+   * ⚠️ This case is POSITIONAL and exact on purpose, and ⛔ must not be widened
+   * to tolerate either shape. A re-baseline cannot know its own squash sha —
+   * the sha does not exist until the pull request merges — so the honest value
+   * at that moment is `null`, and `null` reds here. That red is the intended
+   * signal: it is a ledger, it is re-pinned deliberately, and a predicate loose
+   * enough to accept both shapes would stop recording anything.
    */
   it('records what each baseline carries as data, so the pin cannot go vacuous', () => {
-    expect(commitsCarriedBy(BASELINE)).toEqual([BASELINE.commit]);
+    expect(commitsCarriedBy(BASELINE)).toEqual([BASELINE.commit, BASELINE.squashMerge]);
     expect(commitsCarriedBy(PER_CHUNK_BASELINE)).toEqual([]);
   });
 
@@ -2346,5 +2407,134 @@ describe('the ceiling note states no rendered size (objectui#8964)', () => {
         'explain, for four days, why two retired numbers were consistent with each other. Name the ' +
         'constant and let the gate print the reading (objectui#8964).',
     ).toEqual([]);
+  });
+});
+
+// ── no prose here classifies this check against branch protection ───────────
+
+/**
+ * objectui#9155 — eight sentences across this gate's three prose files stated,
+ * as a fact, that `Bundle Analysis` belongs to the branch-protection set.
+ *
+ * The repo's own machine-readable classifier answered the neighbouring question
+ * differently: `scripts/dependabot-merge-gate.mjs` lists that check under
+ * `OPTIONAL_CONTEXTS`, because this workflow filters at the trigger. And the
+ * workflow contradicted ITSELF four lines apart — its job-ceiling comment had
+ * measured that the `on:` block subscribes `push` and `pull_request` and no
+ * `merge_group`, directly under a sentence that read the other way.
+ *
+ * ⛔ The fix was NOT to flip the prose to the opposite classification. The
+ * branch-protection set is not readable from inside a checkout (AGENTS.md says
+ * so), so BOTH readings are claims no reader can re-derive, and swapping one
+ * for the other buys one round before the same drift returns. The prose now
+ * cites the two things the tree does answer, and this pin is the instrument
+ * AGENTS.md #9 asks for in exchange: the claim cannot come back in either
+ * direction without going red.
+ *
+ * ⚠️ The population is COMMENT PROSE and this pin reads it deliberately, with
+ * no code/comment split at all. A code-only reader would score the whole of
+ * objectui#9155 as a no-op, because every one of the eight sites was a comment.
+ *
+ * ⚠️ The refused phrase is ASSEMBLED below rather than written out: this file
+ * is itself in the population, and a pin that spells its own trigger fails on
+ * its own source. The must-hit control is what keeps that assembly honest.
+ *
+ * ⛔ No count of either classifier table is asserted or written here. That list
+ * grows — two correct readings taken a day apart during this card's own triage
+ * disagreed — and a size baked into a test is the same defect one level up.
+ */
+describe('no prose here classifies `Bundle Analysis` against branch protection (objectui#9155)', () => {
+  /** Assembled, never spelled: this file is inside the population it scans. */
+  const REQ = `requi${'red'}`;
+
+  /**
+   * Two forms of one claim. The first catches it asserted — and, since the
+   * negation contains the positive verbatim, asserted in reverse as well; the
+   * second catches the looser denial that drops the noun.
+   */
+  const CLASSIFIES = new RegExp(String.raw`\b${REQ}\s+contexts?\b|\bis\s+not\s+${REQ}\b`, 'gi');
+
+  /** The three files objectui#9155 is about, by the name a failure prints. */
+  const POPULATION: Record<string, string> = {
+    'check-eager-closure-budget.mjs': checkerPath,
+    'check-eager-closure-budget.test.ts': fileURLToPath(import.meta.url),
+    'performance-budget.yml': workflowPath,
+  };
+
+  /**
+   * The must-HIT control, with a known direction. Without it the three zeroes
+   * below are equally consistent with a matcher that stopped matching anything
+   * — which is how a pin on absence goes quietly green forever.
+   */
+  it('sees the retired sentence when one is put in front of it', () => {
+    expect(`\`Bundle Analysis\` is a ${REQ} context, and GitHub`.match(CLASSIFIES)).toEqual([
+      `${REQ} context`,
+    ]);
+    expect(`      # a ${REQ} context turning red on someone else's diff`.match(CLASSIFIES)).toEqual([
+      `${REQ} context`,
+    ]);
+    expect(`Bundle Analysis is not ${REQ}.`.match(CLASSIFIES)).toEqual([`is not ${REQ}`]);
+    // ...and stays quiet on the citations the prose is now allowed to carry.
+    expect(
+      'lists it under `OPTIONAL_CONTEXTS`; no `merge_group` leg in the `on:` block'.match(CLASSIFIES),
+    ).toBeNull();
+  });
+
+  it('reads three files that are really there, not three empty strings', () => {
+    for (const [name, file] of Object.entries(POPULATION)) {
+      const source = fs.readFileSync(file, 'utf8');
+      expect(source.length, `${name} read as empty`).toBeGreaterThan(1000);
+      expect(source, `${name} is no longer about this gate`).toContain('Bundle Analysis');
+    }
+  });
+
+  it.each(Object.entries(POPULATION))('%s asserts no such classification', (name, file) => {
+    const hits = [...fs.readFileSync(file, 'utf8').matchAll(CLASSIFIES)].map((m) => m[0]);
+    expect(
+      hits,
+      `${name} classifies a check against the branch-protection set (${hits.join(', ')}). That set ` +
+        'is not readable from inside a checkout, so the sentence is a standing claim no reader can ' +
+        'check and nothing goes red when it drifts — which is the whole of objectui#9155. Cite what ' +
+        'the tree answers instead: the `OPTIONAL_CONTEXTS` entry in `scripts/dependabot-merge-gate.mjs` ' +
+        "with its own stated reason, and the absence of a `merge_group` leg in the workflow's `on:` block.",
+    ).toEqual([]);
+  });
+
+  /**
+   * The must-STAY half, and the reason this block is two-sided. On its own,
+   * "the eight sentences are gone" is equally consistent with someone having
+   * converged the CLASSIFIER onto the prose — moving `Bundle Analysis` into
+   * `REQUIRED_CONTEXTS` — which is a maintainer decision this card explicitly
+   * did not make, and which `dependabot-merge-gate.mjs` reserves twice in its
+   * own comments. This leg is what tells the two apart.
+   */
+  it('leaves the classifier saying what it said: `Bundle Analysis` is still OPTIONAL', () => {
+    expect(Object.hasOwn(OPTIONAL_CONTEXTS, 'Bundle Analysis')).toBe(true);
+    expect(REQUIRED_CONTEXTS).not.toContain('Bundle Analysis');
+    // Non-empty guards: both memberships are read off tables that exist, so a
+    // pair of emptied constants cannot read as agreement.
+    expect(REQUIRED_CONTEXTS.length).toBeGreaterThan(0);
+    expect(Object.keys(OPTIONAL_CONTEXTS).length).toBeGreaterThan(0);
+    // The reason travels with the entry — the prose cites it, so it has to stay.
+    expect(OPTIONAL_CONTEXTS['Bundle Analysis']).toContain('performance-budget.yml filters on paths');
+  });
+
+  /**
+   * The other cited source, re-derived rather than restated: the prose may say
+   * this job has no `merge_group` leg only for as long as that is true of the
+   * `on:` block. Guarded by locating a block that is found and substantial
+   * first, so a renamed section cannot pass by scanning nothing.
+   */
+  it('leaves the workflow without the `merge_group` leg the prose cites the absence of', () => {
+    const source = fs.readFileSync(workflowPath, 'utf8');
+    const start = source.indexOf('\non:\n');
+    const end = source.indexOf('\npermissions:\n');
+    expect(start, 'the `on:` block is not where this pin looks for it').toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const onBlock = source.slice(start, end);
+    expect(onBlock.length).toBeGreaterThan(200);
+    expect(onBlock).toContain('  push:');
+    expect(onBlock).toContain('  pull_request:');
+    expect(onBlock).not.toMatch(/^\s{2}merge_group:/m);
   });
 });

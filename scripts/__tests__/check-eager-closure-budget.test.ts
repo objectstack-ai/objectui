@@ -444,11 +444,18 @@ describe('chunk attribution (objectui#7399)', () => {
    * regex literal (`vendor-objectstack` reads a computed test, so that the
    * `OBJECTSTACK_SPEC_DIST` override cannot change the chunk layout —
    * objectui#5388). Those are refused a verdict below rather than guessed at.
+   *
+   * ⚠️ The tail is `[,}]` and not `}` — a group may carry options AFTER
+   * `priority`, and `types-zod` does (`includeDependenciesRecursively: false`,
+   * objectui#10065). Requiring the closing brace silently dropped that group
+   * from this table while every case below went on passing, which is the
+   * failure this parse's own "matches nothing agrees with everything" note is
+   * about: a group this parse cannot see is a group it cannot judge.
    */
   function parseGroups(): Group[] {
     const source = fs.readFileSync(viteConfigPath, 'utf8');
     const entry =
-      /\{\s*name:\s*'([^']+)',\s*test:\s*(\/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+\/[a-z]*|[A-Za-z_$][\w$]*)\s*,\s*priority:\s*(\d+)\s*\}/g;
+      /\{\s*name:\s*'([^']+)',\s*test:\s*(\/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+\/[a-z]*|[A-Za-z_$][\w$]*)\s*,\s*priority:\s*(\d+)\s*[,}]/g;
     return [...source.matchAll(entry)].map(([, name, test, priority]) => {
       const literal = /^\/(.*)\/([a-z]*)$/s.exec(test);
       return {
@@ -473,6 +480,11 @@ describe('chunk attribution (objectui#7399)', () => {
   const I18N_RUNTIME_MODULE = moduleId('packages/i18n/src/provider.tsx');
   const DATA_MODULE = moduleId('packages/data-objectstack/src/index.ts');
   const CORE_MODULE = moduleId('packages/core/src/index.ts');
+  // objectui#10065's pair: a validator that must leave the eager line, and the
+  // `packages/types/src/` neighbour that must NOT go with it — the eager
+  // `plugin-grid` chunk reads its runtime values.
+  const ZOD_MODULE = moduleId('packages/types/src/zod/objectql.zod.ts');
+  const TYPES_SHARED_MODULE = moduleId('packages/types/src/data-display.ts');
 
   /** The groups whose test matches this id, highest priority first. */
   function claimants(id: string): Group[] {
@@ -494,6 +506,10 @@ describe('chunk attribution (objectui#7399)', () => {
         'data-adapter',
         'ui-components',
         'infrastructure',
+        // Named here because this group is the one that carries an option
+        // after `priority`, so it is the group a narrower parse loses first
+        // (objectui#10065).
+        'types-zod',
       ]));
     });
 
@@ -523,6 +539,7 @@ describe('chunk attribution (objectui#7399)', () => {
       ['the resident locale catalogue', RESIDENT_LOCALE_MODULE, 'i18n-locale-en'],
       ['the i18n runtime', I18N_RUNTIME_MODULE, 'i18n-runtime'],
       ['the ObjectStack data adapter', DATA_MODULE, 'data-adapter'],
+      ['the zod validators', ZOD_MODULE, 'types-zod'],
     ])('routes %s to `%s` at a priority `framework` cannot tie', (_what, id, expected) => {
       const framework = groups.find((g) => g.name === 'framework');
       expect(framework).toBeDefined();
@@ -538,12 +555,43 @@ describe('chunk attribution (objectui#7399)', () => {
     });
 
     it('leaves no second claimant at the winner`s priority', () => {
-      for (const id of [LOCALE_MODULE, RESIDENT_LOCALE_MODULE, DATA_MODULE]) {
+      for (const id of [LOCALE_MODULE, RESIDENT_LOCALE_MODULE, DATA_MODULE, ZOD_MODULE]) {
         const claiming = claimants(id);
         const top = claiming[0].priority;
         expect(claiming.filter((g) => g.priority === top)).toHaveLength(1);
       }
     });
+  });
+
+  /**
+   * objectui#10065 — `types-zod` is a SPLIT of the chunk `framework` budgets,
+   * so the pin it needs is the one the split can silently lose: the directory
+   * leaves, and its `packages/types/src/` neighbours stay.
+   *
+   * The eager `plugin-grid` chunk reads runtime values out of
+   * `data-display.ts` (`ObjectGrid.tsx` imports `normalizeTableColumnType` and
+   * `isSystemManagedField` from `@object-ui/types`). If that module travelled
+   * with the validators, `plugin-grid` would have to import their chunk
+   * statically and all of it would be eager again — measured, that is exactly
+   * what rolldown's default `includeDependenciesRecursively` produced, and the
+   * saving was zero while the config read as correct.
+   *
+   * ⚠️ This pins the group TABLE. Whether rolldown honours it is a property of
+   * the emitted bundle, weighed by `scripts/vite-types-zod-lazy.ts` on a real
+   * console build; neither substitutes for the other.
+   */
+  it('leaves the validators` `packages/types/src/` neighbours on the eager line', () => {
+    // Fails closed in both directions: no claimant at all is an error, and the
+    // neighbour landing anywhere but `framework` is the defect.
+    const neighbour = claimants(TYPES_SHARED_MODULE);
+    expect(neighbour.length).toBeGreaterThan(0);
+    expect(neighbour[0].name).toBe('framework');
+
+    // And the reason the priority above is load-bearing rather than cosmetic:
+    // `framework`s own regex matches the validator too, so a tie or an
+    // inversion hands it straight back.
+    const framework = groups.find((g) => g.name === 'framework');
+    expect(framework?.test?.test(ZOD_MODULE)).toBe(true);
   });
 
   it('budgets the chunk the RESIDENT catalogue lands in', () => {

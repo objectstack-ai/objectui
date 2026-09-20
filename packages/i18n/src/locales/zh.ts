@@ -1921,6 +1921,13 @@ const zh = {
         older: '更早',
       },
     },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: '本环境读取量异常',
+      ratio: '每写入 1 行就读取 {{ratio}} 行。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
+      noWritesTitle: '本环境只有读取、完全没有写入',
+      noWrites: '有行被读取,却完全没有任何写入,因此读取比率没有上限。这是最严重的读数。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
+    },
     errors: {
       somethingWentWrong: '出错了',
       unexpectedError: '渲染此视图时发生意外错误。',

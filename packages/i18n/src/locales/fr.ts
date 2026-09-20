@@ -1850,6 +1850,13 @@ const fr = {
       records: "Enregistrements",
       recentRecords: "Récemment consultés",
     },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'Volume de lecture inhabituel dans cet environnement',
+      ratio: '{{ratio}} lignes sont lues pour chaque ligne écrite. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
+      noWritesTitle: 'Lectures sans aucune écriture dans cet environnement',
+      noWrites: 'Des lignes sont lues alors qu’aucune n’est écrite, de sorte que le taux de lecture n’a aucune limite supérieure. C’est la mesure la plus grave. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
+    },
     errors: {
       somethingWentWrong: "Quelque chose s'est mal passé",
       unexpectedError: "Une erreur inattendue est survenue lors du rendu de cette vue.",

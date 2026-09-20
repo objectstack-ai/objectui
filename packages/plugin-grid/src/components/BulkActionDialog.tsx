@@ -55,9 +55,14 @@ export interface BulkActionDialogProps {
       resource: string,
       query?: Record<string, unknown>,
     ) => Promise<{ data?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>;
+    // ⚠️ The id is a `string`, not `string | number` (objectui#9511). This is a
+    // hand-restated face, so it does not follow `DataSource` on its own — and
+    // because it declares `findOne` as a PROPERTY rather than a method, it is
+    // checked contravariantly, which is why narrowing the protocol reddened
+    // here while the bivariant method declarations upstream stayed quiet.
     findOne?: (
       resource: string,
-      id: string | number,
+      id: string,
       params?: Record<string, unknown>,
     ) => Promise<Record<string, unknown> | null>;
   };

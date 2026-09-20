@@ -45,6 +45,7 @@ import {
 import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
 import { hasSectionGroupReference, resolveSectionGroupReferences } from './sectionGroups';
 import { sanitizeFormData } from './sanitize';
+import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { resolveInitialRecord } from './initialRecord';
 import { noSubmitTargetError } from './submitTarget';
 import {
@@ -224,18 +225,11 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
       return resolved === (s.sections as any) ? s : { ...s, sections: resolved as any };
     };
     if (!perms?.isLoaded) return withGroups(base);
-    const gateField = (f: any) => {
-      if (!f?.name) return f;
-      const canRead = perms.checkField(base.objectName, f.name, 'read');
-      if (!canRead) return null;
-      const canWrite = perms.checkField(base.objectName, f.name, 'write');
-      if (!canWrite && base.mode !== 'view') {
-        return { ...f, readOnly: true, disabled: true };
-      }
-      return f;
-    };
+    // ONE render gate, shared with `ModalForm` and `DrawerForm` — see
+    // `fieldWriteGate.ts` for why the copy each container used to carry is the
+    // defect rather than the style (objectui#10120).
     const filterArr = (arr?: any[]) =>
-      Array.isArray(arr) ? arr.map(gateField).filter(Boolean) : arr;
+      applyFieldPermissions(arr, { perms, objectName: base.objectName, mode: base.mode });
     return withGroups({
       ...base,
       fields: filterArr(base.fields as any[]),
@@ -550,26 +544,13 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // remain backward-compatible.
   const perms = usePermissions();
   const applyFieldPerms = useCallback(
-    (fields: FormField[]): FormField[] => {
-      if (!perms?.isLoaded) return fields;
-      const out: FormField[] = [];
-      for (const f of fields) {
-        const canRead = perms.checkField(schema.objectName, f.name, 'read');
-        if (!canRead) continue; // omit hidden fields entirely
-        const canWrite = perms.checkField(schema.objectName, f.name, 'write');
-        if (!canWrite && schema.mode !== 'view') {
-          out.push({
-            ...f,
-            readOnly: true,
-            disabled: true,
-            description: f.description ?? 'You do not have edit access to this field.',
-          });
-        } else {
-          out.push(f);
-        }
-      }
-      return out;
-    },
+    (fields: FormField[]): FormField[] =>
+      applyFieldPermissions(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+        deniedDescription: 'You do not have edit access to this field.',
+      }) as FormField[],
     [perms, schema.objectName, schema.mode],
   );
 
@@ -1086,7 +1067,15 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     // unknown or non-writable fields. Mirrors ModalForm/DrawerForm. For inline
     // forms `objectSchema` is a field-less stub, so pass null to strip only the
     // server-managed keys rather than dropping every (schema-less) value.
-    let payload = sanitizeFormData(formData, hasInlineFields ? null : objectSchema);
+    // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
+    // retains state for unmounted/disabled fields, so a field the caller may
+    // read but not edit is in `formData` even though the gate above rendered
+    // it non-editable. The verdict is the resolver's, adapted by
+    // `fieldWriteGate` — ⛔ never a second implementation of it, and ⛔ never a
+    // strip loop beside this call (objectui#10120).
+    let payload = sanitizeFormData(formData, hasInlineFields ? null : objectSchema, {
+      canEdit: fieldWriteGate(perms, schema.objectName),
+    });
     // A CREATE payload omits the fields the producer owns (#4069): a rendered
     // control registers even when nothing seeded it, so an untouched
     // runtime-default field would ride along as `undefined`/`''` and defeat
@@ -1094,17 +1083,6 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     // null. Create only — on an edit form a cleared column is a real removal.
     if (isCreateFormMode(schema)) {
       payload = omitServerResolvedDefaults(payload, hasInlineFields ? null : objectSchema);
-    }
-    // FLS defence-in-depth: never trust the client to include a field the user
-    // lacked edit access to — drop any that fail the write check.
-    if (perms?.isLoaded && payload && typeof payload === 'object') {
-      const stripped: Record<string, unknown> = {};
-      for (const k of Object.keys(payload)) {
-        if (perms.checkField(schema.objectName, k, 'write')) {
-          stripped[k] = (payload as Record<string, unknown>)[k];
-        }
-      }
-      payload = stripped;
     }
 
     try {

@@ -99,23 +99,45 @@ const COMPUTED_FIELD_TYPES = new Set([
  * - When `objectSchema` is provided, also drops keys that don't appear in
  *   `objectSchema.fields` at all (these are typically server-projected
  *   relationships or flattened lookups like `full_name`).
+ * - When `options.canEdit` is provided, drops every field that predicate
+ *   refuses — the CALLER's field-level security, which no schema can answer.
  *
  * The two server-owned branches are separate on purpose and neither subsumes
  * the other: the name roster fires with no schema at all (an inline form passes
  * `null`), and the `system` flag fires for a name the roster has never heard
  * of.
+ *
+ * ## Why field-level security arrives as a PREDICATE, not as more schema
+ *
+ * The branches above are properties of the OBJECT: the same for every caller,
+ * readable off metadata this function is already handed. Field-level security
+ * is a property of the CALLER — `score` is writable for one principal and
+ * refused for the next, on the identical object — so it cannot be read off
+ * `objectSchema` and must not be re-derived here. `fieldWriteGate` in
+ * `./fieldWriteGate` adapts the ONE resolver that owns that answer
+ * (`checkField(object, field, 'write')` in `@object-ui/permissions`) into this
+ * predicate. It arrives here, at the single outbound filter, rather than as a
+ * strip loop after each container's call, because every such loop is a copy
+ * that can be forgotten — and one of the three containers had forgotten it
+ * (objectui#10120).
  */
 export function sanitizeFormData(
   data: Record<string, any>,
   objectSchema?: { fields?: Record<string, any> } | null,
+  options?: { canEdit?: (fieldName: string) => boolean },
 ): Record<string, any> {
   if (!data || typeof data !== 'object') return data;
 
   const out: Record<string, any> = {};
   const fields = objectSchema?.fields;
+  const canEdit = options?.canEdit;
 
   for (const [key, value] of Object.entries(data)) {
     if (SERVER_OWNED_FIELD_NAMES.has(key)) continue;
+
+    // Field-level security. Runs with or without a schema: an inline form
+    // passes `null` for `objectSchema` and its caller is gated all the same.
+    if (canEdit && !canEdit(key)) continue;
 
     if (fields) {
       const fieldDef = fields[key];

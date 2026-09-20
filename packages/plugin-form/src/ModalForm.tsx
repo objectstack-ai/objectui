@@ -50,6 +50,7 @@ import {
 } from './autoLayout';
 import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
 import { sanitizeFormData } from './sanitize';
+import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
@@ -219,25 +220,16 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   const { t } = useDiscardTranslation();
   const previewMode = usePreviewMode();
   const perms = usePermissions();
-  // FLS gate: drop non-readable fields, disable non-editable ones.
+  // FLS gate: drop non-readable fields, disable non-editable ones. ONE pass,
+  // shared with `ObjectForm` and `DrawerForm` (objectui#10120).
   // Fail-open when no PermissionProvider mounted (perms.isLoaded false).
   const applyFieldPerms = useCallback(
-    (fields: FormField[]): FormField[] => {
-      if (!perms?.isLoaded) return fields;
-      const out: FormField[] = [];
-      for (const f of fields) {
-        if (!f?.name) { out.push(f); continue; }
-        const canRead = perms.checkField(schema.objectName, f.name, 'read');
-        if (!canRead) continue;
-        const canWrite = perms.checkField(schema.objectName, f.name, 'write');
-        if (!canWrite && schema.mode !== 'view') {
-          out.push({ ...f, readOnly: true, disabled: true });
-        } else {
-          out.push(f);
-        }
-      }
-      return out;
-    },
+    (fields: FormField[]): FormField[] =>
+      applyFieldPermissions(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+      }) as FormField[],
     [perms, schema.objectName, schema.mode],
   );
   const [objectSchema, setObjectSchema] = useState<any>(null);
@@ -460,17 +452,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       }
 
       let result;
-      let payload = sanitizeFormData(data, objectSchema);
-      // FLS defence-in-depth: strip non-editable fields from payload.
-      // react-hook-form retains state for unmounted/disabled fields; we
-      // must never trust the client to omit them.
-      if (perms?.isLoaded) {
-        const stripped: Record<string, any> = {};
-        for (const k of Object.keys(payload)) {
-          if (perms.checkField(schema.objectName, k, 'write')) stripped[k] = payload[k];
-        }
-        payload = stripped;
-      }
+      // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
+      // retains state for unmounted/disabled fields, so the gate above is not
+      // enough on its own — but the verdict is the same resolver's, adapted by
+      // `fieldWriteGate` rather than copied here (objectui#10120).
+      const payload = sanitizeFormData(data, objectSchema, {
+        canEdit: fieldWriteGate(perms, schema.objectName),
+      });
       // Omit the fields the producer owns (#4069) — see
       // `omitServerResolvedDefaults` for why an empty key is not the same as
       // no key at insert time. Create only: on an edit form a cleared column is

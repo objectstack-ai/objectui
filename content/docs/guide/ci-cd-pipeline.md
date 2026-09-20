@@ -43,6 +43,7 @@ one has its own section below.
 | `readme-exports.yml` | README Export Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a `packages/**/README.md` imports a name from its own package that the package does not export, or the scan's population collapses |
 | `docs-route-eager-closure.yml` | Docs Route Eager Closure Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a package named in `apps/site/app/components/registerCatalogBlocks.ts` is not already reachable from the docs route's module graph (exit 1), or when the gate's own gauge cannot be trusted (exit 2) |
 | `line-citation-gate.yml` | Line Citation Gate | PR to `main`, `develop` — **no path filter**; manual | No — **report-only** while it beds in; it exits 0 whatever it finds, and exits 1 only when one of its own synthetic controls fails. It declares no `merge_group` trigger, so it cannot be a required context in its current state |
+| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | No — **not yet**. It is an ordinary blocking check and a shape break is a real red, but requiredness lives in the repository's ruleset and not in this tree; `scripts/dependabot-merge-gate.mjs` classifies it `NOT_A_GATE`, with the two conditions for moving it, until a maintainer enrols the context ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)) |
 | `governed-surface-guard.yml` | Governed Surface Queue Guard | PR to `main`, `develop` (incl. `ready_for_review`) — **no path filter**; merge-queue builds | **Yes on a queue build only** — a governed-surface diff with no authorized approval record (on any commit) is refused there, and so is any merge group whose queued pull requests still carry `needs:contract-review`; on the pull request itself it is deliberately green and prints an early warning |
 | `performance-budget.yml` | Bundle Analysis | Push / PR touching `packages/**`, `apps/console/**`, `pnpm-lock.yaml` | **Yes** — the console entry gzip budget |
 | `lockfile-integrity.yml` | Lockfile Integrity Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own two files; manual | No — **deliberately not a blocking context** ([#8326](https://github.com/objectstack-ai/objectui/issues/8326)); it names the packages and the Dependabot merge gate classifies it `NOT_A_GATE` |
@@ -1995,6 +1996,85 @@ Uses [Lychee](https://github.com/lycheeverse/lychee) with configuration from `ly
   even consulted. `root_dir` therefore resolves them into a sentinel namespace that is then
   excluded wholesale. Judging those routes is `check-doc-links.mjs`'s job, and duplicating its
   route-to-file mapping here would only create a second copy free to drift.
+
+## Spec Main Shape Gate (`spec-main-shape-gate.yml`)
+
+**Trigger:** PR to `main`, `develop` — **no path filter**; merge-queue builds; manual.
+**Appears as:** Spec Main Shape Gate.
+
+It builds `@objectstack/spec` from objectstack `main` at a git sha and compiles this repository
+against it. This is the maintainer's option C, ruled 2026-09-18
+([#9860](https://github.com/objectstack-ai/objectui/issues/9860)): under it, a real consumer's
+compile is the **only** shape gate for that package's public surface, replacing the
+declaration-text snapshot the platform repository is reverting. objectui is the first consumer.
+
+**What a red says, and why that is the point.** Not "typecheck failed" — the job names *which
+objectui file* stopped compiling and *which objectstack commit* it was compiled against, as
+GitHub annotations on the failing lines and as a table in the run summary, so the objectstack pull
+request that moved the shape is the one that answers. `scripts/spec-main-shape-gate.mjs` owns that
+half, and it refuses to report a failure it could not attribute to a file as a shape break at all:
+that exits 2 and says so, rather than billing the wrong repository.
+
+**How it reaches the spec without moving the pin.** This repository consumes a *published*
+`@objectstack/spec` through a caret range in many manifests and a resolution in `pnpm-lock.yaml`.
+The job changes none of that — the pin-bump question is a separate, open one. After the ordinary
+`pnpm install --frozen-lockfile`, it replaces the installed copy **inside pnpm's virtual store**
+with the source-built one, which every workspace consumer already symlinks to, and then proves
+every consumer landed on it before compiling. Nothing tracked by git is touched, and the
+replacement is remove-then-copy: those files are hardlinks into pnpm's global store, so writing
+*through* one would corrupt that store for every later job and for the cache `actions/setup-node`
+saves.
+
+Two mechanisms that look like the obvious answer cannot do this job, and the script's header
+carries the long version:
+
+- **`OBJECTSTACK_SPEC_DIST`** (`scripts/vite-objectstack-spec-dist.ts`) already resolves
+  `@objectstack/spec` at a locally built spec — but it emits Vite `resolve.alias` entries, and
+  `tsc` does not read a Vite config. A typecheck run under it compiles against the *installed*
+  spec: a green that means nothing. It remains the right hook for the console **build**.
+- **A `pnpm.overrides` / `file:` / `link:` entry** moves `pnpm-workspace.yaml`, a `package.json`
+  or the lockfile. Every one of those is the pin.
+
+**The fetch is sparse, blobless and at a sha, never a full clone per run.** The cone holds
+`packages/spec` *and* `scripts`, because the spec's own build script calls scripts from the
+objectstack repository root. A packed codeload tarball was measured against it and rejected: the
+tarball endpoint has no server-side path filter, so it ships the whole repository however little
+of it the job needs.
+
+**The compile is `TURBO_FORCE=true pnpm type-check --continue`, and every word of it is
+load-bearing.** That task dependsOn `^build`, so the job builds every workspace package against
+the injected spec and then type-checks against those declarations — both halves of the consumer
+compile. turbo's hash covers this repository's sources, its lockfile and a declared env list —
+not the *content* of `node_modules`, which is the only thing this job changes. Cached, it would
+replay a verdict taken against a different spec, including the published one.
+
+`--continue` is what makes the diagnostic list a *set* rather than a lower bound. turbo stops
+scheduling at the first failing task unless told otherwise, so without it the parsed log carries
+the first broken package's diagnostics and says nothing at all about the packages turbo never
+asked — while reporting that silence as the reading. The harm is not hypothetical: while one
+long-lived break sits in the graph, every run stops at it and no other package's drift against
+the spec is ever measured. The flag does not soften the verdict — turbo still exits non-zero
+when a task failed — it only completes it. The ablation behind that claim, two packages broken
+on purpose with the same command otherwise, is in this gate's own pull request rather than
+copied here.
+
+**The attribution reads the log order turbo actually emits.** `tsc` prints paths relative to the
+package directory, so `src/foo.ts(3,9)` names no file until something says which package. turbo
+carries that in one of two carriers depending on where it runs: a `<package>:<task>:` prefix on
+every line locally, and on a GitHub Actions runner a `##[group]<package>:<task>` header with the
+output emitted bare beneath it — with the *failing* task announced by a bare colourised header
+and no group at all. Only the second ever reaches this job, and a prefix-only reading has nothing
+to match in it. `scripts/__tests__/spec-main-shape-gate.test.ts` pins the bypass, the completeness
+flag, the unfiltered trigger, the queue subscription and both attribution carriers, each with the
+firing control that proves the assertion is not satisfied by something else.
+
+**Why it is not a required check yet.** Requiredness is a GitHub ruleset — repository settings —
+which `scripts/check-required-check-set.mjs` can read and nothing in this tree can write. The
+workflow is built to be requirable (unfiltered on `pull_request`, subscribed to `merge_group`, no
+`continue-on-error`), so a maintainer can enrol the context on its own without stalling the queue;
+the in-tree half of that action is moving its name from `NOT_A_GATE` to `REQUIRED_CONTEXTS` in
+`scripts/dependabot-merge-gate.mjs`, where the conditions are written down.
+
 
 ## Release Workflows
 

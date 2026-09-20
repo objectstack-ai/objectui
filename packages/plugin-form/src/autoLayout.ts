@@ -17,6 +17,7 @@
  */
 
 import type { FormField } from '@object-ui/types';
+import { SERVER_OWNED_FIELD_NAMES } from './sanitize';
 
 /** FormField types that are computed/aggregate and must be excluded from modal edit/create forms */
 const AUTO_GENERATED_FORM_TYPES = new Set([
@@ -206,37 +207,19 @@ export function applyAutoColSpan(
 }
 
 /**
- * System field names that are always auto-managed by the platform
- * (record identity + audit timestamps) and should never appear on
- * create/edit forms regardless of how they are declared on the schema.
+ * System field names that are always auto-managed by the platform and should
+ * never appear on create/edit forms regardless of how they are declared on the
+ * schema.
+ *
+ * ⭐ This is the SAME object the write path refuses — `SERVER_OWNED_FIELD_NAMES`
+ * in `sanitize.ts`, whose header carries the roster's full rationale. It used
+ * to be a second hand-written copy here, and the copies drifted: this one had
+ * dropped `owner_id` from the rendered form while the write-side copy still
+ * emitted it, so an edit form showed the user business inputs and sent back the
+ * ownership column anyway (objectui#10108). One object, one invariant — a form
+ * never writes a field it refuses to render.
  */
-const SYSTEM_FIELD_NAMES = new Set([
-  'id',
-  'created_at',
-  'createdAt',
-  'updated_at',
-  'updatedAt',
-  'last_modified_at',
-  'lastModifiedAt',
-  'deleted_at',
-  'deletedAt',
-  'created_by',
-  'createdBy',
-  'updated_by',
-  'updatedBy',
-  'last_modified_by',
-  'lastModifiedBy',
-  'organization_id',
-  'organizationId',
-  'org_id',
-  'orgId',
-  'tenant_id',
-  'tenantId',
-  'owner',
-  'owner_id',
-  '_version',
-  '_rev',
-]);
+const SYSTEM_FIELD_NAMES = SERVER_OWNED_FIELD_NAMES;
 
 /**
  * Filter out auto-managed system fields (id, audit timestamps, tenant/owner ids).

@@ -26,7 +26,10 @@ vi.mock('@object-ui/i18n', async (importOriginal) => ({
   }),
 }));
 
-vi.mock('@object-ui/auth', () => ({ useWorkspaceAdminStatus: vi.fn() }));
+vi.mock('@object-ui/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useWorkspaceAdminStatus: vi.fn(),
+}));
 vi.mock('../../hooks/useReadRateReading', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useReadRateReading: vi.fn(),

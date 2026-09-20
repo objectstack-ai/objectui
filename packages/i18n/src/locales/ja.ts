@@ -2579,6 +2579,7 @@ const ja = {
     description: "続行するために必要な情報を入力してください。",
     selectPlaceholder: "{{label}} を選択",
     requiredError: "{{label}} は必須です",
+    unresolvedParam: 'このパラメーターは表示できません。参照元のフィールドがオブジェクトのメタデータに存在しないため、必要なコントロールを生成できません。管理者にアクション定義の修正を依頼してください。',
     cancel: "キャンセル",
     confirm: "確認",
     uploading: "アップロード中…",

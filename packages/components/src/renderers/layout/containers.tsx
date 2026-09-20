@@ -19,7 +19,7 @@
  */
 
 import React from 'react';
-import { ComponentRegistry, ExpressionEvaluator, evalRowPredicate, getRecordDisplayName, toPredicateRecord } from '@object-ui/core';
+import { ComponentRegistry, ExpressionEvaluator, evalRowPredicate, getRecordDisplayName, recordDisplayValueAt, resolveNameField, toPredicateRecord } from '@object-ui/core';
 import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
@@ -2058,7 +2058,8 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   //   - `objectSchema.titleFormat` (the author override),
   //   - the unified ADR-0079 resolver (`nameField` → `displayNameField` →
   //     type-aware derivation) — same precedence as DetailView's own header,
-  //   - common display fields on the record (`name`, `title`, `display_name`),
+  //   - that same resolver's record-key rung, but ONLY for an object that
+  //     names no title field at all (objectui#10117),
   //   - `${objectLabel} ${id}` as a last-resort.
   //
   // ⛔ `objectSchema.primaryField` is NOT a rung and must not become one again
@@ -2103,26 +2104,83 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // `Record #<id>` floor is detected and skipped so the richer
     // `${objectLabel} ${id}` fallback still wins for truly unnamed records.
     const recordId = data?.id ?? data?._id;
+    // The resolver's own floor, detected so the richer `${objectLabel} ${id}`
+    // fallback below wins for a truly unnamed record.
+    const isResolverFloor = (resolved: string) =>
+      resolved === 'Untitled' ||
+      (recordId !== null && recordId !== undefined && resolved === `Record #${recordId}`);
     const unifiedTitle = (() => {
       const resolved = getRecordDisplayName(objSchema, data, { deriveFromRecordKeys: false });
-      const isFloor =
-        resolved === 'Untitled' ||
-        (recordId !== null && recordId !== undefined && resolved === `Record #${recordId}`);
-      return isFloor ? '' : resolved;
+      return isResolverFloor(resolved) ? '' : resolved;
     })();
-    const resolvedTitle =
-      explicitTitle ||
-      (interpolatedTitleFormat && !interpolatedTitleFormat.includes('{') ? interpolatedTitleFormat : '') ||
-      unifiedTitle ||
-      data?.name ||
-      data?.full_name ||
-      data?.title ||
-      data?.subject ||
-      data?.display_name ||
-      data?.label ||
+    // objectui#10117 — the record-key safety net, and the two rules that make
+    // it safe. It used to be spelled out here as a raw
+    // `data?.name || data?.full_name || data?.title || data?.subject || …`
+    // chain: a SECOND implementation of the very question
+    // `recordDisplayValueAt` exists to answer, whose header (objectui#8350)
+    // says in as many words not to re-spell it at a call site. Raw `||`
+    // diverged from it on both of that function's own clauses —
+    //
+    //   - it reads the STORED value, so a `lookup` candidate handed its
+    //     EXPANDED REFERENCE OBJECT to JSX and the whole header died with
+    //     "Objects are not valid as a React child" (React #31). The breadcrumb
+    //     never had this defect because it asks this same resolver WITHOUT
+    //     `deriveFromRecordKeys: false`, so every rung of its walk goes
+    //     through `recordDisplayValueAt` -> `displayNameOfEmbeddedObject`;
+    //   - it counts a whitespace-only string as a value, so a record whose
+    //     name field held only spaces rendered a blank H1.
+    //
+    // Both die with the copy. `deriveFromRecordKeys` was only ever switched
+    // off so this renderer could interleave its own `${objectLabel} ${id}`
+    // fallback — which it still does, just below. The second call is that
+    // same skipped rung, run for real instead of imitated.
+    const recordKeyTitle = (() => {
+      if (unifiedTitle) return '';
+      // An object that NAMES its title field — a declared `nameField` /
+      // `displayNameField`, or a type-aware derivation over its `fields`,
+      // which is exactly what `resolveNameField` answers — has already said
+      // which field titles a record. An empty value there is an EMPTY TITLE,
+      // not licence to borrow a different field's value: that silent hop is
+      // what turned a blank `name` into a crash, so the hop is part of the
+      // defect and not just its rendering. Degrade to the placeholder floor.
+      if (resolveNameField(objSchema)) return '';
+      const resolved = getRecordDisplayName(objSchema, data);
+      return isResolverFloor(resolved) ? '' : resolved;
+    })();
+    const placeholderTitle =
       (objectLabel && data?.id ? `${objectLabel} ${String(data.id).slice(0, 8)}` : '') ||
       objectLabel ||
       '';
+    const titleCandidate =
+      explicitTitle ||
+      (interpolatedTitleFormat && !interpolatedTitleFormat.includes('{') ? interpolatedTitleFormat : '') ||
+      unifiedTitle ||
+      recordKeyTitle;
+    // Defensive backstop — deliberately last, and deliberately NOT the fix: on
+    // its own it would leave a header quietly showing the wrong field's
+    // contents. No non-string may reach JSX as a child.
+    //
+    // ⚠️ NO RUNG ABOVE CAN PRODUCE ONE TODAY, and this comment says so rather
+    // than implying a live hazard (AGENTS.md #9). Every rung is a string at
+    // its source: the resolver's are, and `explicitTitle` is one because
+    // `pickLocalized` — which every author-supplied `title` passes through
+    // first — is typed to a string and collapses an object with no string
+    // value to `''`. `interpolate` WOULD hand a non-string straight back
+    // (it returns its argument untouched when that argument is not a
+    // string), so the guard is against a future rung, not against today's.
+    // Measured by ablation: deleting this line leaves every pin in
+    // `page-header-title.emptyNameLookupFallback-10117.test.tsx` green, and
+    // that null result is recorded there rather than papered over with a
+    // contrived pin.
+    //
+    // Reduced through the same authority rather than a local `String()`, so
+    // an expanded reference resolves to its display name here too instead of
+    // to "[object Object]".
+    const resolvedTitle =
+      (typeof titleCandidate === 'string'
+        ? (titleCandidate.trim() ? titleCandidate : '')
+        : (recordDisplayValueAt({ value: titleCandidate }, 'value') ?? '')) ||
+      placeholderTitle;
     // Width arbitration between the title column and the action tail
     // (objectui#7244). The tail is `shrink-0` — correct, buttons must not be
     // squeezed into unreadable slivers — so in a `nowrap` row it takes what it

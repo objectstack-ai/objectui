@@ -2579,6 +2579,7 @@ const fr = {
     description: "Veuillez saisir les informations requises pour continuer.",
     selectPlaceholder: "Sélectionner {{label}}",
     requiredError: "{{label}} est obligatoire",
+    unresolvedParam: 'Ce paramètre ne peut pas être affiché : le champ dont il dépend est absent des métadonnées de l’objet, le contrôle nécessaire ne peut donc pas être construit. Demandez à un administrateur de corriger la définition de l’action.',
     cancel: "Annuler",
     confirm: "Confirmer",
     uploading: "Téléversement…",

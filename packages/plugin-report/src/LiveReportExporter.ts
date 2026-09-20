@@ -27,6 +27,7 @@ import type {
   ReportScheduleConfig,
 } from '@object-ui/types';
 import { exportReport } from './ReportExportEngine';
+import { DISPLAY_LOCALE_LAST_RESORT, formatNumberInDisplayLocale } from './displayLocale';
 
 /**
  * Options for live report export
@@ -165,9 +166,21 @@ export function exportExcelWithFormulas(
     columns?: ExcelColumnConfig[];
     filename?: string;
     includeAggregationRow?: boolean;
+    /**
+     * BCP-47 tag the numeric cells are formatted in — in React, whatever
+     * `useDisplayLocale()` (`@object-ui/i18n`) returned for the session.
+     *
+     * It lives on the OPTIONS BAG because this module is not a component and
+     * has no hook to read: a locale can only reach it from its caller, and a
+     * report schema is the wrong carrier for it (a display locale is a property
+     * of the session, not of the authored report). Omitted, it falls back to
+     * the display channel's own last resort — never to `'en-US'`, and never to
+     * a dropped tag, which would mean the MACHINE's locale (objectui#10020).
+     */
+    locale?: string;
   } = {},
 ): void {
-  const { columns, filename, includeAggregationRow = false } = options;
+  const { columns, filename, includeAggregationRow = false, locale = DISPLAY_LOCALE_LAST_RESORT } = options;
 
   // Determine columns from options or fall back to report fields
   const cols: ExcelColumnConfig[] = columns || (report.fields || []).map(fieldToExcelColumn);
@@ -183,7 +196,7 @@ export function exportExcelWithFormulas(
         return col.formula.replace(/\{ROW\}/g, String(rowIndex + 2));
       }
       const value = row[col.name];
-      return formatCellValue(value, col.numberFormat);
+      return formatCellValue(value, col.numberFormat, locale);
     });
   });
 
@@ -288,11 +301,15 @@ function fieldToExcelColumn(field: ReportField): ExcelColumnConfig {
 /**
  * Format a cell value for Excel export
  */
-function formatCellValue(value: any, numberFormat?: string): string {
+function formatCellValue(
+  value: any,
+  numberFormat?: string,
+  locale: string = DISPLAY_LOCALE_LAST_RESORT,
+): string {
   if (value == null) return '';
   if (typeof value === 'number' && numberFormat) {
     // Basic formatting: apply locale-aware number formatting
-    return value.toLocaleString('en-US', inferLocaleOptions(numberFormat));
+    return formatNumberInDisplayLocale(value, locale, inferLocaleOptions(numberFormat));
   }
   return sanitizeExcelValue(String(value));
 }

@@ -573,6 +573,21 @@ const de = {
     newEvent: "Neuer Termin",
     moreEvents: "+{{count}} weitere",
     unscheduled: "Nicht geplant ({{count}})",
+    a11y: {
+      region: "Kalender",
+      grid: "Kalenderraster",
+      goToToday: "Zu heute springen",
+      previousPeriod: "Vorheriger Zeitraum",
+      nextPeriod: "Nächster Zeitraum",
+      currentDate: "Aktuelles Datum: {{date}}",
+      dayCell: "{{date}}, {{count}} Termine",
+      dayCell_one: "{{date}}, {{count}} Termin",
+      dayCell_other: "{{date}}, {{count}} Termine",
+      resizeEventEnd: "Ende des Termins ändern",
+      resizeEventEndHint: "Ziehen, um das Enddatum zu ändern",
+      resizeStart: "Beginn ändern",
+      resizeEnd: "Ende ändern",
+    },
   },
   list: {
     firstRunTitle: "Hier ist noch nichts",
@@ -1467,6 +1482,9 @@ const de = {
     },
   },
   console: {
+    studio: {
+      backToHome: "Zurück zur Startseite",
+    },
     saveAdvisoryTitle: "Gespeichert — die Autorenprüfung ergab {{count}} Hinweis(e)",
     publishAdvisoryTitle: "Veröffentlicht — die Autorenprüfung ergab {{count}} Hinweis(e)",
     importMappingsUnavailable: "Gespeicherte Importzuordnungen für {{object}} konnten nicht geladen werden",

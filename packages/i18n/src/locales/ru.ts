@@ -579,6 +579,21 @@ const ru = {
     newEvent: "Новое событие",
     moreEvents: "+{{count}} ещё",
     unscheduled: "Без даты ({{count}})",
+    a11y: {
+      region: "Календарь",
+      grid: "Сетка календаря",
+      goToToday: "Перейти к сегодняшнему дню",
+      previousPeriod: "Предыдущий период",
+      nextPeriod: "Следующий период",
+      currentDate: "Текущая дата: {{date}}",
+      dayCell: "{{date}}, событий: {{count}}",
+      dayCell_one: "{{date}}, {{count}} событие",
+      dayCell_other: "{{date}}, событий: {{count}}",
+      resizeEventEnd: "Изменить окончание события",
+      resizeEventEndHint: "Перетащите, чтобы изменить дату окончания",
+      resizeStart: "Изменить начало",
+      resizeEnd: "Изменить окончание",
+    },
   },
   list: {
     firstRunTitle: "Здесь пока пусто",
@@ -1477,6 +1492,9 @@ const ru = {
     },
   },
   console: {
+    studio: {
+      backToHome: "На главную",
+    },
     saveAdvisoryTitle: "Сохранено — проверка авторинга выдала рекомендаций: {{count}}",
     publishAdvisoryTitle: "Опубликовано — проверка авторинга выдала рекомендаций: {{count}}",
     importMappingsUnavailable: "Не удалось загрузить сохранённые сопоставления импорта для {{object}}",

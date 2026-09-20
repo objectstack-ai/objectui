@@ -1978,8 +1978,14 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
   // Build form schema
   const buildFormSchema = (): ObjectFormSchema => {
+    // ⚠️ The assertion states the PROTOCOL, it does not convert (objectui#9511).
+    // `selectedRecord` is an untyped record bag, so this was always a hand-written
+    // assertion; it now asserts the one shape a record id has — a `string` — rather
+    // than the wide one. ⛔ Deliberately NOT `String(...)`: the ruling puts the
+    // conversion at the adapter's own boundary, in one typed place, and a reader-side
+    // coercion here is exactly the option it refused.
     const recordId = selectedRecord
-      ? ((selectedRecord.id || selectedRecord._id) as string | number | undefined)
+      ? ((selectedRecord.id || selectedRecord._id) as string | undefined)
       : undefined;
 
     return {

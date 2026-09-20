@@ -259,6 +259,9 @@ const pt = {
       selectBusinessUnit: "Selecionar uma unidade de negócio",
       selectPosition: "Selecionar um cargo",
       selectUnitAndSubordinates: "Selecionar uma unidade de negócio",
+      selectField: "Selecionar um campo de usuário",
+      noUserFields: "Este objeto não tem campos de usuário",
+      fieldNotUserTyped: "{{name}} — não é um campo de usuário",
     },
     filterCondition: {
       selectObjectFirst: "Selecione primeiro um objeto.",
@@ -1847,6 +1850,13 @@ const pt = {
       records: "Registros",
       recentRecords: "Vistos recentemente",
     },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'Volume de leitura incomum neste ambiente',
+      ratio: 'São lidas {{ratio}} linhas para cada linha gravada. A plataforma sinaliza tudo acima de {{threshold}}. Nada está sendo limitado ou bloqueado; este é um relatório para que o padrão de leitura possa ser revisado.',
+      noWritesTitle: 'Leituras sem nenhuma gravação neste ambiente',
+      noWrites: 'Linhas estão sendo lidas sem que nenhuma seja gravada, portanto a taxa de leitura não tem limite superior. Esta é a leitura mais grave. A plataforma sinaliza tudo acima de {{threshold}}. Nada está sendo limitado ou bloqueado; este é um relatório para que o padrão de leitura possa ser revisado.',
+    },
     errors: {
       somethingWentWrong: "Algo deu errado",
       unexpectedError: "Ocorreu um erro inesperado ao renderizar esta visualização.",
@@ -2243,6 +2253,15 @@ const pt = {
       role: "Função",
       save: "Salvar alterações",
     },
+    language: {
+      title: "Idioma",
+      description: "O idioma usado nas notificações e mensagens enviadas para você. O idioma da interface é escolhido separadamente, no menu do globo.",
+      label: "Idioma preferido",
+      systemDefault: "Usar o padrão da implantação",
+      save: "Salvar",
+      saved: "Preferência de idioma atualizada.",
+      readOnly: "O idioma da sua conta é gerenciado pelo seu administrador.",
+    },
     password: {
       changeTitle: "Alterar senha",
       setTitle: "Definir senha local",
@@ -2483,6 +2502,7 @@ const pt = {
     resultsCount: "{{count}} resultado para \"{{query}}\"",
     resultsCountPlural: "{{count}} resultados para \"{{query}}\"",
     itemsAvailable: "{{count}} itens disponíveis",
+    itemsAvailableOne: "{{count}} item disponível",
     noResults: "Nenhum resultado encontrado",
     noResultsHint: "Tente ajustar seus termos de pesquisa",
     typeObjects: "Objetos",

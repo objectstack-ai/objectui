@@ -264,6 +264,9 @@ const es = {
       selectBusinessUnit: "Seleccionar una unidad de negocio",
       selectPosition: "Seleccionar un puesto",
       selectUnitAndSubordinates: "Seleccionar una unidad de negocio",
+      selectField: "Seleccionar un campo de usuario",
+      noUserFields: "Este objeto no tiene campos de usuario",
+      fieldNotUserTyped: "{{name}} — no es un campo de usuario",
     },
     filterCondition: {
       selectObjectFirst: "Selecciona primero un objeto.",
@@ -1852,6 +1855,13 @@ const es = {
       records: "Registros",
       recentRecords: "Visto recientemente",
     },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'Volumen de lectura inusual en este entorno',
+      ratio: 'Se leen {{ratio}} filas por cada fila escrita. La plataforma señala todo lo que supere {{threshold}}. No se limita ni se bloquea nada; es un informe para que se pueda revisar el patrón de lectura.',
+      noWritesTitle: 'Lecturas sin ninguna escritura en este entorno',
+      noWrites: 'Se están leyendo filas sin escribir ninguna, por lo que la tasa de lectura no tiene límite superior. Es la lectura más grave. La plataforma señala todo lo que supere {{threshold}}. No se limita ni se bloquea nada; es un informe para que se pueda revisar el patrón de lectura.',
+    },
     errors: {
       somethingWentWrong: "Algo salió mal",
       unexpectedError: "Ocurrió un error inesperado al renderizar esta vista.",
@@ -2248,6 +2258,15 @@ const es = {
       role: "Rol",
       save: "Guardar cambios",
     },
+    language: {
+      title: "Idioma",
+      description: "El idioma que se usa para las notificaciones y los mensajes que se le envían. El idioma de la interfaz se elige aparte, en el menú del globo terráqueo.",
+      label: "Idioma preferido",
+      systemDefault: "Usar el valor predeterminado del despliegue",
+      save: "Guardar",
+      saved: "Preferencia de idioma actualizada.",
+      readOnly: "El idioma de su cuenta lo gestiona su administrador.",
+    },
     password: {
       changeTitle: "Cambiar contraseña",
       setTitle: "Establecer contraseña local",
@@ -2488,6 +2507,7 @@ const es = {
     resultsCount: "{{count}} resultado para \"{{query}}\"",
     resultsCountPlural: "{{count}} resultados para \"{{query}}\"",
     itemsAvailable: "{{count}} elementos disponibles",
+    itemsAvailableOne: "{{count}} elemento disponible",
     noResults: "Sin resultados encontrados",
     noResultsHint: "Intente ajustar sus términos de búsqueda",
     typeObjects: "Objetos",

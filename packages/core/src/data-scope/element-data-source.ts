@@ -43,6 +43,12 @@
  * | `filter`   | view + binding                          | AND-combined ("additional") |
  * | `sort`     | view or binding                         | binding overrides view      |
  * | `limit`    | view (`pagination.pageSize`) or binding | binding overrides view      |
+ *
+ * The view's half of `limit` carries one extra condition the other keys do not:
+ * the destination is declared a POSITIVE INTEGER, so a view's cap the contract
+ * refuses is dropped rather than lowered. See `savedViewLimit` for why dropping
+ * beats clamping or throwing here, and `elementDataSourceRefusedLimitMessage`
+ * for the half that tells the author.
  * | `viewType` | view only                               | view                        |
  *
  * A lone `filter` — only the view has one, or only the binding does — is passed
@@ -99,7 +105,11 @@ export interface ComposedElementDataSource {
   filter?: unknown;
   /** Binding sort if given, else the view's. */
   sort?: unknown;
-  /** Binding limit if given, else the view's page size. */
+  /**
+   * Binding limit if given, else the view's page size — and, from the view,
+   * only a cap the contract admits (`savedViewLimit` drops the rest, and
+   * `elementDataSourceRefusedLimitMessage` is what says so).
+   */
   limit?: number;
   /** The view's render kind (grid / kanban / …), when the view declares one. */
   viewType?: string;
@@ -186,14 +196,136 @@ export function resolveSavedView(
   return id === undefined ? undefined : views[id];
 }
 
-/** Read a saved view's row cap — `pagination.pageSize`, or a flat `limit`. */
-function savedViewLimit(view: ElementSavedView | null | undefined): number | undefined {
+/**
+ * What the contract admits as a row cap.
+ *
+ * A deliberate LOCAL RESTATEMENT of the predicate the repaired read points
+ * spell as `isUsableRowLimit` / `isUsablePageSize`. It is ⛔ not imported and
+ * ⛔ not extracted to a shared helper: this family now spells the same rule at
+ * each site that enforces it, and `isUsableRowLimit` / `isUsablePageSize` is
+ * what enumerates them. Hoisting it into one module would be a cross-package
+ * move nobody has chartered, and it would take the rule out of the file whose
+ * reader needs to see it. The cost — one more copy that could drift — is
+ * written here rather than hidden.
+ *
+ * The destination is declared positive at both ends: the spec's element data
+ * source declares `limit` a positive integer, and a saved view's pagination
+ * declares `pageSize` a positive integer with a default. So `0` is not a
+ * spelling whose meaning this layer may choose — it is a value the contract
+ * already refuses.
+ */
+function isUsableRowLimit(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The row cap a saved view CARRIES, before the contract is applied to it —
+ * `pagination.pageSize`, or a flat `limit`.
+ *
+ * Split out from {@link savedViewLimit} so the resolver and the diagnostic read
+ * the same carrier by construction. Two readers would be free to drift, and the
+ * drift would be invisible: a value one of them reports and the other keeps, or
+ * the reverse.
+ *
+ * ⚠️ Selection is still by `typeof === 'number'`, unchanged: a non-numeric
+ * `pagination.pageSize` falls through to the flat `limit` exactly as it did
+ * before. Only the POSITIVITY question is new, and it is asked once, by
+ * {@link isUsableRowLimit}, on whichever carrier won.
+ */
+function savedViewRawLimit(view: ElementSavedView | null | undefined): number | undefined {
   if (!view) return undefined;
   const pagination = view.pagination;
   if (isPlainObject(pagination) && typeof pagination.pageSize === 'number') {
     return pagination.pageSize;
   }
   return typeof view.limit === 'number' ? view.limit : undefined;
+}
+
+/**
+ * Read a saved view's row cap — `pagination.pageSize`, or a flat `limit` —
+ * and hand back only a cap the contract admits.
+ *
+ * ## Why DROP, and not clamp or refuse
+ *
+ * Before this guard, `typeof … === 'number'` admitted `0`, negatives and
+ * fractions, and they lowered unchecked into the composed `limit`. Measured on
+ * both consumers of that key rather than inferred, and the two answers differ:
+ *
+ *  - through a RENDERER, the refused value reached a block that has its own
+ *    guard, so the block dropped it and drew its own default — the named view's
+ *    cap went missing and the read went WIDER than the view asked for;
+ *  - through `ViewDataProvider.resolveElementDataSource`, which forwards this
+ *    key to `DataFetcher.fetchRecords` with NO guard of its own, `0`, `-10` and
+ *    `25.5` reached the fetcher verbatim.
+ *
+ * ⛔ CLAMP is refused: this layer has no default to clamp to. Every consuming
+ * block owns its own default and `ViewDataProvider` owns none, so a number
+ * invented here would override a default the author never asked it to, and
+ * quietly substituting a number the author never wrote is the quieter half of
+ * this same defect.
+ *
+ * ⛔ THROWING is refused: this function is pure and sits under every block that
+ * can be bound to a view, so a throw would take out the page over one
+ * declaration — worse than the defect.
+ *
+ * ⇒ DROP. An absent `limit` is the honest statement that the view supplied no
+ * usable cap, and it is the one thing every consumer already handles.
+ *
+ * The loud half is {@link elementDataSourceRefusedLimitMessage}; see its doc for
+ * why the message is built here and reported by the caller.
+ */
+function savedViewLimit(view: ElementSavedView | null | undefined): number | undefined {
+  const raw = savedViewRawLimit(view);
+  return isUsableRowLimit(raw) ? raw : undefined;
+}
+
+/**
+ * The diagnostic half of {@link savedViewLimit}. `null` means "nothing to say".
+ *
+ * ## Why a BUILDER here, and not a warning from the composer
+ *
+ * This is the shape {@link elementDataSourceViewNotFoundMessage} already
+ * established in this module, for the reason its doc gives: built here so every
+ * caller reports the same defect the same way. It is followed rather than
+ * re-decided because the alternative is ruled out mechanically —
+ * {@link composeElementDataSource} is PURE and the render path calls it from a
+ * `useMemo`, so a warning emitted inside it would fire during render and fire
+ * again on every re-render. The repaired relay one layer up emits from an
+ * effect for exactly that reason; a pure function has no effect to emit from,
+ * so it hands the caller the words instead.
+ *
+ * ## Why the message has to exist at all
+ *
+ * Dropping alone would be a SILENT change on the renderer path: today the
+ * refused value travels as far as a block whose own guard reports it once, and
+ * after this repair that block receives nothing and correctly says nothing —
+ * an absent key is not a mistake. So the repair would remove the only place the
+ * author was being told. The layer that makes the decision is the layer that
+ * reports it.
+ *
+ * ⛔ NOT a second guard: the predicate lives once, in {@link isUsableRowLimit},
+ * and the carrier is read once, by {@link savedViewRawLimit}; this reads both.
+ *
+ * ⚠️ It speaks only about a cap THIS layer dropped. A non-numeric
+ * `pagination.pageSize` never became a limit here, before or after, so there is
+ * nothing for this layer to report about it.
+ */
+export function elementDataSourceRefusedLimitMessage(
+  view: ElementSavedView | null | undefined,
+  viewName: string | undefined | null,
+  object: string,
+): string | null {
+  const raw = savedViewRawLimit(view);
+  if (raw === undefined) return null;
+  if (isUsableRowLimit(raw)) return null;
+  const where = viewName ? `saved view "${viewName}" on ${object}` : `saved view on ${object}`;
+  return (
+    `[ObjectUI] ElementDataSource: ${where} declares a row cap of ${String(raw)}, `
+    + 'which is not a positive integer. A row cap must be a positive integer '
+    + '(the spec declares this binding’s `limit` positive, and refuses a zero '
+    + 'or negative `pagination.pageSize`), so the view’s cap was ignored and no '
+    + 'cap was lowered from it — the consuming block uses its own default.'
+  );
 }
 
 /**

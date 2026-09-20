@@ -260,6 +260,9 @@ const de = {
       selectBusinessUnit: "Geschäftseinheit auswählen",
       selectPosition: "Position auswählen",
       selectUnitAndSubordinates: "Geschäftseinheit auswählen",
+      selectField: "Benutzerfeld auswählen",
+      noUserFields: "Dieses Objekt hat keine Benutzerfelder",
+      fieldNotUserTyped: "{{name}} — kein Benutzerfeld",
     },
     filterCondition: {
       selectObjectFirst: "Wählen Sie zuerst ein Objekt.",
@@ -1848,6 +1851,13 @@ const de = {
       records: "Datensätze",
       recentRecords: "Zuletzt angesehen",
     },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'Ungewöhnliches Lesevolumen in dieser Umgebung',
+      ratio: 'Pro geschriebener Zeile werden {{ratio}} Zeilen gelesen. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
+      noWritesTitle: 'Lesevorgänge ganz ohne Schreibvorgänge in dieser Umgebung',
+      noWrites: 'Es werden Zeilen gelesen, aber überhaupt keine geschrieben, sodass die Leserate keine Obergrenze hat. Das ist der schwerwiegendste Messwert. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
+    },
     errors: {
       somethingWentWrong: "Etwas ist schiefgelaufen",
       unexpectedError: "Beim Rendern dieser Ansicht ist ein unerwarteter Fehler aufgetreten.",
@@ -2244,6 +2254,15 @@ const de = {
       role: "Rolle",
       save: "Änderungen speichern",
     },
+    language: {
+      title: "Sprache",
+      description: "Die Sprache für Benachrichtigungen und Nachrichten, die an Sie gesendet werden. Die Oberflächensprache wird separat über das Globus-Menü gewählt.",
+      label: "Bevorzugte Sprache",
+      systemDefault: "Standard der Bereitstellung verwenden",
+      save: "Speichern",
+      saved: "Spracheinstellung aktualisiert.",
+      readOnly: "Die Sprache Ihres Kontos wird von Ihrer Administration verwaltet.",
+    },
     password: {
       changeTitle: "Passwort ändern",
       setTitle: "Lokales Passwort festlegen",
@@ -2484,6 +2503,7 @@ const de = {
     resultsCount: "{{count}} Ergebnis für „{{query}}“",
     resultsCountPlural: "{{count}} Ergebnisse für „{{query}}“",
     itemsAvailable: "{{count}} Elemente verfügbar",
+    itemsAvailableOne: "{{count}} Element verfügbar",
     noResults: "Keine Ergebnisse gefunden",
     noResultsHint: "Versuchen Sie, Ihre Suchbegriffe anzupassen",
     typeObjects: "Objekte",

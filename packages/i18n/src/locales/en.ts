@@ -296,6 +296,9 @@ const en = {
       selectBusinessUnit: 'Select a business unit',
       selectPosition: 'Select a position',
       selectUnitAndSubordinates: 'Select a business unit',
+      selectField: 'Select a user field',
+      noUserFields: 'No user fields on this object',
+      fieldNotUserTyped: '{{name}} — not a user field',
     },
     filterCondition: {
       selectObjectFirst: 'Select an object first.',
@@ -2154,6 +2157,18 @@ const en = {
         older: 'Older',
       },
     },
+    // objectui#9954 — the environment admin's read-rate report (cloud#2333).
+    // Two anomalous cases, two sets of words: an ABSENT `readsPerWrite` means the
+    // environment wrote nothing at all, so the ratio is unbounded — the most
+    // severe reading, and never a missing number. `{{threshold}}` always comes
+    // from the wire; this repo holds no copy of the line. Report only — the copy
+    // states that nothing is limited or blocked, and must keep doing so.
+    readRate: {
+      ratioTitle: 'Unusual read volume in this environment',
+      ratio: 'Reads are running at {{ratio}} rows for every row written. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
+      noWritesTitle: 'Reads with no writes at all in this environment',
+      noWrites: 'Rows are being read while none at all are being written, so the read rate has no upper bound. This is the most severe reading. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
+    },
     errors: {
       somethingWentWrong: 'Something went wrong',
       unexpectedError: 'An unexpected error occurred while rendering this view.',
@@ -2592,6 +2607,15 @@ const en = {
       role: 'Role',
       save: 'Save Changes',
     },
+    language: {
+      title: 'Language',
+      description: 'The language used for notifications and messages sent to you. The interface language is chosen separately, from the globe menu.',
+      label: 'Preferred language',
+      systemDefault: 'Use the deployment default',
+      save: 'Save',
+      saved: 'Language preference updated.',
+      readOnly: 'Your administrator manages the language for your account.',
+    },
     password: {
       changeTitle: 'Change Password',
       setTitle: 'Set Local Password',
@@ -2835,6 +2859,7 @@ const en = {
     resultsCount: '{{count}} result for "{{query}}"',
     resultsCountPlural: '{{count}} results for "{{query}}"',
     itemsAvailable: '{{count}} items available',
+    itemsAvailableOne: '{{count}} item available',
     noResults: 'No results found',
     noResultsHint: 'Try adjusting your search terms',
     typeObjects: 'Objects',

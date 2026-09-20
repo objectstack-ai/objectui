@@ -260,6 +260,9 @@ const fr = {
       selectBusinessUnit: "Sélectionner une unité opérationnelle",
       selectPosition: "Sélectionner un poste",
       selectUnitAndSubordinates: "Sélectionner une unité opérationnelle",
+      selectField: "Sélectionner un champ utilisateur",
+      noUserFields: "Cet objet n'a aucun champ utilisateur",
+      fieldNotUserTyped: "{{name}} — pas un champ utilisateur",
     },
     filterCondition: {
       selectObjectFirst: "Sélectionnez d'abord un objet.",
@@ -1850,6 +1853,13 @@ const fr = {
       records: "Enregistrements",
       recentRecords: "Récemment consultés",
     },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: 'Volume de lecture inhabituel dans cet environnement',
+      ratio: '{{ratio}} lignes sont lues pour chaque ligne écrite. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
+      noWritesTitle: 'Lectures sans aucune écriture dans cet environnement',
+      noWrites: 'Des lignes sont lues alors qu’aucune n’est écrite, de sorte que le taux de lecture n’a aucune limite supérieure. C’est la mesure la plus grave. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
+    },
     errors: {
       somethingWentWrong: "Quelque chose s'est mal passé",
       unexpectedError: "Une erreur inattendue est survenue lors du rendu de cette vue.",
@@ -2246,6 +2256,15 @@ const fr = {
       role: "Rôle",
       save: "Enregistrer les modifications",
     },
+    language: {
+      title: "Langue",
+      description: "La langue utilisée pour les notifications et les messages qui vous sont envoyés. La langue de l'interface se choisit séparément, dans le menu du globe.",
+      label: "Langue préférée",
+      systemDefault: "Utiliser la valeur par défaut du déploiement",
+      save: "Enregistrer",
+      saved: "Préférence de langue mise à jour.",
+      readOnly: "La langue de votre compte est gérée par votre administrateur.",
+    },
     password: {
       changeTitle: "Changer le mot de passe",
       setTitle: "Définir un mot de passe local",
@@ -2486,6 +2505,7 @@ const fr = {
     resultsCount: "{{count}} résultat pour \"{{query}}\"",
     resultsCountPlural: "{{count}} résultats pour \"{{query}}\"",
     itemsAvailable: "{{count}} éléments disponibles",
+    itemsAvailableOne: "{{count}} élément disponible",
     noResults: "Aucun résultat trouvé",
     noResultsHint: "Essayez d'ajuster vos termes de recherche",
     typeObjects: "Objets",

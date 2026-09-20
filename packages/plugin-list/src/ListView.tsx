@@ -36,11 +36,22 @@ import { usePermissions } from '@object-ui/permissions';
 
 /**
  * The `case 'map'` branch below builds an `object-map` schema by flattening
- * `schema.options.map`'s CONTENTS to the top level. Whitelisted to these keys —
- * `ObjectMapConfigSchema`'s shape minus `style` — rather than the whole bag:
- * `style` is ALSO `BaseSchema.style` (inline CSS, legal on every node), and
- * spreading the raw `map` block collapsed the two namespaces onto one key
- * (objectui#5177).
+ * `schema.options.map`'s CONTENTS to the top level — one entry per key
+ * `ObjectMapConfigSchema` declares, written under the name the FLAT form uses
+ * for that key. Whitelisted rather than a whole-bag spread: `style` is ALSO
+ * `BaseSchema.style` (inline CSS, legal on every node), and spreading the raw
+ * `map` block collapsed the two namespaces onto one key (objectui#5177). That
+ * reason is unchanged, and so is its consequence: a key the declaration does
+ * NOT carry never reaches the product.
+ *
+ * `style` IS delivered (objectui#9950) — under its flat spelling `mapStyle`,
+ * NOT by widening the whitelist to let `style` through unrenamed.
+ * `getMapConfig` in `ObjectMap.tsx` reads `schema.mapStyle || schema.map?.style`
+ * and deliberately does NOT read a top-level `style`, because that key is the
+ * base face's inline CSS (objectui#5017). `mapStyle` is itself a declared
+ * member of `ObjectMapSchema`, so the flat product stays inside the declaration
+ * at both ends. Before this, a view authoring `map: { style: '<url>' }` parsed
+ * green, was dropped here, and the map painted the PUBLIC DEMO TILES.
  *
  * HAND-LISTED, not derived at runtime — deliberately, and only here (`plugin-
  * map`'s own `FLAT_MAP_CONFIG_KEYS` in `ObjectMap.tsx` DOES derive from
@@ -57,28 +68,50 @@ import { usePermissions } from '@object-ui/permissions';
  * gets away with the runtime import only because nothing in
  * console-starter's graph reaches `@object-ui/plugin-map` today.
  *
- * Anti-drift is a TEST, not this comment: `ListView.mapFlatten.test.tsx` pins
- * this exact list against `ObjectMapConfigSchema.shape` — imported only from
- * that TEST file, which the alias-closure walker explicitly excludes from
- * traversal — so a key added to or removed from the declaration still fails
- * here, loudly and by name, without reintroducing the runtime edge that
- * breaks the walker.
+ * Anti-drift is TWO mechanisms, neither of them this comment:
+ * - the type below is TOTAL — a `Record` over EVERY `keyof ObjectMapConfig`,
+ *   not a list of some of them — so a key added to the declaration fails
+ *   `tsc` here until it is given a flat spelling. A key can no longer be
+ *   left out by simply not being written down, which is how `style` was.
+ * - `ListView.mapFlatten.test.tsx` pins this object's key set against
+ *   `ObjectMapConfigSchema.shape` — imported only from that TEST file, which
+ *   the alias-closure walker explicitly excludes from traversal — and asserts
+ *   the RELATION (every declared key is delivered under its flat spelling).
+ *   The pre-#9950 pin could not see the omission because it compared the hand
+ *   list against `shape` MINUS `style`: the set it measured against was
+ *   narrowed by the same subtraction the defect was made of, so it stayed
+ *   green while an authored style was being discarded.
  */
-export const FLAT_MAP_CONFIG_KEYS = [
-  'latitudeField',
-  'longitudeField',
-  'locationField',
-  'titleField',
-  'descriptionField',
-  'zoom',
-  'center',
-] as const satisfies readonly (keyof Omit<ObjectMapConfig, 'style'>)[];
+export const FLAT_MAP_CONFIG_SPELLING = {
+  latitudeField: 'latitudeField',
+  longitudeField: 'longitudeField',
+  locationField: 'locationField',
+  titleField: 'titleField',
+  descriptionField: 'descriptionField',
+  zoom: 'zoom',
+  center: 'center',
+  // The one key whose flat spelling differs from its declared name — see the
+  // objectui#9950 paragraph above for why it is `mapStyle` and not `style`.
+  style: 'mapStyle',
+} as const satisfies Record<keyof ObjectMapConfig, string>;
 
-/** Pick only the declared flat map keys present on an authored `map` block. */
+/**
+ * Copy the declared map keys an author actually wrote onto the flat product,
+ * each under its flat spelling.
+ *
+ * Values travel AS WRITTEN: this is transport, not a second validation of the
+ * declared block — that reading belongs to `getMapConfig` in `ObjectMap.tsx`
+ * and stays there (objectui#5018). Discarding an ill-typed value here would
+ * reintroduce exactly the silent drop objectui#9950 closed.
+ */
 function pickFlatMapConfig(mapConfig: unknown): Record<string, unknown> {
   if (!mapConfig || typeof mapConfig !== 'object') return {};
   const source = mapConfig as Record<string, unknown>;
-  return Object.fromEntries(FLAT_MAP_CONFIG_KEYS.filter((key) => key in source).map((key) => [key, source[key]]));
+  return Object.fromEntries(
+    Object.entries(FLAT_MAP_CONFIG_SPELLING)
+      .filter(([declared]) => declared in source)
+      .map(([declared, flat]) => [flat, source[declared]]),
+  );
 }
 
 /**
@@ -1293,7 +1326,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // its existing (single) DataTable pager becomes server-driven — records past
   // the first window are reachable, and we never stack a second pager on top.
   const [serverPage, setServerPage] = React.useState(1);
-  const [serverTotal, setServerTotal] = React.useState<number | null>(null);
+  /**
+   * The match total the LAST fetch reported, exactly as it came back
+   * (objectui#7394). Read through the derived `serverTotal` below, never
+   * directly: this is the server's answer about the QUERY, while `serverTotal`
+   * is the answer about the SURFACE, and keeping the two apart is what lets the
+   * fetch effect stop depending on which visualization is on screen.
+   */
+  const [fetchedTotal, setFetchedTotal] = React.useState<number | null>(null);
   // The params of the last successful fetch — the query behind the window this
   // view is currently showing (objectui#4501). Handed DOWN with that window, in
   // the same block as `rowCount`/`page`: whoever renders the rows may need to
@@ -1338,6 +1378,35 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       setGroupingConfig(initialGroupingConfig);
     }
   }, [initialGroupingConfig]);
+
+  /**
+   * Does THIS surface page server-side, and where does its window start?
+   * (objectui#7394)
+   *
+   * Window the request only for the flat grid view. Grouped grids and the
+   * visual views (kanban/calendar/gantt/gallery) consume the whole batch, so
+   * they keep their single-window fetch and in-memory handling.
+   *
+   * ⭐ Hoisted out of the fetch effect DELIBERATELY, and the position is the
+   * whole point rather than tidying. `currentView` used to be named in that
+   * effect's dependency list, so every visualization switch re-issued the
+   * query — and the query does not read `currentView`. It reads this `skip`,
+   * which is the ONLY way the current visualization reaches the wire. At page
+   * 1 that number is 0 on both sides of a grid/kanban switch, so the re-issued
+   * request was byte-for-byte the one already on screen: the duplicate
+   * `GET /api/v1/data/…` this card measured. Keying the effect on `fetchSkip`
+   * keeps every re-fetch that changes the window (turning the page, leaving a
+   * paged grid from page 3) and drops the ones that change nothing.
+   *
+   * `serverTotal` is derived here for the same reason. It used to be LATCHED
+   * at fetch time as `paginate ? knownTotal : null`, which is a statement about
+   * the render that wrote it — so it could only stay true by re-fetching on
+   * every switch. Derived, it answers for the render that READS it, and the
+   * values every consumer sees are the ones they saw before.
+   */
+  const paginate = currentView === 'grid' && !(groupingConfig?.fields?.length);
+  const fetchSkip = paginate ? (serverPage - 1) * effectivePageSize : 0;
+  const serverTotal = paginate ? fetchedTotal : null;
 
   // Row color state (initialized from schema, user can configure via popover)
   const [rowColorConfig, setRowColorConfig] = React.useState(schema.rowColor);
@@ -2271,11 +2340,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // or `undefined`, so this is the whole test.
         const hasFilter = finalFilter !== undefined;
 
-        // Window the request only for the flat grid view. Grouped grids and the
-        // visual views (kanban/calendar/gantt/gallery) consume the whole batch,
-        // so they keep their single-window fetch and in-memory handling.
-        const paginate = currentView === 'grid' && !(groupingConfig?.fields?.length);
-        const skip = paginate ? (serverPage - 1) * effectivePageSize : 0;
+        // `fetchSkip` is resolved at render (see its definition) and named in
+        // this effect's dependency list, so what reaches the wire and what
+        // re-runs this effect are the same number — there is no second
+        // spelling free to drift from it.
+        const skip = fetchSkip;
 
         // Hoisted out of the `find` call so the exact params that produced this
         // window can be handed down with it (objectui#4501). One object, one
@@ -2327,13 +2396,18 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ? (results as any).total
           : undefined;
         const knownTotal = typeof rawTotal === 'number' ? rawTotal : null;
-        setServerTotal(paginate ? knownTotal : null);
+        // RAW, not gated on the surface: `serverTotal` applies that gate at
+        // render (objectui#7394), so this effect no longer has to re-run just
+        // because a different visualization is now drawing the same rows.
+        setFetchedTotal(knownTotal);
         // Past the stale-request guard, so this is the query behind the rows
         // that were just set — never an in-flight one that lost the race.
         setLastFindParams(findParams);
-        setDataLimitReached(
-          !(paginate && knownTotal != null) && items.length >= effectivePageSize,
-        );
+        // Saturation of the window THIS request carried, and nothing else.
+        // The "…but the real total is known, so nothing is hidden" half of the
+        // old expression moved to the banner's own render gate below, for the
+        // same reason `serverTotal` did (objectui#7394).
+        setDataLimitReached(items.length >= effectivePageSize);
       } catch (err) {
         // Only log + surface errors from the latest request. A failed fetch is
         // NOT an empty result — record it so the render shows an error panel
@@ -2382,8 +2456,44 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // (`items`), which is not discard-immune. Key on the nearest
     // discard-immune thing — props/state where they are the memo's inputs, a
     // value key where they are not.
+    //
+    // objectui#7394 — `currentView` is NOT named below, and `fetchSkip` is.
+    // The query this effect builds never reads the visualization; it reads the
+    // WINDOW, and `fetchSkip` is where the visualization reaches that window.
+    // Naming `currentView` therefore re-issued an identical `find` on every
+    // switch — measured in a browser as two byte-identical
+    // `GET /api/v1/data/showcase_task?top=100&select=…` round trips for one
+    // board. `ganttOwnsData` and `groupingConfig` stay named: the first flips
+    // this effect between fetching and standing down, and the second changes
+    // the projection it asks for, so both move the request itself.
+    //
+    // ⭐ TWO names left this list, not one: `serverPage` went with
+    // `currentView`, and that is the SAME removal rather than a second,
+    // undescribed change. `fetchSkip` is defined above as the exact expression
+    // this effect used to compute inline — `paginate ? (serverPage - 1) *
+    // effectivePageSize : 0` — so the page, the page size and whether this
+    // surface pages at all are folded into the one number the query carries,
+    // and the effect names that number instead of its three operands.
+    // `serverPage` is untouched everywhere else; the pager still reads it, and
+    // `__tests__/ListView.serverPagination.test.tsx` is what re-derives that
+    // turning the page still refetches with the `$skip` it moved to.
+    //
+    // ⚠️ One consequence follows from the DEFINITION and is deliberate, and
+    // nothing in the suite re-derives it, which is why it is spelled out here
+    // rather than left to be inferred from a green run: on a surface where
+    // `paginate` is false, `fetchSkip` is pinned at 0, so a `serverPage` change
+    // under it moves nothing and no longer re-runs this effect. The reachable
+    // instance is the page-reset effect below snapping a grid back to page 1 as
+    // the user leaves it for a board — a second identical request under the old
+    // list. Read it as a claim about this definition, ⛔ not as a measured one.
+    //
+    // ⚠️ The directive below governs the NEXT LINE. Anything written between it
+    // and the dependency array detaches it from the array and turns it into an
+    // unused directive — which `eslint .` reports as an ERROR, and which also
+    // silently un-suppresses nothing, because the finding it was suppressing
+    // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, currentFilters, userFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, serverPage, currentView, groupingConfig, ganttOwnsData]); // Re-fetch on filter/sort/search/refreshTrigger/perms/page change
+  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, currentFilters, userFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to
@@ -3108,7 +3218,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         };
       }
       case 'map': {
-        // Whitelisted flatten (objectui#5177) — see `FLAT_MAP_CONFIG_KEYS`.
+        // Whitelisted flatten (objectui#5177) — see `FLAT_MAP_CONFIG_SPELLING`,
+        // which also carries `style` out as `mapStyle` (objectui#9950).
         // `schema.options.map` is an untyped bag; a raw spread here forwarded
         // every key the author wrote, including `style`, which `ObjectMap`'s
         // `FlatMapConfigKeys` declares OUT of this flat form.
@@ -4591,7 +4702,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               : { data })}
             loading={loading}
             onRowSelect={setSelectedRows}
-            {...(currentView === 'grid' && !(groupingConfig?.fields?.length) && serverTotal != null
+            {...(paginate && serverTotal != null
               ? {
                   // Drive the flat grid's single (DataTable) pager from the
                   // server: it renders THIS window as the current page, the real
@@ -4738,7 +4849,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 : t('list.recordCount', { count: totalCount });
             })()}
           </span>
-          {dataLimitReached && (
+          {/* The cap warning is about rows the user CANNOT REACH. A paged grid
+              with a known total can reach them all through its pager, so the
+              warning stays off there — the gate the fetch used to apply when it
+              wrote this flag (objectui#7394). */}
+          {dataLimitReached && !(paginate && serverTotal != null) && (
             <span className="text-amber-600" data-testid="data-limit-warning">
               {t('list.dataLimitReached', { limit: effectivePageSize })}
             </span>

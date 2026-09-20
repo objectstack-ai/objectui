@@ -742,15 +742,66 @@ function mergeInboxRows(rows: unknown[], receipts: unknown[]): InboxNotification
 }
 
 /**
+ * The notification ids of the listed messages — the only receipts this feed
+ * can USE, which is why they are the only ones it now asks for (objectui#7392).
+ *
+ * {@link mergeInboxRows} maps over the MESSAGE rows and looks each one's
+ * receipt up by `notification_id`; a receipt belonging to anything else is
+ * fetched and dropped on the floor. Asking for exactly these ids narrows the
+ * PAYLOAD, not the answer.
+ *
+ * De-duplicated, because the ids are a query comparand rather than a count.
+ * Rows with a blank or absent `notification_id` are skipped: read-state is
+ * keyed by that id, so such a row can never be receipted and is always unread
+ * — the same rule the merge applies on the other side of the join.
+ */
+function listedNotificationIds(rows: readonly unknown[]): string[] {
+  const ids = new Set<string>();
+  for (const raw of rows) {
+    const nid = (raw as Record<string, unknown> | null)?.notification_id;
+    if (nid == null) continue;
+    const id = String(nid);
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
+/**
  * The signed-in user's 20 most recent in-app inbox messages, joined with their
  * read-state receipts (ADR-0030 L5, the `mine` materialization).
  *
  * Two scoped reads, joined client-side, polled at 10s while the tab is
  * foregrounded — the bell's cadence, now the store's:
  *   - `sys_inbox_message` filtered by `user_id`, newest first, `$top: 20`.
- *   - `sys_notification_receipt` filtered by `user_id` + `channel:'inbox'`.
- *     Best-effort: if receipts are unavailable the inbox still renders
- *     (everything shows unread) rather than erroring.
+ *   - `sys_notification_receipt` filtered by `user_id` + `channel:'inbox'`,
+ *     narrowed to the notification ids that message read just listed
+ *     (objectui#7392). Best-effort: if receipts are unavailable the inbox
+ *     still renders (everything shows unread) rather than erroring.
+ *
+ * The receipt read used to ask for `$top: 200` of the user's receipts whatever
+ * was listed, and `mergeInboxRows` then dropped every row that did not belong
+ * to one of the 20 — a steady-state payload two orders of magnitude wider than
+ * the answer it decorated, re-fetched in full at the 10s foreground cadence.
+ * Its `$top` is now the id count, and that bound is EXACT rather than a guess:
+ * `sys_notification_receipt` declares its key `{ fields: ['notification_id',
+ * 'user_id', 'channel'], unique: true }`, so this filter can match at most one
+ * row per id it names.
+ *
+ * ⚠️ The two reads are SEQUENTIAL where they used to be a `Promise.all`: the
+ * receipt query cannot be written until the message read says which
+ * notifications are in the window. That is one extra round trip per tick, on a
+ * background poll, against ~200 rows saved on each of them.
+ *
+ * ⛔ What this does NOT change is the bell's unread number, and that is the
+ * one thing a narrowing here could have broken silently. The badge is
+ * `unreadTopics + pendingApprovalsCount` (`InboxPopover`), and `unreadTopics`
+ * folds THIS feed's rows — which are `mergeInboxRows`' output, one per
+ * `sys_inbox_message` row. So the inbox addend has been "unread within the
+ * `$top: 20` window" since #4225 gave the two surfaces one feed; the receipt
+ * set never contributed a row to it, only a read-state to rows the message
+ * query had already chosen. Home's `unreadTopicCount` folds the same rows the
+ * same way (#4329). A receipt outside the window changed no number before this
+ * change and changes none after it.
  *
  * This is the SUPERSET both consumers cut from. The bell lists all 20 and
  * badges the unread topics; Home's action centre takes the unread ones, newest
@@ -775,25 +826,32 @@ export function useSharedInboxFeed(): SharedFeedSnapshot<InboxNotification[]> {
   return useSharedFeed(inboxFeed, key, async ({ markUnavailable, markFailed }) => {
     if (!dataSource || !userId) return undefined;
     try {
-      const [inboxRes, receiptRes] = await Promise.all([
-        Promise.resolve(
-          dataSource.find('sys_inbox_message', {
-            $filter: { user_id: userId },
-            $orderby: { created_at: 'desc' },
-            $top: 20,
-          }) as Promise<{ data?: unknown[] }>,
-        ),
-        Promise.resolve(
-          dataSource.find('sys_notification_receipt', {
-            $filter: { user_id: userId, channel: 'inbox' },
-            $top: 200,
-          }) as Promise<{ data?: unknown[] }>,
-        ).catch(() => ({ data: [] as unknown[] })),
-      ]);
-      return mergeInboxRows(
-        Array.isArray(inboxRes?.data) ? inboxRes.data : [],
-        Array.isArray(receiptRes?.data) ? receiptRes.data : [],
+      const inboxRes = await Promise.resolve(
+        dataSource.find('sys_inbox_message', {
+          $filter: { user_id: userId },
+          $orderby: { created_at: 'desc' },
+          $top: 20,
+        }) as Promise<{ data?: unknown[] }>,
       );
+      const rows = Array.isArray(inboxRes?.data) ? inboxRes.data : [];
+      const notificationIds = listedNotificationIds(rows);
+      // Nothing in this window can carry a receipt ⇒ no receipt read at all.
+      // Every row the old query would have returned here is one the merge
+      // discards, so the cheapest correct request is the one not sent.
+      const receiptRes =
+        notificationIds.length === 0
+          ? { data: [] as unknown[] }
+          : await Promise.resolve(
+              dataSource.find('sys_notification_receipt', {
+                $filter: {
+                  user_id: userId,
+                  channel: 'inbox',
+                  notification_id: { $in: notificationIds },
+                },
+                $top: notificationIds.length,
+              }) as Promise<{ data?: unknown[] }>,
+            ).catch(() => ({ data: [] as unknown[] }));
+      return mergeInboxRows(rows, Array.isArray(receiptRes?.data) ? receiptRes.data : []);
     } catch (err: unknown) {
       // No inbox object ⇒ no messaging pipeline in this deployment, so nothing
       // is waiting: an answer. A denial / outage / malformed reply is not.

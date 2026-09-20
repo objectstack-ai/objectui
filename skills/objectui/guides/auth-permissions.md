@@ -221,14 +221,20 @@ guide does not govern it; the two look alike and are unrelated.
 
 ### usePermissions hook
 
-```typescript
+<!-- os:check -->
+```tsx
 import { usePermissions } from '@object-ui/permissions';
+import { Button } from '@object-ui/components';
 
-function ContactActions({ contact }) {
-  const { check, checkField, getFieldPermissions, getRowFilter } = usePermissions();
+function ContactActions({ contact }: { contact: { salary?: number } }) {
+  const { can, checkField, getFieldPermissions, getRowFilter } = usePermissions();
 
-  const canEdit = check('contacts', 'update', contact);
-  const canDelete = check('contacts', 'delete', contact);
+  // Gate on `can`, which answers a boolean. `check` answers `{ allowed, … }`, and
+  // an object is truthy, so gated on it both buttons render for a denied user
+  // too; its `record` argument reads no field of the record, so none is passed.
+  // `: boolean` is what makes a `check(...)` here fail to compile.
+  const canEdit: boolean = can('contacts', 'update');
+  const canDelete: boolean = can('contacts', 'delete');
   const canSeeSalary = checkField('contacts', 'salary', 'read');
 
   return (

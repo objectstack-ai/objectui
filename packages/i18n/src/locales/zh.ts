@@ -267,6 +267,9 @@ const zh = {
       selectBusinessUnit: '请选择业务单元',
       selectPosition: '请选择岗位',
       selectUnitAndSubordinates: '请选择业务单元',
+      selectField: '请选择用户字段',
+      noUserFields: '此对象没有用户字段',
+      fieldNotUserTyped: '{{name}} — 不是用户字段',
     },
     filterCondition: {
       selectObjectFirst: '请先选择对象。',
@@ -1921,6 +1924,13 @@ const zh = {
         older: '更早',
       },
     },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: '本环境读取量异常',
+      ratio: '每写入 1 行就读取 {{ratio}} 行。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
+      noWritesTitle: '本环境只有读取、完全没有写入',
+      noWrites: '有行被读取,却完全没有任何写入,因此读取比率没有上限。这是最严重的读数。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
+    },
     errors: {
       somethingWentWrong: '出错了',
       unexpectedError: '渲染此视图时发生意外错误。',
@@ -2334,6 +2344,15 @@ const zh = {
       role: '角色',
       save: '保存更改',
     },
+    language: {
+      title: '语言',
+      description: '发送给您的通知和消息所使用的语言。界面语言另行设置,在地球图标菜单中切换。',
+      label: '首选语言',
+      systemDefault: '使用部署默认值',
+      save: '保存',
+      saved: '语言偏好已更新。',
+      readOnly: '您账户的语言由管理员管理。',
+    },
     password: {
       changeTitle: '修改密码',
       setTitle: '设置本地密码',
@@ -2573,6 +2592,7 @@ const zh = {
     resultsCount: '找到 {{count}} 条与“{{query}}”相关的结果',
     resultsCountPlural: '找到 {{count}} 条与“{{query}}”相关的结果',
     itemsAvailable: '共 {{count}} 项可搜索',
+    itemsAvailableOne: '共 {{count}} 项可搜索',
     noResults: '未找到结果',
     noResultsHint: '请尝试调整搜索关键字',
     typeObjects: '对象',

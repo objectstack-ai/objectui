@@ -532,6 +532,8 @@ describe('AppContent — every screen here states what the probe measured (objec
   });
 
   it('the denial screen offers a way back to /home', async () => {
+    // Nothing declared in `metadataApps` here (the `beforeEach` list is a plain
+    // `crm`), so home IS the launcher — the status quo objectui#7373 kept.
     byName.finance = () => json(403, DENIED_BODY);
 
     renderConsoleAt('/apps/finance');
@@ -539,5 +541,28 @@ describe('AppContent — every screen here states what the probe measured (objec
     home.click();
 
     await waitFor(() => expect(screen.getByTestId('pathname').textContent).toBe('/home'));
+  });
+
+  it('…and that way back follows the DECLARED landing where there is one (objectui#7373)', async () => {
+    // The card's own case. On cloud's control plane `cloud_control` declares
+    // the landing, so a customer refused an app they may not open must land
+    // back on it — not on the environment launcher, whose "Build an app" /
+    // "Start from a template" cards act on an environment the control plane
+    // does not have and whose "Your apps" tiles are its own internal management
+    // apps. The pin fails on the pre-#7373 implementation, which named `/home`
+    // literally whatever the deployment declared.
+    metadataApps = [
+      { name: 'cloud_control', label: 'Cloud', isDefault: true, navigation: [] },
+      { name: 'account', label: 'Account', navigation: [] },
+    ];
+    byName.finance = () => json(403, DENIED_BODY);
+
+    renderConsoleAt('/apps/finance');
+    const home = await screen.findByTestId('app-access-denied-home');
+    home.click();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('pathname').textContent).toBe('/apps/cloud_control'),
+    );
   });
 });

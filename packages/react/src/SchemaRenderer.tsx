@@ -70,6 +70,7 @@ const _warnedSchemas: WeakSet<object> =
   typeof WeakSet !== 'undefined' ? new WeakSet() : ({ add() {}, has() { return false; } } as any);
 
 function validateSchemaOnce(schema: any): _ValidationCacheEntry {
+  // Render is not a validation door: a dev-only STRUCTURAL check, not the contract — the doors are named in "Render is not a validation door", content/docs/guide/schema-rendering.md.
   if (!__DEV__ || !schema || typeof schema !== 'object') {
     return { valid: true, messages: [] };
   }

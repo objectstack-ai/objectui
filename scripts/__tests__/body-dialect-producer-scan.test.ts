@@ -553,8 +553,47 @@ describe('the LIVE tree, read through the criterion', () => {
     // ⭐ Asserted as SHAPES, not as a count and not as a list of paths: a
     // producer arriving in a file nobody named appears in `producers` without
     // anyone extending anything, which is the whole point of this card.
-    expect(producers.filter((p: { carrier: string }) => p.carrier === 'item').length).toBeGreaterThan(0);
-    expect(files.size).toBeGreaterThan(0);
+    //
+    // ⭐ RE-POINTED at objectui#9941, ⛔ not deleted — this block's own former
+    // message asked for exactly that when the table emptied. What it now says,
+    // and it says ⛔ nothing beyond it:
+    //
+    //   1. the table is EMPTY **under objectui#9871's EMISSION criterion**
+    //      (C1 + C2). ⛔ That is not "the dialect has left the tree".
+    //   2. its last subject was the three `defaultProps` items in
+    //      `packages/components/src/renderers/layout/tabs.tsx`, respelled
+    //      `body:` -> `content:` under objectui#9941 because `TabItemSchema`
+    //      declares `content` required and declares no `body` — ⛔ a
+    //      CONFORMANCE fix, ⛔ not a dialect migration. The two are not one act.
+    //   3. ⛔ THIS IS NOT objectui#9590'S FINISH LINE AND THIS BLOCK DOES NOT
+    //      CLAIM IT IS. Measured across that same change: `failedC2` 313 -> 313
+    //      and `unclassified` 5 -> 5, both identical — 318 rows sit outside
+    //      what this criterion scores as emission and not one of them moved —
+    //      and objectui#9989 is a published doc still TEACHING the spelling.
+    //      ⭐ Emitted and taught are different verbs and this scan reads only
+    //      the first. Whether the finish line is reached is objectui#9590's to
+    //      judge on its own record.
+    //   4. ⭐ the instrument is ⛔ NOT blind, and that is what makes standing
+    //      down a live-tree control safe rather than blind: the DIFFERENTIAL
+    //      test at the top of this file plants `ITEM_PRODUCER` in a synthetic
+    //      root and still asserts carrier ['item'], line 6, channel
+    //      'default-props'. It passed in the same run that first reported these
+    //      reds. The SHAPE stays reachable; only its live occupancy is zero.
+    //
+    // ⛔ Do not relax either of these to a range — the file's own idiom for a
+    // shape that has emptied is `toBe(0)` plus a message naming what a non-zero
+    // means (see the string-carried assertion below).
+    expect(
+      producers.filter((p: { carrier: string }) => p.carrier === 'item').length,
+      'an item-carried producer is BACK — the B1 shape (a `body` on an object with no `type`) ' +
+        'is live in shipped source again, and it has not been since objectui#9941. ' +
+        '⛔ Not a licence to relax this: name the site and its carrier.',
+    ).toBe(0);
+    expect(
+      files.size,
+      'a producer FILE is back, so the empty-table reading above no longer holds. ' +
+        '⛔ Re-read that reading before changing anything here.',
+    ).toBe(0);
 
     // ⚠️ B2 INVERTED BY objectui#6771, and this is the SECOND copy of the claim
     // — the census block carries the first. ⭐ Neither file was in the merge's
@@ -580,6 +619,14 @@ describe('the LIVE tree, read through the criterion', () => {
       'lit control — no literal-carried hit passes C2, so the zero below would measure C2 ' +
         'rather than the emission channel it claims to measure',
     ).toBeGreaterThan(0);
+    // ⚠️ VACUOUS SINCE objectui#9941, and said out loud rather than left to be
+    // discovered by the next reader. `producers` is EMPTY, so every filter over
+    // it is 0 and this passes without searching for anything — the phantom-check
+    // shape. It is kept, ⛔ not deleted, because it is the claim that fires the
+    // moment any producer returns; until one does it measures nothing, and the
+    // two lit controls directly above are what keep B2's own sight under test in
+    // the meantime. ⇒ they are ⛔ not decoration now, they are the only live
+    // half of this paragraph.
     expect(
       producers.filter((p: { source: string }) => p.source !== 'code-key').length,
       'a string-carried producer is BACK — objectui#6771 step 5 migrated the last of them. ' +
@@ -601,15 +648,30 @@ describe('the LIVE tree, read through the criterion', () => {
     // `unknown-prop: <card> has no prop "body" — the child-list key is
     // "children"`, and a `tabs` ITEM carrying the same key draws ZERO
     // diagnostics. ⇒ step 4 refuses nothing the platform still ships.
-    // An empty table is objectui#9590's finish line, ⛔ not step 4's gate.
-    // ⛔ When this reds because the table emptied, that is still the HANDOFF —
-    // say so here in those terms rather than deleting the assertion.
+    //
+    // ⭐ RE-POINTED at objectui#9941, ⛔ not deleted — this assertion's own
+    // former message asked for that, in these terms. The table emptied when the
+    // three `tabs.tsx` `defaultProps` items were respelled to `content` to
+    // satisfy `TabItemSchema`, which declares `content` required and declares no
+    // `body`: ⛔ a conformance fix, ⛔ not a dialect migration.
+    //
+    // ⛔ An empty table is ⛔ NOT asserted here to be objectui#9590's finish
+    // line. The claim is scoped to what was measured — empty UNDER
+    // objectui#9871's EMISSION criterion. Across the same change `failedC2` held
+    // at 313 and `unclassified` at 5, so 318 rows outside what this criterion
+    // scores as emission did not move, and objectui#9989 is a published doc
+    // still TEACHING the spelling. Whether the finish line is reached is
+    // objectui#9590's to judge on its own record.
+    //
+    // ⭐ Safe rather than blind: the DIFFERENTIAL test at the top of this file
+    // plants `ITEM_PRODUCER` in a synthetic root and still asserts carrier
+    // ['item'], line 6, channel 'default-props'.
     expect(
       producers.length,
-      'the producer table is EMPTY — under this criterion nothing ships the dialect. That is ' +
-        'objectui#9590\'s finish line, ⛔ NOT objectui#6771 step 4\'s gate: step 4 landed with ' +
-        'this table non-empty and item-carried. Re-point this block, do not delete it.',
-    ).toBeGreaterThan(0);
+      'a producer is BACK — under objectui#9871\'s EMISSION criterion shipped source emits the ' +
+        'dialect again, and it has not since objectui#9941. ⛔ Do not relax this to a range: ' +
+        'name the site and its carrier, and re-read the criterion before deciding what it means.',
+    ).toBe(0);
     // ⏱ Explicit — one tree-wide scan over 5,136 files, measured 4.0s here; the
     // CI shard is at least 1.9x slower (objectui#9871's timeout reading), and
     // the default 15s leaves too little room on a loaded shard. Same 60s and the

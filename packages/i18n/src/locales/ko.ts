@@ -260,6 +260,9 @@ const ko = {
       selectBusinessUnit: "사업 단위 선택",
       selectPosition: "직위 선택",
       selectUnitAndSubordinates: "사업 단위 선택",
+      selectField: "사용자 필드 선택",
+      noUserFields: "이 객체에는 사용자 필드가 없습니다",
+      fieldNotUserTyped: "{{name}} — 사용자 필드가 아닙니다",
     },
     filterCondition: {
       selectObjectFirst: "먼저 객체를 선택하세요.",
@@ -1848,6 +1851,13 @@ const ko = {
       records: "레코드",
       recentRecords: "최근 본 항목",
     },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: '이 환경의 읽기 양이 비정상적입니다',
+      ratio: '쓰기 1행당 {{ratio}}행을 읽고 있습니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
+      noWritesTitle: '이 환경은 읽기만 있고 쓰기가 전혀 없습니다',
+      noWrites: '행을 읽고 있지만 쓰기가 전혀 없어 읽기 비율에 상한이 없습니다. 가장 심각한 수치입니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
+    },
     errors: {
       somethingWentWrong: "문제가 발생했습니다",
       unexpectedError: "이 뷰를 렌더링하는 중 예기치 않은 오류가 발생했습니다.",
@@ -2244,6 +2254,15 @@ const ko = {
       role: "역할",
       save: "변경 사항 저장",
     },
+    language: {
+      title: "언어",
+      description: "회원님에게 발송되는 알림과 메시지에 사용되는 언어입니다. 화면 표시 언어는 지구본 메뉴에서 따로 변경합니다.",
+      label: "선호 언어",
+      systemDefault: "배포 기본값 사용",
+      save: "저장",
+      saved: "언어 설정을 업데이트했습니다.",
+      readOnly: "이 계정의 언어는 관리자가 관리합니다.",
+    },
     password: {
       changeTitle: "비밀번호 변경",
       setTitle: "로컬 비밀번호 설정",
@@ -2483,6 +2502,7 @@ const ko = {
     resultsCount: "\"{{query}}\"에 대한 {{count}}개 결과",
     resultsCountPlural: "\"{{query}}\"에 대한 {{count}}개 결과",
     itemsAvailable: "{{count}}개 항목 사용 가능",
+    itemsAvailableOne: "{{count}}개 항목 사용 가능",
     noResults: "결과를 찾을 수 없습니다",
     noResultsHint: "검색어를 조정해 보세요",
     typeObjects: "오브젝트",

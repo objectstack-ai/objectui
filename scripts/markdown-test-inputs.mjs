@@ -577,7 +577,16 @@ export const ADJUDICATED = new Map([
   [
     'scripts/__tests__/check-doc-component-types.test.ts',
     {
-      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**'],
+      // `packages/**` joined with objectui#7896's fourth leg (objectui#8115):
+      // `check:doc-types` now walks every `packages/NAME/README.md`, so this test
+      // reads them and a change to one must start the shard that runs it. The
+      // entry is the same shape `check-doc-snippet-types.test.ts` below carries
+      // for the same surface — the ledger has no `dir/*/name` form, and
+      // over-declaring is the safe direction here: the failure this whole file
+      // exists to prevent (objectui#8857) was a pull request changing exactly
+      // ONE package README, `packages/plugin-dashboard/README.md`, whose shard
+      // reported success in ten seconds having run nothing.
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**', 'packages/**'],
       walker: 'not-markdown: `.github/workflows/*.yml`',
     },
   ],
@@ -605,7 +614,10 @@ export const ADJUDICATED = new Map([
   [
     'scripts/__tests__/check-doc-expression-carriage.test.ts',
     {
-      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**'],
+      // `packages/**` for the same reason as the entry above: this census takes
+      // `check:doc-types`' surface by IMPORT, so objectui#7896's fourth leg
+      // reached it in the same change (objectui#8115).
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**', 'packages/**'],
       walker: 'markdown-tree',
     },
   ],

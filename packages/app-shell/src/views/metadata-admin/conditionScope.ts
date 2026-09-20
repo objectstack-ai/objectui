@@ -1,5 +1,10 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
+import {
+  CLIENT_CONDITION_ROOTS,
+  RECORD_CONDITION_SUBJECTS,
+} from './inspectors/ConditionBuilder.js';
+
 /**
  * Which lint scope a SCHEMA-DRIVEN condition editor claims, decided by the
  * metadata type being edited (objectui#8167).
@@ -164,4 +169,136 @@ export type RuledMetadataType = keyof typeof CONDITION_SCOPE_BY_METADATA_TYPE;
 export function conditionScopeForMetadataType(type: string): ConditionScope {
   const table: Record<string, ConditionScope> = CONDITION_SCOPE_BY_METADATA_TYPE;
   return table[type] ?? 'none';
+}
+
+/* ========================================================================== */
+/* The SECOND question: who evaluates the condition (objectui#9953)           */
+/* ========================================================================== */
+
+/**
+ * Which host evaluates a condition authored at a mount editing this metadata
+ * type.
+ *
+ * ## Why {@link ConditionScope} cannot answer this, and a second table must
+ *
+ * The scope table gives `action`, `hook` and `validation` the same `'record'`,
+ * and that verdict is right for all three — each evaluator binds the row as the
+ * `record` ROOT. But `'record'` is a claim about how the CEL is LINTED, not a
+ * claim about what the host BINDS, and on that second question the three
+ * disagree: two are evaluated on the SERVER, one in the BROWSER. So one value
+ * covers two different binding sets, and any single subject vocabulary declared
+ * at the generic mount would be correct for one tier and wrong for the other.
+ *
+ * `RECORD_CONDITION_SUBJECTS` refuses to derive its narrowing from
+ * `scope === 'record'` for precisely this reason, and says so in its own words.
+ * This table is the other end of that refusal: the fact the component cannot
+ * see, supplied by the one place that knows which metadata type is on screen.
+ */
+export type ConditionEvaluationHost = 'server' | 'client';
+
+/**
+ * The measured host per metadata type, PARTIAL over the ruled table on purpose.
+ *
+ * ## Why partial, and what keeps it honest anyway
+ *
+ * A row here is a MEASUREMENT of a real evaluator, so a type whose condition
+ * nobody has put to an evaluator must have no row rather than a guessed one.
+ * Every absent type therefore derives no narrowing at all and the builder keeps
+ * its own default vocabulary — byte for byte what it offered before this table
+ * existed.
+ *
+ * Two things stop that from becoming the silent-default defect this card is
+ * about. The `satisfies Partial<Record<RuledMetadataType, …>>` below ties the
+ * KEY SET to the ruled scope table, so a key that is not a ruled metadata type
+ * is a compile error here. And `ConditionWidget.conditionSubjects.test.tsx`
+ * requires a row for every type the scope table rules `'record'` — the tiers
+ * where a subject vocabulary is actually offered — so a new row-surface type
+ * reddens there instead of inheriting `user.*` unremarked.
+ *
+ * ## The readings behind each row, re-derived at source in objectstack
+ *
+ *  • `hook` → `server`. `wrapDeclarativeHook`'s pre-compiled condition calls
+ *    `ExpressionEngine.evaluate<boolean>(expr, { record: record ?? {}, previous })`
+ *    and throws when the result is not `ok`, so an unevaluable predicate aborts
+ *    the operation rather than resolving false. Two bindings, no `user`.
+ *  • `validation` → `server`. A rule's `condition` goes through `checkPredicate`
+ *    and its `when` through `checkConditional`; both evaluate against
+ *    `{ record, previous }` and both return an `unevaluableRuleError` when the
+ *    predicate cannot be evaluated — the rule validator's own log line calls
+ *    that outcome "rejected, not skipped". Two bindings, no `user`.
+ *  • `action` → `client`. An action's `visible` / `disabled` are evaluated in
+ *    the browser, where `buildExpressionScope` (`ExpressionProvider`) returns a
+ *    bag carrying `user` (alongside `current_user`, `ctx`, `os` and `features`)
+ *    and the row arrives through `usePredicateRecordContext`. `user` is a
+ *    subject an author can legitimately pick here, so this row exists to keep
+ *    the narrowing OFF this tier — an omission would read the same way and
+ *    claim nothing.
+ *
+ * ⛔ Do not add a row from a docblock or a card. A row is a reading taken at
+ * the evaluator.
+ */
+export const CONDITION_HOST_BY_METADATA_TYPE = {
+  action: 'client',
+  hook: 'server',
+  validation: 'server',
+} satisfies Partial<Record<RuledMetadataType, ConditionEvaluationHost>>;
+
+/** The host that evaluates `type`'s condition, or `undefined` when unmeasured. */
+export function conditionHostForMetadataType(
+  type: string,
+): ConditionEvaluationHost | undefined {
+  const table: Partial<Record<string, ConditionEvaluationHost>> =
+    CONDITION_HOST_BY_METADATA_TYPE;
+  return table[type];
+}
+
+/**
+ * The context subjects a host editing `type` must declare on its
+ * {@link WidgetContext}, or `undefined` to declare nothing.
+ *
+ * The sibling of {@link conditionScopeForMetadataType}, and the one place the
+ * per-type answer is derived: `ResourceEditPage` is polymorphic over every
+ * metadata type, so it can no more hard-code a vocabulary than it could
+ * hard-code a scope.
+ *
+ * `undefined` is a decision and not an absence, the same way `'none'` is in the
+ * scope table — it means this mount declares no narrowing, so `ConditionBuilder`
+ * keeps `CONTEXT_SUBJECTS`, which is what every generic mount offered before
+ * this derivation existed. The `client` tier takes that arm deliberately: its
+ * predicates really are evaluated where `user` is bound, so narrowing there
+ * would take a working subject away rather than withdraw an unbound one.
+ */
+export function conditionSubjectsForMetadataType(
+  type: string,
+): ReadonlyArray<{ value: string; label?: string }> | undefined {
+  return conditionHostForMetadataType(type) === 'server'
+    ? RECORD_CONDITION_SUBJECTS
+    : undefined;
+}
+
+/**
+ * The scope roots a condition editor at a host editing `type` may OFFER, or
+ * `undefined` to declare no narrowing (objectui#9856).
+ *
+ * The third derivation off {@link CONDITION_HOST_BY_METADATA_TYPE}, and the one
+ * that reads it the other way round from
+ * {@link conditionSubjectsForMetadataType}. That one narrows the SERVER tier,
+ * because the row builder's subject dropdown offers `user.*` by default and a
+ * server host binds no `user`. This one widens the CLIENT tier, because
+ * `ConditionBuilder` narrows a `scope="record"` mount to
+ * `RECORD_CONDITION_ROOTS` by default and a browser host binds more than that.
+ * Same table, opposite defaults, one ruling — which is why neither can be
+ * derived from `scope === 'record'`, and why the answer has to come from the
+ * host that knows which metadata type is on screen.
+ *
+ * `undefined` is a decision here too, and it covers both remaining arms:
+ *
+ *  - a `server` tier keeps the builder's own record-scoped narrowing, byte for
+ *    byte what objectui#9645 landed;
+ *  - an UNMEASURED tier keeps whatever it had, because a root list is a reading
+ *    taken at an evaluator and there is none to hand back for a tier nobody has
+ *    put to one.
+ */
+export function conditionRootsForMetadataType(type: string): string[] | undefined {
+  return conditionHostForMetadataType(type) === 'client' ? CLIENT_CONDITION_ROOTS : undefined;
 }

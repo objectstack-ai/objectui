@@ -39,6 +39,17 @@ interface AnyPart {
    * output checked; this stays open.
    */
   state?: string;
+  /**
+   * The chat runtime's approval envelope, as it arrives on a tool part.
+   *
+   * `unknown`, like every other absorbing member here, and deliberately NOT
+   * the envelope's declared shape: this interface exists to take whatever a
+   * producer hands the mapper, and the one time a member was typed against the
+   * OUTPUT contract it made the permissive input interface stricter than the
+   * union it absorbs (objectui#8214, the `state` member). {@link liftApproval}
+   * is what keeps the OUTPUT checked; this stays open.
+   */
+  approval?: unknown;
   url?: string;
   href?: string;
   title?: string;
@@ -642,6 +653,49 @@ export function buildProgressFromDraftReview(
   };
 }
 
+/**
+ * Lift the chat runtime's approval envelope off a tool part.
+ *
+ * The envelope is what makes the three approval states ACTIONABLE rather than
+ * merely displayable: the runtime's own tool-part union makes it required
+ * alongside `approval-requested`, `approval-responded` and `output-denied`, so
+ * a producer that rebuilds a part from an invocation without it cannot
+ * reconstruct those states at all. This is the live half of objectui#8426 —
+ * `hydratedMessagesToChatMessages` already lifts it on the HYDRATED half
+ * (objectui#8442), and until this landed the two paths disagreed about the
+ * same conversation.
+ *
+ * ⚠️ NOT a replacement for `pendingActionId`, which rides alongside it: that is
+ * the ObjectStack `pending_actions` row the approve/reject endpoints take,
+ * while this is the runtime's own request id.
+ *
+ * A missing or empty `id` means there is no envelope to lift — an envelope
+ * whose id cannot be replied on is not one.
+ */
+function liftApproval(part: AnyPart): ChatToolInvocation['approval'] {
+  const { approval } = part;
+  if (typeof approval !== 'object' || approval === null) return undefined;
+  const envelope = approval as {
+    id?: unknown;
+    approved?: unknown;
+    reason?: unknown;
+    isAutomatic?: unknown;
+    signature?: unknown;
+  };
+  const { id } = envelope;
+  if (typeof id !== 'string' || id.length === 0) return undefined;
+  // Each member is checked on its own: a producer that gets one of them wrong
+  // should lose that member, not the whole envelope — the `id` is what makes
+  // the approval answerable, and it has already been established.
+  return {
+    id,
+    approved: typeof envelope.approved === 'boolean' ? envelope.approved : undefined,
+    reason: typeof envelope.reason === 'string' ? envelope.reason : undefined,
+    isAutomatic: typeof envelope.isAutomatic === 'boolean' ? envelope.isAutomatic : undefined,
+    signature: typeof envelope.signature === 'string' ? envelope.signature : undefined,
+  };
+}
+
 function extractToolInvocations(
   parts: AnyPart[],
   opts: { liveTail?: boolean } = {},
@@ -702,6 +756,7 @@ function extractToolInvocations(
         result,
         errorText: p.errorText,
         state,
+        approval: liftApproval(p),
         pendingActionId: pending?.pendingActionId,
         draftReview,
         proposedPlan,

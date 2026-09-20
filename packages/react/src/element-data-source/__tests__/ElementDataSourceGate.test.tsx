@@ -472,3 +472,163 @@ describe('useResolvedDataSource — one resolution rule for the family', () => {
     expect(read({ object: 'account', view: 'hot' }, ambient)).toBe(ambient);
   });
 });
+
+/**
+ * objectui#9899 — "did the component author its own cap?" was decided by
+ * PRESENCE, while the sibling `columns` branch twenty lines above already
+ * decided the same question by CONTENT.
+ *
+ * ## The two branches disagreed about the same question
+ *
+ * `columns` rules an authored-but-EMPTY list as NOT authored, and its own
+ * comment says why: "supplying the columns is the reason a view was named".
+ * That sentence transfers to the row cap word for word. The `limit` branch
+ * nevertheless asked only whether a value was THERE, so a cap the contract
+ * refuses counted as authored and the bound view's legitimate cap was never
+ * written.
+ *
+ * ## Why "refuses" is not this file inventing a meaning
+ *
+ * The predicate is objectui#9925's, restated here rather than imported: the
+ * spec's view pagination config declares `pageSize` a positive integer with a
+ * default, every component `limit` in `@objectstack/spec`'s component props map
+ * is `z.number().int().positive()`, and those are the two keys this branch
+ * writes. So `0`, `-10` and `25.5` are not spellings this relay may assign a
+ * meaning to.
+ *
+ * ## Each refusal is paired with a control that must NOT fire
+ *
+ * A branch that stopped counting ANY authored cap would pass every refusal row
+ * below and be badly wrong, so a legitimate authored cap winning over the view
+ * is asserted beside each one. The binding's own cap beating a legitimate
+ * authored cap is asserted too — that precedence is not what this card moves.
+ */
+describe('useElementDataSourceSchema — a cap the contract refuses is not "authored" (objectui#9899)', () => {
+  const warn = () => vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+  describe('carrier `pagination.pageSize`', () => {
+    for (const refused of [0, -10, 25.5]) {
+      it(`takes the view's cap over an authored pageSize: ${refused}`, async () => {
+        const spy = warn();
+        const result = await resolved(
+          { type: 'list-view', pagination: { pageSize: refused }, dataSource: { object: 'account', view: 'hot' } },
+          FULL,
+        );
+        expect(result.current.schema.pagination).toEqual({ pageSize: 7 });
+        spy.mockRestore();
+      });
+    }
+
+    it('CONTROL — a legitimate authored cap still wins over the view', async () => {
+      const spy = warn();
+      const result = await resolved(
+        { type: 'list-view', pagination: { pageSize: 25 }, dataSource: { object: 'account', view: 'hot' } },
+        FULL,
+      );
+      expect(result.current.schema.pagination).toEqual({ pageSize: 25 });
+      // The silence control: a usable cap is not a mistake, so nothing is said.
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('CONTROL — other keys on the authored `pagination` survive the write', async () => {
+      // `writeLimit` spreads the authored object; a refused pageSize must not
+      // cost the author their `mode`.
+      const spy = warn();
+      const result = await resolved(
+        {
+          type: 'list-view',
+          pagination: { mode: 'server', pageSize: 0 },
+          dataSource: { object: 'account', view: 'hot' },
+        },
+        FULL,
+      );
+      expect(result.current.schema.pagination).toEqual({ mode: 'server', pageSize: 7 });
+      spy.mockRestore();
+    });
+  });
+
+  describe('carrier flat `limit`', () => {
+    for (const refused of [0, -10, 25.5]) {
+      it(`takes the view's cap over an authored limit: ${refused}`, async () => {
+        const spy = warn();
+        const result = await resolved(
+          { type: 'object-kanban', limit: refused, dataSource: { object: 'account', view: 'hot' } },
+          { limit: 'limit' },
+        );
+        expect(result.current.schema.limit).toBe(7);
+        spy.mockRestore();
+      });
+    }
+
+    it('CONTROL — a legitimate authored cap still wins over the view', async () => {
+      const spy = warn();
+      const result = await resolved(
+        { type: 'object-kanban', limit: 50, dataSource: { object: 'account', view: 'hot' } },
+        { limit: 'limit' },
+      );
+      expect(result.current.schema.limit).toBe(50);
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('CONTROL — the BINDING’s own cap still beats a legitimate authored cap', async () => {
+      const spy = warn();
+      const result = await resolved(
+        { type: 'object-kanban', limit: 50, dataSource: { object: 'account', view: 'hot', limit: 3 } },
+        { limit: 'limit' },
+      );
+      expect(result.current.schema.limit).toBe(3);
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+  });
+
+  describe('the loud half', () => {
+    it('states the displacement once, naming the refused value and the cap used', async () => {
+      const spy = warn();
+      await resolved(
+        { type: 'list-view', pagination: { pageSize: 0 }, dataSource: { object: 'account', view: 'hot' } },
+        FULL,
+      );
+      const said = spy.mock.calls.map((c) => String(c[0]));
+      expect(said).toHaveLength(1);
+      expect(said[0]).toContain('pagination.pageSize: 0');
+      expect(said[0]).toContain('account');
+      expect(said[0]).toContain('7');
+      spy.mockRestore();
+    });
+
+    it('SILENCE CONTROL — says nothing when no cap was authored at all', async () => {
+      const spy = warn();
+      const result = await resolved(
+        { type: 'list-view', dataSource: { object: 'account', view: 'hot' } },
+        FULL,
+      );
+      expect(result.current.schema.pagination).toEqual({ pageSize: 7 });
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('SILENCE CONTROL — says nothing when the view supplies no cap to displace WITH', async () => {
+      // Nothing is written, the refused value stays, and the RENDERER's own
+      // diagnostic is the one that fires. Two messages for one declaration is
+      // the failure this control exists to catch.
+      const spy = warn();
+      const capless = {
+        find: vi.fn(),
+        getObjectSchema: vi
+          .fn()
+          .mockResolvedValue({ name: 'account', listViews: { hot: { name: 'hot', columns: ['name'] } } }),
+      };
+      const result = await resolved(
+        { type: 'list-view', pagination: { pageSize: 0 }, dataSource: { object: 'account', view: 'hot' } },
+        FULL,
+        capless,
+      );
+      expect(result.current.schema.pagination).toEqual({ pageSize: 0 });
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+  });
+});

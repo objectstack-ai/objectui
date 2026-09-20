@@ -82,22 +82,22 @@ styles can be overridden from JSON.
 
 ### 4. The action system (interactivity)
 
-Actions are data, not functions:
+Actions are data, not functions — and a control that RUNS something is its own
+node type, `action:button`. `actionType` names the executor the action runner
+dispatches to; the node's own keys carry that executor's arguments:
 
 <!-- os:check -->
 ```json
 {
-  "events": {
-    "onClick": [
-      { "action": "validate", "target": "form_1" },
-      { "action": "submit", "target": "form_1" },
-      { "action": "navigate", "params": { "url": "/success" } }
-    ]
-  }
+  "type": "action:button",
+  "label": "Open details",
+  "actionType": "url",
+  "target": "/users/ada"
 }
 ```
 
-`@object-ui/core` dispatches these through an event bus.
+⛔ There is no `events` bag: nothing declares or reads `schema.events`, and the node
+is `.passthrough()`, so one authored there is kept and run by nothing (objectui#6497).
 
 ### 5. Layout as components
 

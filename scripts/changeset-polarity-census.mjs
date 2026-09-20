@@ -306,6 +306,39 @@
  * a flag is a CANDIDATE: every one of them is resolved by a human reading the
  * sentence, and none is resolvable by reading the count.
  *
+ * ## A change to THIS instrument carries no changeset (objectui#9795)
+ *
+ * It is stated beside the list above because that is where such a changeset
+ * would be paid for. The corpus IS `.changeset/` -- see "It does not answer
+ * about itself" below -- so a changeset written ABOUT this script becomes one
+ * of this script's own inputs on the very next run, and keeping THE LIST honest
+ * about that would take a self-exclusion: one more precision source, bought for
+ * a release note that declares nothing.
+ *
+ * RULE (objectui#9795, ruling batch #162 item 3, maintainer agreed
+ * 2026-09-18): a change to this script -- or to any other tooling whose diff
+ * `scripts/check-changeset-presence.mjs` clears -- gets NO changeset entry,
+ * ⛔ not even an empty-frontmatter one. The intent is recorded in the PR body.
+ * Two pull requests had answered this in opposite directions about forty
+ * minutes apart before it was ruled; the ruling is what makes it one answer,
+ * ⛔ so that it is not re-decided once per developer.
+ *
+ * ⚠️ The rule is CONDITIONAL on the presence instrument and is ⛔ NOT a blanket
+ * exemption for `scripts/`: that instrument derives its guarded surface from
+ * the release configuration rather than from a hand-written list, so if it ever
+ * says a tooling diff owes a declaration, that diff owes one and this paragraph
+ * does not excuse it. Run it -- ⛔ never infer its verdict from this sentence.
+ *
+ * ⚠️ The ruling's other half was CONDITIONAL on a MEASUREMENT, ⛔ not on taste.
+ * `.changeset/9754-polarity-clause-scope.md` -- the entry objectui#9765 wrote
+ * for an earlier change to this script, before the question was ruled -- was to
+ * be removed only if it contributes matched assertions to this census. Per #9
+ * that reading is ⛔ not copied here: it is on objectui#9795's pull request with
+ * the ref it was taken at, and it is re-derivable by running the census and
+ * attributing its matched assertions to that entry's name. ⇒ Whether that entry
+ * is still in the corpus is a fact about the tree you are reading, ⛔ never a
+ * sentence here.
+ *
  * ## Controls -- run on the SAME corpus as the census, on every run
  *
  * A zero counts only against a LIT control on the same instrument. Two zeros on

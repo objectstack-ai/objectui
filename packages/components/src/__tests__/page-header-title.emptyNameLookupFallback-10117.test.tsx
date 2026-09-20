@@ -43,6 +43,17 @@
  *     affix rung, which the deleted raw chain never looked at and which no
  *     amount of stringifying can reach.
  *  4. THE CONTROL — a non-empty `name` still renders its own name, unchanged.
+ *
+ * ## The clause-3 backstop is NOT pinned here, and that is a measurement
+ *
+ * Deleting the defensive stringify in `PageHeaderRenderer` leaves every pin
+ * below GREEN. That is reported rather than fixed with a contrived pin: with
+ * clauses 1 and 2 in place no rung of the title chain can produce a
+ * non-string, because `pickLocalized` — which every author-supplied `title`
+ * passes through — is typed to a string and collapses an object with no
+ * string value to `''`. The backstop guards a future rung, not a reachable
+ * one, so there is no honest fixture for it through the registered
+ * component's public surface.
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';

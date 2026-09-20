@@ -2158,12 +2158,24 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       recordKeyTitle;
     // Defensive backstop — deliberately last, and deliberately NOT the fix: on
     // its own it would leave a header quietly showing the wrong field's
-    // contents. No non-string may reach JSX as a child, and `explicitTitle` is
-    // the remaining way one can arrive: `interpolate` returns its argument
-    // untouched when that argument is not a string, so an author `title` that
-    // is an object passes straight through it. Reduced through the same
-    // authority rather than a local `String()`, so an expanded reference
-    // resolves to its display name here too instead of to "[object Object]".
+    // contents. No non-string may reach JSX as a child.
+    //
+    // ⚠️ NO RUNG ABOVE CAN PRODUCE ONE TODAY, and this comment says so rather
+    // than implying a live hazard (AGENTS.md #9). Every rung is a string at
+    // its source: the resolver's are, and `explicitTitle` is one because
+    // `pickLocalized` — which every author-supplied `title` passes through
+    // first — is typed to a string and collapses an object with no string
+    // value to `''`. `interpolate` WOULD hand a non-string straight back
+    // (it returns its argument untouched when that argument is not a
+    // string), so the guard is against a future rung, not against today's.
+    // Measured by ablation: deleting this line leaves every pin in
+    // `page-header-title.emptyNameLookupFallback-10117.test.tsx` green, and
+    // that null result is recorded there rather than papered over with a
+    // contrived pin.
+    //
+    // Reduced through the same authority rather than a local `String()`, so
+    // an expanded reference resolves to its display name here too instead of
+    // to "[object Object]".
     const resolvedTitle =
       (typeof titleCandidate === 'string'
         ? (titleCandidate.trim() ? titleCandidate : '')

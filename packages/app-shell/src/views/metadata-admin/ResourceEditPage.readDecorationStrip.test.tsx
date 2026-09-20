@@ -77,6 +77,34 @@ const PUBLISHED_PAGE = {
 };
 
 /**
+ * The same, for `sharing_rule` — the type objectui#7612 switched the edit door
+ * ON for, and the reason this file is parameterised by type at all.
+ *
+ * That card's release condition was "re-run the live read-path probe against a
+ * decoration-stripped draft and confirm the false refusal is gone". This is
+ * that probe, standing where it can be re-run: the strip is a property of the
+ * assembly and not of any one type, but `sharing_rule` is the type whose gate
+ * was held shut BECAUSE of the decoration, so it is the one whose verdict has
+ * to be measured rather than argued from the `page` case above.
+ */
+const PUBLISHED_RULE = {
+  name: 'west_accounts',
+  label: 'West accounts',
+  object: 'account',
+  active: true,
+  accessLevel: 'read',
+  sharedWith: { type: 'position', value: 'sales_west' },
+  type: 'criteria',
+  condition: 'region == "west"',
+};
+
+/** Served body per metadata type, keyed the way the client is asked for it. */
+const PUBLISHED: Record<string, Record<string, unknown>> = {
+  page: PUBLISHED_PAGE,
+  sharing_rule: PUBLISHED_RULE,
+};
+
+/**
  * The framework's read-time decorations, spelled out because this fixture is
  * standing in for a real served body. ⛔ Not imported from the spec: a fixture
  * that derives its own input from the list under test would pass even if that
@@ -89,10 +117,10 @@ const READ_DECORATIONS = {
 };
 
 /** A served draft envelope: `{ type, name, item }` with the item decorated. */
-const draftEnvelope = (extra: Record<string, unknown> = {}) => ({
-  type: 'page',
-  name: 'home',
-  item: { ...PUBLISHED_PAGE, label: DRAFT_ONLY_LABEL, ...READ_DECORATIONS, ...extra },
+const draftEnvelope = (type: string, extra: Record<string, unknown> = {}) => ({
+  type,
+  name: PUBLISHED[type]!.name,
+  item: { ...PUBLISHED[type]!, label: DRAFT_ONLY_LABEL, ...READ_DECORATIONS, ...extra },
 });
 
 /**
@@ -109,8 +137,14 @@ const gate = vi.hoisted(() => ({
 const mockClient = vi.hoisted(() => ({
   list: vi.fn(async () => []),
   listDrafts: vi.fn(async () => []),
-  layered: vi.fn(async () => ({ effective: PUBLISHED_PAGE, code: PUBLISHED_PAGE, editable: true })),
-  getDraft: vi.fn(async () => draftEnvelope()),
+  // The layered read serves its three layers RAW — no decoration on this half,
+  // which is why only a PENDING DRAFT can carry one into the merge.
+  layered: vi.fn(async (type: string) => ({
+    effective: PUBLISHED[type]!,
+    code: PUBLISHED[type]!,
+    editable: true,
+  })),
+  getDraft: vi.fn(async (type: string) => draftEnvelope(type)),
   get: vi.fn(async () => null),
   saveDraft: vi.fn(async () => ({})),
 }));
@@ -132,6 +166,15 @@ vi.mock('./useMetadata', async (importOriginal) => {
           // required fields — it structurally cannot suppress an
           // `unrecognized_keys` issue, whose path is empty. So no server hint
           // can rescue a decorated body; only the strip can.
+          schema: { required: [] },
+        },
+        {
+          type: 'sharing_rule',
+          name: 'sharing_rule',
+          label: 'Sharing Rule',
+          allowOrgOverride: true,
+          // Same reasoning, and load-bearing twice over here: this is the type
+          // whose edit gate the root-cure was measured unable to rescue.
           schema: { required: [] },
         },
       ],
@@ -168,7 +211,7 @@ registerBuiltinInspectors();
 
 beforeEach(() => {
   gate.calls.length = 0;
-  mockClient.getDraft.mockImplementation(async () => draftEnvelope());
+  mockClient.getDraft.mockImplementation(async (type: string) => draftEnvelope(type));
 });
 
 afterEach(() => {
@@ -176,10 +219,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function openEditor() {
+function openEditor(type: string) {
+  const name = PUBLISHED[type]!.name as string;
   render(
-    <MemoryRouter initialEntries={['/metadata/page/home']}>
-      <MetadataResourceEditPage type="page" name="home" />
+    <MemoryRouter initialEntries={[`/metadata/${type}/${name}`]}>
+      <MetadataResourceEditPage type={type} name={name} />
     </MemoryRouter>,
   );
 }
@@ -217,7 +261,7 @@ const keysNamedIn = (issues: Array<{ message: string }>) => issues.map((i) => i.
 
 describe('MetadataResourceEditPage — read decorations never reach the edit gate (#7603)', () => {
   it('accepts a served body whose pending draft carries `_diagnostics` and `_draft`', async () => {
-    openEditor();
+    openEditor('page');
     const verdict = await awaitMergedVerdict();
 
     // The decorations were on the wire…
@@ -241,8 +285,10 @@ describe('MetadataResourceEditPage — read decorations never reach the edit gat
   });
 
   it('still refuses a genuinely undeclared key riding the same decorated draft', async () => {
-    mockClient.getDraft.mockImplementation(async () => draftEnvelope({ [UNDECLARED_KEY]: 1 }));
-    openEditor();
+    mockClient.getDraft.mockImplementation(async (type: string) =>
+      draftEnvelope(type, { [UNDECLARED_KEY]: 1 }),
+    );
+    openEditor('page');
     const verdict = await awaitMergedVerdict();
 
     // The strip is not a "drop whatever the schema refuses" pass: an author's
@@ -259,5 +305,81 @@ describe('MetadataResourceEditPage — read decorations never reach the edit gat
     // same harness, on this same pending-draft path.
     const banner = await screen.findByTestId('metadata-validation-banner', undefined, { timeout: 4000 });
     expect(banner).toHaveTextContent(UNDECLARED_KEY);
+  });
+});
+
+/**
+ * objectui#7612 — the same probe, on the type whose edit door was held shut
+ * BY the decoration, now that the door is open.
+ *
+ * ## Why these cases are not a duplicate of the two above
+ *
+ * The `page` cases prove the assembly strips. They cannot prove this card's
+ * claim, because with `sharing_rule` on the author-shape-only list the gate did
+ * not run for it at all: every assertion about its verdict was vacuous, and a
+ * body carrying `_diagnostics` "passed" for the reason that nothing looked.
+ * These cases measure the verdict itself, on the door the card opened.
+ *
+ * ## The refusal these pin the ABSENCE of
+ *
+ * `SharingRuleSchema` is `.strict()` and still refuses both read decorations at
+ * the ROOT — that has NOT changed and is not what made the switch safe (the
+ * schema-side reading lives in `clientValidation.optOuts.test.ts`, in the case
+ * naming a served body). What changed is upstream of the gate: the decorations
+ * no longer survive the assembly, so the strict schema never sees one. If the
+ * strip regresses, the first case below goes red HERE — on the real page, with
+ * the real gate — rather than in production as a banner on an author who is
+ * mid-edit.
+ */
+describe('MetadataResourceEditPage — the sharing_rule edit gate judges a stripped draft (#7612)', () => {
+  it('accepts a sharing rule whose pending draft carries `_diagnostics` and `_draft`', async () => {
+    openEditor('sharing_rule');
+    const verdict = await awaitMergedVerdict();
+
+    // The decorations were on the wire for THIS type…
+    expect(await mockClient.getDraft.mock.results[0]!.value).toMatchObject({
+      type: 'sharing_rule',
+      item: { _diagnostics: expect.anything(), _draft: true },
+    });
+    // …and did not survive into what the gate judged.
+    expect(Object.keys(verdict.draft)).not.toContain('_diagnostics');
+    expect(Object.keys(verdict.draft)).not.toContain('_draft');
+
+    // The verdict the card is about: the body the server accepts, the client
+    // now also accepts — having actually looked at it.
+    expect(verdict.issues, keysNamedIn(verdict.issues)).toEqual([]);
+    expect(verdict.ok).toBe(true);
+    expect(screen.queryByTestId('metadata-validation-banner')).not.toBeInTheDocument();
+
+    // The author's own edit survived the strip.
+    expect(verdict.draft.label).toBe(DRAFT_ONLY_LABEL);
+    expect(verdict.draft.condition).toBe(PUBLISHED_RULE.condition);
+  });
+
+  it('refuses an invalid sharing rule on the edit door — the gate this card added', async () => {
+    // An `accessLevel` outside the declared enum: a VALUE the schema refuses,
+    // chosen over an unknown key on purpose. An unknown key would also be
+    // caught by the create door, so it could not tell "the edit door gained a
+    // gate" from "some door somewhere is strict"; this is the defense-in-depth
+    // the card bought, measured where it was bought.
+    mockClient.getDraft.mockImplementation(async (type: string) =>
+      draftEnvelope(type, { accessLevel: 'superuser' }),
+    );
+    openEditor('sharing_rule');
+    const verdict = await awaitMergedVerdict();
+
+    expect(verdict.ok).toBe(false);
+    expect(verdict.issues.map((i) => i.path)).toContain('accessLevel');
+
+    // …and neither decoration is named alongside it: the refusal is about the
+    // author's value, never about the framework's own keys.
+    expect(keysNamedIn(verdict.issues)).not.toContain('_diagnostics');
+    expect(keysNamedIn(verdict.issues)).not.toContain('_draft');
+
+    // The CONTROL for the case above, in this same harness on this same type:
+    // the banner fires, so the clean case's silence is a measured verdict and
+    // not a gate that never ran.
+    const banner = await screen.findByTestId('metadata-validation-banner', undefined, { timeout: 4000 });
+    expect(banner).toBeInTheDocument();
   });
 });

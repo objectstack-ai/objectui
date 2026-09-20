@@ -430,9 +430,11 @@ function MetadataResourceEditPageImpl({
   const locale = useMetadataLocale();
   // Which DOOR this page is (objectstack#5316): a create draft is authored here
   // and judged by the strict authoring schema; an edit draft is a body that came
-  // back out of storage. Hoisted to one name because it now also decides whether
-  // a client validator exists at all — some schemas are author-shape-only and
-  // gate `create` only (objectui#3561, `AUTHOR_SHAPE_ONLY_TYPES`).
+  // back out of storage. Two things read it — which schema `view` resolves to,
+  // and whether a client validator exists at all: a type may be author-shape-only
+  // and gate `create` only (objectui#3561, `AUTHOR_SHAPE_ONLY_TYPES`, whose own
+  // header states which types are on that list today — objectui#7612 took the
+  // last one off).
   const draftMode: DraftMode = createMode ? 'create' : 'edit';
 
   const [layered, setLayered] = React.useState<MetadataLayered<any> | null>(null);

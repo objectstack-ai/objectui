@@ -98,32 +98,45 @@ describe('validateMetadataDraft("sharing_rule") — objectui#3561', () => {
   });
 
   /**
-   * The author-shape-only boundary (`AUTHOR_SHAPE_ONLY_TYPES`).
+   * The author-shape-only boundary (`AUTHOR_SHAPE_ONLY_TYPES`) — RETIRED for
+   * this type by objectui#7612, and these pins are the measurement that
+   * retired it.
    *
    * `SharingRuleSchema` is `.strict()`, so it may judge an AUTHORED draft and
-   * must not judge a STORED one — doing so would make this client stricter than
-   * the server (objectstack#5316).
+   * historically could not judge a STORED one — doing so would have made this
+   * client stricter than the server (objectstack#5316).
    *
-   * ⚠️ The REASON moved, and the pins below moved with it (objectui#6982). The
-   * boundary was originally justified by the seven ADR-0010 envelope keys going
-   * undeclared on this schema. That repair LANDED: on the resolved spec 17.2.0
-   * all seven are declared. The key that keeps the boundary load-bearing is a
-   * different one — `_diagnostics`, the READ DECORATION the metadata read path
-   * stamps on every served item, which the spec deliberately does NOT allowlist
-   * the way it allowlists the envelope (`kernel/metadata-read-decorations.ts`:
-   * a served body "is therefore NOT a valid input to the schema that produced
-   * it until these are removed").
+   * ⚠️ The reason moved TWICE, and each move is a different fact. Neither is
+   * "the schema got looser": it did not, and the third pin below is what keeps
+   * that honest.
    *
-   * ⛔ An envelope-only pin is TOOTHLESS now — a `_packageId`-stamped body is
-   * accepted by this schema on both doors, so it cannot tell "the opt-out is
-   * in place" from "the opt-out was deleted". Measured: with `sharing_rule`
-   * removed from the set, that pin stays GREEN. Two assertions here do go red,
-   * and they answer different questions — `hasClientValidator(..., 'edit')`
-   * catches the deletion, while the decoration pin below is the one that says
-   * WHY the door must stay shut. Keep both; do not simplify either back to
-   * `_packageId`.
+   *  1. objectui#6982 — the ORIGINAL reason expired. The boundary was justified
+   *     by the seven ADR-0010 envelope keys going undeclared on this schema.
+   *     That contract-first repair landed upstream, and a stamped body became
+   *     legal input on both doors.
+   *  2. objectui#7603 / objectui#8181 — the reason that REPLACED it was closed
+   *     in turn. That reason was `_diagnostics`: the READ DECORATION the
+   *     metadata read path stamps on every served item, which the spec
+   *     deliberately does NOT allowlist the way it allowlists the envelope
+   *     (its `kernel/metadata-read-decorations.ts` states that a served body
+   *     "is therefore NOT a valid input to the schema that produced it until
+   *     these are removed"). The cure was never to loosen this schema — it was
+   *     to strip the decorations where the edit draft is ASSEMBLED, from the
+   *     spec's own exported list, at the single chokepoint every merge site
+   *     goes through.
+   *
+   * ⇒ the gate is safe here because nothing decorated reaches it any more, NOT
+   * because it tolerates a decoration. Those are different claims and only one
+   * of them is true; the third pin below measures which.
+   *
+   * ⚠️ What re-derives the ingress half is NOT in this file — it is the page
+   * test named for the read-decoration strip, in this same directory, which
+   * drives the real editor and reads what the real gate was handed. Assertions
+   * here judge bodies this file hands the gate directly, so they can say what
+   * the SCHEMA does and can never say what the EDIT PATH delivers. Read that
+   * file before concluding anything about the latter from this one.
    */
-  it('does not gate the edit door — a stored body may carry `_packageId`', async () => {
+  it('gates the edit door — and a stored body carrying `_packageId` passes it', async () => {
     const stored = { ...SHARING_RULE, _packageId: 'crm_pkg' };
 
     // AUTHORING DOOR — INVERTED on the @objectstack/spec 17.0.0-rc.6 bump, and
@@ -158,38 +171,49 @@ describe('validateMetadataDraft("sharing_rule") — objectui#3561', () => {
     );
     expect(bogus.ok).toBe(false);
 
-    // Edit door: no client gate, so the server stays authoritative and the
-    // client cannot report a stored body as broken. Unchanged by rc.6.
+    // Edit door: it now HAS a client gate (objectui#7612), and a stored body
+    // carrying the envelope passes it. This is the whole point of the envelope
+    // being declared — provenance survives a re-parse.
     //
-    // ⚠️ Green on this body alone proves nothing about the opt-out — see the
-    // decoration pin below, which is the assertion that actually fails if
-    // `sharing_rule` leaves `AUTHOR_SHAPE_ONLY_TYPES`.
+    // ⚠️ Green on this body alone proves nothing about the switch either way,
+    // and that is unchanged from when the door was shut: it read green with no
+    // gate at all. The two pins below are the ones that move — one for the
+    // gate existing, one for it still being strict.
     const edit = await validateMetadataDraft('sharing_rule', stored, undefined, { mode: 'edit' });
     expect(edit.ok).toBe(true);
     expect(edit.issues).toEqual([]);
   });
 
   /**
-   * THE LOAD-BEARING PIN (objectui#6982). Deleting `sharing_rule` from
-   * `AUTHOR_SHAPE_ONLY_TYPES` turns this red.
+   * THE LOAD-BEARING PIN, CONVERTED (objectui#6982 filed it as an ABSENCE pin;
+   * objectui#7612 converts it to a PRESENCE pin without weakening it).
    *
-   * `_diagnostics` is not a hypothetical key. Measured on the real read path
-   * (objectstack protocol over a real engine: save a rule, then read it back),
-   * every served body carries it, and `ResourceEditPage` assembles its edit
-   * draft as `{...layered.effective, ...client.getDraft().item}` — the second
-   * of which is decorated — and strips nothing. So a sharing rule with a
-   * PENDING DRAFT reaches this gate carrying `_diagnostics`.
+   * It used to assert that the edit door let a `_diagnostics`-carrying body
+   * through — true only because no gate ran. Re-asserting that on an open door
+   * would have required this schema to TOLERATE the decoration, which is the
+   * tolerant fallback AGENTS.md #0.1 bans and which would have destroyed the
+   * distinction the spec draws between an allowlisted envelope key and a read
+   * decoration. So the pin now asserts the opposite, and the opposite is the
+   * honest fact: the gate is STILL STRICT about `_diagnostics`.
    *
-   *   with the opt-out  → no gate runs, the server stays authoritative  (here)
-   *   without it        → `unrecognized_keys` at the ROOT, on a body the
-   *                       server accepts and re-persists byte-identical
+   *   before #7603  → decorated draft reaches a shut door; opening it would
+   *                   have produced `unrecognized_keys` at the ROOT, on a body
+   *                   the server accepts and re-persists byte-identical
+   *   after  #7603  → the decoration never reaches the door at all, so the
+   *                   door can open while staying exactly this strict  (here)
    *
-   * The root path matters: `validateMetadataDraft`'s `serverSchema.required`
-   * root-cure only suppresses ABSENT top-level fields (`path.length === 1`), so
-   * it cannot take this back out. That is why the boundary is the remedy and a
-   * tolerant fallback is not.
+   * The root path is why nothing else could have rescued it:
+   * `validateMetadataDraft`'s `serverSchema.required` root-cure only suppresses
+   * ABSENT top-level fields, and an `unrecognized_keys` issue arrives with an
+   * empty path. No server hint reaches it; only the upstream strip does.
+   *
+   * ⛔ If this assertion is ever "fixed" by making the edit door accept a raw
+   * decorated body, the fix is in the wrong repo and the wrong direction: it
+   * would mean objectui had started reconstructing the framework's decoration
+   * list locally, which is the second de-facto contract the spec's own header
+   * warns about.
    */
-  it('does not gate the edit door — a served body carries `_diagnostics`', async () => {
+  it('gates the edit door STRICTLY — a raw served body carrying `_diagnostics` is refused', async () => {
     // The shape `decorateMetadataItem` attaches (a clean verdict is still a
     // verdict: the key is present either way).
     const served = {
@@ -198,29 +222,36 @@ describe('validateMetadataDraft("sharing_rule") — objectui#3561', () => {
       _diagnostics: { valid: true, errors: [], warnings: [] },
     };
 
-    const edit = await validateMetadataDraft('sharing_rule', served, undefined, { mode: 'edit' });
-    expect(edit.issues, JSON.stringify(edit.issues)).toEqual([]);
-    expect(edit.ok).toBe(true);
+    // BOTH doors refuse it, and they must: this body is not something the edit
+    // path can produce any more, so neither door has a reason to bend for it.
+    for (const mode of ['create', 'edit'] as const) {
+      const res = await validateMetadataDraft('sharing_rule', served, undefined, { mode });
+      expect(res.ok, `${mode}: ${JSON.stringify(res.issues)}`).toBe(false);
+      expect(res.issues.map((i) => i.message).join(' '), mode).toContain('_diagnostics');
+    }
 
-    // …and the counter-measurement that makes the line above load-bearing:
-    // the SAME body on the door that does gate is refused, for exactly the key
-    // this pin is about. Without this, a schema that had quietly stopped being
-    // strict would leave the assertion above green and say nothing.
-    const create = await validateMetadataDraft('sharing_rule', served, undefined, {
-      mode: 'create',
-    });
-    expect(create.ok).toBe(false);
-    expect(create.issues.map((i) => i.message).join(' ')).toContain('_diagnostics');
+    // …and the counter-measurement that keeps the loop above from being a
+    // schema that refuses everything: the SAME body with the decoration taken
+    // off — which is what the edit path actually assembles — passes both doors.
+    // Without this, a schema that had quietly become unsatisfiable would leave
+    // the assertions above green and say nothing.
+    const { _diagnostics: _dropped, ...stripped } = served;
+    for (const mode of ['create', 'edit'] as const) {
+      const res = await validateMetadataDraft('sharing_rule', stripped, undefined, { mode });
+      expect(res.issues, `${mode}: ${JSON.stringify(res.issues)}`).toEqual([]);
+      expect(res.ok, mode).toBe(true);
+    }
   });
 
-  it('reports the edit door as having NO client validator', () => {
+  it('reports BOTH doors as having a client validator', () => {
     // Load-bearing: `ResourceEditPage` reads this to decide whether the banner's
     // errors come from live client issues or from the server's `_diagnostics`.
-    // If this answered `true` for the edit door, an item whose client gate never
-    // runs would render as clean and the server's errors would be suppressed.
+    // Now that the edit door gates, the live client issues ARE the banner's
+    // source on both doors — which is the behaviour objectui#7612 bought, and
+    // the reason it could not be bought before the decoration stopped arriving.
     expect(hasClientValidator('sharing_rule', 'create')).toBe(true);
-    expect(hasClientValidator('sharing_rule', 'edit')).toBe(false);
-    // Every other wired type gates both doors.
+    expect(hasClientValidator('sharing_rule', 'edit')).toBe(true);
+    // Every other wired type gates both doors, and always did.
     expect(hasClientValidator('translation', 'edit')).toBe(true);
     expect(hasClientValidator('connector', 'edit')).toBe(true);
     expect(hasClientValidator('webhook', 'edit')).toBe(true);

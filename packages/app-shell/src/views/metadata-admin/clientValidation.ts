@@ -506,69 +506,62 @@ function expandViewIssues(
 }
 
 /**
- * ── Author-shape-only types (objectui#3561) ──
+ * ── Author-shape-only types (objectui#3561) — the set is EMPTY, on purpose ──
  *
- * A spec schema is usable as an EDIT gate only if it declares the ADR-0010
- * protection envelope — `_lock` / `_lockReason` / `_lockSource` / `_provenance`
- * / `_packageId` / `_packageVersion` / `_lockDocsUrl`. A stored body carries
- * those keys: the metadata read path stamps `_packageId` onto any item served
- * out of a package-owned overlay row, and it does so WITHOUT looking at the
- * type. Judging such a body with a `.strict()` schema that does not declare the
- * envelope makes this client stricter than the server — the objectstack#5316
- * inversion the `view` gates above exist to avoid.
+ * A type listed here gates `create` only: its spec schema judges a draft this
+ * admin AUTHORS, and never a body that came back out of storage. The mechanism
+ * stays because the bar that puts a type on the list is a real one, and the
+ * comment is here so the next person meets the bar instead of the folklore.
  *
- * ── The original reason has EXPIRED. The boundary has NOT. (objectui#6982) ──
+ * ── The bar ──
  *
- * This block used to read: measured on `@objectstack/spec` 17.0.0-rc.5,
- * `SharingRuleSchema` declares NONE of the 7 envelope keys and is `.strict()`,
- * so it is the one shape that must not judge a stored body. The contract-first
- * repair it was waiting for LANDED. Re-measured on the resolved spec 17.2.0,
- * `SharingRuleSchema` declares all 7 (`_lock`, `_lockReason`, `_lockSource`,
- * `_provenance`, `_packageId`, `_packageVersion`, `_lockDocsUrl`) — envelope
- * keys MISSING: none. A `_packageId`-stamped body is legal input now, and
- * `clientValidation.optOuts.test.ts` already pins the create door accepting it.
+ * A `.strict()` spec schema may judge a STORED body only if every key the read
+ * path can put on that body is legal input to it. Two families can be:
  *
- * ⛔ That does NOT make this opt-out removable, and the next person to re-read
- * the envelope and conclude it does should read the measurement below first.
+ *  1. The ADR-0010 protection envelope (`_lock`, `_provenance`, `_packageId`,
+ *     …). The read path stamps these WITHOUT looking at the type, so a schema
+ *     that does not declare them cannot judge a stored body. The cure is for
+ *     the schema to DECLARE them — they are provenance, and they are supposed
+ *     to survive a re-parse.
+ *  2. The read DECORATIONS (`METADATA_READ_DECORATIONS` in the spec kernel).
+ *     The spec deliberately does NOT allowlist these the way it allowlists the
+ *     envelope: a served body "is therefore NOT a valid input to the schema
+ *     that produced it until these are removed". The cure here is the opposite
+ *     of the first — never to declare them, but to REMOVE them before the gate.
  *
- * A served body carries more than the envelope. The metadata read path
- * DECORATES every item it serves with `_diagnostics` (`decorateMetadataItem`,
- * whenever the type has a registered Zod schema — `sharing_rule` has one), and
- * the spec names that key a READ DECORATION precisely so it is *not* allowlisted
- * the way the envelope is: `kernel/metadata-read-decorations.ts` states that a
- * served body "is therefore NOT a valid input to the schema that produced it
- * until these are removed". `SharingRuleSchema` is still `.strict()`, so it
- * rejects our own annotation with `unrecognized_keys` at the ROOT — a path
- * length the `serverSchema.required` root-cure below cannot reach (it only
- * suppresses ABSENT top-level fields, `path.length === 1`).
+ * Judging a body the server accepts is the objectstack#5316 inversion the
+ * `view` gates above exist to avoid, so failing the bar means a client-side
+ * refusal of legitimate author input — worse than the defense-in-depth gap.
  *
- * Measured on the real read path (objectstack protocol over a real engine —
- * save, then read back):
+ * ── Why `sharing_rule` is no longer on this list (objectui#6982 → #7612) ──
  *
- *   GET .../sharing_rule/:name            item keys += `_diagnostics`  -> REJECT
- *   GET .../sharing_rule/:name?state=draft item keys += `_diagnostics` -> REJECT
- *   layered `effective` (RAW, undecorated)                             -> ACCEPT
+ * It was here for family 1 and then for family 2, and BOTH were closed
+ * upstream rather than here. Neither was closed by loosening a schema, and
+ * `SharingRuleSchema` is exactly as strict today as it was when it was listed:
  *
- * `ResourceEditPage` builds its edit draft as `{...layered.effective,
- * ...client.getDraft().item}` and strips nothing — so for any sharing rule with
- * a PENDING DRAFT the gate would report a body the server accepts as broken.
- * The server, by contrast, strips read decorations on the way in and never
- * re-parses stored rows through this registry at all. That is the
- * objectstack#5316 inversion wearing a different key, and it is the same defect
- * class the framework has already paid for twice (a served `_diagnostics` 400ing
- * every saved dataset; the cold-boot flow bind, cloud#971).
+ *  1. The envelope repair landed in `@objectstack/spec`; the create-door pins
+ *     in `clientValidation.optOuts.test.ts` re-derive which keys it accepts.
+ *  2. The decoration ingress was closed by objectui#7603, hoisted by #8181 to
+ *     the one function that turns a served draft envelope into a body — the
+ *     chokepoint every merge site in `ResourceEditPage` goes through, reading
+ *     the spec's own exported list rather than restating it. The page test
+ *     named for the read-decoration strip drives the real editor and asserts
+ *     on what the real gate was handed; it covers `sharing_rule` explicitly
+ *     because this type is the one whose door was held shut by that key.
  *
- * So the type stays wired on `create` — the AUTHORING door, which is exactly
- * where a permissive match-all sharing condition gets written — and deliberately
- * not on `edit`. This is NOT a tolerant fallback: nothing is coerced and no
- * draft is waved through; one door has a client gate and the other keeps the
- * server's. Turning this gate on is gated on the `_diagnostics` ingress being
- * closed first (the strip belongs where the draft is assembled, not here —
- * reconstructing the decoration list in this file would be a second de-facto
- * contract). Until then a gate here would refuse legitimate author input, which
- * is worse than the defense-in-depth gap it closes.
+ * ⚠️ Read those two instruments, do not read a count here: what a schema
+ * declares and what the assembly delivers both move without this comment
+ * moving, which is how this block came to describe an edit path that no longer
+ * existed (the draft merge it quoted had been gone for some time before
+ * anybody noticed the quote).
+ *
+ * ⛔ The one repair that is NOT available: reconstructing the decoration list
+ * in this file so the gate can tolerate a decorated body. That is a second
+ * de-facto contract, free to drift from the framework's, and the read path is
+ * free to add a decoration tomorrow. The strip belongs where the draft is
+ * assembled, and that is where it is.
  */
-const AUTHOR_SHAPE_ONLY_TYPES = new Set<string>(['sharing_rule']);
+const AUTHOR_SHAPE_ONLY_TYPES = new Set<string>();
 
 // Map metadata-type name → loader for that type's root Zod schema.
 // Each loader pulls only one spec subpath so we don't drag the whole
@@ -717,8 +710,9 @@ const LOADERS: Record<string, SchemaLoader> = {
   // a curated unknown-key error map. Not empty, and the same shape
   // `ObjectStackSchema.sharingRules` binds element-wise.
   //
-  // CREATE ONLY — see `AUTHOR_SHAPE_ONLY_TYPES` above for why this shape may
-  // not judge a stored body.
+  // BOTH DOORS since objectui#7612 — this was the last entry in
+  // `AUTHOR_SHAPE_ONLY_TYPES` above, which records what had to close upstream
+  // before a `.strict()` shape could judge a stored body.
   sharing_rule: async () => (await import('@objectstack/spec/security')).SharingRuleSchema as unknown as ZodLikeSchema,
   // `policy` intentionally omitted — spec 11.2.0 dropped `PolicySchema` and the metadata-type
   // registry has no `policy` schema; drafts fall through to server-side validation (see top).

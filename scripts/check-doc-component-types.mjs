@@ -298,12 +298,16 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 // ── Configuration ────────────────────────────────────────────────────────────
 
 /** Where the teaching prose lives. This gate walks `content/docs`, every
- *  `apps/<app>/docs/**` tree (objectui#6600) and the root pages named below, and
- *  nothing else: not `skills/**`, not the package READMEs
- *  (`check-doc-snippet-types.mjs` covers those for its own question), not
- *  `docs/**`. The full ownership map for all three doc gates — including the
- *  trees NO gate reads, and why `skills/**` is deliberately not one of them — is
- *  stated once in `check-doc-snippet-types.mjs`, beside `UNGATED_DOCS`. */
+ *  `apps/<app>/docs/**` tree (objectui#6600), every `packages/NAME/README.md`
+ *  (objectui#7896's fourth leg, landed by objectui#8115) and the root pages named
+ *  below, and nothing else: not `skills/**`, not `docs/**`. ⚠️ This sentence used
+ *  to name the package READMEs among the trees this gate does NOT walk, and
+ *  pointed at `check-doc-snippet-types.mjs` as covering them — that gate covers
+ *  them for ITS question (it compiles their `ts` fences), which is not this one,
+ *  and the gap between the two questions is exactly what objectui#7896 was filed
+ *  for. The full ownership map for all three doc gates — including the trees NO
+ *  gate reads, and why `skills/**` is deliberately not one of them — is stated
+ *  once in `check-doc-snippet-types.mjs`, beside `UNGATED_DOCS`. */
 const DOCS_ROOT = 'content/docs';
 
 /**
@@ -350,79 +354,107 @@ export function appDocsDirs(root) {
 }
 
 /**
- * `packages/NAME/README.md` — MEASURED, DELIBERATELY NOT WALKED (objectui#7896).
+ * `packages/NAME/README.md` — WALKED (objectui#7896's fourth leg, objectui#8115).
  *
- * This gate does not walk the package READMEs, while its two sibling doc gates
- * both do: `check-doc-snippet-types.mjs` compiles their `ts` / `tsx` /
- * `typescript` fences, and `check-doc-fence-languages.mjs` labels every fence in
- * them (`join(pkgDir, entry, 'README.md')`). So a package README's `type`
- * literals are read twice and judged never — objectui#7115's geometry rebuilt one
- * directory over, on a surface that ships to npm inside each package's `files`.
- * objectui#7896 measured the gap two ways, and it still reproduces on
- * `59a3a233d`: a component `type` mutated in `packages/app-shell/README.md`
- * leaves this gate at `EXIT=0` with byte-identical counters, while the same
- * mutation in the root `README.md` gives `EXIT=1` at `README.md:272`. Identical
- * counters are the proof the file is not in the scan population at all, rather
- * than judged and forgiven.
+ * A package README is a teaching surface that ships to npm inside that package's
+ * `files` list, and until this leg landed its `type` literals were read TWICE and
+ * judged NEVER: `check-doc-snippet-types.mjs` compiles their `ts` / `tsx` /
+ * `typescript` fences and `check-doc-fence-languages.mjs` labels every fence in
+ * them, while this gate — the only one that asks whether a `type` names a
+ * component that exists — walked past them. That is objectui#7115's geometry
+ * rebuilt one directory over, and objectui#7896 measured it twice the way a
+ * coverage claim has to be measured: a component `type` mutated inside
+ * `packages/app-shell/README.md` left this gate at `EXIT=0` with counters
+ * BYTE-IDENTICAL to the unmutated run, while the same mutation in the root
+ * `README.md` gave `EXIT=1`. Identical counters are the proof a file is outside
+ * the scan population altogether rather than judged and forgiven, and moving them
+ * is what this leg is owed. The same pair re-run with this leg in place is the
+ * evidence the widening is real; the pins below `objectui#7896` in
+ * `check-doc-component-types.test.ts` are where it is kept re-derivable.
  *
- * ⚠️ Why the leg is NOT here yet, and what has to happen first. The `domain:ui`
- * ruling on objectui#7896 orders this move census-first: a change that moves a
- * gate's scan population reports before it enforces, and the widening may land in
- * the same pull request ONLY if the census reads zero. It does not. Re-derived on
- * `c30026715` with this gate's own `deriveRegistryKeys`, fence walker and `type`
- * matcher over all 39 `packages/NAME/README.md`, the census read
- * **26 unregistered `type` literals across 8 files**, plus 4 blind spots (four
- * unquoted YAML scalars in `packages/data-objectstack/README.md:603-606`, an
- * object field-type vocabulary the same-line string-literal matcher cannot read).
- * That reading is DATED, not a live claim: it belongs to the commit named above,
- * and the instrument named beside it is how the next reader re-derives it rather
- * than inheriting it. It is written that way because the sentence it replaces was
- * not — it said `12 files`, a number contradicted by the per-file table of the
- * very census PR that landed it (#8111, 8 files with a non-zero column), and it
- * had already been quoted onward into objectui#8115's brief, which instructs its
- * implementer not to re-derive the census. A file COUNT is what a later reader
- * uses to judge whether a fix is complete, so `8 of 12` reads as unfinished work
- * that does not exist (objectui#8484). This is the same class objectui#7448 ruled
- * on one file over — a count in a header that nothing re-measures will rot — and
- * the same remedy `check-doc-fence-languages.mjs` already uses for its own census
- * (`273537957`: 83 files, 105 blocks): anchor the reading to a commit instead of
- * restating a bare number and restarting the clock.
- * Landing the leg today would turn `main` red on 26 sites this card is not
- * authorised to touch. Twenty-five of the 26 are other vocabularies with real declaration sites
- * — dashboard widget kinds (`DashboardRenderer.tsx`), flow-graph node kinds,
- * gesture kinds, Gantt task and dependency kinds, grid selection modes and
- * summary aggregates, report kinds, view actions and filter kinds — i.e.
- * candidate `DOC_TYPE_EXEMPTIONS` entries, each owed the reason that table
- * demands. One is a real defect of the shape this gate exists to catch:
- * `packages/plugin-detail/README.md:168` teaches a detail tab whose
- * `content.type` is `activity-timeline`, and that content goes through
- * `SchemaRenderer` (`DetailTabs.tsx:72`) while nothing registers that key — the
- * registry's `OBJUI-001` panel, the same failure as the `line-chart` widget
- * objectui#7896 recorded in `packages/plugin-dashboard/README.md`.
+ * ⚠️ The leg is deliberately NOT recursive and stops at each package's own root.
+ * `packages/` is not an authored tree the way `content/docs` is — under pnpm every
+ * package carries a `node_modules/` of SYMLINKS back into its workspace siblings,
+ * so a recursive walk that follows them does not terminate. The sibling gate that
+ * does walk below a package root states the measured numbers beside its own
+ * `NESTED_PACKAGE_READMES`; this leg avoids the question structurally by not
+ * descending at all, which also keeps it the same shape as the surface
+ * `check-doc-snippet-types.mjs` collects in its own package-README leg.
  *
- * ⛔ Do NOT reach for the exemption table to make a first run of the widened walk
- * green. `DOC_TYPE_EXEMPTIONS` records rulings, not a switch for turning red into
- * green, and stuffing it here would bury the one real defect among 25 entries
- * nobody read.
+ * ## ⚠️ Why the leg could not land before objectui#8115, and what came with it
  *
- * ⚠️ And when the leg does land, it is not the precedent the ⛔ above refuses.
- * That ⛔ refuses widening onto an ARBITRARY unscanned tree;
- * `packages/NAME/README.md` is not one, it is the surface this gate's own two
- * siblings already walk, so the move aligns the third gate to its family rather
- * than reaching into a new tree. The distinction is the whole of the ruling, and
- * the ⛔ stays where it is.
+ * The `domain:ui` ruling on objectui#7896 ordered this move census-first: a change
+ * that moves a gate's scan population reports before it enforces, and the widening
+ * may land in the same pull request ONLY if the census reads zero. It did not, and
+ * it does not now — this leg brings unregistered `type` literals in package
+ * READMEs into a walk that judges them, and every one of them is another
+ * vocabulary with a declaration site in source. Those are the
+ * `DOC_TYPE_EXEMPTIONS` entries keyed under `packages/` below, ruled one at a time
+ * under objectui#8115 (triage `5582405961`, option A; reading A₁ in `5594701696`:
+ * the ruled entries land WITH the leg, in one change, because an entry whose
+ * `(file, value)` the walk never reaches fails as `stale-exemption` — so there is
+ * no order in which they could land first).
  *
- * Two things the implementing change owes, recorded here so they are not
- * rediscovered: the leg belongs BEFORE the root pages in `scanDocs`, which is the
- * slot the two sibling walks append it in and what keeps the three lists
- * comparable element by element; and `check-doc-expression-carriage.mjs` IMPORTS
- * this file's surface constants and pins its own walk as an EQUALITY against a
- * walk rebuilt from them — that pin compares against the CONSTANTS, not against
- * this gate's actual walk, so a fourth leg added here alone leaves the pin GREEN
- * while the two surfaces silently diverge, which is objectui#7115's shape again.
- * The carriage census must take the same leg, and its `SURFACE_LABEL` test
- * enumerates every leg by name.
+ * ⛔ The exemption table is not a switch for turning this first run green, and
+ * that fence is the reason each entry below names its vocabulary AND where that
+ * vocabulary is declared: stuffing the table here would bury a real defect among
+ * entries nobody read. Two sites of the original census were re-classified as
+ * DEFECTS rather than exempted and fixed on their own cards — the
+ * `activity-timeline` detail tab (objectui#8114) and the flow node type `action`
+ * (objectui#8483) — which is what this fence is for.
+ *
+ * ⚠️ And the census is DATED wherever it is written down. The reading this
+ * docblock used to carry (26 sites across 8 files, re-derived on `c30026715`) was
+ * already stale by the time the leg landed, because objectui#8114's fix removed
+ * one of the sites it counted. ⛔ Do not inherit a count from this file or from
+ * objectui#8115's card — re-derive it with this gate's own `deriveRegistryKeys`,
+ * its fence walker and its `type` matcher over `packageReadmePages`, and anchor
+ * whatever you write to the commit you measured it on. A file COUNT is what a
+ * later reader uses to judge whether a fix is complete, so a rotted one reads as
+ * unfinished work that does not exist (objectui#8484, and objectui#7448 one file
+ * over).
+ *
+ * ⚠️ What this is NOT: a precedent for widening onto an arbitrary unscanned tree,
+ * which is what the ⛔ beside `APP_DOCS` refuses. `packages/NAME/README.md` is the
+ * surface this gate's own two siblings already walk, so the move aligns the third
+ * gate to its family rather than reaching into a new tree.
+ *
+ * ## The two couplings this leg owes, and where they are kept
+ *
+ * The leg sits BEFORE the root pages in `scanDocs`, which is the slot the two
+ * sibling walks append it in and what keeps the three document lists comparable
+ * element by element. And `check-doc-expression-carriage.mjs` IMPORTS this file's
+ * surface constants and pins its own walk as an EQUALITY against a walk rebuilt
+ * from them — that pin compares against the CONSTANTS, not against this gate's
+ * actual walk, so a leg added here ALONE would leave the pin GREEN while the two
+ * surfaces silently diverge, which is objectui#7115's shape a third time. That
+ * census takes the same leg through `PACKAGE_READMES` / `packageReadmePages`
+ * below, and its `SURFACE_LABEL` names it.
  */
+export const PACKAGE_READMES = { dir: 'packages', name: 'README.md' };
+
+/**
+ * Every package's own `README.md`, in a stable order.
+ *
+ * An absent `packages/` yields `[]` so a throwaway fixture tree stays scannable,
+ * exactly as `appDocsDirs` and the root-page leg do. A real run cannot rely on
+ * that: the CLI refuses to publish a verdict when this leg collects nothing,
+ * because a leg that reaches no file is a surface that shrank in silence, which
+ * is the defect this whole widening exists to close.
+ *
+ * Exported so the carriage census asks this gate what the leg contains instead of
+ * rebuilding it — one walk, not two arrays that agree today.
+ */
+export function packageReadmePages(root) {
+  const pkgDir = join(root, PACKAGE_READMES.dir);
+  if (!existsSync(pkgDir)) return [];
+  const out = [];
+  for (const entry of readdirSync(pkgDir).sort()) {
+    const readme = join(pkgDir, entry, PACKAGE_READMES.name);
+    if (existsSync(readme)) out.push(readme);
+  }
+  return out;
+}
 
 /**
  * Pages at the repository ROOT that join the walk by name.
@@ -920,6 +952,174 @@ const DOC_TYPE_EXEMPTIONS = {
   'content/docs/utilities/vscode-extension.mdx': {
     ajax: 'ActionSchema discriminant under a form\'s `onSubmit`, not a node type.',
     api: 'Data source kind under a node\'s `dataSource`, not a node type.',
+  },
+
+  // ── `packages/NAME/README.md` (objectui#8115) ────────────────────────────────
+  //
+  // These arrived WITH the fourth leg (`PACKAGE_READMES` above) because the gate
+  // admits no other order: an entry whose (file, value) the walk never reaches
+  // fails as `stale-exemption`, so none of them could have landed ahead of the
+  // walk that reaches it. Ruled one at a time against the source that declares
+  // each vocabulary, ⛔ not transcribed as a group from the census that found
+  // them — that census's vocabulary column was measured WRONG for
+  // `plugin-report`'s `bar` (a chart type, not a report kind) and cited weaker
+  // declaration sites than exist for the gesture kinds. ⛔ And two of the sites it
+  // counted are deliberately NOT here: they were re-classified as DEFECTS and
+  // fixed on their own cards (objectui#8114's `activity-timeline` detail tab,
+  // objectui#8483's flow node type `action`). That absence is what the table is
+  // worth — it is a record of rulings, ⛔ never a switch for turning a first run
+  // of a widened walk green.
+
+  'packages/app-shell/README.md': {
+    // TWO vocabularies four lines apart in ONE `flows/renewal_reminder.json`
+    // block — the flow DOCUMENT's `type` and its NODES' `type` are different
+    // enums. That is the case (file, value) keying exists for: a whole-file
+    // exemption here would silence both, and a value-only one would let any page
+    // in the tree teach `start` as a component.
+    autolaunched:
+      'FlowSchema `type` — the flow PROCESS-KIND enum (`autolaunched` / `record_change` / `schedule` ' +
+      '/ `screen` / `api`), declared on `FlowSchema` in @objectstack/spec\'s automation flow schema ' +
+      'and seeded as this repo\'s canonical default by the metadata-admin flow anchor\'s ' +
+      '`createDefaults`. It types the DOCUMENT; the four entries below type the nodes inside it.',
+    start:
+      'Flow-graph node kind under `nodes[].type` — a member of `FlowNodeAction` (@objectstack/spec\'s ' +
+      'automation flow schema). `start` is one of the two STRUCTURAL kinds the engine handles without ' +
+      'a registered executor (`FLOW_STRUCTURAL_NODE_TYPES`: the start sentinel and the end ' +
+      'terminator), which is why it is a member of the enum while being absent from the editor ' +
+      'palette `NODE_PALETTE` in app-shell\'s flow canvas parts. ⚠️ Re-check this entry against the ' +
+      'ENUM, not against the palette: absence from BOTH is what made the flow node type `action` a ' +
+      'DEFECT rather than an exemption (objectui#8483).',
+    decision:
+      'Flow-graph node kind under `nodes[].type` — a member of `FlowNodeAction` (@objectstack/spec\'s ' +
+      'automation flow schema), and the `Logic` branch node the editor palette `NODE_PALETTE` offers ' +
+      'as "Decision". Not a node type in the SDUI sense — a flow graph is data the flow engine ' +
+      'executes, not a component tree `SchemaRenderer` walks.',
+    notify:
+      'Flow-graph node kind under `nodes[].type` — a member of `FlowNodeAction` (@objectstack/spec\'s ' +
+      'automation flow schema), offered by `NODE_PALETTE` under `Integration`. Same vocabulary as ' +
+      '`decision` above.',
+    end:
+      'Flow-graph node kind under `nodes[].type` — a member of `FlowNodeAction` (@objectstack/spec\'s ' +
+      'automation flow schema) and the second of the two STRUCTURAL kinds (`FLOW_STRUCTURAL_NODE_TYPES`), ' +
+      'the terminator `start` above is the sentinel for. Same vocabulary as `decision` above.',
+  },
+  'packages/mobile/README.md': {
+    'swipe-left':
+      '`useGesture` gesture kind — a member of `GestureType`, the direction-fused touch vocabulary ' +
+      'declared in `@object-ui/types`\' `mobile` module, which this package owns outright since ' +
+      '@objectstack/spec deleted its `ui/touch` surface (objectui#3363). ⚠️ The census that found ' +
+      'this site cited the `useGesture` / `useSpecGesture` hook pair as the declaration; the hooks ' +
+      'CONSUME the union, they do not declare it, and the union is the thing to re-check.',
+    'swipe-right':
+      '`useGesture` gesture kind — a member of `GestureType` (`@object-ui/types`\' `mobile` module). ' +
+      'Same vocabulary as `swipe-left` above; the two are separate entries because the table is keyed ' +
+      'by value, which is what keeps a ruling about one spelling from covering another.',
+    pinch:
+      '`useSpecGesture` gesture kind under `SpecGestureConfig.type` — a member of `SpecGestureType`, ' +
+      'which is derived from the `SPEC_GESTURE_TYPES` runtime witness in `@object-ui/types`\' `mobile` ' +
+      'module. ⚠️ A DIFFERENT union from the `GestureType` above, deliberately kept apart under the ' +
+      '`Spec` prefix: it is the retired @objectstack/spec touch vocabulary this package now owns, and ' +
+      '`pinch` happens to be a member of both. Two vocabularies sharing one spelling is exactly the ' +
+      'coincidence a reader of this entry needs told about.',
+  },
+  'packages/plugin-dashboard/README.md': {
+    line:
+      'Dashboard widget kind under `widgets[].type` — `DashboardWidgetTypeName` (`@object-ui/types`\' ' +
+      '`complex` module) declares that CLOSED vocabulary, and its spec half flows in BY REFERENCE ' +
+      'from `ChartTypeSchema` (@objectstack/spec/ui), where `line` is a member. Not a node type: the ' +
+      'node type is `dashboard`, which the enclosing snippet spells. This entry covers TWO sites in ' +
+      'this file — the TypeScript `widgets[]` example and the dataset-bound JSONC one — which is the ' +
+      '(file, value) keying doing its job. Same vocabulary as the ' +
+      '`content/docs/plugins/plugin-dashboard.mdx` entry above.',
+    pie:
+      'Dashboard widget kind under `widgets[].type` — a member of `ChartTypeSchema` ' +
+      '(@objectstack/spec/ui) reaching this repo by reference through `DashboardWidgetTypeName`. ' +
+      'Same vocabulary as `line` above.',
+    bar:
+      'Dashboard widget kind under `widgets[].type` — a member of `ChartTypeSchema` ' +
+      '(@objectstack/spec/ui) reaching this repo by reference through `DashboardWidgetTypeName`. ' +
+      'Same vocabulary as `line` above, and ⚠️ NOT the same as `packages/plugin-report/README.md`\'s ' +
+      '`bar`, which is a chart type nested under a report section\'s `chart` — one spelling, two ' +
+      'carriers, which is why neither is exempted tree-wide.',
+  },
+  'packages/plugin-gantt/README.md': {
+    milestone:
+      'Gantt TASK kind under `GanttTask.type` — `GanttTaskType` (`task` / `summary` / `milestone` / ' +
+      '`group`), declared beside `GanttTask` in this plugin\'s `GanttView` module and normalised from ' +
+      'record data by `normalizeTaskType` in `ObjectGantt`. Not a node type: the node type this ' +
+      'plugin registers is `object-gantt`.',
+    fs:
+      'Dependency LINK kind under `dependencies[].type` — `GanttLinkType` (`fs` / `ss` / `ff` / `sf`, ' +
+      'finish-to-start, start-to-start, finish-to-finish, start-to-finish), declared beside ' +
+      '`GanttTaskType` in this plugin\'s `GanttView` module and re-declared for the scheduler as ' +
+      '`SchedLinkType` in its `scheduling` module. ⚠️ A DIFFERENT vocabulary from the task kind above ' +
+      'in the same file — `type` here hangs off a dependency entry, not off a task.',
+    ss: 'Dependency LINK kind under `dependencies[].type` — `GanttLinkType` (start-to-start). Same vocabulary as `fs` above.',
+    ff: 'Dependency LINK kind under `dependencies[].type` — `GanttLinkType` (finish-to-finish). Same vocabulary as `fs` above.',
+    sf: 'Dependency LINK kind under `dependencies[].type` — `GanttLinkType` (start-to-finish). Same vocabulary as `fs` above.',
+  },
+  'packages/plugin-grid/README.md': {
+    multiple:
+      'SelectionConfig mode under `selection.type` — the spec\'s `none` / `single` / `multiple` enum ' +
+      '(`SelectionConfigSchema`, @objectstack/spec/ui, re-exported as `SelectionConfig` from ' +
+      '`@object-ui/types`). Not a node type. This entry covers THREE sites in this file, one per ' +
+      'grid example. Same vocabulary as the `content/docs/plugins/plugin-grid.mdx` entry above.',
+    count_unique:
+      'Column summary aggregation under `columns[].summary.type` — a member of `ColumnSummarySchema` ' +
+      '(@objectstack/spec/ui), which `ColumnSummaryConfigSchema` REUSES for the object form so the ' +
+      'shorthand (`summary: \'sum\'`) and the object form cannot drift into two vocabularies. This ' +
+      'plugin dispatches the value in its `useColumnSummary` hook. Not a node type.',
+  },
+  'packages/plugin-kanban/README.md': {
+    kanban:
+      '⚠️ The one entry in this group whose value belongs to the vocabulary this gate JUDGES rather ' +
+      'than to another one. It is the bare `kanban` node type key, RETIRED by objectui#8802, spelled ' +
+      'deliberately inside a warning comment so a reader who still has it in a document recognises ' +
+      'the refusal they will get. The declaration is the tombstone that performs that refusal — ' +
+      '`RetiredKanbanNodeSchema`, built by `retiredNodeType(\'kanban\', …)` in `@object-ui/types`\' ' +
+      '`zod/complex.zod.ts` — and `object-kanban`, the live key this plugin registers, is spelled in ' +
+      'the same fence a few lines below. ⇒ What re-checks this entry is the retirement itself: ' +
+      're-register the bare key and the site passes on the registry branch instead, which reports ' +
+      'THIS entry as `stale-exemption`.',
+  },
+  'packages/plugin-report/README.md': {
+    matrix:
+      'Report kind under `defineReport({ type })` — `SpecReportTypeName` (`tabular` / `summary` / ' +
+      '`matrix` / `joined`), declared in `@object-ui/types`\' `spec-report` module. Not a node type: ' +
+      'a report definition is metadata the report renderer reads, not a component tree. Same ' +
+      'vocabulary as the `content/docs/plugins/plugin-report.mdx` entry above.',
+    joined:
+      'Report kind under `defineReport({ type })` — `SpecReportTypeName`, sibling of `matrix` above ' +
+      'and the one that carries `blocks[]`. Same vocabulary as `matrix`.',
+    bar:
+      '⚠️ NOT the report-kind vocabulary its two neighbours in this file belong to, and the census ' +
+      'that found this site filed it as one. It is a CHART TYPE under a report section\'s ' +
+      '`chart.type` — a member of `ChartTypeSchema` (@objectstack/spec/ui) — classified into a ' +
+      'rendering plan by `planReportChart` in this plugin\'s `DatasetReportRenderer`. Recorded as a ' +
+      'correction rather than inherited: an entry that mis-names its vocabulary sends the next reader ' +
+      'to the wrong declaration and cannot be re-checked.',
+  },
+  'packages/plugin-view/README.md': {
+    share:
+      'View-action id under `ObjectViewSchema.viewActions[].type` — the union `share` / `settings` / ' +
+      '`duplicate` / `delete`, declared inline on that member in `@object-ui/types`\' `objectql` ' +
+      'module and mirrored on `ViewSwitcherSchema` in its `views` module. Not a node type. Same ' +
+      'vocabulary as the `content/docs/components/complex/view-switcher.mdx` entry above.',
+    kanban:
+      'ViewSwitcher `views[].type` — the VIEW-TYPE vocabulary (`ViewType`, `@object-ui/types`\' ' +
+      '`views` module), which is what a switcher tab names; the nested `schema` on the very same line ' +
+      'carries the node type. Needed from objectui#8802, which retired the bare `kanban` NODE type ' +
+      'key — until then the value passed by coincidence, the two vocabularies sharing one spelling. ' +
+      '⛔ The stored / view-type spelling is deliberately NOT retired (`ObjectView` maps a stored ' +
+      '`kanban` view onto the `object-kanban` node type). ⚠️ A DIFFERENT vocabulary from the retired ' +
+      'NODE key exempted in `packages/plugin-kanban/README.md`, with which it shares its spelling and ' +
+      'nothing else. Same vocabulary as the two `content/docs` entries above.',
+    'date-range':
+      'Filter control kind under `FilterUISchema.filters[].type` — the union `text` / `number` / ' +
+      '`select` / `multi-select` / `date` / `date-range` / `boolean`, declared inline on that member ' +
+      'in `@object-ui/types`\' `views` module, alongside the CRUD filter enum that spells ' +
+      '`date-picker` / `number-range`. Not a node type. Same vocabulary as the ' +
+      '`content/docs/components/complex/filter-ui.mdx` entry above.',
   },
 };
 
@@ -1968,6 +2168,10 @@ export function scanDocs(root) {
   const files = walkFiles(docsDir, isDoc).sort();
   // Per-app docs trees (objectui#6600), appended sorted after the content tree.
   for (const dir of appDocsDirs(root)) files.push(...walkFiles(dir, isDoc).sort());
+  // Each package's own README (objectui#7896's fourth leg, landed by objectui#8115),
+  // in the slot the two sibling walks append it in — BEFORE the root pages — so the
+  // three gates' document lists stay comparable element by element.
+  files.push(...packageReadmePages(root));
   // Root pages join by name rather than by walk. An absent one is dropped here so
   // a throwaway fixture tree stays scannable; the CLI refuses to publish a
   // verdict when one is missing from a real run, which is where that must bite.
@@ -2283,6 +2487,22 @@ if (invokedDirectly) {
       );
       process.exit(1);
     }
+  }
+
+  // Same check, same reason, for the package-README leg (objectui#7896): it is
+  // collected by WALK rather than by name, so a `packages/` that stops yielding
+  // READMEs does not dangle — it just returns fewer files, and every count this
+  // gate prints stays plausible while the surface shrinks back to what
+  // objectui#7896 measured. `FLOORS` cannot tell that apart from a docs edit
+  // either, because the floor it would trip is a whole-tree one.
+  if (packageReadmePages(root).length === 0) {
+    console.error(
+      `The ${PACKAGE_READMES.dir}/*/${PACKAGE_READMES.name} leg collected 0 file(s) under ${root}. That ` +
+        "leg is part of this gate's scan surface (objectui#7896), and a leg that reaches no file is a " +
+        'surface that shrank in silence — the defect the widening was filed to close. Point the leg at ' +
+        'the tree those READMEs live in, or remove it deliberately.',
+    );
+    process.exit(1);
   }
 
   let result;

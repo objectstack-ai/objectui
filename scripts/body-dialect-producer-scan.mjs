@@ -50,7 +50,9 @@
  *          `item`   — the object is a member of a registration's declared item
  *                     array (`TabItem`, `ListItem`). ⚠️ Its canonical child-list
  *                     key is `content`, and `body` is declared on NEITHER
- *                     published face. ⛔ UNRULED — see "The open question".
+ *                     published face. ⇒ ⛔ NOT a dialect: a producer violating
+ *                     the item's own published schema. RULED — see "The ruled
+ *                     disposition of an `item`-carried `body`".
  *          `string` — the spelling is carried by a string the tool writes into
  *                     the author's document. The carrier is whatever node the
  *                     author accepts it onto, which this instrument does not
@@ -96,19 +98,36 @@
  * comment stripper: a regex has no idea what a string literal is, and this file
  * would be the last place that could afford to get literals wrong.
  *
- * ## ⚠️ The open question this scan REPORTS and ⛔ does not answer
+ * ## ⭐ The RULED disposition of an `item`-carried `body` — ⛔ it is NOT a dialect
  *
- * Is an `item`-carried `body` inside objectui#6771's ruled family?
+ * This section used to ask "is an `item`-carried `body` inside objectui#6771's
+ * ruled family?" and refuse to answer. ⭐ It is RULED: director seat, summon
+ * #25 class-1 item 2, LETTER C, on objectui#9871 (2026-09-20).
  *
- * ⛔ UNRULED, and this instrument does not rule it. It files `item` hits in
- * their own table and REFUSES to fold them into the ruled total, because every
- * measured fact points at a DIFFERENT contract rather than the same one:
- * #6771's remedy is "`children` is the one spelling" and its step 3 retires
- * `body` from `BaseSchema` — while the item face declares `content` (required
- * on `TabItem`, optional on `ListItem`), declares no `body` on either the TS or
- * the Zod face, and objectui#9256 filed the item channel separately and pinned
- * it LIVE on purpose. Deciding it here would EXTEND a ruled family rather than
- * apply one. The measurements are on objectui#9871.
+ * A `body` child list on a non-node ITEM (a tab item, a list item) is ⛔ not
+ * inside objectui#6771's ruled family and ⛔ not a second family. It is a
+ * PRODUCER VIOLATING THE ITEM'S OWN PUBLISHED SCHEMA — the item face declares
+ * `content` (required on `TabItem`, optional on `ListItem`) and declares no
+ * `body` on either the TS or the Zod face, and both item reads reached the key
+ * only through an `any` cast. So it is fixed AT THE PRODUCER (done:
+ * objectui#9941, which respelled the shipped `tabs` `defaultProps` to
+ * `content`), ⛔ never by retiring a dialect: the family's remedy is "`children`
+ * is the one spelling", and on the item face that names a key that does not
+ * exist.
+ *
+ * ⇒ two consequences, and the second is ⛔ not a string:
+ *
+ *   - `dispositionOf('item')` is `ruled:not-a-dialect/item-schema-violation`.
+ *     An `item` hit is off every pending list — it awaits no seat, and ⛔ no
+ *     reader needs to re-litigate it.
+ *   - `item` hits are STILL never folded into the ruled total, and that refusal
+ *     ⛔ must not be weakened. What changed is the REASON (they are not that
+ *     family at all, rather than not-yet-judged); the arithmetic did not.
+ *     ⇒ objectui#6771 step 4's landability is judged ON THE NODE FACE ONLY.
+ *
+ * ⚠️ Both answers now begin `ruled:`, so a PREFIX match would fold the item
+ * carrier straight into the ruled total. The discriminator is the CARRIER and
+ * never the prefix; the pins hold the two buckets apart on exactly that.
  *
  * Usage:
  *   node scripts/body-dialect-producer-scan.mjs
@@ -139,8 +158,9 @@ export const CRITERION = [
     id: 'C3-carrier',
     what:
       'Which object the key is spelled ON — `node` (a `BaseSchema` node, objectui#6771\'s ruled '
-      + 'family), `item` (a member of a declared item array, whose canonical key is `content`; '
-      + 'UNRULED), or `string` (carried into the author\'s document, carrier not visible here). '
+      + 'family), `item` (a member of a declared item array, whose canonical key is `content`; ⛔ '
+      + 'NOT a dialect — a producer violating that item schema, ruled on objectui#9871), or '
+      + '`string` (carried into the author\'s document, carrier not visible here). '
       + 'Recorded, never assumed; it decides which published contract judges the site.',
   },
 ];
@@ -203,10 +223,14 @@ export const KNOWN_LIMITS = [
       + 'exclusion, not a reading.',
   },
   {
-    id: 'unruled-item-carrier',
+    id: 'item-carrier-not-in-ruled-total',
     what:
-      '`item` hits are NOT folded into the ruled total. Whether they belong to objectui#6771 is '
-      + 'unruled, and this instrument reports the question rather than answering it.',
+      '`item` hits are NOT folded into the ruled total, so a ruled-total zero says nothing about '
+      + 'them. ⛔ They are NOT a dialect: an item-carried `body` is a producer violating the '
+      + 'item\'s OWN published schema (`TabItemSchema` declares `content` and declares no `body`), '
+      + 'fixed at the producer — director seat, summon #25 class-1 item 2, letter C, on '
+      + 'objectui#9871 (2026-09-20); producer fix objectui#9941. objectui#6771 step 4\'s '
+      + 'landability is judged on the node face only.',
   },
 ];
 
@@ -615,10 +639,24 @@ export function registrationAt(text, offset) {
   return key;
 }
 
-/** ⭐ The disposition axis. `item` is UNRULED and this function says so. */
+/**
+ * ⭐ The disposition axis — and one of the two places a reader MEETS the answer,
+ * so the ruling is cited HERE rather than only in the file header: a citation
+ * read only by someone already reading the file is not read by who needs it.
+ *
+ * `item` is RULED and what it is ruled to be is ⛔ NOT a dialect — director
+ * seat, summon #25 class-1 item 2, LETTER C, on objectui#9871 (2026-09-20). An
+ * item-carried `body` is a producer violating the item's own published schema
+ * (`TabItemSchema` declares `content` and declares no `body`; `ListItem`
+ * likewise), fixed at the producer (objectui#9941). It awaits no seat.
+ *
+ * ⚠️ `ruled:` prefixes BOTH answers, and a prefix match is ⛔ not the
+ * discriminator: the CARRIER is. `item` is still never folded into
+ * objectui#6771's ruled total, whose step 4 is judged on the node face only.
+ */
 export function dispositionOf(carrier) {
   if (carrier === 'node') return 'ruled:6771';
-  if (carrier === 'item') return 'unruled:item-carrier';
+  if (carrier === 'item') return 'ruled:not-a-dialect/item-schema-violation';
   if (carrier === 'string') return 'carrier-undetermined';
   return 'unknown';
 }
@@ -818,7 +856,9 @@ export const EXIT_UNREADABLE = 2;
  * refusing it would delete the one answer this scan exists to be able to give.
  * ⚠️ It is NOT, as first written here, "the day objectui#6771 step 4 becomes
  * landable": step 4 landed with this table non-empty, because every row left in
- * it is `unruled:item-carrier` and the tier refuses `body` only on a node whose
+ * it was `ruled:not-a-dialect/item-schema-violation` — ⭐ and step 4's
+ * landability is judged ON THE NODE FACE ONLY (summon #25 letter C, on
+ * objectui#9871) — while the tier refuses `body` only on a node whose
  * `type` resolves to a registration — a `tabs` item is the value of a declared
  * `items` input and is never walked as one. A zero here is objectui#9590's
  * finish line instead. What IS refused is a run
@@ -935,8 +975,12 @@ function main(argv = process.argv.slice(2)) {
   console.log('|:--|--:|');
   for (const [d, c] of [...byDisposition].sort()) console.log(`| ${d} | ${c} |`);
   console.log(
-    '\n⚠️ `unruled:item-carrier` is ⛔ NOT folded into the ruled total. Whether an item-carried'
-      + ' `body` belongs to objectui#6771 is unruled; this scan reports the question.',
+    '\n⚠️ `ruled:not-a-dialect/item-schema-violation` is ⛔ NOT folded into the ruled total — and'
+      + ' it ⛔ awaits no ruling. An item-carried `body` is ⛔ NOT a dialect: it is a producer'
+      + '\nviolating the item\'s OWN published schema (`TabItemSchema` declares `content` and'
+      + ' declares no `body`), fixed at the producer — director seat, summon #25 class-1 item 2,'
+      + '\nletter C, on objectui#9871 (2026-09-20); producer fix objectui#9941. objectui#6771 step'
+      + " 4's landability is judged on the NODE FACE ONLY.",
   );
 
   console.log(

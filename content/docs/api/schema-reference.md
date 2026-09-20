@@ -1189,6 +1189,39 @@ An enhanced detail view for a single record with sections, tabs and navigation.
 > so author it on a record page. Placed anywhere it cannot resolve a parent id
 > it scopes to nothing and renders an empty list.
 
+> **Due/deadline fields: `dueLike`.** A field entry — a `DetailViewField`, in
+> `fields` or in a section's `fields` — may mark a `date` / `datetime` field as
+> due/deadline-semantic. It is the same key, with the same meaning, that the
+> [Date Field](/docs/fields/date) and [DateTime Field](/docs/fields/datetime)
+> carry in their own object metadata: the authored entry is handed to the same
+> cell renderer, so the affordance it turns on is the one described under
+> [Overdue Affordance](/docs/fields/datetime#overdue-affordance).
+>
+> ```json
+> {
+>   "type": "detail-view",
+>   "objectName": "Contract",
+>   "fields": [
+>     {
+>       "name": "end_date",
+>       "label": "Contract Ends",
+>       "type": "date",
+>       "format": "relative",
+>       "dueLike": true
+>     }
+>   ]
+> }
+> ```
+>
+> ⚠️ `end_date` is deliberately a neutral name here, because only a declared
+> `true` short-circuits: with the key absent the due/deadline field-name
+> convention still decides for itself, and `dueLike: false` does not suppress
+> that fallback either. Authoring a neutral name is the opt-out.
+>
+> ⚠️ The authored entry wins. Where the object's own field metadata also
+> declares `dueLike`, that value is consulted only when the entry leaves the
+> key out — it does not overwrite what the view author wrote.
+
 **Related:** [DetailSchema](#detailschema), [ObjectViewSchema](#objectviewschema)
 
 ---

@@ -206,17 +206,47 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   const required: string[] = Array.isArray((schema as any).requiredPermissions)
     ? (schema as any).requiredPermissions
     : [];
-  if (required.length > 0) {
-    const ok = required.every((p) => perms.can(objectName, p as any));
-    if (!ok) {
-      return (
-        <div className={className} {...designer} role="status" aria-live="polite">
-          <p className="text-sm text-muted-foreground italic">
-            Insufficient permissions to view related list.
-          </p>
-        </div>
-      );
-    }
+  /**
+   * Block-level ADR-0066 CAPABILITY gate, read fail-closed (objectui#10155 —
+   * the sibling family of objectui#10058, ruling batch #192 item 5 letter B).
+   *
+   * `requiredPermissions` on a record block is a **system capability set** —
+   * the one meaning the word carries on `action`, `app`, `field` and
+   * `bulkAction` — so it is read through the permission context's capability
+   * path (`hasCapabilities` over the reported `systemPermissions`). An unheld
+   * or unrecognised capability hides the whole section.
+   *
+   * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
+   * closed object-action enum, and the stock `/me/permissions` provider maps
+   * only eight verbs (`read`, `view`, `create`, `update`, `edit`, `delete`,
+   * `import`, `export`) before its `?? 'allowRead'` tail sends everything else
+   * to the object's read bit — so a capability nobody holds passed for every
+   * reader of the object, with no refusal, no warning and no log. The full
+   * reproduction behind that sentence is written once, at the same gate in
+   * `record-quick-actions.tsx`, and is not restated here.
+   *
+   * ⛔ The object name is deliberately ABSENT from the verdict: a system
+   * capability is not object-scoped. This site never carried the
+   * `&& objectName` conjunct its siblings did and never needed one — the
+   * "record:related_list — missing objectName" placeholder above returns
+   * first — but the name it handed to the object-action path was the wrong
+   * question either way.   *
+   * ⚠️ A provider that never REPORTS capabilities (`systemPermissions`
+   * `undefined` — the role-based `PermissionProvider`, a backend predating
+   * ADR-0066, or no provider at all) still opens this gate. That is
+   * `hasCapabilities`'s own ruled unreported-vs-empty doctrine
+   * (objectui#4656), shared with every other capability gate in the tree; a
+   * REPORTED empty array (`[]`, "holds nothing") is a real answer and gates
+   * strictly.
+   */
+  if (required.length > 0 && !perms.hasCapabilities(required)) {
+    return (
+      <div className={className} {...designer} role="status" aria-live="polite">
+        <p className="text-sm text-muted-foreground italic">
+          Insufficient permissions to view related list.
+        </p>
+      </div>
+    );
   }
 
   const enforceFLS = (schema as any).enforceFieldSecurity === true;

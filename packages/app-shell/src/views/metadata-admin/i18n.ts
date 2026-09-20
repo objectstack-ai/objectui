@@ -1299,6 +1299,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.admin.help':
     'Lets holders administer a business-unit subtree (assign users, manage bindings) without full admin.',
   'perm.admin.businessUnit': 'Business unit',
+  // The dependent controls' disabled reason (objectui#9464): `businessUnit` is
+  // the one key the framework's admin-scope shape requires, so a scope written
+  // before one is named is refused wholesale when the record is saved.
+  'perm.admin.businessUnitRequired':
+    'Name a business unit first — a scope without one is refused when the record is saved.',
   'perm.admin.includeSubtree': 'Include subtree',
   'perm.admin.manageAssignments': 'Manage assignments',
   'perm.admin.manageBindings': 'Manage bindings',
@@ -3285,6 +3290,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.admin.title': '委派管理范围',
   'perm.admin.help': '允许持有者管理某业务单元子树(分配用户、管理绑定),无需完全管理员权限。',
   'perm.admin.businessUnit': '业务单元',
+  // objectui#9464 — 见 EN 表同键注释。
+  'perm.admin.businessUnitRequired':
+    '请先填写业务单元 — 没有业务单元的范围在保存记录时会被拒绝。',
   'perm.admin.includeSubtree': '包含子树',
   'perm.admin.manageAssignments': '管理分配',
   'perm.admin.manageBindings': '管理绑定',

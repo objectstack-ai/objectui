@@ -39,9 +39,59 @@
  */
 import * as React from 'react';
 import { SchemaRendererContext } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 
-/** Cache keyed by `object:recordId:operation` so revisiting a record is free. */
+/**
+ * Cache keyed by `[principal, object, recordId, operation]` so revisiting a
+ * record is free — and so a verdict is only ever reused for the principal it
+ * was computed FOR (objectui#10107).
+ *
+ * The principal used to be absent from the key, and this map lives at module
+ * scope, so it outlives every unmount for the life of the tab. Signing out does
+ * not end that life: `AuthProvider.signOut` never reloads the page (it purges
+ * the per-tab storage caches by hand precisely because it does not), and this
+ * map was not among what it purged. So the next principal to sign in in the
+ * same tab was answered from the previous principal's verdicts — and answered
+ * SYNCHRONOUSLY, as the initial state below, so no probe was sent and no later
+ * answer could correct it.
+ *
+ * Both fail directions were reachable, and the second is the worse one:
+ *
+ *  - a `false` computed for someone else hid Edit from a user who holds a
+ *    record-level `edit` share, for the rest of the tab's life, while `PATCH`
+ *    on that record succeeded;
+ *  - a `true` computed for a privileged principal offered Edit to one holding
+ *    no grant — the UI inviting a write the server refuses.
+ *
+ * The key is an array rather than a delimited string so that no user id can
+ * spell another key by containing the delimiter, and so "principal unknown"
+ * (`null`) is a value of its own rather than a reserved word a user id could
+ * collide with.
+ */
 const verdictCache = new Map<string, boolean>();
+
+/**
+ * The principal every live entry in {@link verdictCache} was computed for.
+ *
+ * The key alone already makes another principal's entry unreachable. This adds
+ * the half a key cannot express: entries written while the client did not yet
+ * know who it was (a provider mounted but `/me/permissions` still in flight
+ * publishes `userId: null`) are keyed `null`, and a LATER unknown window — the
+ * one between a sign-out and the next sign-in in the same tab — would key to
+ * that same `null`. Dropping the map whenever the client's notion of the
+ * principal changes means no entry can ever span such a change, which is the
+ * property `purgeSignedOutClientCaches` gives the storage-backed caches.
+ *
+ * `undefined` is "nothing observed yet" and is distinct from a `null`
+ * principal, so the first observation does not count as a change.
+ */
+let cachedPrincipal: string | null | undefined;
+
+/** Drop everything if the acting principal is not the one the map was built for. */
+function retainForPrincipal(principal: string | null): void {
+  if (cachedPrincipal !== undefined && cachedPrincipal !== principal) verdictCache.clear();
+  cachedPrincipal = principal;
+}
 
 export type RecordOperation = 'update' | 'delete';
 
@@ -51,7 +101,18 @@ export function useRecordEditable(
   operation: RecordOperation = 'update',
   enabled = true,
 ): boolean {
-  const key = objectName && recordId ? `${objectName}:${recordId}:${operation}` : '';
+  // [objectui#5683] The acting user, or `null` when the client has no answer —
+  // a standalone embed with no provider, an anonymous session, or a load still
+  // in flight. `usePermissions()` degrades to the no-provider value rather than
+  // throwing, so this stays safe on the standalone `detail:view` embed the
+  // context read below is written for. This is NOT a second permission source:
+  // the verdict still comes from the explain engine alone. It is the identity
+  // that verdict belongs to.
+  const principal = usePermissions().userId;
+  const key =
+    objectName && recordId
+      ? JSON.stringify([principal, objectName, recordId, operation])
+      : '';
   const [allowed, setAllowed] = React.useState<boolean>(() =>
     key && verdictCache.has(key) ? verdictCache.get(key)! : true,
   );
@@ -61,6 +122,7 @@ export function useRecordEditable(
   const apiFetch = React.useContext(SchemaRendererContext)?.apiFetch;
 
   React.useEffect(() => {
+    retainForPrincipal(principal);
     if (!enabled || !key) {
       setAllowed(true);
       return;
@@ -69,6 +131,12 @@ export function useRecordEditable(
       setAllowed(verdictCache.get(key)!);
       return;
     }
+    // No answer for THIS key yet. Whatever is on screen was computed for a
+    // different key — another record, another operation, or (objectui#10107)
+    // another principal — and holding it across the round trip is the same
+    // reuse the cache key now forbids, just without the map. An unanswered
+    // question fails open, as every other uncertainty in this hook does.
+    setAllowed(true);
     let cancelled = false;
     (async () => {
       try {
@@ -92,12 +160,13 @@ export function useRecordEditable(
     return () => {
       cancelled = true;
     };
-  }, [key, objectName, recordId, operation, enabled, apiFetch]);
+  }, [key, principal, objectName, recordId, operation, enabled, apiFetch]);
 
   return allowed;
 }
 
-/** Test seam — drops the memoised verdicts. */
+/** Test seam — drops the memoised verdicts AND the principal they were for. */
 export function __clearRecordEditableCache(): void {
   verdictCache.clear();
+  cachedPrincipal = undefined;
 }

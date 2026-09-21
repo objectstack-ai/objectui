@@ -57,7 +57,8 @@ import {
   isMultiValueRelationship,
   mergeFilterNodes,
   readObjectSortability,
-  toFilterNode,
+  filterRefusalSubject,
+  toFilterNodeSafely,
   userActionPredicates,
   type FilterNode,
 } from '@object-ui/core';
@@ -560,12 +561,22 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   // of the fetch effect — keying on identity would refetch the collection on
   // every render. `undefined` means "nothing authored", so the query below stays
   // byte-identical to what it sent before this key had a read site.
+  //
+  // ⚠️ `toFilterNodeSafely`, not `toFilterNode` — objectui#9050. The lowering
+  // refuses eleven authored shapes with a `FilterOperatorError`, and this is a
+  // RENDER-time `useMemo`: a throw here is a render error, not a load error, so
+  // no `classifyLoadError` ever sees it. The refusal is kept as a VALUE and
+  // rendered below; it is deliberately NOT collapsed to `undefined`, which
+  // would mean "no filter" and run this list unconstrained — the silent
+  // widening objectui#9001 closed.
   const filterKey = JSON.stringify(filter ?? null);
-  const listFilterNode = React.useMemo(
-    () => toFilterNode(filter),
+  const listFilterResult = React.useMemo(
+    () => toFilterNodeSafely(filter),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filterKey],
   );
+  const filterRefusal = listFilterResult.ok ? undefined : listFilterResult.refusal;
+  const listFilterNode = listFilterResult.ok ? listFilterResult.node : undefined;
 
   /**
    * The `$expand` roots for the auto-fetch below (objectui#10112).
@@ -734,6 +745,14 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     // window may still be in flight — a slow page-2 response must not
     // overwrite page 3 after the fact.
     let cancelled = false;
+    // A refused filter never reaches the wire (objectui#9050). The render
+    // below shows the malformed-filter state instead, and this early return is
+    // what keeps "no filter node" from being read as "no filter" by the query
+    // builder further down.
+    if (filterRefusal) {
+      setLoading(false);
+      return;
+    }
     // Only auto-fetch when the caller didn't pass `data` at all. If the parent
     // explicitly passed an empty array, that means "no related records" — we
     // must NOT fall back to fetching all rows of the API (which would surface
@@ -1846,6 +1865,33 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   // filter input — they're opting in. (data-table's own auto-search is
   // suppressed via the viewSchema below to avoid a duplicate input.)
   const showFilterInput = filterable;
+
+  // objectui#9050 step 2 — the authored filter did not lower, so this list has
+  // no query it is allowed to send. The card keeps its chrome (the surrounding
+  // detail page renders exactly as before; only this section's body changes),
+  // and the body NAMES the operator the author has to fix. Placed after every
+  // hook above, so the early return cannot change the hook order.
+  if (filterRefusal) {
+    return (
+      <Card className={cn('shadow-none border-border/60 bg-transparent', className)}>
+        <CardHeader className="py-3 px-4 sm:py-3 min-h-12 sm:min-h-0">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            {/* eslint-disable-next-line react-hooks/static-components -- resolveIconComponent returns a stable icon component from a static registry, not a component created during render */}
+            <SectionIcon className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+            <span className="truncate">{title}</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 pb-4 px-4">
+          <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+            <p className="font-medium">
+              {t('view.malformedFilter', { subject: filterRefusalSubject(filterRefusal) ?? '' })}
+            </p>
+            <p className="mt-1 text-xs opacity-80">{filterRefusal.message}</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className={cn('shadow-none border-border/60 bg-transparent', isEmpty && 'bg-muted/10', className)}>

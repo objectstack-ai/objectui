@@ -906,6 +906,7 @@ const ar = {
     tabActionsFor: "إجراءات العرض لـ {{name}}",
     readonlyAriaLabel: "عرض للقراءة فقط",
     readonlyTooltip: "عرض النظام — معرَّف في الكود، للقراءة فقط.",
+    malformedFilter: "عامل تصفية طريقة العرض هذه غير صالح، لذا لا تُعرض أي سجلات: يتعذّر تطبيق الشرط {{subject}}.",
   },
   designer: {
     undo: "تراجع",

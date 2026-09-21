@@ -54,7 +54,7 @@ import {
   RefreshIndicator,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -315,6 +315,11 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.exportAs': 'Export as {{format}}',
   'grid.loading': 'Loading grid…',
   'grid.errorLoading': 'Error loading grid',
+  // objectui#9050 — the malformed-filter state, shared with `RelatedList`
+  // and `LineItemsPanel` because it is one sentence about one authored
+  // value, not three. Byte-identical to the `en` pack, which
+  // `defaults-maps-mirror-en-pack` enforces.
+  'view.malformedFilter': 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
   'grid.pullToRefresh': 'Pull to refresh',
   'grid.refreshing': 'Refreshing…',
   'grid.openRecord': 'Open record',
@@ -1714,8 +1719,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // empty array. `plugin-list`'s `buildEffectiveFilter` and `plugin-view`'s
   // `ObjectView` already reach the wire through this same sink; this read point
   // was the last consumer on the chain that did not.
+  //
+  // ⚠️ `toFilterNodeSafely`, not `toFilterNode` — objectui#9050. This read is a
+  // RENDER-time `useMemo`: a `FilterOperatorError` from the lowering is a
+  // render error, and there is no load `try` and no `classifyLoadError` above
+  // it. The refusal is kept as a VALUE and rendered by the malformed-filter
+  // branch below; collapsing it to `undefined` would mean "no filter" and run
+  // the grid unconstrained, the silent widening objectui#9001 closed.
   const schemaFilterSource = schema.filter;
-  const schemaFilter = useMemo(() => toFilterNode(schemaFilterSource), [schemaFilterSource]);
+  const schemaFilterResult = useMemo(() => toFilterNodeSafely(schemaFilterSource), [schemaFilterSource]);
+  const schemaFilterRefusal = schemaFilterResult.ok ? undefined : schemaFilterResult.refusal;
+  const schemaFilter = schemaFilterResult.ok ? schemaFilterResult.node : undefined;
   const schemaSort = schema.sort;
   const schemaPagination = schema.pagination;
   const schemaPageSize = schema.pageSize;
@@ -1800,6 +1814,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // fetchData's reference is unstable.
   useEffect(() => {
     if (hasInlineData) return;
+    // A refused `schema.filter` never reaches the wire (objectui#9050). The
+    // malformed-filter branch in the render shows it instead; this guard is
+    // what keeps "no filter node" from being read as "no filter" by the query
+    // built below.
+    if (schemaFilterRefusal) return;
 
     let cancelled = false;
 
@@ -2089,6 +2108,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // `undefined`, which is why the truthiness guard this replaces is
             // gone — `defaultFilters: {}` used to send `$filter: {}`, asking
             // the server a question with no content in a shape it refuses.
+            //
+            // ⚠️ Still the THROWING entry, and that is measured rather than
+            // inherited (objectui#9050). Unlike the three `useMemo` reads this
+            // card converts — `schema.filter` above, `RelatedList`'s and
+            // `LineItemsPanel`'s — this read is inside `loadSchemaAndData`, so
+            // it is already wrapped by this effect's own `try` and lands in
+            // `setError`. What it did NOT do is say what went wrong: the panel
+            // read "Error loading grid" over the converter's English paragraph.
+            // The malformed-filter branch in the render now names the operator
+            // for a `FilterOperatorError` arriving on this path too, which is
+            // the whole of step 2 for this fourth call site. Converting it to
+            // `toFilterNodeSafely` here would only rethrow into the same catch.
             const legacyFilter = toFilterNode(schema.defaultFilters);
             if (legacyFilter !== undefined) {
               params.$filter = legacyFilter;
@@ -2286,7 +2317,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // the query asking for the OLD one and the new grouping would read
   // `undefined` on every row — the very `(empty)` bucket this card fixes,
   // reachable a second way.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey]);
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -3474,6 +3505,32 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     }
     setShowExport(false);
   }, [data, schema.exportOptions, schema.operations?.export, effectiveApiOps, schema.objectName, objectName, objectSchema, generateColumns, dataSource, hasInlineData, schemaFilter, schemaSort]);
+
+  // objectui#9050 step 2 — a refused filter, from EITHER of this component's
+  // two entries into the lowering: `schema.filter` (a render-time `useMemo`,
+  // which would otherwise have thrown out of render) and `schema.defaultFilters`
+  // (inside the load effect, which already caught it but reported it as a
+  // generic load failure). Ahead of the load-error branch because it is not a
+  // load failure: nothing was ever sent, and the repair is in the author's
+  // metadata rather than in the network. It NAMES the operator, which is what
+  // separates it from the `SchemaErrorBoundary`'s "Component failed to render"
+  // banner — and from the "Error loading grid" heading this path used to show.
+  const filterRefusal = schemaFilterRefusal
+    ?? (error instanceof FilterOperatorError ? error : undefined);
+  if (filterRefusal) {
+    return (
+      <div
+        role="alert"
+        className="p-3 sm:p-4 border border-amber-300 bg-amber-50 rounded-md"
+        data-testid="grid-malformed-filter"
+      >
+        <h3 className="text-amber-800 font-semibold">
+          {t('view.malformedFilter', { subject: filterRefusalSubject(filterRefusal) ?? '' })}
+        </h3>
+        <p className="text-amber-700 text-sm mt-1">{filterRefusal.message}</p>
+      </div>
+    );
+  }
 
   if (error) {
     return (

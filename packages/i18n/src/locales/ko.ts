@@ -902,6 +902,7 @@ const ko = {
     tabActionsFor: "{{name}}의 보기 작업",
     readonlyAriaLabel: "읽기 전용 보기",
     readonlyTooltip: "시스템 보기 — 코드에 정의되어 있으며 읽기 전용입니다.",
+    malformedFilter: "이 뷰의 필터가 잘못되어 레코드를 표시하지 않습니다: {{subject}} 조건을 적용할 수 없습니다.",
   },
   designer: {
     undo: "실행 취소",

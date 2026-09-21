@@ -901,6 +901,7 @@ const pt = {
     tabActionsFor: "Ações de exibição para {{name}}",
     readonlyAriaLabel: "Exibição somente leitura",
     readonlyTooltip: "Exibição do sistema — definida no código, somente leitura.",
+    malformedFilter: "O filtro desta exibição é inválido, por isso nenhum registro é exibido: a condição {{subject}} não pode ser aplicada.",
   },
   designer: {
     undo: "Desfazer",

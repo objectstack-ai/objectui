@@ -926,6 +926,7 @@ const zh = {
     tabActionsFor: '{{name}} 的视图操作',
     readonlyAriaLabel: '只读视图',
     readonlyTooltip: '系统视图 — 由代码定义，只读。',
+    malformedFilter: '此视图的筛选条件有误，因此不显示任何记录：无法应用 {{subject}} 条件。',
   },
   designer: {
     undo: '撤销',

@@ -906,6 +906,7 @@ const es = {
     tabActionsFor: "Acciones de vista para {{name}}",
     readonlyAriaLabel: "Vista de solo lectura",
     readonlyTooltip: "Vista del sistema — definida en el código, solo lectura.",
+    malformedFilter: "El filtro de esta vista no es válido, por lo que no se muestra ningún registro: la condición {{subject}} no se puede aplicar.",
   },
   designer: {
     undo: "Deshacer",

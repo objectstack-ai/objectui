@@ -27,14 +27,27 @@ import {
   cn,
 } from '@object-ui/components';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
+import { createSafeTranslation } from '@object-ui/i18n';
 import { useSchemaContext, useRecordContext } from '@object-ui/react';
 import { buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
 import {
   runBatchTransaction,
   mergeFilterNodes,
-  toFilterNode,
+  filterRefusalSubject,
+  toFilterNodeSafely,
   convertSortToQueryParams,
 } from '@object-ui/core';
+
+// The malformed-filter state (objectui#9050 step 2). A provider-less host —
+// a standalone embed, this package's own tests — must read the sentence rather
+// than the raw key, which is what `createSafeTranslation` is for; the row is
+// byte-identical to the `en` pack, enforced by `defaults-maps-mirror-en-pack`.
+const useLineItemsTranslation = createSafeTranslation(
+  {
+    'view.malformedFilter': 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
+  },
+  'view.malformedFilter',
+);
 
 export interface LineItemsPanelSchema {
   type?: 'record:line_items';
@@ -154,6 +167,7 @@ function describeRefusedRowLimit(authored: unknown, childObject: unknown): strin
 
 export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ schema }) => {
   const ctx = useSchemaContext() as any;
+  const { t } = useLineItemsTranslation();
   const dataSource = ctx?.dataSource;
   // useRecordContext returns null outside a <RecordContextProvider> (e.g. in the
   // Studio designer/palette), so it never throws — call it unconditionally to
@@ -230,13 +244,22 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   // a new object every render and both are inputs to `load` (which an effect
   // below depends on) — keying on identity would refetch the children on every
   // render. Same reason `RelatedList` keys its own scope filter on content.
+  //
+  // ⚠️ `toFilterNodeSafely`, not `toFilterNode` — objectui#9050. This is a
+  // RENDER-time `useMemo`, so a `FilterOperatorError` from the lowering is a
+  // render error with no load `catch` and no `classifyLoadError` above it. The
+  // refusal is kept as a VALUE and rendered below; collapsing it to
+  // `undefined` would mean "no filter" and load this panel's rows
+  // unconstrained, the silent widening objectui#9001 closed.
   const filterKey = JSON.stringify(schema.filter ?? null);
   const sortKey = JSON.stringify(schema.sort ?? null);
-  const listFilterNode = useMemo(
-    () => toFilterNode(schema.filter),
+  const listFilterResult = useMemo(
+    () => toFilterNodeSafely(schema.filter),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on CONTENT, see above
     [filterKey],
   );
+  const filterRefusal = listFilterResult.ok ? undefined : listFilterResult.refusal;
+  const listFilterNode = listFilterResult.ok ? listFilterResult.node : undefined;
   const orderBy = useMemo(
     () => convertSortToQueryParams(schema.sort),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on CONTENT, see above
@@ -245,6 +268,13 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
 
   const load = useCallback(async () => {
     if (!dataSource || !parentId) {
+      setLoading(false);
+      return;
+    }
+    // A refused filter never reaches the wire (objectui#9050). The render below
+    // shows the malformed-filter state instead; this guard is what keeps "no
+    // filter node" from being read as "no filter" by the query built here.
+    if (filterRefusal) {
       setLoading(false);
       return;
     }
@@ -306,6 +336,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     schema.childObject,
     schema.relationshipField,
     schema.limit,
+    filterRefusal,
     listFilterNode,
     orderBy,
   ]);
@@ -410,7 +441,27 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             nothing here is pending — the schema itself already says this panel
             can never resolve, so there is no first paint where "Loading…" is
             true. */}
-        {!schema.childObject ? (
+        {/* objectui#9050 step 2 — the authored `filter` did not lower, so this
+            panel has no query it is allowed to send. Ahead of every branch
+            below for the same reason the `childObject` branch is ahead of
+            `loading`: nothing is pending, and falling through to an editable
+            grid over rows that were never scoped is the worse outcome. It NAMES
+            the operator, which is what separates this from the generic
+            "Component failed to render" banner a `SchemaErrorBoundary` shows —
+            and this panel can be mounted with no such boundary above it at
+            all. */}
+        {filterRefusal ? (
+          <div
+            role="alert"
+            className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+            data-testid="line-items-malformed-filter"
+          >
+            <p className="font-medium">
+              {t('view.malformedFilter', { subject: filterRefusalSubject(filterRefusal) ?? '' })}
+            </p>
+            <p className="mt-1 text-xs opacity-80">{filterRefusal.message}</p>
+          </div>
+        ) : !schema.childObject ? (
           <p
             className="py-6 text-center text-sm text-muted-foreground"
             data-testid="line-items-no-child-object"

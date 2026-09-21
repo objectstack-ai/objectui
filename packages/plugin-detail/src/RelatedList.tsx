@@ -43,6 +43,7 @@ import type { DataSource, FieldMetadata } from '@object-ui/types';
 import type { ViewFilterRule } from '@objectstack/spec/ui';
 import { getCellRenderer, resolveCellRendererType, RecordPickerDialog, deriveLookupColumns } from '@object-ui/fields';
 import {
+  buildExpandFields,
   columnIdentity,
   columnHeader,
   compareSortValues,
@@ -461,6 +462,13 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   const [lookupLabels, setLookupLabels] = React.useState<Record<string, Record<string, string>>>({});
   const { t } = useDetailTranslation();
   const { fieldLabel: resolveFieldLabel } = useSafeFieldLabel();
+  /**
+   * Field-level security, read by BOTH projection sites: the `$expand` roots
+   * the auto-fetch below asks the server to resolve, and the column gate in
+   * `effectiveColumns` further down (which is where this call used to sit —
+   * it was hoisted here, unconditionally, so the fetch effect can name it).
+   */
+  const perms = usePermissions();
 
   /**
    * [ADR-0066 D4 / objectui#9782] The `list_toolbar` set this header may draw,
@@ -558,6 +566,81 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filterKey],
   );
+
+  /**
+   * The `$expand` roots for the auto-fetch below (objectui#10112).
+   *
+   * An ordinary list resolves a reference column by asking the SERVER to
+   * expand it — `buildExpandFields` over the canonical reference-bearing
+   * family in `@object-ui/core` — so the cell is handed the related record and
+   * draws its display name. This list asked for no expansion at all, so every
+   * reference column arrived as its bare foreign key. `lookup` and
+   * `master_detail` survived that on the batch fallback further down;
+   * `user` did not, because its cell has no resolver of its own, and the
+   * stored `sys_user` id reached the DOM as if it were a name.
+   *
+   * The family is READ here, never restated: `user` is a member of it, and
+   * that membership — not a type name written in this file — is why a `user`
+   * column resolves once the expansion is requested.
+   *
+   * ⛔ The column restriction is resolved through THIS component's identity
+   * spelling (`accessorKey` first, then `columnIdentity`), not through
+   * `columnIdentity` alone. `buildExpandFields` decides that the caller
+   * restricted the columns from the raw array's LENGTH, then keeps only the
+   * names `columnIdentity` resolves — and `accessorKey` is not one of them. So
+   * an authored `[{ accessorKey: 'owner_id' }]`, a shape this component
+   * supports on every other path, would restrict the expansion to the empty
+   * set and expand NOTHING, with no signal.
+   *
+   * With nothing authored the columns come from the child object's
+   * `highlightFields` or the heuristic walk, neither of which is known before
+   * the rows arrive — so no restriction is passed and every declared relation
+   * is expanded, minus the parent FK, which `filterFK` removes from every
+   * column list this component draws (expanding it could only pay for a
+   * sub-read nothing renders).
+   *
+   * FLS gates the OUTPUT — the shape objectui#7215 / objectui#7230 ruled and
+   * `DetailView` already uses. `$expand` asks the server to RESOLVE a
+   * reference and return the related record, a strictly larger disclosure than
+   * the bare key this fetch already receives. Gating the INPUT would WIDEN
+   * rather than narrow, because an emptied column list reads as "no column
+   * restriction"; gating the output also makes every name judged here one the
+   * object DECLARES, so the "checkField answers false for an undeclared key"
+   * trap is unreachable by construction.
+   */
+  const expandFields = React.useMemo(() => {
+    const authored = Array.isArray(columns)
+      ? columns
+          .map((c: any) =>
+            typeof c === 'string' ? c : c?.accessorKey || columnIdentity(c),
+          )
+          .filter((n: unknown): n is string => typeof n === 'string' && n.length > 0)
+      : [];
+    const expandable = buildExpandFields(
+      objectSchema?.fields,
+      authored.length > 0 ? authored : undefined,
+    ).filter((f) => f !== referenceField);
+    const relatedObjectName = objectName || api || '';
+    if (!perms?.isLoaded || !relatedObjectName) return expandable;
+    return expandable.filter((f) => perms.checkField(relatedObjectName, f, 'read'));
+  }, [columns, objectSchema, referenceField, objectName, api, perms]);
+  /**
+   * Content key for the fetch effect, for the same reason `defaultSortKey` and
+   * `filterKey` above are one: the memo hands back a fresh array whenever
+   * React discards its cache, and naming the array itself would refetch the
+   * whole collection on a discard alone (commandment #10).
+   *
+   * It is also what carries this fix onto the wire. The child object's schema
+   * arrives asynchronously and the fetch effect is deliberately NOT gated on
+   * it (see the arity flag above), so the first query goes out before
+   * `objectSchema` exists and stays byte-identical to the one this component
+   * has always sent. When the schema lands and yields roots, this key changes
+   * and the effect re-runs once, now asking for them. A child object with no
+   * expandable column keeps an empty key — `'' -> ''` is not a change — and
+   * re-runs exactly as often as it did before, which is the same
+   * direction-of-the-default argument the arity flag makes.
+   */
+  const expandKey = expandFields.join(',');
 
   // Sync internal state when data prop changes (e.g., parent fetches async data)
   React.useEffect(() => {
@@ -698,6 +781,11 @@ export const RelatedList: React.FC<RelatedListProps> = ({
           : mergeFilterNodes(parentScope, listFilterNode);
       if (dataSource && typeof dataSource.find === 'function') {
         const params: Record<string, any> = { $filter: queryFilter };
+        // Resolve reference columns server-side, the way every other list in
+        // the tree does (objectui#10112). Omitted entirely when there is
+        // nothing to expand, so a child object with no reference column sends
+        // the byte-identical query it always sent.
+        if (expandFields.length > 0) params.$expand = expandFields;
         if (windowed) {
           params.$top = effectivePageSize;
           params.$skip = fetchPage * effectivePageSize;
@@ -817,8 +905,13 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     // relationship keys beside it do: it decides WHICH predicate this effect
     // sends (objectui#7299). It is a boolean, so a single-valued list re-runs
     // exactly as often as it did before — false → false is not a change.
+    //
+    // `expandKey` is the CONTENT of `expandFields` for the reason
+    // `defaultSortKey` / `filterKey` are the content of their memos — and it is
+    // the dependency that lets the schema-derived expansion reach the wire at
+    // all; see the key's own comment above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, dataProvided, dataSource, referenceField, referenceFieldIsMultiValue, parentId, refreshNonce, windowed, effectivePageSize, fetchPage, fetchSortField, fetchSortDirection, defaultSortKey, filterKey]);
+  }, [api, dataProvided, dataSource, referenceField, referenceFieldIsMultiValue, parentId, refreshNonce, windowed, effectivePageSize, fetchPage, fetchSortField, fetchSortDirection, defaultSortKey, filterKey, expandKey]);
 
   // Windowed mode: a page beyond the (shrunken) collection — e.g. the last
   // row of the last page was just deleted — comes back empty. Step back one
@@ -860,18 +953,28 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     return () => window.removeEventListener('objectui:related-changed', onChanged as EventListener);
   }, [api, dataProvided]);
 
-  // Resolve lookup-field display labels by batch-fetching referenced records.
-  // For each lookup/master_detail column whose data is a primitive ID, gather
-  // unique IDs and fetch them in one round trip per target object. The
+  // Resolve reference-field display labels by batch-fetching referenced
+  // records. For each reference-bearing column whose data is a primitive ID,
+  // gather unique IDs and fetch them in one round trip per target object. The
   // resulting id → name map is exposed via `options` on the field meta so
   // the existing LookupCellRenderer renders a friendly label instead of the
-  // raw ID.
+  // raw ID; a `user` column has no `options` reader, so `makeCell` folds the
+  // resolved name into the VALUE it hands that cell instead.
+  //
+  // [objectui#10112] The membership test is the canonical reference-bearing
+  // family, not a private `lookup`/`master_detail` disjunction. That
+  // disjunction named two of the family's four members, so a `user` column
+  // holding a primitive id was never gathered here and never resolved
+  // anywhere else either — the raw `sys_user` id was what the cell drew. This
+  // is the FALLBACK half: the auto-fetch above now asks the server to expand
+  // the same family, so this path runs for data a CALLER supplied, and for a
+  // backend that does not honour `$expand`.
   React.useEffect(() => {
     if (!dataSource?.find || !objectSchema?.fields || !relatedData.length) return;
     const fields = objectSchema.fields as Record<string, any>;
     const tasks: Array<{ fieldName: string; target: string; ids: string[] }> = [];
     for (const [fieldName, def] of Object.entries(fields)) {
-      if (!def || (def.type !== 'lookup' && def.type !== 'master_detail')) continue;
+      if (!isExpandableFieldType(def)) continue;
       // objectui#6837 half 2 — maintainer 2026-08-31: protocol normalization
       // belongs on the SERVER, the front end just executes the protocol.
       // `reference` is the only target spelling `@objectstack/spec`'s
@@ -1093,7 +1196,6 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   //  - Prefer name-like fields (name, title, subject, ...) first.
   //  - Cap at `maxColumns` to keep the related card readable; users can
   //    click "View All" to see the full list.
-  const perms = usePermissions();
   /**
    * [objectui#9053] The redaction list as a lookup, memoised on the PROP's
    * identity so `effectiveColumns` keeps the reference-stable dependency the
@@ -1283,11 +1385,37 @@ export const RelatedList: React.FC<RelatedListProps> = ({
       const CellRenderer = getCellRenderer(rendererType);
       if (!CellRenderer) return undefined;
       const isLookup = def.type === 'lookup' || def.type === 'master_detail';
-      const resolvedMap = isLookup ? lookupLabels[key] : undefined;
+      const resolvedMap = isExpandableFieldType(def) ? lookupLabels[key] : undefined;
+      // `options` is how `LookupCellRenderer` takes a resolved label, and only
+      // it — so the injection stays on the two types that read it. A `user`
+      // cell is served one line down instead (objectui#10112).
       const lookupOptions =
-        resolvedMap && Object.keys(resolvedMap).length > 0
+        isLookup && resolvedMap && Object.keys(resolvedMap).length > 0
           ? Object.entries(resolvedMap).map(([id, label]) => ({ value: id, label }))
           : undefined;
+      /**
+       * A resolved `user` reference, handed to the cell as the RECORD SHAPE
+       * that cell already documents (objectui#10112).
+       *
+       * `UserCellRenderer` reads `value` and nothing else: an object is a
+       * person (`name || username`, with initials for the avatar), a primitive
+       * is an unresolved reference and draws as one. It has no `field.options`
+       * reader and no fetch of its own, so the batch map above cannot reach it
+       * the way it reaches a lookup — the only seam is the value.
+       *
+       * ⛔ This is not a second resolver. The name comes from the one batch
+       * map in this file, which resolves through `resolveRelatedLookupLabel`
+       * (ADR-0079: the target object's declared `nameField` / `titleFormat`) —
+       * the same resolver the lookup column and the cell's own fetch use. All
+       * that happens here is a re-shape from the map's `id -> name` into the
+       * `{ name }` the user cell reads.
+       */
+      const resolveUserValue = (value: any): any => {
+        if (def.type !== 'user' || !resolvedMap) return value;
+        if (typeof value !== 'string' && typeof value !== 'number') return value;
+        const name = resolvedMap[String(value)];
+        return name ? { name } : value;
+      };
       const fieldMeta: FieldMetadata = {
         name: key,
         label: def.label || key,
@@ -1314,7 +1442,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         if (isValueEmpty(value)) {
           return React.createElement(EmptyValue);
         }
-        return React.createElement(CellRenderer, { value, field: fieldMeta });
+        return React.createElement(CellRenderer, {
+          value: resolveUserValue(value),
+          field: fieldMeta,
+        });
       };
     };
 

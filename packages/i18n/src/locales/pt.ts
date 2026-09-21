@@ -164,6 +164,7 @@ const pt = {
   form: {
     noPermissionToSave: "Você não tem permissão para salvar este registro.",
     submitFailed: "Não foi possível salvar. Tente novamente.",
+    uploadInFlight: "Aguarde a conclusão do upload antes de salvar.",
     discardTitle: "Descartar as alterações?",
     discardMessage: "Você tem alterações não salvas. Se fechar este formulário agora, suas edições serão perdidas.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible

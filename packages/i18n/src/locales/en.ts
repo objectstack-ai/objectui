@@ -194,6 +194,7 @@ const en = {
   form: {
     noPermissionToSave: "You don't have permission to save this record.",
     submitFailed: 'Could not save. Please try again.',
+    uploadInFlight: 'Wait for the upload to finish before saving.',
     removeItem: 'Remove item',
     fieldRequired: 'This field is required',
     invalidFormat: 'Invalid format',

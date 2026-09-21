@@ -171,6 +171,7 @@ const ru = {
   form: {
     noPermissionToSave: "У вас нет прав на сохранение этой записи.",
     submitFailed: "Не удалось сохранить. Попробуйте ещё раз.",
+    uploadInFlight: "Дождитесь завершения загрузки, прежде чем сохранять.",
     discardTitle: "Отменить изменения?",
     discardMessage: "Есть несохранённые изменения. Если закрыть форму сейчас, правки будут потеряны.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible

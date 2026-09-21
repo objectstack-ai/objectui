@@ -165,6 +165,7 @@ const fr = {
   form: {
     noPermissionToSave: "Vous n'avez pas l'autorisation d'enregistrer cet enregistrement.",
     submitFailed: "Échec de l'enregistrement. Veuillez réessayer.",
+    uploadInFlight: "Attendez la fin du téléversement avant de sauvegarder.",
     discardTitle: "Abandonner les modifications ?",
     discardMessage: "Vous avez des modifications non enregistrées. Si vous fermez ce formulaire maintenant, vos modifications seront perdues.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible

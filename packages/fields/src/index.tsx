@@ -4185,5 +4185,22 @@ export {
   fromDateTimeInputValue,
 } from './widgets/nativeDateValue.js';
 
+// The AGGREGATED half of the upload-in-flight signal (objectui#10166).
+// `onUploadingChange` answers "is THIS widget uploading" to a host that renders
+// the control itself; a record form hands a `fields` array to the `form` node
+// renderer and never touches a widget, so it has no place to attach that
+// callback. `useUploadingScope` + `UploadingScopeProvider` let such a host ask
+// "is ANYTHING below me uploading" and gate its own Save on the answer.
+// Exported because the hosts that need it live in other packages
+// (`@object-ui/plugin-form`), and because a second, host-local implementation
+// of the same aggregation would drift from the one `useUploadingSignal` feeds.
+export { useUploadingScope, UploadingScopeProvider } from './widgets/uploadingScope.js';
+// The producer side of that same signal, exported for the same reason
+// `toDomProps`/`toHostProps` are: a widget authored outside this repo publishes
+// its in-flight state through this ONE hook, and a second implementation of
+// "tell my host I am uploading" would reach only half the sinks.
+export { useUploadingSignal } from './widgets/useUploadingSignal.js';
+export type { UploadingScope } from './widgets/uploadingScope.js';
+
 // Initialize registry
 registerAllFields();

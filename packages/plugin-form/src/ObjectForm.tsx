@@ -48,6 +48,7 @@ import { sanitizeFormData } from './sanitize';
 import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { resolveInitialRecord } from './initialRecord';
 import { noSubmitTargetError } from './submitTarget';
+import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import {
   schemaDefaultValues,
   isCreateFormMode,
@@ -538,6 +539,10 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
 }) => {
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
   const isMobile = useIsMobile();
+  // Upload-in-flight gate (objectui#10166). Owns the aggregated "is any
+  // file/image widget below me still uploading" answer, the Save label while it
+  // is true, and the sentence that says why. See `uploadGate.tsx`.
+  const uploadGate = useUploadGate();
   // Field-level permission gate. When the consumer hasn't mounted a
   // PermissionProvider / MePermissionsProvider, `usePermissions` returns
   // a permissive default (isLoaded:false, checkField always true) so we
@@ -1019,6 +1024,17 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
 
   // Handle form submission
   const handleSubmit = useCallback(async (formData: any, e?: any) => {
+    // An upload is still in flight (objectui#10166). A `file`/`image` value is
+    // only its fileId once the presigned upload settles, so writing now stores
+    // the record WITHOUT the attachment and reports success — the silent loss
+    // this guard exists to stop. Refuse and say why: the Save button already
+    // reads "Uploading…" and the notice beside it carries the same sentence,
+    // and this arm is what covers a keyboard submit (the flat path's button is
+    // rendered by the `form` node renderer and cannot be disabled from here).
+    if (uploadGate.uploading) {
+      toast.error(uploadGate.reason);
+      return;
+    }
     // If we receive an event as the first argument, it means the Form renderer passed the event instead of data
     // This happens when react-hook-form's handleSubmit is bypassed or configured incorrectly
     if (formData && (formData.nativeEvent || formData._reactName === 'onSubmit')) {
@@ -1257,7 +1273,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       
       throw err;
     }
-  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData]);
+  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason]);
 
   // Handle form cancellation
   const handleCancel = useCallback(() => {
@@ -1609,27 +1625,35 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     const fieldContainerClass = containerGridColsFor(formColumns);
 
     return (
-      <div className="w-full @container">
-        <SchemaRenderer
-          schema={{
-            type: 'form',
-            objectName: schema.objectName,
-            fields: laidOutFields,
-            layout: formLayout,
-            columns: formColumns,
-            ...(fieldContainerClass ? { fieldContainerClass } : {}),
-            defaultValues: finalDefaultValues,
-            previousValues,
-            showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
-            showCancel: schema.showCancel !== false,
-            submitLabel: schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
-            cancelLabel: schema.cancelText,
-            onSubmit: handleSubmit,
-            onCancel: handleCancel,
-          } as FormSchema}
-        />
-        {conflictDialog}
-      </div>
+      <UploadGateProvider gate={uploadGate}>
+        <div className="w-full @container">
+          <SchemaRenderer
+            schema={{
+              type: 'form',
+              objectName: schema.objectName,
+              fields: laidOutFields,
+              layout: formLayout,
+              columns: formColumns,
+              ...(fieldContainerClass ? { fieldContainerClass } : {}),
+              defaultValues: finalDefaultValues,
+              previousValues,
+              showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
+              showCancel: schema.showCancel !== false,
+              // While an upload is in flight the Save button says so, the same
+              // answer ActionParamDialog gives its Confirm button. The notice
+              // below carries the reason in a sentence (objectui#10166).
+              submitLabel: uploadGate.uploading
+                ? uploadGate.busyLabel
+                : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+              cancelLabel: schema.cancelText,
+              onSubmit: handleSubmit,
+              onCancel: handleCancel,
+            } as FormSchema}
+          />
+          <UploadInFlightNotice gate={uploadGate} />
+          {conflictDialog}
+        </div>
+      </UploadGateProvider>
     );
   }
 
@@ -1764,7 +1788,11 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     fields: fieldsWithMobile,
     layout: formLayout,
     columns: autoLayoutResult.columns,
-    submitLabel: schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+    // See the sections path above: the label is the affordance's own
+    // explanation while an upload is in flight (objectui#10166).
+    submitLabel: uploadGate.uploading
+      ? uploadGate.busyLabel
+      : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
     cancelLabel: schema.cancelText,
     showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
     showCancel: schema.showCancel !== false,
@@ -1780,13 +1808,16 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   };
 
   return (
-    <div
-      className={mobileOpts?.stickyActions ? 'w-full pb-20 md:pb-0' : 'w-full'}
-      data-mobile-form={mobileOpts ? 'true' : undefined}
-    >
-      <SchemaRenderer schema={formSchema} />
-      {conflictDialog}
-    </div>
+    <UploadGateProvider gate={uploadGate}>
+      <div
+        className={mobileOpts?.stickyActions ? 'w-full pb-20 md:pb-0' : 'w-full'}
+        data-mobile-form={mobileOpts ? 'true' : undefined}
+      >
+        <SchemaRenderer schema={formSchema} />
+        <UploadInFlightNotice gate={uploadGate} />
+        {conflictDialog}
+      </div>
+    </UploadGateProvider>
   );
 };
 

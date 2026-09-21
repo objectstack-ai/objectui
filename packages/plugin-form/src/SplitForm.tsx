@@ -25,7 +25,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { FormField, DataSource, ObjectFormSchema } from '@object-ui/types';
-import { cn } from '@object-ui/components';
+import { cn, toast } from '@object-ui/components';
 import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
@@ -34,6 +34,7 @@ import { usePermissions } from '@object-ui/permissions';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
 import { useOccSave } from './occSave';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
+import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 
 export interface SplitFormSectionConfig {
   name?: string;
@@ -142,6 +143,10 @@ export const SplitForm: React.FC<SplitFormProps> = ({
 }) => {
   const { fieldLabel } = useSafeFieldLabel();
   const { userId: currentUserId } = usePermissions();
+  // Upload-in-flight gate (objectui#10166): a `file`/`image` value is only its
+  // fileId once the presigned upload settles, so a save during that window
+  // stored the record WITHOUT the attachment and reported success.
+  const uploadGate = useUploadGate();
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   // OCC-guarded edit save + its conflict dialog (see occSave.tsx).
@@ -241,6 +246,14 @@ export const SplitForm: React.FC<SplitFormProps> = ({
 
   // Handle form submission
   const handleSubmit = useCallback(async (data: Record<string, any>) => {
+    // Refuse while an upload is in flight (objectui#10166). Save is relabelled
+    // and the notice beside the form says why. This arm also covers a keyboard
+    // submit, and it is the only guard on this host: its button is rendered by
+    // the `form` node renderer, which exposes no per-button disable.
+    if (uploadGate.uploading) {
+      toast.error(uploadGate.reason);
+      return;
+    }
     // No submit TARGET: a declared `submitHandler` owns the write and needs no
     // adapter of its own (objectui#6176's seam), so only a form with NEITHER it
     // nor a `dataSource` is target-less. The one target-less form that is still
@@ -303,7 +316,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
       }
       throw err;
     }
-  }, [schema, dataSource, saveWithOcc, formData]);
+  }, [schema, dataSource, saveWithOcc, formData, uploadGate.uploading, uploadGate.reason]);
 
   // Handle cancel
   const handleCancel = useCallback(() => {
@@ -418,6 +431,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
     .filter((pane) => pane.fields.length > 0);
 
   return (
+    <UploadGateProvider gate={uploadGate}>
     <div className={cn('w-full @container', className, schema.className)}>
       <SchemaRenderer
         schema={{
@@ -432,7 +446,11 @@ export const SplitForm: React.FC<SplitFormProps> = ({
           defaultValues: formData,
           // Persisted record → `previous` binding + read-only submit strip (#3484).
           previousValues: schema.mode === 'edit' && schema.recordId ? formData : undefined,
-          submitLabel: schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+          // While an upload is in flight the button says so, the same answer
+          // ActionParamDialog gives its Confirm (objectui#10166).
+          submitLabel: uploadGate.uploading
+            ? uploadGate.busyLabel
+            : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
           cancelLabel: schema.cancelText,
           showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
           showCancel: schema.showCancel !== false,
@@ -450,8 +468,10 @@ export const SplitForm: React.FC<SplitFormProps> = ({
           fieldPanesResizable: schema.splitResizable !== false,
         }}
       />
+      <UploadInFlightNotice gate={uploadGate} />
       {conflictDialog}
     </div>
+    </UploadGateProvider>
   );
 };
 

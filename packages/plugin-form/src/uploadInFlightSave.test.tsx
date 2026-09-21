@@ -38,6 +38,12 @@ import { ComponentRegistry } from '@object-ui/core';
 import { registerAllFields, useUploadingSignal } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
 import { ModalForm } from './ModalForm';
+import { DrawerForm } from './DrawerForm';
+import { SplitForm } from './SplitForm';
+import { TabbedForm } from './TabbedForm';
+import { WizardForm } from './WizardForm';
+import { MasterDetailForm } from './MasterDetailForm';
+import { EmbeddableForm } from './EmbeddableForm';
 
 registerAllFields();
 
@@ -113,9 +119,9 @@ const REASON = 'Wait for the upload to finish before saving.';
  * timeout papering over a race: on the defect the record IS written and this
  * wait is what lets the row see it.
  */
-async function settleSubmit() {
+async function settleSubmit(ms = 50) {
   await act(async () => {
-    await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, ms));
   });
 }
 
@@ -196,5 +202,153 @@ describe('record form — save while an upload is in flight (objectui#10166)', (
     fireEvent.click(screen.getByTestId('finish-upload'));
     await waitFor(() => expect(save()).not.toBeDisabled());
     expect(screen.queryByTestId('upload-in-flight-notice')).toBeNull();
+  });
+
+  /**
+   * Every remaining submit owner in this package, one row each. The gate is one
+   * mechanism, but the rows are not a formality: each host reaches it by a
+   * different route — two through the `form` node renderer's button, one
+   * through a step's final commit, one through an action bar that drives a
+   * button-less child form, one through a nested `ObjectForm` it does not own.
+   * A host wired without a pin would be a claim nothing re-derives.
+   */
+  it.each([
+    ['SplitForm', SplitForm as any, { type: 'object-split-form', sections: [{ name: 's1', label: 'Main', fields: ['name', 'attachment'] }] }],
+    ['TabbedForm', TabbedForm as any, { type: 'object-tabbed-form', sections: [{ name: 's1', label: 'Main', fields: ['name', 'attachment'] }] }],
+    ['DrawerForm', DrawerForm as any, { type: 'object-drawer-form', open: true, fields: ['name', 'attachment'] }],
+  ])('stores nothing mid-upload and the attachment once it resolves (%s)', async (_name, Host, extra) => {
+    const { created, ds } = makeDataSource();
+    render(<Host schema={{ objectName: 'o', mode: 'create', ...extra } as any} dataSource={ds} />);
+    await screen.findByTestId('start-upload');
+    const save = () => screen.getByRole('button', { name: /Create|Uploading/ });
+
+    fireEvent.click(screen.getByTestId('start-upload'));
+    fireEvent.click(save());
+    await settleSubmit();
+    expect(created).toEqual([]);
+    expect(screen.getByTestId('upload-in-flight-notice').textContent).toBe(REASON);
+    expect(save().textContent).toContain(UPLOADING_LABEL);
+
+    fireEvent.click(screen.getByTestId('finish-upload'));
+    await waitFor(() => expect(screen.queryByTestId('upload-in-flight-notice')).toBeNull());
+    fireEvent.click(save());
+
+    await waitFor(() => expect(ds.create).toHaveBeenCalledTimes(1));
+    expect(created).toHaveLength(1);
+    expect(created[0].attachment).toBe('file_123');
+    expect(created.every((r) => r.attachment === 'file_123')).toBe(true);
+  });
+
+  it('refuses the FINAL commit but never step navigation (WizardForm)', async () => {
+    const { created, ds } = makeDataSource();
+    render(
+      <WizardForm
+        schema={{
+          type: 'object-wizard-form',
+          objectName: 'o',
+          mode: 'create',
+          sections: [
+            { name: 's1', label: 'One', fields: ['name'] },
+            { name: 's2', label: 'Two', fields: ['attachment'] },
+          ],
+        } as any}
+        dataSource={ds}
+      />,
+    );
+    // Step 1 → Next. Navigation writes nothing, so it is deliberately NOT gated;
+    // this row also proves the gate did not leak onto it.
+    fireEvent.click(await screen.findByRole('button', { name: /Next/ }));
+    await screen.findByTestId('start-upload');
+
+    const create = () => screen.getByRole('button', { name: /Create|Uploading/ });
+    fireEvent.click(screen.getByTestId('start-upload'));
+    fireEvent.click(create());
+    await settleSubmit();
+    expect(created).toEqual([]);
+    await waitFor(() => expect(create()).toBeDisabled());
+    expect(screen.getByTestId('upload-in-flight-notice').textContent).toBe(REASON);
+
+    fireEvent.click(screen.getByTestId('finish-upload'));
+    await waitFor(() => expect(create()).not.toBeDisabled());
+    fireEvent.click(create());
+    await waitFor(() => expect(ds.create).toHaveBeenCalledTimes(1));
+    expect(created[0].attachment).toBe('file_123');
+  });
+
+  it('gates the atomic Save on an upload in the PARENT fields (MasterDetailForm)', async () => {
+    const { created, ds } = makeDataSource();
+    render(
+      <MasterDetailForm
+        schema={{
+          type: 'object-master-detail-form',
+          objectName: 'o',
+          mode: 'create',
+          fields: ['name', 'attachment'],
+          details: [],
+        } as any}
+        dataSource={ds}
+      />,
+    );
+    await screen.findByTestId('start-upload');
+    const save = () => screen.getByTestId('md-form-submit');
+
+    fireEvent.click(screen.getByTestId('start-upload'));
+    fireEvent.click(save());
+    // A longer settle than the other rows, and the reason is this host's: the
+    // action bar drives the parent form through `requestSubmit()` deferred into
+    // a macrotask, so a write that WAS accepted lands a beat later than a
+    // direct submit. Too short a wait here would let the row pass on the defect.
+    await settleSubmit(400);
+    expect(created).toEqual([]);
+    // The parent fields are a nested ObjectForm with a scope of its own; this
+    // is what proves the chain reaches THIS host's action bar, the control that
+    // persists parent and children as one batch.
+    await waitFor(() => expect(save()).toBeDisabled());
+    expect(screen.getAllByTestId('upload-in-flight-notice').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId('finish-upload'));
+    await waitFor(() => expect(save()).not.toBeDisabled());
+  });
+
+  it('is gated through the ObjectForm it hosts (EmbeddableForm)', async () => {
+    // EmbeddableForm owns no Save of its own — it renders an ObjectForm and
+    // takes its submit. The row exists because "covered transitively" is a
+    // claim, and an untested one would be indistinguishable from an oversight
+    // if that composition ever changed.
+    const { created, ds } = makeDataSource();
+    render(
+      <EmbeddableForm
+        config={{
+          formId: 'f1',
+          objectName: 'o',
+          fields: ['name', 'attachment'],
+          texts: { submit: 'Create' },
+          // Without this the public-form min-fill-time gate refuses every
+          // submission a test can issue, and the stored-value assertions below
+          // would pass on the defect for a reason that has nothing to do with
+          // uploads. Turned off so the write path is genuinely reachable.
+          minFillTime: 0,
+        } as any}
+        dataSource={ds}
+      />,
+    );
+    await screen.findByTestId('start-upload');
+    const save = () => screen.getByRole('button', { name: /Create|Uploading/ });
+
+    fireEvent.click(screen.getByTestId('start-upload'));
+    fireEvent.click(save());
+    await settleSubmit(400);
+    // `dataSource.create` is this host's OWN write — the ObjectForm it hosts is
+    // handed a neutralised adapter and only `EmbeddableForm.handleSubmit` talks
+    // to the real one, so this asserts the submission, not the inner form.
+    expect(created).toEqual([]);
+    expect(ds.create).not.toHaveBeenCalled();
+    expect(screen.getByTestId('upload-in-flight-notice').textContent).toBe(REASON);
+
+    fireEvent.click(screen.getByTestId('finish-upload'));
+    await waitFor(() => expect(screen.queryByTestId('upload-in-flight-notice')).toBeNull());
+    fireEvent.click(save());
+    await waitFor(() => expect(ds.create).toHaveBeenCalledTimes(1));
+    expect(created[0].attachment).toBe('file_123');
   });
 });

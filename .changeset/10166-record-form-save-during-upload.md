@@ -25,14 +25,22 @@ both sinks from the one call it already made, so the per-widget prop and the sco
 disagree, and a host that mounts no provider is unaffected. A widget that unmounts
 mid-upload releases its slot, so a collapsing section cannot wedge Save shut.
 
-`ObjectForm`, `ModalForm` and `DrawerForm` mount that scope around their form body and, while
-an upload is in flight: refuse the submit (which is also the keyboard-submit guard), label
-Save "Uploading…", and render the reason as a sentence — `form.uploadInFlight`, new in all
-ten locale packs. `ModalForm` and `DrawerForm` own their footer Save and disable it too; the
-`ObjectForm` flat/sections paths submit through the `form` node renderer in
-`@object-ui/components`, which exposes no per-button disable, so there the refusal plus the
-label and the notice are what the user meets.
+Nesting CHAINS rather than shadows: an inner scope gates its own Save AND reports itself to
+the scope above. The direction is forced by `MasterDetailForm`, whose Save persists parent
+and children in one batch while its rows are edited by nested `ObjectForm`s — a gate that
+saw only the parent's uploads would refuse nothing while a child's attachment was in flight
+and would still read as coverage.
 
-The other submit owners in this package — `WizardForm`, `SplitForm`, `TabbedForm`,
-`EmbeddableForm`, `MasterDetailForm` — are NOT wired by this change and keep the old
-behaviour.
+Every submit owner in `@object-ui/plugin-form` is gated: `ObjectForm`, `ModalForm`,
+`DrawerForm`, `SplitForm`, `TabbedForm`, `WizardForm`, `MasterDetailForm`, and
+`EmbeddableForm` through the `ObjectForm` it hosts. While an upload is in flight each
+refuses the submit (which is also the keyboard-submit guard), labels Save "Uploading…", and
+renders the reason as a sentence — `form.uploadInFlight`, new in all ten locale packs. The
+hosts that own their Save button — `ModalForm`, `DrawerForm`, `MasterDetailForm`, and
+`WizardForm`'s final step — disable it as well; the flat `ObjectForm`, `SplitForm` and
+`TabbedForm` paths submit through the `form` node renderer in `@object-ui/components`, which
+exposes no per-button disable, so there the refusal plus the label and the notice are what
+the user meets.
+
+`WizardForm` is gated on its FINAL commit only. Moving between steps writes nothing, so
+`Next` is deliberately untouched.

@@ -70,6 +70,27 @@ export function useUploadingScope(): UploadingScope {
   // which would wedge Save forever with no way out.
   const [inFlight, setInFlight] = React.useState<readonly string[]>([]);
 
+  // ── Nesting CHAINS; an inner scope does NOT shadow an outer one.
+  //
+  // This hook runs in the HOST, which sits inside any enclosing provider — so
+  // the context read here is the scope ABOVE, and this scope registers in it as
+  // if it were one more widget.
+  //
+  // The direction is forced by what an outer Save actually writes. A
+  // master-detail form persists parent AND children in one batch, and its child
+  // rows are edited by nested `ObjectForm`s that own scopes of their own. If the
+  // inner scope shadowed, the outer Save would see the parent's uploads and be
+  // blind to every child's — it would gate, look gated, and still write a row
+  // without its attachment. A gate that covers the parent and not the child is
+  // worse than no gate, because it reads as coverage.
+  //
+  // Chaining cannot under-report: an upload anywhere below a host is in flight
+  // for every host above it too, and those hosts' saves all encompass it.
+  const outerSink = React.useContext(UploadingScopeSinkContext);
+  const outerRef = React.useRef(outerSink);
+  outerRef.current = outerSink;
+  const scopeId = React.useId();
+
   const sink = React.useMemo<UploadingScopeSink>(
     () => ({
       report(id, uploading) {
@@ -87,13 +108,30 @@ export function useUploadingScope(): UploadingScope {
     [],
   );
 
-  return { anyUploading: inFlight.length > 0, sink };
+  const anyUploading = inFlight.length > 0;
+
+  // Report this whole scope upward, and release it on unmount for the same
+  // reason a widget releases itself: a nested form torn down mid-upload must
+  // not wedge its parent's Save.
+  React.useEffect(() => {
+    outerRef.current?.report(scopeId, anyUploading);
+  }, [anyUploading, scopeId]);
+  React.useEffect(
+    () => () => {
+      outerRef.current?.report(scopeId, false);
+    },
+    [scopeId],
+  );
+
+  return { anyUploading, sink };
 }
 
 /**
  * Publish a host's {@link useUploadingScope} to every upload widget rendered
- * below it. Nesting is legal and the inner scope wins — a line-items subform
- * with its own Save gates on its own uploads.
+ * below it. Nesting is legal and CHAINS: an inner scope gates its own Save on
+ * its own uploads AND reports itself to the scope above, so an outer Save whose
+ * write encompasses the inner content is never blind to it. See
+ * {@link useUploadingScope} for why the direction is not a preference.
  */
 export function UploadingScopeProvider({
   scope,

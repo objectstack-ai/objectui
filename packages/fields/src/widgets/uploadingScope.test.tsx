@@ -92,6 +92,54 @@ describe('UploadingScope', () => {
     expect(any()).toBe('true');
   });
 
+  it('CHAINS to an outer scope instead of shadowing it', () => {
+    // The master-detail shape: an outer host whose Save writes parent AND
+    // children, with an inner host (a row editor) owning a scope of its own.
+    // If the inner scope shadowed, the outer Save would refuse nothing while a
+    // child's attachment was still in flight — and would look gated while doing
+    // it, which is worse than no gate at all.
+    function Inner({ uploading }: { uploading: boolean }) {
+      const scope = useUploadingScope();
+      return (
+        <>
+          <span data-testid="inner-any">{String(scope.anyUploading)}</span>
+          <UploadingScopeProvider scope={scope}>
+            <Widget uploading={uploading} />
+          </UploadingScopeProvider>
+        </>
+      );
+    }
+    const view = (u: boolean) => <Host>{() => <Inner uploading={u} />}</Host>;
+    const { rerender } = render(view(false));
+    expect(any()).toBe('false');
+    expect(screen.getByTestId('inner-any').textContent).toBe('false');
+
+    rerender(view(true));
+    expect(screen.getByTestId('inner-any').textContent).toBe('true');
+    // The load-bearing half: the OUTER host sees the inner form's upload.
+    expect(any()).toBe('true');
+
+    rerender(view(false));
+    expect(any()).toBe('false');
+  });
+
+  it('releases the outer scope when a whole inner scope unmounts mid-upload', () => {
+    function Inner() {
+      const scope = useUploadingScope();
+      return (
+        <UploadingScopeProvider scope={scope}>
+          <Widget uploading={true} />
+        </UploadingScopeProvider>
+      );
+    }
+    const view = (mounted: boolean) => <Host>{() => (mounted ? <Inner /> : null)}</Host>;
+    const { rerender } = render(view(true));
+    expect(any()).toBe('true');
+    // A closed row editor must not wedge the parent's Save.
+    rerender(view(false));
+    expect(any()).toBe('false');
+  });
+
   it('is inert for a widget with no provider above it', () => {
     // Every host on `main` before this change — the hook must not throw and
     // must not require a scope.

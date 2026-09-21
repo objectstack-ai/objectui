@@ -89,7 +89,14 @@ function seenFor(
   return captured.props;
 }
 
-let warn: ReturnType<typeof vi.spyOn>;
+/**
+ * The spy, made through a factory so its type is INFERRED. A bare
+ * `ReturnType<typeof vi.spyOn>` annotation resolves the generic overload to its
+ * unparameterised form and hands back `any` calls — `tsc -p tsconfig.test.json`
+ * refuses it, and it would have made every assertion below unchecked.
+ */
+const spyOnWarn = () => vi.spyOn(console, 'warn').mockImplementation(() => {});
+let warn: ReturnType<typeof spyOnWarn>;
 
 /** Only the refusal lines, so an unrelated dev warning cannot stand in for one. */
 const refused = (): string[] =>
@@ -102,7 +109,7 @@ describe('SchemaRenderer — the refused-`data` warning survives into a second t
     // The affordance under test. Without it, every row after the first reads
     // row 1's dedupe entry instead of the renderer.
     __resetRefusedDataPropWarnings();
-    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    warn = spyOnWarn();
   });
 
   afterEach(() => {

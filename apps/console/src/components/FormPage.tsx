@@ -1511,6 +1511,20 @@ async function submitInternal(
 const FIELD_CLASS =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50';
 
+/**
+ * The shared `file` control, resolved once (objectui#10167).
+ *
+ * Module scope, not inside the arm that renders it, for two reasons that point
+ * the same way. `react-hooks/static-components` refuses a component value
+ * produced during render — a fresh component identity remounts its subtree and
+ * loses its state — and the type is pinned at `'file'` here, so there is
+ * nothing per-render to resolve anyway. The resolver caches per type, and the
+ * chunk itself is still lazy: `React.lazy` defers the import until the arm
+ * first renders, so hoisting the lookup does not eagerly pull the widget into
+ * this route's bundle.
+ */
+const FileWidget = getLazyFieldWidget('file');
+
 interface FieldInputProps {
   field: RenderableField;
   /**
@@ -1695,8 +1709,7 @@ function FieldInput({ field, state, value, onChange, onUploadingChange }: FieldI
      * widget's value is a reference id, an expanded file object, or an array
      * of either — never a string to render.
      */
-    case 'file': {
-      const FileWidget = getLazyFieldWidget('file');
+    case 'file':
       return (
         <Suspense
           fallback={
@@ -1722,7 +1735,6 @@ function FieldInput({ field, state, value, onChange, onUploadingChange }: FieldI
           />
         </Suspense>
       );
-    }
     default:
       return (
         <input

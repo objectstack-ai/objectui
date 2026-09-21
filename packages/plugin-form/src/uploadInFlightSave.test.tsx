@@ -17,9 +17,10 @@
  *   - issued while the upload is pending → nothing is written at all;
  *   - issued after it resolves           → the record is written WITH the fileId.
  *
- * The last assertion in the first row is the one that cannot be satisfied by
- * the defect under any weakening: every record this form ever stored carries
- * the attachment.
+ * Each row asserts the stored value FIRST, before any affordance, so it fails
+ * on the WRITE rather than on a missing label. And each closes on the invariant
+ * no weakening can satisfy on the defect: exactly one record reached the
+ * adapter across both gestures, and it carries the file the user picked.
  *
  * ## What is real here and what is faked
  *
@@ -31,7 +32,7 @@
  * for the one host that already had a gate.
  */
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { registerAllFields, useUploadingSignal } from '@object-ui/fields';
@@ -104,6 +105,20 @@ function makeDataSource() {
 const UPLOADING_LABEL = 'Uploading…';
 const REASON = 'Wait for the upload to finish before saving.';
 
+/**
+ * Let a submit that WAS accepted reach the adapter before asserting that none
+ * was. The submit path is async (react-hook-form → the host's handler → the
+ * adapter), so asserting straight after the click would pass on the defect too
+ * — the write simply would not have landed yet. This is the flush, not a
+ * timeout papering over a race: on the defect the record IS written and this
+ * wait is what lets the row see it.
+ */
+async function settleSubmit() {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 50));
+  });
+}
+
 describe('record form — save while an upload is in flight (objectui#10166)', () => {
   it('stores nothing mid-upload and the attachment once it resolves (ObjectForm)', async () => {
     const { created, ds } = makeDataSource();
@@ -122,12 +137,11 @@ describe('record form — save while an upload is in flight (objectui#10166)', (
     await screen.findByTestId('start-upload');
 
     // ── Leg A: the SAME save gesture, issued while the upload is pending.
+    // The STORED VALUE is asserted first and on its own, so this row fails on
+    // the write and not merely on a missing affordance.
     fireEvent.click(screen.getByTestId('start-upload'));
-    await screen.findByTestId('upload-in-flight-notice');
     fireEvent.click(save());
-    // The stored value is the assertion: nothing was written. On the defect the
-    // record was written here, without the attachment, and reported success.
-    await waitFor(() => expect(screen.getByTestId('upload-in-flight-notice')).toBeTruthy());
+    await settleSubmit();
     expect(created).toEqual([]);
     expect(ds.create).not.toHaveBeenCalled();
 
@@ -141,11 +155,12 @@ describe('record form — save while an upload is in flight (objectui#10166)', (
     fireEvent.click(save());
 
     await waitFor(() => expect(ds.create).toHaveBeenCalledTimes(1));
+    // The differential, as one statement: ONE record reached the adapter across
+    // both gestures, and it carries the file the user picked. A mid-upload write
+    // shows up here as a second, attachment-less row — which is the defect, and
+    // which no weakening of the rows above can hide.
     expect(created).toHaveLength(1);
     expect(created[0].attachment).toBe('file_123');
-    // The invariant behind both legs, stated so no weakening of the rows above
-    // can leave the defect green: this form never stored a record without the
-    // attachment the user had picked.
     expect(created.every((r) => r.attachment === 'file_123')).toBe(true);
   });
 
@@ -169,13 +184,14 @@ describe('record form — save while an upload is in flight (objectui#10166)', (
     expect(save()).not.toBeDisabled();
 
     fireEvent.click(screen.getByTestId('start-upload'));
+    // Again the stored value first: the save gesture mid-upload writes nothing.
+    fireEvent.click(save());
+    await settleSubmit();
+    expect(created).toEqual([]);
+
     await waitFor(() => expect(save()).toBeDisabled());
     expect(screen.getByTestId('upload-in-flight-notice').textContent).toBe(REASON);
     expect(save().textContent).toContain(UPLOADING_LABEL);
-
-    // A click on the disabled control writes nothing.
-    fireEvent.click(save());
-    expect(created).toEqual([]);
 
     fireEvent.click(screen.getByTestId('finish-upload'));
     await waitFor(() => expect(save()).not.toBeDisabled());

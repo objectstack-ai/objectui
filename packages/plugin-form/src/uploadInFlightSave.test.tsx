@@ -239,7 +239,16 @@ describe('record form — save while an upload is in flight (objectui#10166)', (
     expect(created.every((r) => r.attachment === 'file_123')).toBe(true);
   });
 
-  it('refuses the FINAL commit but never step navigation (WizardForm)', async () => {
+  /**
+   * ⚠️ This row pins the FINAL COMMIT only. `Next` is deliberately not gated —
+   * step navigation writes nothing — but that is stated here rather than
+   * asserted, and the distinction is not pedantic: leaving a step unmounts its
+   * widgets, so an upload in flight is released by the unmount and its value
+   * never lands in `formData` at all. That loss predates this card and no gate
+   * in this file addresses it; pinning "Next still advances mid-upload" would
+   * dress it up as a decision.
+   */
+  it('refuses the final commit while an upload on the last step is in flight (WizardForm)', async () => {
     const { created, ds } = makeDataSource();
     render(
       <WizardForm
@@ -255,8 +264,8 @@ describe('record form — save while an upload is in flight (objectui#10166)', (
         dataSource={ds}
       />,
     );
-    // Step 1 → Next. Navigation writes nothing, so it is deliberately NOT gated;
-    // this row also proves the gate did not leak onto it.
+    // Step 1 → Next, with nothing uploading: this only gets the wizard to the
+    // step that carries the file field.
     fireEvent.click(await screen.findByRole('button', { name: /Next/ }));
     await screen.findByTestId('start-upload');
 

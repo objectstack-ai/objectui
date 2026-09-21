@@ -43,4 +43,6 @@ exposes no per-button disable, so there the refusal plus the label and the notic
 the user meets.
 
 `WizardForm` is gated on its FINAL commit only. Moving between steps writes nothing, so
-`Next` is deliberately untouched.
+`Next` is deliberately untouched — but note that leaving a step unmounts its widgets, so an
+upload in flight is released by the unmount and its value never reaches the record. That
+loss predates this change and is not addressed by it.

@@ -1015,6 +1015,18 @@ const useSafeFilterTranslation = createSafeTranslation(
     'filterBuilder.operators.isNotNull': 'Is not null',
     'filterBuilder.operators.exists': 'Is set',
     'filterBuilder.operators.notExists': 'Is not set',
+    // The half-filled range's description, read from the SHARED `validation`
+    // namespace rather than declared as a new `filterBuilder.*` key
+    // (objectui#10061). `{{field}} is required` already exists in all ten packs
+    // and `packages/components`' own `form.tsx` defaults table already mirrors
+    // this exact row — a second spelling of the same sentence under a private
+    // key would be a new string for ten translators to carry and a second
+    // authority on wording. The value is copied VERBATIM from the `en` pack
+    // because `pnpm check:i18n-keys` compares this row against it
+    // (objectui#7567), and the hole is filled with the bound's own label
+    // (`filterBuilder.rangeStart` / `rangeEnd`), which is what names the
+    // missing side.
+    'validation.required': '{{field}} is required',
   },
   'filterBuilder.where',
 )
@@ -1486,6 +1498,58 @@ function FilterBuilder({
       const bounds = toPairBounds(condition.value)
       const inputType = getInputType(condition.field)
       const numeric = numberLikeTypes.includes(field?.type || "")
+      /**
+       * WHICH bound is missing on a half-filled pair — `0`, `1`, or `null` when
+       * the row is not half-filled at all (objectui#10061, executing ruling
+       * batch #146 item 5 letter A on objectstack#18012).
+       *
+       * The ruling's two halves are 「not emitted」 and 「shown as incomplete」.
+       * The first has been true since objectui#5025: every write path asks
+       * {@link isFilterValueComplete}, so a range with one blank bound is
+       * dropped before it can reach a query or a stored view. That drop was
+       * SILENT — the author typed a bound, can see it on screen, and nothing
+       * ever told them the row counts for nothing. This is the second half, and
+       * it is a DIAGNOSTIC, never a refusal: no save gate reads it, the
+       * completeness rule is untouched, and the other rows keep applying.
+       *
+       * ⚠️ Exactly one blank bound, never zero and never two:
+       *
+       *   - BOTH blank is a row nobody has started. `Add filter` on a `date`
+       *     column draws it that way, its value is the same `[]` 「nothing
+       *     filled in yet」 shape a `scalar` row starts from as `""`, and no
+       *     other operator marks its own untouched row. Marking a row the
+       *     instant it appears is the 「invalid while the user is still typing」
+       *     anti-pattern, and it would make the marker mean 「a range exists」
+       *     rather than 「this range is half-written」.
+       *   - BOTH filled is a complete range and carries nothing.
+       *
+       * ⛔ `isValueUnset`, never `!bound` (objectui#4873, and the reason this
+       * fix goes wrong): `0` is a real lower bound on a number column and
+       * `false` is a real value, so `[0, '']` is half-filled with its MAX
+       * missing — not an empty row — and `[0, 10]` is complete. A truthiness
+       * reading would mark the `0` bound as the missing one and tell the author
+       * to fill in a bound they can see they already filled.
+       */
+      const missingBound: 0 | 1 | null =
+        isValueUnset(bounds[0]) === isValueUnset(bounds[1])
+          ? null
+          : isValueUnset(bounds[0])
+            ? 0
+            : 1
+      // Referenced by the blank bound's `aria-describedby`, so the sentence is
+      // announced as that input's description rather than floating unattached
+      // — the association `character-count.tsx` documents for this tree.
+      const incompleteId = `filter-range-incomplete-${condition.id}`
+      const incompleteLabel = t(
+        missingBound === 0 ? 'filterBuilder.rangeStart' : 'filterBuilder.rangeEnd',
+      )
+      // `aria-invalid` is this tree's one structural spelling for 「the editor
+      // will not take what is in this control」 — pinned that way in
+      // `CelPredicateField`, `ConditionWidget`, `ConditionalFormattingEditor`
+      // and `ConditionBuilder`, and computed by the widget itself (rather than
+      // handed down by a host) exactly as `LocationField` computes its own
+      // refusal. `|| undefined` so a complete pair carries NO attribute at all.
+      const boundInvalid = (index: 0 | 1) => (missingBound === index ? true : undefined)
       const setBound = (index: 0 | 1, raw: string) => {
         const next: [string | number | boolean, string | number | boolean] = [bounds[0], bounds[1]]
         // The same one reading as the field-switch path (objectui#4875), in
@@ -1503,24 +1567,39 @@ function FilterBuilder({
         })
       }
       return (
-        <div className="flex items-center gap-1.5" data-testid={`filter-range-${condition.field}`}>
-          <Input
-            type={inputType}
-            className="h-9 text-sm"
-            placeholder={t('filterBuilder.rangeStart')}
-            aria-label={t('filterBuilder.rangeStart')}
-            value={displayScalarValue(bounds[0])}
-            onChange={(e) => setBound(0, e.target.value)}
-          />
-          <span className="text-xs text-muted-foreground shrink-0">-</span>
-          <Input
-            type={inputType}
-            className="h-9 text-sm"
-            placeholder={t('filterBuilder.rangeEnd')}
-            aria-label={t('filterBuilder.rangeEnd')}
-            value={displayScalarValue(bounds[1])}
-            onChange={(e) => setBound(1, e.target.value)}
-          />
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1.5" data-testid={`filter-range-${condition.field}`}>
+            <Input
+              type={inputType}
+              className={cn("h-9 text-sm", missingBound === 0 && "border-destructive")}
+              placeholder={t('filterBuilder.rangeStart')}
+              aria-label={t('filterBuilder.rangeStart')}
+              aria-invalid={boundInvalid(0)}
+              aria-describedby={missingBound === 0 ? incompleteId : undefined}
+              value={displayScalarValue(bounds[0])}
+              onChange={(e) => setBound(0, e.target.value)}
+            />
+            <span className="text-xs text-muted-foreground shrink-0">-</span>
+            <Input
+              type={inputType}
+              className={cn("h-9 text-sm", missingBound === 1 && "border-destructive")}
+              placeholder={t('filterBuilder.rangeEnd')}
+              aria-label={t('filterBuilder.rangeEnd')}
+              aria-invalid={boundInvalid(1)}
+              aria-describedby={missingBound === 1 ? incompleteId : undefined}
+              value={displayScalarValue(bounds[1])}
+              onChange={(e) => setBound(1, e.target.value)}
+            />
+          </div>
+          {missingBound !== null && (
+            // Visible, not `sr-only`: the drop this announces is invisible to a
+            // sighted author too, and the shadcn `Input` this file renders
+            // carries no `aria-invalid` styling of its own, so the attribute
+            // alone would show nobody anything.
+            <p id={incompleteId} className="text-xs text-destructive">
+              {t('validation.required', { field: incompleteLabel })}
+            </p>
+          )}
         </div>
       )
     }

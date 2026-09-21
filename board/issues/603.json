@@ -1,0 +1,44 @@
+{
+  "number": 603,
+  "kind": "pull_request",
+  "title": "chore: upgrade all @objectstack packages to v3.0.7",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "examples",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-19T02:43:11Z",
+  "updated_at": "2026-02-19T03:58:46Z",
+  "closed_at": "2026-02-19T03:54:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-19T03:54:43Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/603",
+  "body": "Bump all `@objectstack/*` dependencies across the monorepo from `^3.0.4`/`^3.0.6` to `^3.0.7` (latest).\n\n- **13 package.json files** updated: root, `apps/console`, 4 examples, 7 packages\n- **pnpm-lock.yaml** regenerated\n- **ROADMAP.md**, **ROADMAP_CONSOLE.md**, and **apps/console/README.md** spec/client version refs updated to v3.0.7\n\nAll 42 packages build clean. 4604 tests pass.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> @objectstack 升级8最新版\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

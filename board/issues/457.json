@@ -1,0 +1,33 @@
+{
+  "number": 457,
+  "kind": "pull_request",
+  "title": "feat: implement Q1 2026 roadmap — accessibility, responsive design, i18n deep integration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T16:25:01Z",
+  "updated_at": "2026-02-11T20:10:21Z",
+  "closed_at": "2026-02-11T17:10:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T17:10:52Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/457",
+  "body": "Implements all Q1 2026 Foundation & v2.0.7 Alignment items from ROADMAP.md, bringing spec compliance from 82% → 86% by consuming 10+ new `@objectstack/spec` v2.0.7 types across accessibility, responsive design, and i18n domains.\n\n## Accessibility — AriaPropsSchema & WcagContrastLevel\n\n- **SchemaRenderer** now extracts `ariaLabel`, `ariaDescribedBy`, `role` from schema nodes and injects them as standard HTML ARIA attributes. Supports `I18nLabel` objects via `resolveI18nLabel()`.\n- **ThemeEngine** gains `contrastRatio(hex1, hex2)` and `meetsContrastLevel(hex1, hex2, 'AA'|'AAA', isLargeText)` — WCAG 2.1 luminance-based contrast checking.\n- **axe-core** test suite added (9 tests) validating Shadcn primitives against WCAG 2.1 AA.\n\n```tsx\n// AriaProps flow through SchemaRenderer automatically\n<SchemaRenderer schema={{\n  type: 'button',\n  ariaLabel: { key: 'nav.close', defaultValue: 'Close' },\n  role: 'navigation',\n}} />\n// renders: <button aria-label=\"Close\" role=\"navigation\">...</button>\n\n// WCAG contrast validation\nmeetsContrastLevel('#336699', '#ffffff', 'AA'); // true\ncontrastRatio('#000000', '#ffffff'); // 21\n```\n\n## Responsive Design — Spec Schema Consumers\n\n- **`ResponsiveGrid`** layout component consuming `BreakpointColumnMapSchema` → pure Tailwind CSS grid classes (no JS resize listeners)\n- **`useResponsiveConfig`** hook consuming `ResponsiveConfigSchema` + `BreakpointOrderMapSchema` → resolves `{ hidden, columns, order }` at current breakpoint\n\n```tsx\n<ResponsiveGrid columns={{ xs: 1, sm: 2, lg: 4 }} gap={4}>\n  {items.map(item => <Card key={item.id} />)}\n</ResponsiveGrid>\n```\n\n## I18n Deep Integration — v2.0.7 Type Consumers\n\n- **`resolvePlural(rule, count, locale)`** — `PluralRuleSchema` consumer using `Intl.PluralRules` for CLDR-correct pluralization\n- **`formatDateSpec(date, format, locale)`** — `DateFormatSchema` consumer\n- **`formatNumberSpec(value, format, locale)`** — `NumberFormatSchema` consumer  \n- **`applyLocaleConfig(config)`** — `LocaleConfigSchema` consumer returning bound formatting functions\n- **`I18nProvider`** gains `loadLanguage` prop for dynamic/lazy language pack loading\n\n## Test & Benchmark Infrastructure\n\n- 59 new tests (3020 total), 155 test files, 0 regressions\n- Performance benchmark suite via `vitest bench` (ExpressionEvaluator, ComponentRegistry, ThemeEngine)\n- Breakpoint utility tests for `@object-ui/mobile`\n\n## Bug Fixes (§1.6) — Verified Already Addressed\n\nDataScope, plugin-ai handlers, DetailView fetching, ObjectMap coordinate validation, and ReportViewer refresh were all verified as already implemented in the codebase. ROADMAP.md updated accordingly.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

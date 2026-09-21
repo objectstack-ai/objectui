@@ -1,0 +1,30 @@
+{
+  "number": 578,
+  "kind": "issue",
+  "title": "[P2] 检查并提示 console 汇总配置中的所有手动 reports 格式，避免 columns/field，强制 fields/name",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T04:47:24Z",
+  "updated_at": "2026-02-19T06:04:57Z",
+  "closed_at": "2026-02-19T06:04:57Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/578",
+  "body": "apps/console/objectstack.shared.ts 中手动添加的报表（如 sales_performance_q1）必须严格包含 fields/name/sections 等 spec 协议，禁止再出现 columns、field、tableField 等自定义字段名。\n\n### 风险\n- 一旦误用 key，运行期报表页面直接渲染失败，终端可见\n- 未来如 roadmap/插件上的自动加载不会暴露出 compile error\n\n### 修复建议\n- 检查汇总/合并过程中所有报表对象格式的 key\n- 可加 linter/schema 校验保障\n- CI 加入 report schema 校验 step\n\n---\n- 修复完成需运行 test，确保 roadmap 相关已同步更新。"
+}

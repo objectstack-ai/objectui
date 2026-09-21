@@ -1,0 +1,35 @@
+{
+  "number": 689,
+  "kind": "issue",
+  "title": "优化列表视图右侧属性面板，对齐Airtable体验，支持多视图类型字段",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T07:28:14Z",
+  "updated_at": "2026-02-21T07:55:02Z",
+  "closed_at": "2026-02-21T07:55:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/689",
+  "body": "参考 Airtable 列表视图的右侧属性面板（见截图），优化 ObjectUI 的 ViewConfigPanel：\n\n<img alt=\"Airtable属性面板截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/12a1d135-451f-4eaf-8313-1b09bd6d3d2e\" />\n\n## 优化要点\n- 层次结构分组，面板 header 显示 Page > List/Kanban/Gallery\n- Data 区可动态展示 Sort by、Group by、Prefix field、Fields（见截图右侧Data部分）\n- 支持多视图类型，如 Grid/Kanban/Calendar/Gallery/Timeline/Gantt/Map，切换时属性动态变化，例：Kanban 必须有 Group by，Calendar 必须有 Start Date/End Date\n- Appearance 区可选：Color、Field text color、Row height（图标切换尺寸）、Wrap headers、Show field descriptions、Collapse all by default\n- User actions 区可选：Edit records inline、Add/delete records inline、Click into record details\n- 属性面板所有交互和字段都应贴近 Airtable，用于提升用户体验\n\n## 子任务建议\n- [ ] 引入 type-specific option 展现逻辑，所有视图类型字段动态显示\n- [ ] Data 区域属性基于视图类型变化\n- [ ] Appearance、User actions 区域优化交互与布局\n- [ ] 支持面板 header 上的层次结构导航\n- [ ] 支持属性折叠/展开，与Airtable类似\n- [ ] 支持面板字段国际化、图标与交互风格\n- [ ] 回归全部类型（Grid、Kanban、Calendar、Gallery、Timeline、Gantt、Map）\n\n---\n如需设计稿请补充需求。"
+}

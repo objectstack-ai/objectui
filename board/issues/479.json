@@ -1,0 +1,33 @@
+{
+  "number": 479,
+  "kind": "pull_request",
+  "title": "Complete all ROADMAP P1–P4 development items",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T01:50:54Z",
+  "updated_at": "2026-02-13T07:21:00Z",
+  "closed_at": "2026-02-13T02:46:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T02:46:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/479",
+  "body": "Addresses all remaining unchecked items across P1–P4 in ROADMAP.md: field widget JSDoc, accessibility/performance/integration test coverage, Storybook edge-case stories + MDX docs, and schema playground documentation.\n\n### Field Widget JSDoc (P3.1/P3.2)\n- Added JSDoc to all 16 undocumented field widgets: `TextField`, `TextAreaField`, `EmailField`, `DateField`, `BooleanField`, `FileField`, `PhoneField`, `SelectField`, `DateTimeField`, `ImageField`, `PercentField`, `LocationField`, `UrlField`, `PasswordField`, `TimeField`, `NumberField`\n\n### New Test Suites (~266 tests)\n\n| File | Count | Covers |\n|------|-------|--------|\n| `fields/__tests__/datetime-timezone.test.tsx` | 55 | DST boundaries, midnight, locale formatting, invalid dates, empty values |\n| `console/__tests__/console-load-performance.test.tsx` | 14 | Lazy routes, bundle budget, render timing, MSW production hygiene |\n| `plugin-kanban/__tests__/dnd-undo-integration.test.tsx` | 9 | Cross-column DnD + multi-step undo/redo |\n| `plugin-view/__tests__/toolbar-consistency.test.tsx` | 29 | Toolbar ARIA, filter/sort a11y, view switcher tablist, named views |\n| `components/__tests__/api-consistency.test.tsx` | 119 | `data-slot`, `className` forwarding, `cn()`, `forwardRef`, `displayName`, naming conventions |\n| `components/__tests__/snapshot-critical.test.tsx` | 20 | Alert, Dialog, Tabs, Accordion, Avatar, Progress, Tooltip, Breadcrumb, Separator, Skeleton |\n\n### Storybook & Documentation (P3.5/P4.2/P4.3)\n- `fields-edge-cases.stories.tsx` — 20 edge-case stories (empty, overflow, RTL, emoji, error, disabled, readonly)\n- `Introduction.mdx` / `Accessibility.mdx` — Storybook landing pages with architecture overview and per-component WCAG/ARIA reference\n- `content/docs/guide/schema-playground.md` — interactive schema playground guide with 5 example schemas\n- Added `docs/api` to `.gitignore` for TypeDoc output\n\n### ROADMAP.md\nAll P1–P4 checkboxes marked complete with references to the specific test files and artifacts that fulfill each item. Updated success metrics and DX/UX criteria to reflect current state.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

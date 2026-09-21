@@ -1,0 +1,33 @@
+{
+  "number": 560,
+  "kind": "pull_request",
+  "title": "Complete all remaining roadmap console development (Phases 0, 2.9, 15–18 L1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T18:25:22Z",
+  "updated_at": "2026-02-17T00:13:24Z",
+  "closed_at": "2026-02-17T00:05:42Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-17T00:05:42Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/560",
+  "body": "Implements all remaining L1 foundation features across Phases 0, 2.9, 15–18 of the console roadmap and updates ROADMAP_CONSOLE.md to reflect current status.\n\n### Phase 0: Type safety\n- Removed all 4 `as any` casts in `objectstack.shared.ts` via typed `resolveDefault<ObjectStackDefinition>()` helper and `Parameters<typeof defineStack>[0]`\n\n### Phase 2.9: CRUD dialog ActionRunner migration\n- `onSuccess`/`onCancel` in App.tsx now dispatch through ActionRunner via registered `crud_success` and `dialog_cancel` handlers instead of inline callbacks\n\n### Phase 15 L1: Import/Export & Data Portability\n- **ImportWizard** (`plugin-grid/src/ImportWizard.tsx`) — 3-step CSV import: file upload → column mapping (auto-match by name) → preview & validate → bulk create\n- **SharedViewLink** (`plugin-view/src/SharedViewLink.tsx`) — generate shareable read-only view URLs with token, copy-to-clipboard\n\n### Phase 16 L1: Global Undo/Redo\n- **UndoManager** (`core/src/actions/UndoManager.ts`) — bounded undo/redo stacks with subscriber pattern, exported as `globalUndoManager` singleton\n- **useGlobalUndo** (`react/src/hooks/useGlobalUndo.ts`) — React hook using `useSyncExternalStore`, wires `Ctrl+Z`/`Ctrl+Shift+Z`, delegates create↔delete / update↔update reversal to dataSource\n\n### Phase 17 L1: Collaboration integration\n- **CommentThread** from `@object-ui/collaboration` integrated into `RecordDetailView` with auth-derived current user\n- **ActivityFeed** (`console/src/components/ActivityFeed.tsx`) — Sheet-based sidebar panel with type-specific icons, relative timestamps, badge count\n\n### Phase 18 L1: Automation & Workflows\n- **AutomationBuilder** (`plugin-workflow/src/AutomationBuilder.tsx`) — trigger selection (record events + scheduled), multi-action configuration, save/cancel flow\n- **AutomationRunHistory** (`plugin-workflow/src/AutomationRunHistory.tsx`) — status-badged execution list with duration and error display\n- Both registered in ComponentRegistry\n\n### Roadmap\n- `ROADMAP_CONSOLE.md` updated: all phases marked ✅ L1 Complete, execution timeline, milestone table, and success metrics reflect current state\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完成 roadmap console 所有开发，并更新进度\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

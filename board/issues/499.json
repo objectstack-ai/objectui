@@ -1,0 +1,33 @@
+{
+  "number": 499,
+  "kind": "pull_request",
+  "title": "[WIP] Fix build and test issues",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T17:35:15Z",
+  "updated_at": "2026-02-13T18:30:20Z",
+  "closed_at": "2026-02-13T17:52:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T17:52:22Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/499",
+  "body": "## Fix Build and Test Issues\n\n### Build Issues Identified:\n- [x] Analyze build errors\n- [x] Fix TypeScript errors in console app PageView.tsx (duplicate 'type' property)\n- [x] Fix list_views TypeScript errors in CRM object definitions (removed unsupported property)\n- [x] Ensure all packages build successfully ✅\n\n### Test Issues:\n- [ ] Verify tests run without failures after build fixes\n- [ ] Address any remaining test failures\n\n### Changes Made:\n1. Fixed PageView.tsx - moved type property after spread to avoid overwriting\n2. Removed unsupported `list_views` property from 10 object definitions (CRM and kitchen-sink examples)\n3. Removed unsupported `form_views` property from showcase object\n4. Removed unsupported `actions` property from showcase object\n\n**Build Status:** ✅ All 42 tasks successful\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix build and test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

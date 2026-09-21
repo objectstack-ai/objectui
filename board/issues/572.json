@@ -1,0 +1,33 @@
+{
+  "number": 572,
+  "kind": "pull_request",
+  "title": "fix: kanban title fallback chain and board visual improvements",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T01:53:02Z",
+  "updated_at": "2026-02-18T02:23:36Z",
+  "closed_at": "2026-02-18T02:19:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T02:19:51Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/572",
+  "body": "All kanban cards display \"Untitled\" when data objects use field names like `subject`, `label`, or `display_name` instead of `name`/`title`. The title resolver hardcoded `'name'` as default and only fell back to `item.title`.\n\n### Title resolution\n\nReplaced single-field lookup with a fallback chain:\n\n```ts\nconst TITLE_FALLBACK_FIELDS = ['name', 'title', 'subject', 'label', 'display_name'];\n\n// Explicit cardTitle from schema still takes priority, then objectDef metadata,\n// then walks the fallback chain for first non-empty value\nlet resolvedTitle = titleField ? item[titleField] : undefined;\nif (!resolvedTitle) {\n  for (const field of TITLE_FALLBACK_FIELDS) {\n    if (item[field]) { resolvedTitle = item[field]; break; }\n  }\n}\n```\n\n### Visual enhancements (KanbanImpl.tsx)\n\n- **Card accent** — `border-l-4 border-l-primary/40` left border\n- **Column header** — Count uses `Badge variant=\"secondary\"` instead of plain text; header bg `bg-muted/30`\n- **Empty state** — \"No cards\" placeholder when column has zero cards\n- **Board container** — `bg-muted/10 rounded-lg` background\n\nAll changes are Tailwind-only, backward compatible, no DnD breakage. 10 new unit tests for the fallback chain; all 108 kanban tests pass.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 🐛 Bug: All cards show \"Untitled\"\n> \n> Root cause in ObjectKanban.tsx (line 126-133):\n> \n> objectstack-ai / objectui / packages / plugin-kanban / src / ObjectKanban.tsx\n>     const finalTitleField = titleField || 'name';\n>     \n>     return rawData.map(item => ({\n>       ...item,\n>       id: item.id || item._id,\n>       title: item[finalTitleField] || item.title || 'Untitled',\n> The title resolution defaults to the 'name' field, but todo_task objects likely use 'subject' or another field as their title. When item['name'] is empty/undefined and item.title doesn't exist in the raw data either, every card falls through to 'Untitled'.\n> \n> Fix: Expand the fallback chain to try common field names (name → title → subject → label → display_name) and use the first non-empty value found.\n> \n> 🎨 Enhancement: Visual improvements\n> \n> The current board (as shown in your screenshot) is functionally working but visually bare:\n> \n> Cards are plain white boxes with just \"Untitled\" text\n> No color accents or visual hierarchy\n> No empty state indicators in columns\n> Columns lack visual distinction\n> Improvements:\n> \n> Card styling — Add subtle left-border accent, better padding, hover effects, and show card metadata (description, badges, assignee)\n> Column headers — Add color accents, improve count badge visibility\n> Empty columns — Show a placeholder when a column has zero cards\n> Board container — Add subtle background for visual separation\n> The PR has been submitted to objectstack-ai/objectui and will appear shortly. The Copilot coding agent is now working on the implementation following the strict constraints (Tailwind-only, Shadcn components, English-only, backward compatible, no DnD breakage).\n> \n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

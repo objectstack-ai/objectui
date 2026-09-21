@@ -1,0 +1,35 @@
+{
+  "number": 658,
+  "kind": "issue",
+  "title": "ListView 组件全量问题扫描（2026.02）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-20T13:05:41Z",
+  "updated_at": "2026-02-20T13:38:40Z",
+  "closed_at": "2026-02-20T13:38:40Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/658",
+  "body": "**根据2026年2月代码全面扫描 ListView 存在的潜在/遗留问题，归纳如下：**\n\n### 1. userFilter 传递 in 操作符后端无效，AST 不兼容\n- UserFilters 传出的[\"field\", \"in\", [...]]条件组合经常无法被后端识别，表现为过滤器选择无效。\n- 合并至 allFilters 时缺乏向后端兼容的转换，例如应拆解为 or 或多个 =[...]\n\n### 2. filters/quickFilters/userFilters 多重条件合并缺乏类型与格式安全保障\n- allFilters 直接展开多个二维、三维结构易导致最终finalFilter不合预期。\n- 建议每个条件都做标准化处理，只有一条时也包裹成 and。\n\n### 3. 导出 Export 仅支持 csv/json，缺少 xlsx/pdf，并且未做导出字段类型安全校验\n- 导出时未判断字段是否为复杂对象、数组类型，导出内容缺失或 csv 断行。\n\n### 4. 行内编辑与 conditionalFormatting、hiddenFields 有协作冲突\n- 开启 inlineEdit 后，同步隐藏字段或应用条件样式时，UI 偶发异常。\n- 建议所有状态切换、过滤 hiddenFields 时及时刷新渲染 grid\n\n### 5. filters/sorts/search 状态切换/重置后未做 loading 状态防抖\n- 修改快速切换 filter/sort 时多次请求并行，loading 状态无法精准控制，终端数据 display 不确定。\n- 建议所有异步请求唯一化、设置 min loading time、最后一次为准\n\n### 6. PullToRefresh 手机端体验在分页/网络慢情况下容易卡死\n- 下拉刷新时 loading/数据切换未做异步锁，极易丢请求、锁死 UI\n\n### 7. 大数据量虚拟滚动、分页 loadMore 等一页100条后无后继加载/无提示\n- 前端参数 $top 写死最大100，实际数据量大于100时 UI silent fail、无分页/无 loadMore/无提醒\n\n### 8. i18n 回退逻辑存在硬编码&fallback到英文\n- 只覆盖了 'list.recordCount'，其他自定义 label fallback 异步/局部回退表现欠佳\n\n### 9. 只读 objectDef、schema.fields 不一致时，部分功能（如隐藏列/字段顺序等）报错\n\n### 10. 单元测试缺失（Filters、UserFilters、Export���PullToRefresh、EmptyState等缺乏回归/交互测试覆盖）\n\n---\n**建议优化方向：**\n- 统一 filter AST 标准和转换、与后端严格对齐，建立完善的 filter 测试用例，并兼容后端协议。\n- 导出功能循环支持 xlsx/pdf、字符串转义、类型判断。\n- 加强 loading 管理和并发防抖。\n- 大数据下分页/滚动和空状态体验。\n- 完善交互行为单元测试。\n\n---\n> 本 issue 由 code scan & 案例复现归纳（2026/02），如有任何遗漏请评论补充。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 702,
+  "kind": "issue",
+  "title": "评估所有已开发但未集成到 Console 的功能，形成集成建议",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T11:02:23Z",
+  "updated_at": "2026-02-22T01:58:59Z",
+  "closed_at": "2026-02-22T01:58:59Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/702",
+  "body": "\n\n## 📋 完整评估报告：已开发但未集成到 Console 的功能\n\n### 评估方法\n对比 `packages/layout/` 中已实现的组件能力 vs `apps/console/src/` 中的实际使用情况，结合 ROADMAP 标记状态。\n\n---\n\n### 🔴 功能 1：Navigation Search（侧边栏搜索过滤）\n\n| 维度 | 详情 |\n|------|------|\n| **来源** | `@object-ui/layout` — `NavigationRenderer` + `AppSchemaRenderer` (PR #698) |\n| **Package 状态** | ✅ 完成 — `filterNavigationItems()` 递归过滤, `SidebarInput` 搜索框, 8个测试用例 |\n| **Console 状态** | ❌ 未集成 — `AppSidebar.tsx` 没有任何搜索功能 |\n| **Console 现状** | `AppSidebar.tsx` 自己渲染 `NavigationTree` 组件，未使用 `NavigationRenderer` |\n| **集成价值** | 🔥 **高** — 导航项多时搜索是核心体验（Airtable 有此功能）|\n| **集成难度** | ⭐⭐ 中低 — 需在 `AppSidebar` header 区域加 `SidebarInput`，调用 `filterNavigationItems` 过滤 `resolvedNavigation` |\n| **风险** | 低 — 纯 UI 层面变更，opt-in |\n\n### 🔴 ���能 2：Navigation Pin/Favorites（导航项收藏置顶）\n\n| 维度 | 详情 |\n|------|------|\n| **来源** | `@object-ui/layout` — `NavigationRenderer` (PR #698) |\n| **Package 状态** | ✅ 完成 — `enablePinning` + `onPinToggle` + `collectPinnedItems()` + Favorites section |\n| **Console 状态** | ⚠️ **有自己的实现** — `AppSidebar.tsx` 使用 `useFavorites()` hook 独立管理收藏 |\n| **差异分析** | Console 的收藏是 **record 级别**（具体的数据记录），Package 的是 **navigation item 级别**（侧边栏条目），两者概念不同 |\n| **集成价值** | ⭐⭐ 中 — 互补而非替代。Package 的 pin 功能支持导航条目级别的 pin/unpin，Console 已有的是数据记录级别收藏 |\n| **集成难度** | ⭐⭐⭐ 中 — 需要合并两种收藏逻辑，或保持并存 |\n| **风险** | 中 — 需明确 UX 交互：导航 pin 和 record favorites 是否共存于 Favorites section |\n\n### 🔴 功能 3：Navigation Drag Reorder（`@dnd-kit` 拖拽排序）\n\n| 维度 | 详情 |\n|------|------|\n| **来源** | `@object-ui/layout` — `NavigationRenderer` + `SortableNavigationItem` (PR #698) |\n| **Package 状态** | ✅ 完成 — `@dnd-kit/sortable` + PointerSensor + KeyboardSensor + grip handles |\n| **Console 状态** | ⚠️ **有自己的实现** — `AppSidebar.tsx` 使用原生 HTML5 DnD (`draggable`, `onDragStart/Over/Drop`) + `useNavOrder` hook + localStorage 持久化 |\n| **差异分析** | Console 的实现：��生 HTML5 DnD，localStorage 持久化，`useNavOrder` hook。Package 的实现：`@dnd-kit` 库（更好的触摸支持、键盘支持、拖拽反馈），但没有持久化 |\n| **集成价值** | 🔥 **高** — Package 的 `@dnd-kit` 方案明显优于 Console 的原生 HTML5 DnD（更好的可访问性、触摸设备支持、视觉反馈）|\n| **集成难度** | ⭐⭐⭐ 中高 — 需要替换 Console 现有 DnD 逻辑，同时保留 localStorage 持久化 |\n| **风险** | 中 — 需确保 `@dnd-kit` 不会与 Console 中其他 DnD 上下文（Kanban 等）冲突 |\n\n### 🔴 功能 4：AppSchemaRenderer（整合替代方案）\n\n| 维度 | 详情 |\n|------|------|\n| **来源** | `@object-ui/layout` — `AppSchemaRenderer` (P0.1) |\n| **Package 状态** | ✅ 完成 — 完整的 AppSchema JSON → sidebar + navigation + areas + mobile |\n| **Console 状态** | ❌ 未使用 — Console 使用 `AppShell` + 自己的 `AppSidebar` 组件，手工拼装所有逻辑 |\n| **差异分析** | Console 的 `AppSidebar.tsx`(670 行) 手动实现了 `AppSchemaRenderer` 的大部分逻辑（area switching, navigation tree, icon resolution, visibility, permissions），但还额外包含 Console 特有功能（app switcher dropdown, user footer, recent items, 原生 DnD, swipe gesture）|\n| **集成价值** | 🔥🔥 **极高** — 这是架构性改进。迁移到 `AppSchemaRenderer` 可以：<br>1. 删除 ~400 行重复代码<br>2. 自动获得所有 P1.7 增强（search/pin/reorder）<br>3. 支持 badge indicators（Console 完全没有）<br>4. 更好的测试覆盖（71 个测试） |\n| **集成难度** | ⭐⭐⭐⭐ 高 — 需要：<br>1. 将 Console 特有功能（app switcher, user footer, recent items, swipe）迁移为 `AppSchemaRenderer` 的 slot/props<br>2. 可能需要扩展 `AppSchemaRenderer` 接口<br>3. 全面回归测试 |\n| **风险** | 高 — 涉及 Console 核心布局，回归风险大。建议分阶段迁移 |\n\n### 🔴 功能 5：Navigation Badge Indicators（徽标指示器）\n\n| 维度 | 详情 |\n|------|------|\n| **来源** | `@object-ui/layout` — `NavigationRenderer` |\n| **Package 状态** | ✅ 完成 — 支持 `badge` + `badgeVariant` 字段，渲染为 Shadcn `Badge` 组件 |\n| **Console 状态** | ❌ 未使用 — Console 的 `NavigationItemRenderer` 没有渲染任何 badge |\n| **集成价值** | ⭐⭐ 中 — 可用于显示未读消息数、待处理任务数等 |\n| **集成难度** | ⭐ 低 — 只需在 Console 的 `NavigationItemRenderer` 中添加 badge 渲染逻辑 |\n| **风险** | 极低 |\n\n### 🔴 功能 6：AreaSwitcher（Package 组件级 Area 切换器）\n\n| 维度 | 详情 |\n|------|------|\n| **来源** | `@object-ui/layout` — `AppSchemaRenderer` 内的 `AreaSwitcher` 组件 |\n| **Package 状态** | ✅ 完成 — 完整的 area 切换 UI（Airtable 风格） |\n| **Console 状态** | ⚠️ **有自己的实现** — `AppSidebar.tsx` 手动渲染 area 切换（简单的 SidebarMenu 按钮列表）|\n| **差异分析** | Package 的 `AreaSwitcher` 可能有更好的 UX 设计，Console 的是简单按钮列表 |\n| **集成价值** | ⭐ 低-中 — 功能已有，只是 UX 可能不同 |\n| **集成难度** | ⭐⭐ 中 — 如果不做整体 `AppSchemaRenderer` 迁移，单独替换 area switcher 意义不大 |\n\n---\n\n### 📊 集成优先级建议\n\n| 优先级 | 功能 | 推荐方案 | 估时 |\n|:---:|------|------|:---:|\n| **P0** | 🔍 Navigation Search | 在 `AppSidebar` 中直接使用 `filterNavigationItems()` | 0.5d |\n| **P0** | 🏷️ Badge Indicators | 在 Console `NavigationItemRenderer` 中加 badge 渲染 | 0.5d |\n| **P1** | 🔄 Drag Reorder 升级 | 用 `@dnd-kit` 替换原生 HTML5 DnD + 保留 localStorage 持久化 | 1-2d |\n| **P2** | 📌 Navigation Pin | 与现有 `useFavorites` 合并或并存 | 1d |\n| **P3** | 🏗️ AppSchemaRenderer 整体迁移 | 分阶段将 `AppSidebar` 迁移到 `AppSchemaRenderer` | 3-5d |\n\n---"
+}

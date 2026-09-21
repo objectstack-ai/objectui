@@ -1,0 +1,33 @@
+{
+  "number": 559,
+  "kind": "pull_request",
+  "title": "Re-evaluate ROADMAP_CONSOLE.md against actual codebase implementation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T17:58:44Z",
+  "updated_at": "2026-02-16T19:34:21Z",
+  "closed_at": "2026-02-16T18:22:45Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-16T18:22:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/559",
+  "body": "Full codebase scan to reconcile roadmap claims with actual implementation status. Several phases were overstated (components exist but not integrated into console), several were understated (features marked incomplete that are fully implemented), and cross-references between sections contradicted each other.\n\n### Upgraded (were understated)\n\n- **Phase 2.1/2.2**: `ActionRunner.execute(ActionDef)` — 717-line implementation exists, was marked \"❌ Not implemented\"\n- **Phase 3.6**: Console fetches metadata at runtime via `MetadataProvider` → `client.meta.getItems()`, was marked \"⚠️ static config\"\n- **Phase 0**: 9/10 sub-phases done (only `as any` cast remains), was showing 4 items remaining\n- **Phase 16-18**: `useUndoRedo`, `CommentThread` (549 LOC), `WorkflowDesigner` (426 LOC), `ProcessDesigner` (948 LOC) all exist and are registered — were marked \"🔲 Not Started\"\n- **Test count**: 315 files, was documented as 34\n\n### Downgraded (were overstated)\n\n- **Phase 5.6**: Row-level security — `DataScopeManager` has interfaces only, no filtering applied\n- **Phase 6.4-6.6**: `PresenceAvatars`, optimistic updates, `useConflictResolution` — components exist but are **not imported or used** in the console app\n- **Phase 8.3/8.5**: Background sync queue simulates server round-trip; conflict resolution hook never wired to reconnection flow\n\n### Structural fixes\n\n- Resolved contradictions between Phase 2 (\"not implemented\") and Phase 10 (\"✅ Done\") for ActionEngine\n- Resolved contradiction between Phase 3 (\"static config\") and Phase 10.5 (\"✅ Done\") for metadata loading\n- Updated Execution Timeline progress bars, Milestone Summary, Success Metrics, and Section 5 UI Feature tables to match corrected statuses\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> roadmap 重新评估开发进度\n> \n> 扫描代码，评估每一个roadmap，每一项细节的真实完成情况，每一个控件的开发，以最终应用到console界面中为目标，根据实际完成情况，重新更新roadmap进度。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

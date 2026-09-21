@@ -1,0 +1,33 @@
+{
+  "number": 545,
+  "kind": "pull_request",
+  "title": "chore(deps): bump react-resizable-panels from 4.6.3 to 4.6.4 in the react group",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T07:48:16Z",
+  "updated_at": "2026-02-16T10:27:07Z",
+  "closed_at": "2026-02-16T07:48:31Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-02-16T07:48:31Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/545",
+  "body": "Bumps the react group with 1 update: [react-resizable-panels](https://github.com/bvaughn/react-resizable-panels).\n\nUpdates `react-resizable-panels` from 4.6.3 to 4.6.4\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/bvaughn/react-resizable-panels/releases\">react-resizable-panels's releases</a>.</em></p>\n<blockquote>\n<h2>4.6.4</h2>\n<ul>\n<li><a href=\"https://redirect.github.com/bvaughn/react-resizable-panels/pull/664\">664</a>, <a href=\"https://redirect.github.com/bvaughn/react-resizable-panels/pull/665\">665</a>: Resize actions sometimes &quot;jump&quot; on touch devices</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/bvaughn/react-resizable-panels/blob/main/CHANGELOG.md\">react-resizable-panels's changelog</a>.</em></p>\n<blockquote>\n<h2>4.6.4</h2>\n<ul>\n<li><a href=\"https://redirect.github.com/bvaughn/react-resizable-panels/pull/664\">664</a>, <a href=\"https://redirect.github.com/bvaughn/react-resizable-panels/pull/665\">665</a>: Resize actions sometimes &quot;jump&quot; on touch devices</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/bvaughn/react-resizable-panels/commit/6f932fd6e5a92f72cfa32996e14c45e9ebb6a3ad\"><code>6f932fd</code></a> 4.6.3 -&gt; 4.6.4</li>\n<li><a href=\"https://github.com/bvaughn/react-resizable-panels/commit/f07e6479b8afcf06c528952f11617a634726c927\"><code>f07e647</code></a> Prevent layout jump when resizing on touch devices (<a href=\"https://redirect.github.com/bvaughn/react-resizable-panels/issues/665\">#665</a>)</li>\n<li><a href=\"https://github.com/bvaughn/react-resizable-panels/commit/8f5e5f39d23547c078cd84809a71751994876c5d\"><code>8f5e5f3</code></a> Update CHANGELOG with pending release changes</li>\n<li><a href=\"https://github.com/bvaughn/react-resizable-panels/commit/338d9526c040dcc3afe5b2bd5e96fff6ab365abb\"><code>338d952</code></a> fix: add touch-action: none to Separator for touch device support Fixes <a href=\"https://redirect.github.com/bvaughn/react-resizable-panels/issues/662\">#662</a> ...</li>\n<li>See full diff in <a href=\"https://github.com/bvaughn/react-resizable-panels/compare/4.6.3...4.6.4\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=react-resizable-panels&package-manager=npm_and_yarn&previous-version=4.6.3&new-version=4.6.4)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore <dependency name> major version` will close this group update PR and stop Dependabot creating any more for the specific dependency's major version (unless you unignore this specific dependency's major version or upgrade to it yourself)\n- `@dependabot ignore <dependency name> minor version` will close this group update PR and stop Dependabot creating any more for the specific dependency's minor version (unless you unignore this specific dependency's minor version or upgrade to it yourself)\n- `@dependabot ignore <dependency name>` will close this group update PR and stop Dependabot creating any more for the specific dependency (unless you unignore this specific dependency or upgrade to it yourself)\n- `@dependabot unignore <dependency name>` will remove all of the ignore conditions of the specified dependency\n- `@dependabot unignore <dependency name> <ignore condition>` will remove the ignore condition of the specified dependency and ignore conditions\n\n\n</details>"
+}

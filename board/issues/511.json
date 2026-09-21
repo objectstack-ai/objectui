@@ -1,0 +1,33 @@
+{
+  "number": 511,
+  "kind": "pull_request",
+  "title": "chore: release v3.0.2",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-14T14:05:00Z",
+  "updated_at": "2026-02-14T17:09:47Z",
+  "closed_at": "2026-02-14T17:09:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/511",
+  "body": "Patch release bumping all 38 fixed-group packages from 3.0.1 → 3.0.2 via Changesets.\n\n### Included\n- fix: remove unused CJS `require()` of ESM-only `@storybook/test-runner` (#510)\n\n### Changes\n- Changeset consumed, all `package.json` versions bumped to `3.0.2`\n- `CHANGELOG.md` updated for each package\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 发一个补丁版本\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

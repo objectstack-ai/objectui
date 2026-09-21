@@ -1,0 +1,33 @@
+{
+  "number": 521,
+  "kind": "pull_request",
+  "title": "Fix type-check failures in plugin-gantt and plugin-calendar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-15T02:53:06Z",
+  "updated_at": "2026-02-15T03:46:54Z",
+  "closed_at": "2026-02-15T03:15:10Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-15T03:15:10Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/521",
+  "body": "`pnpm type-check` fails on `plugin-gantt` and `plugin-calendar` because their stories import `@storybook-config/datasource`, a Vite alias defined only in `.storybook/main.ts` — invisible to `tsc`.\n\nThese two packages override `baseUrl`/`paths` in their `tsconfig.json`, which means `tsc --noEmit` attempts to resolve the alias and fails. Other packages either don't have a `type-check` script or don't override paths.\n\n- **Fix**: Exclude `**/*.stories.tsx` from type-checking in both packages, consistent with how `**/*.test.ts{x}` is already excluded\n\n```jsonc\n// packages/plugin-gantt/tsconfig.json & packages/plugin-calendar/tsconfig.json\n\"exclude\": [\"node_modules\", \"dist\", \"**/*.test.ts\", \"**/*.test.tsx\", \"**/*.stories.tsx\"]\n```\n\nType-check result: 53/57 → 57/57 tasks passing.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fiz build and test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

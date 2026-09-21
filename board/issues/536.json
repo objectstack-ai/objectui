@@ -1,0 +1,33 @@
+{
+  "number": 536,
+  "kind": "pull_request",
+  "title": "Add field type evaluation for form designer to ROADMAP_DESIGNER.md",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T03:02:22Z",
+  "updated_at": "2026-02-16T04:15:47Z",
+  "closed_at": "2026-02-16T04:10:44Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-16T04:10:44Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/536",
+  "body": "`@object-ui/fields` provides 36 field widgets but the designer components expose only a fraction of them. This adds a comprehensive evaluation (Section 10) to the design doc covering the gap and integration path.\n\n### Field Type Inventory (10.2)\n- Full catalog of all 36 field types across 8 categories (text, numeric, datetime, selection, contact, file, location, computed, complex)\n- Cross-referenced against type interfaces, cell renderers, form mappers, and current designer availability\n\n### Gap Analysis (10.3)\n- **DataModelDesigner**: No field type selector UI — new fields hardcoded to `'text'`, `DataModelField.type` is generic `string` not a union\n- **PageDesigner**: `DEFAULT_PALETTE` has 14 generic items (e.g. `input`, `checkbox`) instead of leveraging the 36 `@object-ui/fields` widgets\n- **ViewDesigner**: Plain text type badges, no icons/categorization\n\n### Proposed `DESIGNER_FIELD_TYPES` Constant (10.4)\nCentralized field type registry with Lucide icons, categories, and descriptions for use across all designers:\n\n```typescript\nexport const DESIGNER_FIELD_TYPES: DesignerFieldTypeOption[] = [\n  { type: 'text', label: 'Text', icon: Type, category: 'text', description: 'Single-line text input' },\n  { type: 'currency', label: 'Currency', icon: Hash, category: 'number', description: 'Monetary value with currency symbol' },\n  // ... all 36 types\n];\n```\n\n### Type Safety Recommendations (10.6)\n- Extract `FieldTypeName` from the `FieldMetadata` union discriminant\n- Update `DataModelField.type` from `string` → `FieldTypeName`\n- Complete `mapFieldTypeToFormType` for missing 9 types\n\n### Integration Plan & Phasing (10.5, 10.7)\nPer-designer implementation points with P0–P3 prioritization, estimated at 7–9.5 dev-days total.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 评估使用 npm @object-ui/fields 及相关包显示表单设计器的字段类型，更新设计器的设计文档。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

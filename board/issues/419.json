@@ -1,0 +1,33 @@
+{
+  "number": 419,
+  "kind": "pull_request",
+  "title": "Fix 7 failing CI tests in ChatbotEnhanced and ReportViewer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T01:23:18Z",
+  "updated_at": "2026-02-10T01:58:34Z",
+  "closed_at": "2026-02-10T01:38:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T01:38:08Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/419",
+  "body": "Two test files (7 tests) failing on `main` due to a react-markdown v10 breaking change and a stale test assertion.\n\n### ChatbotEnhanced (6 tests)\n\n`react-markdown@10` removed the `className` prop — passing it triggers a hard `unreachable()` assertion, crashing any render with markdown enabled.\n\n```diff\n- <ReactMarkdown\n-   className=\"prose prose-sm dark:prose-invert max-w-none\"\n-   remarkPlugins={[remarkGfm]}\n+ <div className=\"prose prose-sm dark:prose-invert max-w-none\">\n+ <ReactMarkdown\n+   remarkPlugins={[remarkGfm]}\n    ...\n- </ReactMarkdown>\n+ </ReactMarkdown>\n+ </div>\n```\n\n### ReportViewer (1 test)\n\nTest asserted `getByText('Export')` but the component renders individual format buttons (`PDF`, `Excel`, `CSV`) — no \"Export\" button exists. Updated assertion to match actual output.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

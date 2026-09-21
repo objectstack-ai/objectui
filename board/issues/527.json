@@ -1,0 +1,33 @@
+{
+  "number": 527,
+  "kind": "pull_request",
+  "title": "Enforce strict nested view config access per @objectstack/spec protocol",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-15T17:27:14Z",
+  "updated_at": "2026-02-15T18:09:24Z",
+  "closed_at": "2026-02-15T17:48:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-15T17:48:52Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/527",
+  "body": "Both `ObjectView` components (console and plugin-view) accepted flat property access like `viewDef.startDateField` as fallbacks alongside the spec-mandated nested form `viewDef.calendar.startDateField`. This silently masked spec violations and caused subtle bugs (e.g., PR #526 — calendar ignoring nested config).\n\n### Changes\n\n- **Removed flat property fallbacks** in console `ObjectView.tsx` and plugin-view `ObjectView.tsx` for all view types: kanban, calendar, timeline, map, gallery, gantt, chart\n- **Added dev-mode `console.warn`** that detects flat property usage and logs which properties need migration to nested format\n- **Updated test fixtures** from legacy flat format to spec-compliant nested config\n\n```typescript\n// Before (accepts anything — silent spec violation)\nstartDateField: viewDef.calendar?.startDateField || viewDef.startDateField || viewDef.dateField || 'due_date',\ngroupField: viewDef.kanban?.groupField || viewDef.groupBy || viewDef.groupField || 'status',\n\n// After (nested only — flat props ignored, defaults applied)\nstartDateField: viewDef.calendar?.startDateField || 'due_date',\ngroupField: viewDef.kanban?.groupField || 'status',\n```\n\n### New test: `SpecViewConfig.test.tsx`\n\nValidates that flat properties like `dateField` or `groupBy` at the view root are **not** picked up — the renderer must fall back to defaults rather than silently accepting non-compliant config.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 针对如何指导 `objectstack-ai/objectui` 项目进行全面复查，以确保严格遵守 `objectstack-ai/spec` 协议规范，我建议采取以下 **\"自动校验 + 人工复查 + 架构约束\"** 的三层策略。\n> \n> 鉴于你在 PR #526 中发现的问题（Console 随意读取属性，忽略了 Spec 的嵌套结构），这说明 `objectui` 在运行时处理配置时太\"宽容\"了。\n> \n> 以下是具体的执行计划：\n> \n> ### 第一步：引入运行时强校验 (Runtime Validation) —— 最立竿见影\n> \n> 目前的问题是 Spec 定义了 Zod Schema，但 UI 渲染组件可能没有真的去 parse 它，而是直接当做 `any` 或弱类型处理。\n> \n> **行动指令：**\n> 1.  **强制 Zod Parse:** 在 `ObjectView` 或 `SchemaRenderer` 的入口处，必须运行 `ListViewSchema.parse(config)`。\n>     *   如果配置不符合 Spec（例如日历字段没有嵌套），Zod 会直接抛出错误。这会立刻暴露所有不合规的代码。\n> 2.  **创建 \"Spec Guard\" 组件:** 封装一个高阶组件或 Hook，专门负责校验输入的 Metadata 是否符合 Spec。\n> \n> ```typescript\n> // 伪代码示例：在 UI 渲染前强制校验\n> import { ListViewSchema } from '@objectstack/spec';\n> \n> function renderListView(rawConfig: any) {\n>   // 1. 严格校验，不符合直接报错，倒逼上游修正\n>   const result = ListViewSchema.safeParse(rawConfig);\n>   \n>   if (!result.success) {\n>     console.error(\"View Config violates Spec Protocol:\", result.error);\n>     // 在开发模式下显示红框错误提示\n>     if (process.env.NODE_ENV === 'development') {\n>       return <SpecError error={result.error} />;\n>     }\n>     // 生产模式尝试降级，但记录错误\n>   }\n>   \n>   const config = result.data; // 这里的 config 是类型安全的\n>   \n>   // 2. 使用安全的数据渲染\n>   if (config.type === 'calendar' && config.calendar) { // TS 会自动推断 config.calendar 存在\n>      return <CalendarView {...config.calendar} />;\n>   }\n> }\n> ```\n> \n> ### 第二步：全面复查关键映射层 (Data Flow Audit)\n> \n> 你需要让团队或 AI 针对以下特定的映射逻辑进行代码搜索和审查。重点查找那些**\"直接读取属性\"**的地方。\n> \n> **复查清单 (Checklist):**\n> \n> 1.  **View 属性读取:** 搜索所有读取 `viewDef` 或 `layout` 的代码。\n>     *   ❌ 错误模式: `const { startDateField } = viewDef;`\n>     *   ✅ 正确模式: `const { startDateField } = viewDef.calendar || {};`\n> 2.  **Kanban (看板):** 检查 `columns`, `groupByField` 是否从 `viewDef.kanban` 读取。\n> 3.  **Gantt (甘特图):** 检查 `dependenciesField` 是否从 `viewDef.gantt` 读取。\n> 4.  **Gallery (画廊):** 检查 `coverField` 是否从 `viewDef.gallery` 读取。\n> 5.  **Field (字段组件):** 检查 Form Field 的 `widget` 属性处理，确保符合 `FormFieldSchema`。\n> \n> **使用 Lexical Search 辅助查找:**\n> 你可以让 Copilot 搜索类似于 `props.startDate` 或 `view.startDate` 这种扁平化访问的代码，这些很可能是违规点。\n> \n> ### 第三步：类型系统对齐 (TypeScript Hardening)\n> \n> 如果 TS 类型定义得够严，VSCode 应该会报错。现在的 bug 可能是因为 UI 项目里用了 `any` 或者自己定义了一套宽松的 `interface`，而没有直接 `import type` from spec。\n> \n> **行动指令：**\n> 1.  **废弃本地类型:** 搜索 `objectui` 项目中所有本地定义的 `interface ListView`, `interface ViewDef`。\n> 2.  **强制引用 Spec:** 所有的 View Props 必须直接使用 Spec 导出的类型：\n>     ```typescript\n>     import type { ListView } from '@objectstack/spec';\n>     \n>     interface Props {\n>       viewDef: ListView; // 👈 必须用这个，不要自己写 interface\n>     }\n>     ```\n> 3.  **开启 Strict Null Checks:** 确保 TS 能捕捉到 `viewDef.calendar` 可能是 `undefined` 的情况，迫使开发者写空值检查。\n> \n> ### 第四步：编写 \"Golden Sample\" 测试用例\n> \n> 在 `objectui` 的测试套件中，引入 Spec 仓库里的标准测试数据。\n> \n> **行动指令：**\n> 1.  从 `spec/examples` 或 CRM 示例应用中提取标准的 View JSON。\n> 2.  在 `objectui` 中编写单元测试，输入这些标准 JSON，断言组件能否正确提取出属性（例如：断言 Calendar 组件的 props 确实拿到了 `start_date`）。\n> \n> ### 总结：给团队的一句话指导\n> \n> > \"Please refactor the `ObjectView` and all sub-renderers (Calendar, Kanban, etc.) to **strictly import and use Zod types from `@objectstack/spec`**. Stop defining local interfaces for protocol objects. Implement a runtime check using `ListViewSchema.parse()` at the rendering entry point to fail fast on non-compliant configurations.\"\n> \n> 这样可以从根本上杜绝 \"Spec 变了但 UI 没变\" 或者 \"UI 自己搞了一套隐形标准\" 的问题。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

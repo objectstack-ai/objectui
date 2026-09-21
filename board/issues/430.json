@@ -1,0 +1,33 @@
+{
+  "number": 430,
+  "kind": "pull_request",
+  "title": "fix: access correct `discoveryInfo` property from ObjectStackClient",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T10:22:46Z",
+  "updated_at": "2026-02-10T10:59:05Z",
+  "closed_at": "2026-02-10T10:40:11Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T10:40:11Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/430",
+  "body": "`ObjectStackAdapter.getDiscovery()` accessed `this.client.discovery`, which doesn't exist on `@objectstack/client` v2.0.1. The actual private field is `discoveryInfo`. This caused `getDiscovery()` to always return `null`, so `ConditionalAuthWrapper` defaulted auth to enabled — showing the login page regardless of the server's `auth.enabled` setting.\n\n### Changes\n\n- **`packages/data-objectstack/src/index.ts`**: Fix property access from `.discovery` to `.discoveryInfo`\n- **`packages/data-objectstack/src/connection.test.ts`**: Add tests for `getDiscovery()` covering successful discovery retrieval (with `auth.enabled: false`) and connection failure fallback\n\n```diff\n- // @ts-expect-error - Accessing internal discovery property\n- return this.client.discovery || null;\n+ // @ts-expect-error - Accessing internal discoveryInfo property\n+ return this.client.discoveryInfo || null;\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 704,
+  "kind": "pull_request",
+  "title": "feat(crm): Complete metadata enhancement — reports, junction objects, seed data, pages, branding, file splitting",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T11:24:41Z",
+  "updated_at": "2026-02-21T12:54:30Z",
+  "closed_at": "2026-02-21T12:54:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T12:54:30Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/704",
+  "body": "The CRM example had empty `reports[]`, minimal seed data (2 users, 2 orders), no junction objects for many-to-many relationships, a single page, incomplete branding, and all metadata inlined in a single ~985-line config file. This PR fills all gaps per the issue checklist and restructures metadata into separate files.\n\n### P0 — Reports & Navigation\n- Added **Sales Report** and **Pipeline Report** using `@objectstack/spec` report format (`type: 'summary'`, `columns` with `aggregate`, `groupingsDown`, `chart` with `xAxis`/`yAxis`)\n- Navigation uses native `type: 'report'` items grouped under a \"Reports\" nav group\n\n### P1 — Seed Data & Junction Objects\n- **Users**: 2 → 7 records (admin, manager, user, viewer roles + inactive)\n- **Orders**: 2 → 7 records covering all 6 statuses (draft/pending/paid/shipped/delivered/cancelled)\n- **Products**: +2 inactive (`is_active: false`) for filter testing\n- **`order_items`**: New junction object (Order ↔ Product) with quantity, unit_price, discount, line_total, item_type — 12 seed records\n- **`opportunity_contacts`**: New junction object (Opportunity ↔ Contact) with role/is_primary — 7 seed records\n- **Event attendees**: `participants` field populated on all 6 event records\n\n### P2 — Dashboard & Branding\n- Added \"Revenue by Account\" widget using `provider: 'object'` with aggregation\n- Added `logo`, `favicon` to app branding (note: `backgroundColor` is not supported by the `@objectstack/spec` branding type)\n\n### P3 — Pages\n- **Settings** page (utility type) — general config, notifications, integrations, data management\n- **Getting Started** page — onboarding walkthrough (team setup, data import, pipeline config, reports)\n\n### Metadata File Splitting\nAll inline metadata extracted from `objectstack.config.ts` into separate files, reducing the config from ~985 lines to a clean 122-line orchestration file:\n```\nexamples/crm/src/\n  reports/     — sales.report.ts, pipeline.report.ts\n  pages/       — help.page.ts, settings.page.ts, getting_started.page.ts\n  dashboards/  — crm.dashboard.ts\n  apps/        — crm.app.ts\n  data/        — 10 per-object seed data files (account, contact, opportunity, user, product, order, project_task, event, order_item, opportunity_contact)\n  objects/     — order_item.object.ts, opportunity_contact.object.ts (new)\n  views/       — order_item.view.ts, opportunity_contact.view.ts (new)\n  actions/     — order_item.actions.ts, opportunity_contact.actions.ts (new)\n```\n\nROADMAP.md updated with CRM Example Metadata Enhancement section.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Console & CRM Example 元数据完善与开发内容清单</issue_title>\n> <issue_description>## Console 与 CRM 元数据完善开发任务一览\n> \n> ### 概述\n> \n> 本 Issue 汇总了针对 Console 组件与 CRM Example 元数据需要优化和补全的全部开发任务。方案细节基于现有代码分析与 ObjectUI/Console/CRM 的规范能力。\n> \n> ---\n> \n> ### P0（最高优先级）\n> 1. **报告元数据完善**\n>    - 在 `examples/crm/objectstack.config.ts` 的 `reports[]` 数组中，增加至少一个正式 Report（如 Sales Report, Pipeline Report），使用 spec 标准格式。\n>    - Navigation 不再依赖 shared config hack，必须原生支持 report 跳转。\n> \n> ---\n> \n> ### P1\n> 2. **Seed Data 深度扩展**\n>    - user 数据增加至少 5 个（覆盖不同角色/权限场景）\n>    - order 数据扩展，覆盖各种状态、金额、客户类型\n>    - 产品数据增加至少 2 个 `is_active: false`（用于 inactive 过滤测试）\n> \n> 3. **Order ↔ Product junction/join 支持**\n>    - 新增 `order_items` object，实现订单与产品的多对多关系\n>    - 含 line item 字段，如数量、价格、折扣、item type\n> \n> 4. **Relationship 数据更多样化**\n>    - Opportunity ↔ Contact 多对多关系示例引入 junction object\n>    - Contact ↔ Event (attendees) 关联示例\n> \n> ---\n> \n> ### P2\n> 5. **Dashboard 动态数据能力展示**\n>    - 增加一个 widget 使用 `provider: 'query'`，从 object 数据动态聚合 KPI（如按 Account/Opportunity 汇总）\n> \n> 6. **App Branding 完善**\n>    - 增加 `logo`、`favicon`、`description`、`backgroundColor` 等，展示全部 AppSchema Branding 能力\n> \n> ---\n> \n> ### P3\n> 7. **Pages 丰富**\n>    - 增加至少 2 个页面：Settings、Onboarding/Getting Started\n>    - 页面 Schema 标准化，体现 SDUI 灵活性\n> \n> ---\n> \n> ### 建议开发流程\n> - 开发内容详见上述清单，建议分阶段提交，每阶段都要**运行测试**（确保 Console/CRM Demo 完整覆盖）并**关联本 Issue/roadmap**。\n> \n> ---\n> \n> **补充说明：**\n> - 本 Issue 以 checklist 列出全部内容，建议所有任务以 sub-issue/PR 拆解和跟踪。\n> - 完成后同步更新 roadmap，确保示例与产品同步发展。\n> \n> \n> 对应代码位置与需求见：[examples/crm/objectstack.config.ts](https://github.com/objectstack-ai/objectui/blob/main/examples/crm/objectstack.config.ts)\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#701\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

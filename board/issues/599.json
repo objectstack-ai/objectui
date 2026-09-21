@@ -1,0 +1,33 @@
+{
+  "number": 599,
+  "kind": "pull_request",
+  "title": "Wire system pages, collaboration, report builder, and view designer to backend API",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T12:36:45Z",
+  "updated_at": "2026-02-18T13:26:13Z",
+  "closed_at": "2026-02-18T13:14:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T13:14:28Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/599",
+  "body": "System admin pages were empty stubs, collaboration data was hardcoded, ReportBuilder used mock fields, and ViewDesigner save was a no-op `console.log`. All now use real `dataSource` calls.\n\n### System Admin Pages (P0)\n- `UserManagementPage`, `OrgManagementPage`, `RoleManagementPage`: fetch via `dataSource.find('sys_*')`, wire Add/Delete buttons to `create`/`delete`\n- `AuditLogPage`: read-only fetch with `$orderby: 'createdAt desc'`\n- All use `useAdapter()` from context — no prop threading needed since pages are already inside `AdapterProvider`\n\n### Collaboration Data (P1)\n- **AppHeader**: `MOCK_PRESENCE_USERS` / `DEMO_ACTIVITIES` replaced with API fetch from `sys_presence` / `sys_activity`, graceful fallback to defaults\n- **RecordDetailView**: `MOCK_RECORD_VIEWERS` replaced with `sys_presence` filtered by `recordId`; comments now persist via `dataSource.create/delete/update('sys_comment', ...)`\n\n### ReportBuilder Fields (P2)\n- `MOCK_FIELDS` replaced with `useMemo` deriving fields from `useMetadata().objects` keyed on report's `objectName` / `dataSource.object`:\n\n```tsx\nconst availableFields = useMemo(() => {\n  const objName = reportData?.objectName || reportData?.dataSource?.object;\n  const objDef = objects.find((o) => o.name === objName);\n  if (objDef?.fields) { /* map to { name, label, type } */ }\n  return FALLBACK_FIELDS;\n}, [reportData, objects]);\n```\n\n### ViewDesigner Save (P3)\n- `handleSave` calls `dataSource.create('sys_view', config)` or `dataSource.update('sys_view', viewId, config)` instead of logging\n\n### Tests\n- 19 new tests across 3 files: `SystemPages.test.tsx` (9), `ViewDesignerSave.test.tsx` (2), `ReportDynamicFields.test.tsx` (8)\n- All 302 existing tests unaffected\n\n### ROADMAP\n- Updated `ROADMAP_CONSOLE.md` with resolved gaps G10–G13\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>api集成问题</issue_title>\n> <issue_description>\n> ---\n> \n> ### Issue 1: P0\n> **Title:** `P0: System Admin 页面（User/Org/Role/AuditLog）全部为假界面空壳，需接入后端 API 实现 CRUD`\n> \n> **Body:**\n> > **问题描述**\n> > `UserManagementPage`、`OrgManagementPage`、`RoleManagementPage`、`AuditLogPage` 4个页面仅渲染表头，表体只有 \"Connect to ObjectStack server to load...\" 占位文字，无任何 `dataSource` 调用，按钮无事件处理。\n> >\n> > **涉及文件**\n> > - `apps/console/src/pages/system/UserManagementPage.tsx`\n> > - `apps/console/src/pages/system/OrgManagementPage.tsx`\n> > - `apps/console/src/pages/system/RoleManagementPage.tsx`\n> > - `apps/console/src/pages/system/AuditLogPage.tsx`\n> >\n> > **期望**: 通过 `dataSource.find('sys_user'|'sys_org'|'sys_role'|'sys_audit_log')` 获取真实数据并渲染；CRUD 按钮接入 API。开发后运行 test 并更新 roadmap。\n> \n> ---\n> \n> ### Issue 2: P1\n> **Title:** `P1: 协作功能（在线用户/活动流/评论）数据全部为硬编码模拟数据，需接入后端实时 API`\n> \n> **Body:**\n> > **问题描述**\n> > - `AppHeader` 中 `MOCK_PRESENCE_USERS`、`DEMO_ACTIVITIES` 硬编码\n> > - `RecordDetailView` 中 `MOCK_RECORD_VIEWERS`、`MOCK_USER` 硬编码\n> > - `CommentThread` ��论纯 local state，刷新即丢失\n> > - `ActivityFeed` 注释标明 \"Phase 17 L1 – local state only, no server integration\"\n> >\n> > **涉及文件**\n> > - `apps/console/src/components/AppHeader.tsx`\n> > - `apps/console/src/components/ActivityFeed.tsx`\n> > - `apps/console/src/components/RecordDetailView.tsx`\n> >\n> > **期望**: Presence/Activity/Comment 数据来自真实 API 并持久化。开发后运行 test 并更新 roadmap。\n> \n> ---\n> \n> ### Issue 3: P2\n> **Title:** `P2: ReportBuilder 可用字段为硬编码 MOCK_FIELDS，需从 object schema 动态获取`\n> \n> **Body:**\n> > **问题描述**\n> > `ReportView.tsx` 中 `MOCK_FIELDS` 硬编码 8 个字段（month/revenue/count 等），ReportBuilder 的 `availableFields` 使用这些假字段，无法反映真实对象 schema。\n> >\n> > **涉及文件**\n> > - `apps/console/src/components/ReportView.tsx`\n> >\n> > **期望**: 从 `useMetadata().objects` 或 `dataSource.getObjectSchema()` 动态获取字段列表。开发后运行 test 并更新 roadmap。\n> \n> ---\n> \n> ### Issue 4: P3\n> **Title:** `P3: ViewDesigner 保存操作仅 console.log，需实现 view config 持久化到后端`\n> \n> **Body:**\n> > **问题描述**\n> > `ViewDesignerPage.tsx` 的 `handleSave` 只执行了 `console.log` 和 toast 提示，view config 未通过 API 持久化到后端。\n> >\n> > **涉及文件**\n> > - `apps/console/src/components/ViewDesignerPage.tsx`\n> >\n> > **期望**: 调用后端 API 保存 view config。开发后运行 test 并更新 roadmap。\n> \n> ---\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#598\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

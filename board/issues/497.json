@@ -1,0 +1,33 @@
+{
+  "number": 497,
+  "kind": "pull_request",
+  "title": "Fix defineStack validation errors and component registration deprecation warnings",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T16:25:51Z",
+  "updated_at": "2026-02-13T18:04:41Z",
+  "closed_at": "2026-02-13T16:56:35Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T16:56:35Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/497",
+  "body": "Console throws `Uncaught Error: defineStack validation failed (8 issues)` on startup due to `objectstack.shared.ts` not conforming to `@objectstack/spec` v3.0.2 schema. Additionally, 3 deprecation warnings fire for namespace-less component registrations.\n\n### `apps/console/objectstack.shared.ts`\n\n- **manifest**: Added required fields `id`, `version`, `type`, `name`\n- **datasources**: Changed from object `{ default: { driver: '...' } }` to spec-compliant array format `[{ name: 'default', driver: '...', config: {} }]`\n- **reports[0]**: Replaced invalid `type: 'report'` with `type: 'summary'`, added required `objectName` and `columns` fields, removed non-schema `sections`/`title` properties\n\n### `packages/plugin-report/src/index.tsx`\n\n- Added `namespace: 'report'` to all 3 `ComponentRegistry.register` calls\n\n```diff\n ComponentRegistry.register('report', ReportRenderer, {\n+  namespace: 'report',\n   label: 'Report',\n   ...\n });\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 494,
+  "kind": "pull_request",
+  "title": "feat: implement Console Development Roadmap phases 1-9",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T11:21:49Z",
+  "updated_at": "2026-02-13T12:29:55Z",
+  "closed_at": "2026-02-13T12:23:18Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T12:23:18Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/494",
+  "body": "Addresses the Console Development Roadmap by implementing all 9 phases: NavigationConfig spec compliance across view plugins, metadata API expansion, expression engine wiring, RBAC integration, real-time updates, action system, and offline/PWA support.\n\n### NavigationConfig compliance (Phase 9)\n\nAdded `useNavigationOverlay` + `NavigationOverlay` to the 5 non-compliant plugins, matching the existing pattern in plugin-grid and plugin-list:\n\n- **plugin-kanban**: Added `onCardClick` prop threaded through `SortableCard → KanbanColumn → KanbanBoard → ObjectKanban`\n- **plugin-calendar**: Wired `navigation.handleClick` into existing `onEventClick`\n- **plugin-gantt**: Wired into existing `onTaskClick`\n- **plugin-map**: Wired into existing `onMarkerClick`\n- **plugin-timeline**: Added click handlers to renderer items (vertical + horizontal), wired `onItemClick` through schema\n\nAll 8 view plugins now support the 7 navigation modes (`page`, `drawer`, `modal`, `split`, `popover`, `new_window`, `none`).\n\n### Metadata API (Phase 3)\n\n- Added `getPage?(pageId: string): Promise<any | null>` to `DataSource` interface\n- Implemented in `ObjectStackAdapter` with metadata cache\n\n### Console wiring (Phases 1, 2, 5, 6, 8)\n\n- **Expressions**: `ExpressionEvaluator` filters CRUD dialog fields by `visible` expressions with record context\n- **Actions**: Toolbar renders actions from `objectDef.actions[]` where `location === 'list_toolbar'`\n- **RBAC**: `usePermissions().can()` gates sidebar navigation items and Create button (permissive default when no provider)\n- **Real-time**: `useRealtimeSubscription` on `object:{name}` channel triggers `refreshKey` increment\n- **Offline**: `useOffline` indicator in AppHeader; fixed `PWAConfig.enabled` in `main.tsx`\n\n```typescript\n// NavigationConfig pattern now consistent across all view plugins\nconst navigation = useNavigationOverlay({\n  navigation: schema.navigation,\n  objectName: schema.objectName,\n  onRowClick,\n});\n// → navigation.handleClick wired to item click\n// → <NavigationOverlay {...navigation}> renders overlay\n```\n\n### Test results\n\nAll modified plugin tests pass. Kanban `TouchSensor` mock failures and console vite build (hotcrm submodule) are pre-existing.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完成 ObjectStack Console — Complete Development Roadmap 所有开发任务\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

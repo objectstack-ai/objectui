@@ -1,0 +1,33 @@
+{
+  "number": 432,
+  "kind": "pull_request",
+  "title": "Implement P0-P2 spec compliance tasks from SPEC_COMPLIANCE_EVALUATION.md",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T14:20:32Z",
+  "updated_at": "2026-02-10T15:07:10Z",
+  "closed_at": "2026-02-10T15:00:24Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T15:00:24Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/432",
+  "body": "Addresses all P0, P1, and key P2 gaps identified in the spec compliance evaluation across 12 packages.\n\n### P0 — Critical\n\n- **DataScope module** (`core`): New `DataScopeManager` implementing `DataContext` with row-level filtering (9 operators), read-only scopes, change listeners\n- **AI plugin handlers** (`plugin-ai`): Replaced `console.log` placeholders with proper callback props (`onApply`, `onRefresh`, `onSelect`, `onDismiss`, `onSubmit`) across AIFormAssist, AIRecommendations, NLQueryInput\n- **Validators export** (`core`): Removed stale TODO comments — already exported via validation module\n\n### P1 — High\n\n- **DetailView/RelatedList API fetch** (`plugin-detail`): Implemented `fetch()` and `dataSource.find()` integration with error handling\n- **ReportViewer** (`plugin-report`): Added `onRefresh` callback; extracted `computeAggregation` helper supporting count/sum/avg/min/max\n- **ReportBuilder cancel** (`plugin-report`): `onCancel` now actually invokes the callback\n- **Map coordinates** (`plugin-map`): Added `isFinite` validation + UI warning for excluded records\n- **String formulas** (`core`): FIND, REPLACE, SUBSTRING, REGEX, LEN\n- **useTheme hook** (`react`): New `ThemeContext` + `useTheme()` for component-level theme access\n\n### P2 — Medium\n\n- **Statistical formulas** (`core`): MEDIAN, STDEV, VARIANCE, PERCENTILE\n- **DATEFORMAT** (`core`): Token-based date formatting (YYYY/MM/DD/HH/mm/ss)\n- **Custom validator registration** (`core`): `registerValidator(name, fn)` / `registerAsyncValidator(name, fn)` on ValidationEngine\n\n```ts\n// DataScope — row-level filtering\nconst manager = new DataScopeManager();\nmanager.registerScopeWithConfig('contacts', {\n  dataSource: myDataSource,\n  filters: [{ field: 'status', operator: 'eq', value: 'active' }],\n  readOnly: false,\n});\nconst filtered = manager.applyFilters('contacts', records);\n\n// New formula functions\nFIND('world', 'hello world')        // 6\nSTDEV(2, 4, 4, 4, 5, 5, 7, 9)      // ~2.138\nDATEFORMAT('2026-02-10', 'YYYY/MM') // '2026/02'\n```\n\n### Tests\n- 35 new tests (19 DataScopeManager, 16 formula functions)\n- All 136 test files pass (2749+ tests), zero regressions\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> On SPEC_COMPLIANCE_EVALUATION.md, 按照 SPEC_COMPLIANCE_EVALUATION.md\n> 文件的要求，完成全部开发任务\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

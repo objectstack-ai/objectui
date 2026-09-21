@@ -1,0 +1,33 @@
+{
+  "number": 692,
+  "kind": "pull_request",
+  "title": "fix: prevent content area overflow across all view types",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T08:01:10Z",
+  "updated_at": "2026-02-21T08:26:54Z",
+  "closed_at": "2026-02-21T08:24:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T08:24:47Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/692",
+  "body": "Console content area views (Grid, Kanban, Gantt, Calendar, Map, Timeline) overflow their containers on narrow viewports, obscuring the sidebar and breaking layout. Root cause: the flex chain from `SidebarInset → AppShell → ObjectView → PluginObjectView` lacks `min-w-0`, so flex children expand to intrinsic content width rather than respecting parent bounds.\n\n### Container chain fixes\n\n- **`SidebarInset`** — add `min-w-0 overflow-hidden` to the flex child wrapping all main content\n- **`AppShell` main** — add `min-w-0`\n- **Console `ObjectView`** — add `min-w-0 overflow-hidden` to outer and inner content divs\n- **`PluginObjectView`** — add `min-w-0 overflow-hidden` to root and content wrapper\n\n### View-specific fixes\n\n- **GanttView** — replace hardcoded `taskListWidth = 300` with `getResponsiveTaskListWidth()` (120/200/300px at sm/md/lg breakpoints), matching the existing `getResponsiveColumnWidth()` pattern\n- **KanbanImpl** — add `min-w-0` to both swimlane and flat board containers\n- **CalendarView** — add `min-w-0 overflow-hidden`, make header `flex-wrap` with responsive padding\n- **ObjectMap** — wrap all three render paths with `cn(\"min-w-0 overflow-hidden\", className)`\n- **ObjectTimeline** — add `min-w-0`\n- **ListView** — add `min-w-0 overflow-hidden`\n\n### Why `min-w-0`\n\nFlex items default to `min-width: auto`, which prevents them from shrinking below content size. Adding `min-w-0` allows the flex item to shrink into `overflow-hidden` / `overflow-auto` containers, keeping scroll regions scoped to each view rather than blowing out the layout.\n\n```css\n/* Before: content pushes sidebar off-screen */\n.flex-1 { /* implicit min-width: auto */ }\n\n/* After: content respects parent bounds */\n.flex-1.min-w-0.overflow-hidden { }\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Console内容区布局溢出与视图宽度响应性系统改进</issue_title>\n> <issue_description>## 背景与问题\n> 当前 Console 内容区的多视图类型（Grid、Kanban、Gantt、Calendar、Map等）在宽屏/窄屏，特别是手机端经常出现横向/纵向溢出、撑破容器、侧边栏被遮挡、标题区混乱等问题。根因是主内容区域缺少 `min-w-0`、`overflow-hidden` 等响应布局处理，同时各视图内部控件宽度硬编码，未考虑容器宽度或可自适应。\n> \n> <img alt=\"甘特图溢出截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/53015c44-7f07-48e7-8584-958114c55bc4\" />\n> \n> ### 主要场景与问题列表\n> 1. Gantt（甘特图）：任务列表固定宽度 + 时间轴横向无限延伸，导致内容溢出、侧边栏被遮挡\n> 2. Kanban（看板）：多列横排，每列 `min-width`，列数多时横向超出父容器\n> 3. Calendar（日历）：周视图宽度大于容器，手机端横向滚动不友好\n> 4. Map（地图）：容器宽高未响应父层，导致地图视图被布局挤压\n> 5. Timeline：同甘特图，横向延展溢出\n> 6. List/Grid：大量列时横向超出，手机端无法滚动\n> \n> ## 影响与表现\n> - 侧边栏与内容区重叠或被挤出屏幕\n> - 标题、面包屑、工具栏布局混乱\n> - 内容区无法滚动，或者需要全局滚动导致体验差\n> - 手机端/Pad端溢出更严重，无法正常查看/编辑\n> \n> ## 解决方案建议\n> - [ ] 内容区容器 (`ObjectView.tsx`/`PluginObjectView`) 增加 `min-w-0`、`overflow-hidden`，保证flex子元素不会撑破父容器\n> - [ ] 子视���组件（GanttView、KanbanView、CalendarView、MapView、TimelineView）统一采用响应式宽度，任务区、时间区、列区等都应基于父容器宽度/屏幕尺寸自适应\n> - [ ] 任务列表宽度固定改为比例/最大值自适应\n> - [ ] 横向滚动容器增加 `overscroll-x-auto` 和 `touch` 支持，优化移动端体验\n> - [ ] 针对所有视图类型，明确容器布局模式（flex、grid、overflow等），不可使用硬编码宽度\n> - [ ] ToolBar与面包屑、标题等上方区域分隔，避免重叠\n> - [ ] 视图切换/响应式布局时自动调整各区域宽度，保证侧边栏与主视图区不互相遮挡\n> - [ ] 移动端特殊适配，横向滚动区域可自适应，重要操作按钮避免被遮挡\n> \n> ## 子任务拆分建议\n> - [ ] 检查所有 ObjectView 内容区涉及的布局层级，梳理 min-w-0、overflow-hidden、overflow-x/y 的使用\n> - [ ] 各视图插件内部宽度、横向滚动策略统一整理为响应式逻辑\n> - [ ] 手机端/Pad端测试所有主要视图类型，收集典型溢出、遮挡、滚动不便场景\n> - [ ] 针对卡片、甘特、日历等组件，增加宽度动态计算/横向滚动体验优化\n> - [ ] 优化面包屑/工具栏布局分隔，防止跨区域遮挡\n> \n> ---\n> 如需具体代码方案或视觉设计稿请补充需求。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#691\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

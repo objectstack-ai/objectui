@@ -1,0 +1,33 @@
+{
+  "number": 671,
+  "kind": "pull_request",
+  "title": "fix: strip trailing .0 in formatCompactCurrency for cross-environment consistency",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T02:38:19Z",
+  "updated_at": "2026-02-21T03:46:09Z",
+  "closed_at": "2026-02-21T03:43:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T03:43:46Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/671",
+  "body": "`Intl.NumberFormat` with `notation: 'compact'` produces `$150.0K` instead of `$150K` in certain Node.js/ICU versions, causing `mobile-card-view.test.tsx` to fail in CI.\n\n- Strip trailing `.0` before compact suffixes (K/M/B/T) via regex post-processing, preserving meaningful decimals like `$1.5M`\n\n```ts\nconst formatted = new Intl.NumberFormat('en-US', {\n  style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1,\n}).format(value);\nreturn formatted.replace(/\\.0(?=[KMBT])/, '');\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix ci errors test and build\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

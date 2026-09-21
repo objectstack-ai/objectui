@@ -1,0 +1,33 @@
+{
+  "number": 535,
+  "kind": "pull_request",
+  "title": "Evaluate list view types spec compliance and update ROADMAP_SPEC.md",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T02:56:42Z",
+  "updated_at": "2026-02-16T04:11:20Z",
+  "closed_at": "2026-02-16T04:03:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-16T04:03:30Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/535",
+  "body": "Audited all 7 list view types (grid, kanban, calendar, gantt, timeline, map, gallery) against `@objectstack/spec v3.0.0` ListViewSchema. Found systematic gaps in navigation property support, missing config type definitions, and unimplemented spec properties.\n\n### Navigation property coverage\n\n| Property | Grid | Kanban | Calendar | Gantt | Timeline | Map | Gallery |\n|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|\n| `mode` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |\n| `width` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |\n| `view` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |\n\nObjectGallery has zero navigation support — only accepts `onCardClick`.\n\n### Critical type gaps\n\n- **TimelineConfig** — not defined in `@object-ui/types`; plugin uses `dateField` instead of spec's `startDateField`; missing `endDateField`, `groupByField`, `colorField`, `scale`\n- **GalleryConfig** — implemented but not exported from types `index.ts`\n- **ListViewSchema** — 10+ spec properties unimplemented: `quickFilters`, `hiddenFields`, `fieldOrder`, `virtualScroll`, `conditionalFormatting`, `inlineEdit`, `exportOptions`, `emptyState`, `aria`, `rowHeight`\n\n### ROADMAP_SPEC.md updates\n\n- **Sections 3.3, 3.7, 3.8, 4.1–4.4** — Downgraded Spec UI Compliance ratings where gaps exist; documented specific missing properties\n- **Section 6.1** — Added per-view-type navigation matrix and config schema compliance table\n- **Section 6.3** — Updated View Enhancements row with TimelineConfigSchema gap\n- **Section 6.4** — Added 5 new critical gaps (#11–#15)\n- **Section 7** — Added 12 improvement tasks (#64–#76) across P1/P2/P3\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 评估所有列表视图类型对spec的支持情况，更新 roadmap，比如日历还不支持navigation属性\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

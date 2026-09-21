@@ -1,0 +1,33 @@
+{
+  "number": 712,
+  "kind": "pull_request",
+  "title": "fix: sync ViewConfigPanel changes to all list view types in real-time",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-22T02:07:09Z",
+  "updated_at": "2026-02-22T02:41:09Z",
+  "closed_at": "2026-02-22T02:39:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-22T02:39:31Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/712",
+  "body": "ViewConfigPanel edits (fields, filters, sort, appearance) only reflected after clicking Save. The `useMemo` dependency chains from console `ObjectView` → plugin `ObjectView` → grid/list renderers had gaps that prevented live preview.\n\n### Schema type\n\n- Add `showSort?: boolean` to `ObjectViewSchema` interface and Zod schema\n\n### Console ObjectView\n\n- Add `showSort` to `objectViewSchema` useMemo value and dependency array\n- Propagate `rowHeight`, `densityMode`, `inlineEdit`, `appearance` from view draft through `renderListView` → `fullSchema`\n\n```ts\n// Before: objectViewSchema deps missed showSort\n}), [objectDef.name, onEdit, activeView?.showSearch, activeView?.showFilters]);\n\n// After\n}), [objectDef.name, onEdit, activeView?.showSearch, activeView?.showFilters, activeView?.showSort]);\n```\n\n### Plugin ObjectView\n\n- Respect `showSort === false` in `sortSchema` generation\n- Include `striped`/`bordered` from `activeView` in `gridSchema`\n- Pass `rowHeight`, `densityMode`, `groupBy` in `renderContent` → `renderListView` schema\n\n### Tests\n\n- 4 new console-level live preview tests (toggle showSearch/showSort, column sync, label sync via breadcrumb)\n- 6 new plugin-level tests (rerender on columns/sort/filter/appearance prop changes, renderListView schema propagation, showSort suppression)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>【Bug】右侧视图配置面板变更未实时同步到全部列表类型（Grid/Kanban/Calendar/Timeline/Gallery/Map）</issue_title>\n> <issue_description>## 问题描述\n> \n> 在 ObjectUI 的 ObjectView 页面，右侧 ViewConfigPanel 配置面板修改字段、过滤、排序、外观等，主区域（如 grid/kanban/calendar 等）通常未及时反映变更，仅在点击\"保存\"后才统一刷新。\n> \n> 此行为影响所有列表视图类型，包含但不限于：\n> - Grid 表格视图\n> - Kanban 看板视图\n> - Calendar 日历视图\n> - Timeline 甘特/时间线视图\n> - Gallery 画廊视图\n> - Map 地图视图\n> \n> ### 复现步骤\n> 1. 打开任一列表视图\n> 2. 编辑右侧配置面板任一属性（字段、过滤、排序、外观等）\n> 3. 发现主内容区未实时反映 Panel 改动，仅保存后才生效\n> \n> <img alt=\"视图配置面板截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/cb06c7cd-f5ce-4914-9dcb-6340f93fb45a\" />\n> \n> ## 期望结果\n> - 无论是否\"保存\"，panel 内任何变更均应直接同步到主内容，实现所见即所得\n> - 所��支持的列表类型均具备 live preview\n> \n> ## 技术分析&排查建议\n> - ViewConfigPanel 实现 onViewUpdate 实时向上抛变动，但 ObjectView（console层）仅合并 viewDraft；objectViewSchema/useMemo 依赖列不全，未能触发 PluginObjectView 实时反映所有变更\n> - plugin-view 的 PluginObjectView 内部 useMemo 依赖和 grid/kanban/calendar/timeline/gallery/map 等列表类型对应 schema 构建链路需进一步补齐依赖，保证视图配置实时同步\n> \n> ### 修复建议\n> 1. ObjectView console 侧：扩大 objectViewSchema/useMemo 依赖到所有 viewConfig 字段\n> 2. 保证 mergedViews 产生变化即时驱动 PluginObjectView 的 live re-render\n> 3. plugin-view 层 grid/kanban 等 schema/useMemo 需完整依赖 viewConfig\n> 4. （如性能瓶颈）可增差异化刷新，或仅部分配置触发强刷新\n> \n> \n> ## 子任务\n> - [ ] 全面梳理所有列表类型受影响的属性与依赖链\n> - [ ] 修复依赖、增补 useMemo/useEffect 来满足 live preview\n> - [ ] 回归现有相关 test，补充自动化测试\n> - [ ] 更新 Roadmap 规划此优化\n> \n> ---\n> 修复后请运行全部 test，并同步修订 Roadmap。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#711\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

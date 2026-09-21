@@ -1,0 +1,33 @@
+{
+  "number": 581,
+  "kind": "pull_request",
+  "title": "fix(examples/crm): remove `as any` cast from objectstack.config.ts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T04:58:00Z",
+  "updated_at": "2026-02-18T06:48:41Z",
+  "closed_at": "2026-02-18T05:14:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T05:14:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/581",
+  "body": "`examples/crm/objectstack.config.ts` ended with `as any`, bypassing `defineStack` type checking entirely. The config is already fully compliant with the expected type — the cast was unnecessary.\n\n- **`examples/crm/objectstack.config.ts`**: `} as any)` → `})`\n- **`ROADMAP.md`**: Mark item complete under P0.1\n\nAll 4383 tests pass. No type errors in the config after removal.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[P1] examples/crm 配置移除 as any，实现类型安全</issue_title>\n> <issue_description>examples/crm/objectstack.config.ts 结尾存在 `as any`，绕过了 `defineStack` 类型检查，导致自定义字段、key 等元数据不规范时无法在编译期发现。\n> \n> ### 风险\n> - 有 bug 时类型异常不会被 IDE/编译时发现，最终代码合入会导致线上渲染异常（如 columns/fields）\n> - example 没有很好的示范效应。\n> \n> ### 修复建议\n> - 保持所有元数据严格按 `Parameters<typeof defineStack>[0]` 类型定义。\n> - 请调用 `as Parameters<typeof defineStack>[0]` 或完全去除 `as any` 并修正类型错误。\n> - 配合类型校验，可提升大家的开发体验，减少不可见风险。\n> \n> ---\n> - 修复完成需运行 test，确保 roadmap 相关已同步更新。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#580\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

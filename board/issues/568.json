@@ -1,0 +1,36 @@
+{
+  "number": 568,
+  "kind": "pull_request",
+  "title": "Fix Report Viewer blank content by wiring data loading",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T00:30:59Z",
+  "updated_at": "2026-02-18T00:54:22Z",
+  "closed_at": "2026-02-18T00:52:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T00:52:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/568",
+  "body": "Report sections (charts, tables, summaries) rendered blank because `ReportView` never passed runtime data to `ReportViewer`. The viewer component destructures `data` from schema but received `undefined`.\n\n## Changes\n\n**Added data loading to `ReportView.tsx`:**\n- Added state for `reportRuntimeData` and `dataLoading`\n- Implemented effect to fetch data via adapter based on:\n  - `report.objectName` → queries object (e.g., 'opportunity')\n  - `report.dataSource` → uses explicit datasource config\n  - `report.data` → uses inline data directly\n- Pass `data` and `loading` to viewerSchema\n\n```tsx\n// Before\nconst viewerSchema = {\n  type: 'report-viewer',\n  report: reportData,\n  showToolbar: true,\n  allowExport: true\n};\n\n// After\nconst viewerSchema = {\n  type: 'report-viewer',\n  report: reportData,\n  data: reportRuntimeData,  // ← fetched from adapter\n  showToolbar: true,\n  allowExport: true,\n  loading: dataLoading\n};\n```\n\n**Added integration tests** covering data loading from objectName, dataSource config, inline data, and error states.\n\nThe current `sales_performance_q1` report uses `objectName: 'opportunity'`, so the fix fetches opportunity records via `dataSource.find()` with support for filters, sorting, and pagination (default 100 limit).\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> ## Bug Description\n> \n> The Report Viewer page at `/apps/crm_app/report/sales_performance_q1` displays a blank content area. The toolbar (title, description, Print button) renders correctly, but no report sections (charts, tables, summaries) are visible.\n> \n> ![image1](image1)\n> \n> ## Root Cause\n> \n> The issue is in `apps/console/src/components/ReportView.tsx`. When constructing the `viewerSchema` passed to the `<ReportViewer>` component, the `data` property is **not included**:\n> \n> ```tsx\n> // apps/console/src/components/ReportView.tsx lines 96-101\n> const viewerSchema = {\n>     type: 'report-viewer',\n>     report: reportData, // The report definition\n>     showToolbar: true,\n>     allowExport: true\n>     // ❌ Missing: data, loading\n> };\n> ```\n> \n> In `packages/plugin-report/src/ReportViewer.tsx`, the component destructures `data` from `schema`:\n> ```tsx\n> const { report, data, showToolbar, allowExport, allowPrint, loading } = schema;\n> ```\n> \n> Since `data` is `undefined`:\n> - Sections of type `chart` pass `data: data || section.chart.data` → undefined if chart has no inline data\n> - Sections of type `table` iterate `data?.map(...)` → renders nothing  \n> - Sections of type `summary` call `computeAggregation()` which returns 0 for all values since `data` is undefined\n> - The fallback table requires `!report.sections && data && data.length > 0` → fails because `data` is undefined\n> \n> Additionally, `ReportView` currently only fetches report **metadata/definitions** via `useMetadata()` (which calls `client.meta.getItems('report')`), but has **no mechanism to fetch the actual report runtime data** based on the report's `dataSource` configuration.\n> \n> ## Required Fix\n> \n> 1. **In `apps/console/src/components/ReportView.tsx`**:\n>    - Add state and effect to load report runtime data. The report definition (from metadata) may contain a `dataSource` config or inline `data` array. The component should:\n>      - Check if `reportData.data` exists (inline data) and use it directly\n>      - If `reportData.dataSource` is configured, fetch data from the adapter/client using that data source config\n>      - Track a `dataLoading` state for the loading indicator\n>    - Pass `data` and `loading` to the `viewerSchema`:\n>      ```tsx\n>      const viewerSchema = {\n>          type: 'report-viewer',\n>          report: reportData,\n>          data: reportRuntimeData,    // ← ADD THIS\n>          showToolbar: true,\n>          allowExport: true,\n>          loading: dataLoading,       // ← ADD THIS\n>      };\n>      ```\n> \n> 2. **Data loading approach**: Use the existing `ObjectStackAdapter` (available via context/hooks in the console app) to query data based on `reportData.dataSource`. If no `dataSource` is defined, fall back to `reportData.data` (inline data from the report definition). The adapter pattern is already established in `apps/console/src/context/MetadataProvider.tsx` via `adapter.getClient()`.\n> \n> 3. **Important constraints** (from `@objectstack/spec`):\n>    - All changes must conform to the ObjectStack schema protocol\n>    - The `ReportViewerSchema` type (in `packages/types/src/reports.ts`) already defines `data?: any[]` and `loading?: boolean` — these just need to be properly populated\n>    - The `ReportSchema` type already has `dataSource?: DataSource` and `data?: any[]` fields\n> \n> ## Key Files\n> \n> - `apps/console/src/components/ReportView.tsx` — Main file to fix (add data loading + pass data to viewerSchema)\n> - `packages/plugin-report/src/ReportViewer.tsx` — The ReportViewer component (consumer of the data; likely no changes needed here)\n> - `apps/console/src/context/MetadataProvider.tsx` — Shows the adapter/client pattern for API calls\n> - `packages/types/src/reports.ts` — Type definitions (ReportViewerSchema, ReportSchema, DataSource)\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n*This pull request was created from Copilot chat.*\n>\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 589,
+  "kind": "issue",
+  "title": "优化移动端 卡片列表视图展示与交互体验",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-18T06:39:59Z",
+  "updated_at": "2026-02-18T07:00:18Z",
+  "closed_at": "2026-02-18T07:00:18Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/589",
+  "body": "参考以下内容，主要是评估统一控件和组件的修改，包括例子中元素据的修改\n\n## 背景\n移动端 Opportunity（商机）列表视图目前存在信息密度低、可用性与可读性待提升的问题。主要体现在字段展示方式、格式、交互入口、视觉分层和性能等方面。\n\n<img alt=\"移动端Opportunity列表（现状）\" width=\"1320\" src=\"https://github.com/user-attachments/assets/fc3d886e-8723-448d-aebe-acd2d4905d6a\" />\n\n## 主要问题\n1. **字段格式未友好显示**：Amount未货币格式化，Close date为原始ISO字符串。\n2. **卡片内容层级单一**：Name、Amount、Stage、Close date等字段以相同行样式排列，占用空间偏大，主要内容不突出。\n3. **Stage无颜色区分**：不同阶段仅文本，无视觉标识，辨识度低。\n4. **缺少卡片快捷操作**：无法实现如滑动出现编辑等交互。\n5. **底部导航标签被截断**：部分tab名称显示不全。\n6. **Skeleton 卡片/Loading 无细节**：加载时体验不佳。\n7. **未实现无缝分页或虚拟列表**：多数据卡顿风险。\n\n## 优化建议\n### 1. 字段格式优化 & 视觉层级\n- Name 作为卡片title加粗突出\n- Amount 金额货币格式化，如￥150,000 或 $150,000\n- Stage 添加彩色badge（不同状态不同颜色）\n- Close date 格式化为短日期(如'2024-01-15')\n- Amount和Stage横向并列，提升可读性\n\n### 2. 交互与性能优化\n- 卡片可左右滑动出现常用操作（Edit/Change Stage）\n- 加载数据时展示Skeleton卡片动画\n- 支持下拉刷新（已实现）基础上，增加无限滚动加载\n\n### 3. 底部导航优化\n- 标签文本优先全名显示，不足时仅显示图标\n- 使用@object-ui/mobile的MobileOverrides.navigation: 'bottom-tabs'提升体验\n\n## 代码实现参考\n- 重点参考`ObjectGrid`组件（packages/plugin-grid/src/ObjectGrid.tsx）的移动端card view逻辑\n- 善用@object-ui/mobile中的useBreakpoint/useResponsive等hooks\n- 需调整generateColumns、卡片结构与样式细节，实现信息紧凑与主次分明\n\n---\n**该优化会显著提升移动端 Opportunity 视图的易用性与美观度，并能有效解决现有主要痛点。**\n\n> 优化完成后请务必自行运行test并关注相关问题，并及时同步Roadmap。"
+}

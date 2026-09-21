@@ -1,0 +1,33 @@
+{
+  "number": 644,
+  "kind": "pull_request",
+  "title": "feat: P0 SpecBridge & Core Protocol Infrastructure",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-20T07:26:25Z",
+  "updated_at": "2026-02-20T08:22:01Z",
+  "closed_at": "2026-02-20T08:14:57Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-20T08:14:57Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/644",
+  "body": "Implements the P0 foundational bridge layers that enable ObjectUI to render enterprise interfaces from `@objectstack/spec` JSON metadata. Protocol alignment moves from ~20% to ~55%.\n\n## SpecBridge (`packages/react/src/spec-bridge/`)\n\nRegistry-based transformer: spec JSON → ObjectUI `SchemaNode` tree.\n\n- **ListViewBridge** — `ListViewSchema` → `object-grid` (column mapping, selection, pagination, density, grouping, row colors)\n- **FormViewBridge** — `FormViewSchema` → `object-form` (sections with 1-4 column layout, field widget overrides)\n- **PageBridge** — `PageSchema` → `page` (16 page types, regions, all 29 `PageComponentType` mappings)\n- **DashboardBridge** — `DashboardSchema` → `dashboard` (header, global filter bar, widget grid)\n\n```typescript\nconst bridge = new SpecBridge({ user, objectDefs });\nconst node = bridge.transformListView(specJson); // → SchemaNode for SchemaRenderer\n```\n\n## Expression Engine in SchemaRenderer (`packages/react/src/SchemaRenderer.tsx`)\n\nSchemaRenderer now evaluates `visible`/`visibleOn`/`hidden`/`hiddenOn`/`disabled`/`disabledOn` — previously these fields were stripped but never applied.\n\n```json\n{ \"type\": \"button\", \"visible\": \"${data.role === 'admin'}\", \"disabled\": \"${data.status === 'locked'}\" }\n```\n\n## ActionEngine (`packages/core/src/actions/ActionEngine.ts`)\n\nDeclarative action dispatch layer on top of existing `ActionRunner`:\n\n- Event → action mapping with conditional dispatch\n- Location-based filtering (`list_toolbar`, `record_header`, etc.)\n- Keyboard shortcut registry with key normalization\n- Bulk operations (parallel/sequential, continueOnError)\n\n## ViewDataProvider (`packages/core/src/data-scope/ViewDataProvider.ts`)\n\nResolves `@objectstack/spec` `ViewData` discriminated union via pluggable `DataFetcher`:\n\n- `provider: 'object'` — metadata-driven (object name → records + field metadata)\n- `provider: 'api'` — custom REST endpoints (handles `records`/`data`/`items` response shapes)\n- `provider: 'value'` — static data passthrough\n\n## Test coverage\n\n75 new tests (27 SpecBridge, 14 expression, 19 ActionEngine, 15 ViewDataProvider). Full suite: 4,885 tests, 0 regressions.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完成roadmap开发\n> \n> P0. SpecBridge & Core Protocol Infrastructure — Must Ship 🎯\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

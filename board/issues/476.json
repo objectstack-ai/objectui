@@ -1,0 +1,33 @@
+{
+  "number": 476,
+  "kind": "pull_request",
+  "title": "Complete ROADMAP P2.3–P3.3: accessibility, performance, console features, component quality",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T15:07:14Z",
+  "updated_at": "2026-02-12T17:45:33Z",
+  "closed_at": "2026-02-12T16:15:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T16:15:58Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/476",
+  "body": "Addresses remaining ROADMAP development tasks across P2.3 Accessibility, P2.4 Performance, P2.5 Console Features, P3.1 Component Quality, P3.2 Field Widgets, and P3.3 View Robustness.\n\n### Build fixes\n\n- Fix `unknown` not assignable to `ReactNode` in `SchemaRenderer.tsx` error boundary\n- Fix `possibly undefined` narrowing in `data-objectstack/src/security.ts`\n\n### P2.3 Accessibility & Inclusive Design (5 test files, 87 tests)\n\n- Console page-level axe-core audit (`apps/console/src/__tests__/console-accessibility.test.tsx`)\n- Screen reader tests for Grid, Kanban, Calendar — ARIA roles, landmarks, keyboard nav\n- WCAG 2.1 AA color contrast ratio verification for light/dark themes\n\n### P2.4 Performance at Scale (4 test files, 40 tests)\n\n- Benchmark tests for Grid/Kanban/Calendar with 1K+ and 10K+ record datasets\n- View switching state preservation tests (selection, filters, scroll, sort across grid↔kanban↔calendar)\n\n### P2.5 Console Feature Completeness (5 test files + 1 component, 73 tests)\n\n- CRUD e2e, command palette search, theme toggle, responsive layout tests\n- New `InlineEditing` component in plugin-grid with save/cancel/validation, exported from package index\n\n```tsx\nimport { InlineEditing } from '@object-ui/plugin-grid';\n\n<InlineEditing\n  value={cell.value}\n  field={cell.field}\n  onSave={(val) => updateRecord(row.id, cell.field, val)}\n  onCancel={() => setEditing(null)}\n/>\n```\n\n### P3.1–P3.3 Component Quality, Fields, View Robustness (8 test files, 186 tests)\n\n- API consistency audit across exported components (prop naming, defaults, error states)\n- Edge-case tests (overflow, truncation, null data, large datasets)\n- Field widget validation feedback, extreme inputs (10K-char strings, MAX_SAFE_INTEGER, emoji, RTL), form variant integration\n- Empty/loading/error state tests for Grid, Kanban, Calendar views\n\n### Not yet addressed\n\nP3.4 (test coverage increase to 90%), P3.5 (Storybook interactive controls/edge case stories), P4.2 (typedoc API reference, schema playground), P4.3 (Storybook MDX docs, deployment). ROADMAP.md checkboxes not yet updated.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

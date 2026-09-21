@@ -1,0 +1,33 @@
+{
+  "number": 491,
+  "kind": "pull_request",
+  "title": "[WIP] Complete development for the Road Map",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T08:05:01Z",
+  "updated_at": "2026-02-13T09:43:30Z",
+  "closed_at": "2026-02-13T09:17:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T09:17:07Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/491",
+  "body": "- [x] **P5.1 Plugin Views - Mobile-First Layouts**\n  - [x] ObjectGrid: column collapse on mobile, responsive row padding, card-view fallback below 480px, 44px touch targets\n  - [x] ObjectKanban: snap scroll columns on mobile, touch DnD sensor, column count + swipe indicator\n  - [x] ObjectForm: delegates to form renderer (handled in P5.3)\n  - [x] ObjectDashboard: swipeable widget carousel on mobile, responsive grid fallback\n  - [x] ObjectCalendar: auto-switch to day view on mobile, swipe navigation, event text scaling, long-press creation\n  - [x] ObjectTimeline: description truncation on mobile, gantt label truncation, pull-to-refresh\n  - [x] ObjectList: bottom-sheet-style action menus on mobile\n  - [x] DetailView: mobile-friendly action menus, tap-to-copy fields with 44px touch targets\n  - [x] Charts: reduced axis labels on mobile, legend stacking, touch tooltip support\n  - [x] Map: pinch-zoom/pan, marker search, touch-accessible controls\n  - [x] Gantt: responsive bar heights (32/40px), responsive zoom levels (35/50/60px columns)\n- [x] **P5.2 Console Pages - Responsive Layouts**\n  - [x] AppSidebar: swipe-from-edge gesture, touch-friendly padding, bottom navigation bar\n  - [x] DashboardView: heading scale (text-lg/xl/2xl), metadata panel stacks on mobile\n  - [x] RecordDetailView: scroll-padding for on-screen keyboard\n  - [x] Create/Edit Dialogs: full-screen on mobile, swipe indicator handle\n- [ ] **P5.3 Core Component Primitives**\n  - [ ] DataTable: column visibility, scroll indicator\n  - [ ] Form Renderer: field label scaling, touch targets, wizard mobile, step indicators\n  - [ ] Navigation: breadcrumb truncation, tab scroll, dropdown bottom sheet\n- [ ] **P5.4 Mobile Infrastructure**\n  - [ ] Touch & Gesture System integration\n  - [ ] Performance on Mobile Networks\n  - [ ] PWA Support\n- [ ] **P5.5 Testing & QA**\n  - [ ] Playwright mobile viewport tests\n  - [ ] Visual regression, touch interaction, axe-core mobile tests\n  - [ ] Storybook mobile viewport decorator\n- [ ] **Update ROADMAP.md** to mark all items complete\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完成Road Map所有开发\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

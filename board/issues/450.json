@@ -1,0 +1,33 @@
+{
+  "number": 450,
+  "kind": "pull_request",
+  "title": "fix: normalize kanban groupBy matching for label-vs-value mismatch",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T13:07:17Z",
+  "updated_at": "2026-02-11T13:47:39Z",
+  "closed_at": "2026-02-11T13:34:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T13:34:43Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/450",
+  "body": "Kanban board view showed empty columns (0 cards) despite data being fetched successfully.\n\n## Root Cause\n\n`Field.select(['In Progress', 'Backlog', ...])` auto-converts option values to snake_case (`in_progress`, `backlog`). Kanban columns are generated from these options using `opt.value` as column ID. However, seed data stores the original labels (`status: 'In Progress'`). The grouping logic used exact matching, so no data matched any column:\n\n```ts\n// Column IDs:  'in_progress', 'backlog', 'todo', ...\n// Data values: 'In Progress', 'Backlog', 'Todo', ...\ngroups[col.id]  // always undefined — no match\n```\n\n## Fix\n\n- Build a case-insensitive label→id mapping from columns so `'In Progress'` resolves to column `'in_progress'`\n- Backwards-compatible: exact value matches still work as before\n\n```ts\nconst labelToColumnId: Record<string, string> = {};\ncolumns.forEach((col: any) => {\n  if (col.id) labelToColumnId[String(col.id).toLowerCase()] = col.id;\n  if (col.title) labelToColumnId[String(col.title).toLowerCase()] = col.id;\n});\n\nconst rawKey = String(item[groupBy] ?? '');\nconst key = labelToColumnId[rawKey.toLowerCase()] ?? rawKey;\n```\n\n**Before:**\n\n![before](https://github.com/user-attachments/assets/64919827-8bb0-4c0b-af57-bdee1a9f19c3)\n\n**After:**\n\n![after](https://github.com/user-attachments/assets/807eacea-58e7-4dbf-84d3-c9b4019bb7ab)\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

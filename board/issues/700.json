@@ -1,0 +1,33 @@
+{
+  "number": 700,
+  "kind": "pull_request",
+  "title": "feat: ViewDesigner drag-to-reorder, extract config primitives, add DashboardConfig types",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T10:33:10Z",
+  "updated_at": "2026-02-21T11:09:14Z",
+  "closed_at": "2026-02-21T11:03:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T11:03:58Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/700",
+  "body": "Implements three roadmap items (P1.1, P1.10 Phase 0, P1.10 Phase 5) to advance Airtable UX parity and dashboard infrastructure.\n\n### ViewDesigner column drag-to-reorder (P1.1)\n\nReplaces `ArrowUp`/`ArrowDown` buttons with `@dnd-kit` drag handles. The existing `GripVertical` icon becomes a functional drag handle via `useSortable`.\n\n- New `SortableColumnItem` component wraps each column with `useSortable`\n- `DndContext` + `SortableContext` with `verticalListSortingStrategy`\n- `handleDragEnd` → `pushState()` for undo/redo integration\n- Selection tracking follows the dragged column\n\n```tsx\n<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>\n  <SortableContext items={columns.map((_, i) => `col-${i}`)} strategy={verticalListSortingStrategy}>\n    {columns.map((col, index) => (\n      <SortableColumnItem key={...} col={col} index={index} ... />\n    ))}\n  </SortableContext>\n</DndContext>\n```\n\n### Extract ConfigRow / SectionHeader (P1.10 Phase 0)\n\n- Moved from inline definitions in `ViewConfigPanel` to `@object-ui/components/custom`\n- Added `className` prop for extensibility\n- `ViewConfigPanel` now imports from `@object-ui/components`\n\n### DashboardConfig types + Zod validation (P1.10 Phase 5)\n\n- `DashboardConfig`, `DashboardWidgetConfig` interfaces in `designer.ts`\n- `DASHBOARD_COLOR_VARIANTS` and `DASHBOARD_WIDGET_TYPES` as shared `as const` arrays — single source of truth for both TS types (`typeof X[number]`) and Zod enums\n- `DashboardConfigSchema` / `DashboardWidgetConfigSchema` Zod validators\n\n### Tests\n\n- 33 new tests (5 drag-reorder, 12 config primitives, 16 dashboard types/zod)\n- 250 total passing across all affected packages\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按 roadmap 完成开发\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

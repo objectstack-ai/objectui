@@ -1,0 +1,33 @@
+{
+  "number": 596,
+  "kind": "pull_request",
+  "title": "feat: Complete Phase 11-13 L2/L3 features (Grid, Record Detail, Kanban)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T11:30:37Z",
+  "updated_at": "2026-02-18T12:38:20Z",
+  "closed_at": "2026-02-18T12:32:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T12:32:33Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/596",
+  "body": "Implements all remaining L2 (Production) and L3 (Excellence) features for Phases 11–13 of the console roadmap, bringing Grid, Record Detail, and Kanban to full completion.\n\n### Phase 11: Grid & Table Excellence → L3 Complete\n\n- **`useCellClipboard`** — Multi-cell range selection, Ctrl+C/V with Excel-compatible tab-separated format\n- **`useGradientColor`** — Maps numeric field values to Tailwind gradient classes with configurable color stops\n- **`useGroupReorder`** — Drag-and-drop group section reordering (HTML5 DnD)\n- **`FormulaBar`** — f(x) editor bar with Enter/Escape confirm/cancel\n- **`SplitPaneGrid`** — Resizable divider between frozen and scrollable column areas\n- **`useGroupedData`** updated — Aggregation support (`sum`/`count`/`avg`/`min`/`max` per group via `AggregationConfig[]`)\n\n### Phase 12: Record Detail & Navigation → L3 Complete\n\n- **`InlineCreateRelated`** — Tabbed Create/Link UI for related records\n- **`RichTextCommentInput`** — Markdown toolbar, @mention autocomplete, preview toggle\n- **`DiffView`** — Unified/side-by-side field change diff (string, number, boolean, JSON, date)\n- **`RecordNavigationEnhanced`** — First/Last + search-while-navigating + Home/End shortcuts\n- **`RelationshipGraph`** — SVG node-link graph with multi-level concentric layout\n- **`CommentAttachment`** — Drag-and-drop file upload with image thumbnails\n- **`PointInTimeRestore`** — Revision timeline with snapshot preview and two-step restore\n\n### Phase 13: Kanban & Views Enhancement → L3 Complete\n\n- **`InlineQuickAdd`** — Multi-field inline form (no dialog), Enter/Escape, template default values\n- **`CardTemplates`** — Dropdown template selector pre-filling `InlineQuickAdd`\n- **`useColumnWidths`** — Per-column width overrides with min/max clamping and localStorage persistence\n- **`useCrossSwimlaneMove`** — Cross-swimlane card movement with `acceptFrom` constraint validation\n- **`useQuickAddReorder`** — Drag-to-reorder cards within columns\n\n### Tests\n\n85 new tests (29 grid + 32 detail + 24 kanban). Full suite: 4563 tests pass across 263 files, 0 failures.\n\n### Roadmap\n\n`ROADMAP_CONSOLE.md` updated: Phases 11–13 marked L3 Complete across header, phase sections, feature tables, timeline, and success metrics.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

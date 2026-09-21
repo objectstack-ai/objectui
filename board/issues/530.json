@@ -1,0 +1,33 @@
+{
+  "number": 530,
+  "kind": "pull_request",
+  "title": "fix: resolve TS6133 unused variable errors breaking console build",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-15T18:01:42Z",
+  "updated_at": "2026-02-15T18:35:59Z",
+  "closed_at": "2026-02-15T18:20:06Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-15T18:20:06Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/530",
+  "body": "`tsc` in `apps/console` fails with 4 `TS6133` errors in `SpecViewConfig.test.tsx` due to `noUnusedLocals` / `noUnusedParameters`. This breaks the CI build job and Bundle Analysis workflow.\n\n- Removed `capturedKanbanSchema` and `capturedCalendarSchema` module-level variables — assigned in mock callbacks but never read (tests assert via `screen.getByText()` instead)\n- Prefixed unused `props` → `_props` in `ObjectGrid` mock factories\n\n```diff\n-let capturedKanbanSchema: any = null;\n-let capturedCalendarSchema: any = null;\n-\n-ObjectGrid: (props: any) => <div>Grid</div>,\n+ObjectGrid: (_props: any) => <div>Grid</div>,\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix all ci errors , build and test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

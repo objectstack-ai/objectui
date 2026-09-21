@@ -1,0 +1,33 @@
+{
+  "number": 660,
+  "kind": "pull_request",
+  "title": "Add actions and form_layout sections to CRM example metadata",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-20T14:04:05Z",
+  "updated_at": "2026-02-20T15:42:28Z",
+  "closed_at": "2026-02-20T15:28:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-20T15:28:47Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/660",
+  "body": "CRM example was missing `actions` and `form_layout` — two of the three spec capabilities needed for end-to-end Console verification.\n\n### Actions (21 total)\n\nTop-level `actions` array added to `defineStack()` covering all 8 objects:\n\n- **Account**: Send Email, Assign Owner, Merge Accounts\n- **Contact**: Send Email, Convert to Customer, Log a Call\n- **Opportunity**: Change Stage, Mark as Won, Mark as Lost\n- **Product**: Toggle Active, Update Price\n- **Order**: Change Status, Generate Invoice, Mark as Shipped\n- **User**: Reset Password, Deactivate User\n- **Project Task**: Change Status, Assign User\n- **Event**: Send Invitation, Mark as Completed, Cancel Event\n\nExercises `params` (select/text/email/textarea/boolean/currency/lookup), `confirmText`, `variant` (primary/danger), `locations` (record_header/list_item/record_more), `refreshAfter`, `successMessage`.\n\n### Form Layouts (29 sections across 8 objects)\n\n`form.sections` added to each view entry:\n\n```ts\nform: {\n  data: { provider: 'object', object: 'account' },\n  sections: [\n    { label: 'Basic Information', columns: '2', fields: ['name', 'industry', 'type', ...] },\n    { label: 'Financial', columns: '2', fields: ['annual_revenue', 'tags'] },\n    { label: 'Address', columns: '2', fields: ['billing_address', 'shipping_address', ...] },\n    { label: 'Additional Details', columns: '1', collapsible: true, fields: ['description', ...] },\n  ],\n},\n```\n\nEach object gets 3–4 sections with logical field grouping, multi-column layouts, and collapsible detail sections.\n\n### Metadata split into per-object files\n\nViews and actions are organized into separate files following the existing `src/objects/` pattern:\n\n- `src/views/` — 8 files (`account.view.ts`, `contact.view.ts`, `opportunity.view.ts`, `product.view.ts`, `order.view.ts`, `user.view.ts`, `event.view.ts`, `project.view.ts`)\n- `src/actions/` — 8 files (`account.actions.ts`, `contact.actions.ts`, `opportunity.actions.ts`, `product.actions.ts`, `order.actions.ts`, `user.actions.ts`, `event.actions.ts`, `project.actions.ts`)\n- `objectstack.config.ts` reduced from 1418 → 770 lines, now imports and spreads from separate files\n- `src/index.ts` re-exports all new modules\n\n### Note\n\n`objectstack compile` has a pre-existing re-validation bug on `form.sections.columns` (Zod transforms string `\"2\"` → number `2`, then re-validates against the string enum). `defineStack()` itself accepts the config correctly.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Enrich CRM example metadata with full @objectstack/spec capabilities</issue_title>\n> <issue_description>\n> \n> ### 🎯 Goal\n> Maximize the CRM example's use of `@objectstack/spec` features so that the Console front-end can verify **all platform capabilities** end-to-end.\n> \n> ### 📦 What's Being Enhanced\n> \n> **All 8 Object Definitions** (`account`, `contact`, `opportunity`, `product`, `order`, `user`, `project_task`, `event`):\n> \n> | Enhancement | Description |\n> |---|---|\n> | **Object metadata** | `description`, `titleFormat`, `recordName` |\n> | **Field enrichments** | `required`, `searchable`, `unique`, `defaultValue`, `helpText`, `placeholder`, `group`, `readOnly` |\n> | **Field type diversity** | text, textarea, richtext, email, url, number, currency, percent, date, datetime, boolean, select (with colors), multi-select, lookup (single/multiple) |\n> | **`list_views`** | 2+ list views per object (All, Active/Filtered) with sort/filter |\n> | **`actions`** | Object-level actions (Send Email, Change Status, etc.) to exercise the Action Engine |\n> | **`form_layout`** | Sections-based form layout organizing fields into logical groups |\n> | **New fields** | 30+ new fields across all objects (tags, avatar, linkedin, expected_revenue, shipping_address, etc.) |\n> \n> **Config & Docs Updates:**\n> - `objectstack.config.ts` — Updated seed data, new views leveraging new fields\n> - `ROADMAP.md` — Completion entry added\n> \n> ### 🔑 Key Principle\n> - Only use features actually supported by `ObjectSchema.create()` and `Field.*()` from `@objectstack/spec/data`\n> - Keep backward compatibility with existing seed data field names\n> - Run tests to ensure nothing breaks\n> \n> The coding agent is now working on the PR. You'll receive a notification when it's ready for review. 🚀</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> <comment_new><author>@hotlong</author><body>\n> 任务没完成 \n> list_views | 2+ list views per object (All, Active/Filtered) with sort/filter\n> -- | --\n> actions | Object-level actions (Send Email, Change Status, etc.) to exercise the Action Engine\n> form_layout | Sections-based form layout organizing fields into logical groups\n> \n> </body></comment_new>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#655\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

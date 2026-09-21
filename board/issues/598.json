@@ -1,0 +1,33 @@
+{
+  "number": 598,
+  "kind": "issue",
+  "title": "api集成问题",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T12:12:49Z",
+  "updated_at": "2026-02-18T13:14:30Z",
+  "closed_at": "2026-02-18T13:14:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/598",
+  "body": "\n---\n\n### Issue 1: P0\n**Title:** `P0: System Admin 页面（User/Org/Role/AuditLog）全部为假界面空壳，需接入后端 API 实现 CRUD`\n\n**Body:**\n> **问题描述**\n> `UserManagementPage`、`OrgManagementPage`、`RoleManagementPage`、`AuditLogPage` 4个页面仅渲染表头，表体只有 \"Connect to ObjectStack server to load...\" 占位文字，无任何 `dataSource` 调用，按钮无事件处理。\n>\n> **涉及文件**\n> - `apps/console/src/pages/system/UserManagementPage.tsx`\n> - `apps/console/src/pages/system/OrgManagementPage.tsx`\n> - `apps/console/src/pages/system/RoleManagementPage.tsx`\n> - `apps/console/src/pages/system/AuditLogPage.tsx`\n>\n> **期望**: 通过 `dataSource.find('sys_user'|'sys_org'|'sys_role'|'sys_audit_log')` 获取真实数据并渲染；CRUD 按钮接入 API。开发后运行 test 并更新 roadmap。\n\n---\n\n### Issue 2: P1\n**Title:** `P1: 协作功能（在线用户/活动流/评论）数据全部为硬编码模拟数据，需接入后端实时 API`\n\n**Body:**\n> **问题描述**\n> - `AppHeader` 中 `MOCK_PRESENCE_USERS`、`DEMO_ACTIVITIES` 硬编码\n> - `RecordDetailView` 中 `MOCK_RECORD_VIEWERS`、`MOCK_USER` 硬编码\n> - `CommentThread` ��论纯 local state，刷新即丢失\n> - `ActivityFeed` 注释标明 \"Phase 17 L1 – local state only, no server integration\"\n>\n> **涉及文件**\n> - `apps/console/src/components/AppHeader.tsx`\n> - `apps/console/src/components/ActivityFeed.tsx`\n> - `apps/console/src/components/RecordDetailView.tsx`\n>\n> **期望**: Presence/Activity/Comment 数据来自真实 API 并持久化。开发后运行 test 并更新 roadmap。\n\n---\n\n### Issue 3: P2\n**Title:** `P2: ReportBuilder 可用字段为硬编码 MOCK_FIELDS，需从 object schema 动态获取`\n\n**Body:**\n> **问题描述**\n> `ReportView.tsx` 中 `MOCK_FIELDS` 硬编码 8 个字段（month/revenue/count 等），ReportBuilder 的 `availableFields` 使用这些假字段，无法反映真实对象 schema。\n>\n> **涉及文件**\n> - `apps/console/src/components/ReportView.tsx`\n>\n> **期望**: 从 `useMetadata().objects` 或 `dataSource.getObjectSchema()` 动态获取字段列表。开发后运行 test 并更新 roadmap。\n\n---\n\n### Issue 4: P3\n**Title:** `P3: ViewDesigner 保存操作仅 console.log，需实现 view config 持久化到后端`\n\n**Body:**\n> **问题描述**\n> `ViewDesignerPage.tsx` 的 `handleSave` 只执行了 `console.log` 和 toast 提示，view config 未通过 API 持久化到后端。\n>\n> **涉及文件**\n> - `apps/console/src/components/ViewDesignerPage.tsx`\n>\n> **期望**: 调用后端 API 保存 view config。开发后运行 test 并更新 roadmap。\n\n---\n"
+}

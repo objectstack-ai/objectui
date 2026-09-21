@@ -1,0 +1,33 @@
+{
+  "number": 447,
+  "kind": "pull_request",
+  "title": "feat: Airtable-style single-row toolbar for list views",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T09:53:07Z",
+  "updated_at": "2026-02-11T10:46:18Z",
+  "closed_at": "2026-02-11T10:41:37Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T10:41:36Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/447",
+  "body": "Redesigns the ListView toolbar to match Airtable's compact single-row toolbar pattern and removes the duplicate ObjectView toolbar.\n\n### Changes\n\n- **ListView toolbar**: Single Airtable-style row with tool buttons (`Hide fields` | `Filter` | `Group` | `Sort` | `Color` | `Row height`) left-aligned, expandable `Search` right-aligned\n- **ObjectView toolbar**: Removed duplicate filter/sort/search/refresh controls (delegated to ListView). Now only renders named view tabs and create button when needed.\n- Compact `h-7` ghost buttons with `text-xs` labels and `3.5x3.5` icons\n- Search collapses to a button by default; expands inline on click with auto-focus, collapses on blur when empty\n- `Hide fields`, `Group`, `Color`, `Row height` rendered as disabled placeholders for future implementation\n- Cleaned up unused imports (`FilterUI`, `SortUI`, `Search`, `Input`, `RefreshCw`) and unused `searchQuery` state from ObjectView\n- Updated tests to account for expandable search interaction flow and removed search controls from ObjectView\n\n### Affected packages\n\n- `@object-ui/plugin-list` — `ListView.tsx`\n- `@object-ui/plugin-view` — `ObjectView.tsx`\n\n<img src=\"https://github.com/user-attachments/assets/9086889a-d924-4e01-bf70-e498cfddc228\">\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

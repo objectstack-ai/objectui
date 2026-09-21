@@ -1,0 +1,32 @@
+{
+  "number": 587,
+  "kind": "issue",
+  "title": "MetricCard KPI 卡支持彩色变体和操作按钮",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-18T05:48:47Z",
+  "updated_at": "2026-02-19T06:04:58Z",
+  "closed_at": "2026-02-19T06:04:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/587",
+  "body": "现有 MetricCard 白色卡片风格与 Airtable 彩色 KPI 卡差异明显，且缺少右上角操作按钮。\n\n**目标**：\n- KPI卡支持 colorVariant 属性（如 orange/teal/blue...），匹配 Airtable 风格\n- 支持 actionUrl（右上角外链操作按钮）和 actionIcon\n- 支持 value 前后缀，如 $ 和 %\n- 兼容现有样式、交互和趋势指标\n- 单测、文档/storybook 演示各变体\n\n---\n\n见：[分析建议](https://github.com/objectstack-ai/objectui/blob/main)，2.2 MetricCard 彩色变体支持\n\n- 类型：增强（Enhancement）\n- 实现后需运行 test 并更新 roadmap"
+}

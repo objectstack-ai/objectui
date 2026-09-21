@@ -1,0 +1,33 @@
+{
+  "number": 506,
+  "kind": "pull_request",
+  "title": "feat(crm): add console plugin integration, CLI dev mode, and plugin export",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-14T06:29:05Z",
+  "updated_at": "2026-02-14T07:10:03Z",
+  "closed_at": "2026-02-14T07:10:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-14T07:10:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/506",
+  "body": "Enable `examples/crm` to work as both a standalone debuggable app (via CLI) and a reusable plugin for other projects.\n\n### CLI Development Modes\n\n- **`pnpm dev`** — `objectstack serve --dev` with auto MemoryDriver, Studio UI, and ConsolePlugin\n- **`pnpm serve`** — production mode via CLI, ConsolePlugin loaded from config\n- **`pnpm start`** — custom `tsx server.ts` with explicit auth, logging, full control\n\n### Console Integration\n\n`ConsolePlugin` added to `objectstack.config.ts` plugins array so the CLI `serve` command loads the Console UI automatically — no custom server.ts needed for basic usage.\n\n### Plugin Export\n\nNew `plugin.ts` with `CRMPlugin` class and `crmConfig` raw export, exposed via `./plugin` package export:\n\n```ts\n// As a kernel plugin\nimport { CRMPlugin } from '@object-ui/example-crm/plugin';\nkernel.use(new CRMPlugin());\n\n// For config merging\nimport { crmConfig } from '@object-ui/example-crm/plugin';\n```\n\n### Changes\n\n- `objectstack.config.ts` — embed `ConsolePlugin` in `plugins` array (uses `as any` since `defineStack` schema doesn't include runtime plugins, consistent with `objectstack.shared.ts`)\n- `package.json` — add `dev` script, `type: module`, `./plugin` export path\n- `plugin.ts` — new `CRMPlugin` class wrapping CRM metadata as kernel-compatible plugin\n- `server.ts` — import `ConsolePlugin` directly from `@object-ui/console`\n- `tsconfig.json` — include `plugin.ts`\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 我希望example/crm 可以引用@object-ui/console ，使用cli运行，单独调试，也可以编译成插件供别的项目引用，请帮我设计这个开发模式，并且测试确认\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

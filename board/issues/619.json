@@ -1,0 +1,33 @@
+{
+  "number": 619,
+  "kind": "pull_request",
+  "title": "Auto-upgrade modal size when auto-layout infers multi-column forms",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-19T08:01:42Z",
+  "updated_at": "2026-02-19T08:27:39Z",
+  "closed_at": "2026-02-19T08:11:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-19T08:11:32Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/619",
+  "body": "Auto-layout infers `columns=2` for forms with 4+ fields, but `modalSize` defaults to `max-w-lg` (512px) — too narrow for Tailwind's `sm:grid-cols-2` breakpoint (640px). Two-column layout never actually renders.\n\n### Changes\n\n- **`autoLayout.ts`** — Add `inferModalSize(columns)`: `2→lg`, `3→xl`, `4+→full`\n- **`ModalForm.tsx`** — Lift auto-layout computation into `useMemo` at component level so inferred columns are available before render. Compute `effectiveModalSize` from inferred columns when `schema.modalSize` is not explicitly set.\n- **`index.tsx`** — Export `inferModalSize`\n\n```ts\n// autoLayout.ts\nexport function inferModalSize(columns: number): 'sm' | 'default' | 'lg' | 'xl' | 'full' {\n  if (columns <= 1) return 'default';\n  if (columns === 2) return 'lg';      // max-w-2xl (672px)\n  if (columns === 3) return 'xl';      // max-w-4xl (896px)\n  return 'full';                        // 95vw\n}\n```\n\nUser-specified `modalSize` always wins. Section-based layouts are unaffected (they manage their own column config).\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Auto-layout 推断多列时 modal 尺寸未自适应，2列表单容器过窄</issue_title>\n> <issue_description>## 问题描述\n> \n> ���前 ModalForm 支持 auto-layout，表单字段数量多时会推断 columns=2。但即使 auto-layout 推断出多列，弹窗 modalSize 仍默认为 `default` (`max-w-lg`, 512px)。实际效果是：\n> - 表单被渲染为两列，但弹窗宽度过窄，导致单列纵向堆叠，或者两列略显拥挤，与预期的分栏布局体验不符。\n> - 用户期望有 2/3 列布局时自动切换到更宽的弹窗（如 `lg`/`xl`），让两列布局真正可用。\n> \n> <img alt=\"Create Contact 弹窗截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/efc043a0-dcfd-4fcc-8c8b-85085f920fcc\" />\n> \n> ## 复现步骤\n> 1. 使用 ObjectForm/ObjectGrid 打开 Contact create 弹窗（字段大于 4）\n> 2. 保持 modalSize 不填或用 `default`\n> 3. 表单被推断为 2 列，实际 UI 仍然单列或空间极窄\n> \n> ## 分析排查\n> - 代码已合并 objectstack-ai/objectui#617，auto-layout 已推断出 columns: 2，并传递给 renderer。\n> - 但 modalSize 仍默认 `max-w-lg`，宽度跟随 schema.\n> - Tailwind 的 `sm:grid-cols-2` 只在 viewport ≥ 640px 才显示两列；但容器实际 `max-w-lg` (< 640px) 根本摆不下两列。\n> \n> ## 建议修复方案\n> - 当 auto-layout 推断 columns > 1 且用户未手动配置 modalSize 时，自动升级弹窗 modalSize 至 `lg` 或 `xl`，美观且空间合适。\n> - 或者在 columns 推断为 2/3/4 时，分别用 `lg`/`xl`/`full` 标准宽度。\n> - 文档和交互提示也可以同步更新。\n> \n> ## 受影响版本\n> - 当前 main\n> \n> ## 关联\n> - objectstack-ai/objectui#616 </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#618\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

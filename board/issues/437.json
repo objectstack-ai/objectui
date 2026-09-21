@@ -1,0 +1,33 @@
+{
+  "number": 437,
+  "kind": "pull_request",
+  "title": "feat: Console UX Phase 2 — skeletons, toasts, keyboard shortcuts, responsive sidebar, breadcrumb nav, recent items, file upload",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T20:22:35Z",
+  "updated_at": "2026-02-10T22:12:31Z",
+  "closed_at": "2026-02-10T21:11:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T21:11:35Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/437",
+  "body": "- [x] **1. Skeleton loading states** for data-heavy views (grid, dashboard, detail)\n- [x] **2. Toast notifications** for CRUD operations (create/update/delete success/error)\n- [x] **3. Keyboard shortcuts help dialog** (? key)\n- [x] **4. Responsive sidebar auto-collapse** on tablet breakpoints\n- [x] **5. Breadcrumb-based quick navigation dropdown**\n- [x] **6. Recent items in sidebar**\n- [x] **7. File upload integration** via extended ObjectStackAdapter\n- [x] **8. Tests** — 21 new tests, all 2789+ existing tests pass\n- [x] **9. Build verification** — all 26 packages build cleanly\n- [x] **10. Fix blank page** — resolved infinite render loop in recent items useEffect (React error #185)\n\n### Fixed: Blank page in browser preview\nThe `useEffect` for tracking recent items had **unstable array references** (`cleanParts` from `.filter()`, `allObjects` from `|| []`) in its dependency array. These created new array objects on every render, causing the effect to fire → `addRecentItem` → state update → re-render → infinite loop (React error #185).\n\n**Fix**: Compute derived values inside the effect body; depend only on `location.pathname` and the stable `addRecentItem` callback.\n\n![Console rendering correctly after fix](https://github.com/user-attachments/assets/e9cac4fb-69e2-4553-ac0b-590377ceb8ac)\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

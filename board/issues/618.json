@@ -1,0 +1,35 @@
+{
+  "number": 618,
+  "kind": "issue",
+  "title": "Auto-layout 推断多列时 modal 尺寸未自适应，2列表单容器过窄",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-19T08:01:26Z",
+  "updated_at": "2026-02-19T08:11:33Z",
+  "closed_at": "2026-02-19T08:11:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/618",
+  "body": "## 问题描述\n\n���前 ModalForm 支持 auto-layout，表单字段数量多时会推断 columns=2。但即使 auto-layout 推断出多列，弹窗 modalSize 仍默认为 `default` (`max-w-lg`, 512px)。实际效果是：\n- 表单被渲染为两列，但弹窗宽度过窄，导致单列纵向堆叠，或者两列略显拥挤，与预期的分栏布局体验不符。\n- 用户期望有 2/3 列布局时自动切换到更宽的弹窗（如 `lg`/`xl`），让两列布局真正可用。\n\n<img alt=\"Create Contact 弹窗截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/efc043a0-dcfd-4fcc-8c8b-85085f920fcc\" />\n\n## 复现步骤\n1. 使用 ObjectForm/ObjectGrid 打开 Contact create 弹窗（字段大于 4）\n2. 保持 modalSize 不填或用 `default`\n3. 表单被推断为 2 列，实际 UI 仍然单列或空间极窄\n\n## 分析排查\n- 代码已合并 #617，auto-layout 已推断出 columns: 2，并传递给 renderer。\n- 但 modalSize 仍默认 `max-w-lg`，宽度跟随 schema.\n- Tailwind 的 `sm:grid-cols-2` 只在 viewport ≥ 640px 才显示两列；但容器实际 `max-w-lg` (< 640px) 根本摆不下两列。\n\n## 建议修复方案\n- 当 auto-layout 推断 columns > 1 且用户未手动配置 modalSize 时，自动升级弹窗 modalSize 至 `lg` 或 `xl`，美观且空间合适。\n- 或者在 columns 推断为 2/3/4 时，分别用 `lg`/`xl`/`full` 标准宽度。\n- 文档和交互提示也可以同步更新。\n\n## 受影响版本\n- 当前 main\n\n## 关联\n- #616 "
+}

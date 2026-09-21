@@ -1,0 +1,33 @@
+{
+  "number": 484,
+  "kind": "pull_request",
+  "title": "Evaluation: Console plugin transformation and HotCRM integration strategy",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T04:16:46Z",
+  "updated_at": "2026-02-13T09:01:23Z",
+  "closed_at": "2026-02-13T06:15:37Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T06:15:37Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/484",
+  "body": "Evaluates transforming `@object-ui/console` from standalone app to publishable plugin for HotCRM integration.\n\n## Approach\n\n**Dual-mode package architecture:**\n- Library build: 50-200KB tree-shakeable exports (components, hooks, types)\n- App build: 5-10MB standalone deployment (preserves current functionality)\n- Peer dependencies pattern prevents version conflicts, enables tree-shaking\n\n**Three integration patterns:**\n1. Full app embedding via `<ConsoleApp />` component\n2. Component-level cherry-picking (ObjectView, DashboardView, etc.)\n3. Hybrid approach mixing console + custom components (recommended)\n\n## Implementation Path\n\n```\napps/console/ → packages/plugin-console/\n├── src/\n│   ├── index.tsx              # Library exports + ComponentRegistry\n│   ├── app.tsx                # Full app export\n│   └── app-entry/main.tsx     # Standalone mode\n└── vite.config.ts             # Dual build (--mode lib|app)\n```\n\n**Package changes:**\n- `private: true` → `false`\n- Direct deps → peer deps (React, Router, Core libs)\n- Add UMD/ESM dual exports\n- vite-plugin-dts for TypeScript types\n\n## HotCRM Integration Example\n\n```typescript\n// Option A: Full embedding\nimport { ConsoleApp } from '@object-ui/plugin-console/app';\n\n<ConsoleApp appConfig={hotcrmConfig} dataSource={dataSource} />\n\n// Option B: Component-level\nimport { ConsoleLayout, ObjectView } from '@object-ui/plugin-console';\n\n<ConsoleLayout appConfig={config}>\n  <ObjectView objectName=\"contacts\" />\n  <CustomHotCRMDashboard />\n</ConsoleLayout>\n```\n\n## Deliverables\n\n- **CONSOLE_PLUGIN_EVALUATION.md**: Architecture analysis, transformation strategy, alternatives\n- **CONSOLE_PLUGIN_MIGRATION_GUIDE.md**: 8-phase implementation steps with code samples\n- **HOTCRM_INTEGRATION_EXAMPLE.md**: Complete working integration (package.json, vite config, app setup)\n- **CONSOLE_PLUGIN_SUMMARY.md**: Visual diagrams, quick reference\n- **CONSOLE_PLUGIN_DOCS_INDEX.md**: Navigation guide, role-based reading paths\n\n## Timeline\n\n6 weeks: 3 weeks transformation + 2 weeks testing/publishing + 1 week HotCRM integration\n\n## Risks\n\n- Breaking changes mitigated via app mode backward compatibility\n- Type incompatibility handled with generic interfaces\n- Bundle size managed via peer deps + tree-shaking\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 评估如何 把 @object-ui/console 发布成插件，并集成到单独的  hotcrm 项目中运行\n> \n> The user has attached the following file paths as relevant context:\n>  - .github/copilot-instructions.md\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\nCreated from [VS Code](https://code.visualstudio.com/docs/copilot/copilot-coding-agent).\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 569,
+  "kind": "pull_request",
+  "title": "Fix mobile dashboard layout: separate metric grid from full-width widgets",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T00:38:40Z",
+  "updated_at": "2026-02-18T01:00:26Z",
+  "closed_at": "2026-02-18T00:51:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T00:51:34Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/569",
+  "body": "Mobile dashboard rendered all widgets in a horizontal scroll carousel with fixed `w-[85vw]` width, causing stat cards to overflow and charts to be unreadable. Header was cluttered with theme/language controls.\n\n## Changes\n\n**DashboardRenderer.tsx**\n- Mobile threshold: `640px` → `768px`\n- Split widget rendering by type:\n  - Metrics: `grid grid-cols-2 gap-3` \n  - Charts/tables: `flex flex-col gap-4` (full-width)\n- Added `px-4` container padding\n- Removed `w-[85vw]` fixed width and horizontal scroll snap\n\n**DashboardView.tsx**\n- Mobile padding: `p-4` → `p-0` (DashboardRenderer handles its own padding)\n\n**AppHeader.tsx**\n- Hidden theme toggle and language switcher on mobile via `hidden sm:flex`\n\n## Implementation\n\n```tsx\n// Before: All widgets in horizontal carousel\n<div className=\"flex overflow-x-auto snap-x snap-mandatory\">\n  {widgets.map(w => <div className=\"w-[85vw] snap-center\">{w}</div>)}\n</div>\n\n// After: Type-aware mobile layout\nconst metricWidgets = widgets.filter(w => w.type === 'metric');\nconst otherWidgets = widgets.filter(w => w.type !== 'metric');\n\n<div className=\"flex flex-col gap-4 px-4\">\n  <div className=\"grid grid-cols-2 gap-3\">{metricWidgets}</div>\n  <div className=\"flex flex-col gap-4\">{otherWidgets}</div>\n</div>\n```\n\nDesktop layout (≥768px) unchanged.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ## 问题描述\n> \n> 手机端 CRM Dashboard 存在以下样式问题（如截图所示）：\n> \n> ![image1](image1)\n> \n> 从截图可以看出：\n> 1. **Stat 卡片被截断**：第一张 \"Total Revenue\" 卡片右侧溢出屏幕，且旁边的卡片只显示了一小条边缘，说明横向滚动容器和卡片宽度设置存在问题\n> 2. **大量空白区域**：Dashboard 主体内容（图表、表格等 widgets）没有正确渲染，或者因为移动端布局问题导致内容区完全空白\n> 3. **顶部导航栏内容过多**：`Crm Dashboard` 标题、sidebar trigger、搜索、主题切换等图标挤在一行\n> \n> ## 需要修复的文件\n> \n> ### 1. `packages/plugin-dashboard/src/DashboardRenderer.tsx`\n> \n> **当前移动端逻辑的问题：**\n> \n> ```tsx\n> // 当前代码 - 移动端检测阈值是 640px\n> const checkMobile = () => setIsMobile(window.innerWidth < 640);\n> \n> // 移动端渲染：横向滚动卡片轮播\n> if (isMobile) {\n>   return (\n>     <div ref={ref} className={cn(\"flex flex-col\", className)} {...props}>\n>       {refreshButton}\n>       <div\n>         className=\"flex overflow-x-auto snap-x snap-mandatory gap-3 pb-4 [-webkit-overflow-scrolling:touch]\"\n>         style={{ scrollPaddingLeft: '0.75rem' }}\n>       >\n>         {schema.widgets?.map(...renderWidget...)}\n>       </div>\n>     </div>\n>   );\n> }\n> ```\n> \n> **问题分析：**\n> - 移动端卡片宽度为 `w-[85vw]`，但容器没有 `px` padding，导致第一张卡片从最左边开始，与屏幕边缘无间距，视觉上被截断\n> - `snap-x` 轮播中所有 widgets（包括图表、metric cards）都变成了横向滚动卡片，导致图表等大型 widget 无法在可见区域内正常展示\n> - `metric` 类型的 self-contained widget 和 Card 型 widget 应该分别处理：metric card 适合 2 列网格，图表等大型 widget 应该全宽显示\n> \n> **修复方案：**\n> \n> ```tsx\n> // 移动端应该分两区渲染：\n> // 1. Metric cards -> 2列网格 (grid grid-cols-2 gap-3)\n> // 2. 其他 widget (chart, table等) -> 全宽垂直堆叠\n> \n> // 移动端完整修复\n> if (isMobile) {\n>   const metricWidgets = schema.widgets?.filter(w => w.type === 'metric') || [];\n>   const otherWidgets = schema.widgets?.filter(w => w.type !== 'metric') || [];\n>   \n>   return (\n>     <div ref={ref} className={cn(\"flex flex-col gap-4 px-4\", className)} {...props}>\n>       {refreshButton}\n>       {/* Metric cards: 2列网格 */}\n>       {metricWidgets.length > 0 && (\n>         <div className=\"grid grid-cols-2 gap-3\">\n>           {metricWidgets.map((widget, index) => renderMobileMetricWidget(widget, index))}\n>         </div>\n>       )}\n>       {/* 其他 widgets: 全宽垂直堆叠 */}\n>       {otherWidgets.map((widget, index) => renderMobileWidget(widget, index))}\n>     </div>\n>   );\n> }\n> ```\n> \n> 具体修改要点：\n> 1. **移动端 metric cards** 改为 `grid grid-cols-2 gap-3`，不再使用横向滚动\n> 2. **移动端图表/表格等非 metric widget** 改为全宽垂直堆叠 (`flex flex-col gap-4`)\n> 3. 移��端容器加 `px-4` padding，确保内容不贴边\n> 4. 移除 `w-[85vw]` 的固定宽度，改用 `w-full`\n> 5. 检测阈值从 `640` 调整至 `768`，更接近标准移动设备宽度\n> \n> ### 2. `apps/console/src/components/DashboardView.tsx`\n> \n> **当前代码：**\n> ```tsx\n> <div className=\"flex-1 overflow-auto p-4 sm:p-6\">\n>   <DashboardRenderer schema={dashboard} dataSource={dataSource} />\n> </div>\n> ```\n> \n> **问题：** 在移动端 `p-4` 的 padding 会加在 DashboardRenderer 外面，但 DashboardRenderer 内部的移动端容器也有自己的 `px` padding，造成双重 padding。\n> \n> **修复方案：**\n> ```tsx\n> // 移动端去掉外层 padding，让 DashboardRenderer 自己控制\n> <div className=\"flex-1 overflow-auto p-0 sm:p-6\">\n>   <DashboardRenderer schema={dashboard} dataSource={dataSource} />\n> </div>\n> ```\n> \n> 或者在 DashboardRenderer 移动端模式下不加 `px-4`，而由外层容器统一控制。\n> \n> ### 3. `apps/console/src/components/AppHeader.tsx`\n> \n> 从截图可见，移动端顶部 header 显示了大量图标（sidebar toggle、页面 title、搜索、主题、语言切换等），在小屏幕上显得拥挤。\n> \n> 检查 `AppHeader.tsx` 中搜索、主题切换、语言切换等按钮在小屏幕时是否需要隐藏��折叠到菜单中：\n> - 搜索按钮：保留（重要功能）\n> - 主题切换按钮：在移动端可以隐藏（`hidden sm:flex`）\n> - 语言切换按钮：在移动端可以隐藏（`hidden sm:flex`）\n> \n> ## 验收标准\n> \n> 修复后，移动端 CRM Dashboard 应该：\n> 1. ✅ Metric stat cards 以 2 列网格形式展示，每张卡片完整可见，无截断\n> 2. ✅ 图表、表格等 widgets 以全宽形式垂直堆叠展示\n> 3. ✅ 内容区域有合适的左右 padding（16px），不贴边也不双重 padding\n> 4. ✅ 所有内容正常渲染，无大面积空白\n> 5. ✅ 顶部 header 在移动端不过度拥挤\n> \n> ## 技术约束\n> \n> - 遵循 `@objectstack/spec` 协议规范\n> - 使用 Tailwind CSS 响应式类\n> - 不引入新的依赖\n> - 保持桌面端（sm 及以上）布局不变\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n*This pull request was created from Copilot chat.*\n>\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

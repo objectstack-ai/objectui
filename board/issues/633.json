@@ -1,0 +1,33 @@
+{
+  "number": 633,
+  "kind": "pull_request",
+  "title": "Fix view add/edit 404 & replace design mode toggle with admin auto-detect",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-19T14:38:18Z",
+  "updated_at": "2026-02-19T15:35:18Z",
+  "closed_at": "2026-02-19T15:29:44Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-19T15:29:43Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/633",
+  "body": "View designer navigation from nested view routes (`:objectName/view/:viewId`) produced 404s due to route-relative resolution. The \"Enter/Exit Design Mode\" toggle added unnecessary friction for admin users.\n\n### Navigation 404 fix\n\n`navigate()` calls for Edit View, Add View, and ViewTabBar's `onAddView` used default route-relative resolution, which breaks on flat sibling routes. Added `{ relative: 'path' }` for correct URL-relative resolution:\n\n```tsx\n// Before — route-relative, 404 from nested view route\nnavigate(viewId ? '../../views/new' : 'views/new')\n\n// After — URL path-relative, resolves correctly\nnavigate(viewId ? '../../views/new' : 'views/new', { relative: 'path' })\n```\n\n### Admin auto-design mode\n\n- Replaced `useState(false)` designMode toggle with `useAuth()` → `isAdmin` (`user?.role === 'admin'`), matching the existing pattern used in system admin pages\n- Admin users see design tools (Edit View, Add View, Metadata Inspector) directly — no toggle step\n- Non-admin users see no design entry points; ViewTabBar `+` button hidden via `onAddView={undefined}`\n- Removed unused `MoreVertical` import\n\n### Tests\n\n- 6 new test cases: admin/non-admin/unauthenticated visibility, navigation paths with `{ relative: 'path' }` from both root and nested routes\n- Added `@object-ui/auth` mock and simplified dropdown mocks for testability\n- All 322 console tests pass\n\n### Roadmap\n\n- Added G14 (view 404 fix) and task 5.9 (admin auto-design mode) to `ROADMAP_CONSOLE.md`\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>修复视图新增/编辑 404 & 管理员自动进��设计模式优化</issue_title>\n> <issue_description>### 问题描述\n> \n> - 编辑/新增视图后，点击\"添加视图\"或\"编辑视图\"会提示 404，无法正常跳转视图设计页面。\n> - 右上角的\"进入设计模式\"按钮（见图中截图右上角菜单），体验割裂。设计/编辑权限建议直接依据管理员权限自动生效，无需\"进入/退出设计模式\"切换。\n> \n> <img alt=\"404 问题与设计模式入口截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/03ea9e3f-7152-4a07-a138-928c357dc424\" />\n> \n> ### 复现步骤\n> 1. 任意对象页面下，切换到 Board/看板等非\"全部\"视图。\n> 2. 点击\"添加视图\"或\"编辑视图\"，弹窗短暂出现后页面报 404。\n> 3. 打开右上角菜单，看到\"进入/退出设计模式\"入口，与视图内容编辑产生割裂。\n> \n> ### 建议优化\n> 1. 修复\"新增视图、编辑视图\"后触发 404 的 bug。\n>    - 检查路由跳转及 viewId 传递逻辑，设计器应能正常打开或回到主页面。\n> 2. 设计/编辑权限建议直接判断 `isAdmin` 权限，而非依赖显式切换\"设计模式\"；管理员自动为设计状态。\n>    - 对有管理权限用户，直接展示所有编辑按钮（无须反复切换模式）。\n>    - 普通用户隐藏设计入口，只展示视图内容。\n> 3. 代码层面建议调整相关入口条件渲染逻辑，可参考主流平台\"管理/编辑仅限管理员\"的做法。\n> \n> ## 附截图\n> <img alt=\"404 编辑视图及设计模式入口问题\" width=\"2732\" src=\"https://github.com/user-attachments/assets/03ea9e3f-7152-4a07-a138-928c357dc424\" />\n> \n> ---\n> 请在修复后补充测试（含不同用户角色/权限下表现），更新 roadmap 并关闭本 issue。\n> \n> 相关 issue\n> https://github.com/objectstack-ai/objectui/issues/627</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#632\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

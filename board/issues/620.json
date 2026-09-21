@@ -1,0 +1,35 @@
+{
+  "number": 620,
+  "kind": "issue",
+  "title": "全平台弹窗表单统一使用 ModalForm，彻底消除 columns/max-width/auto-layout 分裂",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-19T08:27:21Z",
+  "updated_at": "2026-02-19T08:55:35Z",
+  "closed_at": "2026-02-19T08:55:35Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/620",
+  "body": "## 背景\n\n当前各业务入口（Console、ObjectGrid、业务模块弹窗等）表单多为手动 `<Dialog><ObjectForm columns=1 /></Dialog>` 实现。这导致：\n- 表单布局/宽度策略/兜底能力割裂，auto-layout/enhance 逻辑难以全局生效\n- 后续新增平台表单增强、分栏、移动适配、样式统一等能力推广非常困难\n- 维护和体验分散\n\n### 根因分析\n\n以 Console `apps/console/src/App.tsx` 第 344-388 行为例：\n\n```tsx\n<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>\n  <DialogContent className=\"sm:max-w-xl\">  ← 手动限制宽度\n    <ObjectForm schema={{ columns: 1, ... }} />  ← 硬编码 columns:1\n  </DialogContent>\n</Dialog>\n```\n\n- 硬编码 `columns: 1` 导致 `applyAutoLayout` 被完全跳过（尊重用户配置优先）\n- 直接使用 `<Dialog>` 绕过了 `ModalForm`，所有平台增强完全失效\n- 弹窗宽度 `sm:max-w-xl` (576px) 与 auto-layout 推断的 2 列布局不匹配\n\n<img alt=\"Create Contact 弹窗截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/9b1a8687-c2c7-45bb-91a7-e3ef8cdc8db4\" />\n\n## 最优长期方案\n\n### 1. ModalForm 成为唯一弹窗表单入口\n- 入口代码只需 `<ModalForm schema={...} />`，schema 仅传对象名、模式、字段列表、事件回调等\n- **由 ModalForm 内部统一控制：**\n  - auto-layout 智能推断 columns 和 colSpan\n  - 自动根据表单复杂度设置 modalSize 宽度（columns=2 → lg, columns≥3 → xl）\n  - 统一移动端全屏/桌面弹窗自适应策略\n  - 所有表单\"兜底能力\"都能平台可控扩展\n\n### 2. Console/App 及所有业务弹窗迁移\n- Console `App.tsx` 里的 `<Dialog>+<ObjectForm columns=1>` 组合替换为 `<ModalForm />`\n- 移除所有与布局相关的手动 schema 配置（columns/max-width）\n- 确保 onSuccess/onCancel/onOpenChange 回调保持兼容\n\n### 3. ModalForm 暴露扩展机制\n- 通过 schema slot/hook/component 注入满足高级业务定制\n- 鼓励业务通过标准扩展点定制，而非\"自己造弹窗\"\n\n## TODO\n\n- [ ] `apps/console/src/App.tsx`: 将 Dialog+ObjectForm 组合替换为 ModalForm\n- [ ] 移除 `columns: 1` 硬编码，交由 auto-layout 推断\n- [ ] ModalForm 内部：当 auto-layout 推断 columns>1 且未手动设 modalSize 时，自动升级弹窗宽度\n- [ ] 确认行为一致覆盖移动端（全屏）/桌面（弹窗）场景\n- [ ] 补充集成测试覆盖 Console 创建/编辑弹窗场景\n- [ ] 文档更新、平台级迁移指南\n\n## 受益\n- 彻底统一平台体验，auto-layout/宽度/表单增强一处生效全局收益\n- 降低维护成本，后续每次平台增强自动惠及所有业务\n- 建立\"弹窗表单唯一入口\"标准\n\n## 关联\n- #612 Auto-Layout 原始需求\n- #616 ModalForm/DrawerForm auto-layout 修复\n- #618 Modal 尺寸自适应"
+}

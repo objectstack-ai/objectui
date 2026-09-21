@@ -1,0 +1,35 @@
+{
+  "number": 713,
+  "kind": "issue",
+  "title": "Roadmap 更新：全面梳理视图配置实时同步改动及优化推进",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-22T02:53:51Z",
+  "updated_at": "2026-02-22T03:27:10Z",
+  "closed_at": "2026-02-22T03:27:10Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/713",
+  "body": "## 更新 Roadmap，评估所有需要改动的内容\n\n请根据 issue #711（右侧视图配置面板变更未实时同步到全部列表类型）和相关 PR/commit，系统性地梳理并更新 Roadmap。\n\n### 要求：\n- **评估目前 live preview 相关改动覆盖的范围及遗漏点**\n- 列出所有受影响的列表类型（Grid、Kanban、Calendar、Timeline、Gallery、Map）及对应的 config 属性\n- 明确指出哪些视图类型和 config 字段尚未完全实现实时同步\n- 补充所有需要改动的数据流、useMemo/useEffect 依赖、schema链路、属性透传等细节\n- 针对依赖链断裂、属性同步遗漏、单元/集成测试缺失等问题提出 Roadmap 优化建议\n- 最终 Roadmap 需详细规划各阶段目标及交付标准\n\n---\n修订 Roadmap 时请参考：\n- 当前的 console/plugin-view ObjectView、ViewConfigPanel 代码\n- 现有相关测试覆盖范围\n- 代码依赖深度及变更风险\n\n### 子任务建议（可拆分）：\n- [ ] Grid/表格视图 live preview 属性依赖补齐\n- [ ] Kanban 看板视图 live preview & groupBy/config同步\n- [ ] Calendar 日历视图 filter/sort/appearance同步\n- [ ] Timeline/Gantt、Gallery、Map 视图 config 透传全覆盖\n- [ ] useMemo/useEffect/数据流依赖梳理与重构\n- [ ] 端到端集成测试\n- [ ] 更新 Roadmap 文档\n\n\n---\n修订完成后请及时同步最新 roadmap。"
+}

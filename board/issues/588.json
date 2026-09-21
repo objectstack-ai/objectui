@@ -1,0 +1,32 @@
+{
+  "number": 588,
+  "kind": "issue",
+  "title": "DashboardFilterBar 组件：实现全局筛选条渲染协议",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-18T05:49:05Z",
+  "updated_at": "2026-02-19T06:04:58Z",
+  "closed_at": "2026-02-19T06:04:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/588",
+  "body": "Airtable 样式的仪表盘顶部条件筛选条（Global Filter Bar）在 ObjectUI 中尚未实现，但协议 `globalFilters` 已定义。\n\n**目标**\n- 按协议渲染 `DashboardSchema.globalFilters`（支持 select/date/text/number/date-range 等类型）\n- 横向排列，多选、可清空，移动端自适应换行\n- 用于仪表盘顶部标题下方，与 header 组合\n- 每个 dropdown 支持静态和动态 options（optionsFrom 数据源）\n- 支持精确回调 `onChange/onApply/onReset`\n\n**参考**：Airtable 目标界面+分析建议\n\n---\n\n见：[核心分析](https://github.com/objectstack-ai/objectui/blob/main)，\"1️⃣-2.1 DashboardFilterBar component\"\n\n---\n\n- 类型：新 feature 组件\n- 最佳实践：TypeScript + Tailwind + Shadcn\n- 提交后需运行测试并更新 roadmap"
+}

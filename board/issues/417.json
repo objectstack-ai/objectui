@@ -1,0 +1,33 @@
+{
+  "number": 417,
+  "kind": "pull_request",
+  "title": "feat: Q2 2026 roadmap — spec alignment, multi-tenancy, RBAC, mobile, visual designer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-09T17:04:44Z",
+  "updated_at": "2026-02-09T18:24:57Z",
+  "closed_at": "2026-02-09T18:00:17Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-09T18:00:17Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/417",
+  "body": "Implements Q2 2026 roadmap features: full @objectstack/spec v2.0.1 alignment, multi-tenancy, RBAC permissions, mobile optimization, and visual designer system.\n\n## New Type Definitions (`packages/types/src/`)\n\n- **`permissions.ts`** — RBAC type system: `RoleDefinition`, `ObjectLevelPermission`, `FieldLevelPermission`, `RowLevelPermission`, `PermissionGuardConfig`, role inheritance, sharing rules\n- **`tenant.ts`** — Multi-tenancy: `TenantConfig`, `TenantBranding`, `TenantLimits`, `TenantProviderConfig`, `TenantScopedQueryConfig`, isolation strategies\n- **`mobile.ts`** — `ResponsiveValue<T>`, `PWAConfig`, `OfflineConfig`, `GestureConfig`, `MobileOverrides`, cache strategies\n- **`designer.ts`** — `PageDesignerSchema`, `DataModelDesignerSchema`, `ProcessDesignerSchema`, `ReportDesignerSchema`, `CollaborationConfig`, BPMN 2.0 node types\n- **`ui-action.ts`** enhanced — `BatchOperationConfig`, `TransactionConfig` (isolation levels, rollback), `UndoRedoConfig`/`UndoRedoState`\n\n## New Packages\n\n- **`@object-ui/tenant`** — `TenantProvider`, `useTenant`, `useTenantBranding`, `TenantGuard` (feature/plan gating), `createTenantResolver` (subdomain/path/cookie/header/query/custom), `TenantScopedQuery`\n- **`@object-ui/permissions`** — `PermissionProvider`, `usePermissions` (`can`/`cannot` helpers), `useFieldPermissions`, `PermissionGuard` (hide/disable/custom fallback), `evaluatePermission` with role inheritance resolution, `createPermissionStore` for non-React contexts\n- **`@object-ui/mobile`** — `useBreakpoint` (Tailwind-aligned), `useResponsive`, `useGesture` (swipe/tap/long-press/pan), `usePullToRefresh`, `MobileProvider`, `ResponsiveContainer`, `generatePWAManifest`, `registerServiceWorker`\n- **`@object-ui/plugin-designer`** — `PageDesigner` (drag-and-drop canvas with palette/tree/properties), `DataModelDesigner` (ER diagrams with SVG relationships), `ProcessDesigner` (BPMN 2.0 with gateways/lanes), `ReportDesigner` (banded sections), `CollaborationProvider` (presence/operations)\n\n## Usage\n\n```tsx\nimport { TenantProvider } from '@object-ui/tenant';\nimport { PermissionProvider, PermissionGuard } from '@object-ui/permissions';\nimport { useBreakpoint, useGesture } from '@object-ui/mobile';\n\n// Wrap app with tenant + permission context\n<TenantProvider tenant={tenantConfig}>\n  <PermissionProvider roles={roles} permissions={perms} userRoles={['admin']}>\n    <PermissionGuard object=\"accounts\" action=\"delete\" fallback=\"disable\">\n      <DeleteButton />\n    </PermissionGuard>\n  </PermissionProvider>\n</TenantProvider>\n\n// Responsive + gesture hooks\nconst { isMobile, isAbove } = useBreakpoint();\nconst ref = useGesture({ type: 'swipe-left', onGesture: handleSwipe });\n```\n\n## Security Fixes\n\n- **Regex injection** in tenant cookie resolver — replaced `new RegExp()` with string-based parsing\n- **Prototype pollution** in permission evaluator — added dangerous property guard + `hasOwnProperty` check\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

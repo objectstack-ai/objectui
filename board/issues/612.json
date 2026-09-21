@@ -1,0 +1,35 @@
+{
+  "number": 612,
+  "kind": "issue",
+  "title": "平台级优化：元数据驱动表单默认布局与字段自动分��/列分布（Auto-Layout for ObjectForm）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-19T05:44:21Z",
+  "updated_at": "2026-02-19T06:01:21Z",
+  "closed_at": "2026-02-19T06:01:21Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/612",
+  "body": "## 背景\nObjectUI 平台的 ObjectForm（元数据驱动表单控件）目前的默认策略是：\n- 如果 schema 未指定 `columns`/`sections`，自动生成所有字段，全部采用 1 列平铺（单列长表单）。\n- 无论对象字段多少、类型如何，体验都不够理想。例如常见业务对象（如 Task、Contact、Order）创建时字段多，平铺易导致滚动过长、重要区块混杂、占用空间严重。\n\n## 优化目标\n**平台层面为所有对象表单提供更智能、零配置的默认布局（Auto-Layout）体验。** 让调用方无需繁琐配置，也可获得：\n- 自动推断最优 columns（如字段多时用 2 列，少时用 1 列）\n- 字段类型驱动智能 colSpan（textarea、markdown、grid 等宽字段自动占满行，其余半行）\n- 支持宽/窄字段分组、可选/必填分组等自动 section\n- Create 模式下自动过滤公式、只读字段等\n- 用户配置优先级最高，平台逻辑仅作为兜底\n\n## 参考实现思路\n1. **columns 自动推断**：\n    - 字段 <= 3：单列；字段 >= 4 且无宽字段：2 列；字段 >= 8 可扩展到 3~4 列（可调）。\n    - 发现 textarea、markdown、grid 字段自动 colSpan = columns。\n2. **section 智能分组（可选）**：\n    - 必填字段与可选/布尔宽度字段分开，textarea/备注类字段独立。\n3. **Create 模式过滤**：\n    - 自动隐藏 formula、summary、auto_number 等只读/自动生成字段，简化界面。\n4. **保底可被覆盖**：\n    - 若 schema 明确设置 columns、colSpan、sections，平台应完全尊重，不做推断。\n\n---\n\n## 期望收益\n- **即插即用**：各对象无需\"手动定制表单\"即可获得优雅表单布局\n- **一致性 & 体验提升**：平台所有对象表单（无论业务/插件/自定义）都具备合理空间利用和分组、可读性显著提升\n- **改动最小、收益极高**：底层增强，不影响 API，老项目零迁移风险\n\n---\n\n## 建议参考位置\n`packages/plugin-form/src/ObjectForm.tsx` 的 SimpleObjectForm 内部（formFields → FormSchema 前）\n\n---\n\n## 相关资料\n- [FormRenderer 支持 columns/colSpan/grid layout 文档](https://github.com/objectstack-ai/objectui/tree/main/packages/components/src/renderers/layout/grid.tsx)\n- [字段类型映射 mapFieldTypeToFormType](https://github.com/objectstack-ai/objectui/blob/main/packages/fields/src/index.tsx)\n\n---\n\n> ⚠️ 每次开发/调整记得运行 test，并同步相关问题和 roadmap。"
+}

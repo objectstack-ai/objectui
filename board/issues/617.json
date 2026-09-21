@@ -1,0 +1,33 @@
+{
+  "number": 617,
+  "kind": "pull_request",
+  "title": "fix: apply auto-layout in ModalForm/DrawerForm flat-fields path",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-19T07:20:48Z",
+  "updated_at": "2026-02-19T07:59:53Z",
+  "closed_at": "2026-02-19T07:39:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-19T07:39:56Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/617",
+  "body": "`applyAutoLayout` (column inference, wide-field colSpan, create-mode filtering) was only called in `SimpleObjectForm`. `ModalForm` and `DrawerForm` passed `schema.columns` directly—always `undefined` for flat fields—resulting in permanent single-column layout regardless of field count.\n\n### Changes\n\n- **`ModalForm.tsx` / `DrawerForm.tsx`**: Import and call `applyAutoLayout(formFields, objectSchema, schema.columns, schema.mode)` in the flat-fields rendering path, matching the existing pattern in `SimpleObjectForm`:\n\n```tsx\n// Before\nfields: formFields,\ncolumns: schema.columns,\n\n// After\nconst autoLayoutResult = applyAutoLayout(formFields, objectSchema, schema.columns, schema.mode);\n// ...\nfields: autoLayoutResult.fields,\ncolumns: autoLayoutResult.columns,\n```\n\n- **`NewVariants.test.tsx`**: 5 integration tests verifying 2-column inference (6 fields), single-column preservation (2 fields), and explicit `columns` override in both variants.\n- **`ROADMAP.md`**: Mark form-variant auto-layout as complete.\n\nNote: `TabbedForm`, `WizardForm`, and `SplitForm` are section-only forms (each section explicitly defines columns), so they are unaffected.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Auto-Layout 未在 ModalForm/DrawerForm 等表单变体中生效，始终为单列表单</issue_title>\n> <issue_description>## 问题描述\n> 在 `ObjectUI` 平台，实现了元数据驱动的 Auto-Layout 功能，`SimpleObjectForm` 能正确推断多字段时采用两列布局。但在实际使用（如创建联系人弹窗）发现：\n> - 不论 Contact 字段多少，界面仍始终是单列平铺。\n> - Modal 弹窗/Drawer 侧滑等表单变体未自动应用 `Auto-Layout`，用户体验与产品需求不符。\n> \n> <img alt=\"Create Contact 弹窗效果截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/3401623f-25b5-44b9-be2b-d88dc951447b\" />\n> \n> ## 复现路径\n> - 创建/编辑 Contact 等对象，字段较多，弹窗或侧滑表单打开时。\n> - 预期：根据字段数量智能切换 1-2 列，并为宽字段做 colSpan。\n> - 实际：始终 1 列平铺，未分栏。\n> \n> ## 分析排查\n> - `SimpleObjectForm` 已集成 `applyAutoLayout`，auto-layout 逻辑本身无误。\n> - 但 `ObjectForm` 代码中，`ModalForm`、`DrawerForm`、`TabbedForm`、`WizardForm`、`SplitForm` 变体直接将 formFields/schema.columns 透传到 renderer，**未调用 `applyAutoLayout`**。导致 columns 始终为 1 或 undefined。\n> - 无论 schema.columns 是否设置，平台级 auto-layout 推断入口缺失，需要修复。\n> \n> ## 相关代码位置\n> - [`ObjectForm.tsx` 195行+](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-form/src/ObjectForm.tsx)\n> - [`DrawerForm.tsx` 352行+](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-form/src/DrawerForm.tsx)\n> - [`autoLayout.ts`](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-form/src/autoLayout.ts)\n> \n> ## 修复建议\n> - 在所有表单变体（ModalForm、DrawerForm、TabbedForm、WizardForm、SplitForm）渲染前补充 `applyAutoLayout` 步骤。\n> - 未显式配置 columns/colSpan/sections 时，接管并自动推断 columns/colSpan。\n> - 保持和 SimpleObjectForm 一致体验。\n> \n> ## 受影响版本\n> - 当前 main 分支及近期所有构建\n> \n> ## 关联\n> - objectstack-ai/objectui#612 平台级表单布局优化\n> - 每次修复/调整需运行 test、同步问题和 roadmap。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#616\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 481,
+  "kind": "pull_request",
+  "title": "Add hotcrm submodule as real-world metadata example in console",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T03:11:16Z",
+  "updated_at": "2026-02-13T07:52:08Z",
+  "closed_at": "2026-02-13T03:55:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T03:55:13Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/481",
+  "body": "Integrates [hotcrm](https://github.com/objectstack-ai/hotcrm) as a git submodule and wires its 6 plugin metadata sets (CRM, Finance, Marketing, Products, Support, HR) into the ObjectUI console so ~95 enterprise business objects render live in the UI.\n\n### Submodule & Workspace\n\n- Added hotcrm at `examples/hotcrm`\n- Added `examples/hotcrm/packages/*` to pnpm workspace; excluded the monorepo root to prevent turbo from running hotcrm's own build pipeline\n\n### Metadata Bridge (`examples/hotcrm-bridge.js` + `.d.ts`)\n\nHotcrm plugins store objects as `{ name: ObjectDef }` maps; the console expects arrays. The bridge extracts and flattens them:\n\n```js\nexport const hotcrmObjects = allPlugins.flatMap((plugin) =>\n  Object.values(plugin.objects || {}),\n);\n```\n\nThe bridge is intentionally `.js` with a companion `.d.ts` — hotcrm targets a different `@objectstack/spec` revision that produces strict-mode errors. This keeps `tsc` from traversing the submodule source tree while Vite/esbuild handles transpilation normally.\n\n### Deduplication\n\nBoth the existing CRM example and hotcrm define `account`, `contact`, `opportunity`, `product`, `order`. `mergeObjects()` preserves existing objects (which carry seed data) and appends only unique hotcrm objects.\n\n### `@hotcrm/ai` Stub\n\nThe CRM plugin's action files import from `@hotcrm/ai` (no pre-built `dist/`). A lightweight stub at `examples/hotcrm-stubs/ai.ts` satisfies the import via a Vite alias — AI utilities aren't needed for UI metadata rendering.\n\n### Result\n\nConsole app switcher shows 9 apps (3 existing + 6 from hotcrm):\n\n![Console showing HotCRM apps](https://github.com/user-attachments/assets/829bcf8d-cf3b-48a9-a18a-3aab5603af07)\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

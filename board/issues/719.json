@@ -1,0 +1,35 @@
+{
+  "number": 719,
+  "kind": "issue",
+  "title": "Bug: 右侧 ViewConfigPanel 设置开关无法控制左侧列表 toolbar — 数据流断裂全量排查与修复",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "configuration"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-22T12:27:48Z",
+  "updated_at": "2026-02-22T14:16:31Z",
+  "closed_at": "2026-02-22T14:16:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/719",
+  "body": "## 🐛 问题描述\n\nPR #716 合并后，右侧 ViewConfigPanel 的\"启用搜索/启用筛选/启用排序\"开关已经关闭（OFF 状态），但左侧列表的 toolbar（Hide fields、Filter、Group、Sort、Color、Comfortable、Search 等控件）仍然全部显示，**开关完全无效**。\n\n<img alt=\"image1\" width=\"2732\" src=\"https://github.com/user-attachments/assets/ae2b653f-ba06-4625-9583-fa7970b3524e\" />\n\n---\n\n## 🔍 根本原因\n\n数据流存在 **两处断裂**：\n\n### 断裂点 1：PluginObjectView → renderListView schema 未传递 toolbar 开关\n\n`packages/plugin-view/src/ObjectView.tsx` 中 `renderListView` 回调传给 Console 的 schema **缺少 showSearch/showFilters/showSort**：\n\n```typescript\n// 当前代码（缺失 ❌）\nif (renderListView) {\n    return renderListView({\n        schema: {\n            type: 'list-view',\n            objectName: schema.objectName,\n            viewType: currentViewType,\n            fields: ...,\n            filters: mergedFilters,\n            sort: mergedSort,\n            rowHeight: activeView?.rowHeight,\n            densityMode: activeView?.densityMode,\n            groupBy: activeView?.groupBy,\n            options: ...,\n            // ❌ showSearch/showFilters/showSort 未传递！\n        },\n        ...\n    });\n}\n```\n\n### 断裂点 2：ListView toolbar 控件未根据 schema.showSearch/showFilters/showSort 条件渲染\n\n`packages/plugin-list/src/ListView.tsx` 的 toolbar 渲染区域，**Filter/Sort/Search/HideFields/Group/Color/Density 等按钮全部是无条件渲染的**，完全没有检查 `schema.showSearch`、`schema.showFilters`、`schema.showSort` 等字段来决定是否显示。\n\n即使上游正确传递了 `showSearch: false`，ListView 自身也不会响应。\n\n---\n\n## ✅ 修复清单（逐项对照修改）\n\n### 1. PluginObjectView — renderListView schema 补齐 toolbar 开关字段\n- [ ] `renderListView({ schema })` 中添加：`showSearch: activeView?.showSearch ?? schema.showSearch`\n- [ ] `renderListView({ schema })` 中添加：`showFilters: activeView?.showFilters ?? schema.showFilters`\n- [ ] `renderListView({ schema })` 中添加：`showSort: activeView?.showSort ?? schema.showSort`\n- [ ] 同时补齐 `striped`、`bordered`、`color` 到 renderListView schema（已部分在 Console fullSchema 补过，但 PluginObjectView 层也要传）\n\n### 2. ListView — toolbar 控件条件渲染\n- [ ] Search 按钮/搜索框：当 `schema.showSearch === false` 时隐藏\n- [ ] Filter 按钮/弹窗：当 `schema.showFilters === false` 时隐藏\n- [ ] Sort 按钮/弹窗：当 `schema.showSort === false` 时隐藏\n- [ ] Hide Fields 按钮：检查是否需要受某个 config 控制（如 `schema.showHideFields`），如不需要则保持显示\n- [ ] Group 按钮：检查是否需要受 `schema.showGroup` 控制\n- [ ] Color 按钮：检查是否需要受 `schema.showColor` 控制\n- [ ] Density/行高 按钮：检查是否需要受 `schema.showDensity` 控制\n- [ ] Export 按钮：确认 `schema.exportOptions` 或 `schema.allowExport` 控制逻辑正确\n\n### 3. Console ObjectView — renderListView 回调消费验证\n- [ ] Console 的 `renderListView` 构建 `fullSchema` 时，已有 `showSearch: viewDef.showSearch ?? listSchema.showSearch`——确认 `listSchema` 参数确实包含了 PluginObjectView 传来的值\n- [ ] 确认 `fullSchema` 最终传给 `<ListView schema={fullSchema} />` 时，ListView 能正确消费\n\n### 4. 数据流全链路校验\n- [ ] `ViewConfigPanel onViewUpdate('showSearch', false)` → `setViewDraft` → `activeView` 更新\n- [ ] `activeView` → `objectViewSchema.showSearch` → `PluginObjectView schema.showSearch`\n- [ ] `PluginObjectView` → `renderListView({ schema: { showSearch } })` → Console `fullSchema.showSearch`\n- [ ] `fullSchema` → `<ListView schema={fullSchema} />` → toolbar Search 按钮隐藏\n- [ ] 同理验证 `showFilters` 和 `showSort` 全链路\n\n### 5. generateViewSchema（非 grid 视图直渲路径）\n- [ ] 对非 grid 类型（kanban/calendar/timeline/gallery/map/gantt），`generateViewSchema` 中 `baseProps` 已包含 `showSearch`/`showSort`/`showFilters`——确认这些值能传递到各子插件组件的 toolbar\n\n### 6. useMemo 依赖项审查\n- [ ] Console `objectViewSchema` useMemo 的依赖数组包含 `activeView?.showSearch`、`activeView?.showFilters`、`activeView?.showSort`\n- [ ] Plugin `gridSchema` useMemo 的依赖数组包含 `activeView`\n- [ ] Plugin `renderContent` 函数的 `key` 是否包含足够的 deps 以触发 re-render\n\n### 7. 测试覆盖\n- [ ] 为 ListView 添加测试：`showSearch: false` 时 Search 按钮不渲染\n- [ ] 为 ListView 添加测试：`showFilters: false` 时 Filter 按钮不渲染\n- [ ] 为 ListView 添加测试：`showSort: false` 时 Sort 按钮不渲染\n- [ ] 为 PluginObjectView 添加测试：`renderListView` 回调的 schema 包含 `showSearch`/`showFilters`/`showSort`\n- [ ] 为 Console ObjectView 添加集成测试：右侧面板关闭 search/filter/sort → 左侧 toolbar 对应控件消失\n- [ ] 修复完成后运行全部 test suite，确认所有测试通过\n- [ ] 更新 Roadmap checklist\n\n---\n\n## 📂 涉及文件\n\n| 文件 | 改动类型 |\n|------|---------|\n| `packages/plugin-view/src/ObjectView.tsx` | renderListView schema 补齐 showSearch/showFilters/showSort |\n| `packages/plugin-list/src/ListView.tsx` | toolbar 控件条件渲染（Search/Filter/Sort/HideFields/Group/Color/Density） |\n| `apps/console/src/components/ObjectView.tsx` | 验证 fullSchema 传递正确性 + useMemo deps 审查 |\n| `packages/plugin-list/src/__tests__/ListView.test.tsx` | 新增 toolbar 开关测试 |\n| `packages/plugin-view/src/__tests__/ObjectView.test.tsx` | 新增 renderListView schema 传递测试 |\n\n---\n\n## 关联\n- 上游 PR: #716, #712\n- 上游 Issue: #715, #713\n"
+}

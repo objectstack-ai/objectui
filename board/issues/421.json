@@ -1,0 +1,36 @@
+{
+  "number": 421,
+  "kind": "pull_request",
+  "title": "feat: Console Authentication System — @object-ui/auth package, route guards, system admin pages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T02:49:21Z",
+  "updated_at": "2026-02-10T03:25:39Z",
+  "closed_at": "2026-02-10T03:20:24Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T03:20:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/421",
+  "body": "Implements roadmap item 1.5: complete login-to-usage flow per `CONSOLE_AUTH_PLAN.md`. Replaces hardcoded `{ name: 'John Doe', role: 'admin' }` with real auth context, adds route protection, and scaffolds system administration UI.\n\n## `@object-ui/auth` package (new)\n\n- **AuthProvider / useAuth** — React context + hook for auth state (user, session, signIn, signUp, signOut)\n- **AuthGuard** — Route guard with role-based access, loading fallback support\n- **createAuthClient** — Factory abstracting better-auth REST endpoints (`/sign-in/email`, `/sign-up/email`, `/get-session`, etc.)\n- **createAuthenticatedFetch** — Fetch wrapper injecting `Bearer` token from session into `ObjectStackAdapter`\n- **LoginForm / RegisterForm / ForgotPasswordForm** — Tailwind-styled form components\n- **UserMenu** — Authenticated user display with avatar/initials\n- **getUserInitials** — Shared utility for avatar fallback text\n\n## Console integration\n\n- Wrapped app with `AuthProvider`, added `/login`, `/register`, `/forgot-password` public routes\n- Protected `/apps/:appName/*` with `AuthGuard fallback={<Navigate to=\"/login\" />}`\n- `AppContent` reads `useAuth()` for dynamic `ExpressionProvider` user context\n- `AppSidebar` footer now renders real user data + functional sign-out via `useAuth()`\n- Added vite aliases for `@object-ui/auth`, `@object-ui/permissions`, `@object-ui/tenant`\n\n## System administration pages\n\n- `systemObjects.ts` — Schema definitions for `sys_user`, `sys_org`, `sys_role`, `sys_permission`, `sys_audit_log`\n- CRUD pages: UserManagement, OrgManagement, RoleManagement (admin-gated)\n- Read-only AuditLogPage, editable ProfilePage\n- Routes mounted at `/apps/:appName/system/*`\n\n```tsx\n// Auth integration pattern\n<AuthProvider authUrl=\"/api/auth\">\n  <Route path=\"/login\" element={<LoginPage />} />\n  <Route path=\"/apps/:appName/*\" element={\n    <AuthGuard fallback={<Navigate to=\"/login\" />}>\n      <AppContent />\n    </AuthGuard>\n  } />\n</AuthProvider>\n\n// Token injection for DataSource\nconst authenticatedFetch = createAuthenticatedFetch(authClient);\nnew ObjectStackAdapter({ baseUrl: '/api/v1', fetch: authenticatedFetch });\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

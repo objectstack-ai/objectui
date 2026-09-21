@@ -1,0 +1,35 @@
+{
+  "number": 629,
+  "kind": "issue",
+  "title": "【长期路线】统一应用与导航模型，推进对象化&可视化管理（对标主流低代码平台）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-19T12:34:59Z",
+  "updated_at": "2026-02-19T13:10:26Z",
+  "closed_at": "2026-02-19T13:10:26Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/629",
+  "body": "# 🏆 提升 ObjectUI 应用与导航长期可维护性和配置体验（对标主流低代码平台）\n\n## 背景\n当前 ObjectUI 平台在 \"应用\"（App）和 \"导航\"（Navigation/Menu）方面，采用了双配置模型，且缺乏系统性、可视化、分区化管理能力。主流低代码平台（如 Salesforce Lightning、Microsoft Power Apps、Mendix、OutSystems 等）普遍具备统一 App 管理器、可视化导航设计器、分区（Area）与权限驱动、对象化管理、声明式 App 生命周期等成熟体系。ObjectUI 作为 SDUI 引擎，有独特架构优势，宜结合 Spec 标准和企业级最佳实践进行系统升级。\n\n---\n\n## 🖼️ 长远最佳方案（MetaData-First App & Navigation Management）\n\n### 1. 统一导航数据模型\n- 以 `NavigationItem` 作为唯一规范，废弃并向后兼容 `MenuItem`。\n- 支持类型：object、dashboard、page、report、url、group、separator、action。\n- 所有导航表达为 JSON Schema（符合 @objectstack/spec）。\n\n### 2. 支持 Area（导航分区/业务域）\n- 类似 Salesforce 的 App → Area → Navigation model（Sales、Service、Marketing 等分区）。\n- `areas?: NavigationArea[]`，每个 Area 有独立的导航树，粒度更适合大型业务。\n- AppSidebar/AppHeader 支持 Area Switch UI，URL 路由更新为 /apps/:app/:area/:object。\n\n### 4. Visual Designer 递进实现\n- 配套拖拽式 Navigation Designer 组件（支持 group、area、order、自定义 icon、badge、表达式等）。\n- 高优先级：基础模型/存储/编辑/渲染一致性，低优先级：UED 可视化增强与 Live Preview。\n\n### 5. 现有 Console、Spec、CLI 等全方位对齐\n- CLI PC 工程和 Console 管理后台公用同一数据模型。\n- 终端（Web、Mobile、Design）多端可消费同样的元数据。\n- 确保旧有 MenuItem ≈> NavigationItem 的可升级 transform（无缝迁移）。\n\n---\n\n## 📝 任务分解\n\n### Phase A: Foundation（P0，高优）\n- [ ] 定稿统一 `NavigationItem` 模型，更新至 @objectstack/spec。\n- [ ] Console/CLI 编辑、消费场景全部升级至该模型，废弃 `MenuItem`，保留临时 transform。\n- [ ] AppSidebar/AppHeader 等组件适配统一模型，全面支持分区（Area）。\n- [ ] 增加单元测试/集成测试，Spec Compliance 全覆盖。\n\n### Phase B: Area 导航分区（P1，中优）\n- [ ] 扩展 App 配置 `areas` 字段，支持业务域导航结构。\n- [ ] Sidebar/AppSwitcher/CommandPalette 增强，对 Area 概念可见和切换。\n- [ ] 路由协议升级，支持 `/apps/:appName/:area/:object`。\n\n### Phase D: Visual Designer（P3，远期）\n- [ ] 可视化拖拽式 Navigation Designer，集成于 AppManager。\n- [ ] 支持实时预览、模板选择、新建/克隆/导入导出应用。\n\n---\n\n## 📐 实现建议与注意事项\n- 必须优先完成模型/接口/适配，拖拽 UI 可后置递进。\n- 保持 Roadmap & Spec 文档同步更新。\n- 落地前务必跑 test，保持核心能力和兼容性。\n\n---\n\n## 🔗 参考\n- [Microsoft Power Apps Navigation](https://learn.microsoft.com/en-us/power-apps/maker/model-driven-apps/design-app-navigation)\n- [Salesforce Lightning App Builder](https://help.salesforce.com/s/articleView?id=sf.app_builder_overview.htm)\n- `ROADMAP_CONSOLE.md`（objectui 仓库）\n\n---\n\n> 如需支持任务分拆、设计原型、技术实现场景落地，欢迎直接 @hotlong。\n\n---\n\n**标签建议**：`apps`, `navigation`, `feature`, `spec`, `refactor`\n**类型**：`Feature`\n\n---\n\n开发完成后请确保运行测试并及时更新 ROADMAP。\n"
+}

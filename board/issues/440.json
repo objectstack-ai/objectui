@@ -1,0 +1,33 @@
+{
+  "number": 440,
+  "kind": "pull_request",
+  "title": "Fix CI build, lint, and Vercel deployment failures",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T02:53:55Z",
+  "updated_at": "2026-02-11T04:11:46Z",
+  "closed_at": "2026-02-11T03:33:50Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T03:33:50Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/440",
+  "body": "Multiple CI failures across build, lint, and Vercel deploy caused by broken tsconfig path resolution in new plugin packages, missing type annotations, and a React Compiler lint violation.\n\n### tsconfig path resolution (`plugin-workflow`, `plugin-designer`, `plugin-report`)\n\nThese packages set `baseUrl: \".\"` with only `@/*` in `paths`, which clobbered the root tsconfig's `@object-ui/*` workspace path mappings — causing `TS2307: Cannot find module '@object-ui/core'` etc.\n\nRemoved `baseUrl`/`paths` (unused `@/` alias) and redundant tsc-specific options (`declaration`, `composite`, `declarationMap`, `noEmit: false`) — these packages build with `vite build` + `vite-plugin-dts`, not `tsc`.\n\n### `@object-ui/react` build\n\nTest files under `src/__tests__/` were included in the `tsc` build scope. Added `\"exclude\": [\"**/*.test.ts\", \"**/*.test.tsx\"]` to match other packages.\n\n### TS7006 implicit `any` annotations\n\nAdded explicit types to ~40 callback parameters across:\n- `WorkflowDesigner.tsx` — `WorkflowNode`, `WorkflowEdge`, React event types\n- `DataModelDesigner.tsx`, `PageDesigner.tsx`, `ReportDesigner.tsx`\n- `ReportBuilder.tsx`, `ReportExportEngine.ts`, `ReportViewer.tsx`, `LiveReportExporter.ts`\n\n### `plugin-view` lint error (React Compiler)\n\n`FilterUI.test.tsx` reassigned an outer-scope `let` variable inside a mock component, violating the React Compiler purity rule. Replaced with `React.createContext`/`useContext` to share the `onValueChange` callback between mock `Select` and `SelectItem`:\n\n```tsx\n// Before — lint error: \"Cannot reassign variables declared outside of the component\"\nlet selectCallback;\nconst Select = ({ onValueChange }) => { selectCallback = onValueChange; ... };\nconst SelectItem = ({ value }) => <div onClick={() => selectCallback?.(value)} />;\n\n// After — React Context\nconst SelectCtx = React.createContext(undefined);\nconst Select = ({ children, onValueChange }) => (\n  <SelectCtx.Provider value={onValueChange}>{children}</SelectCtx.Provider>\n);\nconst SelectItem = ({ value }) => {\n  const cb = React.useContext(SelectCtx);\n  return <div onClick={() => cb?.(value)} />;\n};\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

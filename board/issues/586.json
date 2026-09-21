@@ -1,0 +1,32 @@
+{
+  "number": 586,
+  "kind": "issue",
+  "title": "新增支持 widget header 描述与操作按钮",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-18T05:48:31Z",
+  "updated_at": "2026-02-19T06:04:57Z",
+  "closed_at": "2026-02-19T06:04:57Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/586",
+  "body": "仪表盘小组件（KPI卡/图表等）Header 区目前仅有标题，Airtable 风格为：标题、描述、右上角操作按钮（如外链）。\n\n**目标**：\n- Widget Header 支持配置 description 描述字段，显示在 title 下方\n- 支持 actionUrl/actionIcon 操作按钮，出现在 header 顶部右侧\n- 兼容各类小组件，包括 MetricCard、图表、pivot\n- 优化无 title 时的样式处理\n\n---\n\n分析详见 [核心建议 2.4](https://github.com/objectstack-ai/objectui/blob/main)\n\n- 类型：增强 Enhancement\n- 完成需包含 storybook 例子与单测"
+}

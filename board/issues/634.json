@@ -1,0 +1,36 @@
+{
+  "number": 634,
+  "kind": "issue",
+  "title": "[Mobile UX] 优化移动端 ModalForm 弹窗的表单交互和布局",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-19T15:54:37Z",
+  "updated_at": "2026-02-21T01:43:49Z",
+  "closed_at": "2026-02-21T01:43:49Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/634",
+  "body": "### 背景\n在移动端 \"Create Event\" 类型弹窗中，表单存在多处可优化体验：如弹窗没有全屏覆盖、主操作按钮易被内容遮挡、部分字段（如日期）缺乏原生输入体验等。\n\n#### 主要问题\n<img alt=\"事件创建表单移动端截图\" width=\"1320\" src=\"https://github.com/user-attachments/assets/89638e14-9d31-4816-9946-56fe0d614ac9\" />\n\n1. **Modal 未能在移动端自适应全屏**，顶部和底部空间浪费，主操作区常被遮挡。\n2. **操作按钮未固顶到底部**，填写较多内容时，需滚动到页面底部才可操作，易导致误操作流失。\n3. **表单布局响应式不足**，部分字段在移动端仍排成多列，建议小屏下强制一列。\n4. **关闭按钮触控区过小**，不易点击，需调整为大于 44×44px。\n5. **日期等字段应启用移动原生输入控件**，如 `<input type=\"datetime-local\">`，提升录入效率。\n6. **缺失渐进���载骨架**，表单加载时应显示骨架屏提升感知速度，减少首屏空白。\n7. **缺乏字段分组的视觉层次**，对于字段众多的表单建议分组+标题，方便查找与填写。\n\n### 优化建议与实施点：\n- [ ] 修改 DialogContent 组件，使其在小屏下使用 `inset-0 h-[100dvh]` 并顶部/底部圆角移至 sm 断点。\n- [ ] ModalForm 结构调整为 flex 列，Header（sticky）+ 滚动区域 + Footer（sticky 按钮区）。\n- [ ] 核查/调整自动布局 grid-class 响应断点，使 2 列及以上在 md 尺寸及以上生效，小屏一律单列。\n- [ ] 调整关闭按钮最小尺寸，确保易用性和可达性。\n- [ ] 校正 field 渲染逻辑，使日期时间字段在移动端优先使用原生控件。\n- [ ] 加入表单骨架 loading UI，避免首屏加载抖动。\n- [ ] 推荐事件类表单采用分组/section，提高视觉与操作逻辑。\n\n### 影响组件及文件\n- packages/components/src/ui/dialog.tsx\n- packages/plugin-form/src/ModalForm.tsx\n- packages/components/src/renderers/form/form.tsx\n- packages/fields/src/index.tsx\n- apps/console/src/App.tsx\n\n---\n**参考 ROADMAP 相关目标 & 已完成项：**\n- [x] Full-screen modal on mobile: `h-[100dvh] sm:h-auto sm:max-h-[90vh]`\n- [x] Sticky action buttons at bottom on mobile\n\n> 完成后请运行 test，并根据优化进展更新 ROADMAP/文档。"
+}

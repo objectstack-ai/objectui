@@ -1,0 +1,33 @@
+{
+  "number": 553,
+  "kind": "pull_request",
+  "title": "fix: resolve CI failures — coverage threshold and E2E webserver timeout",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T08:36:01Z",
+  "updated_at": "2026-02-16T13:34:54Z",
+  "closed_at": "2026-02-16T09:33:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-16T09:33:22Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/553",
+  "body": "Two CI failures on `main`: test coverage dropped to 63.77% (threshold: 64%) after recent feature PRs, and E2E tests time out because the Playwright webserver rebuilds everything despite pre-built artifacts.\n\n### Coverage fix\nAdded tests for previously uncovered hooks to bring coverage to 64.20%:\n- `useReducedMotion` — media query detection, listener lifecycle\n- `usePageTransition` — all 9 transition types, easing variants, crossFade positioning\n- `useCrudShortcuts` — shortcut registration for all CRUD operations\n- `useFocusTrap` — expanded from 5 to 13 tests covering DOM focus trapping, Tab/Shift+Tab cycling, Escape handling, restoreFocus\n\n### E2E timeout fix\nThe `webServer` command in `playwright.config.ts` always ran `pnpm turbo run build` before `vite preview`. In CI, the Build Core job already produces and uploads artifacts which the E2E job downloads — rebuilding is redundant and exceeds the 180s timeout.\n\n```ts\nwebServer: {\n  command: process.env.CI\n    ? 'pnpm --filter @object-ui/console preview --port 4173'\n    : 'pnpm turbo run build --filter=@object-ui/console && pnpm --filter @object-ui/console preview --port 4173',\n}\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix ci errors and build and test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

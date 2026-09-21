@@ -1,0 +1,33 @@
+{
+  "number": 694,
+  "kind": "pull_request",
+  "title": "ViewConfigPanel: add column reorder support in field selector",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T08:51:37Z",
+  "updated_at": "2026-02-21T09:10:01Z",
+  "closed_at": "2026-02-21T09:07:25Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T09:07:25Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/694",
+  "body": "Column selector in ViewConfigPanel only supported toggle visibility — no way to reorder columns. Users couldn't customize display order from the config panel.\n\n### Changes\n\n- **Column reorder**: `handleColumnMove(fieldName, 'up' | 'down')` swaps adjacent items in `draft.columns`, propagates via `onViewUpdate` for real-time preview\n- **Two-section column selector UI**: Selected columns render first (in draft order) with ↑/↓ buttons; unselected fields shown below for adding. Boundary buttons disabled appropriately.\n- **`EditorPanelType` export**: `'columns' | 'filter' | 'sort'` — typed sub-panel identifiers for parent state management\n- **8 new tests**: Reorder up/down, boundary disabled states, save persistence, unselected field addition, `onViewUpdate` propagation\n\n```tsx\n// Selected columns with reorder controls\n<div data-testid=\"selected-columns\">\n  {draft.columns.map((colName, idx) => (\n    <div key={colName}>\n      <Checkbox checked onCheckedChange={() => handleColumnToggle(colName, false)} />\n      <span>{field?.label}</span>\n      <button disabled={idx === 0} onClick={() => handleColumnMove(colName, 'up')}><ArrowUp /></button>\n      <button disabled={idx === draft.columns.length - 1} onClick={() => handleColumnMove(colName, 'down')}><ArrowDown /></button>\n    </div>\n  ))}\n</div>\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>ViewConfigPanel支持Columns字段选择器子面板，完善onOpenEditor联动</issue_title>\n> <issue_description># 问题说明\n> 当前点击ViewConfigPanel中的\"字段列（Columns）\"配置行，仅触发 onOpenEditor 回调并 console.info，无法弹出实际可用的字段勾选/排序面板。用户无法通过配置面板自定义列的显示与顺序，功能割裂且无法所见即所得。\n> \n> # 建议修复方案\n> - ObjectView 中添加 `const [activeEditor, setActiveEditor] = useState<EditorPanelType | null>(null);`\n> - 实现 handleOpenEditor: 点击\"字段列（Columns）\"时 setActiveEditor('columns')，并渲染一个浮层/侧边栏作为子面板\n> - 面板内列出 all objectDef.fields，支持勾选、拖拽排序，Save后更新 draft.columns 并回传\n> - 增加测试用例：点击后panel展开，拖拽/勾选列可更新，保存生效\n> \n> # 验收/测试点\n> - Columns面板\"字段列\"可选择和排序，并影响视图列\n> - 修改后draft.columns同步反映到主列表显示顺序\n> - 联动原有的 onViewUpdate 通道，支持即时反馈\n> \n> /cc @hotlong</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#674\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

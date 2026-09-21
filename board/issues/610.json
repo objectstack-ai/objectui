@@ -1,0 +1,36 @@
+{
+  "number": 610,
+  "kind": "issue",
+  "title": "Record Detail & Grid UI缺陷与优化建议：类型感知渲染、外键展示、格式优化等",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-19T04:40:53Z",
+  "updated_at": "2026-02-19T05:45:34Z",
+  "closed_at": "2026-02-19T05:45:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/610",
+  "body": "### 基本情况\n见示例：\n<img alt=\"Order 详情界面截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/3ab8970c-ff72-48b5-a15e-42759070cf7c\" />\n\n当前 Order 详情界面主要存在以下问题，影响数据清晰性和用户体验。所有问题在 React/Tailwind/TypeScript 实现的 DetailView、Grid、DetailSection 等相关代码中均可追溯。\n\n---\n\n### 详细问题列表\n\n#### 1. 外键（lookup）字段未解析，直接显示ID（严重）\n- \"CUSTOMER: 2\"，\"CUSTOMER: 3\" 显示为原始ID，而非实际引用对象（如联系人）的名称。\n- 这会让业务用户无法快速定位关联数据。\n- 主要原因：DetailSection、Grid 等组件直接用 `String(value)` 渲染，无查表操作。\n\n#### 2. 日期字段显示原生ISO字符串（高）\n- 如 \"ORDER DATE: 2024-01-15T00:00:00.000Z\"，应友好显示为本地化的日期格式。\n- 数据库原始数据未经过格式化，field.type 已给出但未被利用。\n\n#### 3. 金额字段未格式化为货币（高）\n- \"TOTAL AMOUNT: 15459.99\" 应显示为带货币符号及千分位的格式，如\"$15,459.99\"。\n- 可调用 formatCurrency 工具。\n\n#### 4. 状态等枚举/选项字段未视觉强化（中）\n- \"STATUS: Draft\" 等 select 字段应以彩色 Badge 呈现，高辨识度。\n- 目前为字符串渲染。\n\n#### 5. Grid 列Customer等同样为ID而非名称（高）\n- Grid中的Customer列显示 `2/3` 而非人名。\n- 根因与1类似，lookup列未处理引用。\n\n#### 6. 详情面板未做类型感知渲染（中）\n- 比如布尔值、日期、货币、枚举、外键等字段统一按字符串展示，缺乏表意差异化。\n- Grid record detail已部分实现类型感知（参见ObjectGrid.renderRecordDetail），但DetailSection代码未跟进。\n\n#### 7. 金额等列在grid中未右对齐（低）\n- 金额数字应右对齐便于比较。\n- 若inferColumnType正确，会自动加上align: right。\n\n---\n\n### 优化建议\n1. **在DetailSection.renderField实现类型感知渲染**\n    - 遇到field.type可以直接用getCellRenderer工具，不同类型自动调用合适格式化。\n    - 特别是lookup、currency、date、boolean、select等。\n2. **lookup字段实现实时查表/批量查表/缓存优化**\n    - 显示为主实体名称，并可加超链接跳转。\n3. **日期、金额等字段，按类型友好格式化**\n4. **状态/枚举型字段渲染为彩色Badge并支持枚举的快捷扩展**\n5. **Grid中的外键列和详情一致处理，统一用名词而非ID**\n6. **所有数字型列建议右对齐**\n\n---\n### 参考实现方式与代码建议\n- 详见 packages/plugin-detail/src/DetailSection.tsx 和 apps/console/src/components/RecordDetailView.tsx 等。\n- 可以用 getCellRenderer、formatCurrency、formatDate 工具批量替换原先的 String(value)。\n\n---\n### 优先级建议\n- lookup/外键类型渲染优化、日期金额格式、枚举Badge应优先上线，直接提升核心体验。\n- 基础文本对齐等可后置。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 473,
+  "kind": "pull_request",
+  "title": "feat: implement roadmap P1-P2 priorities — error codes, i18n, READMEs, debug mode, migration guide",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T11:59:35Z",
+  "updated_at": "2026-02-12T13:59:24Z",
+  "closed_at": "2026-02-12T12:52:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T12:52:31Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/473",
+  "body": "Implements concrete deliverables from the P1 (Developer Experience) and P2 (User Experience) roadmap priorities identified in the Feb 2026 audit.\n\n### Error code system (`@object-ui/core`)\n- `OBJUI-001` through `OBJUI-010` with message templates, fix suggestions, and doc URLs\n- `ObjectUIError` base class + `SchemaError`, `RegistryError`, `ExpressionError`, `PluginError`, `FieldValidationError`\n- `createError()` factory, `formatErrorMessage()` with dev-mode suggestions, `isObjectUIError()` guard\n- `SchemaErrorBoundary` now shows error codes and actionable suggestions in dev mode\n\n```ts\nimport { createError, formatErrorMessage } from '@object-ui/core';\n\nconst err = createError('OBJUI-001', { type: 'MyWidget' });\nconsole.log(formatErrorMessage(err));\n// [OBJUI-001] Unknown component type: \"MyWidget\"\n// 💡 Suggestion: Ensure the component is registered via registry.register()...\n// 📖 Docs: https://objectui.dev/docs/errors/OBJUI-001\n```\n\n### Debug mode (`OBJECTUI_DEBUG`)\n- `debugLog(category, message, data)`, `debugTime/debugTimeEnd` — zero-overhead no-ops when disabled\n- Schema resolution tracing and render timing wired into `SchemaRenderer`\n- Enable via `globalThis.OBJECTUI_DEBUG = true` or `OBJECTUI_DEBUG=true` env var\n\n### Console i18n completeness\n- Integrated `@object-ui/i18n` into console app (`I18nProvider` in `main.tsx`)\n- Migrated hardcoded strings in `LoadingScreen`, `KeyboardShortcutsDialog`, `CommandPalette` to `t()` calls\n- Added `console.*` namespace keys to all 11 locale files (en, zh, de, fr, es, ja, ko, pt, ru, ar)\n- No Chinese UI strings remain; all user-facing text goes through i18n\n\n### Documentation\n- **MIGRATION_GUIDE.md** — v2→v3 migration with before/after for all 5 breaking changes (was referenced in README but missing)\n- **10 package READMEs** — auth, tenant, permissions, i18n, mobile, collaboration, plugin-ai, plugin-designer, plugin-workflow, plugin-report\n- **Hello World example** — `examples/hello-world/` with minimal schema.json → UI demo\n\n### ROADMAP updates\nChecked off completed items in P1.1, P1.2, P1.3, P1.5, P2.1 sections.\n\n### Tests\n38 new tests (31 error codes + 7 debug utilities). 937 tests pass across core/react/i18n. Updated `KeyboardShortcuts.test.tsx` to mock the i18n hook.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

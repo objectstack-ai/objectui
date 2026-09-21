@@ -1,0 +1,33 @@
+{
+  "number": 614,
+  "kind": "pull_request",
+  "title": "feat: Report page formatting, layout, and interaction polish",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-19T06:04:19Z",
+  "updated_at": "2026-02-19T06:32:14Z",
+  "closed_at": "2026-02-19T06:28:49Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-19T06:28:49Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/614",
+  "body": "Report pages render raw numbers (652000), ISO date strings (`2024-01-15T00:00:00.000Z`), duplicate titles, unformatted status fields, no table scroll/hover/zebra, and a plain-text loading state. This PR fixes all of them in one pass.\n\n### `formatValue` utility (`packages/plugin-report/src/formatValue.ts`)\n- Auto-formats based on `ReportField.type` and `format`: thousand separators, `¥`/`$` currency, percent, `yyyy-MM-dd` dates\n- Auto-detects ISO date strings even without a type hint\n- Used by both summary cards and all table cells\n\n### `ReportField` type extensions (`packages/types/src/reports.ts`)\n- Added `renderAs?: 'badge' | 'text'` and `colorMap?: Record<string, string>` for status field rendering\n\n### `ReportViewer` improvements (`packages/plugin-report/src/ReportViewer.tsx`)\n- **Skeleton loading** replaces `\"Loading report data...\"` text\n- **Summary cards** pass aggregated values through `formatValue`\n- **Tables**: `overflow-x-auto` + `min-w-[600px]`, `even:bg-muted/20` zebra, `hover:bg-muted/50`, number columns `text-right tabular-nums`\n- **Badge rendering** for `renderAs: 'badge'` fields with `colorMap`-driven classes\n- **Duplicate title fix**: header sections no longer render title in both `<h3>` section-title and `<div>` header-content\n\n### Console integration (`apps/console/src/components/ReportView.tsx`)\n- Passes `type`, `format`, `renderAs`, `colorMap` through when mapping columns → auto-generated sections\n\n### Example usage\n\n```tsx\n// Field definition with badge rendering\nconst field: ReportField = {\n  name: 'stage',\n  label: 'Stage',\n  renderAs: 'badge',\n  colorMap: {\n    'Closed Won': 'bg-green-100 text-green-800',\n    'Closed Lost': 'bg-red-100 text-red-800',\n  },\n};\n\n// formatValue handles numbers, currency, dates automatically\nformatValue(652000, { name: 'amount', type: 'number' });              // \"652,000\"\nformatValue(652000, { name: 'amount', type: 'number', format: 'currency' }); // \"¥652,000\"\nformatValue('2024-01-15T00:00:00.000Z', { name: 'date', type: 'date' });    // \"2024-01-15\"\n```\n\n### Tests\n44 tests passing in plugin-report (up from 28), covering formatValue, skeleton loading, badge rendering, number alignment, zebra stripes, overflow, and duplicate title prevention.\n\n### ROADMAP\nAdded P4.6 Report Page Visual & Interaction Polish.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>报表页面视觉与交互细节优化（格式化、布局、可用性一体化）</issue_title>\n> <issue_description>### 问题描述\n> 当前的报表页面存在如下视觉与交互细节问题，影响数据可读性与企业级产品感：\n> \n> #### 1. 数字格式化\n> - 关键指标与表格中的数字未做千分位、货币格式或百分比显示，读数体验差。\n> - 举例：金额值 652000 应显示为\"￥652,000\"或\"652,000\"。\n> \n> #### 2. 日期展示\n> - 关闭日期等字段直接显示 ISO 字符串（如 2024-01-15T00:00:00.000Z），用户难以理解。\n> - 应按常用日期格式（如 yyyy-MM-dd 或\"2024年1月15日\"）显示。\n> \n> #### 3. Summary卡片缺少格式化\n> - 关键指标区仅为数字，未有类���感知格式化，无货币或数值单位。\n> \n> #### 4. 重复标题渲染\n> - 页面头部、卡片、header section等地方重复渲染标题，多余视觉元素干扰。\n> \n> #### 5. 表格可用性问题\n> - 横向无滚动条，字段多时易发生溢出或误断行。\n> - 表格缺少行悬浮、斑马纹，批量浏览或较大数据量时难以聚焦和定位。\n> - 数字列左对齐不合理，应右对齐。\n> \n> #### 6. 状态字段无特殊渲染\n> - 阶段字段如\"Closed Won\"等没用 Badge 区分，缺少语义与状态色。\n> \n> #### 7. 加载与空态\n> - 数据加载时仅文字提示，缺少骨架屏 Skeleton 等现代交互指示。\n> \n> ---\n> \n> ### 优化建议\n> 1. **提取 formatValue 工具**，根据 ReportField 的 type/format 自动格式化各类型（数字、货币、百分比、日期等）；所有表格与统计卡片均调用该方法。\n> 2. **日期格式化**，所有日期字段走本地化/常用格式渲染。\n> 3. **Summary卡片格式化**，指标值经过 formatValue 渲染。\n> 4. **Title 渲染统一（避免重复），header section 单独渲染且不出现在 section title 处**。\n> 5. **表格容器 overflow-x-auto**，table 结构最小宽度合理设置；表行 hover、even 斑马纹区分；数字类字段右对齐。\n> 6. **ReportField 支持 renderAs 与 colorMap，阶段等字段用 Badge 渲染（与 value 相关的颜色）**。\n> 7. **加载态 Skeleton 替换纯文字���保持布局连贯和现代交互感**。\n> \n> ---\n> \n> ### 实现建议\n> - 重点参考 `apps/console/src/components/ReportView.tsx` 和 `packages/plugin-report/src/ReportViewer.tsx`，所有数值和日期展示都应走 formatValue。\n> - 为 `ReportField` 类型增加 `renderAs` 与 `colorMap` 支持。\n> - 表格组件对齐、布局和样式建议可分别参见 Ant Design/Table、Shadcn/ui Table 的最佳实践。\n> - 空态和骨架屏参考 shadcn/ui Skeleton。\n> \n> ---\n> \n> ### 优先级与价值\n> - **高优先级**，可快速提升企业级产品认知与数据易读性。\n> - 涉及面较广，建议合并开发并更新 test 和 roadmap。\n> \n> ---\n> \n> <img alt=\"报表页面细节现状截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/1cd62d10-4229-4a50-b629-db4d5f222029\" />\n> \n> ---\n> \n> - [ ] 开发完成后，请运行 test，联动相关问题并更新 roadmap。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#609\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

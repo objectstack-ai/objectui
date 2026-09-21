@@ -1,0 +1,33 @@
+{
+  "number": 686,
+  "kind": "pull_request",
+  "title": "feat(plugin-designer): P1.1 Designer Interaction — ViewDesigner + DataModelDesigner",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T06:03:35Z",
+  "updated_at": "2026-02-21T06:36:07Z",
+  "closed_at": "2026-02-21T06:21:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T06:21:22Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/686",
+  "body": "Implements the P1.1 Designer Interaction roadmap items for ViewDesigner and DataModelDesigner, completing 9/10 checklist items (dnd-kit column reorder deferred).\n\n### Shared Infrastructure\n- **`useDesignerHistory` hook** — command-pattern wrapper over `useUndoRedo`, wired into both designers\n\n### ViewDesigner\n- **Ctrl+S / Cmd+S** keyboard shortcut triggers `onSave`\n- **`DESIGNER_FIELD_TYPES`** constant (18 types) displayed as read-only selector in column properties panel\n- **Column width validation** — numeric values clamped to 50–1000px, accepts `\"auto\"`, rejects non-numeric/non-auto input\n\n### DataModelDesigner\n- **Inline entity label editing** — double-click entity header to edit, Enter commits, Escape cancels, empty strings discarded\n- **Field type selector dropdown** — 22 data types replace the static `<span>` display; read-only mode falls back to text\n\n```tsx\n// Entity label: double-click to edit inline\n<span onDoubleClick={() => handleStartEntityLabelEdit(entity.id, entity.label)}>\n  {entity.label}\n</span>\n\n// Field type: dropdown replaces hardcoded 'text'\n<select value={field.type} onChange={(e) => handleFieldTypeChange(entityId, fieldIndex, e.target.value)}>\n  {DATA_MODEL_FIELD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}\n</select>\n```\n\n### Tests\n33 new tests across 3 files (63 total in plugin-designer): `useDesignerHistory` (7), `DataModelDesigner` (19), ViewDesigner new features (7).\n\n### ROADMAP.md\nUpdated P1.1 checklist — remaining item: column drag-to-reorder via `@dnd-kit/core`.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完成roadmap开发\n> \n> 🎯 P1 — UI-First: Airtable UX Parity\n> \n> Priority #1. All items below directly affect end-user experience. Target: indistinguishable from Airtable for core CRUD workflows.\n> P1.1 Designer Interaction (ViewDesigner + DataModelDesigner)\n> \n> Source: ROADMAP_DESIGNER Phase 2. These two designers are the core user workflow.\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

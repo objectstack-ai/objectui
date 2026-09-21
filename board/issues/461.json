@@ -1,0 +1,33 @@
+{
+  "number": 461,
+  "kind": "pull_request",
+  "title": "feat: complete Q2 §2.7 Console UX — favorites, onboarding, global search",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T01:30:06Z",
+  "updated_at": "2026-02-12T02:40:03Z",
+  "closed_at": "2026-02-12T02:14:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T02:14:32Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/461",
+  "body": "Implements remaining Q2 §2.7 Console UX Enhancement items from ROADMAP.md and checks off items that were already shipped but unmarked.\n\n### New features\n\n- **`useFavorites` hook** — localStorage-persisted favorites (`objectui-favorites`, max 20), API mirrors `useRecentItems`: `addFavorite`, `removeFavorite`, `toggleFavorite`, `isFavorite`, `clearFavorites`\n- **Favorites sidebar section** — renders above Recent items using `SidebarMenuAction` with `showOnHover` for unfavorite\n- **Onboarding walkthrough** — 4-step dialog (Navigate, ⌘K Search, Favorites, Shortcuts), auto-shown on first visit, dismissed via `objectui-onboarding-dismissed` localStorage key\n- **Global search results page** — `/apps/:appName/search?q=...` route with categorized results grouped by type; \"Open Full Search Page\" action added to command palette\n\n### ROADMAP updates\n\nChecked off all 6 items in §2.7:\n- `[x]` Skeleton loading states (already existed)\n- `[x]` Toast notifications for CRUD (already existed via Sonner)\n- `[x]` Responsive sidebar auto-collapse (already existed via `useResponsiveSidebar`)\n- `[x]` Onboarding walkthrough (new)\n- `[x]` Global search results page (new)\n- `[x]` Recent items / favorites in sidebar (favorites new, recent already existed)\n\n### Tests\n\n- 9 tests for `useFavorites` (add, deduplicate, remove, toggle, isFavorite, max cap, clear, persistence)\n- 6 tests for `OnboardingWalkthrough` (first-time show, dismissed skip, step navigation, localStorage persistence)\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

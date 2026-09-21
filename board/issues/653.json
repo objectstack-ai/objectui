@@ -1,0 +1,35 @@
+{
+  "number": 653,
+  "kind": "issue",
+  "title": "userFilters 选择无效及管理视图权限问题（演示环境需设置为管理员）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-20T12:23:11Z",
+  "updated_at": "2026-02-20T12:42:08Z",
+  "closed_at": "2026-02-20T12:42:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/653",
+  "body": "### 问题 1：userFilters 选择操作无���\n- 在任务界面 userFilters 区块已渲染，交互可以点击，但选择过滤项后未刷新表格，无数据变化。\n- 代码审查显示 `UserFilters` 选项条件合并到最终查询时，userFilterConditions 格式未完全兼容后端（可能仅合并到了 AST，但后端未实施 in 操作符，或者 AST 嵌套方式有需调整）。\n- 排查 ListView.tsx 352-358 行有关 filter 合并及 AST 结构，需确保所有 filter 条件能被后端正常解析，并可联动表格数据刷新。\n\n### 问题 2：演示环境普通用户权限仅可见基础功能，无法管理视图\n- 当前 Demo 登录为 guest@local，user.role 不是 admin\n- 导致无\"新增视图\"\"管理视图\"\"设计工具\"按钮（扳手、加号等只对 admin 可见）\n- 确认 ObjectView.tsx 有 isAdmin 守卫，普通用户无法进入视图自定义和高级管理\n\n### 修复建议\n- 修正 userFilters 生成 AST 的逻辑，确保等价结构��用（兼容后端过滤表达式/AST，并与全部 filter 合并）\n- 在 demo 环境默认账号配置 admin 角色，或提供切换入口，方便演示所有功能（或文档/登录提示）\n\n### 可复现路径\n1. 访问 [https://demo.objectui.org/apps/todo_app/todo_task](https://demo.objectui.org/apps/todo_app/todo_task)\n2. 选择过滤条件，发现表格无响应\n3. 查看页面底部，当前为 Guest User，无管理按钮\n\n#### 附截图\n<img alt=\"Task List userFilters 无过滤与不可见编辑按钮\" width=\"2732\" src=\"https://github.com/user-attachments/assets/5bd04166-4069-47eb-94a0-9b52fc2a35f8\" />\n\n---\n- 建议修复上述 filter 合并/权限问题后，及时更新相关 test 并同步 roadmap."
+}

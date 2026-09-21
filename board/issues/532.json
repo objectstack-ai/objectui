@@ -1,0 +1,33 @@
+{
+  "number": 532,
+  "kind": "pull_request",
+  "title": "fix: re-attach listViews to object metadata stripped by defineStack() Zod parse",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T00:41:19Z",
+  "updated_at": "2026-02-16T01:29:55Z",
+  "closed_at": "2026-02-16T01:27:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-16T01:27:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/532",
+  "body": "Calendar view at `/apps/crm_app/event/view/calendar` renders as a grid table instead of the calendar component. The console receives objects without `listViews` from the API, so `ObjectView` falls back to a single default grid view.\n\n## Root cause\n\n`defineStack()` validates config via `ObjectStackDefinitionSchema.safeParse()`. The spec's `ObjectSchema` does not include `listViews` (views live at stack level in `ViewSchema`), so Zod strips them. `mergeViewsIntoObjects()` in `objectstack.shared.ts` correctly merges views into objects, but the default export passes through `defineStack()` which discards them.\n\n```\nsharedConfig.objects  →  has listViews ✓\ndefineStack(sharedConfig)  →  listViews stripped by Zod ✗\nprotocol.getMetaItems('object')  →  no listViews ✗\n```\n\n## Changes\n\n- **`handlers.ts`** — `createHandlers` accepts optional `StackConfig` param; builds a `listViewsByObject` lookup and enriches `/meta/object` responses via `enrichObject()` helper\n- **`browser.ts` / `server.ts`** — Import named `sharedConfig` (pre-defineStack, listViews intact) and pass to `createHandlers`\n\n**Before:**\n![before](https://github.com/user-attachments/assets/29196600-9330-477a-87c0-148a88782f57)\n\n**After:**\n![after](https://github.com/user-attachments/assets/589c0b71-3f4a-42dc-a338-1b96e299801b)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/526\n> \n> \n> 还是没解决日历试图看到的还是列表\n> \n> https://demo.objectui.org/apps/crm_app/event/view/calendar\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

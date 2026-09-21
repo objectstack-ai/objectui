@@ -1,0 +1,33 @@
+{
+  "number": 690,
+  "kind": "pull_request",
+  "title": "Optimize ViewConfigPanel to align with Airtable property panel UX",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T07:28:28Z",
+  "updated_at": "2026-02-21T07:55:01Z",
+  "closed_at": "2026-02-21T07:55:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T07:55:01Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/690",
+  "body": "Restructures the right-side ViewConfigPanel from a flat form layout to an Airtable-style property panel with hierarchical navigation, collapsible sections, compact summary rows, and expanded appearance/user-action controls.\n\n### Panel header\n- Breadcrumb hierarchy: `Page › List` / `Page › Kanban` etc., replacing generic \"Configure View\" title\n\n### Collapsible sections\n- Data, Appearance, User Actions sections toggle via chevron with `aria-expanded`\n- Sort/Filter/Fields rows show compact summaries (\"2 sorts\", \"5 visible\") and expand inline editors on click\n\n### Data section restructured\n- **Sort by** / **Filter by**: summary ConfigRows → expandable inline builders\n- **Group by**: universal field selector (auto-propagates to `kanban.groupByField`)\n- **Prefix field**: new field selector\n- **Fields**: summary with visible count → expandable column checkboxes\n- Type-specific fields (kanban/calendar/map/gallery/timeline/gantt) inlined here\n- Calendar gains `endDateField` support\n- Search/filter/sort enable toggles moved here from removed \"User Filters\" section\n\n### Appearance section\nNew fields matching Airtable: Color, Field text color, Row height (4 icon buttons as `role=\"radiogroup\"`), Wrap headers, Show field descriptions, Collapse all by default\n\n### User actions section\nNew toggles: Edit records inline, Add/delete records inline, Click into record details. Existing Add record via form and Allow export consolidated here (removed standalone \"Advanced\" section).\n\n### i18n\n17 new keys added to all 11 locales (en, zh, ja, de, fr, es, ar, ru, pt, ko). Missing keys (createView, typeOptions, etc.) backfilled for non-English locales.\n\n### Tests\n62 tests passing — 11 existing tests updated for new expandable sub-row pattern, 13 new tests covering breadcrumb, section collapse, appearance fields, user actions, calendar endDateField, and data sub-section toggle.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>优化列表视图右侧属性面板，对齐Airtable体验，支持多视图类型字段</issue_title>\n> <issue_description>参考 Airtable 列表视图的右侧属性面板（见截图），优化 ObjectUI 的 ViewConfigPanel：\n> \n> <img alt=\"Airtable属性面板截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/12a1d135-451f-4eaf-8313-1b09bd6d3d2e\" />\n> \n> ## 优化要点\n> - 层次结构分组，面板 header 显示 Page > List/Kanban/Gallery\n> - Data 区可动态展示 Sort by、Group by、Prefix field、Fields（见截图右侧Data部分）\n> - 支持多视图类型，如 Grid/Kanban/Calendar/Gallery/Timeline/Gantt/Map，切换时属性动态变化，例：Kanban 必须有 Group by，Calendar 必须有 Start Date/End Date\n> - Appearance 区可选：Color、Field text color、Row height（图标切换尺寸）、Wrap headers、Show field descriptions、Collapse all by default\n> - User actions 区可选：Edit records inline、Add/delete records inline、Click into record details\n> - 属性面板所有交互和字段都应贴近 Airtable，用于提升用户体验\n> \n> ## 子任务建议\n> - [ ] 引入 type-specific option 展现逻辑，所有视图类型字段动态显示\n> - [ ] Data 区域属性基于视图类型变化\n> - [ ] Appearance、User actions 区域优化交互与布局\n> - [ ] 支持面板 header 上的层次结构导航\n> - [ ] 支持属性折叠/展开，与Airtable类似\n> - [ ] 支持面板字段国际化、图标与交互风格\n> - [ ] 回归全部类型（Grid、Kanban、Calendar、Gallery、Timeline、Gantt、Map）\n> \n> ---\n> 如需设计稿请补充需求。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#689\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 662,
+  "kind": "pull_request",
+  "title": "feat: inline ViewConfigPanel with breadcrumb header and record count footer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-20T14:13:51Z",
+  "updated_at": "2026-02-20T15:35:13Z",
+  "closed_at": "2026-02-20T15:29:27Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-20T15:29:26Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/662",
+  "body": "\"Edit View\" previously navigated away to ViewDesignerPage. This adds an Airtable-style inline right sidebar for view configuration, keeping the user in context.\n\n### New: `ViewConfigPanel` component\n- Inline right sidebar (same pattern as `MetadataPanel`, not an overlay) with sections: **Page**, **Data**, **Appearance**, **User Filters**, **User Actions**, **Advanced**\n- Reads `activeView` reactively — auto-switches content when view tabs change\n\n### ObjectView changes\n- **Breadcrumb**: `Object > View Name` path above title, with optional object description\n- **\"Edit View\" → panel toggle**: `setShowViewConfigPanel(prev => !prev)` replaces `navigate(...)` to ViewDesignerPage\n- **Record count footer**: `dataSource.find()` with `limit: 0` populates `{N} records` at page bottom\n- \"Add View\" navigation unchanged\n\n```tsx\n// Before: navigates away\n<DropdownMenuItem onClick={() => navigate(`views/${activeViewId}`, { relative: 'path' })}>\n\n// After: toggles inline panel\n<DropdownMenuItem onClick={() => setShowViewConfigPanel(prev => !prev)}>\n```\n\n### i18n\n25 new keys across all 11 locales (en, zh, de, fr, es, ja, ko, pt, ru, ar).\n\n### Tests\n- 11 tests for `ViewConfigPanel` (render, sections, close, view switching, empty states)\n- 7 new tests in `ObjectView.test.tsx` (breadcrumb, description, panel toggle/close, admin gating, record count)\n- 2 existing tests updated for breadcrumb text now appearing in both breadcrumb and tab (`getByText` → `getAllByText`)\n\n### Roadmap\nUpdated `ROADMAP.md` and `ROADMAP_CONSOLE.md` with Phase 20 inline ViewConfigPanel milestone.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>优化编辑视图页面，支持Airtable风格的右侧配置面板（Inline ViewDesigner）</issue_title>\n> <issue_description>## 背景\n> 目前ObjectUI的\"编辑视图\"功能需要跳转到专门的ViewDesignerPage，体验与Airtable等主流NoCode平台相比有较大差距。Airtable等系统，支持在主列表视图页面直接通过右侧配置面板（Inline/Slide Panel）进行字段、过滤、外观等配置，极大提升了易用性与效率。\n> \n> 见下方截图：\n> <img alt=\"Airtable 编辑视图示例\" width=\"2732\" src=\"https://github.com/user-attachments/assets/fda33876-4283-4dde-b8f4-5c13595bb7d0\" />\n> \n> ## 主要优化目标\n> - 支持在ObjectView页面直接弹出/收起\"视图配置\"侧边栏，无需跳转\n> - 右侧面板提供：页面（标题/描述）、数据源、外观设定、用户过滤器、交互按钮、导出/打印等配置，风格类比Airtable交互\n> - 切换不同的视图Tab，右侧面板自动切换对应内容\n> - 管理员操作项（如新建/编辑视图）整合到页面当前内容，更流畅的设计工具体验\n> \n> ## 建议实现方案\n> 1. 在`apps/console/src/components/ObjectView.tsx`中实现本地State（如showViewConfigPanel），点击\"编辑视图\"Icon时触发；\n> 2. 侧边栏参考`MetadataPanel`和`ViewDesigner`面板结构，抽取为可复用组件`ViewConfigPanel`；\n> 3. 面板内信息分区（页面、数据、外观、用户过滤器、操作等），并自动同步当前视图配置；\n> 4. 原跳转\"视图设计器\"菜单替换为本地弹窗/侧栏，所有编辑均为所见即所得（WYSIWYG），保存后即时刷新主列表；\n> 5. 新建视图、切换视图类型与现有逻辑复用，侧边栏自动闭合或切换；\n> 6. 需要考虑Panel与主视图Responsive布局兼容；\n> \n> ## 其他优化项\n> - 标题支持\"面包屑+描述\"展示；\n> - 主内容底部可显示当前\"记录总数\"footer\n> \n> ---\n> 开发完成需运行相关test，评估对roadmap的影响，并及时修订roadmap。\n> \n> ## 子任务 Sub-Tasks\n> - [ ] 设计/出稿 ViewConfigPanel 结构和交互\n> - [ ] 实现 ObjectView 与 Panel 的集成及状态切换\n> - [ ] 支持Tab切换和Panel动态内容\n> - [ ] 替换原\"编辑视图\"菜单跳转为右侧Panel弹出\n> - [ ] 优化Responsive兼容性和可访问性\n> - [ ] 添加主页面footer显示\"记录总数\"\n> - [ ] 更新/新增测试用例，完善测试\n> - [ ] 更新 Roadmap\n> \n> ---\n> 如有需要可细化面板内各分区配置项。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#661\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

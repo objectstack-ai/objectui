@@ -1,0 +1,33 @@
+{
+  "number": 472,
+  "kind": "pull_request",
+  "title": "docs: overhaul ROADMAP with audit-driven DX/UX improvement plan",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T10:38:15Z",
+  "updated_at": "2026-02-12T13:17:49Z",
+  "closed_at": "2026-02-12T11:14:15Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T11:14:15Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/472",
+  "body": "Full-repository audit across all 35 packages, 128 doc pages, 68 Storybook stories, and 200+ test files. Restructured roadmap priorities based on concrete findings from both developer experience and user experience perspectives.\n\n### Audit findings\n\n- **10 packages missing README**: auth, tenant, permissions, i18n, mobile, collaboration, plugin-ai, plugin-designer, plugin-workflow, plugin-report\n- **20+ React hooks exported without JSDoc**\n- **MIGRATION_GUIDE.md referenced in README but doesn't exist**\n- **Console has hardcoded English strings** outside i18n (LoadingScreen, KeyboardShortcutsDialog)\n- **Accessibility tests cover primitives only**, not assembled Console pages\n- **No large-dataset performance baselines** for Grid/Kanban/Calendar\n- **8 TODO/FIXME items** in CLI code (doctor.ts, dev.ts, check.ts)\n- **Core errors lack error codes** and actionable fix suggestions\n\n### ROADMAP changes\n\n- **New section**: Full-Repository Audit with quantified scope table and key findings\n- **Re-prioritized**: P1 DX → P2 UX → P3 Component Excellence → P4 Documentation (DX elevated from P3 to P1 based on gap severity)\n- **P1 DX**: Zero-friction onboarding, JSDoc for all hooks/types, error code system (`OBJUI-xxx`), CLI polish, 10 package READMEs\n- **P2 UX**: Console i18n completeness, architecture cleanup, WCAG AA on full pages, virtual scrolling for 10K+ records, responsive breakpoint testing\n- **P3 Components**: Quality audit, field widget edge cases (RTL, emoji, MAX_SAFE_INTEGER), test coverage 80→90%, Storybook 68→91+ stories\n- **P4 Docs**: CRUD tutorial, plugin dev guide, architecture diagrams, Storybook deployment\n- **Updated metrics**: Added measurement methods column, DX/UX success criteria checklists\n- **Updated risks**: Added onboarding abandonment, i18n regression, accessibility regression with specific mitigations\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

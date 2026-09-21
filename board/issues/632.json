@@ -1,0 +1,35 @@
+{
+  "number": 632,
+  "kind": "issue",
+  "title": "修复视图新增/编辑 404 & 管理员自动进��设计模式优化",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-19T14:36:48Z",
+  "updated_at": "2026-02-19T15:29:45Z",
+  "closed_at": "2026-02-19T15:29:45Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/632",
+  "body": "### 问题描述\n\n- 编辑/新增视图后，点击\"添加视图\"或\"编辑视图\"会提示 404，无法正常跳转视图设计页面。\n- 右上角的\"进入设计模式\"按钮（见图中截图右上角菜单），体验割裂。设计/编辑权限建议直接依据管理员权限自动生效，无需\"进入/退出设计模式\"切换。\n\n<img alt=\"404 问题与设计模式入口截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/03ea9e3f-7152-4a07-a138-928c357dc424\" />\n\n### 复现步骤\n1. 任意对象页面下，切换到 Board/看板等非\"全部\"视图。\n2. 点击\"添加视图\"或\"编辑视图\"，弹窗短暂出现后页面报 404。\n3. 打开右上角菜单，看到\"进入/退出设计模式\"入口，与视图内容编辑产生割裂。\n\n### 建议优化\n1. 修复\"新增视图、编辑视图\"后触发 404 的 bug。\n   - 检查路由跳转及 viewId 传递逻辑，设计器应能正常打开或回到主页面。\n2. 设计/编辑权限建议直接判断 `isAdmin` 权限，而非依赖显式切换\"设计模式\"；管理员自动为设计状态。\n   - 对有管理权限用户，直接展示所有编辑按钮（无须反复切换模式）。\n   - 普通用户隐藏设计入口，只展示视图内容。\n3. 代码层面建议调整相关入口条件渲染逻辑，可参考主流平台\"管理/编辑仅限管理员\"的做法。\n\n## 附截图\n<img alt=\"404 编辑视图及设计模式入口问题\" width=\"2732\" src=\"https://github.com/user-attachments/assets/03ea9e3f-7152-4a07-a138-928c357dc424\" />\n\n---\n请在修复后补充测试（含不同用户角色/权限下表现），更新 roadmap 并关闭本 issue。\n\n相关 issue\nhttps://github.com/objectstack-ai/objectui/issues/627"
+}

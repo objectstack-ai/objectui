@@ -1,0 +1,33 @@
+{
+  "number": 486,
+  "kind": "pull_request",
+  "title": "feat: add @object-ui/console-server package",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T04:37:52Z",
+  "updated_at": "2026-02-13T09:05:14Z",
+  "closed_at": "2026-02-13T05:10:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/486",
+  "body": "Packages the console app as a reusable Hono server plugin so any ObjectStack project (e.g., HotCRM) can serve the admin UI by adding one plugin to the kernel.\n\n### New package: `packages/console-server`\n\n- **`ConsolePlugin`** — ObjectStack kernel plugin that registers static file serving routes on the Hono app\n- Auto-resolves client files from bundled `client/` dir (npm publish) or `apps/console/dist` (monorepo dev)\n- SPA fallback routing, directory traversal protection, pre-compressed `.gz`/`.br` serving\n- Configurable `basePath`, `skipPaths`, `compression`, cache headers\n- `build:client` script copies console dist into package for standalone publishing\n- 10 unit tests\n\n### Updated: `examples/crm`\n\n- Uses `@object-ui/console-server` instead of inline `console-plugin.ts`\n\n### Usage\n\n```ts\nimport { ConsolePlugin } from '@object-ui/console-server';\n\n// Serve at root\nawait kernel.use(new ConsolePlugin());\n\n// Or mount at a sub-path with custom options\nawait kernel.use(new ConsolePlugin({\n  basePath: '/console',\n  skipPaths: ['/api', '/graphql', '/auth'],\n}));\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

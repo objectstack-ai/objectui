@@ -1,0 +1,33 @@
+{
+  "number": 655,
+  "kind": "issue",
+  "title": "Enrich CRM example metadata with full @objectstack/spec capabilities",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-20T12:37:08Z",
+  "updated_at": "2026-02-20T15:28:49Z",
+  "closed_at": "2026-02-20T15:28:49Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/655",
+  "body": "\n\n### 🎯 Goal\nMaximize the CRM example's use of `@objectstack/spec` features so that the Console front-end can verify **all platform capabilities** end-to-end.\n\n### 📦 What's Being Enhanced\n\n**All 8 Object Definitions** (`account`, `contact`, `opportunity`, `product`, `order`, `user`, `project_task`, `event`):\n\n| Enhancement | Description |\n|---|---|\n| **Object metadata** | `description`, `titleFormat`, `recordName` |\n| **Field enrichments** | `required`, `searchable`, `unique`, `defaultValue`, `helpText`, `placeholder`, `group`, `readOnly` |\n| **Field type diversity** | text, textarea, richtext, email, url, number, currency, percent, date, datetime, boolean, select (with colors), multi-select, lookup (single/multiple) |\n| **`list_views`** | 2+ list views per object (All, Active/Filtered) with sort/filter |\n| **`actions`** | Object-level actions (Send Email, Change Status, etc.) to exercise the Action Engine |\n| **`form_layout`** | Sections-based form layout organizing fields into logical groups |\n| **New fields** | 30+ new fields across all objects (tags, avatar, linkedin, expected_revenue, shipping_address, etc.) |\n\n**Config & Docs Updates:**\n- `objectstack.config.ts` — Updated seed data, new views leveraging new fields\n- `ROADMAP.md` — Completion entry added\n\n### 🔑 Key Principle\n- Only use features actually supported by `ObjectSchema.create()` and `Field.*()` from `@objectstack/spec/data`\n- Keep backward compatibility with existing seed data field names\n- Run tests to ensure nothing breaks\n\nThe coding agent is now working on the PR. You'll receive a notification when it's ready for review. 🚀"
+}

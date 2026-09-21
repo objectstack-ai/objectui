@@ -1,0 +1,35 @@
+{
+  "number": 426,
+  "kind": "pull_request",
+  "title": "Mobile responsiveness for console UI",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T08:05:00Z",
+  "updated_at": "2026-02-10T08:31:37Z",
+  "closed_at": "2026-02-10T08:27:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T08:27:31Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/426",
+  "body": "Console interfaces lacked mobile optimization. Applied responsive design patterns across all components using Tailwind's breakpoint utilities.\n\n## Pattern\n\nEstablished consistent responsive conventions:\n\n```tsx\n// Progressive spacing\n<div className=\"p-3 sm:p-4 md:p-6\">\n\n// Adaptive layouts  \n<div className=\"flex-col sm:flex-row\">\n\n// Conditional display\n<span className=\"hidden sm:inline\">Desktop Only</span>\n\n// Mobile-first sizing\n<Dialog className=\"w-[90vw] sm:w-150\">\n```\n\n## Changes\n\n**Layout Components**\n- `AppShell`: Header height `h-14 sm:h-16`, content padding `p-3 sm:p-4 md:p-6`\n- `AppHeader`: Breadcrumbs hidden on mobile, search bar → icon button, responsive gaps `gap-1.5 sm:gap-2`\n\n**View Components** (ObjectView, DashboardView, RecordDetailView, ReportView, PageView)\n- Headers: Vertical stack on mobile → horizontal on desktop\n- Padding: `p-3 sm:p-4 lg:p-6`\n- Typography: `text-base sm:text-lg` / `text-xl sm:text-2xl`\n- Drawers/modals: `w-[90vw]` on mobile, fixed width on desktop\n\n**System Pages** (User/Org/Role/Audit/Profile)\n- Tables: `overflow-x-auto` for horizontal scroll\n- Headers: `whitespace-nowrap` to prevent wrapping\n- Buttons: Full width on mobile `w-full sm:w-auto`\n\n**Auth Pages** (Login/Register/ForgotPassword)\n- Container padding: `px-4 py-8` for edge spacing\n\n**Breakpoints**: Mobile `<640px` → Tablet `sm:640px` → Desktop `md:768px` → Large `lg:1024px`\n\n**Touch targets**: All interactive elements ≥44px (buttons `h-8` minimum, proper padding)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 评估 apps/console 的所有界面，应该同时兼顾桌面端和手机端的用户体验。\n> \n> The user has attached the following file paths as relevant context:\n>  - .github/copilot-instructions.md\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\nCreated from [VS Code](https://code.visualstudio.com/docs/copilot/copilot-coding-agent).\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

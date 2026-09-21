@@ -1,0 +1,33 @@
+{
+  "number": 558,
+  "kind": "pull_request",
+  "title": "feat: Phase 13-14 L1 — Kanban Enhancement + Forms & Data Collection",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T17:06:41Z",
+  "updated_at": "2026-02-16T19:18:24Z",
+  "closed_at": "2026-02-16T17:41:48Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-16T17:41:48Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/558",
+  "body": "Implements Phase 13 (Kanban & Views Enhancement) and Phase 14 (Forms & Data Collection) L1 foundation features per `ROADMAP_CONSOLE.md`. Phases 1-12 were already complete.\n\n## Phase 13: Kanban Enhancement\n\n- **Quick Add** — `QuickAddForm` at column bottom in both `KanbanImpl` and `KanbanEnhanced`. Enter submits, Escape cancels.\n- **Cover images** — `coverImageField` schema prop resolves field value (string URL or `{url}` object) to card header image via `KanbanRenderer` mapping.\n- **Column collapse** — Already existed in `KanbanEnhanced`; wired to schema via `allowCollapse` prop.\n- **Card conditional coloring** — `conditionalFormatting` rules with `equals | not_equals | contains | in` operators apply `backgroundColor`/`borderColor` via `getCardStyles()`.\n\n```typescript\n// ObjectKanbanSchema now supports:\n{\n  quickAdd: true,\n  coverImageField: 'thumbnail',\n  allowCollapse: true,\n  conditionalFormatting: [\n    { field: 'priority', operator: 'equals', value: 'urgent', backgroundColor: '#fee2e2' }\n  ]\n}\n```\n\n## Phase 14: Forms & Data Collection\n\n- **Drag-and-drop FileField** — Replaces button-only upload with drop zone, drag-over visual feedback, image thumbnails, file type filtering with extension edge case handling.\n- **EmbeddableForm** — Standalone public form component (no auth). Supports branding config, URL prefill params, thank-you page with optional redirect, multiple submissions.\n- **FormAnalytics** — Submission metrics dashboard: total count, fill rate bar, avg completion time, daily submissions bar chart, per-field completion/drop-off rates.\n\nBoth new components registered in `ComponentRegistry` as `embeddable-form` and `form-analytics`.\n\n## Types\n\n- `ObjectKanbanSchema` + Zod schema extended with `quickAdd`, `coverImageField`, `allowCollapse`, `conditionalFormatting`\n- `KanbanConditionalFormattingRule` exported from `@object-ui/types`\n- Local `KanbanSchema` in plugin-kanban updated with matching props + `onQuickAdd` callback\n\n## Test Impact\n\n4096 tests pass, 0 regressions. CodeQL clean.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> roadmap 完成以下开发\n> \n> ObjectStack Console — Complete Development Roadmap\n> \n> phase 1到phase 14\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

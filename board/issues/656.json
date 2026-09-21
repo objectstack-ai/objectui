@@ -1,0 +1,38 @@
+{
+  "number": 656,
+  "kind": "pull_request",
+  "title": "Enrich CRM example metadata with full @objectstack/spec capabilities",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "examples",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-20T12:37:22Z",
+  "updated_at": "2026-02-20T14:16:36Z",
+  "closed_at": "2026-02-20T14:02:05Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-20T14:02:05Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/656",
+  "body": "- [x] Enrich all 8 object definitions with metadata, new fields, diverse field types\n- [x] Add 2+ list views per object with sort/filter\n- [x] Add colored select options (lowercase values per spec)\n- [x] Update seed data for new fields\n- [x] Update ROADMAP.md\n- [x] Fix CRM build validation (lowercase identifiers, sort field name)\n- [x] Fix affected tests (ObjectForm, ObjectGrid)\n- [x] Fix helpText/placeholder (not in FieldInput type)\n- [x] Fix TypeScript errors in plugin packages (map, dashboard, charts, kanban, grid, form, view)\n- [ ] Address review feedback\n- [ ] Final verification\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Enrich CRM example metadata with full @objectstack/spec capabilities</issue_title>\n> <issue_description>\n> \n> ### 🎯 Goal\n> Maximize the CRM example's use of `@objectstack/spec` features so that the Console front-end can verify **all platform capabilities** end-to-end.\n> \n> ### 📦 What's Being Enhanced\n> \n> **All 8 Object Definitions** (`account`, `contact`, `opportunity`, `product`, `order`, `user`, `project_task`, `event`):\n> \n> | Enhancement | Description |\n> |---|---|\n> | **Object metadata** | `description`, `titleFormat`, `recordName` |\n> | **Field enrichments** | `required`, `searchable`, `unique`, `defaultValue`, `helpText`, `placeholder`, `group`, `readOnly` |\n> | **Field type diversity** | text, textarea, richtext, email, url, number, currency, percent, date, datetime, boolean, select (with colors), multi-select, lookup (single/multiple) |\n> | **`list_views`** | 2+ list views per object (All, Active/Filtered) with sort/filter |\n> | **`actions`** | Object-level actions (Send Email, Change Status, etc.) to exercise the Action Engine |\n> | **`form_layout`** | Sections-based form layout organizing fields into logical groups |\n> | **New fields** | 30+ new fields across all objects (tags, avatar, linkedin, expected_revenue, shipping_address, etc.) |\n> \n> **Config & Docs Updates:**\n> - `objectstack.config.ts` — Updated seed data, new views leveraging new fields\n> - `ROADMAP.md` — Completion entry added\n> \n> ### 🔑 Key Principle\n> - Only use features actually supported by `ObjectSchema.create()` and `Field.*()` from `@objectstack/spec/data`\n> - Keep backward compatibility with existing seed data field names\n> - Run tests to ensure nothing breaks\n> \n> The coding agent is now working on the PR. You'll receive a notification when it's ready for review. 🚀</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#655\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

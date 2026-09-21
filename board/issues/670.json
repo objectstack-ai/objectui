@@ -1,0 +1,33 @@
+{
+  "number": 670,
+  "kind": "pull_request",
+  "title": "feat: container query layout for ModalForm/DrawerForm mobile single-column",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T01:51:36Z",
+  "updated_at": "2026-02-21T02:28:43Z",
+  "closed_at": "2026-02-21T02:10:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T02:10:40Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/670",
+  "body": "ModalForm uses viewport-based `md:grid-cols-2` (768px breakpoint) for multi-column layout. On high-res phones where viewport ≥ 768px, the modal renders two columns despite being ~350px wide — unusable on mobile.\n\nSwitches to CSS Container Queries so the form grid responds to the **modal's actual width**, not the viewport.\n\n### Changes\n\n- **ModalForm / DrawerForm**: Add `@container` on content wrapper; pass `fieldContainerClass` with container-query grid classes (`@md:grid-cols-2` at container ≥ 448px) to SchemaRenderer\n- **FormSection**: New `gridClassName` prop to override viewport-based grid classes from parent context\n- **Tests**: 3 new tests — `@container` presence, container-query grid for multi-col, no override for single-col\n- **ROADMAP.md**: Updated Mobile UX section\n\n### Breakpoint behavior\n\n| Container width | Columns |\n|---|---|\n| < 448px (phones) | 1 |\n| ≥ 448px (`@md`) | 2 |\n| ≥ 672px (`@2xl`) | 3 |\n| ≥ 896px (`@4xl`) | 4 |\n\n```tsx\n// Before: viewport-based — breaks on high-res phones\n<div className=\"flex-1 overflow-y-auto ...\">\n\n// After: container-query-based — responds to modal width\n<div className=\"@container flex-1 overflow-y-auto ...\">\n\n// Grid classes passed via fieldContainerClass\nconst CONTAINER_GRID_COLS = {\n  1: undefined,\n  2: 'grid gap-4 grid-cols-1 @md:grid-cols-2',\n  3: 'grid gap-4 grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3',\n  4: 'grid gap-4 grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3 @4xl:grid-cols-4',\n};\n```\n\nTailwind v4 supports container queries natively — no plugin needed. The existing `fieldContainerClass` prop on the form renderer is used to override the default viewport-based grid, keeping the change fully backward-compatible.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[表单/弹窗深度优化] ModalForm 等弹窗表单支持容器查询布局及极致移动端单列体验（container query + 长远可扩展）</issue_title>\n> <issue_description>## 背景和问题说明\n> 当前 ModalForm 在移动端表单仍可能出现两列布局，带来可用性和可访问性问题，详见下述截图：\n> \n> <img alt=\"移动端表单两列问题截图\" width=\"1320\" src=\"https://github.com/user-attachments/assets/c6bb9b7f-b73e-423b-b26c-b3cd9940c2dc\" />\n> \n> 现有实现采用 Tailwind `md:` 断点，仅依据 viewport 宽度，而非 modal 实际容器宽度，导致部分高分辨率移动设备和小平板在 modal 全屏时仍为两列，交互密度偏高且不易用。此外，随着表单字段数增多，auto-layout 在移动端场景对\"多列\"的推断不总是最优。\n> \n> ## 长远、深度优化目标\n> - 彻底解决 ModalForm 在移动端任何场景下都只能单列，且适应动态表单和复杂场景。\n> - 支持未来下拉抽屉/弹窗等不同形态都可继承这类优化能力。\n> - 解耦表单 grid 布局断点与 viewport，采用容器查询(container query)实现按 modal 宽度自适应。\n> - 优化字段间距、主操作区可达性、Label/Description 样式、骨架屏等综合体验。\n> - 提供可扩展的自定义断点和布局逻辑，兼具全局表单和弹窗局部表单的最佳实践。\n> \n> ## 拟实施技术方案（建议路线）\n> 1. **表单 grid 布局切换到 CSS Container Query（container-based grid columns）**\n>     - 升级 Tailwind 到支持 container queries 的版本，开启相应插件。\n>     - 将原 `md:grid-cols-2` 等响应式断点迁移为 `@md:grid-cols-2` 等 container 断点。\n>     - ModalForm、DrawerForm、全页表单均切换为 `@container`。\n>     - 移动端全屏 modal/container 内，无论 viewport 宽度，只要弹窗实际宽度达不到指定断点，都自动单列。\n> 2. **ModalForm 针对性保障移动端单列**\n>     - 临时过渡期，ModalForm renderContent 传递专用 `fieldContainerClass`，移动端断点提升到 `lg:`，确保桌面前都单列。\n>     - 或通过 JS 检测，强制 columns=1（如需快速兜底）。\n> 3. **主操作按钮顺序与布局优化**\n>     - 移动端\"主操作按钮置于上方、居中、放大 touch 区域，Cancel 放下方。\n>     - gap/gap-y 增大，label/description 字号提升。\n> 4. **Skeleton 骨架屏智能生成/自适应列数**\n>     - 骨架 Loader 可根据表单实际字段数及��数动态渲染。\n> 5. **文档与测试用例完善**\n>     - 新增复杂表单/长表单的容器宽度自适应用例。\n>     - 完善 Roadmap 和核心文档，声明推荐\"container query\"开发模式。\n> \n> ## 附加建议\n> - 将表单、modal、drawer 等组件的容器查询能力可配置暴露，便于后续不同业务场景定制优化。\n> - 如果有旧项目或第三方库兼容问题，保留旧断点逻辑的 fallback。\n> \n> ---\n> - 完成后务必运行所有相关 test 并更新 ROADMAP。\n> - 参考本 issue 讨论产出 PR。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#669\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

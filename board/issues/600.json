@@ -1,0 +1,33 @@
+{
+  "number": 600,
+  "kind": "pull_request",
+  "title": "chore: move CI lint to manual workflow_dispatch",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T13:15:46Z",
+  "updated_at": "2026-02-18T13:31:06Z",
+  "closed_at": "2026-02-18T13:28:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T13:28:19Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/600",
+  "body": "Extract lint from the automatic CI pipeline into a standalone manually-triggered workflow.\n\n- **`.github/workflows/ci.yml`**: Removed `lint` job. CI still runs test, build, e2e, and docs on push/PR.\n- **`.github/workflows/lint.yml`**: New workflow with `workflow_dispatch` trigger only. Same lint steps, explicit `permissions: contents: read`.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> ci lint 改为手动执行\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

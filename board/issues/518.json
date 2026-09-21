@@ -1,0 +1,33 @@
+{
+  "number": 518,
+  "kind": "pull_request",
+  "title": "Fix console stuck on loading screen due to MSW metadata route mismatch",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-15T01:52:30Z",
+  "updated_at": "2026-02-15T02:58:26Z",
+  "closed_at": "2026-02-15T02:24:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-15T02:24:58Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/518",
+  "body": "demo.objectui.org permanently stuck on initialization screen. `@objectstack/client` v3.0.4 sends singular metadata routes (`GET /meta/app`, `/meta/object`) but MSW handlers only registered plural routes (`/meta/apps`, `/meta/objects`), causing all 5 metadata fetches to 500.\n\n### MSW handlers (`handlers.ts`)\n\nReplaced 12 hardcoded plural-only handlers with dynamic `:type` routes:\n\n```ts\n// Before: only matched plural forms\nhttp.get(`${prefix}${baseUrl}/meta/apps`, ...)\nhttp.get(`${prefix}${baseUrl}/meta/objects`, ...)\nhttp.get(`${prefix}${baseUrl}/meta/dashboards`, ...)\n// ... 9 more\n\n// After: matches any metadata type (singular or plural)\nhttp.get(`${prefix}${baseUrl}/meta/:type`, async ({ params }) => {\n  const response = await protocol.getMetaItems({ type: params.type as string });\n  return HttpResponse.json(response, { status: 200 });\n})\n```\n\n### RootRedirect (`App.tsx`)\n\nWhen metadata loads but yields no apps, `RootRedirect` rendered `<LoadingScreen />` indefinitely. Now shows an actionable empty state with error context.\n\n![Console loads successfully](https://github.com/user-attachments/assets/67d312e3-0fba-4257-81d9-fe1f3e1176f5)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> https://demo.objectui.org\n> 控制台启动之后一直停在这里\n> \n> ObjectStack 控制台\n> 正在初始化应用程序...\n> 正在连接数据源\n> 正在加载配置\n> 正在准备工作区\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

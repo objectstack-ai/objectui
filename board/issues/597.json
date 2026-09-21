@@ -1,0 +1,33 @@
+{
+  "number": 597,
+  "kind": "pull_request",
+  "title": "No changes made - issue creation request sent to wrong tool",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T12:08:02Z",
+  "updated_at": "2026-02-18T12:10:41Z",
+  "closed_at": "2026-02-18T12:10:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/597",
+  "body": "No code changes were made to this repository. The original request was to create GitHub issues, but it was sent to the code change tool by mistake. The user acknowledged this and requested to disregard the task.\n\nThis PR contains no modifications to the codebase.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> This is an issue creation request, not a code change PR. Please create the following 4 GitHub issues in the repository instead.\n> \n> Actually - disregard, wrong tool.\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n*This pull request was created from Copilot chat.*\n>\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

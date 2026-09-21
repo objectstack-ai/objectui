@@ -1,0 +1,35 @@
+{
+  "number": 679,
+  "kind": "issue",
+  "title": "[BUG][ModalForm] 移动端依然出现两列表单，container query 单列未彻底生效，存在精度/链路/编译遗漏需修复",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-21T04:04:42Z",
+  "updated_at": "2026-02-21T05:10:28Z",
+  "closed_at": "2026-02-21T05:10:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/679",
+  "body": "## 背景与现象\n\nModalForm 支持 container query 容器查询，并且 issue #669 已经要求 \"在移动端始终单列\"。但在实际使用中，部分手机依然出现两列表单，未生效为单列。任务实现和 issue 原文都强调了要做到 \"无论 viewport 宽度还是容器宽度\"，都能保证移动端永远是单列。\n\n## 详细分析（代码追踪 & root cause）\n\n- ModalForm 中 `CONTAINER_GRID_COLS` 已切换为新语法：如 `grid gap-4 grid-cols-1 @md:grid-cols-2`。Modal 内部已加 `@container` class。\n- 但底层表单 renderer 在渲染时，优先用 `fieldContainerClass`，fallback 为 viewport 断点如 `md:grid-cols-2`，理论逻辑没问题。\n- 经过代码审查和样式输出验证，真正 bug 来源有两种可能：\n    1. `@md:grid-cols-2` 这类 container query utility class 未必被 Tailwind v4 content scanner 正确识别到，导致根本没有生成任何 container-query 的 CSS。在编译后产物搜索不到 `@container`。\n    2. 传参链路 `fieldContainerClass` 从 ModalForm → SchemaRenderer → form renderer 过程中，有可能被吞掉/覆盖，或存在 props 拼接/覆盖顺序的问题。\n- 另外，form renderer 逻辑在 columns>1 时始终 fallback 到 viewport-based md:grid-cols-2。如果 fieldContainerClass 丢失或失效，会导致老问题复现。\n- 也有极少数场景下，表单区域 padding 较大或者 modalSize 非移动断点，导致容器宽度勉强超过 `@md` 断点，实际产生了两列。\n\n## 必须的精确修复方案\n1. **CSS 层面 safelist** 确保 tailwind v4 可以完全扫描到所有 `@md:grid-cols-x` container query 断点（显式加入到 @source/@utility/safelist 中）。\n2. **参数透传**：review and test `fieldContainerClass` 从 ModalForm 传到底层 form 渲染器是否始终生效（尤其 SchemaRenderer 层）。\n3. **form renderer fallback**：在 ModalForm/DrawerForm context 下遇到 columns>1，如果未显式禁用，应该 fallback 到单列以防止旧的 md:grid-cols-2 被激活。\n4. **添加端到端自动化测试**，mobile viewport 下验证最终渲染 computed style 的列数而不仅仅是 class name 上的判断。\n\n## 复现方式\n1. 使用任意含多字段的 ModalForm，在 iPhone 14/15 Pro 等 375px-430px viewport 测试。\n2. 观察内容区 DOM：在 `@container` 的 form 区域，在手机上依然出现俩 field 并排。\n\n## 期望结果\n- 在任何手机端，无论分辨率/viewport 或 modalSize 设定，内容区域宽度小于 448px (`@md`) 时都只允许单列展示，不应有两列。\n- 表单区域不应该再使用 `md:grid-cols-2` 等旧断点，全部采用 container query，并保障 CSS 的完全输出与生效。\n- 保证参数链路不丢失，且端到端验证通���。\n\n## 建议的 Checklist\n- [ ] 明确 tailwind v4 CSS 产物里有 `@container @md:grid-cols-2` 相关 utility\n- [ ] 检查 fieldContainerClass 全链路无丢失并加相关单测\n- [ ] form renderer fallback 逻辑在 modal/drawer context 下永远优先容器断点\n- [ ] e2e 覆盖手机分辨率，断言视觉 grid 为一列\n\n---\n\n如果需要补充更详细的 chain-of-custody/code walk log 可直接附加。\n\n—— 该 issue 来源 issue #669 后续开发发现，详见关联讨论。"
+}

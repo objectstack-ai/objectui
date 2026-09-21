@@ -1,0 +1,33 @@
+{
+  "number": 453,
+  "kind": "pull_request",
+  "title": "Upgrade @objectstack/* to v2.0.7, fix I18nLabel breaking change, rewrite project roadmap",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T15:08:54Z",
+  "updated_at": "2026-02-11T17:02:31Z",
+  "closed_at": "2026-02-11T15:54:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T15:54:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/453",
+  "body": "Upgrades all `@objectstack/*` dependencies from `^2.0.4` to `^2.0.7` and aligns documentation with the expanded spec surface (70+ new UI types).\n\n### Dependency upgrade\n- All 10 `@objectstack/*` packages bumped across 13 `package.json` files (root, apps, packages, examples)\n\n### I18nLabel type fix\nSpec v2.0.7 widens `I18nLabel` from `string` to `string | { key; defaultValue?; params? }`, breaking 22+ call sites.\n\nAdded `resolveI18nLabel()` utility and applied it to all affected components:\n\n```ts\n// packages/react/src/utils/i18n.ts\nexport function resolveI18nLabel(\n  label: string | { key: string; defaultValue?: string; params?: Record<string, any> } | undefined\n): string | undefined {\n  if (label == null) return undefined;\n  if (typeof label === 'string') return label;\n  return label.defaultValue || label.key;\n}\n```\n\n**Fixed files:** `FieldFactory.tsx`, `FormRenderer.tsx`, `AppSidebar.tsx`, `DashboardView.tsx`\n\n### Documentation rewrite\n- **SPEC_COMPLIANCE_EVALUATION.md** — Updated to v2.0.7; compliance adjusted 91% → 82% (expanded spec surface); 21 new improvement items for DnD, gestures, notifications, offline/sync, accessibility, etc.\n- **OBJECTSTACK_CLIENT_EVALUATION.md** — Coverage upgraded 92% (22/24) → 100% (24/24); realtime/offline gaps resolved in client v2.0.7\n- **ROADMAP.md** — Full rewrite: quarterly plan organized by v2.0.7 protocol domains\n\n### Verification\n41/41 builds pass, 2961/2961 tests pass, no advisory vulnerabilities.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

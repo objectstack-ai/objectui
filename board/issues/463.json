@@ -1,0 +1,33 @@
+{
+  "number": 463,
+  "kind": "pull_request",
+  "title": "feat: complete Q2-Q3 2026 roadmap — collaboration, perf optimization, view transitions, DnD sidebar, ETag caching",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T02:53:24Z",
+  "updated_at": "2026-02-12T04:06:13Z",
+  "closed_at": "2026-02-12T03:57:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T03:57:41Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/463",
+  "body": "Implements all remaining code-deliverable items from the 2026 roadmap (Q2 2.1, Q3 3.1–3.4), bringing spec compliance from 96% → 98%.\n\n### New package: `@object-ui/collaboration`\n\n- `useRealtimeSubscription` — WebSocket subscriptions with auto-reconnect, exponential backoff, message buffering\n- `usePresence` — cursor/selection tracking, idle/away detection via activity listeners, throttled updates\n- `useConflictResolution` — version history, conflict queue, resolution strategies (local/remote/merge), version diffing\n- `CommentThread` — threaded comments with `@mention` suggestions, replies, resolve/reopen\n- `LiveCursors` / `PresenceAvatars` — remote cursor overlay and avatar stack components\n- Enhanced `CollaborationProvider` in plugin-designer with actual WebSocket transport, presence sync, version counting\n\n### Performance optimization (Q3 3.3)\n\n- `usePerformanceBudget` — LCP/FCP/render-time/memory budget enforcement with violation tracking and dev-mode console warnings\n- Route-based code splitting in console `App.tsx` — 13 routes lazy-loaded via `React.lazy` + `Suspense` (main bundle reduced ~100KB)\n- `PerformanceDashboard` — dev-mode floating panel (Ctrl+Shift+P) showing Web Vitals, memory usage, budget violations\n\n### View transitions (Q3 3.4)\n\n- `useViewTransition` — wraps browser View Transitions API with CSS class fallback, respects `prefers-reduced-motion`\n- `ViewSwitcher` gains `animated` prop that calls `document.startViewTransition()` on view type changes\n\n### DnD sidebar reordering (Q2 2.1)\n\n- HTML5 native drag-and-drop on sidebar nav items, scoped per group, persisted to `localStorage` per app\n\n### ETag caching + Service Worker (Q3 3.1)\n\n- `useETagCache` — `If-None-Match`/`If-Modified-Since` aware fetch, LRU in-memory cache with optional localStorage persistence, SW registration\n\n### Security hardening\n\n- WebSocket URL protocol validation (`ws:`/`wss:` only) in `useRealtimeSubscription` and `CollaborationProvider`\n- `localStorage` JSON shape validation in sidebar DnD to prevent prototype pollution\n- Fetch URL protocol validation (`http:`/`https:` only) in `useETagCache`\n\n### Tests\n\n35 new tests across 6 files. All 42 builds pass, 3181/3185 tests pass (2 pre-existing failures, 2 skipped).\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

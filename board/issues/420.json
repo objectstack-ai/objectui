@@ -1,0 +1,33 @@
+{
+  "number": 420,
+  "kind": "pull_request",
+  "title": "docs: Console auth feasibility evaluation with @objectstack/client + better-auth",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T02:31:21Z",
+  "updated_at": "2026-02-10T02:51:45Z",
+  "closed_at": "2026-02-10T02:48:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T02:48:51Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/420",
+  "body": "Evaluate whether `@objectstack/client` + `better-auth` can deliver a complete ObjectStack Console from login to full usage. Scanned all 35 packages and the existing console app to produce a gap analysis and implementation plan.\n\n### CONSOLE_AUTH_PLAN.md (new)\n\n- **Capability scan**: 17 production-ready capabilities (CRUD, forms, grids, dashboards, permissions, tenancy, i18n, workflow, AI) — all business UI is done\n- **Gap analysis**: 11 missing auth capabilities (login page, session management, route guards, token injection, system object UIs)\n- **@objectstack/client**: ✅ Fully sufficient — `token` param + custom `fetch` wrapper enables dynamic Bearer injection from any auth provider\n- **better-auth**: ✅ Strong fit — TypeScript-first, React hooks, organization/RBAC plugins map directly to existing `@object-ui/tenant` and `@object-ui/permissions`\n- **Architecture**: New `@object-ui/auth` package wrapping better-auth, with `AuthProvider` → `useAuth` → `AuthGuard` API\n- **Estimated effort**: ~29 workdays across 3 phases (auth foundation → console integration → system admin)\n\nKey integration pattern:\n\n```typescript\nconst adapter = new ObjectStackAdapter({\n  baseUrl: '/api/v1',\n  fetch: async (input, init) => {\n    const session = await authClient.getSession();\n    const headers = new Headers(init?.headers);\n    if (session?.token) headers.set('Authorization', `Bearer ${session.token}`);\n    return fetch(input, { ...init, headers });\n  },\n});\n```\n\n### ROADMAP.md (updated)\n\n- Added **Authentication & Console Gaps (P0)** to current status\n- Added **Q1 §1.5 Console Authentication System** — 6-week, 3-phase plan with 15 tasks\n- Updated **Q2 §2.3 System Objects** to reference Q1 auth groundwork\n- Added plan doc to reference documents\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `www.better-auth.com`\n>   - Triggering command: `/home/REDACTED/work/_temp/ghcca-node/node/bin/node /home/REDACTED/work/_temp/ghcca-node/node/bin/node --enable-source-maps /home/REDACTED/work/_temp/copilot-developer-action-main/dist/index.js` (dns block)\n> - `www.npmjs.com`\n>   - Triggering command: `/home/REDACTED/work/_temp/ghcca-node/node/bin/node /home/REDACTED/work/_temp/ghcca-node/node/bin/node --enable-source-maps /home/REDACTED/work/_temp/copilot-developer-action-main/dist/index.js` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

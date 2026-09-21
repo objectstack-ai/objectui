@@ -1,0 +1,33 @@
+{
+  "number": 546,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fumadocs-core from 16.5.2 to 16.6.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T07:49:04Z",
+  "updated_at": "2026-02-16T10:44:20Z",
+  "closed_at": "2026-02-16T07:49:18Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-02-16T07:49:18Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/546",
+  "body": "Bumps [fumadocs-core](https://github.com/fuma-nama/fumadocs) from 16.5.2 to 16.6.1.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/fuma-nama/fumadocs/releases\">fumadocs-core's releases</a>.</em></p>\n<blockquote>\n<h2>fumadocs-core@16.6.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>00c9a0f: Remove default rerank value from mixedbread search</li>\n</ul>\n<h2>fumadocs-core@16.6.0</h2>\n<h3>Minor Changes</h3>\n<ul>\n<li>\n<p>9241992: <strong>Support Markdown in search results</strong></p>\n<p>This deprecates the old <code>contentWithHighlights</code> field in search results, the highlights are marked with Markdown instead (e.g. <code>Hello &lt;mark&gt;World&lt;/mark&gt;</code>).</p>\n</li>\n</ul>\n<h3>Patch Changes</h3>\n<ul>\n<li>64a0057: [Remark Feedback] skip MDX elements by default to avoid interfering with component logic</li>\n</ul>\n<h2>fumadocs-core@16.5.4</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>1ad8a38: Support server-side Mixedbread search API, deprecate client-side adapter</li>\n<li>3e8efb0: [remark-structure] hotfix filter MDX elements</li>\n</ul>\n<h2>fumadocs-core@16.5.3</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>be957f1: use <code>mdast-util-to-markdown</code> for accurate stringification</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a href=\"https://github.com/fuma-nama/fumadocs/commits/fumadocs-core@16.6.1\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=fumadocs-core&package-manager=npm_and_yarn&previous-version=16.5.2&new-version=16.6.1)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

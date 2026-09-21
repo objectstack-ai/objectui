@@ -1,0 +1,33 @@
+{
+  "number": 460,
+  "kind": "pull_request",
+  "title": "feat: implement Q2 2026 roadmap — DnD spec bridges, gestures, gallery, grouping, row color, CRUD shortcuts, view animations, client notifications",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T18:00:33Z",
+  "updated_at": "2026-02-12T01:27:53Z",
+  "closed_at": "2026-02-12T01:24:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T01:24:29Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/460",
+  "body": "Implements 14 pending Q2 2026 roadmap items across DnD, gestures, view enhancements, keyboard navigation, animation, and notifications.\n\n### DnD Framework (§2.1)\n- **plugin-kanban**: `DndBridge` pattern bridges @dnd-kit drag events to ObjectUI `DndProvider` — `startDrag`/`endDrag` called with card metadata when a `DndProvider` ancestor exists\n- **plugin-dashboard**: `DndEditModeBridge` bridges edit mode transitions to DndProvider\n- **plugin-calendar**: Native HTML5 drag-to-reschedule in MonthView — new `onEventDrop(event, newStart, newEnd?)` callback with visual drop target feedback\n\n### Gesture & Touch (§2.2)\n- `useSpecGesture` — maps `GestureConfigSchema` to existing `useGesture` hook (swipe direction arrays, long-press duration, pinch scale)\n- `useTouchTarget` — returns style/className enforcing `TouchTargetConfigSchema` minimums (default 44×44px per WCAG 2.5.5)\n\n### View Enhancements (§2.5)\n- **ObjectGallery**: Consumes `GalleryConfig` — `coverField`, `coverFit`, `cardSize` (small/medium/large grid), `visibleFields`\n- **useGroupedData**: Groups grid data by `GroupingConfig.fields` with collapse/expand state\n- **useRowColor**: Maps `RowColorConfig` field values to row background classes\n\n### Keyboard, Animation, Notifications\n- `useCrudShortcuts` — registers `Ctrl+N/E/S/D`, `Delete`, `Escape`, `Ctrl+F` via existing `useKeyboardShortcuts`\n- ListView view switcher: `key={currentView}` + `animate-in fade-in-0 duration-200` for smooth transitions\n- `useClientNotifications` — bridges `client.notifications.*` (list, registerDevice, markAsRead, preferences) to local `NotificationProvider`\n\n### Usage\n\n```tsx\n// Spec gesture integration\nconst ref = useSpecGesture({\n  config: { enabled: true, swipe: { direction: 'left', threshold: 50 } },\n  onSwipe: (dir) => navigate(dir),\n});\n\n// CRUD shortcuts\nuseCrudShortcuts({ onCreate: openNewForm, onDelete: deleteSelected, onSave: save });\n\n// Grouped grid with row colors\n<ObjectGrid schema={{ ...gridSchema, grouping: { fields: [{ field: 'status' }] }, rowColor: { field: 'priority', colors: { high: '#fee2e2', low: '#dcfce7' } } }} />\n```\n\n### Remaining Q2 items (not in scope)\n- Sidebar DnD reordering\n- Console UX enhancements (skeleton states, onboarding, global search, favorites)\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

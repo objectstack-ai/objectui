@@ -1,0 +1,33 @@
+{
+  "number": 469,
+  "kind": "pull_request",
+  "title": "docs: prioritize 🔮 Next Phase (N.1–N.5) as current active development focus",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T08:39:41Z",
+  "updated_at": "2026-02-12T11:55:39Z",
+  "closed_at": "2026-02-12T08:51:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T08:51:46Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/469",
+  "body": "All Q1–Q3 foundation work and Console v1.0 are complete. Restructures ROADMAP.md to elevate the Next Phase (N.1–N.5) from a future appendix into the current active priority.\n\n### Changes\n\n- **Section promotion:** Moved 🔮 Next Phase from after Q4 to before Q4, reflecting actual execution order\n- **Priority tiers with rationale:**\n  - 🔴 P0: N.1 (v3.0.0 Deep Integration) + N.2 (Designer Completion) — foundation for all downstream work\n  - 🟡 P1: N.3 (Ecosystem & Marketplace) + N.4 (Community Growth) — growth engines, depend on P0\n  - 🔵 P2: N.5 (2027 Platform Vision) — strategic long-term bets\n- **Deduplication:** Consolidated Designer phases 2–4 from Q2.8 into cross-references to N.2 (was duplicated)\n- **Cross-references:** Q3 marketplace (3.5) and community (3.6) items now point to N.3/N.4\n- **Annual Targets table:** Added N.x mapping per quarter, Designer Completion row, Community (Discord) row\n- **Header/footer:** Added `Current Priority` metadata field; updated roadmap status line\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

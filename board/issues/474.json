@@ -1,0 +1,33 @@
+{
+  "number": 474,
+  "kind": "pull_request",
+  "title": "Complete roadmap development tasks: i18n, CLI, deprecation warnings, docs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T12:53:30Z",
+  "updated_at": "2026-02-12T14:47:41Z",
+  "closed_at": "2026-02-12T13:50:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T13:50:43Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/474",
+  "body": "Addresses open items across all four ROADMAP priority areas (P1–P4).\n\n### Console i18n completion (P2.1)\n- Migrate all hardcoded strings in `ErrorBoundary`, `mode-toggle`, `ObjectView` to i18n keys\n- Add `console.theme`, `console.objectView`, `console.localeSwitcher` key sections to all 10 locale files\n- Create `LocaleSwitcher` component, add to `AppHeader` alongside `ModeToggle`\n\n```tsx\n// ErrorBoundary: extracted default fallback as function component to use hooks\nfunction DefaultErrorFallback({ error, onReset }) {\n  const { t } = useObjectTranslation();\n  return <EmptyTitle>{t('console.errors.somethingWentWrong')}</EmptyTitle>;\n}\n```\n\n### CLI fixes (P1.4)\n- **doctor.ts**: Resolve TODO — check Tailwind content config, add TypeScript version check (5.0+), peer dependency validation, `.ts` config support\n- **dev.ts**: Resolve TODO — load `app.json` in fallback pages directory detection\n- **check.ts**: Resolve TODO — validate schema `type` against known ObjectUI types\n\n### Deprecation warnings with migration snippets (P1.3)\n- `Registry.ts`: namespace deprecation now shows before/after code + migration guide link\n- `validation-engine.ts`: function-based condition warning now shows declarative alternative\n\n### README schema examples (P1.1)\n- Add 4 copy-paste-ready JSON schemas: contact form, data grid, dashboard, kanban board\n\n### Documentation guides (P4)\n- `building-crud-app.md` — end-to-end CRUD tutorial\n- `plugin-development.md` — custom plugin creation guide\n- `theming.md` — Tailwind/cva/dark mode customization\n- `architecture-overview.md` — layer architecture with data flow diagrams\n- `troubleshooting.md` — 10 common issues with fixes\n- `ci-cd-pipeline.md` — all 13 GitHub Actions workflows documented\n\n### ROADMAP update\n- Mark all newly completed items, update audit findings and success metrics\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

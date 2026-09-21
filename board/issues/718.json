@@ -1,0 +1,33 @@
+{
+  "number": 718,
+  "kind": "pull_request",
+  "title": "feat(P1.5): Console — Comments & Collaboration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-22T06:59:50Z",
+  "updated_at": "2026-02-22T07:34:11Z",
+  "closed_at": "2026-02-22T07:29:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-22T07:29:51Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/718",
+  "body": "Implements the four P1.5 roadmap items: @mention notification delivery, cross-record comment search, comment pinning, and activity feed filtering.\n\n### Types (`@object-ui/types`)\n- Extended `CommentEntry` with `pinned`, `mentions`, `objectName`, `recordId`\n- Added `MentionNotification` type (recipient, channels, read state)\n- Added `CommentSearchResult` type (comment + highlight snippet)\n\n### Hooks (`@object-ui/collaboration`)\n- `useMentionNotifications` — notification state management with `onDeliver` callback for email/push dispatch, mark-as-read, dismiss\n- `useCommentSearch` — case-insensitive text/author search across a flat comment list, returns `CommentSearchResult[]` with highlighted snippets\n\n### UI Changes\n- **`CommentThread`** — new `onMentionNotify(userIds, content)` callback, fires on submit when @mentions are detected\n- **`RecordComments`** — `searchable` prop adds search input with clear; `onTogglePin` enables pin/unpin per comment; pinned comments sort first with visual indicator\n- **`ActivityTimeline`** — `filterable` prop renders filter pills (All / Comments / Field Changes / Creates / Deletes / Status Changes); `defaultFilter` sets initial state\n\n```tsx\n// Activity feed with filtering\n<ActivityTimeline activities={entries} filterable defaultFilter=\"comment\" />\n\n// Record comments with search + pinning\n<RecordComments comments={comments} searchable onTogglePin={handlePin} />\n\n// Mention notification delivery\n<CommentThread\n  onMentionNotify={(userIds, text) => deliverNotifications(userIds, text)}\n  {...otherProps}\n/>\n```\n\n### Tests\n40 new tests across 5 files. All 291 existing tests in affected packages pass.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完成roadmap开发 P1.5 Console — Comments & Collaboration\n> \n>  @mention notification delivery (email/push)\n>  Comment search across all records\n>  Comment pinning/starring\n>  Activity feed filtering (comments only / field changes only)\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

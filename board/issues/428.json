@@ -1,0 +1,36 @@
+{
+  "number": 428,
+  "kind": "pull_request",
+  "title": "Fix TransactionManager type mismatch and ConditionalAuthWrapper import paths",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "package: core"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T09:17:19Z",
+  "updated_at": "2026-02-10T09:43:40Z",
+  "closed_at": "2026-02-10T09:43:40Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T09:43:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/428",
+  "body": "All three CI jobs (Test, Build Core, Build Docs) fail due to a type error in `@object-ui/core` build, and two console tests fail due to broken imports.\n\n### Build error: `TransactionManager.ts` (TS2345)\n\n`TransactionConfig.actions` is typed as `ActionSchema[]` from `ui-action.ts`, but the `actionExecutor` callback parameter used the legacy `ActionSchema` from `crud.ts`. These are incompatible (`type: ActionType` vs `type: 'action'`).\n\n```diff\n-import type { ..., ActionSchema } from '@object-ui/types';\n+import type { ..., UIActionSchema } from '@object-ui/types';\n\n-actionExecutor: (action: ActionSchema) => Promise<ActionResult>,\n+actionExecutor: (action: UIActionSchema) => Promise<ActionResult>,\n```\n\n### Test failures: `ConditionalAuthWrapper.tsx`\n\nTwo wrong relative imports — the file is in `components/` but referenced paths as if it were in `src/`:\n\n- `'./dataSource'` → `'../dataSource'`\n- `'./components/LoadingScreen'` → `'./LoadingScreen'`\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

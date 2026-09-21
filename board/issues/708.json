@@ -1,0 +1,35 @@
+{
+  "number": 708,
+  "kind": "issue",
+  "title": "Console 剩余导航集成功能（Drag Reorder、Pin、AppSchemaRenderer 迁移）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T13:50:44Z",
+  "updated_at": "2026-02-21T14:27:18Z",
+  "closed_at": "2026-02-21T14:27:18Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/708",
+  "body": "# P1-P3 Console 集成剩余任务汇总\n\n根据 Issue #702 的功能评估及已完成的 P0 集成，以下是尚未完成的所有 Console 集成任务，需新开一个总 Issue 进行追踪。\n\n---\n\n## ✨ 剩余集成任务列表\n\n### P1. Navigation Drag Reorder 升级\n- **目标**：用 `@dnd-kit` 替换 Console 当前使用的原生 HTML5 DnD（`draggable`, `onDragStart/Over/Drop`），提升可用性与交互体验。\n- **内容**：\n  - 使用 `@object-ui/layout` 提供的 `SortableNavigationItem` 和 `NavigationRenderer`（PR #698 功能已完整）\n  - 实现 PointerSensor/KeyboardSensor，保持 grip handles 等 UX\n  - 保留原有 `useNavOrder` hook 的 localStorage 持久化功能（需适配新的拖拽顺序存储）\n  - 全量回归测试，确保与 Console 其他 DnD（如 Kanban）行为无冲突\n  - 优先处理 sidebar navigation 区域的拖拽\n\n### P2. Navigation Pin 功能集成\n- **目标**：将 `@object-ui/layout` 的导航项 Pin（side bar navigation item 级别收藏）集成到 Console，补充原有 record 级别 favorites，支持收藏导航条目并置顶。\n- **内容**：\n  - 对比现有 Console 的 `useFavorites()` hook（record 收藏），与 package 层 pin/unpin、collectPinnedItems 逻辑并存\n  - 增加新 UX：Favorites section 可同时显示 record favorites 与 navigation pinned，需区分展示类型与操作入口\n  - 支持 pin/unpin 导航条目，置顶显示\n  - 完善交互和测试用例\n\n### P3. AppSchemaRenderer 整体迁移\n- **目标**：将 Console 的 `AppSidebar.tsx`（现有自实现逻辑：area switch、navigation tree、icon/visibility/permission、recent items、app switcher 等）整体迁移到 `@object-ui/layout` 的 `AppSchemaRenderer`，实现架构升级。\n- **内容**：\n  - 将 Console 特有功能（app switcher dropdown、user footer、recent items、swipe gesture、本地 DnD）迁移为 `AppSchemaRenderer` 的 slot/props/扩展接口\n  - 删除重复能力，提升测试覆盖率与维护效率\n  - 回归测试确保 feature parity\n  - 分阶段迁移：\n    - 阶段一：接口适配 package 层逻辑\n    - 阶段二：业务差异补齐\n    - 阶段三：全面回归与集成 badge/search/pin/reorder 等增强\n\n---\n\n## 📝 备注\n- 每项任务建议分拆为独立 PR，可选用 enhancement/导航/refactor 标签\n- 需持续更新 ROADMAP 和测试用例\n- 开发完成后，请务必运行 test，并同步 ROADMAP.md\n\n---\n\n**本 issue 用于统一跟踪 P1-P3 剩余集成任务，细节请参考 Issue #702 及相关 PR（#698, #703）。**\n"
+}

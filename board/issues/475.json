@@ -1,0 +1,33 @@
+{
+  "number": 475,
+  "kind": "pull_request",
+  "title": "feat: complete ROADMAP P1–P4 development tasks",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T13:57:10Z",
+  "updated_at": "2026-02-12T15:27:22Z",
+  "closed_at": "2026-02-12T15:06:24Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T15:06:24Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/475",
+  "body": "Addresses the open ROADMAP items across Developer Experience, User Experience, Component Excellence, and Documentation priorities.\n\n### Zod Discriminated Unions (P1.2)\n\nConverted 12 category-level `z.union()` → `z.discriminatedUnion('type', [...])` across all schema files (layout, form, feedback, data-display, disclosure, overlay, navigation, complex, blocks, reports, views, theme). This gives TypeScript narrowing on `type` field and dramatically better autocompletion + error messages.\n\n```typescript\n// Before: generic union, no narrowing\nexport const LayoutSchema = z.union([DivSchema, SpanSchema, ...]);\n\n// After: discriminated on 'type', TS narrows automatically\nexport const LayoutSchema = z.discriminatedUnion('type', [DivSchema, SpanSchema, ...]);\n```\n\n### CLI Scaffolding (P1.1, P1.4)\n\n- **`objectui init`** now generates a complete buildable project: `package.json`, `vite.config.ts`, `tailwind.config.js`, `postcss.config.js`, `index.html`, `src/main.tsx`, `src/App.tsx`, `tsconfig.json`\n- **`create-plugin`** template now includes a `.stories.tsx` file with Default + WithClassName variants\n\n### Focus Management Hooks (P2.3)\n\nAdded `useFocusReturn` (capture/restore focus on mount/unmount) and `useRovingFocus` (arrow-key navigation for item lists) to `@object-ui/react`.\n\n### Skeleton & State Primitives (P2.4, P3.1)\n\n- **`view-skeleton.tsx`** — `GridSkeleton`, `KanbanSkeleton`, `FormSkeleton`, `ListSkeleton`, `ChartSkeleton`\n- **`view-states.tsx`** — `DataLoadingState`, `DataEmptyState`, `DataErrorState` with ARIA roles, retry support\n\n### Storybook Stories (P3.5)\n\nAdded stories for 10 plugin packages: grid, kanban, calendar, dashboard, form, charts, list, detail, timeline, gantt. Follows existing `SchemaRenderer` + JSON schema pattern.\n\n### Documentation (P4.1, P4.2)\n\n- **`content/docs/guide/deployment.md`** — Docker, Vercel, Railway, Netlify configs\n- **`content/docs/api/schema-reference.md`** — 20+ schema types with annotated JSON examples\n\n### ROADMAP Verification (P2.2)\n\nMarked 4 items as complete after verifying: ObjectView is already plugin-based, Console uses `@object-ui/data-objectstack`, 14 plugins registered via side-effect imports, view tabs are schema-driven from `objectDef.list_views`.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

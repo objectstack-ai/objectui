@@ -1,0 +1,33 @@
+{
+  "number": 526,
+  "kind": "pull_request",
+  "title": "fix: support nested view config format in console ObjectView",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-15T16:57:13Z",
+  "updated_at": "2026-02-15T17:28:17Z",
+  "closed_at": "2026-02-15T17:25:59Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-15T17:25:59Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/526",
+  "body": "CRM calendar view renders with wrong field mappings because the console `renderListView` only reads flat view config properties (`viewDef.startDateField`) but `@objectstack/spec` defines them nested (`viewDef.calendar.startDateField`).\n\nThis causes events to show as \"Untitled\" with incorrect dates, since `titleField` falls back to `'name'` and `startDateField` falls back to `'due_date'` — neither of which exist on event records.\n\n### Changes\n\n- **`apps/console/src/components/ObjectView.tsx`** — Check nested config (`viewDef.<viewType>?.<prop>`) before flat fallbacks for all view types: kanban, calendar, timeline, map, gallery, gantt, chart\n\n```diff\n- startDateField: viewDef.startDateField || viewDef.dateField || 'due_date',\n+ startDateField: viewDef.calendar?.startDateField || viewDef.startDateField || viewDef.dateField || 'due_date',\n```\n\n- **`apps/console/src/__tests__/CalendarNestedConfig.test.tsx`** — Integration test using CRM-style nested calendar config, verifying correct field mapping and no \"Untitled\" fallback\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> https://demo.objectui.org/apps/crm_app/event/view/calendar\n> \n> 未能显示日历视图，显示还是列表\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

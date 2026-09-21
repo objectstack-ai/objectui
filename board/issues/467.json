@@ -1,0 +1,33 @@
+{
+  "number": 467,
+  "kind": "pull_request",
+  "title": "Designer UX audit: accessibility, keyboard shortcuts, zoom controls, property panels",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T06:30:55Z",
+  "updated_at": "2026-02-12T11:13:37Z",
+  "closed_at": "2026-02-12T07:07:21Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T07:07:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/467",
+  "body": "Comprehensive UX analysis of all 5 designers in `plugin-designer` with Phase 1 improvements implemented. Full analysis in `DESIGNER_UX_ANALYSIS.md`.\n\n## Accessibility (all designers)\n- `aria-label` on every icon-only button\n- `role=\"toolbar\"` / `role=\"region\"` / `role=\"tablist\"` on interactive regions\n- `aria-selected` on ViewDesigner tab buttons\n\n## Keyboard shortcuts (Page, DataModel, Process, Report)\n- `Delete`/`Backspace` removes selected item (skipped when focus is in input/textarea)\n- `Escape` deselects\n\n## PageDesigner\n- Functional zoom controls (−/+/fit) replacing the static percentage label\n- Editable label field in property panel\n\n## DataModelDesigner\n- `🔑` emoji → `PK` text for primary key indicator\n- \"coming soon\" tooltip on non-functional Add Relationship button\n\n## ReportDesigner\n- Property panel now shows element type, position, size, and text/field values\n\n## CollaborationProvider\n- New `ConnectionStatusIndicator` component with live connection state dot + user count\n- User color palette expanded 8 → 16\n\n```tsx\nimport { ConnectionStatusIndicator } from '@object-ui/plugin-designer';\n\n// Renders: 🟢 Connected (3 users)\n<CollaborationProvider config={config} user={user}>\n  <ConnectionStatusIndicator className=\"absolute top-2 right-2\" />\n  <PageDesigner />\n</CollaborationProvider>\n```\n\n## Empty states\nAll designers now include actionable guidance text instead of bare \"nothing here\" messages.\n\n## ROADMAP\nAdded section **2.8 Designer UX Enhancement** with 4-phase plan (Phase 1 ✅, Phases 2–4: DnD, undo/redo, i18n, collaboration wiring).\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

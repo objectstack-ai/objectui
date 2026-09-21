@@ -1,0 +1,33 @@
+{
+  "number": 452,
+  "kind": "pull_request",
+  "title": "Add interactive demos to core schemas, blocks, and plugin documentation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T13:39:18Z",
+  "updated_at": "2026-02-11T15:03:59Z",
+  "closed_at": "2026-02-11T14:55:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T14:55:54Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/452",
+  "body": "Documentation pages for core schemas, blocks, and several plugins lacked live interactive demos, making it hard for customers to evaluate platform capabilities at a glance.\n\n### Changes\n\n**Core schema docs** — added demos to pages that had zero interactive examples:\n- `theme-schema.mdx` — color palette preview, theme-aware component showcase\n- `enhanced-actions.mdx` — action buttons, confirmation dialog, action toolbar\n- `app-schema.mdx` — sidebar navigation, application header bar\n- `report-schema.mdx` — KPI header, data breakdown table, schedule config\n\n**Blocks docs:**\n- `blocks/index.mdx` — quick preview gallery (stats card, login card, notification)\n- `block-schema.mdx` — feature card, variable overrides, marketplace listing\n\n**Plugin docs** — enhanced pages with few or no working demos:\n- `plugin-view.mdx` — grid/detail/form views (was 0 demos)\n- `plugin-dashboard.mdx` — e-commerce + support dashboards (was 1 demo)\n- `plugin-grid.mdx` — 2 working demos replacing commented-out broken ones\n- `plugin-form.mdx` — contact form with mixed field types\n- `plugin-calendar.mdx` — week view with time slots\n\n**Bug fixes:**\n- Replaced `table` component in demos with layout-based rows to avoid `useSchemaContext` errors (grid plugin requires `SchemaRendererProvider` not available in doc site demos)\n- Normalized icon names to kebab-case (`BarChart3` → `chart-column`, `CheckCircle` → `circle-check`, etc.) per codebase convention\n\n### Screenshots\n\n| Theme Schema | App Schema |\n|---|---|\n| ![Theme](https://github.com/user-attachments/assets/97e6477a-cee7-4155-aae8-28ac46a38c3a) | ![App](https://github.com/user-attachments/assets/372548f9-08ab-4812-9e48-a4748e6e7e6f) |\n\n| Report Schema | Blocks Index |\n|---|---|\n| ![Report](https://github.com/user-attachments/assets/18918e2f-498b-4b92-99fa-b769c66b8ce8) | ![Blocks](https://github.com/user-attachments/assets/4a684e65-d446-44bc-b111-df0ba55bd49e) |\n\n| Enhanced Actions | Block Schema |\n|---|---|\n| ![Actions](https://github.com/user-attachments/assets/5f94e34f-3063-4ec7-aa3f-f5c21a40cc24) | ![BlockSchema](https://github.com/user-attachments/assets/fe853d63-41db-4a7b-b0d1-e89f836de375) |\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

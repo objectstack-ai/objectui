@@ -1,0 +1,33 @@
+{
+  "number": 464,
+  "kind": "pull_request",
+  "title": "feat(console): bundle splitting, compression, and lazy MSW for optimized production release",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T04:11:50Z",
+  "updated_at": "2026-02-12T07:16:27Z",
+  "closed_at": "2026-02-12T04:45:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T04:45:28Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/464",
+  "body": "Console's main chunk was 3.7 MB (1,008 KB gzip) — a single monolithic bundle. This PR splits it into 17 cacheable chunks, adds pre-compression, and lazy-loads MSW to prepare for a production-quality console release.\n\n### Bundle splitting (`vite.config.ts`)\n- Added `manualChunks` splitting into: `vendor-react`, `vendor-radix`, `vendor-icons`, `vendor-ui-utils`, `vendor-objectstack`, `vendor-zod`, `vendor-msw`, `vendor-charts`, `vendor-dndkit`, `vendor-i18n`, `framework`, `ui-components`, `ui-layout`, `infrastructure`, `plugins-core`, `plugins-views`, `data-adapter`\n- Main entry: **1,008 KB → 48.5 KB gzip** (95% reduction)\n- Disabled production source maps, enabled CSS code splitting\n\n### Compression\n- Added `vite-plugin-compression2` for Gzip + Brotli pre-compression (threshold: 1 KB)\n- Added `rollup-plugin-visualizer` → `dist/stats.html` for ongoing bundle monitoring\n\n### Lazy MSW loading (`main.tsx`)\n```ts\n// Before: static import — always bundled\nimport { startMockServer } from './mocks/browser';\n\n// After: dynamic import — tree-shaken when VITE_USE_MOCK_SERVER=false\nconst { startMockServer } = await import('./mocks/browser');\n```\n- `build:server` fully excludes MSW (~150 KB gzip saved)\n- Demo builds include MSW as a lazy chunk\n\n### Scripts (`package.json`)\n- Added `build:analyze` script\n- `build:server` no longer runs `msw:init` (not needed without MSW)\n\n### ROADMAP & CHANGELOG\n- Added **Console v1.0 Production Release** section (C.1–C.5) with before/after metrics\n- Marked Q3 §3.3 bundle performance target as complete\n- C.5 (CSP, cache headers docs, error tracking, perf budget CI) remains as future work\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

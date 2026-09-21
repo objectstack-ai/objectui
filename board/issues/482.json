@@ -1,0 +1,33 @@
+{
+  "number": 482,
+  "kind": "pull_request",
+  "title": "fix: wrap Storybook stories with global SchemaRendererProvider decorator",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T03:12:04Z",
+  "updated_at": "2026-02-13T08:40:32Z",
+  "closed_at": "2026-02-13T03:32:11Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T03:32:11Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/482",
+  "body": "~15 story files render plugin components (kanban, timeline, charts, calendar, grid, etc.) without `SchemaRendererProvider`, causing `useSchemaContext must be used within a SchemaRendererProvider` errors across Storybook.\n\n### Global decorator (`.storybook/preview.ts`)\n\nSingle fix for all affected stories — wraps every story with `SchemaRendererProvider` providing an empty `dataSource`. Stories needing a real dataSource still work because the innermost provider wins via React context.\n\n```ts\nconst withSchemaProvider: Decorator = (Story) =>\n  React.createElement(SchemaRendererProvider, { dataSource: {} }, React.createElement(Story));\n\nconst preview: Preview = {\n  decorators: [withSchemaProvider],\n  // ...\n};\n```\n\n### Console error detection (`.storybook/test-runner.cjs`)\n\n- `preVisit` now collects `console.error` calls\n- `postVisit` asserts no critical errors (`must be used within`, `Uncaught Error`, React error boundary messages)\n- Catches this class of missing-provider bugs in CI before they reach users\n\n### Smoke tests (`packages/react/src/__tests__/SchemaRendererProvider.smoke.test.tsx`)\n\n14 tests covering:\n- `useSchemaContext` throws outside provider, works inside\n- `SchemaRenderer` + provider integration\n- All 9 plugin types (`kanban`, `timeline`, `chart`, `object-grid`, etc.) render without provider errors\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

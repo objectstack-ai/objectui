@@ -1,0 +1,33 @@
+{
+  "number": 435,
+  "kind": "pull_request",
+  "title": "feat(console): UX polish across all console components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T16:51:25Z",
+  "updated_at": "2026-02-10T17:21:29Z",
+  "closed_at": "2026-02-10T17:16:38Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T17:16:38Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/435",
+  "body": "Comprehensive UX audit of the console app — every component and page reviewed for enterprise-grade polish.\n\n### Loading & Connection\n- **LoadingScreen**: Multi-step progress indicator with animated check/spinner transitions instead of static spinner\n- **ConnectionStatus**: Brief \"Connected\" flash (auto-dismiss 2s) on successful connection via `useEffect` timer\n\n### Navigation\n- **AppHeader**: Breadcrumb slugs humanized (`crm_dashboard` → `Crm Dashboard`), system admin routes added, record IDs shortened (`#abc123…`)\n\n### Empty States\n- All five \"Not Found\" views (Object, Dashboard, Page, Report, RecordDetail) now render contextual Lucide icons and actionable guidance text\n\n### Error Recovery\n- **ErrorBoundary**: Added \"Go Home\" alongside \"Try Again\"\n\n### Shadcn Migration\n- **ProfilePage**: Raw HTML `<input>`/`<button>`/`<label>` → Shadcn `Card`, `Input`, `Label`, `Alert`, `Avatar`, `Badge` with avatar section\n- **System Admin Pages** (Users/Orgs/Roles/Audit): Raw HTML buttons → `Button`/`Card`/`Badge`, added page icons, centered empty states with contextual illustrations\n\n### Roadmap\n- Added §1.7 (Console UX Polish — completed) and §2.7 (Phase 2 — skeleton loading, toasts, keyboard shortcuts, onboarding, notification center)\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

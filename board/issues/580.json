@@ -1,0 +1,33 @@
+{
+  "number": 580,
+  "kind": "issue",
+  "title": "[P1] examples/crm 配置移除 as any，实现类型安全",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T04:47:48Z",
+  "updated_at": "2026-02-18T05:14:47Z",
+  "closed_at": "2026-02-18T05:14:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/580",
+  "body": "examples/crm/objectstack.config.ts 结尾存在 `as any`，绕过了 `defineStack` 类型检查，导致自定义字段、key 等元数据不规范时无法在编译期发现。\n\n### 风险\n- 有 bug 时类型异常不会被 IDE/编译时发现，最终代码合入会导致线上渲染异常（如 columns/fields）\n- example 没有很好的示范效应。\n\n### 修复建议\n- 保持所有元数据严格按 `Parameters<typeof defineStack>[0]` 类型定义。\n- 请调用 `as Parameters<typeof defineStack>[0]` 或完全去除 `as any` 并修正类型错误。\n- 配合类型校验，可提升大家的开发体验，减少不可见风险。\n\n---\n- 修复完成需运行 test，确保 roadmap 相关已同步更新。"
+}

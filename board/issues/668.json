@@ -1,0 +1,33 @@
+{
+  "number": 668,
+  "kind": "pull_request",
+  "title": "feat: ViewConfigPanel full interactive editing (Airtable-style)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T01:41:44Z",
+  "updated_at": "2026-02-21T02:31:15Z",
+  "closed_at": "2026-02-21T02:10:26Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T02:10:26Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/668",
+  "body": "ViewConfigPanel was read-only. This adds full WYSIWYG editing: inline fields, toggle switches, view type selection, clickable sub-editor rows, and a local draft→save workflow.\n\n### ViewConfigPanel\n- Replace `ToggleIndicator` with Shadcn `Switch` for all 6 boolean fields (showSearch, showFilters, showSort, allowExport, addRecordViaForm, showDescription)\n- Inline `Input` for view title editing\n- Native `<select>` for view type switching (grid/kanban/calendar/etc.)\n- Columns/Filters/Sort rows are now `<button>` elements triggering `onOpenEditor(type)`\n- Local draft state with dirty tracking — Save/Discard footer appears on change\n- New optional props: `onViewUpdate`, `onOpenEditor`, `onSave` (backward-compatible)\n\n### ObjectView integration\n- `viewDraft` state merges saved config into `activeView` by ID\n- `handleViewConfigSave` persists draft and triggers `refreshKey` increment\n\n### i18n\n- Added `save`/`discard` keys across all 10 locales\n\n### Tests\n- 27 tests covering toggles, inline edit, select, save/discard flow, editor callbacks, initial states, ARIA, responsive CSS\n\n```tsx\n<ViewConfigPanel\n  open={true}\n  onClose={() => setOpen(false)}\n  activeView={activeView}\n  objectDef={objectDef}\n  onOpenEditor={(editor) => openSubPanel(editor)} // 'columns' | 'filters' | 'sort'\n  onSave={(draft) => applyViewConfig(draft)}\n/>\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>实现ViewConfigPanel全功能交互支持（Airtable风格右侧配置面板）</issue_title>\n> <issue_description>## 背��\n> 目前ViewConfigPanel为只读展示模式，不具备任何交互能力，不能编辑视图配置或相关功能，缺乏Airtable等主流NoCode平台的所见即所得（WYSIWYG）体验。\n> \n> ## 优化目标\n> - 支持所有配置项的实时编辑，包括：页面标题、描述、视图类型、字段列、过滤器、排序、外观、用户过滤、导出打印等\n> - 各配置项均可直接点击、切换、拖拽、切换开关等方式进行修改（UI交互能力如Switch、Input、Select、Button等���\n> - 编辑后可本地暂存，点击保存按钮后统一更新后端视图配置\n> - 配置项变更后主列表自动刷新，保持所见即所得\n> - 支持打开各分区（如列、过滤、排序）专属编辑器面板\n> \n> ## 实现方案建议\n> 1. 增加ViewConfigPanel的交互props接口（如：onViewUpdate、onToggle、onOpenEditor、onSave），将变更回调至父组件\n> 2. 替换只读ToggleIndicator为可编辑Switch组件，按字段（如showSearch、showFilters、showSort、allowExport）直接触发变更\n> 3. 页面标题、描述支持inline-edit（Input/textarea），失焦或确认后onViewUpdate\n> 4. Columns、Filter、Sort行变为Button或Clickable Row，支持点击弹出专属编辑器\n> 5. 视图类型（ViewType）支持Select切换，不同类型自动对应相关配置项\n> 6. 所有变更走draft本地状态，最后点击保存统一提交onSave\n> 7. 父组件ObjectView增加本地draft状态，所有交互变更缓存在draft，保存后更新数据源/后端\n> 8. 更新测试用例，覆盖所有配置交互与保存流程\n> 9. Roadmap同步更新，说明配置面板能力升级\n> \n> ## 子任务 Sub-Tasks\n> - [ ] 定义交互props接口与本地draft状态结构\n> - [ ] 全部配置项支持可编辑交互能力\n> - [ ] 打开Columns、Filters、Sort专属面板逻辑实现\n> - [ ] ViewType Select切换逻辑实现\n> - [ ] 本地draft状态与保存统一处理\n> - [ ] 与ObjectView集成数据流，保存后刷新主视图\n> - [ ] 测试用例补全，覆盖交互与编辑流程\n> - [ ] Roadmap更新\n> \n> ---\n> 完成功能后需运行所有相关test，并及时修订roadmap。\n> \n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#667\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

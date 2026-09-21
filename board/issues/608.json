@@ -1,0 +1,33 @@
+{
+  "number": 608,
+  "kind": "pull_request",
+  "title": "fix: changeset config stale package ref + E2E server connection filter + lockfile sync",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-19T03:55:17Z",
+  "updated_at": "2026-02-19T04:52:20Z",
+  "closed_at": "2026-02-19T04:38:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-19T04:38:33Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/608",
+  "body": "Three CI/build failures on main: Changeset Release validation error, E2E bootstrap test, and Vercel build lockfile mismatch.\n\n- **`.changeset/config.json`**: `@object-ui/cli` → `@objectstack/plugin-ui` — the CLI package was renamed in P3.5 but the changeset `fixed` group wasn't updated, causing `ValidationError: The package or glob expression \"@object-ui/cli\" does not match any package`\n- **`e2e/console-rendering.spec.ts`**: Add `\"Failed to connect to ObjectStack server\"` to the benign error filter in the bootstrap error test — no backend runs in CI, so this connection error is expected and should be ignored alongside existing MSW/favicon/network filters\n- **`pnpm-lock.yaml`**: Regenerated with hotcrm submodule packages included — Vercel checks out submodules during clone (61 workspace projects), but the lockfile only had entries for 45 packages, causing `ERR_PNPM_OUTDATED_LOCKFILE` on Vercel builds\n- **`pnpm-workspace.yaml`**: Removed stale `examples/crm-app` entry (directory doesn't exist)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix all ci errors and test again\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

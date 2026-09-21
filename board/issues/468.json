@@ -1,0 +1,33 @@
+{
+  "number": 468,
+  "kind": "pull_request",
+  "title": "chore: upgrade @objectstack/* to v3.0.0 and add next-phase roadmap",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T07:08:01Z",
+  "updated_at": "2026-02-12T11:48:18Z",
+  "closed_at": "2026-02-12T08:34:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T08:34:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/468",
+  "body": "Upgrades all `@objectstack/*` dependencies from `^2.0.7` to `^3.0.0` across 13 package.json files, migrates breaking changes, and adds the next-phase roadmap sections.\n\n### v3.0.0 breaking change migrations\n\n- **`Hub` → `Cloud`** namespace in `@object-ui/types` re-exports\n- **`definePlugin` removed** — only `defineStack` remains\n- **`PaginatedResult.value` → `.records`** across 8 data-fetching plugins/adapters\n- **`PaginatedResult.count` → `.total`** in `data-objectstack` adapter\n- **`client.meta.getObject(name)` → `client.meta.getItem('object', name)`**\n\n```ts\n// Before (v2.0.7)\nconst result = await client.data.find('task', { top: 10 });\nconst items = result.value;       // ❌ removed\nconst total = result.count;       // ❌ removed\n\n// After (v3.0.0)\nconst result = await client.data.find('task', { top: 10 });\nconst items = result.records;     // ✅\nconst total = result.total;       // ✅\n```\n\nThe `data-objectstack` adapter retains backward-compatible fallback (`records ?? value`) during the migration period.\n\n### Roadmap updates\n\n- All version references updated v2.0.7 → v3.0.0 across ROADMAP.md, SPEC_COMPLIANCE_EVALUATION.md, OBJECTSTACK_CLIENT_EVALUATION.md, console docs\n- Added **v3.0.0 migration table** documenting each breaking change and its resolution\n- Added **Next Phase (N.1–N.5)**: v3.0.0 deep integration (Cloud/contracts/integration/security/studio modules), designer completion (phases 2–4), marketplace, community, 2027 platform vision\n\n### Verification\n\n- 42/42 builds pass\n- 3235 tests pass (4 pre-existing failures, unrelated)\n- No security advisories for any `@objectstack/*@3.0.0` package\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

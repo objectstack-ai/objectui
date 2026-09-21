@@ -1,0 +1,33 @@
+{
+  "number": 458,
+  "kind": "pull_request",
+  "title": "fix: resolve Storybook build errors and improve CI workflow",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T16:28:37Z",
+  "updated_at": "2026-02-11T20:22:05Z",
+  "closed_at": "2026-02-11T17:22:49Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T17:22:49Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/458",
+  "body": "`pnpm storybook:build` fails with `\"createHash\" is not exported by \"__vite-browser-external\"` because `@objectstack/core` imports Node.js `crypto` in browser builds. Dev mode suffers from repeated `504 Outdated Optimize Dep` errors causing blank preview iframes. CI workflow was missing package build steps and had no caching.\n\n### `.storybook/main.ts`\n\n- **Add `viteCryptoStub()` plugin** — the stub already existed at `scripts/vite-crypto-stub.ts` and was used by `apps/console`, but was missing from the Storybook Vite config\n- **Add `process.env`/`process.platform`/`process.version` defines** for browser compat (mirrors console config)\n- **Pre-bundle `@objectstack/*` runtime packages** via `optimizeDeps.include` to eliminate dep discovery reloads on first page load\n- **Set `build.target: 'esnext'`**\n\n```ts\nimport { viteCryptoStub } from '../scripts/vite-crypto-stub';\n\n// in viteFinal:\nplugins: [viteCryptoStub()],\ndefine: {\n  'process.env': {},\n  'process.platform': '\"browser\"',\n  'process.version': '\"0.0.0\"',\n},\noptimizeDeps: {\n  include: [\n    '@objectstack/runtime',\n    '@objectstack/objectql',\n    '@objectstack/driver-memory',\n    '@objectstack/plugin-msw',\n    // ...\n  ],\n},\n```\n\n### `.github/workflows/storybook-tests.yml`\n\n- **Split into two jobs**: `storybook-build` (build verification, ~5min) → `storybook-test` (Playwright test-runner)\n- **Add `pnpm build`** before Storybook — packages must be built first\n- **Add pnpm + turbo caching**, `--frozen-lockfile`, `permissions: contents: read`\n- **Install only Chromium** instead of all browsers\n\n![Storybook working after fix](https://github.com/user-attachments/assets/ccbe7d22-06a0-4d80-91cb-ec628a1d1ca9)\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

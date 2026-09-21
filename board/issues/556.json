@@ -1,0 +1,33 @@
+{
+  "number": 556,
+  "kind": "pull_request",
+  "title": "feat: Grid CSV/JSON export + Phase 10 L1 completion",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T09:38:08Z",
+  "updated_at": "2026-02-16T14:09:28Z",
+  "closed_at": "2026-02-16T10:26:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-16T10:26:19Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/556",
+  "body": "Phase 10 (Data Interaction Foundation) was the last v1.0 blocker. Four of five L1 features already existed (FileUpload, Lookup, ActionEngine, Server Metadata). Grid export was the missing piece.\n\n### Code\n\n- **`ObjectGridSchema.exportOptions`** — Added to type definition, mirroring `ListViewSchema.exportOptions`\n- **`ObjectGrid` export toolbar** — Popover with CSV/JSON download, conditional on `schema.exportOptions`. Extracted `downloadFile()` and `escapeCsvValue()` helpers.\n\n```tsx\n<ObjectGrid\n  schema={{\n    type: 'object-grid',\n    objectName: 'contacts',\n    columns: ['name', 'email', 'status'],\n    exportOptions: { formats: ['csv', 'json'] },\n  }}\n/>\n```\n\n### Tests\n\n- 4 new tests covering: no button without config, button rendering, format dropdown, default formats\n- All 128 grid tests passing\n\n### Roadmap (`ROADMAP_CONSOLE.md`)\n\n- Phase 10 L1: all 5 items → ✅ Done\n- Phase 2/3: ⚠️ Partial → ✅ Complete (ActionEngine + Metadata API gaps closed)\n- Beta milestone v0.8.0 marked complete\n- Execution timeline progress bars updated\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/554\n> \n> 按roadmap console 完成开发并更新进度\n> \n> Phase 10: Data Interaction Foundation (v1.0 Blockers) 🔲 Planned\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

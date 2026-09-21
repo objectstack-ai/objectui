@@ -1,0 +1,33 @@
+{
+  "number": 516,
+  "kind": "pull_request",
+  "title": "feat(console): fetch metadata from API at runtime instead of bundling at build time",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-14T18:51:55Z",
+  "updated_at": "2026-02-15T01:36:48Z",
+  "closed_at": "2026-02-15T01:32:23Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-15T01:32:23Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/516",
+  "body": "Console bundles example metadata (CRM, Todo, KitchenSink) via static imports in `objectstack.shared.ts`. When deployed to another ObjectStack project, it renders the bundled examples instead of that project's metadata.\n\n## Changes\n\n### New context providers\n- **`MetadataProvider`** — fetches all metadata categories (`app`, `object`, `dashboard`, `report`, `page`) in parallel via `client.meta.getItems()` on mount. Exposes `useMetadata()` hook with `refresh()` for cache invalidation.\n- **`AdapterProvider`** — lifts `ObjectStackAdapter` creation above routes so both `AppContent` and `RootRedirect` share a single connected instance. Exposes `useAdapter()`.\n\n### Replaced static imports with API-driven metadata\n- `App.tsx` — `ConnectedShell` wraps routes with `AdapterProvider` + `MetadataProvider`\n- `DashboardView`, `ReportView`, `PageView`, `AppSidebar`, `SearchResultsPage` — replaced `appConfig.X` lookups with `useMetadata()`\n\n### `objectstack.shared.ts` scoped to MSW only\n- Only `mocks/browser.ts` and `mocks/server.ts` import it now (to seed the mock server for dev/demo mode)\n- Production builds have zero bundled metadata\n\n```tsx\n// Before: static, bundled at build time\nimport appConfig from '../../objectstack.shared';\nconst dashboard = appConfig.dashboards?.find(d => d.name === dashboardName);\n\n// After: fetched from API at runtime\nconst { dashboards } = useMetadata();\nconst dashboard = dashboards?.find(d => d.name === dashboardName);\n```\n\n### Test updates\n- `BrowserSimulation`, `ConsoleApp`, `PageView` tests mock both `MetadataProvider` and `AdapterProvider` to provide test data without requiring a real API connection.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

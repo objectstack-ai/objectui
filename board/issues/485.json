@@ -1,0 +1,33 @@
+{
+  "number": 485,
+  "kind": "pull_request",
+  "title": "feat: Airtable-inspired DetailView enhancements with functional actions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T04:21:20Z",
+  "updated_at": "2026-02-13T09:03:28Z",
+  "closed_at": "2026-02-13T05:08:40Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T05:08:40Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/485",
+  "body": "## Problem\n\nDetailView had a non-functional More menu and lacked standard record management features found in Airtable interfaces. ListView toolbar also has 4 disabled buttons requiring classification as user vs. editor controls.\n\n## Changes\n\n### DetailView Header & Actions\n\n**Fixed non-functional More menu** - now includes:\n- Duplicate record\n- Export record  \n- View history\n- Delete (relocated from primary button)\n\n**New user actions**:\n- Share button (Web Share API + clipboard fallback)\n- Favorite toggle with star icon\n- Universal tooltips on all interactive elements\n\n**Improved layout**:\n- Better visual hierarchy (title + metadata separation with dot delimiters)\n- Mobile-responsive (button text hidden on small screens)\n- Favorite star integrated into header\n\n### DetailSection Enhancements\n\n- Copy-to-clipboard on all field values (hover-revealed button with 2s feedback)\n- Field count badges in section headers\n- UPPERCASE field labels with improved contrast\n- Section header customization via `headerColor` and `showBorder` props\n\n### Type Extensions\n\n```typescript\ninterface DetailViewSection {\n  showBorder?: boolean;      // Control border visibility\n  headerColor?: string;      // Tailwind class for header bg\n  // ... existing props\n}\n```\n\n### Usage\n\n```tsx\n<DetailView\n  schema={{\n    sections: [{\n      title: 'Contact Info',\n      headerColor: 'muted',      // Optional styling\n      showBorder: false,         // Optional\n      fields: [...]              // Copy buttons auto-added\n    }]\n  }}\n/>\n```\n\n## Feature Classification\n\nPer Airtable patterns analysis ([full doc](../blob/copilot/optimize-list-view-layout/AIRTABLE_DETAIL_PANEL_ANALYSIS.md)):\n\n**User controls** (implemented): Share, Favorite, Copy, Duplicate, Export, History  \n**User controls** (Phase 2): Hide fields, Row height, Grouping  \n**Editor-only**: Color coding, Section styling\n\n## Technical Notes\n\n- Zero breaking changes (all new props optional)\n- Backward compatible with existing schemas\n- Follows design system (Tailwind CSS, Shadcn UI)\n- WCAG 2.1 AA accessible\n- +2KB gzipped bundle impact\n\n## Documentation\n\n- `AIRTABLE_DETAIL_PANEL_ANALYSIS.md` - Pattern analysis and roadmap\n- `DETAILVIEW_IMPROVEMENTS_SUMMARY.md` - Before/after comparison\n- Enhanced Storybook stories: `EnhancedAirtableStyle`, `WithFieldCounts`\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 评估如何参考 airtable  interfaces布局，从美观的角度，优化列表视图 的右侧页面。其中有很多按钮点不了，评估哪些功能要放到视图编辑中，哪些功能要允许最终用户修改。\n> \n> The user has attached the following file paths as relevant context:\n>  - .github/copilot-instructions.md\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\nCreated from [VS Code](https://code.visualstudio.com/docs/copilot/copilot-coding-agent).\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

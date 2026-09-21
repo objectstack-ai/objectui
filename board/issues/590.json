@@ -1,0 +1,33 @@
+{
+  "number": 590,
+  "kind": "pull_request",
+  "title": "Optimize mobile card view: visual hierarchy, currency formatting, stage badges",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T06:40:18Z",
+  "updated_at": "2026-02-18T07:36:34Z",
+  "closed_at": "2026-02-18T07:00:17Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T07:00:17Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/590",
+  "body": "Mobile card view (< 480px) renders all fields as identical flat key-value rows — raw numbers for amounts, ISO strings for dates, plain text for stages. Low information density, no visual hierarchy.\n\n### ObjectGrid card view restructure (`plugin-grid/src/ObjectGrid.tsx`)\n\n- **Title row**: First column rendered as `font-semibold` card title instead of a key-value pair\n- **Amount + Stage row**: Side-by-side compact layout — amount auto-detected by field name pattern and formatted via `formatCurrency()`, stage rendered as `<Badge>` with semantic color mapping:\n  - green → won/completed/done\n  - red → lost/cancelled/rejected  \n  - yellow → negotiation/review/in-progress\n  - blue → proposal/pending\n  - indigo → qualification, purple → prospecting\n- **Date fields**: Auto-detected and formatted via `formatDate()` (`Jan 15, 2024` vs `2024-01-15T00:00:00.000Z`)\n- **Skeleton loading**: 3 `animate-pulse` card placeholders when `useCardView && loading`\n\nField classification uses name-pattern matching (`amountKeys`, `stageKeys`, `dateKeys`) to determine rendering strategy per column — no schema changes required.\n\n### CRM example (`examples/crm/src/objects/opportunity.object.ts`)\n\nStage field options now include `color` metadata for SelectCellRenderer in grid/table views:\n\n```typescript\nstage: Field.select([\n  { value: \"Prospecting\", label: \"Prospecting\", color: \"purple\" },\n  { value: \"Closed Won\", label: \"Closed Won\", color: \"green\" },\n  { value: \"Closed Lost\", label: \"Closed Lost\", color: \"red\" },\n  // ...\n], { label: 'Stage' }),\n```\n\n### Tests\n\n10 new tests in `mobile-card-view.test.tsx` covering title hierarchy, currency formatting (`$150,000.00`), stage badge colors per variant, date formatting, and card structure. All 125 grid tests pass.\n\n### ROADMAP\n\nAdded 5 completed items under P6.1 ObjectGrid mobile section.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>优化移动端 卡片列表视图展示与交互体验</issue_title>\n> <issue_description>参考以下内容，主要是评估统一控件和组件的修改，包括例子中元素据的修改\n> \n> ## 背景\n> 移动端 Opportunity（商机）列表视图目前存在信息密度低、可用性与可读性待提升的问题。主要体现在字段展示方式、格式、交互入口、视觉分层和性能等方面。\n> \n> <img alt=\"移动端Opportunity列表（现状）\" width=\"1320\" src=\"https://github.com/user-attachments/assets/fc3d886e-8723-448d-aebe-acd2d4905d6a\" />\n> \n> ## 主要问题\n> 1. **字段格式未友好显示**：Amount未货币格式化，Close date为原始ISO字符串。\n> 2. **卡片内容层级单一**：Name、Amount、Stage、Close date等字段以相同行样式排列，占用空间偏大，主要内容不突出。\n> 3. **Stage无颜色区分**：不同阶段仅文本，无视觉标识，辨识度低。\n> 4. **缺少卡片快捷操作**：无法实现如滑动出现编辑等交互。\n> 5. **底部导航标签被截断**：部分tab名称显示不全。\n> 6. **Skeleton 卡片/Loading 无细节**：加载时体验不佳。\n> 7. **未实现无缝分页或虚拟列表**：多数据卡顿风险。\n> \n> ## 优化建议\n> ### 1. 字段格式优化 & 视觉层级\n> - Name 作为卡片title加粗突出\n> - Amount 金额货币格式化，如￥150,000 或 $150,000\n> - Stage 添加彩色badge（不同状态不同颜色）\n> - Close date 格式化为短日期(如'2024-01-15')\n> - Amount和Stage横向并列，提升可读性\n> \n> ### 2. 交互与性能优化\n> - 卡片可左右滑动出现常用操作（Edit/Change Stage）\n> - 加载数据时展示Skeleton卡片动画\n> - 支持下拉刷新（已实现）基础上，增加无限滚动加载\n> \n> ### 3. 底部导航优化\n> - 标签文本优先全名显示，不足时仅显示图标\n> - 使用@object-ui/mobile的MobileOverrides.navigation: 'bottom-tabs'提升体验\n> \n> ## 代码实现参考\n> - 重点参考`ObjectGrid`组件（packages/plugin-grid/src/ObjectGrid.tsx）的移动端card view逻辑\n> - 善用@object-ui/mobile中的useBreakpoint/useResponsive等hooks\n> - 需调整generateColumns、卡片结构与样式细节，实现信息紧凑与主次分明\n> \n> ---\n> **该优化会显著提升移动端 Opportunity 视图的易用性与美观度，并能有效解决现有主要痛点。**\n> \n> > 优化完成后请务必自行运行test并关注相关问题，并及时同步Roadmap。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#589\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

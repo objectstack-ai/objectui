@@ -1,0 +1,33 @@
+{
+  "number": 524,
+  "kind": "pull_request",
+  "title": "fix: remove duplicate DashboardSchema interface declaration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-15T04:38:14Z",
+  "updated_at": "2026-02-15T05:21:49Z",
+  "closed_at": "2026-02-15T05:19:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-15T05:19:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/524",
+  "body": "`packages/types/src/complex.ts` contained two `DashboardSchema extends BaseSchema` declarations with incompatible `widgets` property types, causing TS2717 and blocking the entire build pipeline.\n\n- **Root cause**: Legacy declaration (inline widget type with required `id`/`component`) conflicted with the newer `DashboardWidgetSchema[]` declaration (optional `id`/`component`, plus `type`/`options` for spec shorthand)\n- **Fix**: Removed the legacy declaration; the remaining one already supports both formats via `DashboardWidgetSchema`\n\n```ts\n// Before: two conflicting interface declarations\ninterface DashboardSchema extends BaseSchema {\n  widgets: Array<{ id: string; component: SchemaNode; ... }>  // line 24\n}\ninterface DashboardSchema extends BaseSchema {\n  widgets: DashboardWidgetSchema[]  // line 526 — TS2717\n}\n\n// After: single declaration\ninterface DashboardSchema extends BaseSchema {\n  widgets: DashboardWidgetSchema[]  // id/component optional, supports spec shorthand\n}\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix build and test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

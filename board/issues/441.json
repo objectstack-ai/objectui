@@ -1,0 +1,33 @@
+{
+  "number": 441,
+  "kind": "pull_request",
+  "title": "feat: add ViewDesigner for visual view creation and editing in console",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T03:44:34Z",
+  "updated_at": "2026-02-11T05:16:33Z",
+  "closed_at": "2026-02-11T04:18:06Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T04:18:06Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/441",
+  "body": "Console lacked any UI for creating or modifying list views — view definitions were code-only. This adds a visual ViewDesigner and wires it into the console with routes and toolbar entry points.\n\n### Types (`@object-ui/types`)\n- New `ViewDesignerSchema` and `ViewDesignerColumn` interfaces in `designer.ts`\n\n### ViewDesigner Component (`@object-ui/plugin-designer`)\n- 3-panel layout: field palette → column layout preview → properties panel (columns/filters/sort/options tabs)\n- Supports all 7 view types with type-specific options (e.g. Kanban `groupBy`, Calendar `startDateField`)\n- Registered with `ComponentRegistry` as `view-designer`\n\n### Console Integration\n- `ViewDesignerPage` wrapper resolving object fields from route params\n- Routes: `/:objectName/views/new` and `/:objectName/views/:viewId`\n- \"Edit View\" / \"Add View\" buttons in ObjectView toolbar\n\n```tsx\n// Navigate to designer from any object list view\n<Button onClick={() => navigate('views/new')}>Add View</Button>\n<Button onClick={() => navigate(`views/${activeViewId}`)}>Edit View</Button>\n```\n\n### Tests\n- 30 tests covering field palette, column management, view type selection, save/cancel, filters, sort, options, and edit mode\n\n### Screenshots\n\n**Object list view with new toolbar buttons:**\n\n![Object List View](https://github.com/user-attachments/assets/89122feb-4db2-4116-a4a5-3afe43d53c51)\n\n**View Designer with columns configured:**\n\n![View Designer](https://github.com/user-attachments/assets/75a8578a-e4fb-4c6f-8a76-9b22016402f0)\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

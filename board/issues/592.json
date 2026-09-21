@@ -1,0 +1,33 @@
+{
+  "number": 592,
+  "kind": "pull_request",
+  "title": "feat: PivotTable component (cross-tabulation / pivot table)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T07:47:32Z",
+  "updated_at": "2026-02-18T09:01:00Z",
+  "closed_at": "2026-02-18T08:54:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T08:54:47Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/592",
+  "body": "Adds a PivotTable component rendering `rowField × columnField → valueField` with configurable aggregation, totals, formatting, and column colors. Integrates as a dashboard widget via `type='pivot'`.\n\n### Types (`@object-ui/types`)\n- `PivotTableSchema` interface: `rowField`, `columnField`, `valueField`, `aggregation`, `data`, `showRowTotals`, `showColumnTotals`, `format`, `columnColors`\n- `PivotAggregation` type: `sum | count | avg | min | max`\n\n### Component (`plugin-dashboard/PivotTable.tsx`)\n- `useMemo`-based pivot computation: buckets raw data → aggregates per cell\n- Row/column totals with grand total when both enabled\n- Format string support (prefix, grouping, decimals e.g. `$,.2f`)\n- `columnColors` maps column values to Tailwind classes\n\n### Dashboard integration\n- Registered with `ComponentRegistry` as `'pivot'`\n- `DashboardRenderer` handles `type='pivot'` widget shorthand\n\n### Usage\n\n```tsx\n<PivotTable schema={{\n  type: 'pivot',\n  rowField: 'owner',\n  columnField: 'stage',\n  valueField: 'amount',\n  aggregation: 'sum',\n  showRowTotals: true,\n  showColumnTotals: true,\n  format: '$,.0f',\n  data: [\n    { owner: 'Alice', stage: 'Discovery', amount: 1000 },\n    { owner: 'Bob',   stage: 'Closed',    amount: 5000 },\n  ],\n}} />\n```\n\n### Tests\n- 11 unit tests: aggregation modes, totals, formatting, empty/sparse data\n- All 48 existing dashboard tests still pass\n\n### Roadmap\n- Marked as completed under P1.3 Advanced View Features\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>PivotTable 组件（交叉矩阵/透视表）支持</issue_title>\n> <issue_description>Airtable 仪表盘底部的数据透视表（Owner × Stage → $Amount）ObjectUI 暂未实现。\n> \n> **目标**：\n> - 新增 PivotTable 组件，实现 rowField × columnField → valueField（支持 sum/count/avg 等聚合）\n> - 支持 showRowTotals/showColumnTotals、format、columnColors 等高级配置\n> - 可作为 dashboard widget 独立渲染\n> - 兼容 Spec 协议 type=pivot\n> - Storybook 示例 + 单元测试\n> \n> 见 [分析 2.3](https://github.com/objectstack-ai/objectui/blob/main)\n> \n> - 类型：新 feature\n> - 实现后运行 test & 更新 roadmap</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#585\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

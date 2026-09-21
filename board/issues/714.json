@@ -1,0 +1,33 @@
+{
+  "number": 714,
+  "kind": "pull_request",
+  "title": "docs: ROADMAP P1.8.1 — view config live preview sync gap analysis",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-22T02:54:03Z",
+  "updated_at": "2026-02-22T03:28:51Z",
+  "closed_at": "2026-02-22T03:27:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-22T03:27:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/714",
+  "body": "ViewConfigPanel live preview is fully wired for Grid but `showSort`/`showSearch`/`showFilters`/`striped`/`bordered`/`color` are **not propagated** to Kanban/Calendar/Timeline/Gallery/Map/Gantt. This updates the roadmap with a systematic gap analysis and phased remediation plan.\n\n### Changes to ROADMAP.md\n\n- **Revised live preview item** from `[x]` to `[ ]` (partially complete) with per-property gap annotations\n- **Added P1.8.1 section** with:\n  - Config propagation matrix (7 view types × 10 properties)\n  - 4 root causes: `generateViewSchema` hardcodes `showSearch: false` for non-grid; Console `renderListView` omits toolbar/appearance props; `NamedListView` type missing fields; no per-view-type integration tests\n  - 7-phase remediation plan (Grid baseline → Kanban → Calendar → Timeline/Gantt → Gallery/Map → data flow refactor → E2E tests)\n- **Updated Executive Summary** — View Config Live Preview Sync added as active priority #3\n- **Added risk entries** for dependency chain breakage and `NamedListView` type gaps\n\n### Propagation matrix (excerpt)\n\n| Property | Grid | Kanban | Calendar | Timeline | Gallery | Map | Gantt |\n|----------|:----:|:------:|:--------:|:--------:|:-------:|:---:|:-----:|\n| `showSearch` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |\n| `showSort` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |\n| `showFilters` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |\n| `rowHeight` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| `densityMode` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| `striped` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |\n| `bordered` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |\n\nDocumentation-only change. 708 existing tests unaffected.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Roadmap 更新：全面梳理视图配置实时同步改动及优化推进</issue_title>\n> <issue_description>## 更新 Roadmap，评估所有需要改动的内容\n> \n> 请根据 issue objectstack-ai/objectui#711（右侧视图配置面板变更未实时同步到全部列表类型）和相关 PR/commit，系统性地梳理并更新 Roadmap。\n> \n> ### 要求：\n> - **评估目前 live preview 相关改动覆盖的范围及遗漏点**\n> - 列出所有受影响的列表类型（Grid、Kanban、Calendar、Timeline、Gallery、Map）及对应的 config 属性\n> - 明确指出哪些视图类型和 config 字段尚未完全实现实时同步\n> - 补充所有需要改动的数据流、useMemo/useEffect 依赖、schema链路、属性透传等细节\n> - 针对依赖链断裂、属性同步遗漏、单元/集成测试缺失等问题提出 Roadmap 优化建议\n> - 最终 Roadmap 需详细规划各阶段目标及交付标准\n> \n> ---\n> 修订 Roadmap 时请参考：\n> - 当前的 console/plugin-view ObjectView、ViewConfigPanel 代码\n> - 现有相关测试覆盖范围\n> - 代码依赖深度及变更风险\n> \n> ### 子任务建议（可拆分）：\n> - [ ] Grid/表格视图 live preview 属性依赖补齐\n> - [ ] Kanban 看板视图 live preview & groupBy/config同步\n> - [ ] Calendar 日历视图 filter/sort/appearance同步\n> - [ ] Timeline/Gantt、Gallery、Map 视图 config 透传全覆盖\n> - [ ] useMemo/useEffect/数据流依赖梳理与重构\n> - [ ] 端到端集成测试\n> - [ ] 更新 Roadmap 文档\n> \n> \n> ---\n> 修订完成后请及时同步最新 roadmap。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#713\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

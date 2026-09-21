@@ -1,0 +1,33 @@
+{
+  "number": 643,
+  "kind": "pull_request",
+  "title": "chore: update @objectstack/* 3.0.7 → 3.0.8",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-20T06:19:33Z",
+  "updated_at": "2026-02-20T07:27:49Z",
+  "closed_at": "2026-02-20T07:25:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-20T07:25:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/643",
+  "body": "Bump all 11 `@objectstack/*` dependencies to latest published version (3.0.8).\n\n- **package.json updates** — `^3.0.7` → `^3.0.8` across 15 files (root, apps/console, examples/*, packages/types, packages/core, packages/react, packages/data-objectstack, plugin-gantt, plugin-map, plugin-timeline)\n- **Lockfile** — Regenerated `pnpm-lock.yaml` with hotcrm submodule\n- **Roadmaps** — Updated version references in `ROADMAP.md` and `ROADMAP_CONSOLE.md`\n\nPackages updated: `client`, `cli`, `core`, `driver-memory`, `objectql`, `plugin-auth`, `plugin-hono-server`, `plugin-msw`, `runtime`, `spec`, `studio`\n\nAll 8,128 tests pass.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> @objectstack更新到最新版\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

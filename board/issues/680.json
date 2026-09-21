@@ -1,0 +1,33 @@
+{
+  "number": 680,
+  "kind": "pull_request",
+  "title": "fix: ModalForm container query single-column not working on mobile",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T04:04:59Z",
+  "updated_at": "2026-02-21T04:50:16Z",
+  "closed_at": "2026-02-21T04:50:16Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/680",
+  "body": "ModalForm/DrawerForm sections path never passed `fieldContainerClass` to the form renderer, causing fallback to viewport-based `md:grid-cols-2` instead of container-query `@md:grid-cols-2`. Additionally, Tailwind v4's content scanner may not detect `@`-prefixed container query classes assembled in TypeScript string literals.\n\n### Sections path: missing `fieldContainerClass` chain\n\nThe sections rendering path applied container-query grid classes only to the `FormSection` wrapper via `gridClassName`, but `FormSection`'s grid wraps the `<form>` element as a single grid item — so multi-column never reached individual fields. The form renderer fell back to `md:grid-cols-2`.\n\nNow passes `columns` and `fieldContainerClass` directly to `SchemaRenderer`:\n\n```tsx\n// Before — fieldContainerClass never reached the form renderer\n<FormSection columns={sectionCols} gridClassName={CONTAINER_GRID_COLS[sectionCols]}>\n  <SchemaRenderer schema={{ ...baseFormSchema, fields: buildSectionFields(section) }} />\n</FormSection>\n\n// After — form renderer uses container-query grid internally\n<FormSection columns={1} gridClassName={undefined}>\n  <SchemaRenderer schema={{\n    ...baseFormSchema,\n    fields: buildSectionFields(section),\n    columns: sectionCols,\n    ...(sectionGridClass ? { fieldContainerClass: sectionGridClass } : {}),\n  }} />\n</FormSection>\n```\n\n### CSS safelist for container-query utilities\n\nAdded `@source inline(...)` in three CSS entry points to guarantee Tailwind v4 generates `@md:grid-cols-2`, `@2xl:grid-cols-3`, `@4xl:grid-cols-4` regardless of content scanner heuristics:\n\n- `packages/components/src/index.css`\n- `apps/console/src/index.css`\n- `apps/site/app/global.css`\n\n### Tests\n\nTwo new tests in `MobileUX.test.tsx`:\n- Multi-column sections render with `@md:grid-cols-2` (container query)\n- No viewport-based `md:grid-cols-*` classes leak into the dialog\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[BUG][ModalForm] 移动端依然出现两列表单，container query 单列未彻底生效，存在精度/链路/编译遗漏需修复</issue_title>\n> <issue_description>## 背景与现象\n> \n> ModalForm 支持 container query 容器查询，并且 issue objectstack-ai/objectui#669 已经要求 \"在移动端始终单列\"。但在实际使用中，部分手机依然出现两列表单，未生效为单列。任务实现和 issue 原文都强调了要做到 \"无论 viewport 宽度还是容器宽度\"，都能保证移动端永远是单列。\n> \n> ## 详细分析（代码追踪 & root cause）\n> \n> - ModalForm 中 `CONTAINER_GRID_COLS` 已切换为新语法：如 `grid gap-4 grid-cols-1 @md:grid-cols-2`。Modal 内部已加 `@container` class。\n> - 但底层表单 renderer 在渲染时，优先用 `fieldContainerClass`，fallback 为 viewport 断点如 `md:grid-cols-2`，理论逻辑没问题。\n> - 经过代码审查和样式输出验证，真正 bug 来源有两种可能：\n>     1. `@md:grid-cols-2` 这类 container query utility class 未必被 Tailwind v4 content scanner 正确识别到，导致根本没有生成任何 container-query 的 CSS。在编译后产物搜索不到 `@container`。\n>     2. 传参链路 `fieldContainerClass` 从 ModalForm → SchemaRenderer → form renderer 过程中，有可能被吞掉/覆盖，或存在 props 拼接/覆盖顺序的问题。\n> - 另外，form renderer 逻辑在 columns>1 时始终 fallback 到 viewport-based md:grid-cols-2。如果 fieldContainerClass 丢失或失效，会导致老问题复现。\n> - 也有极少数场景下，表单区域 padding 较大或者 modalSize 非移动断点，导致容器宽度勉强超过 `@md` 断点，实际产生了两列。\n> \n> ## 必须的精确修复方案\n> 1. **CSS 层面 safelist** 确保 tailwind v4 可以完全扫描到所有 `@md:grid-cols-x` container query 断点（显式加入到 @source/@utility/safelist 中）。\n> 2. **参数透传**：review and test `fieldContainerClass` 从 ModalForm 传到底层 form 渲染器是否始终生效（尤其 SchemaRenderer 层）。\n> 3. **form renderer fallback**：在 ModalForm/DrawerForm context 下遇到 columns>1，如果未显式禁用，应该 fallback 到单列以防止旧的 md:grid-cols-2 被激活。\n> 4. **添加端到端自动化测试**，mobile viewport 下验证最终渲染 computed style 的列数而不仅仅是 class name 上的判断。\n> \n> ## 复现方式\n> 1. 使用任意含多字段的 ModalForm，在 iPhone 14/15 Pro 等 375px-430px viewport 测试。\n> 2. 观察内容区 DOM：在 `@container` 的 form 区域，在手机上依然出现俩 field 并排。\n> \n> ## 期望结果\n> - 在任何手机端，无论分辨率/viewport 或 modalSize 设定，内容区域宽度小于 448px (`@md`) 时都只允许单列展示，不应有两列。\n> - 表单区域不应该再使用 `md:grid-cols-2` 等旧断点，全部采用 container query，并保障 CSS 的完全输出与生效。\n> - 保证参数链路不丢失，且端到端验证通���。\n> \n> ## 建议的 Checklist\n> - [ ] 明确 tailwind v4 CSS 产物里有 `@container @md:grid-cols-2` 相关 utility\n> - [ ] 检查 fieldContainerClass 全链路无丢失并加相关单测\n> - [ ] form renderer fallback 逻辑在 modal/drawer context 下永远优先容器断点\n> - [ ] e2e 覆盖手机分辨率，断言视觉 grid 为一列\n> \n> ---\n> \n> 如果需要补充更详细的 chain-of-custody/code walk log 可直接附加。\n> \n> —— 该 issue 来源 issue objectstack-ai/objectui#669 后续开发发现，详见关联讨论。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#679\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

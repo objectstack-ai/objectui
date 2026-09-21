@@ -1,0 +1,33 @@
+{
+  "number": 555,
+  "kind": "pull_request",
+  "title": "Document @objectql/core deprecation and plugin architecture",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T09:16:10Z",
+  "updated_at": "2026-02-16T13:50:58Z",
+  "closed_at": "2026-02-16T09:32:17Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/555",
+  "body": "The upstream `@objectql/core` package has been deprecated (objectstack-ai/objectql#373) for violating @objectstack/spec microkernel principles. This repository is already compliant—it uses `@objectstack/objectql` with explicit plugin composition.\n\n## Changes\n\n**ROADMAP.md** (+155 lines)\n- Added \"Architecture Migration\" section documenting 4-phase deprecation plan (v4.3 → v5.0)\n- Defined terminal state: pure plugin marketplace (core plugins, protocol adapters, platform adapters, drivers)\n- Clarified ObjectUI's compliant implementation with concrete examples\n\n**README.md** (+48 lines)\n- Added \"Plugin Architecture\" section contrasting explicit vs deprecated patterns\n- Listed best practices for plugin developers\n\n## Pattern Difference\n\n```typescript\n// ❌ Deprecated (magic aggregator from @objectql/core)\nnew ObjectQLPlugin({\n  enableRepository: true,\n  enableQueryService: true,\n  enableValidator: true,\n  // ...hidden complexity\n})\n\n// ✅ Explicit (current ObjectUI implementation)\nimport { ObjectQLPlugin } from '@objectstack/objectql';\nimport { DriverPlugin, AppPlugin } from '@objectstack/runtime';\n\nplugins: [\n  new ObjectQLPlugin(),\n  new DriverPlugin(new InMemoryDriver()),\n  new AppPlugin(config),\n  new HonoServerPlugin({ port: 3000 }),\n  new ConsolePlugin(),\n]\n```\n\nNo code changes required—documentation only.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> ## 背景\n> \n> 根据 `objectstack-ai/objectql` 仓库中已完成的 `@objectql/core` 重构（PR #373），`@objectql/core` 已从 ~3,500 LOC 瘦身至 734 LOC 的 thin bridge + plugin orchestrator，并且 `package.json` 已标注 `deprecated`。\n> \n> **宪法依据**：`@objectstack/spec` 是上游协议规范，所有开发必须遵循此协议。当前 `@objectql/core` 的残余中间层违背了 ObjectStack 微内核 + 插件架构的设计哲学。\n> \n> ## 任务\n> \n> ### 1. 更新 Roadmap\n> \n> 在项目的 Roadmap 文档中添加/更新以下迁移计划：\n> \n> **目标**：彻底作废 `@objectql/core`，本项目以纯插件生态形态存在。\n> \n> **迁移阶段**：\n> \n> #### Phase A: 消灭 `ObjectQLPlugin` 聚合器 (v4.3)\n> - 将 `@objectql/core` 中的 `plugin.ts`（323 LOC 聚合器）拆散\n> - 消费者从 `new ObjectQLPlugin({ enableRepository, enableQueryService, enableValidator, enableFormulas, datasources })` 一键启用\n> - 迁移为显式组合各独立插件：\n>   ```typescript\n>   // 目标形态 — 显式、透明、无魔法\n>   import { ObjectQLPlugin } from '@objectstack/objectql';       // 上游数据引擎\n>   import { QueryPlugin } from '@objectql/plugin-query';\n>   import { ValidatorPlugin } from '@objectql/plugin-validator';\n>   import { FormulaPlugin } from '@objectql/plugin-formula';\n>   ```\n> \n> #### Phase B: 处置 Bridge Class (v4.3)\n> - 将 `app.ts`（168 LOC bridge class）的 MetadataRegistry 桥接逻辑移入 `@objectql/platform-node`\n> - `ObjectLoader` 直接注册到上游 `SchemaRegistry`，不再需要中间层\n> \n> #### Phase C: 处置其余模块 (v4.3)\n> - `kernel-factory.ts` → 删除，用户直接 `new ObjectStackKernel([...plugins])`\n> - `repository.ts` → 删除，直接 `import { ObjectRepository } from '@objectstack/objectql'`\n> - `util.ts` → 移入 `@objectql/types`（纯函数，与类型包定位一致）\n> \n> #### Phase D: v5.0 Breaking Release (Q4 2026)\n> - 彻底删除 `@objectql/core` 包内容\n> - 发布 `@objectql/core@5.0.0` 作为空壳 meta-package\n>   - 仅 `peerDependencies` 指向各子插件\n>   - 运行时输出 `console.warn` 迁移提示\n> - 更新所有文档、examples、tests\n> \n> **终极形态 — 纯插件市场**：\n> ```\n> @objectql/plugin-query           # 查询增强\n> @objectql/plugin-validator       # 声明式校验\n> @objectql/plugin-formula         # 计算字段\n> @objectql/plugin-security        # RBAC/FLS/RLS\n> @objectql/plugin-optimizations   # 性能优化\n> @objectql/plugin-workflow        # 状态机\n> @objectql/plugin-multitenancy    # 多租户\n> @objectql/plugin-sync            # 数据同步\n> @objectql/protocol-graphql       # GraphQL 协议\n> @objectql/protocol-odata-v4      # OData V4 协议\n> @objectql/protocol-json-rpc      # JSON-RPC 协议\n> @objectql/platform-node          # Node.js 平台适配\n> @objectql/edge-adapter           # Edge Runtime 适配\n> @objectql/driver-*               # 各数据库驱动\n> @objectql/types                  # 宪法 (不变)\n> ```\n> \n> ### 2. 开始执行迁移\n> \n> 在可行的范围内开始执行 Phase A 的初步工作：\n> - 更新项目中引用 `@objectql/core` 的代码，改为直接引用上游包或独��插件包\n> - 如果有 `objectstack.config.ts` 或类似配置文件，将 `ObjectQLPlugin` 的一键组合模式改为显式插件列表模式\n> - 更新相关文档和 README\n> \n> ### 风险缓解\n> - 保留向后兼容的 re-export 直到 v5.0\n> - 提供 `createObjectQLPreset()` 便利函数返回推荐插件组合（可选）\n> - 文档明确声明推荐的插件注册顺序\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n*This pull request was created from Copilot chat.*\n>\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

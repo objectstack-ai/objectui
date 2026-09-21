@@ -1,0 +1,33 @@
+{
+  "number": 685,
+  "kind": "pull_request",
+  "title": "Remove dead `onOpenEditor` prop from ViewConfigPanel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T06:02:23Z",
+  "updated_at": "2026-02-21T06:41:23Z",
+  "closed_at": "2026-02-21T06:20:59Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T06:20:59Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/685",
+  "body": "Vercel build fails with TS6133 errors due to unused `onOpenEditor` callback pattern in ViewConfigPanel. The component handles all editing inline, making this prop dead code.\n\n- **`ViewConfigPanel.tsx`**: Remove `EditorPanelType` type and `onOpenEditor` from `ViewConfigPanelProps`\n- **`ObjectView.tsx`**: Remove `handleOpenEditor` callback, its type import, and prop passing\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 13:52:25.557 src/__tests__/ViewConfigPanel.test.tsx(54,51): error TS6133: 'props' is declared but its value is never read.\n> 13:52:25.557 src/__tests__/ViewConfigPanel.test.tsx(68,49): error TS6133: 'props' is declared but its value is never read.\n> 13:52:25.557 src/components/ViewConfigPanel.tsx(254,87): error TS6133: 'onOpenEditor' is declared but its value is never read.\n> 13:52:25.615  ELIFECYCLE  Command failed with exit code 2.\n> 13:52:25.635 Error: Command \"cd ../.. && pnpm turbo run build --filter=@object-ui/console^... && cd apps/console && VITE_BASE_PATH=/ pnpm build:vercel\" exited with 2\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 577,
+  "kind": "pull_request",
+  "title": "Fix blank Q1 Sales Performance report: map spec `columns`/`field` to ReportViewer `fields`/`name`",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T04:44:45Z",
+  "updated_at": "2026-02-18T06:32:18Z",
+  "closed_at": "2026-02-18T04:57:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T04:57:11Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/577",
+  "body": "The Q1 Sales Performance report rendered blank because `@objectstack/spec` defines reports with `columns[].field`, while `ReportViewer` expects `fields[].name`. The `ReportView` boundary layer mapped `label→title` but was missing the `columns→fields` mapping.\n\n### Changes\n\n- **`apps/console/src/components/ReportView.tsx`** — Extend spec→types mapping in the boundary layer:\n  - `columns[].field` → `fields[].name`\n  - `columns[].aggregate` → `fields[].aggregation` + `showInSummary`\n  - Auto-generate `sections` (summary + table) when absent\n\n- **`apps/console/src/__tests__/ReportView.test.tsx`** — Add assertions verifying column headers and data rows actually render (previous test only checked title/toolbar)\n\n### Before/After\n\nThe mapping follows the existing `label→title` pattern already in `ReportView`:\n\n```typescript\n// Before: only title mapping\nconst reportForViewer = reportData.title ? reportData : { ...reportData, title: reportData.label };\n\n// After: full spec→types boundary mapping\nconst mapped = { ...reportData };\nif (!mapped.title && mapped.label) mapped.title = mapped.label;\nif (!mapped.fields && Array.isArray(mapped.columns)) {\n  mapped.fields = mapped.columns.map((col) => ({\n    name: col.field || col.name,\n    label: col.label,\n    ...(col.aggregate ? { aggregation: col.aggregate, showInSummary: true } : {}),\n  }));\n}\n// Auto-generate sections when missing\nif (!mapped.sections && mapped.fields) { /* summary + table */ }\n```\n\nThe metadata in `objectstack.shared.ts` is unchanged — it correctly uses `columns`/`field` as required by `defineStack()` validation.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>报表界面 Q1 Sales Performance 显示为空白：元数据未严格遵守 spec 协议导致无法渲染</issue_title>\n> <issue_description>### 问题截图\n> <img alt=\"报表界面显示为空白\" width=\"2732\" src=\"https://github.com/user-attachments/assets/df3909ce-4191-49a7-948d-08dc808723d4\" />\n> \n> ### 问题描述\n> 进入 CRM → Sales Report → Q1 Sales Performance 页面，报表区域显示为空白，表头描述可见。\n> \n> ### 深入分析\n> - 当前报表元数据 `sales_performance_q1` 只声明了 `columns` 字段（field），而不是 spec 协议中约定的 `fields`（name），也缺少标准的 `sections`。\n> - `ReportViewer` 组件渲染 fallback 路径高度依赖 `fields`，导致数据内容无法显示。\n> - 数据初始化与后端接口（objectName: opportunity）均正确，不属于数据源或业务逻辑问题。\n> \n> ### 结论\n> **所有元数据定义都必须严格遵循 spec 协议，否则前端报表渲染将出现兼容性问题。**\n> \n> ### 修复建议\n> - 移除所有非标准字段，严格按照 spec 协议定义：\n>   - 用 `fields` 取代 `columns`，并将属性名统一为 `name`。\n>   - 建议补全 `sections`，并明确各 section 类型和结构。\n> - 参考如下标准写法：\n> \n> ```typescript\n> {\n>   name: 'sales_performance_q1',\n>   label: 'Q1 Sales Performance',\n>   description: 'Quarterly analysis of sales revenue by region and product line',\n>   objectName: 'opportunity',\n>   type: 'summary',\n>   fields: [\n>     { name: 'name', label: 'Deal Name' },\n>     { name: 'amount', label: 'Amount', type: 'number', aggregation: 'sum', showInSummary: true },\n>     { name: 'stage', label: 'Stage' },\n>     { name: 'close_date', label: 'Close Date' }\n>   ],\n>   sections: [\n>     { type: 'summary', title: 'Key Metrics' },\n>     {\n>       type: 'table',\n>       title: 'Deal Breakdown',\n>       columns: [\n>         { name: 'name', label: 'Deal Name' },\n>         { name: 'amount', label: 'Amount' },\n>         { name: 'stage', label: 'Stage' },\n>         { name: 'close_date', label: 'Close Date' }\n>       ]\n>     }\n>   ]\n> }\n> ```\n> \n> ### 待解决事项\n> - 检查和整改所有报表、对象等元数据字段定义，避免再次出现自定义字段或与 spec 协议冲突的属性。\n> - 修正后需全面回归报表功能并更新 roadmap。\n> \n> ### 影响评估\n> - 非标准元数据将导致报表等页面渲染异常，影响终端用户数据可视化使用。\n> \n> ---\n> *注：强烈建议所有新开发、维护及 review 人员严格以 spec 协议为唯一元数据标准。*</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#576\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

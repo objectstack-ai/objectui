@@ -1,0 +1,33 @@
+{
+  "number": 688,
+  "kind": "pull_request",
+  "title": "Unify view create/edit via right-side Panel, replace dual implementation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T06:37:05Z",
+  "updated_at": "2026-02-21T07:07:31Z",
+  "closed_at": "2026-02-21T06:55:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T06:55:13Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/688",
+  "body": "New and edit view flows used two separate implementations (full-screen ViewDesigner vs. sidebar ViewConfigPanel) with overlapping features but different data models and UX. This unifies them into a single panel-based flow.\n\n### `UnifiedViewConfig` type (`@object-ui/types`)\n- New interface combining flat view properties with nested type-specific options (kanban, calendar, map, gallery, timeline, gantt, chart)\n- Serves as the canonical type for both panel and designer\n\n### ViewConfigPanel — `mode` prop + type-specific options\n- `mode=\"create\" | \"edit\"` (default `\"edit\"`) — create mode initializes empty draft with `isDirty=true`\n- `onCreate` callback separate from `onSave` for create flow\n- Type-specific options section renders conditionally per view type:\n\n```tsx\n<ViewConfigPanel\n  open={true}\n  mode=\"create\"\n  activeView={activeView}\n  objectDef={objectDef}\n  onCreate={(config) => dataSource.create('sys_view', config)}\n  onSave={(draft) => dataSource.updateViewConfig(objectName, draft.id, draft)}\n/>\n```\n\n- Kanban: groupByField\n- Calendar: startDateField, titleField  \n- Map: latitudeField, longitudeField\n- Gallery: imageField\n- Timeline/Gantt: dateField, titleField\n\n### ObjectView — rewired entry points\n- \"Add View\" (dropdown + ViewTabBar) opens panel in `mode=\"create\"` instead of navigating to ViewDesigner\n- ViewDesigner retained as \"Advanced Editor\" behind a separate menu item\n- Added `viewConfigPanelMode` state and `handleViewCreate` callback\n\n### i18n + ROADMAP\n- Added keys: `createView`, `newView`, `advancedEditor`, `typeOptions`, field labels\n- Updated P1.8 roadmap section with completed items\n\n### Tests\n- 14 new tests covering create mode and type-specific options (49 total ViewConfigPanel)\n- Updated 2 ObjectView tests for panel-based flow, added 1 for Advanced Editor\n- ViewDesigner (37) and types (109) tests unaffected\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>前端视图新增/编辑界面统一，采用右侧Panel模式替代两套实现</issue_title>\n> <issue_description>## 需求背景\n> 当前前端\"新增视图\"与\"编辑视图\"采用了两套不同的界面和实现方式（ViewDesigner与ViewConfigPanel），导致代码与用户体验非常混乱。功能高度重叠、数据格式和保存逻辑都不同。\n> \n> ### 问题总结\n> - 新增视图时进入全屏ViewDesigner（3栏），编辑视图则用右侧ViewConfigPanel（侧边栏）\n> - 两者字段配置、过滤、排序、视图类型等功能几乎一样，但UI呈现和数据结构不同\n> - 若都保留则必须明确场景、入口和用户定位\n> \n> ## 方案建议\n> 参考Airtable等设计，建议统一采用\"右侧Panel\"（ViewConfigPanel）作为新增和编辑视图的唯一入口，实现如下：\n> 1. 新增/编辑视图都通过右侧Panel，mode=\"create\"或\"edit\"\n> 2. 合并ViewDesigner的type-specific options（如Kanban/Calendar/Map配置）至Panel\n> 3. 数据模型统一为`UnifiedViewConfig`，保存API统一\n> 4. 保留全屏ViewDesigner作为高级编辑入口，��供高级用户\n> \n> ### 优势\n> - 用户体验一致，新增/编辑都在当前页完成\n> - 开发成本大幅降低，维护性提升\n> - 减少重复代码，统一保存逻辑和数据结构\n> \n> ## 关键开发任务\n> - [ ] 统一数据结构（columns等用ViewDesignerColumn对象）\n> - [ ] 扩展ViewConfigPanel支持所有视图类型(type-specific options)\n> - [ ] 使用Panel替代全屏ViewDesigner，作为默认入口\n> - [ ] 支持拖拽排序（dnd-kit）等高级功能在Panel\n> - [ ] 编辑/新增入口和导航规范化\n> - [ ] 保留ViewDesigner为\"高级模式\"，入口弱化\n> - [ ] 统一保存API和回调\n> - [ ] ROADMAP同步更新\n> \n> ## 影响范围\n> - ObjectView主流程\n> - ViewDesigner和ViewConfigPanel\n> - 路由、数据模型、保存逻辑\n> - 用户界面体验\n> \n> ---\n> 如需详细拆分子任务请补充说明。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#687\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

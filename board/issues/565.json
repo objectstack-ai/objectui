@@ -1,0 +1,33 @@
+{
+  "number": 565,
+  "kind": "pull_request",
+  "title": "feat: implement L2 roadmap features for console (Phases 6, 13–17)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-17T02:52:21Z",
+  "updated_at": "2026-02-17T03:55:47Z",
+  "closed_at": "2026-02-17T03:50:57Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-17T03:50:57Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/565",
+  "body": "Advances the console roadmap from L1-complete to L2-partial across six phases, adding production-level features to collaboration, kanban, forms, sharing, undo, and comments.\n\n### Presence Avatars (Phase 6 L2)\n- Integrated `PresenceAvatars` from `@object-ui/collaboration` into `AppHeader` (global online users) and `RecordDetailView` (per-record viewers)\n- Uses mock presence data in dev mode; wired for real WebSocket presence when server is available\n\n### Kanban Swimlanes (Phase 13 L2)\n- Added `swimlaneField` to `KanbanSchema` and plumbed through `KanbanRenderer` → `KanbanBoardInner`\n- When set, renders a 2D grid: columns × swimlane rows with collapsible lane headers and per-lane card counts\n\n```tsx\n<KanbanBoard columns={columns} swimlaneField=\"priority\" />\n```\n\n### Form URL Prefill (Phase 14 L2)\n- `EmbeddableForm` now auto-reads `window.location.search` params as initial field data\n- Explicit `prefillParams` prop takes priority over URL params for the same key\n\n### Shared View Link Protection (Phase 15 L2)\n- Added password input and expiration dropdown (1/7/30/90 days) to `SharedViewLink` popover\n- `onShare` callback signature extended: `(url, { password?, expiresAt? }) => void`\n- Badges indicate protection status after link generation\n\n### Undo/Redo Toast (Phase 16 L2)\n- Wired `useGlobalUndo` into `AppContent` with Sonner toast notifications showing operation descriptions on Ctrl+Z / Ctrl+Shift+Z\n\n### Comment Sorting & Reactions (Phase 17 L2)\n- Added sort dropdown (oldest/newest) to `CommentThread` header\n- Added emoji reaction buttons (👍 ❤️) with toggle semantics and count display\n- New `onReaction?: (commentId, emoji) => void` callback prop\n- `RecordDetailView` wires reaction state management\n\n### Tests\n30 new tests across 4 files: `KanbanSwimlanes`, `SharedViewLinkPassword`, `CommentThreadSortReactions`, `EmbeddableFormPrefill`. All 544+ existing tests continue to pass.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按 roadmap console 尽可能多的完成开发\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 729,
+  "kind": "issue",
+  "title": "ViewConfigPanel 补全遗留细节与语义对齐修复（Issue #724 收尾）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-22T15:40:25Z",
+  "updated_at": "2026-02-22T16:38:27Z",
+  "closed_at": "2026-02-22T16:38:27Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/729",
+  "body": "本 Issue 汇总 #724 中所有未解决/未彻底完成的细节优化及需开发的收尾工作，确保 ViewConfigPanel 及其配置逻辑与 @objectstack/spec 协议完全对齐，彻底满足验收标准。\n\n---\n\n## 1. 语义字段一致性修复\n\n### 1.1 `editRecordsInline` → `inlineEdit`\n- 【必要】将 ViewConfigPanel 及相关配置、draft 写入与 `updateDraft('editRecordsInline', ...)` 等相关逻辑重命名为 `inlineEdit`\n- Console ObjectView 目前已兼容 `inlineEdit` 与旧字段，但仍要将控件、存储、类型全部统一改为 `inlineEdit`\n- 扫描所有引用（包括变量、props、测试、类型定义、data-testid等）\n- 批量更新测试用例（建议：保持所用 data-testid 与一线 name 保持一致）\n\n### 1.2 rowHeight value 规范（short→compact）\n- 【必���】`ROW_HEIGHT_OPTIONS` 由 [`short`, `medium`, `tall`, `extraTall`] 改为 [`compact`, `medium`, `tall`]\n- 控制面板、控件、schema存储、下游消费全部用 spec 定义值\n- 清理/迁移 legacy \"short\"/\"extraTall\"相关代码和测试\n\n---\n\n## 2. i18n 多语种 key 校验\n- 检查所有新增控件的 i18n keys （en.json、zh.json）是否完整，有遗漏及时补全\n- 优先覆盖：navigation、selection、pagination、export、searchableFields、filterableFields、resizable、densityMode、hiddenFields、rowActions、bulkActions、sharing、addRecord、conditionalFormatting、quickFilters、showRecordCount、allowPrinting、virtualScroll、emptyState、aria、userFilters、viewTabs\n- 用脚本扫描自动校对所有 data-testid 涉及的文案key\n- 两语种都需补全（英/中文）\n\n---\n\n## 3. 测试与验收\n- 检查 ViewConfigPanel.test.tsx 覆盖率，补充 P1/P2 控件的所有数据流/事件/控件渲染用例，保证每种配置至少有 snapshot/交互/提交覆盖\n- ListView/PluginObjectView 层需补充单元与集成测试，覆盖所有配置项 passthrough、render、响应\n- 针对所有视图类型（Grid/Kanban/Calendar/Timeline/Gallery/Map/Gantt）补全 config sync 的集成测试（ROADMAP P1.8.1 Phase 7 所列 6 大场景）\n- 自动化运行全量测试（pnpm test），确认覆盖率 >= 90%、无残留 skip/only、所有功能性用例通过\n\n---\n\n## 4. 开发流程规范\n- 本 issue 开发完毕 & 测试通过后：须同步 update ROADMAP.md，将所有相关条目状态更新为 ✅，并简要说明修复内容与「语义/验收对齐」结论\n\n---\n\n如遇有新增未尽配置项或 spec 变更，请在本 issue 留档跟进。\n\n---\n\n**参考原issues：**\n- [#724 ViewConfigPanel 对齐 @objectstack/spec ListViewSchema 完整修改清单](https://github.com/objectstack-ai/objectui/issues/724)"
+}

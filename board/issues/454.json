@@ -1,0 +1,33 @@
+{
+  "number": 454,
+  "kind": "pull_request",
+  "title": "[WIP] Evaluate various effective component animation testing methods",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T15:14:22Z",
+  "updated_at": "2026-02-11T17:46:29Z",
+  "closed_at": "2026-02-11T16:22:38Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T16:22:38Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/454",
+  "body": "- [x] Analyze broken documentation pages on fumadocs site\n- [x] Identify root cause: `InteractiveDemo` doesn't provide `SchemaRendererContext`, causing plugin pages to crash with \"useSchemaContext must be used within a SchemaRendererProvider\"\n- [x] Fix `InteractiveDemo` to wrap content with `DemoProvider` (uses `SchemaRendererContext.Provider` directly to avoid bundling issues)\n- [x] Add `Array.isArray` guards in resizable, list, tree-view, and table components to prevent `.map is not a function` TypeError during SSG prerendering\n- [x] Verify docs site builds successfully (475/475 static pages generated)\n- [x] Add `e2e/docs-smoke.spec.ts` — Playwright smoke tests covering 20 representative doc pages across all categories (components, fields, core, plugins, blocks)\n- [ ] Update CI workflow to run docs e2e tests (would add a `docs-e2e` job with separate Playwright config targeting the docs site)\n- [ ] Run code review and security checks\n\n### Changes\n\n**`apps/site/app/components/InteractiveDemo.tsx`**\n- Import `SchemaRendererContext` from `@object-ui/react`\n- Add `DemoProvider` wrapper that provides a minimal `SchemaRendererContext` so plugin components (grid, kanban, calendar, etc.) can find the required context\n- Wrap both single-example and multi-example `SchemaRenderer` usage with `DemoProvider`\n\n**`packages/components/src/renderers/complex/resizable.tsx`**\n- Add `Array.isArray(schema.panels)` guard before `.map()` to prevent SSG prerender crashes\n\n**`packages/components/src/renderers/data-display/list.tsx`**\n- Add `Array.isArray` guard for `items` to prevent `.map()` on non-array values\n\n**`packages/components/src/renderers/data-display/tree-view.tsx`**\n- Add `Array.isArray` guard for `nodes` to prevent `.map()` on non-array values\n\n**`packages/components/src/renderers/data-display/table.tsx`**\n- Add `Array.isArray` guard for `columns` to prevent `.map()` on non-array values\n\n**`e2e/docs-smoke.spec.ts`** (new)\n- Playwright smoke tests for 20 representative doc pages\n- Checks for HTTP errors, uncaught JS exceptions, and Next.js error overlays\n- Checks that all JS/CSS bundles load without 404s\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

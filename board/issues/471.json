@@ -1,0 +1,33 @@
+{
+  "number": 471,
+  "kind": "pull_request",
+  "title": "docs: overhaul ROADMAP.md — condense completed work, refocus on component quality and DX",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T10:01:36Z",
+  "updated_at": "2026-02-12T13:03:46Z",
+  "closed_at": "2026-02-12T10:37:17Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T10:37:17Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/471",
+  "body": "ROADMAP.md was 700 lines of mostly-checked checkboxes with priorities scattered across marketplace, cloud, and platform vision items. Needed refocusing: short-term goal is component usability, console completeness, developer experience, and documentation — not marketplace or cloud.\n\n**Completed milestones condensed** (700 → 296 lines)\n- Q1–Q3 2026, Console v1.0, v3.0.0 integration, designer completion — all reduced from ~200 individual `[x]` checkboxes to paragraph summaries\n- Architecture diagram preserved\n\n**New priority structure (P1–P4)**\n- **P1 Component Excellence** — audit 91+ components for API consistency, field widget polish, view robustness, Storybook coverage, test gaps\n- **P2 Console Completeness** — eliminate hand-wired ObjectView duplication, replace local adapter with `data-objectstack`, fix Chinese strings, schema-driven views, full CRUD verification\n- **P3 Developer Experience** — zero-to-app in 10 min, CLI tooling, error messages, API simplification\n- **P4 Documentation** — package READMEs, guides, API reference, Storybook as living docs\n\n**Deferred to Future Vision**\n- Plugin marketplace, community growth, ObjectUI Cloud, industry solutions — briefly listed, explicitly out of current scope\n\n**Added success metrics table**\n\n| Metric | Current | Target |\n|--------|---------|--------|\n| Test Coverage | 80% | 90% |\n| Storybook Stories | 66 | 91+ |\n| Console Gaps | ~8 | 0 |\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

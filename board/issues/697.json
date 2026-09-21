@@ -1,0 +1,33 @@
+{
+  "number": 697,
+  "kind": "pull_request",
+  "title": "docs: add Dashboard Config Panel phases (P1.10) to ROADMAP",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T09:28:26Z",
+  "updated_at": "2026-02-21T09:59:27Z",
+  "closed_at": "2026-02-21T09:45:53Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T09:45:53Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/697",
+  "body": "Adds the Dashboard configuration panel development plan to the roadmap as P1.10, tracking the phased rollout from shared component extraction through full type-safe editing.\n\n### ROADMAP.md changes\n\n- **P1.10 Console — Dashboard Config Panel** with 6 phases:\n  - Phase 0: Extract `ConfigRow`/`SectionHeader` to `@object-ui/components`\n  - Phase 1: `DashboardConfigPanel` — data source, layout, filtering, appearance\n  - Phase 2: Widget-level config — click-to-select widget property editing\n  - Phase 3: Sub-editor integration — `FilterBuilder`, dropdown filters, action panels\n  - Phase 4: `DashboardWithConfig` composite + Storybook stories\n  - Phase 5: `DashboardConfig` types in `@object-ui/types` + Zod validation\n- Updated executive summary, current priority line, and footer status to reflect the new workstream\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>更新 Dashboard 配置面板实现相关 Roadmap</issue_title>\n> <issue_description>## 背景\n> 近期评估了如何在 ObjectUI 中实现类似 Airtable 的仪表板右侧配置面板（配置详情见分析总结）。需要将开发计划及分阶段目标加入到 Roadmap，便于跟踪和协作。\n> \n> ## 路线图规划\n> ### P0 组件基础设施\n> - 将 ViewConfigPanel 中的 ConfigRow/SectionHeader 通用组件抽取到 @object-ui/components。\n> \n> ### P1 Dashboad 级别配置面板\n> - 开发 DashboardConfigPanel 支持仪表板级的数据源、布局、过滤、外观、用户过滤器与操作。\n> \n> ### P2 组件/小部件级别配置\n> - 支持点击仪表板中的小部件，侧边栏切换至小部件属性设置。\n> \n> ### P3 子编辑器���成\n> - 滤器构建器(FilterBuilder)、下拉筛选器、操作按钮子面板的可视化编辑。\n> \n> ### P4 组合及 Storybook 演示\n> - DashboardWithConfig 组合组件开发，补充 storybook 案例。\n> \n> ### P5 类型定义 & 校验\n> - 将 DashboardConfig 相关类型补充到 @object-ui/types 并增加 Zod 校验。\n> \n> ## 计划\n> 详见[右侧配置面板实现建议及分阶段目标 issue](#)和[分析总结](#)。\n> \n> ---\n> @hotlong 请注意，开发任务完成后需运行 test，并完善/更新相关 issue、同步 Roadmap 进展。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#696\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

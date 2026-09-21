@@ -1,0 +1,36 @@
+{
+  "number": 691,
+  "kind": "issue",
+  "title": "Console内容区布局溢出与视图宽度响应性系统改进",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "designer"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T08:00:13Z",
+  "updated_at": "2026-02-21T08:24:48Z",
+  "closed_at": "2026-02-21T08:24:48Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/691",
+  "body": "## 背景与问题\n当前 Console 内容区的多视图类型（Grid、Kanban、Gantt、Calendar、Map等）在宽屏/窄屏，特别是手机端经常出现横向/纵向溢出、撑破容器、侧边栏被遮挡、标题区混乱等问题。根因是主内容区域缺少 `min-w-0`、`overflow-hidden` 等响应布局处理，同时各视图内部控件宽度硬编码，未考虑容器宽度或可自适应。\n\n<img alt=\"甘特图溢出截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/53015c44-7f07-48e7-8584-958114c55bc4\" />\n\n### 主要场景与问题列表\n1. Gantt（甘特图）：任务列表固定宽度 + 时间轴横向无限延伸，导致内容溢出、侧边栏被遮挡\n2. Kanban（看板）：多列横排，每列 `min-width`，列数多时横向超出父容器\n3. Calendar（日历）：周视图宽度大于容器，手机端横向滚动不友好\n4. Map（地图）：容器宽高未响应父层，导致地图视图被布局挤压\n5. Timeline：同甘特图，横向延展溢出\n6. List/Grid：大量列时横向超出，手机端无法滚动\n\n## 影响与表现\n- 侧边栏与内容区重叠或被挤出屏幕\n- 标题、面包屑、工具栏布局混乱\n- 内容区无法滚动，或者需要全局滚动导致体验差\n- 手机端/Pad端溢出更严重，无法正常查看/编辑\n\n## 解决方案建议\n- [ ] 内容区容器 (`ObjectView.tsx`/`PluginObjectView`) 增加 `min-w-0`、`overflow-hidden`，保证flex子元素不会撑破父容器\n- [ ] 子视���组件（GanttView、KanbanView、CalendarView、MapView、TimelineView）统一采用响应式宽度，任务区、时间区、列区等都应基于父容器宽度/屏幕尺寸自适应\n- [ ] 任务列表宽度固定改为比例/最大值自适应\n- [ ] 横向滚动容器增加 `overscroll-x-auto` 和 `touch` 支持，优化移动端体验\n- [ ] 针对所有视图类型，明确容器布局模式（flex、grid、overflow等），不可使用硬编码宽度\n- [ ] ToolBar与面包屑、标题等上方区域分隔，避免重叠\n- [ ] 视图切换/响应式布局时自动调整各区域宽度，保证侧边栏与主视图区不互相遮挡\n- [ ] 移动端特殊适配，横向滚动区域可自适应，重要操作按钮避免被遮挡\n\n## 子任务拆分建议\n- [ ] 检查所有 ObjectView 内容区涉及的布局层级，梳理 min-w-0、overflow-hidden、overflow-x/y 的使用\n- [ ] 各视图插件内部宽度、横向滚动策略统一整理为响应式逻辑\n- [ ] 手机端/Pad端测试所有主要视图类型，收集典型溢出、遮挡、滚动不便场景\n- [ ] 针对卡片、甘特、日历等组件，增加宽度动态计算/横向滚动体验优化\n- [ ] 优化面包屑/工具栏布局分隔，防止跨区域遮挡\n\n---\n如需具体代码方案或视觉设计稿请补充需求。"
+}

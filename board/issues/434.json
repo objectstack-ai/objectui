@@ -1,0 +1,44 @@
+{
+  "number": 434,
+  "kind": "pull_request",
+  "title": "Upgrade @objectstack to v2.0.4, add plugin-auth for server-side authentication",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "examples",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T15:53:19Z",
+  "updated_at": "2026-02-10T16:51:03Z",
+  "closed_at": "2026-02-10T16:47:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T16:47:51Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/434",
+  "body": "- [x] Upgrade all @objectstack dependencies from ^2.0.1 to ^2.0.4 across all 13 package.json files\n- [x] Add @objectstack/plugin-auth ^2.0.3 to CRM example (examples/crm/package.json)\n- [x] Update CRM server.ts to integrate AuthPlugin into the ObjectKernel plugin chain\n- [x] Update OBJECTSTACK_CLIENT_EVALUATION.md with latest versions and server-side auth docs\n- [x] Fix Vite builds for @objectstack/core@2.0.4 crypto import (apps/console, examples/msw-todo)\n- [x] Run pnpm install to update lock file\n- [x] All 42 build tasks pass\n- [x] All 137 test files pass (2768 tests, 0 failures)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> On OBJECTSTACK_CLIENT_EVALUATION.md, @objectstack 升级到最新版，服务端引入 @objectstack/plugin-auth 进行身份验证\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

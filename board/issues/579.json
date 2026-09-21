@@ -1,0 +1,33 @@
+{
+  "number": 579,
+  "kind": "issue",
+  "title": "[P1] msw-todo 配置重构为标准 apps 和 manifest 结构",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T04:47:34Z",
+  "updated_at": "2026-02-18T05:20:32Z",
+  "closed_at": "2026-02-18T05:20:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/579",
+  "body": "examples/msw-todo/objectstack.config.ts 并未采用 ObjectStackDefinition 标准格式，而是将 app 级属性平铺至 stack 顶层。\n\n### 风险\n- 配置不规范，影响示例示范和类型推断。\n- IDE/codegen 工具等无法识别结构。\n\n### 修复建议\n- 定义标准 manifest 字段，所有 app 级参数放入 apps: [App.create(...)]。\n- 配置拆分为 manifest/object/app，具体参见其他 example 规范写法。\n\n---\n- 修复完成需运行 test，确保 roadmap 相关已同步更新。"
+}

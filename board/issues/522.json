@@ -1,0 +1,33 @@
+{
+  "number": 522,
+  "kind": "pull_request",
+  "title": "fix: align DashboardWidgetSchema with @objectstack/spec, fix missing React keys",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-15T03:42:20Z",
+  "updated_at": "2026-02-15T04:20:38Z",
+  "closed_at": "2026-02-15T04:11:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-15T04:11:33Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/522",
+  "body": "`@object-ui/types` `DashboardWidgetSchema` required `id` and `component` fields, but `@objectstack/spec` v3.0.4 defines widgets using `type`/`options` shorthand. This type mismatch forced unsafe `as any` casts throughout the renderer and left metric widgets without proper React keys (`key={undefined}` for all 4 cards), causing reconciliation issues.\n\n### Types (`packages/types`)\n\n- Made `id` and `component` optional on `DashboardWidgetSchema`\n- Added `type?: string` and `options?: unknown` to match the spec shorthand format\n- Updated both the TypeScript interface and Zod schema\n\n```typescript\n// Before: only legacy format\ninterface DashboardWidgetSchema {\n  id: string;\n  component: SchemaNode;\n  // ...\n}\n\n// After: supports both legacy and spec shorthand\ninterface DashboardWidgetSchema {\n  id?: string;\n  component?: SchemaNode;\n  type?: string;\n  options?: unknown;\n  // ...\n}\n```\n\n### Renderer (`packages/plugin-dashboard`)\n\n- Removed all `(widget as any).type` / `(widget as any).options` casts — types now cover both formats\n- Fixed key generation: `widget.id || widget.title || \\`widget-${index}\\`` prevents duplicate `undefined` keys on metric widgets\n- Same fixes applied to `DashboardGridLayout.tsx`\n\n### Tests\n\n- Added test for spec shorthand metric widget rendering (type + options at widget level)\n- Added test verifying unique keys across multiple widgets without `id`/`title`\n\n![CRM Dashboard](https://github.com/user-attachments/assets/0b19e5ae-88ed-40e3-b766-a88f67ca80fb)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> crm dashboard 显示为空白\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 591,
+  "kind": "pull_request",
+  "title": "Fix CI: CRM example validation errors and CLI lint error",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T07:06:13Z",
+  "updated_at": "2026-02-18T07:47:32Z",
+  "closed_at": "2026-02-18T07:44:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T07:44:20Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/591",
+  "body": "CI on main is broken due to two issues: `@objectstack/spec@3.0.4` now enforces `^[a-z][a-z0-9_.]*$` on explicit select option values, and an ESLint `ban-ts-comment` error in the CLI package.\n\n- **CRM example**: Stage field used explicit `{ value: \"Closed Won\", ... }` object syntax — unlike string shorthand which auto-lowercases, explicit values must be valid identifiers. Changed to snake_case (`closed_won`, `closed_lost`, etc.) while preserving labels.\n- **CLI lint**: `@ts-ignore` → `@ts-expect-error` in `packages/cli/src/commands/dev.ts`\n\n```ts\n// Before — fails spec validation\n{ value: \"Closed Won\", label: \"Closed Won\", color: \"green\" }\n\n// After\n{ value: \"closed_won\", label: \"Closed Won\", color: \"green\" }\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix ci errors\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

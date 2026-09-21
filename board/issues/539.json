@@ -1,0 +1,33 @@
+{
+  "number": 539,
+  "kind": "pull_request",
+  "title": "feat: complete P0/P1 spec compliance roadmap items",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T07:27:09Z",
+  "updated_at": "2026-02-16T08:52:25Z",
+  "closed_at": "2026-02-16T08:25:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-16T08:25:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/539",
+  "body": "Implements all Priority 0 and Priority 1 tasks from `ROADMAP_SPEC.md` — the UI-facing spec compliance milestones required for v1.0 release.\n\nP0 items were already complete from prior work. This PR implements all P1 items and updates the roadmap.\n\n### ListView spec properties (`@object-ui/types` + `plugin-list`)\n\n- **quickFilters** — predefined filter toggle buttons in toolbar; conditions merged with user/base filters on fetch\n- **hiddenFields / fieldOrder** — functional \"Hide fields\" popover replacing the disabled button; field ordering applied to all child view schemas\n- **exportOptions** — CSV/JSON export with configurable formats, max records, filename prefix; proper CSV escaping (commas, quotes, newlines)\n- **densityMode** — compact/comfortable/spacious cycle button wired to existing `useDensityMode` hook\n\n```ts\n// New ListViewSchema properties\nquickFilters?: Array<{ id: string; label: string; filters: any[]; icon?: string; defaultActive?: boolean }>;\nhiddenFields?: string[];\nfieldOrder?: string[];\nexportOptions?: { formats?: ('csv'|'xlsx'|'json'|'pdf')[]; maxRecords?: number; includeHeaders?: boolean; fileNamePrefix?: string };\ndensityMode?: 'compact' | 'comfortable' | 'spacious';\n```\n\n### Plugin enhancements\n\n- **Gantt inline editing** (`plugin-gantt`) — `inlineEdit` + `onTaskUpdate` props; double-click task rows to edit title/dates; `toLocaleDateString('en-CA')` for timezone-safe date inputs\n- **Map marker clustering** (`plugin-map`) — grid-based `clusterMarkers()` algorithm; auto-enables for >100 markers; cluster circles show count; reclusters on zoom via `onZoom`\n- **Combo charts** (`plugin-charts`) — `chartType: 'combo'` with per-series `chartType` override; dual Y-axes (`yAxisId: left/right`)\n- **Grid column persistence** (`plugin-grid`) — column order + widths saved to localStorage; restored on mount; `onColumnResize`/`onColumnReorder` callbacks on data-table schema\n- **Detail inline editing** (`plugin-detail`) — `inlineEdit` + `onFieldSave` props on `DetailView`; edit/save toggle button; `isEditing`/`onFieldChange` passed through to `DetailSection`\n\n### Other\n\n- Fixed pre-existing `ObjectGalleryIntegration` test expecting Gallery empty text instead of ListView empty state\n- Updated `ROADMAP_SPEC.md` — all P0/P1 tasks marked ✅ Complete with implementation notes\n- 6 new tests covering quickFilters, hiddenFields, densityMode, exportOptions rendering\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完成 roadmap_spec.md priority 0, Priority 1 — UI-Facing Spec Compliance (v1.0 Polish) 所有开发并更新进度\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

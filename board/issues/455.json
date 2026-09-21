@@ -1,0 +1,33 @@
+{
+  "number": 455,
+  "kind": "pull_request",
+  "title": "chore: unify all package versions to 1.0.0 with fixed changeset versioning",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T16:04:01Z",
+  "updated_at": "2026-02-11T17:34:59Z",
+  "closed_at": "2026-02-11T16:12:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T16:12:20Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/455",
+  "body": "All packages had inconsistent versions (0.1.0, 0.5.0, 0.5.1, 0.6.1). Unifies to 1.0.0 and locks them together for future releases.\n\n- **`.changeset/config.json`** — Added all 36 publishable packages to `fixed` group so every future changeset bumps all packages to the same version\n- **42 `package.json` files** — Set `version` to `1.0.0` across all packages, apps, and examples\n- **`.changeset/release-v1.md`** — Changeset declaring `major` bump for all packages\n\n```jsonc\n// .changeset/config.json\n{\n  \"fixed\": [\n    [\"@object-ui/types\", \"@object-ui/core\", \"@object-ui/react\", /* ...all 36 packages */]\n  ]\n}\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

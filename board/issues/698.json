@@ -1,0 +1,33 @@
+{
+  "number": 698,
+  "kind": "pull_request",
+  "title": "feat(layout): P1.7 Navigation Enhancements — search, pin favorites, drag reorder",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T09:51:19Z",
+  "updated_at": "2026-02-21T10:29:25Z",
+  "closed_at": "2026-02-21T10:21:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T10:21:54Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/698",
+  "body": "Completes P1.7 Console Navigation Enhancements. Items 1–2 (AppSchema renderer, area switcher) were already shipped in P0.1; this PR adds items 3–4.\n\n### NavigationRenderer — new opt-in props\n\n- **`searchQuery`** — recursive case-insensitive label filter across the navigation tree. Groups kept if any child matches; separators stripped during search. Utility `filterNavigationItems()` exported for external use.\n- **`enablePinning` + `onPinToggle`** — pin/unpin action button on each leaf item. Pinned items collected into a \"Favorites\" section at the top of the sidebar.\n- **`enableReorder` + `onReorder`** — `@dnd-kit/sortable` vertical list reorder with grip handles, 5px activation distance, drag opacity feedback. Reordered items emitted with updated `order` indices.\n\n### AppSchemaRenderer — search input wiring\n\n- `enableSearch` adds a `SidebarInput` in the sidebar header; query state managed internally and passed to `NavigationRenderer`.\n- `enablePinning`, `onPinToggle`, `enableReorder`, `onReorder` forwarded through `InternalSidebar`.\n\n### Usage\n\n```tsx\n<AppSchemaRenderer\n  schema={appJson}\n  basePath=\"/apps/crm\"\n  enableSearch\n  enablePinning\n  onPinToggle={(id, pinned) => updateUserPrefs(id, pinned)}\n  enableReorder\n  onReorder={(items) => saveNavOrder(items)}\n>\n  <Outlet />\n</AppSchemaRenderer>\n```\n\nAll features are additive/opt-in — zero breaking changes. 33 new tests (71 total), all passing. `@dnd-kit` versions match existing usage in `plugin-kanban`. ROADMAP updated.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

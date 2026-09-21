@@ -1,0 +1,33 @@
+{
+  "number": 678,
+  "kind": "pull_request",
+  "title": "feat: persist ViewConfigPanel draft to backend via DataSource.updateViewConfig",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T04:02:01Z",
+  "updated_at": "2026-02-21T04:51:56Z",
+  "closed_at": "2026-02-21T04:24:42Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T04:24:42Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/678",
+  "body": "ViewConfigPanel saves config changes to local state only — lost on refresh or view switch. This adds backend persistence through the DataSource adapter.\n\n### Changes\n\n- **`@object-ui/types` — `DataSource` interface**: New optional method:\n  ```typescript\n  updateViewConfig?(objectName: string, viewId: string, config: Record<string, any>): Promise<Record<string, any> | void>;\n  ```\n- **`ObjectView.handleViewConfigSave`**: Calls `dataSource.updateViewConfig` when available. Validates params before calling. Logs `console.warn` if method is absent (backward-compatible with older backends). Catches and logs persistence errors.\n- **Tests**: 3 new cases covering success path, fallback warning, and rejection handling. Fixed `Button`/`Input`/`Switch` mocks to forward `data-testid` props.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>ViewConfigPanel 保存后持久化draft配置到后端（DataSource updateViewConfig）</issue_title>\n> <issue_description># 问题说明\n> 当前ViewConfigPanel的配置变更仅保存在本地draft（useState），无法持久化到后端。页面刷新或切换视图会导致个性化配置丢失。\n> \n> # 目标/建议\n> - 在 handleViewConfigSave 回调中，调用 dataSource.updateViewConfig（接口需补充/定义）将draft view配置提交，保证保存后任何刷新/切换都能还原用户最新配置\n> - 若 dataSource 未提供 updateViewConfig 方法（兼容老后端），仅本地存储并弹窗提示或打印警告\n> - 对接口定义，建议参照：\n>   ```typescript\n>   interface DataSource {\n>     updateViewConfig?(objectName: string, viewId: string, config: Record<string, any>): Promise<void>;\n>   }\n>   ```\n> - 成功保存后应重新拉取views/view config，前端状态保持刷新\n> \n> # 验收/测试点\n> - 保存后draft配置可跨页面刷新还原\n> - dataSource无此方法时给出友好提示/console.warn\n> - 单测模拟该保存流程\n> \n> /cc @hotlong</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#673\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

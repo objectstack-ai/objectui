@@ -1,0 +1,33 @@
+{
+  "number": 423,
+  "kind": "pull_request",
+  "title": "docs: Evaluate @objectstack/client for spec-based low-code app UI",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T03:52:59Z",
+  "updated_at": "2026-02-10T04:14:27Z",
+  "closed_at": "2026-02-10T04:14:27Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T04:14:27Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/423",
+  "body": "Evaluates whether `@objectstack/client` can fully implement a low-code app UI against the `@objectstack/spec` protocol. Adds detailed evaluation document and updates the roadmap with integration milestones.\n\n**Verdict: 92% coverage (22/24 protocol features) — fully capable.**\n\n### `OBJECTSTACK_CLIENT_EVALUATION.md` (new)\n\n- **10 protocol domains assessed**: Data CRUD, Metadata, UI Views, Actions, Auth, Permissions, Multi-Tenancy, Advanced features, Real-time, Offline\n- **2 gaps identified**: Real-time collaboration (WebSocket, Q3) and offline sync (Service Worker, Q3)\n- End-to-end low-code flow mapped: `defineStack()` → `ObjectStackAdapter` → `SchemaRenderer`\n- Reference architecture with code examples for minimal app setup\n- Gap analysis with effort estimates and timelines\n- Competitive positioning vs Retool/Appsmith/Mendix\n\n### `ROADMAP.md` updates\n\n- **New section**: `@objectstack/client Evaluation Summary` with domain coverage matrix\n- **Q1 §1.5**: Updated auth status — Phase 1 marked complete (`@object-ui/auth` package exists with AuthProvider, useAuth, AuthGuard, forms, createAuthenticatedFetch)\n- **Q1 §1.6** (new): `@objectstack/client` Low-Code Integration — dynamic app loading via `adapter.getApp()`, widget manifest system, data integration hardening\n- **Q2 §2.6** (new): Full-stack integration — formula functions (SUM/AVG/TODAY/IF), report export with live data, server-side transaction support\n- **Q3 §3.1**: Added real-time gap context from evaluation, offline queue item\n- **Annual targets**: Added `Client Integration` metric row (92% → 95% → 100% → 100%)\n- **References**: Linked evaluation document\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

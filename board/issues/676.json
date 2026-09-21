@@ -1,0 +1,37 @@
+{
+  "number": 676,
+  "kind": "issue",
+  "title": "ObjectView右侧配置面板变更后主视图未实时响应（objectViewSchema未消费draft）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "configuration",
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T04:01:28Z",
+  "updated_at": "2026-02-21T05:10:06Z",
+  "closed_at": "2026-02-21T05:10:06Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/676",
+  "body": "# 问题说明\n当前在ViewConfigPanel中切换Switch或输入框，虽然本地draft已发生变化，但左侧主视图（PluginObjectView）没有自动实时反映这些更改。场景典型例子为 showSearch 和 showFilters 被硬编码为 true，没有跟随当前draft。这样导致用户误以为配置已经生效，但实际只有点击\"保存\"后才能见到变化，影响所见即所得体验。\n\n# 复现路径\n1. 打开某对象的数据页面，进入视图配置面板\n2. 修改如\"启用搜索\"、\"启用筛选\"等Switch\n3. 观察左侧主视图并未立即响应变化（除非点击保存后刷新）\n\n# 代码精确定位\n- apps/console/src/components/ObjectView.tsx\n  - `objectViewSchema` 处的 `showSearch`/`showFilters` 是硬编码\n  - `ViewConfigPanel` 没有传递 `onViewUpdate`\n\n# 建议修复方案\n- 将 ViewConfigPanel 的 onViewUpdate 回调透传到 ObjectView 的 useState，将 draft 变动实时合并到 activeView。\n- objectViewSchema 的 useMemo 依赖 activeView，把 UI 行为数据源切换至 draft(或activeView)而非常量。\n- PluginObjectView 的 views 属性也需注入draft后的view数据，避免原始views不变。\n\n# 验收/测试点\n- 改动任意交互项，主视图同步联动（无需点击保存）\n- 更新 ViewConfigPanel.test.tsx 增加相关渲染断言\n- 保持未保存draft不会被后端持久化，仅前端reactive\n\n/cc @hotlong"
+}

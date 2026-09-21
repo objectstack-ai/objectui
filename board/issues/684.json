@@ -1,0 +1,33 @@
+{
+  "number": 684,
+  "kind": "pull_request",
+  "title": "feat(layout): AppShell & Navigation Renderer (P0.1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T05:32:32Z",
+  "updated_at": "2026-02-21T06:06:26Z",
+  "closed_at": "2026-02-21T06:02:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T06:02:06Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/684",
+  "body": "Last P0 blocker — enables rendering a fully-functional sidebar + navigation tree from `AppSchema` JSON.\n\n### New components (`packages/layout`)\n\n- **`NavigationRenderer`** — Renders `NavigationItem[]` into Shadcn sidebar. All 7 nav types (object, dashboard, page, url, report, action, group), separators, badges, collapsible groups, sort-by-order, active route highlighting.\n- **`AppSchemaRenderer`** — Consumes `AppSchema` JSON → complete app shell. Branding, area switcher, legacy `menu` migration, slot props (`navbar`, `sidebarFooter`).\n- **Mobile nav modes** — `drawer` (default), `bottom_nav` (fixed bottom bar), `hamburger`.\n- **Permission & visibility guards** — Decoupled via callbacks (`evaluateVisibility`, `checkPermission`) so layout stays independent of specific permission/expression providers.\n\n### Usage\n\n```tsx\n<AppSchemaRenderer\n  schema={appJson}\n  basePath=\"/apps/sales\"\n  mobileNavMode=\"bottom_nav\"\n  evaluateVisibility={(expr) => evaluateVisibility(expr, evaluator)}\n  checkPermission={(perms) => perms.every(p => can(p))}\n  sidebarFooter={<UserProfileMenu />}\n>\n  <Outlet />\n</AppSchemaRenderer>\n```\n\n### Tests\n\n38 new tests (20 NavigationRenderer + 18 AppSchemaRenderer). Full suite passes (296 files, 5206 tests, 0 regressions).\n\n### Roadmap\n\nUpdated `ROADMAP.md` — all P0.1 items marked complete.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完成roadmap开发\n> \n> 🎯 P0 — Must Ship (v1.0 Blockers)\n> \n> P0.1 AppShell & Navigation Renderer\n> \n> Last remaining P0 blocker. Without this, Console cannot render a sidebar from AppSchema JSON.\n>  Implement AppSchema renderer consuming spec JSON (name, label, icon, branding)\n>  Build navigation tree renderer (7 nav item types: object, dashboard, page, url, report, action, group)\n>  Implement NavigationAreaSchema support (business domain partitioning)\n>  Implement mobile navigation modes (drawer/bottom_nav/hamburger)\n>  Add permission guards (requiredPermissions, visible) on navigation items\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

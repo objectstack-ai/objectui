@@ -1,0 +1,33 @@
+{
+  "number": 626,
+  "kind": "pull_request",
+  "title": "fix: calendar duplicate button, broken event click, hardcoded record count",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-19T11:58:51Z",
+  "updated_at": "2026-02-19T12:48:06Z",
+  "closed_at": "2026-02-19T12:38:53Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-19T12:38:53Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/626",
+  "body": "Calendar page has a duplicate \"New Event\" button (page-level + calendar-internal), event clicks are silently dropped, and the \"12 records\" footer is hardcoded English.\n\n### Remove duplicate \"New Event\" button\n\nStop passing `onAddClick` to `CalendarView` from both `ObjectCalendar` and `calendar-view-renderer`. The page-level \"New\" button in `ObjectView` already handles creation.\n\n### Fix event click propagation\n\n`ObjectCalendarRenderer` was swallowing all props from `SchemaRenderer`, including `onRowClick` from ListView. `ObjectGridRenderer` already does `({ schema, ...props }) => <ObjectGrid {...props} />` — calendar wasn't doing this.\n\n```tsx\n// Before: onRowClick from ListView never reaches ObjectCalendar\nconst ObjectCalendarRenderer = ({ schema }) => {\n  return <ObjectCalendar schema={schema} dataSource={dataSource} />;\n};\n\n// After: forward props, but exclude data/loading to avoid\n// short-circuiting ObjectCalendar's internal data fetching\nconst ObjectCalendarRenderer = ({ schema, data: _data, loading: _loading, ...props }) => {\n  return <ObjectCalendar schema={schema} dataSource={dataSource} {...props} />;\n};\n```\n\n`data`/`loading` must be excluded because ListView passes an initially-empty array that would short-circuit ObjectCalendar's `useEffect` fetch and never re-run (deps don't include `rest.data`).\n\n### Internationalize record count in ListView\n\n- Added `list.recordCount` / `list.recordCountOne` keys to all 11 locale files\n- Added `useListViewTranslation()` safe wrapper (same pattern as `useCalendarTranslation()`) with English defaults when no `I18nProvider` is present\n- `useObjectTranslation` doesn't throw without a provider — it returns keys verbatim, so the wrapper tests the return value rather than catching\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>日历页「新建」按钮重复 & 事件点击无响应 & 部分国际化问题</issue_title>\n> <issue_description>## 1. 右上角重复\"新建\"按钮\n> - 现在有两个新建按钮：「+ 新建」（右上角页面级，只保留这个）和「+ 新建事件」（日历区域内部，需要移除）。\n> - 建议：只保留页面右上角\"新建\"按钮，移除/隐藏日历内的\"新建事件\"按钮。\n> \n> ## 2. 日历事件依然无法点击\n> - 当前在月视图、周视图等点击蓝色事件卡片（如\"Design dashboard widg...\"）没有任何反馈。\n> - 代码逻辑疑似在`calendar-view-renderer.tsx`中仍未正确派发`onEventClick`/`onAction`（建议彻底移除 `if (schema.onEventClick)` 条件，始终向上传递事件）。\n> - 希望修复后点击任何日历中的事件都能正常弹出详情或跳转页面。\n> \n> ## 3. 其它国际化细节\n> - 日历底部\"12 records\"依然未进行本地化，页面应根据 locale 动态切换。\n> - 建议排查所有硬编码英文提示，做国际化处理。\n> \n> ---\n> \n> **截图复现：**\n> <img alt=\"重复新建��钮与事件点击无响应\" width=\"2732\" src=\"https://github.com/user-attachments/assets/b12c1d3e-5baa-47b3-a47c-975a3d069058\" /></issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#625\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

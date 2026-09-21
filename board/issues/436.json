@@ -1,0 +1,33 @@
+{
+  "number": 436,
+  "kind": "pull_request",
+  "title": "fix: resolve Vercel blank page + add production build e2e tests",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T17:22:38Z",
+  "updated_at": "2026-02-10T20:13:13Z",
+  "closed_at": "2026-02-10T20:08:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T20:08:54Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/436",
+  "body": "Console renders blank on Vercel because `external: ['crypto']` in the Rollup config emits a bare `import 'crypto'` in the ESM bundle — browsers cannot resolve bare specifiers, so React never mounts.\n\n## Root cause fix\n\nReplaced `external: ['crypto']` with a Vite plugin that stubs `createHash`/`createVerify` at resolve time:\n\n```ts\n// scripts/vite-crypto-stub.ts\nexport function viteCryptoStub(): Plugin {\n  return {\n    name: 'stub-crypto',\n    enforce: 'pre', // must run before vite:resolve browser-external\n    resolveId(id) { if (id === 'crypto') return '\\0crypto-stub'; },\n    load(id) {\n      if (id === '\\0crypto-stub') {\n        return 'export function createHash() { return { update() { return this; }, digest() { return \"\"; } }; }\\nexport default {};';\n      }\n    },\n  };\n}\n```\n\nApplied to both `apps/console/vite.config.ts` and `examples/msw-todo/vite.config.ts`.\n\n## E2E tests against production build\n\n- **`playwright.config.ts`** — `webServer` now builds the console and serves via `vite preview` (port 4173), matching the Vercel deployment artifact\n- **`e2e/smoke.spec.ts`** — 6 tests: uncaught JS errors, React `#root` mount, visible text, asset 404s, page title, app shell/loading screen visibility\n- **`e2e/console-rendering.spec.ts`** — 4 tests: console.error monitoring, client-side route rendering, SPA fallback (deep routes return index.html), MSW service worker presence\n- **`e2e/helpers/index.ts`** — shared `waitForReactMount` utility\n\n## CI integration\n\n- Added `e2e` job to `.github/workflows/ci.yml` (runs after `build`, Chromium only, uploads Playwright report on failure)\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

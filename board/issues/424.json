@@ -1,0 +1,33 @@
+{
+  "number": 424,
+  "kind": "pull_request",
+  "title": "Implement widget manifest system, dynamic app loading, and auth test coverage",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T04:18:09Z",
+  "updated_at": "2026-02-10T04:58:19Z",
+  "closed_at": "2026-02-10T04:45:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T04:45:20Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/424",
+  "body": "Delivers the remaining items from ROADMAP §1.5 (auth test coverage) and §1.6 (widget system + dynamic app loading).\n\n### WidgetManifest type system (`@object-ui/types`)\n\n- `WidgetManifest` interface with three source strategies: `module` (ES module URL), `inline` (pre-loaded component), `registry` (existing component registry key)\n- Supporting types: `WidgetInput`, `WidgetCapabilities`, `ResolvedWidget`, `WidgetRegistryEvent`\n\n### WidgetRegistry (`@object-ui/core`)\n\n- Runtime widget management with async loading and dependency resolution\n- Auto-syncs loaded widgets into the component registry\n- Event system for registration/load/error lifecycle\n\n```ts\nconst widgets = new WidgetRegistry({ componentRegistry: registry });\nwidgets.register({\n  name: 'custom-chart',\n  version: '1.0.0',\n  type: 'chart',\n  label: 'Custom Chart',\n  source: { type: 'module', url: '/widgets/chart.js' },\n});\nconst resolved = await widgets.load('custom-chart');\n```\n\n### `useDynamicApp` hook (`@object-ui/react`)\n\n- Fetches app config from server via `adapter.getApp(appId)`, falls back to static config\n- `refresh()` invalidates MetadataCache and re-fetches for schema hot-reload\n\n```tsx\nconst { config, isLoading, refresh } = useDynamicApp({\n  appId: 'crm',\n  staticConfig: fallbackConfig,\n  adapter: dataSource,\n});\n```\n\n### Auth package test coverage\n\n- 34 tests covering `createAuthClient`, `createAuthenticatedFetch`, `AuthProvider`, `useAuth`, `AuthGuard`, and `getUserInitials`\n\n### ROADMAP\n\n- Updated §1.5 Phase 2/3 and §1.6 checkboxes to reflect current state\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 696,
+  "kind": "issue",
+  "title": "更新 Dashboard 配置面板实现相关 Roadmap",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T09:27:50Z",
+  "updated_at": "2026-02-21T09:45:54Z",
+  "closed_at": "2026-02-21T09:45:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/696",
+  "body": "## 背景\n近期评估了如何在 ObjectUI 中实现类似 Airtable 的仪表板右侧配置面板（配置详情见分析总结）。需要将开发计划及分阶段目标加入到 Roadmap，便于跟踪和协作。\n\n## 路线图规划\n### P0 组件基础设施\n- 将 ViewConfigPanel 中的 ConfigRow/SectionHeader 通用组件抽取到 @object-ui/components。\n\n### P1 Dashboad 级别配置面板\n- 开发 DashboardConfigPanel 支持仪表板级的数据源、布局、过滤、外观、用户过滤器与操作。\n\n### P2 组件/小部件级别配置\n- 支持点击仪表板中的小部件，侧边栏切换至小部件属性设置。\n\n### P3 子编辑器���成\n- 滤器构建器(FilterBuilder)、下拉筛选器、操作按钮子面板的可视化编辑。\n\n### P4 组合及 Storybook 演示\n- DashboardWithConfig 组合组件开发，补充 storybook 案例。\n\n### P5 类型定义 & 校验\n- 将 DashboardConfig 相关类型补充到 @object-ui/types 并增加 Zod 校验。\n\n## 计划\n详见[右侧配置面板实现建议及分阶段目标 issue](#)和[分析总结](#)。\n\n---\n@hotlong 请注意，开发任务完成后需运行 test，并完善/更新相关 issue、同步 Roadmap 进展。"
+}

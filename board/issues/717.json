@@ -1,0 +1,33 @@
+{
+  "number": 717,
+  "kind": "pull_request",
+  "title": "chore: upgrade @objectstack packages to v3.0.9 and update ROADMAP",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-22T06:08:31Z",
+  "updated_at": "2026-02-22T06:56:49Z",
+  "closed_at": "2026-02-22T06:55:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-22T06:55:13Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/717",
+  "body": "Bumps all `@objectstack/*` dependencies from `^3.0.8` to `^3.0.9` and updates ROADMAP.md to reflect new protocol capabilities.\n\n### Version bump\n\n- 42 version references across 14 `package.json` files updated\n- `pnpm-lock.yaml` regenerated — all packages resolve to 3.0.9\n- UI sub-export (`@objectstack/spec/ui`) is **unchanged** between 3.0.8 and 3.0.9 — no breaking changes\n\n### ROADMAP updates for v3.0.9 protocol\n\nNew \"Spec v3.0.9 Upgrade Summary\" section with capability matrix covering:\n\n- **Workflow/Automation (P1.6):** `parallel_gateway`, `join_gateway`, `boundary_event` node types; BPMN interop; wait/timer executors; execution tracking (`ExecutionLog`, `Checkpoint`); conditional edges; enhanced retry (`backoffMultiplier`, `maxRetryDelayMs`, `jitter`); `FlowVersionHistory`; `ConcurrencyPolicy`\n- **Data Export (P1.3):** `ExportFormat` enum, `CreateExportJobRequest`, `ExportJobStatus` for async streaming exports\n- **ProcessDesigner (P2.1):** New node type and conditional edge support items\n- **Spec Compliance (P2.4):** BPMN interop types, `NodeExecutorDescriptor`, `inputSchema`/`outputSchema` on flow nodes, `boundaryConfig`, App `engine` field, package upgrade protocol\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> @objectstack升级到最新版，并根据新版ui协议更新roadmap\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

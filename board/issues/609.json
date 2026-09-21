@@ -1,0 +1,36 @@
+{
+  "number": 609,
+  "kind": "issue",
+  "title": "报表页面视觉与交互细节优化（格式化、布局、可用性一体化）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-19T04:34:59Z",
+  "updated_at": "2026-02-19T06:28:51Z",
+  "closed_at": "2026-02-19T06:28:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/609",
+  "body": "### 问题描述\n当前的报表页面存在如下视觉与交互细节问题，影响数据可读性与企业级产品感：\n\n#### 1. 数字格式化\n- 关键指标与表格中的数字未做千分位、货币格式或百分比显示，读数体验差。\n- 举例：金额值 652000 应显示为\"￥652,000\"或\"652,000\"。\n\n#### 2. 日期展示\n- 关闭日期等字段直接显示 ISO 字符串（如 2024-01-15T00:00:00.000Z），用户难以理解。\n- 应按常用日期格式（如 yyyy-MM-dd 或\"2024年1月15日\"）显示。\n\n#### 3. Summary卡片缺少格式化\n- 关键指标区仅为数字，未有类���感知格式化，无货币或数值单位。\n\n#### 4. 重复标题渲染\n- 页面头部、卡片、header section等地方重复渲染标题，多余视觉元素干扰。\n\n#### 5. 表格可用性问题\n- 横向无滚动条，字段多时易发生溢出或误断行。\n- 表格缺少行悬浮、斑马纹，批量浏览或较大数据量时难以聚焦和定位。\n- 数字列左对齐不合理，应右对齐。\n\n#### 6. 状态字段无特殊渲染\n- 阶段字段如\"Closed Won\"等没用 Badge 区分，缺少语义与状态色。\n\n#### 7. 加载与空态\n- 数据加载时仅文字提示，缺少骨架屏 Skeleton 等现代交互指示。\n\n---\n\n### 优化建议\n1. **提取 formatValue 工具**，根据 ReportField 的 type/format 自动格式化各类型（数字、货币、百分比、日期等）；所有表格与统计卡片均调用该方法。\n2. **日期格式化**，所有日期字段走本地化/常用格式渲染。\n3. **Summary卡片格式化**，指标值经过 formatValue 渲染。\n4. **Title 渲染统一（避免重复），header section 单独渲染且不出现在 section title 处**。\n5. **表格容器 overflow-x-auto**，table 结构最小宽度合理设置；表行 hover、even 斑马纹区分；数字类字段右对齐。\n6. **ReportField 支持 renderAs 与 colorMap，阶段等字段用 Badge 渲染（与 value 相关的颜色）**。\n7. **加载态 Skeleton 替换纯文字���保持布局连贯和现代交互感**。\n\n---\n\n### 实现建议\n- 重点参考 `apps/console/src/components/ReportView.tsx` 和 `packages/plugin-report/src/ReportViewer.tsx`，所有数值和日期展示都应走 formatValue。\n- 为 `ReportField` 类型增加 `renderAs` 与 `colorMap` 支持。\n- 表格组件对齐、布局和样式建议可分别参见 Ant Design/Table、Shadcn/ui Table 的最佳实践。\n- 空态和骨架屏参考 shadcn/ui Skeleton。\n\n---\n\n### 优先级与价值\n- **高优先级**，可快速提升企业级产品认知与数据易读性。\n- 涉及面较广，建议合并开发并更新 test 和 roadmap。\n\n---\n\n<img alt=\"报表页面细节现状截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/1cd62d10-4229-4a50-b629-db4d5f222029\" />\n\n---\n\n- [ ] 开发完成后，请运行 test，联动相关问题并更新 roadmap。"
+}

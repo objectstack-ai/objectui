@@ -1,0 +1,33 @@
+{
+  "number": 492,
+  "kind": "pull_request",
+  "title": "feat(mobile): Complete P5 Mobile User Experience roadmap",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T09:21:42Z",
+  "updated_at": "2026-02-13T10:51:45Z",
+  "closed_at": "2026-02-13T10:45:49Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T10:45:49Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/492",
+  "body": "Implements all remaining P5 Mobile UX items from the roadmap. Many items were already implemented but unchecked; this PR fills the gaps and marks everything complete.\n\n### Form Controls — Touch Targets & Responsive Sizing\n- `min-h-[44px] sm:min-h-0` on Input, Textarea, Checkbox, Switch, SelectTrigger\n- `text-xs sm:text-sm` on FormLabel\n- WizardForm step circles: `h-6 w-6 sm:h-8 sm:w-8`\n\n### Pull-to-Refresh Integration\n- Integrated `usePullToRefresh` from `@object-ui/mobile` into ObjectGrid, ObjectCalendar, ListView\n- Pattern: `refreshKey` state → `useCallback` handler → hook → wrapper div with pull indicator\n\n```tsx\nconst { ref: pullRef, isRefreshing, pullDistance } = usePullToRefresh<HTMLDivElement>({\n  onRefresh: () => setRefreshKey(k => k + 1),\n  enabled: !!dataSource && !!schema.objectName,\n});\n```\n\n### DataTable\n- Horizontal scroll indicator via `shadow-[inset_-8px_0_8px_-8px_rgba(0,0,0,0.08)]`\n\n### PWA & Mobile Infrastructure\n- `MobileProvider` wrapping Console app root\n- `manifest.json` created and linked in `index.html`\n- `loading=\"lazy\"` on below-fold images (aspect-ratio, signature field)\n- Added `@object-ui/mobile` dependency to plugin-grid, plugin-calendar, plugin-list, console\n\n### E2E Mobile Viewport Tests\n- New `e2e/mobile-viewport.spec.ts` covering iPhone SE (375px), iPhone 14 (390px), iPad Mini (768px)\n- Asserts: no JS errors, no blank page, viewport meta, manifest link, no horizontal overflow, touch target compliance\n\n### ROADMAP.md\n- 65 P5 items checked off after code audit confirmed implementation\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完成roadmap 所有开发\n> \n> P5. Mobile User Experience 📱\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

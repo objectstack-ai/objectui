@@ -1,0 +1,35 @@
+{
+  "number": 523,
+  "kind": "pull_request",
+  "title": "fix: CRM report renders blank due to stale useState initialization",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-15T04:11:57Z",
+  "updated_at": "2026-02-15T04:37:44Z",
+  "closed_at": "2026-02-15T04:37:44Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-15T04:37:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/523",
+  "body": "`ReportView` initializes `reportData` via `useState(initialReport)` during first render, when metadata is still loading asynchronously (`reports=[]`). This captures `undefined` permanently — subsequent metadata loads update `initialReport` but never sync back to `reportData`, rendering a blank report.\n\n### Changes\n\n- **State sync**: Added `useEffect` to propagate `initialReport` → `reportData` when metadata finishes loading or route changes\n- **Loading guard**: Check `loading` from `useMetadata()` and show spinner instead of false \"Report Not Found\"\n\n```tsx\n// Before: reportData stuck as undefined after async load\nconst [reportData, setReportData] = useState(initialReport);\n\n// After: sync when metadata resolves\nuseEffect(() => {\n  setReportData(initialReport);\n}, [initialReport]);\n```\n\nNote: `reportData` state is retained (not replaced with direct `initialReport` usage) because `handleSave` writes edited report data back into it.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> crm 报表 显示为空白\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 537,
+  "kind": "pull_request",
+  "title": "docs: reprioritize roadmaps for v1.0 UI essentials and spec compliance",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T05:35:29Z",
+  "updated_at": "2026-02-16T06:56:19Z",
+  "closed_at": "2026-02-16T06:51:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-16T06:51:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/537",
+  "body": "Roadmap priorities were ordered around DX/UX polish (P1-P5, all completed) while pending UI-critical work for v1.0 — spec-compliant view configs, navigation properties, core CRUD features — sat at P2/P3 with no release gating.\n\nReorganized all four roadmap documents to put v1.0 ship-blocking UI work first.\n\n### ROADMAP.md\n- **New P0:** v1.0 UI Essentials — ActionEngine pipeline, metadata API migration, view navigation compliance (Gallery navigation, `navigation.width`/`navigation.view`), spec-compliant configs (TimelineConfig, GalleryConfig), ListView spec properties (emptyState, hiddenFields, quickFilters)\n- **New P1:** UI-facing spec compliance — DensityMode, exportOptions, Gantt inline editing, map clustering\n- **P2-P5:** Completed foundation (DX, UX, Components, Docs) preserved as reference\n- Added v1.0 Release Criteria metrics table\n\n### ROADMAP_SPEC.md\n- Elevated items #64-68, #71-72 (Timeline/Gallery types, navigation properties, emptyState) from P1/P2 → **P0**\n- ListView spec props split: emptyState P0, quickFilters/hiddenFields P1, inlineEdit/virtualScroll/conditionalFormatting P2\n- Completed items moved to dedicated reference section\n- New compliance breakdown: View Config 85%→98%, Navigation 86%→100% after P0\n\n### ROADMAP_CONSOLE.md\n- Phase 10 split into **10a** (v1.0: export, file upload, related lookup) and **10b** (post-v1.0: import, dashboard DnD, notifications)\n- ActionEngine + metadata API migration flagged as v1.0 blockers\n- GA target Q3 → Q2 2026\n\n### ROADMAP_DESIGNER.md\n- Phase 2 scoped to **ViewDesigner + DataModelDesigner** only (v1.0 essential)\n- New Phase 2b for PageDesigner/ProcessDesigner/ReportDesigner (post-v1.0)\n- `FieldTypeName` type + field type selector elevated to P0\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 重新安排roadmap优先级优先处理界面相关的任务，考虑第一个版本发布必须的可用功能优先，ObjectUI Spec Compliance Evaluation\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

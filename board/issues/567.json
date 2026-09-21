@@ -1,0 +1,33 @@
+{
+  "number": 567,
+  "kind": "pull_request",
+  "title": "feat: complete all L2 roadmap console development (Phases 6–18)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-17T12:50:26Z",
+  "updated_at": "2026-02-18T00:33:41Z",
+  "closed_at": "2026-02-18T00:26:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T00:26:01Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/567",
+  "body": "Implements all remaining L2 (Production) features across the console roadmap, advancing from L1-only to full L2 coverage across Phases 6–18.\n\n### Core Infrastructure\n\n- **UndoManager** (`@object-ui/core`): `pushBatch()`, `popUndoBatch(count)`, `popRedoBatch(count)` for atomic multi-operation undo. `saveToStorage()`/`loadFromStorage()` for persistent undo stack via localStorage with validated deserialization. `getRedoHistory()` for completeness.\n\n### Grid & Views\n\n- **Expression-based conditional formatting** (`@object-ui/plugin-list`): New `expression` property on `ConditionalFormattingRule`. Uses safe `ExpressionEvaluator` from `@object-ui/core` (not raw `new Function()`):\n  ```typescript\n  conditionalFormatting: [{\n    expression: '${data.amount > 1000 && data.status === \"urgent\"}',\n    backgroundColor: '#fee2e2',\n    textColor: '#dc2626',\n  }]\n  ```\n- **Swimlane persistence** (`@object-ui/plugin-kanban`): Collapsed lane state persisted to localStorage keyed by `swimlaneField`.\n- **Record navigation keyboard shortcuts** (`@object-ui/plugin-detail`): ← / → arrow keys for prev/next record, with input field focus detection to avoid interference.\n\n### Import/Export & Forms\n\n- **Import preview** (`@object-ui/plugin-grid`): Shows 10 rows (was 5) with per-row/per-cell validation error highlighting. New `onErrorMode: 'skip' | 'stop'` prop.\n- **File upload validation** (`@object-ui/fields`): `maxSize` support on `FileField` with error messages displayed below the drop zone.\n\n### Collaboration & Automation\n\n- **Conflict resolution** (`apps/console`): `useConflictResolution` wired into ObjectView reconnection flow with server-wins auto-resolve.\n- **Thread resolution**: `onResolve`/`resolved` props wired into RecordDetailView's CommentThread.\n- **Activity feed**: Demo data in AppHeader + notification preference filter toggles (by activity type) in ActivityFeed.\n- **Conditional triggers**: `conditionField`/`conditionOperator`/`conditionValue` on `TriggerConfig` in AutomationBuilder.\n- **Multi-step actions**: `executionMode: 'sequential' | 'parallel'` on `AutomationDefinition`. \"Step X\" labels with \"then\" badges in sequential mode.\n\n### Tests\n\n58 new tests across 6 files: UndoManager (28), ConditionalFormatting (16), SwimlanePersistence (3), ActivityFeedFilters (3), AutomationMultiStep (5), ImportPreview (3).\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完成 roadmap console所有开发\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

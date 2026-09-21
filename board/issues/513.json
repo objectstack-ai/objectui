@@ -1,0 +1,33 @@
+{
+  "number": 513,
+  "kind": "pull_request",
+  "title": "[WIP] Fix build and test issues",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-14T17:27:45Z",
+  "updated_at": "2026-02-14T17:45:50Z",
+  "closed_at": "2026-02-14T17:45:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/513",
+  "body": "- [x] Investigate CI build and test failures\n- [x] Identify root cause: E2E test fails because `vite.config.ts` uses `base: '/console/'` by default, but E2E test navigates to root paths like `/apps/default/some-object`\n- [ ] Fix: Set `VITE_BASE_PATH=/` in playwright.config.ts webServer command so vite preview serves from root\n- [ ] Fix: Set `VITE_BASE_PATH=/` in CI E2E workflow build step\n- [ ] Verify build still passes\n- [ ] Verify unit tests still pass\n- [ ] Run code review\n- [ ] Run CodeQL security scan\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix build and test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 459,
+  "kind": "pull_request",
+  "title": "feat: implement Q2 2026 roadmap — spec type re-exports, focus/keyboard, animation, notifications, DnD, view enhancements",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T17:12:42Z",
+  "updated_at": "2026-02-11T20:52:47Z",
+  "closed_at": "2026-02-11T17:59:37Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T17:59:37Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/459",
+  "body": "Advances spec v2.0.7 compliance from 86% → 90% by implementing the Q2 2026 interactive experience layer: focus management, animation/motion, notifications, DnD coordination, and view enhancement hooks.\n\n### Spec type re-exports (`@object-ui/types`)\n\n- Re-export all 70+ new v2.0.7 UI types from `@objectstack/spec/ui`, organized into 11 domain sections (DnD, Focus, Animation, Notifications, Gestures, Offline/Sync, View Enhancements, Performance, Page Transitions, Accessibility, I18n, Responsive)\n- Alias colliding names with `Spec` prefix (`SpecGestureConfig`, `SpecOfflineConfig`, `SpecNotification`, etc.)\n\n### New hooks (`@object-ui/react`)\n\n- **`useFocusTrap`** — Tab/Shift+Tab cycling, auto-focus, restore-focus, escape-deactivate\n- **`useKeyboardShortcuts`** — Modifier key support (Ctrl/Cmd/Shift/Alt), form element awareness, `getShortcutDescriptions()` for help dialogs\n- **`useAnimation`** — 7 transition presets mapped to Tailwind classes (fade, slide-*, scale, scale-fade) with custom duration/delay/easing\n- **`useReducedMotion`** — Live `prefers-reduced-motion` media query listener\n- **`useColumnSummary`** — SUM/AVG/COUNT/MIN/MAX/DISTINCT with `Intl.NumberFormat`\n- **`useDensityMode`** — Compact/comfortable/spacious with row heights, padding/font classes, `cycle()`\n- **`useViewSharing`** — Saved view CRUD with private/team/org/public visibility\n\n### New context providers (`@object-ui/react`)\n\n- **`NotificationProvider`** / `useNotifications` — Severity levels, auto-dismiss, unread tracking, external toast delegation via `onToast`\n- **`DndProvider`** / `useDnd` — Drop zone registration, accept-type filtering, constraint config, effect types (move/copy/link)\n\n```tsx\n// Focus trap + keyboard shortcuts\nconst trapRef = useFocusTrap({ autoFocus: true, escapeDeactivates: true, onEscape: close });\nuseKeyboardShortcuts([\n  { key: 'k', ctrlOrMeta: true, handler: openSearch, description: 'Search' },\n]);\n\n// Animation with reduced motion respect\nconst prefersReduced = useReducedMotion();\nconst anim = useAnimation({ preset: prefersReduced ? 'none' : 'fade', duration: 200 });\n\n// View density + column summary\nconst density = useDensityMode('comfortable');\nconst total = useColumnSummary(rows, { field: 'amount', function: 'sum', label: 'Total' });\n```\n\n### Tests\n\n8 new test files, 125 new tests. All 256 react package tests pass, all 41 monorepo builds pass.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

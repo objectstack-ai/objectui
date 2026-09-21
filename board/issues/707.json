@@ -1,0 +1,33 @@
+{
+  "number": 707,
+  "kind": "pull_request",
+  "title": "Optimize ModalForm responsive layout: sections auto-upgrade, percent slider",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T12:55:29Z",
+  "updated_at": "2026-02-21T14:08:29Z",
+  "closed_at": "2026-02-21T13:53:15Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T13:53:14Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/707",
+  "body": "ModalForm with sections stays at `default` (max-w-lg) regardless of section column config, forcing single-column layout on tablets. Progress/percent fields lack interactive controls.\n\n### ModalForm size auto-upgrade for sections (`ModalForm.tsx`)\n\nWhen sections are present, `autoLayoutResult` is `null` (skipped intentionally), so `effectiveModalSize` always falls back to `'default'`. Added section-aware size inference:\n\n```ts\nif (schema.sections?.length) {\n  const maxCols = Math.max(...schema.sections.map(s => Number(s.columns) || 1));\n  if (maxCols > 1) return inferModalSize(maxCols);\n}\n```\n\nThis triggers `max-w-2xl` for 2-column sections, enabling `@md:grid-cols-2` container queries. Uses `Number()` conversion to handle both string (`\"2\"` from `@objectstack/spec`) and numeric (`2` from `ModalFormSectionConfig`) column values.\n\n### PercentField slider control (`PercentField.tsx`)\n\nAdded a `<Slider>` below the number input for interactive percent/progress editing. Includes:\n- `aria-label=\"Percentage\"` for accessibility\n- Respects `readonly` and `disabled` state\n- Defensive `handleSliderChange` with array validation and type-checking before division\n- Precision-based slider step (`Math.pow(10, -precision)`, defaulting to `0.01`) matching the input's granularity instead of hardcoded `1`\n\n### Tests\n\n- 3 new cases in `MobileUX.test.tsx`: sections auto-upgrade to `lg`, single-column stays `default`, explicit `modalSize` overrides auto-upgrade\n- 4 new cases in `remaining-widgets.test.tsx`: slider rendering, disabled state, readonly exclusion, null value handling\n\n### ROADMAP\n\nAdded completed item under P1.2 (Console — Forms & Data Collection).\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>优化 ModalForm 弹窗在平板与移动端的响应式体验</issue_title>\n> <issue_description>## 优化 ModalForm 弹窗在各种屏幕尺寸下的响应式表现\n> \n> <img alt=\"表单创建任务弹窗截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/8689fb3c-1791-4e53-accf-c8d1cc59eef5\" />\n> \n> ### 问题概述\n> - 当前 Project Task 的 ModalForm 在平板/桌面端过窄，字段全部单列，长表单需要大量滚动，UX 不佳；\n> - 没有利用已定义的 sections 分组进行布局；\n> - 操作按钮有时被遮挡，底部 sticky footer 在移动端易被忽略；\n> - Progress 字段未增加滑块控件。\n> \n> ### 优化建议\n> 1. 保证表单渲染时应用 sections 配置（CRM ProjectView 已定义），并用 2 列布局；\n> 2. Modal 默认宽度在平板端自动升级到 lg/max-w-2xl 触发容器查询，启用多列布局；\n> 3. 移动端（<640px）长表单可自动切换 wizard 分步模式，提升可用性；\n> 4. Progress 字段使用滑块控件增强交互；\n> 5. 增加响应式测试验证 modal 在 tablet/mobile 场景的表现。\n> \n> ### 相关代码建议\n> - `ModalForm.tsx`: ��查 modalSize/sections 配置以及 container query grid-cols\n> - `autoLayout.ts`: 优化自动推断列数，建议平板端 ModalForm 为 2 列\n> - `project.view.ts`: 确认 sections 配置被正确传递\n> \n> ### 检查动作\n> - [ ] 优化并合并上述建议\n> - [ ] 运行相关 test (`MobileUX.test.tsx`、`responsive-layout.test.tsx`)\n> - [ ] 更新 ROADMAP.md \"Console Advanced Polish\" 下添加此优化项\n> \n> ### 参考\n> - [ModalForm.tsx](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-form/src/ModalForm.tsx)\n> - [autoLayout.ts](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-form/src/autoLayout.ts)\n> - [project.view.ts](https://github.com/objectstack-ai/objectui/blob/main/examples/crm/src/views/project.view.ts)\n> \n> ---\n> 上述优化全部完成后，记得运行测试，并更新 roadmap。\n> \n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#705\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

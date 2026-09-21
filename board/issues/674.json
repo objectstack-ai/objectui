@@ -1,0 +1,36 @@
+{
+  "number": 674,
+  "kind": "issue",
+  "title": "ViewConfigPanel支持Columns字段选择器子面板，完善onOpenEditor联动",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "plugin: editor"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T04:01:01Z",
+  "updated_at": "2026-02-21T09:07:26Z",
+  "closed_at": "2026-02-21T09:07:26Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/674",
+  "body": "# 问题说明\n当前点击ViewConfigPanel中的\"字段列（Columns）\"配置行，仅触发 onOpenEditor 回调并 console.info，无法弹出实际可用的字段勾选/排序面板。用户无法通过配置面板自定义列的显示与顺序，功能割裂且无法所见即所得。\n\n# 建议修复方案\n- ObjectView 中添加 `const [activeEditor, setActiveEditor] = useState<EditorPanelType | null>(null);`\n- 实现 handleOpenEditor: 点击\"字段列（Columns）\"时 setActiveEditor('columns')，并渲染一个浮层/侧边栏作为子面板\n- 面板内列出 all objectDef.fields，支持勾选、拖拽排序，Save后更新 draft.columns 并回传\n- 增加测试用例：点击后panel展开，拖拽/勾选列可更新，保存生效\n\n# 验收/测试点\n- Columns面板\"字段列\"可选择和排序，并影响视图列\n- 修改后draft.columns同步反映到主列表显示顺序\n- 联动原有的 onViewUpdate 通道，支持即时反馈\n\n/cc @hotlong"
+}

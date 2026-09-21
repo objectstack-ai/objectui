@@ -1,0 +1,38 @@
+{
+  "number": 677,
+  "kind": "pull_request",
+  "title": "fix: wire ViewConfigPanel draft to ObjectView for real-time preview + inline filter/sort/column editors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T04:01:47Z",
+  "updated_at": "2026-02-21T05:20:34Z",
+  "closed_at": "2026-02-21T05:10:05Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T05:10:05Z",
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/677",
+  "body": "`objectViewSchema` hardcoded `showSearch: true` and `showFilters: true`, ignoring the ViewConfigPanel draft state. Toggling switches in the config panel had no visible effect until Save was clicked. Additionally, the filter, sort, and column rows were read-only clickable summaries that required navigating to sub-editors — they now use the unified inline components for direct editing.\n\n### Changes\n\n- **ObjectView.tsx — `objectViewSchema`**: Read `showSearch`/`showFilters` from `activeView` (which merges draft) instead of hardcoded `true`\n- **ObjectView.tsx — `handleViewUpdate`**: New callback propagates each field change to `viewDraft` state immediately, wired to `ViewConfigPanel` via `onViewUpdate`\n- **ObjectView.tsx — `PluginObjectView` views prop**: Memoized merged views array (`useMemo` keyed on `[views, activeViewId, viewDraft]`) injects draft into active view entry, preventing unnecessary re-renders\n- **ViewConfigPanel.tsx — `useEffect` dep**: Changed from `[activeView]` → `[activeView.id]` to prevent the draft/dirty reset loop when parent re-renders with merged draft\n- **ViewConfigPanel.tsx — Inline FilterBuilder**: Replaced the read-only filter summary row with the unified `FilterBuilder` component, with a robust spec-style filter bridge that parses all `@objectstack/spec` formats: single triplets `['field','=',value]`, nested arrays `[['f','=',v],...]`, logic prefixes `['and'|'or',...]`, and object-style `{field, operator, value}`\n- **ViewConfigPanel.tsx — Operator mapping**: Bidirectional mapping between spec operators (`=`, `!=`, `>`, `<`, `in`, etc.) and FilterBuilder operator IDs (`equals`, `notEquals`, `greaterThan`, `lessThan`, `in`, etc.) so operators render and save correctly\n- **ViewConfigPanel.tsx — Field type normalization**: `normalizeFieldType()` maps ObjectUI field types (`currency`→`number`, `datetime`→`date`, `picklist`→`select`, `boolean`→`boolean`, etc.) so FilterBuilder shows correct operator sets and input types\n- **ViewConfigPanel.tsx — Inline SortBuilder**: Replaced the read-only sort summary row with the unified `SortBuilder` component, with a data bridge converting between the view's flat sort array and `SortItem[]` format\n- **ViewConfigPanel.tsx — Column selector**: Replaced the read-only column count row with a `Checkbox` list of all fields from `objectDef`, with proper `CheckedState` handling (`c === true`)\n- **ViewTabBar.tsx**: Fixed pre-existing TypeScript build errors blocking CI (DraggableAttributes cast, redundant visibility comparison, implicit any on event handlers)\n\n### Tests\n\n- Three tests for real-time draft propagation: dirty state persistence on same-ID re-render, reset on view switch, and multi-field real-time propagation\n- Tests for inline FilterBuilder rendering and interaction (condition count, add filter)\n- Tests for inline SortBuilder rendering and interaction (sort item count, add sort)\n- Tests for column checkbox toggle updating draft columns\n- Tests for spec-style filter parsing: nested arrays, and/or logic prefix, field type normalization\n- 50 tests pass total (1 pre-existing skip)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>ObjectView右侧配置面板变更后主视图未实时响应（objectViewSchema未消费draft）</issue_title>\n> <issue_description># 问题说明\n> 当前在ViewConfigPanel中切换Switch或输入框，虽然本地draft已发生变化，但左侧主视图（PluginObjectView）没有自动实时反映这些更改。场景典型例子为 showSearch 和 showFilters 被硬编码为 true，没有跟随当前draft。这样导致用户误以为配置已经生效，但实际只有点击\"保存\"后才能见到变化，影响所见即所得体验。\n> \n> # 复现路径\n> 1. 打开某对象的数据页面，进入视图配置面板\n> 2. 修改如\"启用搜索\"、\"启用筛选\"等Switch\n> 3. 观察左侧主视图并未立即响应变化（除非点击保存后刷新）\n> \n> # 代码精确定位\n> - apps/console/src/components/ObjectView.tsx\n>   - `objectViewSchema` 处的 `showSearch`/`showFilters` 是硬编码\n>   - `ViewConfigPanel` 没有传递 `onViewUpdate`\n> \n> # 建议修复方案\n> - 将 ViewConfigPanel 的 onViewUpdate 回调透传到 ObjectView 的 useState，将 draft 变动实时合并到 activeView。\n> - objectViewSchema 的 useMemo 依赖 activeView，把 UI 行为数据源切换至 draft(或activeView)而非常量。\n> - PluginObjectView 的 views 属性也需注入draft后的view数据，避免原始views不变。\n> \n> # 验收/测试点\n> - 改动任意交互项，主视图同步联动（无需点击保存）\n> - 更新 ViewConfigPanel.test.tsx 增加相关渲染断言\n> - 保持未保存draft不会被后端持久化，仅前端reactive\n> \n> /cc @hotlong</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#676\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

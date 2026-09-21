@@ -1,0 +1,33 @@
+{
+  "number": 442,
+  "kind": "pull_request",
+  "title": "refactor: extract console MSW mode into shared kernel factory following upstream studio pattern",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T05:14:11Z",
+  "updated_at": "2026-02-11T06:48:05Z",
+  "closed_at": "2026-02-11T06:33:04Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T06:33:04Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/442",
+  "body": "Console's MSW mock setup duplicated kernel bootstrapping and handler creation across `browser.ts` and `server.ts`. Per the upstream `@objectstack/studio` pattern in the spec repo, this should be factored into reusable modules that can be composed as a plugin.\n\n### Shared kernel factory (`mocks/createKernel.ts`)\n\nEncapsulates ObjectKernel + ObjectQL + InMemoryDriver + AppPlugin bootstrap into a single factory, mirroring `@objectstack/studio`'s `createKernel()`:\n\n```typescript\nimport { createKernel } from './createKernel';\n\nconst { kernel, driver } = await createKernel({ appConfig });\n```\n\n### Shared handler factory (`mocks/handlers.ts`)\n\nExtracts the ~200 lines of duplicated MSW handler definitions into `createHandlers()`. Handles both browser (relative wildcard paths) and Node.js test (absolute URLs) environments automatically.\n\n### Simplified `browser.ts` / `server.ts`\n\nBoth reduced to thin wrappers (271→72 and 227→59 lines respectively) that compose the shared factories with MSW's `setupWorker` / `setupServer`.\n\n### Functional CLI `studio` command\n\n`objectui studio` was a stub. Now resolves the console app in the workspace and delegates to `pnpm run dev`, starting Vite + MSW for in-browser metadata preview.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

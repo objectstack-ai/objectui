@@ -1,0 +1,33 @@
+{
+  "number": 561,
+  "kind": "pull_request",
+  "title": "fix: resolve CI failures caused by hooks-after-early-return in FileField",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-17T00:12:14Z",
+  "updated_at": "2026-02-17T01:42:40Z",
+  "closed_at": "2026-02-17T01:40:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-17T01:40:00Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/561",
+  "body": "All CI jobs (lint, build, test, docs) were failing due to two issues in `packages/fields/src/widgets/FileField.tsx`:\n\n- **`react-hooks/rules-of-hooks`**: Four `useCallback` hooks were called after an `if (readonly) return` early return, violating Rules of Hooks\n- **TS7006**: Implicit `any` on parameter `t` in `.map()` / `.some()` callbacks under `strict: true`\n\nThe fields package build failure cascaded to all downstream packages since turbo resolves `^build` dependencies.\n\n### Fix\n\nMoved all hooks and the `files` variable above the `readonly` early return. Added explicit `string` type annotations.\n\n```tsx\n// Before (broken): hooks after early return\nconst [isDragOver, setIsDragOver] = useState(false);\n\nif (readonly) { return <span>...</span>; }  // ← early return\n\nconst processFiles = useCallback(...);       // ← rules-of-hooks violation\nconst handleDrop = useCallback((e) => {\n  accept.split(',').map(t => t.trim());      // ← implicit any\n}, ...);\n\n// After (fixed): hooks before early return\nconst [isDragOver, setIsDragOver] = useState(false);\nconst files = value ? (Array.isArray(value) ? value : [value]) : [];\nconst processFiles = useCallback(...);\nconst handleDrop = useCallback((e) => {\n  accept.split(',').map((t: string) => t.trim());\n}, ...);\n\nif (readonly) { return <span>...</span>; }\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix all ci errors build and test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 438,
+  "kind": "pull_request",
+  "title": "fix: use turbo build in e2e CI job to resolve missing package artifacts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T01:46:30Z",
+  "updated_at": "2026-02-11T02:12:32Z",
+  "closed_at": "2026-02-11T01:59:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T01:59:34Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/438",
+  "body": "The e2e CI job fails with `Exit code: 2` from the Playwright webServer because `tsc` can't resolve types from workspace packages whose `dist/` directories don't exist. The `build` job runs on a separate VM and `needs: build` only gates execution order — it doesn't share artifacts.\n\n- **`playwright.config.ts`**: Use `turbo run build --filter=@object-ui/console` instead of `pnpm --filter @object-ui/console build` so turbo's `^build` dependency chain builds all workspace packages before the console\n- **`.github/workflows/ci.yml`**: Add explicit build step before Playwright so the webServer's turbo build is a cache hit (~320ms)\n\n```yaml\n# ci.yml - e2e job\n- name: Build packages and console\n  run: pnpm turbo run build --filter='./packages/*' --filter='./apps/console'\n```\n\n```ts\n// playwright.config.ts\nwebServer: {\n  command: 'pnpm turbo run build --filter=@object-ui/console && pnpm --filter @object-ui/console preview --port 4173',\n}\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

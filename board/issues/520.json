@@ -1,0 +1,33 @@
+{
+  "number": 520,
+  "kind": "pull_request",
+  "title": "fix: dashboard charts empty due to Zod stripping widget inline data",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-15T02:41:12Z",
+  "updated_at": "2026-02-15T03:33:29Z",
+  "closed_at": "2026-02-15T03:12:48Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-15T03:12:48Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/520",
+  "body": "Dashboard chart and table widgets render with zero data. The `@objectstack/spec` `DashboardWidgetSchema` Zod schema has no `data` field, so `defineStack()` validation silently strips `data` from widget definitions. The `options` field (`z.unknown().optional()`) preserves arbitrary data through validation.\n\n### Changes\n\n- **`DashboardRenderer`** — Extract widget data from `options.data` as fallback when `widget.data` is absent (backward-compatible):\n\n```ts\n// Before: only checked widget.data (stripped by Zod)\nconst dataItems = Array.isArray(widget.data) ? widget.data : widget.data?.items || [];\n\n// After: falls back to options.data\nconst widgetData = widget.data || options.data;\nconst dataItems = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];\n```\n\n- **Example configs** (crm, kitchen-sink, todo) — Moved `data` into `options` where it survives Zod validation, removed `@ts-ignore` annotations\n- **Tests** — 5 new tests covering data extraction from `options.data.items`, backward compat, table data, donut charts, and empty fallback\n\n### Before / After\n\n| Before | After |\n|--------|-------|\n| ![before](https://github.com/user-attachments/assets/f40e6d86-cf61-4cd2-93dd-feb137cf5d5b) | ![after](https://github.com/user-attachments/assets/28aecd18-a757-435f-ba42-14cc6c6c55f9) |\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 评估是演示数据不够完整还是控件问题，console dashboard例子中的图表显示不出来\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

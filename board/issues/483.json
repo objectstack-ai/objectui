@@ -1,0 +1,33 @@
+{
+  "number": 483,
+  "kind": "pull_request",
+  "title": "Fix Storybook build: remove duplicate Introduction.mdx",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T03:57:48Z",
+  "updated_at": "2026-02-13T08:58:04Z",
+  "closed_at": "2026-02-13T04:15:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T04:15:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/483",
+  "body": "Storybook build fails with `Unable to index` because two MDX files declare the same Meta title `\"Getting Started/Introduction\"`:\n\n- `packages/components/src/stories-json/Introduction.mdx` (comprehensive, 128 lines)\n- `packages/components/src/stories/Introduction.mdx` (shorter duplicate, 62 lines)\n\nBoth match the glob `../packages/**/src/**/*.mdx` in `.storybook/main.ts`, and Storybook's indexer cannot resolve duplicate titles.\n\n- Removed the shorter duplicate (`stories/Introduction.mdx`), keeping the more complete version in `stories-json/`\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

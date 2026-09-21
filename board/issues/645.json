@@ -1,0 +1,33 @@
+{
+  "number": 645,
+  "kind": "pull_request",
+  "title": "feat(P1): Spec Protocol Alignment — UI-Facing",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-20T08:16:16Z",
+  "updated_at": "2026-02-20T09:37:57Z",
+  "closed_at": "2026-02-20T09:29:15Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-20T09:29:15Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/645",
+  "body": "Completes P1 from ROADMAP.md — aligns all view plugins, page composition, and record components with `@objectstack/spec` v3.0.8 contracts. Adds 67 tests across types and bridge layers.\n\n### P1.1 ListView\n- `ListViewSchema`: `rowActions`, `bulkActions`, `virtualScroll`, `userActions`, `appearance`, `tabs`, `addRecord`, `showRecordCount`, `allowPrinting`\n- `ObjectGridSchema`: spec-shaped `conditionalFormatting` (expression + style map), `emptyState`, `virtualScroll`, `rowSpecActions`/`bulkSpecActions`\n- Bridge passes all new properties through to SchemaNode\n\n### P1.2 FormView\n- Bridge maps spec `type` → `formType` (`tabbed`/`wizard`/`split`/`drawer`/`modal`)\n- `FormSection.columns` (1–4) and `FormField` props (`widget`, `dependsOn`, `visibleOn`, `colSpan`) already wired — bridge now forwards them\n\n### P1.3 Dashboard\n- `DashboardWidgetSchema`: data binding (`object`/`filter`/`categoryField`/`valueField`/`aggregate`), `colorVariant` (8 variants), `measures` for pivot/matrix, `aria`\n- `DashboardSchema`: `header` with actions, `globalFilters` with `optionsFrom`, `dateRange` (14 presets + custom)\n- Bridge emits `date-range-filter` node and structured `filter-bar` with per-filter metadata\n\n### P1.4 Page Composition\n- `PageType`: 4 → 16 (`dashboard`, `grid`, `list`, `gallery`, `kanban`, `calendar`, `timeline`, `form`, `record_detail`, `record_review`, `overview`, `blank`)\n- `PageVariable.type` gains `record_id`; new `source` field\n- `PageSchema.blankLayout` for free-form grid canvas\n- Bridge forwards `blankLayout`, region `width`, `description`, `icon`, `aria`\n\n### P1.5 Record Components\nNew `record-components.ts` with spec-aligned prop interfaces:\n\n```typescript\nimport type {\n  RecordDetailsComponentProps,\n  RecordHighlightsComponentProps,\n  RecordRelatedListComponentProps,\n  RecordActivityComponentProps,\n  RecordChatterComponentProps,\n  RecordPathComponentProps,\n} from '@object-ui/types';\n```\n\n### P1.6 i18n & ARIA\n- Re-export `I18nLabel`, `AriaProps`, and all spec Dashboard/Form/ListView/Page/Record types from `@objectstack/spec/ui` (prefixed `Spec*` to avoid collisions)\n- ARIA props added to `DashboardSchema`, `DashboardWidgetSchema`, `PageSchema`\n- All four bridges pass `aria` through\n\n### Tests\n- 31 type-level tests (`p1-spec-alignment.test.ts`)\n- 36 bridge tests (`P1SpecBridge.test.ts`)\n- Full suite: 282 files, 4952 tests, 0 regressions\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按roadmap完成开发\n> \n> P1. Spec Protocol Alignment — UI-Facing 📐\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

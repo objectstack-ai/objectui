@@ -1,0 +1,35 @@
+{
+  "number": 604,
+  "kind": "issue",
+  "title": "日历控件界面和事件交互存在的问题汇总（多语言/事件点击/可用性等）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-19T02:52:59Z",
+  "updated_at": "2026-02-19T03:33:59Z",
+  "closed_at": "2026-02-19T03:33:59Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/604",
+  "body": "## 一、界面和交互BUG\n\n### 1. 多语言混杂问题\n- 日历界面上出现了中英文混杂：如\"��建\"按钮（中文）和\"+ New\"按钮（英文）；顶部工具栏、日期显示等部分也是英文和中文混合。\n- 建议所有界面元素根据当前语言环境（如locale）进行统一本地化。\n\n### 2. 日历事件卡片点击无反馈（重大BUG）\n- **目前点击日历格内蓝色事件标题无任何反馈**。\n- 根因定位到 `packages/plugin-calendar/src/calendar-view-renderer.tsx` 文件中 `handleEventClick` 函数的实现——点击事件受到无效 if (schema.onEventClick) 的阻挡，导致 onAction 不被派发，交互\"死掉\"。\n- 正确行为应是点击事件卡，派发 action 或弹出事件详情。\n- 详情见图片：【点击蓝色事件无响应】\n\n### 3. 日历跨月日期没有灰色区分\n- 日历下方的 3 月日期（如 1、2、3、4、5...）与 2 月本月的日期颜色无区别，普通用户难以区分。\n- 期望: 非当月日期应该变成浅灰色或视觉弱化显示。\n\n### 4. 事件卡片截断但没有 tooltip 或完整信息展示\n- 事件名字太长时会被\"...\"（省略号）截断，目前无法快速看到全部内容。\n- 建议悬停时弹出 tooltip 或点击可查看完整标题。\n\n### 5. 今日高亮视觉存在轻微拥挤/不协调\n- 19号当前天用深色圆形高亮，但如果当天有事件，圆圈与卡片太近，视觉有点拥挤。\n- 可考虑优化间距。\n\n### 6. 英文提示未本地化\n- 页面底部\"12 records\"等数量提示未按语言切换成中文。\n- 建议：底部列表数量要本地化为\"12 条记录\"。\n\n\n## 二、定位与修复建议\n\n1. `handleEventClick` 相关核心bug —— 建议无条件派发 `onAction({type: 'event-click', payload: event})`，让上层处理导航或弹窗。\n2. 完善国际化策略，界面所有可见文字应受 locale 影响。\n3. 日历组件应区分非本月日期的样式（加\"灰\"）。\n4. 长标题应可查看完整内容，可以用 tooltip，或者在详情弹窗里显示。\n5. 今日高亮优化，注意与事件卡片的间距友好。\n6. 补充所有提示语的多语言支持。\n\n如需具体修复建议代码可随��� @我。\n\n---\n对应截图请参见下方：\n<img alt=\"日历页面截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/c4056444-f2ba-4e2c-a56a-382490c849da\" />\n\n"
+}

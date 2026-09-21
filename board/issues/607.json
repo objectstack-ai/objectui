@@ -1,0 +1,33 @@
+{
+  "number": 607,
+  "kind": "pull_request",
+  "title": "feat: Airtable-style grid UX — primary field links, detail panel, context menus, i18n keys",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-19T02:59:54Z",
+  "updated_at": "2026-02-19T03:40:48Z",
+  "closed_at": "2026-02-19T03:34:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-19T03:34:46Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/607",
+  "body": "Grid UI lacked Airtable-level polish: primary field had no visual hierarchy or click-to-detail, record detail was a raw key-value dump, no row expand affordance, no column header context menu, and grid-specific i18n keys were missing.\n\n### Primary field auto-link (P0)\n\nFirst column automatically renders as a clickable link to record detail — bold, `text-primary`, opens detail panel. No schema config needed.\n\n```tsx\n// colIndex === 0 && !col.link && !col.action → auto-linked\nconst isPrimaryField = colIndex === 0 && !col.link && !col.action;\nconst isLinked = col.link || isPrimaryField;\n```\n\nExplicit `col.link` still works and takes precedence.\n\n### i18n keys (P0)\n\nAdded `grid.*` and `table.hideColumn/freezeColumn/unfreezeColumn` keys to all 10 locale files (en, zh, ar, de, es, fr, ja, ko, pt, ru).\n\n### Form-based record detail panel (P1)\n\nReplaced `Object.entries → key/value dump` with structured card layout:\n- Regular fields in `divide-y` form rows with label/value pairs\n- System fields (`created_at`, `updated_at`, etc.) in a separate muted section\n- Smart value rendering: booleans → Badge, dates → `toLocaleString()`, empty → italic muted indicator\n\n### Row hover expand button (P2)\n\nExpand icon replaces row number on hover via `group/row` + `group-hover/row` pattern. Calls `onRowClick`.\n\n### Column header context menu (P2)\n\nRight-click any `<th>` → fixed-position menu with Sort ascending, Sort descending, Hide column. State-managed via `contextMenu` with click-outside dismiss.\n\n### Empty value styling\n\n`-` → `—` with `text-muted-foreground/50 text-xs italic` across all cell renderers.\n\n### Tests\n\n12 new test cases covering primary field link behavior, empty value display, expand button, context menu sort/hide, and row hover class. All 278 tests pass.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>优化Grid界面以对标Airtable Interfaces：全面UI/UX提升与功能对齐</issue_title>\n> <issue_description>## 背景\n> 结合ObjectUI现有Grid界面（参照[演示截图](image1)），对比Airtable Interfaces的2025-2026设计趋势和常用最佳实践，进行系统分析并提出优化建议。目标是进一步提升UI密度、交互体验、功能特性及整体一致性，对齐主流SDUI平台。\n> \n> ## 分析与评测摘要\n> \n> 1. **视图工具栏（Toolbar）**\n>     - 当前：文字为主，按钮较宽，\"Hide fields / Filter / Group / Sort / Color / Comfortable / Search\"占据大量空间。\n>     - Airtable：紧凑图标化工具栏，文字标签移动端自动收缩，按���更直观。\n>     - 建议：采用icon-first compact design（Ghost variant, sm size），移动端隐藏文字，提升密度。\n> \n> 2. **列标题设计**\n>     - Airtable：字段类型图标、轻微hover特效、右键列菜单。\n>     - ObjectUI：Type icon已在代码中实现，实际未展示。拖拽指示（GripVertical）存在。\n>     - 建议：确保Type icons正式渲染，header支持右键菜单（如排序、隐藏、冻结列）。\n> \n> 3. **主字段（Primary field）视觉层级**\n>     - Airtable：首列突出显示、为链接（点击展开详情）\n>     - ObjectUI：目前所有列同等权重。\n>     - 建议：自动为首列加粗、增加链接，点击可快速进入详情Panel，实现更强主字段感。\n> \n> 4. **详细面板（Record Detail Panel）**\n>     - Airtable：侧边弹出、表单式布局、字段类型渲染、支持编辑。\n>     - ObjectUI：当前Overlay仅简单key-value dump；无格式化展现、缺乏可视层级。\n>     - 建议：用SchemaRenderer配合objectSchema生成form布局，字段类型与权限自动渲染。\n> \n> 5. **i18n国际化与标签规范**\n>     - 当前界面含混合中文与英文（如\"新建\"、\"Comfortable\"）。\n>     - 建议：主仓库应全英文，标签、按钮、工具栏都需国际化、英文优先。\n> \n> 6. **行hover、空值显示、密度切换、inline新建**\n>     - 行：Airtable hover更细腻、出现展开按钮。\n>     - 空值：Airtable空则留白，ObjectUI会用\"—\"或\"-\"，建议更优雅文本/空白。\n>     - 密度：Airtable有Compact/Comfortable/Extra Compact多种，ObjectUI已有`rowHeight`，建议下拉切换。\n>     - 新建：Airtable底部出+Add Row，ObjectUI用header按钮，建议支持Inline add row。\n> \n> 7. **视图切换与导航**\n>     - Airtable：Grid/Kanban/Calendar等tab式切换。\n>     - ObjectUI：已支持多视图，但Toolbar未集成tab切换。\n>     - 建议：面向用户加视图tab。\n> \n> \n> ## 优化建议与Roadmap\n> \n> 1. **fix: Replace all Chinese text with English (i18n compliance)** — P0\n> 2. **feat: Auto-link primary field column to record detail** — P0\n> 3. **refactor: Redesign grid toolbar for compact Airtable-style density** — P1\n> 4. **feat: Form-based record detail panel (replace key-value dump)** — P1\n> 5. **feat: Row hover expand button + column header context menu** — P2\n> 6. **feat: View type switcher tabs in object view toolbar** — P2\n> \n> \n> ## 附录\n> - 演示截图 <img alt=\"CRM Contacts Grid界面\" width=\"2732\" src=\"https://github.com/user-attachments/assets/61d80c46-6d5e-4ad6-85de-a1e53de9841b\" />\n> - 相关代码片段与设计参考：ObjectGrid.tsx、data-table.tsx、Airtable官方文档\n> - 对比分析详细见上一条会话。\n> \n> \n> ---\n> 如需拆分子任务或同步Roadmap，可据此Issue自动生成。\n> \n> > 本Issue来源于实际界面比对与代码分析，参考Airtable最新设计标准，适用于ObjectUI v2026及以后的产品优化。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#606\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

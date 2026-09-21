@@ -1,0 +1,33 @@
+{
+  "number": 519,
+  "kind": "pull_request",
+  "title": "[WIP] Add view type switcher for list display",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-15T02:38:59Z",
+  "updated_at": "2026-02-15T03:58:33Z",
+  "closed_at": "2026-02-15T03:12:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-15T03:12:19Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/519",
+  "body": "- [x] Analyze the issue: sidebar navigation items reference named views (e.g., `viewName: 'pipeline'`) but the runtime doesn't serve `listViews` on objects, causing views to always fall back to grid/list\n- [x] Add `views` with `listViews` to CRM config for opportunity (pipeline kanban), event (calendar), and project_task (board, gantt, timeline)\n- [x] Merge stack-level views into objects in `objectstack.shared.ts` so the MSW-served metadata includes `listViews`\n- [x] Fix console ObjectView to read `listViews` (camelCase per @objectstack/spec) with `list_views` fallback\n- [x] Fix ViewDesignerPage to read `listViews` with `list_views` fallback\n- [x] Verify build passes (42/42 tasks successful)\n- [x] Verify all console tests pass (34 files, 273 tests)\n- [x] Run code review and address feedback\n- [x] Run CodeQL security check (0 alerts)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 左侧切换不同的视图类型，右侧始终显示的是列表\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

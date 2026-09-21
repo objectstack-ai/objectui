@@ -1,0 +1,33 @@
+{
+  "number": 509,
+  "kind": "pull_request",
+  "title": "fix: compile console plugin.ts to JS for Node.js runtime compatibility",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-14T12:29:29Z",
+  "updated_at": "2026-02-14T12:52:13Z",
+  "closed_at": "2026-02-14T12:46:48Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-14T12:46:48Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/509",
+  "body": "`@object-ui/console` ships `\"main\": \"./plugin.ts\"` — a raw TypeScript entry point. Downstream projects (e.g. hotcrm on Vercel) that keep `node_modules` external during bundling hit `ERR_MODULE_NOT_FOUND` at runtime because Node.js cannot execute `.ts` files natively.\n\n### Changes\n\n- **`tsconfig.plugin.json`** — New tsconfig that compiles `plugin.ts` → `plugin.js` + `plugin.d.ts` with `nodenext` module resolution for Node.js runtime compatibility\n- **`package.json`** — Entry points now reference compiled output:\n  - `main` → `./plugin.js`, `types` → `./plugin.d.ts`\n  - `exports` updated with proper `types`/`import`/`default` conditions\n  - `build:plugin` script added, chained into `build` and `build:vercel`\n  - `plugin.js` and `plugin.d.ts` added to `files`\n- **`.gitignore`** — Excludes generated `plugin.js` / `plugin.d.ts`\n\n### Before/After\n\n```jsonc\n// Before — Node.js fails at runtime\n{ \"main\": \"./plugin.ts\" }\n\n// After — works in any Node.js environment\n{ \"main\": \"./plugin.js\", \"types\": \"./plugin.d.ts\" }\n```\n\n`plugin.ts` source is still included in the published package for reference. Monorepo-internal relative imports (`../../apps/console/plugin`) continue to resolve to the `.ts` source via TypeScript.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix 下游hotcrm项目集成console后报错， Investigate the ERR_MODULE_NOT_FOUND error for @object-ui/console/plugin.ts\n>  Root cause: @object-ui/console npm package has \"main\": \"./plugin.ts\" (TypeScript entry point). Vercel's @vercel/node keeps node_modules external during bundling, so at runtime Node.js tries to import plugin.ts directly — but Node.js cannot execute TypeScript files natively.\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 422,
+  "kind": "pull_request",
+  "title": "fix: add missing vitest resolve aliases for @object-ui/auth and other new packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T03:21:07Z",
+  "updated_at": "2026-02-10T03:53:07Z",
+  "closed_at": "2026-02-10T03:38:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T03:38:01Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/422",
+  "body": "CI test job fails because `@object-ui/auth` has no resolve alias in `vitest.config.mts`. Vitest can't resolve the package without built `dist/` artifacts, and the test job runs without a prior build step.\n\n### Changes\n\n- Added missing resolve aliases to `vitest.config.mts` for packages added after the alias list was last updated:\n  - `@object-ui/auth` (root cause of CI failure — imported transitively via `apps/console/src/App.tsx`)\n  - `@object-ui/mobile`, `@object-ui/permissions`, `@object-ui/tenant`\n  - `@object-ui/plugin-ai`, `@object-ui/plugin-designer`, `@object-ui/plugin-workflow`\n\nThese follow the existing pattern mapping `@object-ui/*` → `./packages/*/src` so vitest resolves source directly without requiring `dist/`.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

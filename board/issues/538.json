@@ -1,0 +1,33 @@
+{
+  "number": 538,
+  "kind": "pull_request",
+  "title": "feat: P0 spec compliance — timeline config, gallery navigation, empty state, navigation.view",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-16T06:53:24Z",
+  "updated_at": "2026-02-16T07:31:07Z",
+  "closed_at": "2026-02-16T07:25:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-16T07:25:01Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/538",
+  "body": "Implements all Priority 0 v1.0 UI Essentials from ROADMAP_SPEC.md (tasks #64, #66, #68, #71, #72).\n\n### TimelineConfig spec alignment (#64, #72)\n- Export `TimelineConfig` and `TimelineConfigSchema` from `@object-ui/types`\n- Rename `dateField` → `startDateField` with backward compat fallback\n- Add `endDateField`, `groupByField`, `colorField`, `scale` to ObjectTimeline\n\n```tsx\n<ObjectTimeline schema={{\n  type: 'timeline',\n  objectName: 'sprints',\n  startDateField: 'start_date',  // spec-compliant (dateField still works)\n  endDateField: 'end_date',\n  groupByField: 'team',\n  colorField: 'priority',\n  scale: 'week',\n}} />\n```\n\n### ObjectGallery navigation (#66)\n- Integrate `useNavigationOverlay` + `NavigationOverlay` into ObjectGallery\n- Accept `navigation` config and `onRowClick` prop, matching all other view plugins\n\n### `navigation.view` property (#68)\n- Expose `view` from `useNavigationOverlay` return value\n- Pass `view` to `onNavigate(recordId, view)` for page mode\n- Include view in URL path for `new_window` mode: `/{object}/{id}/{view}`\n\n### ListView `emptyState` (#71)\n- Add `emptyState?: { title?, message?, icon? }` to `ListViewSchema`\n- Render centered empty state with dynamic Lucide icon resolution (kebab-case name → component)\n\n```tsx\n<ListView schema={{\n  type: 'list-view',\n  objectName: 'contacts',\n  emptyState: {\n    title: 'No contacts yet',\n    message: 'Add your first contact to get started.',\n    icon: 'users',\n  },\n}} />\n```\n\n### Also exported\n- `NavigationConfig` and `NavigationConfigSchema` from `@object-ui/types` (from spec)\n\n### Already complete (verified)\n- #65: `GalleryConfig` already exported\n- #67: `navigation.width` already flows via `{...navigation}` spread in all view plugins\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按 roadmap spec 完成开发\n> \n> Priority 0 — v1.0 UI Essentials (Address Immediately)\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 659,
+  "kind": "pull_request",
+  "title": "fix(ListView): normalize filter AST, safe export, request debounce, data limit warning",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-20T13:08:26Z",
+  "updated_at": "2026-02-20T13:45:13Z",
+  "closed_at": "2026-02-20T13:38:39Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-20T13:38:39Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/659",
+  "body": "Addresses the 2026-02 ListView full scan findings: backend-incompatible `in` operator in filter AST, unsafe CSV export for complex types, race conditions from parallel data fetches, hardcoded `$top=100` with no user feedback, and missing test coverage.\n\n### Filter normalization (Issues #1, #2)\n\n- `normalizeFilterCondition()` rewrites `['field', 'in', ['a','b']]` → `['or', ['field','=','a'], ['field','=','b']]` (and `not in` → `and` of `!=`)\n- Applied to both `convertFilterGroupToAST` and `userFilterConditions` before merging\n- Filter merge now strips empty/invalid conditions before combining with `and`\n\n```ts\nnormalizeFilterCondition(['status', 'in', ['active', 'pending']])\n// → ['or', ['status', '=', 'active'], ['status', '=', 'pending']]\n```\n\n### Export type safety (Issue #3)\n\n- Arrays serialize as semicolon-separated values (`admin; user`) instead of `[object Object]`\n- Objects serialize as JSON strings\n- Null/undefined → empty string\n\n### Request debounce (Issue #5)\n\n- `fetchRequestIdRef` counter ensures only the latest request's result is applied to state — stale responses from superseded requests are discarded\n\n### PullToRefresh lock prevention (Issue #6)\n\n- Pull distance and `startYRef` reset immediately before async refresh, preventing UI lock if the network is slow\n\n### Configurable `$top` + data limit warning (Issue #7)\n\n- Page size now reads from `schema.pagination.pageSize` (default 100)\n- Shows amber warning in status bar when returned items ≥ page size\n\n### i18n fallback expansion (Issue #8)\n\n- Added fallback translations for `list.noItems`, `list.search`, `list.filter`, `list.sort`, `list.export`, `list.hideFields`, `list.pullToRefresh`, `list.refreshing`, `list.dataLimitReached`\n\n### Defensive field handling (Issue #9)\n\n- Null-safe field name extraction in `effectiveFields` memo\n\n### Tests (Issue #10)\n\n- `FilterNormalization.test.ts` — 20 tests covering `in`/`not in` normalization, passthrough, logical group recursion, edge cases\n- `Export.test.tsx` — CSV complex type serialization, JSON export\n- `DataFetch.test.tsx` — data limit warning, custom page size, stale request guard\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>ListView 组件全量问题扫描（2026.02）</issue_title>\n> <issue_description>**根据2026年2月代码全面扫描 ListView 存在的潜在/遗留问题，归纳如下：**\n> \n> ### 1. userFilter 传递 in 操作符后端无效，AST 不兼容\n> - UserFilters 传出的[\"field\", \"in\", [...]]条件组合经常无法被后端识别，表现为过滤器选择无效。\n> - 合并至 allFilters 时缺乏向后端兼容的转换，例如应拆解为 or 或多个 =[...]\n> \n> ### 2. filters/quickFilters/userFilters 多重条件合并缺乏类型与格式安全保障\n> - allFilters 直接展开多个二维、三维结构易导致最终finalFilter不合预期。\n> - 建议每个条件都做标准化处理，只有一条时也包裹成 and。\n> \n> ### 3. 导出 Export 仅支持 csv/json，缺少 xlsx/pdf，并且未做导出字段类型安全校验\n> - 导出时未判断字段是否为复杂对象、数组类型，导出内容缺失或 csv 断行。\n> \n> ### 4. 行内编辑与 conditionalFormatting、hiddenFields 有协作冲突\n> - 开启 inlineEdit 后，同步隐藏字段或应用条件样式时，UI 偶发异常。\n> - 建议所有状态切换、过滤 hiddenFields 时及时刷新渲染 grid\n> \n> ### 5. filters/sorts/search 状态切换/重置后未做 loading 状态防抖\n> - 修改快速切换 filter/sort 时多次请求并行，loading 状态无法精准控制，终端数据 display 不确定。\n> - 建议所有异步请求唯一化、设置 min loading time、最后一次为准\n> \n> ### 6. PullToRefresh 手机端体验在分页/网络慢情况下容易卡死\n> - 下拉刷新时 loading/数据切换未做异步锁，极易丢请求、锁死 UI\n> \n> ### 7. 大数据量虚拟滚动、分页 loadMore 等一页100条后无后继加载/无提示\n> - 前端参数 $top 写死最大100，实际数据量大于100时 UI silent fail、无分页/无 loadMore/无提醒\n> \n> ### 8. i18n 回退逻辑存在硬编码&fallback到英文\n> - 只覆盖了 'list.recordCount'，其他自定义 label fallback 异步/局部回退表现欠佳\n> \n> ### 9. 只读 objectDef、schema.fields 不一致时，部分功能（如隐藏列/字段顺序等）报错\n> \n> ### 10. 单元测试缺失（Filters、UserFilters、Export���PullToRefresh、EmptyState等缺乏回归/交互测试覆盖）\n> \n> ---\n> **建议优化方向：**\n> - 统一 filter AST 标准和转换、与后端严格对齐，建立完善的 filter 测试用例，并兼容后端协议。\n> - 导出功能循环支持 xlsx/pdf、字符串转义、类型判断。\n> - 加强 loading 管理和并发防抖。\n> - 大数据下分页/滚动和空状态体验。\n> - 完善交互行为单元测试。\n> \n> ---\n> > 本 issue 由 code scan & 案例复现归纳（2026/02），如有任何遗漏请评论补充。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#658\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

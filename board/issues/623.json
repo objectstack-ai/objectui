@@ -1,0 +1,35 @@
+{
+  "number": 623,
+  "kind": "issue",
+  "title": "右侧详情 Drawer 支持 auto-layout 多列并开放左右/弹窗/页面等导航模式配置",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-19T11:18:52Z",
+  "updated_at": "2026-02-19T11:44:19Z",
+  "closed_at": "2026-02-19T11:44:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/623",
+  "body": "## 问题描述\n\n目前 Console（以及部分插件应用）展示行详情时，均是右侧弹出的单列表单／详情面板。实现方式一般是：\n- 行点击后用 `recordId` 写入 URL 查询参数\n- 自行渲染 `<Sheet side=\"right\"><DetailView columns=1 ... /></Sheet>`，如 apps/console/src/components/ObjectView.tsx 第 400–431 行\n\n存在两个核心问题：\n1. **单列布局体验差：** 字段多时详情面板页面过长、可用空间浪费严重（实际 drawer 宽度约 600px~700px，完全可以支持 2-3 列布局）\n2. **平台导航模式能力未利用：** navigation 配置支持 drawer/modal/page/split... 等多种类型，但 Console/业务代码绕过平台配置，直接写死右侧 Drawer\n\n<img alt=\"右侧弹出详情单列截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/665a2a55-0dd7-4398-852b-7fa3373beb01\" />\n\n## 优化建议\n- 改造所有右侧栏详情面板，统一使用平台的 `NavigationOverlay`/`DetailView`，columns 留空或交由 auto-layout 推断，支持 2/3 列合理排布（参考 ModalForm 自动分栏）\n- 支持通过 ViewNavigationConfig 完全配置详情打开模式（drawer/modal/page/split/popover/新标签/不响应），不应在应用层写死\n    - 例: navigation: { mode: 'drawer', width: '700px' } 或 { mode: 'modal', width: 800 }\n- 业务/Console/App 层不得再自行包 Drawer+DetailView，全部走平台能力\n- 默认详情列数同 auto-layout 推断（如字段≤3单列，4-10两列，更多可 3 列等），允许业务 schema 覆盖。\n\n## 受益\n- 用户体验极大提升，浏览大对象时更高效\n- 导航和布局方式高度可配置，平台统一能力、运维极其便捷\n- 与表单弹窗改造（#620）配合，实现\"全平台导航与布局唯一入口\"\n\n## 相关\n- #620 表单弹窗统一入口方案"
+}

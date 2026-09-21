@@ -1,0 +1,33 @@
+{
+  "number": 648,
+  "kind": "pull_request",
+  "title": "Remove hotcrm submodule",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-20T11:01:27Z",
+  "updated_at": "2026-02-20T11:24:54Z",
+  "closed_at": "2026-02-20T11:22:21Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-20T11:22:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/648",
+  "body": "Remove the `examples/hotcrm` git submodule and all supporting infrastructure.\n\n### Deleted\n- `.gitmodules`, `examples/hotcrm` submodule\n- `examples/hotcrm-bridge.js` / `.d.ts` — dynamic import bridge for hotcrm plugins\n- `examples/hotcrm-stubs/ai.ts` — `@hotcrm/ai` stub\n\n### Cleaned references\n- `pnpm-workspace.yaml` — removed hotcrm workspace globs\n- `apps/console/objectstack.shared.ts` — removed `hotcrmObjects`/`hotcrmApps` merge logic\n- `apps/console/vite.config.ts` — removed `@hotcrm/ai` resolve alias\n- `objectstack.config.ts` — removed hotcrm comments\n- `ROADMAP_CONSOLE.md` — removed hotcrm mention\n\nConsole now builds with only the built-in examples (CRM, Todo, Kitchen Sink). All 5070 tests pass.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 移除hotcrm submodule\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 564,
+  "kind": "pull_request",
+  "title": "feat: implement Console roadmap P0–P1 ListView spec properties and NavigationOverlay renderView",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-17T02:18:15Z",
+  "updated_at": "2026-02-17T03:36:07Z",
+  "closed_at": "2026-02-17T02:50:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-17T02:50:54Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/564",
+  "body": "Implements outstanding P0/P1 items from the Console roadmap: ListView spec-compliant properties and NavigationOverlay view-specific rendering.\n\n### ListViewSchema type extensions (`packages/types/src/objectql.ts`)\n\n- `rowHeight: 'compact' | 'medium' | 'tall'` — maps to density mode when `densityMode` not set\n- `conditionalFormatting[]` — field/operator/value rules with background/text/border colors\n- `inlineEdit: boolean` — passed as `editable` to grid child view\n- `aria: { label, describedBy, live }` — applied to root container with `role=\"region\"`\n- `sharing: { visibility, enabled }` — renders Share button in toolbar\n\n### ListView implementation (`packages/plugin-list/src/ListView.tsx`)\n\n- `rowHeight` → density mapping: `compact`→`compact`, `medium`→`comfortable`, `tall`→`spacious`\n- Exported `evaluateConditionalFormatting()` for rule evaluation by child views\n- `conditionalFormatting` and `inlineEdit` forwarded to grid schema\n- ARIA attributes spread onto root `<div role=\"region\">`\n\n### NavigationOverlay `renderView` support (`packages/components/src/custom/navigation-overlay.tsx`)\n\nAdded optional `renderView` prop. When both `renderView` and `view` are provided, overlay content renders via `renderView(record, viewName)` instead of default `children`. Backwards compatible — falls back to `children` when either is absent.\n\n```tsx\n<NavigationOverlay\n  {...nav}\n  view=\"contact-detail\"\n  renderView={(record, viewName) => <DetailForm record={record} view={viewName} />}\n>\n  {(record) => <DefaultView record={record} />}\n</NavigationOverlay>\n```\n\n### ROADMAP.md\n\nMarked verified P0.1–P0.4 and P1.1–P1.2 items as complete based on codebase audit and new implementations.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按roadmap console 尽可能多完成开发\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

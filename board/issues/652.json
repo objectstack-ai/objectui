@@ -1,0 +1,33 @@
+{
+  "number": 652,
+  "kind": "pull_request",
+  "title": "fix: Auto-derive userFilters from objectDef when not explicitly configured",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-20T11:48:01Z",
+  "updated_at": "2026-02-20T12:23:27Z",
+  "closed_at": "2026-02-20T12:10:53Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-20T12:10:52Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/652",
+  "body": "`userFilters` (Airtable-style field-level filter bar) never rendered because it was gated on `schema.userFilters` being explicitly set — which no default scenario provides.\n\n### Changes\n\n- **Auto-derivation in `ListView.tsx`**: New `resolvedUserFilters` memo scans `objectDef.fields` for `select`, `multi-select`, and `boolean` types and synthesizes a `dropdown`-mode config when no explicit `schema.userFilters` is provided\n- **Empty state + entry point in `UserFilters.tsx`**: Dropdown mode now shows a `SlidersHorizontal` icon prefix, a \"No filter fields\" placeholder when empty, and an \"Add filter\" button as the configuration entry point\n- **Tests**: Coverage for auto-derivation from objectDef, explicit config passthrough, empty/no-filterable-fields cases, and Add filter button presence\n\n### How it works\n\n```tsx\n// Before: only renders if schema author explicitly sets userFilters\n{schema.userFilters && <UserFilters config={schema.userFilters} ... />}\n\n// After: auto-derives from objectDef when not configured\nconst resolvedUserFilters = useMemo(() => {\n  if (schema.userFilters) return schema.userFilters;\n  if (!objectDef?.fields) return undefined;\n\n  const FILTERABLE_FIELD_TYPES = new Set(['select', 'multi-select', 'boolean']);\n  // ... derive dropdown config from matching fields\n  return { element: 'dropdown', fields: derivedFields };\n}, [schema.userFilters, objectDef]);\n\n{resolvedUserFilters && <UserFilters config={resolvedUserFilters} ... />}\n```\n\nExplicit `schema.userFilters` config is respected as-is — auto-derivation only kicks in as a fallback.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[回归缺陷] userFilters 字段级过滤未渲染到工具栏，缺少过滤系统配置入口（验收标准未通过）</issue_title>\n> <issue_description>### ⚠️ Bug: userFilters 区块未显示，缺少过滤系统入口，验收标准不通过\n> \n> 见实际效果截图：\n> <img alt=\"实际 UI 未显示 userFilters 过滤器\" width=\"2732\" src=\"https://github.com/user-attachments/assets/b4e9449d-bec4-4f5f-9130-0f5ccae43862\" />\n> \n> #### 问题描述\n> - \"Airtable 风格字段级过滤器\"（Dropdown/Tabs/Toggle）并未出现在列表视图顶部工具栏左侧\n> - 无\"新建过滤器\"/\"过滤系统配置\"入口，也没有 visible filter badge/button\n> - 没有任何地方能实际配置/使用 userFilters\n> \n> #### 预期行为\n> - 顶部工具栏左上应有 userFilters 区块，支持 dropdown/tabs/toggle 三种模式（参考 objectstack-ai/objectui#637 需求与设计稿）\n> - 可视化增删过滤字段或打开过滤系统面板（Airtable 风格）\n> \n> #### 实际行为\n> - 工具栏左侧仍只显示传统的 Hide fields/Filter/Group/Sort 等按钮，无 userFilters 相关内容\n> - 没有\"➕ 新建过滤器\"或配置入口\n> \n> #### 复现步骤\n> 1. 访问 demo 或本地最新部署环境，进入包含 ListView 的页面\n> 2. 检查顶部工具栏左上，userFilters 未出现\n> \n> #### 影响\n> - 重大可用性问题，用户无法按字段快速过滤，需求验收无法通过\n> \n> ---\n> \n> ## 【需补救方案】\n> \n> - [ ] 检查 ObjectView 层是否自动传入/推导 userFilters 给 ListView\n> - [ ] 为默认无配置场景，自动推导 select/multi-select/boolean 字段生成 userFilters schema\n> - [ ] ListView 顶部左侧始终渲染 userFilters 区块，若无配置则显示\"暂无过滤字段\"提示\n> - [ ] 增加\"➕ 新建过滤器\"或\"配置过滤系统\"入口\n> - [ ] 开发 Console 后台字段过滤配置 UI（Airtable 风格的右栏）\n> - [ ] 完善端到端/单元测试，覆盖页面展示与用户操作路径\n> \n> ---\n> \n> 相关 issue: objectstack-ai/objectui#637</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#651\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 466,
+  "kind": "pull_request",
+  "title": "feat: dashboard auto-refresh, schema persistence, SchemaRenderer error boundary",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T05:47:45Z",
+  "updated_at": "2026-02-12T10:34:09Z",
+  "closed_at": "2026-02-12T06:26:04Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T06:26:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/466",
+  "body": "Closes three P1/P2 gaps from SPEC_COMPLIANCE_EVALUATION: dashboard lacks auto-refresh, designer has no save/load API, and SchemaRenderer has no per-component error isolation.\n\n### Dashboard auto-refresh\n- Add `refreshInterval?: number` (seconds) to `DashboardSchema` type\n- Add `onRefresh` callback + timer-based auto-refresh to both `DashboardRenderer` and `DashboardGridLayout`\n- \"Refresh All\" button with spin indicator; cleans up interval on unmount\n\n```tsx\n<DashboardRenderer\n  schema={{ ...schema, refreshInterval: 30 }}\n  onRefresh={() => refetchAllWidgets()}\n/>\n```\n\n### `useSchemaPersistence` hook\n- Pluggable `SchemaPersistenceAdapter` interface (save/load/list/delete) for connecting to any backend\n- Ships with `createLocalStorageAdapter()` for dev/demo use\n- Tracks `loading`, `error`, `isDirty`, `lastSavedAt` state\n\n```tsx\nconst persistence = useSchemaPersistence(apiAdapter);\nawait persistence.save('my-page', pageSchema);\nconst schema = await persistence.load('my-page');\n```\n\n### `SchemaErrorBoundary` in SchemaRenderer\n- Each rendered component is now wrapped in an error boundary\n- A crash in one component shows an inline error alert with retry — does not take down the page\n\n### Documentation\n- Updated SPEC_COMPLIANCE_EVALUATION.md — all P0 resolved, 12/13 P1 complete, 17/28 P2 complete, overall 98%\n- Updated ROADMAP.md test count\n\n### Tests\n- 26 new tests: auto-refresh intervals/cleanup, error boundary isolation/retry, persistence save/load/list/delete/error handling\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

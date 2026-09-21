@@ -1,0 +1,33 @@
+{
+  "number": 716,
+  "kind": "pull_request",
+  "title": "Refactor ViewConfigPanel: split Page/ListView config layers, fix cross-view-type data flow propagation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-22T03:53:19Z",
+  "updated_at": "2026-02-22T06:05:25Z",
+  "closed_at": "2026-02-22T06:00:04Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-22T06:00:04Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/716",
+  "body": "ViewConfigPanel mixed page-level config (toolbar, navigation, shell) with list-level config (columns, appearance, data rendering), causing config changes to not propagate to non-grid view types. `generateViewSchema` hardcoded `showSearch: false` for all non-grid views, and `renderListView` omitted toolbar/display flags from `fullSchema`.\n\n### UI restructuring\n\n- **Page Config section**: label, description, viewType, showSearch, showFilters, showSort, clickIntoRecordDetails, addRecordViaForm, allowExport\n- **Data/Appearance/Inline Actions sections** (list-level): columns, filter, sort, groupBy, prefixField, color, rowHeight, type-specific options, editRecordsInline, addDeleteRecordsInline\n- Added section description hints (`pageConfigHint`, `listConfigHint`) across all 10 locales\n\n### Data flow fixes\n\n**Console `renderListView`** — propagate missing properties to `fullSchema`:\n```ts\nconst fullSchema: ListViewSchema = {\n    ...listSchema,\n    showSearch: viewDef.showSearch ?? listSchema.showSearch,\n    showSort: viewDef.showSort ?? listSchema.showSort,\n    showFilters: viewDef.showFilters ?? listSchema.showFilters,\n    striped: viewDef.striped ?? listSchema.striped,\n    bordered: viewDef.bordered ?? listSchema.bordered,\n    color: viewDef.color ?? listSchema.color,\n    ...(viewDef.filter?.length ? { filters: viewDef.filter } : {}),\n    ...(viewDef.sort?.length ? { sort: viewDef.sort } : {}),\n    // ...\n};\n```\n\n**Plugin `generateViewSchema`** — replace hardcoded `showSearch: false` with activeView-driven values for all view types:\n```ts\nconst baseProps = {\n    showSearch: activeView?.showSearch ?? schema.showSearch ?? false,\n    showSort: activeView?.showSort ?? schema.showSort ?? false,\n    showFilters: activeView?.showFilters ?? schema.showFilters ?? false,\n    striped: activeView?.striped ?? false,\n    bordered: activeView?.bordered ?? false,\n    color: activeView?.color,\n};\n```\n\n### Type updates\n\n- `NamedListView`: added `showSearch`, `showSort`, `showFilters`, `striped`, `bordered`, `color`\n- `ListViewSchema` TS interface + Zod schema: added `showSearch`, `showSort`, `showFilters`, `color`\n\n### Propagation matrix (before → after)\n\n| Property | Grid | Kanban/Calendar/Timeline/Gallery/Map/Gantt |\n|----------|:----:|:------------------------------------------:|\n| showSearch/showSort/showFilters | ✅ | ❌ → ✅ |\n| striped/bordered/color | ✅ | ❌ → ✅ |\n| filter/sort | ✅ | ❌ → ✅ |\n\n### Tests\n\n8 new tests covering section layout, type properties, Zod validation. All 433 console + 128 types + 154 plugin-view tests pass.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>拆分与重构 ViewConfigPanel：实现页面级和 ListView 级配置分层，完善数据流与实时同步</issue_title>\n> <issue_description>## 背景\n> 目前 ViewConfigPanel 混合了两类完全不同层级的配置：\n> - 页面级（Page/View 级）配置：影响整个视图外壳，例如 showSearch、showFilters、showSort、label、viewType、导航行为等\n> - 列表内容级（ListView 级）配置：影响底层数据渲染和数据流，例如 columns、field/appearance、filter、sort、type-specific options 等\n> \n> 这种混合导致了数据流分层和实时同步的混乱，许多配置项配置后并未在实际 UI 或数据上正确实时生效，PR objectstack-ai/objectui#712 也只修复了一部分字段的向下透传。\n> \n> ---\n> \n> ## 目标\n> 将 ViewConfigPanel 按\"Page/View 配置\"与\"ListView 配置\"进行分层，\n> - 明确 UI 区块和状态数据流的分层收口\n> - 并针对每一项配置补齐透传到对应消费层级（objectViewSchema、renderListView/fullSchema）的逻辑，\n> 便于逐项检查与 AI 自��修正。\n> \n> \n> ## 待修正/拆分项明细（必须全部一一对应改造）：\n> \n> ### 1. 分层职责梳理\n> - [ ] 明确区分**页面级**配置项（外层 toolbar/页壳、导航等）与**列表级**配置项（Grid/Kanban/Timeline 等 ListView 的数据/外观/行为）\n> - [ ] 拆分 UI，也可在同一文件内分区块；但每一项 `onViewUpdate` 应写入区分后的 state 通道\n> \n> ### 2. 页面级（Page/View）配置项\n> - [ ] showSearch（toolbar 搜索框开关，objectViewSchema 级传递）\n> - [ ] showFilters（toolbar filter UI 开关）\n> - [ ] showSort（toolbar sort UI 开关）\n> - [ ] label（视图名称）\n> - [ ] description（视图描述）\n> - [ ] type/viewType（Grid、Kanban、Gallery、Timeline...）\n> - [ ] clickIntoRecordDetails（是否弹窗页、详情页行为）\n> - [ ] addRecordViaForm（表单新增，视图外层入口）\n> - [ ] allowExport（toolbar 导出）\n> \n> ### 3. 列表内容级（ListView 级）配置项\n> - [ ] columns（显隐与顺序，下传 renderListView/fullSchema）\n> - [ ] filter（defaultFilters，数据过滤，必须透传到 fullSchema）\n> - [ ] sort（defaultSort，数据排序，必须透传到 fullSchema）\n> - [ ] groupBy（group 渲染分组字段，所有类型需补齐 schema matrix）\n> - [ ] prefixField（辅助字段、多数只用于 Grid/Timeline 类型）\n> - [ ] color/fieldTextColor（颜色设定，影响内层渲染 schema）\n> - [ ] appearance/rowHeight/wrapHeaders/showDescription/collapseAllByDefault\n> - [ ] editRecordsInline、addDeleteRecordsInline（内层交互行为）\n> - [ ] type-specific options（kanban: groupByField，calendar: startDateField/endDateField/titleField，map: latitudeField/longitudeField 等等）\n> \n> ### 4. 数据流/prop 透传修正\n> - [ ] `objectViewSchema` 只关注页面级字段（外层 toolbar），不可混入内层列表专属项\n> - [ ] `renderListView` 的 fullSchema 补充所有列表内容级可配置参数，按类型覆盖至 Grid/Kanban 等所有 viewType\n> - [ ] 各类型下的 schema matrix 完善，避免遗漏（如 Timeline/groupBy，Gallery/imageField，Map/latitudeField）\n> \n> ### 5. UI/UX\n> - [ ] Panel UI 采用分组显示，便于用户理解当前配置生效层级（可加分割线/标题说明）\n> - [ ] 用户操作保存时，保证两级 state 按需合并持久化\n> \n> ### 6. 回归测试/CI\n> - [ ] 对每一项配置改动补充对应的 e2e/单元测试\n> - [ ] 修复完成后运行全部 test，通过后同步 Roadmap checklist\n> \n> ---\n> \n> ## 备注\n> - 本 issue 作为全量改造 checklist，适配 AI coding agent 自动逐条批处理。\n> - 建议修复后将 ViewConfigPanel 划分为 PageConfigPanel + ListViewConfigPanel 两个组件，后续便于维护和复用。\n> \n> 相关参考：#713、PR objectstack-ai/objectui#712\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#715\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

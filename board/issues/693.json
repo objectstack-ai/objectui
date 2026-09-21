@@ -1,0 +1,33 @@
+{
+  "number": 693,
+  "kind": "pull_request",
+  "title": "Make ViewConfigPanel description field editable",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T08:27:07Z",
+  "updated_at": "2026-02-21T08:52:25Z",
+  "closed_at": "2026-02-21T08:50:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T08:50:34Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/693",
+  "body": "Description row was rendered as a read-only `<span>`. Replace with an `<Input>` wired to `updateDraft('description', ...)`, matching the title field pattern.\n\n- `objectDef.description` used as placeholder text\n- Draft state flows through the same `updateDraft` → `onViewUpdate` pipeline as all other fields\n\n```tsx\n<ConfigRow label={t('console.objectView.description')}>\n    <Input\n        data-testid=\"view-description-input\"\n        className=\"h-7 text-xs w-32 text-right\"\n        value={draft.description ?? ''}\n        placeholder={objectDef.description || t('console.objectView.noDescription')}\n        onChange={(e) => updateDraft('description', e.target.value)}\n    />\n</ConfigRow>\n```\n\nTests updated: existing read-only assertions replaced with placeholder/input checks, new test for edit interaction + `onViewUpdate` callback.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>ViewConfigPanel的描述（description）字段应支持可编辑交互</issue_title>\n> <issue_description># 问题说明\n> 当前 ViewConfigPanel 的 description 行渲染为只读的 <span>，仅展示 objectDef.description，不能编辑视图自定义描述，也无法实时修改。\n> \n> # 复现路径\n> 1. 打开 ViewConfigPanel，观察\"描述\"字段\n> 2. 只有文本展示，无法直接输入或编辑\n> 3. 修改 description draft 无法生效\n> \n> # 建议修复方案\n> - description 的 value 提取自 draft.description 而不是 objectDef\n> - 用 <Input> 组件渲染 description，并支持占位符\"暂无描述\"\n> - 调用 updateDraft('description', value) 实时更新并透传给 onViewUpdate\n> - 保持与 title input 行一致的交互体验\n> \n> # 测试/验收\n> - 可编辑描述字段（支持空和英文、中文多种字符）\n> - onViewUpdate 回调被正确触发\n> - 测试用例中模拟 change 事件，断言交互和回调均正确\n> \n> /cc @hotlong</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#675\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

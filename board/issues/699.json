@@ -1,0 +1,34 @@
+{
+  "number": 699,
+  "kind": "pull_request",
+  "title": "chore(deps): bump hono from 4.11.9 to 4.11.10",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "examples"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T10:24:15Z",
+  "updated_at": "2026-02-21T10:43:09Z",
+  "closed_at": "2026-02-21T10:24:28Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-02-21T10:24:28Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/699",
+  "body": "Bumps [hono](https://github.com/honojs/hono) from 4.11.9 to 4.11.10.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/honojs/hono/releases\">hono's releases</a>.</em></p>\n<blockquote>\n<h2>v4.11.10</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>fix: fixed to be more properly timing safe (Merge commit from fork  91def7ca)</li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/honojs/hono/compare/v4.11.9...v4.11.10\">https://github.com/honojs/hono/compare/v4.11.9...v4.11.10</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/honojs/hono/commit/a40d210834adfa4f24cc42faaed5661cd025e6af\"><code>a40d210</code></a> 4.11.10</li>\n<li><a href=\"https://github.com/honojs/hono/commit/91def7cab654bad5eecc9270e6620d577971ff5e\"><code>91def7c</code></a> Merge commit from fork</li>\n<li><a href=\"https://github.com/honojs/hono/commit/8b179354c10f13eaca87a24507d909886c39f124\"><code>8b17935</code></a> test(types): add regression tests for <a href=\"https://redirect.github.com/honojs/hono/issues/4388\">#4388</a> (routes before .use() with explic...</li>\n<li><a href=\"https://github.com/honojs/hono/commit/4a03f4f9cded9f0ed95aeefe7ed95e8a5170260b\"><code>4a03f4f</code></a> doc(jwt): mark <code>options.secret</code> as required in JSDoc (<a href=\"https://redirect.github.com/honojs/hono/issues/4718\">#4718</a>)</li>\n<li><a href=\"https://github.com/honojs/hono/commit/730055133f2579ee56d2d8327bf0040c310293ae\"><code>7300551</code></a> chore(ci): bump typescript-go to the latest (<a href=\"https://redirect.github.com/honojs/hono/issues/4716\">#4716</a>)</li>\n<li><a href=\"https://github.com/honojs/hono/commit/4b2978060888718351941140a7e8e028b2e9d69b\"><code>4b29780</code></a> chore: update Zod import examples to use namespace imports (<a href=\"https://redirect.github.com/honojs/hono/issues/4715\">#4715</a>)</li>\n<li>See full diff in <a href=\"https://github.com/honojs/hono/compare/v4.11.9...v4.11.10\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=hono&package-manager=npm_and_yarn&previous-version=4.11.9&new-version=4.11.10)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

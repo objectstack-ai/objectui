@@ -1,0 +1,33 @@
+{
+  "number": 451,
+  "kind": "pull_request",
+  "title": "Remove Storybook links, update demo URL to demo.objectui.org",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T13:38:00Z",
+  "updated_at": "2026-02-11T14:17:20Z",
+  "closed_at": "2026-02-11T14:17:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T14:17:20Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/451",
+  "body": "Storybook site is being decommissioned. Demo URL moves from `console.objectui.org` to `demo.objectui.org`.\n\n- **Nav links** (`layout.shared.tsx`): Remove Storybook entry, update Demo URL\n- **Homepage hero** (`page.tsx`): \"View Storybook\" → \"View Demo\" pointing to `demo.objectui.org`\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

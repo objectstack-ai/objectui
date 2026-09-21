@@ -1,0 +1,33 @@
+{
+  "number": 418,
+  "kind": "pull_request",
+  "title": "Fix CI build, lint, and test failures",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T00:36:29Z",
+  "updated_at": "2026-02-10T01:22:27Z",
+  "closed_at": "2026-02-10T01:19:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T01:19:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/418",
+  "body": "CI on main is broken across all four jobs (Build Core, Build Docs, Lint, Test) due to three independent issues.\n\n### `plugin-dashboard` build failure — react-grid-layout v2.2.2 API migration\n\n`WidthProvider` HOC was removed in react-grid-layout v2.x. Migrated to the new hook-based API:\n\n```tsx\n// Before\nimport { Responsive, WidthProvider } from 'react-grid-layout';\nconst ResponsiveGridLayout = WidthProvider(Responsive);\n\n// After\nimport { ResponsiveGridLayout, useContainerWidth } from 'react-grid-layout';\nconst { width, containerRef, mounted } = useContainerWidth();\n```\n\n- `isDraggable` / `isResizable` → `dragConfig.enabled` / `resizeConfig.enabled`\n- `draggableHandle` → `dragConfig.handle`\n- Container ref + `width` prop replaces the HOC's auto-measurement\n- Grid only renders after `mounted` to avoid zero-width flash\n\n### `permissions` lint errors\n\n- `store.ts`: Split destructuring into `const` (non-reassigned `roles`, `user`) and `let` (reassigned `permissions`, `userRoles`)\n- `useFieldPermissions.ts`: Removed unused `FieldLevelPermission` import\n- `usePermissions.ts`: Removed unused `useCallback` import\n\n### `plugin-designer` lint error (previously masked by permissions failure)\n\n- `CollaborationProvider.tsx`: Replaced synchronous `setState` inside `useEffect` with `useMemo`-derived state, fixing `react-hooks/set-state-in-effect` error\n- `PageDesigner.tsx`: Prefixed unused `setZoom` setter with underscore\n- `ProcessDesigner.tsx`: Removed unused `Plus` import\n\n### Pre-existing unrelated failures\n\n7 test failures in `plugin-chatbot` and `plugin-report` are pre-existing from the react-syntax-highlighter upgrade and not addressed here.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

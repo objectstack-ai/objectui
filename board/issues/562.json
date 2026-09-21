@@ -1,0 +1,33 @@
+{
+  "number": 562,
+  "kind": "pull_request",
+  "title": "Fix CI test coverage threshold failures",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-17T01:59:06Z",
+  "updated_at": "2026-02-17T02:54:36Z",
+  "closed_at": "2026-02-17T02:49:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-17T02:49:58Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/562",
+  "body": "CI Test job failing due to coverage below thresholds: lines 62.47%/64%, functions 53.21%/54%, statements 60.76%/62%. Build, lint, docs, and E2E jobs all green.\n\nAdded tests for three previously uncovered packages:\n\n### Permissions (`packages/permissions/src/__tests__/`)\n- `evaluator.test.ts` — `evaluatePermission` (RBAC, role inheritance, row-level) and `evaluateCondition` (all 11 operators, prototype pollution guard)\n- `store.test.ts` — `createPermissionStore` with dynamic role/permission mutation\n- `PermissionProvider.test.tsx` — context integration: `usePermissions`, `useFieldPermissions`, field defaults, row filters, no-provider fallback\n- `PermissionGuard.test.tsx` — hide/disable/custom fallback modes\n\n### Mobile (`packages/mobile/src/__tests__/`)\n- `useBreakpoint.test.ts`, `useResponsive.test.ts`, `useResponsiveConfig.test.ts`, `useTouchTarget.test.ts`\n- `pwa.test.ts` — `generatePWAManifest` with defaults and icon mapping\n- `serviceWorker.test.ts` — registration, error handling, missing navigator\n- `ResponsiveContainer.test.tsx` — `showOn`/`hideOn`/`minBreakpoint` conditional rendering\n\n### Auth (`packages/auth/src/__tests__/`)\n- `LoginForm.test.tsx`, `RegisterForm.test.tsx`, `ForgotPasswordForm.test.tsx` — rendering, submission, validation errors, auth context integration via `AuthCtx.Provider`\n- `UserMenu.test.tsx` — avatar/initials rendering, profile/settings/signOut actions\n\nAll 238 test files pass (4222 tests), all four coverage thresholds now met.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix all ci errors build and test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

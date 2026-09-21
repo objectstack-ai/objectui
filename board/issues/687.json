@@ -1,0 +1,35 @@
+{
+  "number": 687,
+  "kind": "issue",
+  "title": "前端视图新增/编辑界面统一，采用右侧Panel模式替代两套实现",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T06:36:51Z",
+  "updated_at": "2026-02-21T06:55:14Z",
+  "closed_at": "2026-02-21T06:55:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/687",
+  "body": "## 需求背景\n当前前端\"新增视图\"与\"编辑视图\"采用了两套不同的界面和实现方式（ViewDesigner与ViewConfigPanel），导致代码与用户体验非常混乱。功能高度重叠、数据格式和保存逻辑都不同。\n\n### 问题总结\n- 新增视图时进入全屏ViewDesigner（3栏），编辑视图则用右侧ViewConfigPanel（侧边栏）\n- 两者字段配置、过滤、排序、视图类型等功能几乎一样，但UI呈现和数据结构不同\n- 若都保留则必须明确场景、入口和用户定位\n\n## 方案建议\n参考Airtable等设计，建议统一采用\"右侧Panel\"（ViewConfigPanel）作为新增和编辑视图的唯一入口，实现如下：\n1. 新增/编辑视图都通过右侧Panel，mode=\"create\"或\"edit\"\n2. 合并ViewDesigner的type-specific options（如Kanban/Calendar/Map配置）至Panel\n3. 数据模型统一为`UnifiedViewConfig`，保存API统一\n4. 保留全屏ViewDesigner作为高级编辑入口，��供高级用户\n\n### 优势\n- 用户体验一致，新增/编辑都在当前页完成\n- 开发成本大幅降低，维护性提升\n- 减少重复代码，统一保存逻辑和数据结构\n\n## 关键开发任务\n- [ ] 统一数据结构（columns等用ViewDesignerColumn对象）\n- [ ] 扩展ViewConfigPanel支持所有视图类型(type-specific options)\n- [ ] 使用Panel替代全屏ViewDesigner，作为默认入口\n- [ ] 支持拖拽排序（dnd-kit）等高级功能在Panel\n- [ ] 编辑/新增入口和导航规范化\n- [ ] 保留ViewDesigner为\"高级模式\"，入口弱化\n- [ ] 统一保存API和回调\n- [ ] ROADMAP同步更新\n\n## 影响范围\n- ObjectView主流程\n- ViewDesigner和ViewConfigPanel\n- 路由、数据模型、保存逻辑\n- 用户界面体验\n\n---\n如需详细拆分子任务请补充说明。"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 508,
+  "kind": "pull_request",
+  "title": "fix: remove ConsolePlugin import from CRM config to fix Vite browser build",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "examples"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-14T12:14:20Z",
+  "updated_at": "2026-02-14T12:44:40Z",
+  "closed_at": "2026-02-14T12:44:39Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-14T12:44:39Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/508",
+  "body": "`examples/crm/objectstack.config.ts` imported `ConsolePlugin` (a Node.js server-side module using `url`, `path`, `fs`), which got pulled into the Vite browser build via:\n\n```\nbrowser code → objectstack.shared.ts → @object-ui/example-crm/objectstack.config → ../../apps/console/plugin.ts\n```\n\nFailing with: `\"fileURLToPath\" is not exported by \"__vite-browser-external\"`.\n\n### Change\n\n- Removed `ConsolePlugin` import and instantiation from `examples/crm/objectstack.config.ts`\n- The CRM example's server-side entrypoints (`server.ts`, `console-plugin.ts`) already import it independently where it's actually needed\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix ci errors build and test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

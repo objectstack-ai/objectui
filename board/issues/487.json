@@ -1,0 +1,33 @@
+{
+  "number": 487,
+  "kind": "pull_request",
+  "title": "feat: professional data formatting for list view — alignment, currency, percent, visual hierarchy",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T05:23:16Z",
+  "updated_at": "2026-02-13T09:16:23Z",
+  "closed_at": "2026-02-13T06:14:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T06:14:46Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/487",
+  "body": "List view renders raw database values (ISO dates, unformatted numbers, no % signs, all left-aligned). This makes the grid look like a debug tool, not business software.\n\n### Cell renderer improvements (`@object-ui/fields`)\n- **NumberCellRenderer**: `Intl.NumberFormat` for thousand separators (`150000` → `150,000`)\n- **PercentCellRenderer**: Smart decimal/whole-number handling + mini progress bar with ARIA attributes (`80` → `80%` with visual bar, `0.8` → `80%`)\n- **CurrencyCellRenderer**: Added `whitespace-nowrap` to prevent line breaks mid-value\n- **Empty values**: All renderers now show `–` in `text-muted-foreground` instead of blank space\n\n### Column alignment (`data-table.tsx`)\nThe `align` property existed on `TableColumn` type but was never applied to the DOM. Now wired through `cn()` on both `<TableHead>` and `<TableCell>`, with `tailwind-merge` correctly overriding the base `text-left`.\n\n### Auto-inference (`ObjectGrid.tsx`)\n- Columns with `type: 'number' | 'currency' | 'percent'` auto-set `align: 'right'` unless explicitly overridden\n- Link columns (`col.link`) get `font-medium` for scannable visual hierarchy\n- Untyped columns get a default renderer showing `–` for empty values\n\n### Usage\n```json\n{\n  \"columns\": [\n    { \"field\": \"name\", \"label\": \"Name\", \"link\": true },\n    { \"field\": \"amount\", \"label\": \"Amount\", \"type\": \"currency\" },\n    { \"field\": \"probability\", \"label\": \"Probability\", \"type\": \"percent\" },\n    { \"field\": \"close_date\", \"label\": \"Close Date\", \"type\": \"date\" },\n    { \"field\": \"stage\", \"label\": \"Stage\", \"type\": \"select\" }\n  ]\n}\n```\nAmount and Probability auto-right-align. Currency gets `$150,000.00`. Percent gets `80%` with a progress bar. Dates render as `Jan 15, 2024`. Empty cells show `–`.\n\n### Demo story\nAdded \"CRM Deals Pipeline\" Storybook story exercising all formatting paths.\n\n![CRM Deals Pipeline](https://github.com/user-attachments/assets/632a0537-d206-430c-b29f-7b78dd232672)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 参考以下意见优化界面，根据实际情况接受其中的合理建议\n> \n> 既然你的看板字段是可配置的，那么这个列表视图（List View）作为 CRM 最核心的高频操作界面，主要的问题不在于“信息缺失”，而在于数据的呈现格式（Data Formatting）和视觉扫描效率。\n> 目前的界面非常有“工程师思维”——直接把数据库里的原始值（Raw Data）渲染出来了。为了达到商业软件（如 Salesforce, HubSpot）的专业度，你需要针对不同的**数据类型（Data Types）**优化默认的渲染器（Renderers）。\n> 以下是具体的优化意见：\n> 1. 数据格式化（最紧急的优化点）\n> 目前的“原始数据感”太强，用户阅读成本极高。作为低代码平台，你需要为特定的字段类型提供内置的格式化处理：\n>  * 日期（Close Date）：\n>    * 现状： 显示的是 ISO 8601 格式 2024-01-15T00:00:00.000Z。这完全是给机器看的，不是给销售看的。\n>    * 建议： 必须格式化为人类可读格式。\n>      * 绝对时间： Jan 15, 2024 或 2024-01-15。\n>      * 相对时间（可选）： 对于临近的日期，可以使用 2 days left 或 Yesterday。\n>  * 金额（Amount）：\n>    * 现状： 纯数字 150000，很难一眼看出是十五万还是一百五十万。\n>    * 建议： 增加千分位分隔符和货币符号。\n>      * 效果： ¥150,000 或 $150,000.00。\n>      * 进阶： 甚至可以考虑对大额数字进行缩写（如 $150k），但在列表视图中，精确的财务数字通常更好。\n>  * 百分比（Probability）：\n>    * 现状： 显示 100， 80。\n>    * 建议： 加上 % 符号，甚至增加一个微型的**进度条（Progress Bar）**视觉元素，让“赢率”一目了然。\n> 2. 对齐方式（Alignment）—— 表格设计的铁律\n> 你目前的表格所有列都是左对齐的，这在显示数字时是不专业的。\n>  * 数字列（Amount, Probability）：必须右对齐。\n>    * 原因： 右对齐可以保证数字的个位、十位、百位在垂直方向上对齐，方便用户快速进行数值大小的比对和心算累加。\n>  * 文本列（Name, Account, Stage）：保持左对齐。\n>    * 这是为了符合从左到右的阅读习惯。\n>  * 日期列（Close date）：建议左对齐或右对齐均可，但要保持等宽字体或固定格式，以保证整齐。\n> 3. 视觉层级与交互（Visual Hierarchy）\n> 现在的表格看起来像 Excel，缺乏重点。\n>  * 主标题（Name）：\n>    * ObjectStack Enterprise License 是这行数据的核心。\n>    * 建议： 加粗字体（Font-weight: 500/600）或使用品牌色（蓝色），让它看起来是可以点击进入详情页的（Clickable Link）。\n>  * 状态（Stage）：\n>    * 现状： 纯文本 Closed Won，Negotiation。\n>    * 建议： 使用胶囊标签（Badges/Tags）。\n>      * Closed Won 用绿色背景。\n>      * Closed Lost 用灰色或红色背景。\n>      * Negotiation 用蓝色或橙色背景。\n>      * 这能让用户在快速滚动列表时，通过颜色就能判断 pipeline 的健康度。\n> 4. 空间利用与默认值\n>  * 空列处理（Account）：\n>    * 截图中的 Account 列全是空的。如果某个字段在当前视图下大部分为空，或者数据关联未建立，建议在 UI 上显示一个占位符（如 - 或 No Account），而不是留白，否则会让用户怀疑是系统 Bug 加载不出来。\n>  * 列宽（Column Width）：\n>    * Close date 的列头太宽了，而 Name 可能需要更多的空间展示长标题。建议调整默认的列宽比例，给 Name 至少 30%-40% 的宽度。\n> 5. 一个具体的低代码平台建议\n> 既然你在做 ObjectStack，我建议你在定义 Model（对象模型）时，直接支持 UI Hint（UI 暗示）：\n> // 伪代码示例：在字段定义层级注入 UI 配置\n> {\n>   \"field\": \"amount\",\n>   \"type\": \"currency\",\n>   \"scale\": 2,\n>   \"ui\": {\n>     \"align\": \"right\",     // 自动右对齐\n>     \"formatter\": \"money\", // 自动加千分位\n>     \"width\": 120\n>   }\n> },\n> {\n>   \"field\": \"stage\",\n>   \"type\": \"select\",\n>   \"ui\": {\n>     \"widget\": \"badge\",    // 自动渲染为彩色标签\n>     \"colorMap\": {\n>       \"Won\": \"green\",\n>       \"Lost\": \"red\"\n>     }\n>   }\n> }\n> \n> 总结效果预期：\n> 如果你修正了日期格式、货币格式，并将数字右对齐，这个页面的专业度会瞬间提升 80%。这不仅仅是美观问题，而是让数据变得“可用”的关键。\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

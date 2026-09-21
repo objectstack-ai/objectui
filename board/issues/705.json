@@ -1,0 +1,35 @@
+{
+  "number": 705,
+  "kind": "issue",
+  "title": "优化 ModalForm 弹窗在平板与移动端的响应式体验",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T11:33:02Z",
+  "updated_at": "2026-02-21T13:53:16Z",
+  "closed_at": "2026-02-21T13:53:16Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/705",
+  "body": "## 优化 ModalForm 弹窗在各种屏幕尺寸下的响应式表现\n\n<img alt=\"表单创建任务弹窗截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/8689fb3c-1791-4e53-accf-c8d1cc59eef5\" />\n\n### 问题概述\n- 当前 Project Task 的 ModalForm 在平板/桌面端过窄，字段全部单列，长表单需要大量滚动，UX 不佳；\n- 没有利用已定义的 sections 分组进行布局；\n- 操作按钮有时被遮挡，底部 sticky footer 在移动端易被忽略；\n- Progress 字段未增加滑块控件。\n\n### 优化建议\n1. 保证表单渲染时应用 sections 配置（CRM ProjectView 已定义），并用 2 列布局；\n2. Modal 默认宽度在平板端自动升级到 lg/max-w-2xl 触发容器查询，启用多列布局；\n3. 移动端（<640px）长表单可自动切换 wizard 分步模式，提升可用性；\n4. Progress 字段使用滑块控件增强交互；\n5. 增加响应式测试验证 modal 在 tablet/mobile 场景的表现。\n\n### 相关代码建议\n- `ModalForm.tsx`: ��查 modalSize/sections 配置以及 container query grid-cols\n- `autoLayout.ts`: 优化自动推断列数，建议平板端 ModalForm 为 2 列\n- `project.view.ts`: 确认 sections 配置被正确传递\n\n### 检查动作\n- [ ] 优化并合并上述建议\n- [ ] 运行相关 test (`MobileUX.test.tsx`、`responsive-layout.test.tsx`)\n- [ ] 更新 ROADMAP.md \"Console Advanced Polish\" 下添加此优化项\n\n### 参考\n- [ModalForm.tsx](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-form/src/ModalForm.tsx)\n- [autoLayout.ts](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-form/src/autoLayout.ts)\n- [project.view.ts](https://github.com/objectstack-ai/objectui/blob/main/examples/crm/src/views/project.view.ts)\n\n---\n上述优化全部完成后，记得运行测试，并更新 roadmap。\n\n"
+}

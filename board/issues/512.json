@@ -1,0 +1,33 @@
+{
+  "number": 512,
+  "kind": "pull_request",
+  "title": "perf(ci): cut CI wall time from ~10min to ~5min",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-14T14:32:29Z",
+  "updated_at": "2026-02-14T15:16:49Z",
+  "closed_at": "2026-02-14T15:15:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-14T15:15:00Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/512",
+  "body": "CI runs ~9-10 minutes per push. Root cause: tests execute twice and several workflows contain redundant rebuilds.\n\n## Changes\n\n### ci.yml — eliminates ~5min\n- **Double test run**: `pnpm test` then `pnpm test:coverage` re-runs all ~4000 tests. Replaced with single `pnpm test:coverage`.\n- **Dead matrix**: `node-version: [20.x]` single-element matrix adds overhead for nothing. Removed.\n- **Concurrency**: Added `cancel-in-progress: true` keyed on PR number to kill stale runs.\n- **E2E cache**: Switched from `actions/cache@v5` to `actions/cache/restore@v5` — E2E only reads the build job's turbo cache, no need to re-save.\n- **Docs gate**: Docs job now skippable on PRs via `[skip docs]` in title.\n\n### storybook-tests.yml — eliminates redundant rebuild\n- **Merged 2 jobs → 1**: `storybook-test` depended on `storybook-build` but shared no artifacts, so it rebuilt everything from scratch. Now a single job.\n- **Path filtering**: Only triggers on `packages/**`, `.storybook/**`, `pnpm-lock.yaml`.\n- **Concurrency**: Added `cancel-in-progress`.\n\n### Other workflows\n- **changeset-release.yml**: Added missing turbo cache step.\n- **visual-regression.yml**, **performance-budget.yml**, **size-check.yml**: Added concurrency groups and/or turbo cache where missing.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 优化 ci 脚本和自动化测试脚本，目前每次更新都要9分钟\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

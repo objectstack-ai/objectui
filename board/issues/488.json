@@ -1,0 +1,33 @@
+{
+  "number": 488,
+  "kind": "pull_request",
+  "title": "Mobile UX optimization: P5 roadmap + responsive fixes across 9 components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-13T06:23:27Z",
+  "updated_at": "2026-02-13T09:21:09Z",
+  "closed_at": "2026-02-13T07:23:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-13T07:23:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/488",
+  "body": "Most plugin views (Grid, Kanban, Dashboard, Calendar, Timeline) had zero responsive Tailwind classes — they assumed desktop viewports with hardcoded widths, fixed heights, and non-wrapping toolbars.\n\n## ROADMAP.md — P5 Mobile User Experience\n\nAdded ~80 actionable items across 6 sub-sections: Plugin Views, Console Pages, Core Primitives, Mobile Infrastructure, Testing & QA, and Success Metrics. Updated executive summary, priority list, success criteria, and risk table.\n\n## Responsive component fixes\n\n- **DataTable** — Toolbar stacks vertically on mobile (`flex-col sm:flex-row`), search goes full-width, pagination wraps, table container gets touch-scroll\n- **DashboardRenderer** — Replaced hardcoded `gridTemplateColumns: repeat(4, ...)` inline style with `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`; widget padding scales `p-3 sm:p-4 md:p-6`\n- **KanbanImpl** — Column width `w-72 sm:w-80`, gap/padding scale with breakpoints, touch-scroll on board container\n- **ObjectCalendar** — Height: `h-[calc(100vh-120px)] sm:h-[calc(100vh-160px)] md:h-[calc(100vh-200px)]`, min-height `400px sm:600px`\n- **DetailView** — Header stacks on mobile (`flex-col sm:flex-row`), title `text-xl sm:text-2xl`, action buttons wrap\n- **ListView** — Toolbar padding `px-2 sm:px-4`, search `w-36 sm:w-48 lg:w-64`, filter/sort popovers `w-[calc(100vw-2rem)] sm:w-[600px]`\n- **TimelineRenderer** — Horizontal and Gantt variants get `overflow-x-auto [-webkit-overflow-scrolling:touch]`\n- **ObjectGrid/ObjectForm** — Error/loading states use `p-3 sm:p-4` / `p-4 sm:p-8`\n\n```tsx\n// Before: hardcoded 4-column grid, breaks on mobile\n<div style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>\n\n// After: responsive Tailwind classes, inline style only for >4 columns\n<div className=\"grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4\"\n     style={columns > 4 ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined}>\n```\n\nAll 399 tests across 45 test files pass, including 11 responsive layout assertion tests. Zero CodeQL alerts.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 全面优化手机端的用户体验，精确的每一个组件和页面安排Roadmap\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

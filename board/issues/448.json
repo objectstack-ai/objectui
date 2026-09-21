@@ -1,0 +1,33 @@
+{
+  "number": 448,
+  "kind": "pull_request",
+  "title": "Add Airtable-style view tabs and navigation viewName bindings for multi-view switching",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-11T10:56:12Z",
+  "updated_at": "2026-02-11T12:45:43Z",
+  "closed_at": "2026-02-11T12:43:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-11T12:43:19Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/448",
+  "body": "Console always showed grid view regardless of which menu item was clicked. Objects with multiple defined views (kanban, calendar, gallery, etc.) had no UI to switch between them, and navigation items didn't bind to specific views.\n\n### Console ObjectView — view tab bar\n- Renders Airtable-style tabs between header and content when an object has 2+ named views\n- Each tab shows a view-type icon (grid, kanban, calendar, gallery, timeline, gantt, map, chart) via `VIEW_TYPE_ICONS` mapping\n- Active tab highlighted with `border-primary`; clicks route via existing `handleViewChange` → URL navigation\n\n```tsx\n{views.length > 1 && (\n  <div className=\"border-b px-3 sm:px-4 bg-background overflow-x-auto shrink-0\">\n    <div className=\"flex items-center gap-0.5 -mb-px\">\n      {views.map((view) => {\n        const ViewIcon = VIEW_TYPE_ICONS[view.type] || TableIcon;\n        return (\n          <button key={view.id} onClick={() => handleViewChange(view.id)}\n            className={cn(\"inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 ...\",\n              isActive ? \"border-primary text-primary\" : \"border-transparent text-muted-foreground ...\"\n            )}>\n            <ViewIcon className=\"h-3.5 w-3.5\" />\n            {view.label}\n          </button>\n        );\n      })}\n    </div>\n  </div>\n)}\n```\n\n### Example navigation — `viewName` bindings\n- **CRM**: Added \"Pipeline\" (`viewName: 'pipeline'` → kanban), updated \"Calendar\" (`viewName: 'calendar'`)\n- **TODO**: Added \"Task Board\" (`viewName: 'board'` → kanban), \"Calendar\" (`viewName: 'calendar'`)\n\nThe sidebar already supported `viewName` routing (`/view/{viewName}`), but no example navigation items used it.\n\n![View tabs on Opportunities — All Opportunities (grid), Closing Soon, Won, Pipeline (kanban)](https://github.com/user-attachments/assets/5f2f5923-e603-4ad5-9096-1b50a46e295c)\n\n![Pipeline kanban view after clicking tab](https://github.com/user-attachments/assets/8dccebdb-c7fb-4bb9-b9bd-7a9124d65dee)\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

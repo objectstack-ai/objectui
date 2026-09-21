@@ -1,0 +1,35 @@
+{
+  "number": 715,
+  "kind": "issue",
+  "title": "拆分与重构 ViewConfigPanel：实现页面级和 ListView 级配置分层，完善数据流与实时同步",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "configuration"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-22T03:50:51Z",
+  "updated_at": "2026-02-22T06:00:05Z",
+  "closed_at": "2026-02-22T06:00:05Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/715",
+  "body": "## 背景\n目前 ViewConfigPanel 混合了两类完全不同层级的配置：\n- 页面级（Page/View 级）配置：影响整个视图外壳，例如 showSearch、showFilters、showSort、label、viewType、导航行为等\n- 列表内容级（ListView 级）配置：影响底层数据渲染和数据流，例如 columns、field/appearance、filter、sort、type-specific options 等\n\n这种混合导致了数据流分层和实时同步的混乱，许多配置项配置后并未在实际 UI 或数据上正确实时生效，PR #712 也只修复了一部分字段的向下透传。\n\n---\n\n## 目标\n将 ViewConfigPanel 按\"Page/View 配置\"与\"ListView 配置\"进行分层，\n- 明确 UI 区块和状态数据流的分层收口\n- 并针对每一项配置补齐透传到对应消费层级（objectViewSchema、renderListView/fullSchema）的逻辑，\n便于逐项检查与 AI 自��修正。\n\n\n## 待修正/拆分项明细（必须全部一一对应改造）：\n\n### 1. 分层职责梳理\n- [ ] 明确区分**页面级**配置项（外层 toolbar/页壳、导航等）与**列表级**配置项（Grid/Kanban/Timeline 等 ListView 的数据/外观/行为）\n- [ ] 拆分 UI，也可在同一文件内分区块；但每一项 `onViewUpdate` 应写入区分后的 state 通道\n\n### 2. 页面级（Page/View）配置项\n- [ ] showSearch（toolbar 搜索框开关，objectViewSchema 级传递）\n- [ ] showFilters（toolbar filter UI 开关）\n- [ ] showSort（toolbar sort UI 开关）\n- [ ] label（视图名称）\n- [ ] description（视图描述）\n- [ ] type/viewType（Grid、Kanban、Gallery、Timeline...）\n- [ ] clickIntoRecordDetails（是否弹窗页、详情页行为）\n- [ ] addRecordViaForm（表单新增，视图外层入口）\n- [ ] allowExport（toolbar 导出）\n\n### 3. 列表内容级（ListView 级）配置项\n- [ ] columns（显隐与顺序，下传 renderListView/fullSchema）\n- [ ] filter（defaultFilters，数据过滤，必须透传到 fullSchema）\n- [ ] sort（defaultSort，数据排序，必须透传到 fullSchema）\n- [ ] groupBy（group 渲染分组字段，所有类型需补齐 schema matrix）\n- [ ] prefixField（辅助字段、多数只用于 Grid/Timeline 类型）\n- [ ] color/fieldTextColor（颜色设定，影响内层渲染 schema）\n- [ ] appearance/rowHeight/wrapHeaders/showDescription/collapseAllByDefault\n- [ ] editRecordsInline、addDeleteRecordsInline（内层交互行为）\n- [ ] type-specific options（kanban: groupByField，calendar: startDateField/endDateField/titleField，map: latitudeField/longitudeField 等等）\n\n### 4. 数据流/prop 透传修正\n- [ ] `objectViewSchema` 只关注页面级字段（外层 toolbar），不可混入内层列表专属项\n- [ ] `renderListView` 的 fullSchema 补充所有列表内容级可配置参数，按类型覆盖至 Grid/Kanban 等所有 viewType\n- [ ] 各类型下的 schema matrix 完善，避免遗漏（如 Timeline/groupBy，Gallery/imageField，Map/latitudeField）\n\n### 5. UI/UX\n- [ ] Panel UI 采用分组显示，便于用户理解当前配置生效层级（可加分割线/标题说明）\n- [ ] 用户操作保存时，保证两级 state 按需合并持久化\n\n### 6. 回归测试/CI\n- [ ] 对每一项配置改动补充对应的 e2e/单元测试\n- [ ] 修复完成后运行全部 test，通过后同步 Roadmap checklist\n\n---\n\n## 备注\n- 本 issue 作为全量改造 checklist，适配 AI coding agent 自动逐条批处理。\n- 建议修复后将 ViewConfigPanel 划分为 PageConfigPanel + ListViewConfigPanel 两个组件，后续便于维护和复用。\n\n相关参考：#713、PR #712\n"
+}

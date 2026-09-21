@@ -1,0 +1,33 @@
+{
+  "number": 683,
+  "kind": "pull_request",
+  "title": "fix: remove unused variables causing TS6133 build errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T05:30:57Z",
+  "updated_at": "2026-02-21T05:46:36Z",
+  "closed_at": "2026-02-21T05:35:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-21T05:35:33Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/683",
+  "body": "Console build fails due to three TS6133 \"declared but its value is never read\" errors.\n\n- **`ViewConfigPanel.tsx`**: Remove `onOpenEditor` from function destructuring (retained in `ViewConfigPanelProps` interface — callers unaffected)\n- **`ViewConfigPanel.test.tsx`**: Remove unused `...props` rest spreads from `FilterBuilder` and `SortBuilder` mocks\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 13:23:15.570 src/__tests__/ViewConfigPanel.test.tsx(54,51): error TS6133: 'props' is declared but its value is never read.\n> 13:23:15.570 src/__tests__/ViewConfigPanel.test.tsx(68,49): error TS6133: 'props' is declared but its value is never read.\n> 13:23:15.570 src/components/ViewConfigPanel.tsx(254,87): error TS6133: 'onOpenEditor' is declared but its value is never read.\n> 13:23:15.629  ELIFECYCLE  Command failed with exit code 2.\n> 13:23:15.648 Error: Command \"cd ../.. && pnpm turbo run build --filter=@object-ui/console^... && cd apps/console && VITE_BASE_PATH=/ pnpm build:vercel\" exited with 2\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

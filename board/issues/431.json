@@ -1,0 +1,33 @@
+{
+  "number": 431,
+  "kind": "pull_request",
+  "title": "docs: Spec compliance evaluation for all components and plugins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-10T13:47:44Z",
+  "updated_at": "2026-02-10T14:34:09Z",
+  "closed_at": "2026-02-10T14:19:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-10T14:19:01Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/431",
+  "body": "Per-package audit of all 35 ObjectUI packages against @objectstack/spec v2.0.1, evaluating functional completeness, UI spec compliance, and API spec compliance.\n\n### SPEC_COMPLIANCE_EVALUATION.md\n\n- **6 core packages** (types, core, react, components, fields, layout) — types/components fully aligned, core missing DataScope module and advanced formulas\n- **8 view plugins** (form, grid, kanban, charts, dashboard, detail, list, view) — detail has incomplete API fetching, dashboard lacks cross-widget filtering\n- **6 advanced plugins** (calendar, gantt, timeline, map, editor, markdown) — map missing coordinate error handling, otherwise complete\n- **6 infrastructure plugins** (workflow, report, chatbot, ai, designer, aggrid) — AI handlers are console.log stubs, workflow canvas needs React Flow, report has TODO refreshes\n- **6 infra packages** (auth, tenant, permissions, i18n, data-objectstack, mobile) — production-ready across the board\n\n### Key metrics\n\n| Dimension | Current | After P0+P1 |\n|-----------|---------|-------------|\n| UI Types | 98% | 100% |\n| API Protocol | 92% | 98% |\n| Feature Completeness | 85% | 95% |\n\n### 47 improvement items, prioritized\n\n- **P0 (3):** DataScope module, AI plugin placeholder handlers, validators module export\n- **P1 (12):** DetailView API fetch, ReportViewer refresh, workflow canvas, designer persistence, map error handling, formula gaps, hooks\n- **P2 (20):** Dashboard filtering, calendar drag, form permissions, AI endpoint adapter, OAuth UI, etc.\n- **P3 (12):** Kanban swimlanes, chart drill-down, Gantt critical path, etc.\n\n### ROADMAP.md\n\nAdded cross-reference to the new evaluation document.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

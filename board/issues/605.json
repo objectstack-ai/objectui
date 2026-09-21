@@ -1,0 +1,33 @@
+{
+  "number": 605,
+  "kind": "pull_request",
+  "title": "fix(plugin-calendar): event click dead, i18n mixed, cross-month indistinct, no tooltips",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-19T02:53:13Z",
+  "updated_at": "2026-02-19T03:34:09Z",
+  "closed_at": "2026-02-19T03:33:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-19T03:33:58Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/605",
+  "body": "Calendar had a critical interaction bug where clicking events did nothing (`handleEventClick` was gated behind `schema.onEventClick` which is never set in SDUI), plus mixed-language UI and missing visual cues.\n\n### Event click broken\n\nRemoved the invalid guard so `onAction` always dispatches:\n\n```tsx\n// Before — dead code path, onEventClick is a schema callback never populated by SDUI\nconst handleEventClick = (event: CalendarEvent) => {\n  if (schema.onEventClick) {\n    onAction?.({ type: 'event-click', payload: event });\n  }\n};\n\n// After\nconst handleEventClick = (event: CalendarEvent) => {\n  onAction?.({ type: 'event-click', payload: event });\n};\n```\n\n### i18n: integrated with `@object-ui/i18n`\n\n- All UI strings now use `useObjectTranslation()` from `@object-ui/i18n` with existing `calendar.*` translation keys (`calendar.today`, `calendar.month`, `calendar.week`, `calendar.day`, `calendar.newEvent`)\n- Added `useCalendarTranslation()` wrapper that gracefully falls back to English defaults when `I18nProvider` is not available (standalone usage)\n- Weekday headers now use `toLocaleDateString(language, { weekday: 'short' })` with the language from the i18n context instead of a hardcoded English array\n- Added new `calendar.moreEvents` key (`+{{count}} more`) to all 10 locale files (en/zh/ja/ko/de/fr/es/pt/ru/ar)\n- Added `@object-ui/i18n` as a dependency of `plugin-calendar`\n\n### Truncated event titles — tooltip\n\nAdded `title={event.title}` on event card elements across month, week, and day views.\n\n### Cross-month date distinction\n\nStrengthened non-current-month styling from `bg-muted/30 text-muted-foreground` to `bg-muted/50 text-muted-foreground opacity-50`.\n\n### Today highlight spacing\n\n`mb-1` → `mb-2` on the today date number for better separation from event cards below it.\n\n### Tests\n\n10 new tests covering event click dispatch, i18n integration with `I18nProvider` (en + zh), tooltip attributes, cross-month opacity, and today spacing. Updated existing tests to match `calendar.newEvent` label (`'New event'`). All 79 calendar tests pass.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>日历控件界面和事件交互存在的问题汇总（多语言/事件点击/可用性等）</issue_title>\n> <issue_description>## 一、界面和交互BUG\n> \n> ### 1. 多语言混杂问题\n> - 日历界面上出现了中英文混杂：如\"��建\"按钮（中文）和\"+ New\"按钮（英文）；顶部工具栏、日期显示等部分也是英文和中文混合。\n> - 建议所有界面元素根据当前语言环境（如locale）进行统一本地化。\n> \n> ### 2. 日历事件卡片点击无反馈（重大BUG）\n> - **目前点击日历格内蓝色事件标题无任何反馈**。\n> - 根因定位到 `packages/plugin-calendar/src/calendar-view-renderer.tsx` 文件中 `handleEventClick` 函数的实现——点击事件受到无效 if (schema.onEventClick) 的阻挡，导致 onAction 不被派发，交互\"死掉\"。\n> - 正确行为应是点击事件卡，派发 action 或弹出事件详情。\n> - 详情见图片：【点击蓝色事件无响应】\n> \n> ### 3. 日历跨月日期没有灰色区分\n> - 日历下方的 3 月日期（如 1、2、3、4、5...）与 2 月本月的日期颜色无区别，普通用户难以区分。\n> - 期望: 非当月日期应该变成浅灰色或视觉弱化显示。\n> \n> ### 4. 事件卡片截断但没有 tooltip 或完整信息展示\n> - 事件名字太长时会被\"...\"（省略号）截断，目前无法快速看到全部内容。\n> - 建议悬停时弹出 tooltip 或点击可查看完整标题。\n> \n> ### 5. 今日高亮视觉存在轻微拥挤/不协调\n> - 19号当前天用深色圆形高亮，但如果当天有事件，圆圈与卡片太近，视觉有点拥挤。\n> - 可考虑优化间距。\n> \n> ### 6. 英文提示未本地化\n> - 页面底部\"12 records\"等数量提示未按语言切换成中文。\n> - 建议：底部列表数量要本地化为\"12 条记录\"。\n> \n> \n> ## 二、定位与修复建议\n> \n> 1. `handleEventClick` 相关核心bug —— 建议无条件派发 `onAction({type: 'event-click', payload: event})`，让上层处理导航或弹窗。\n> 2. 完善国际化策略，界面所有可见文字应受 locale 影响。\n> 3. 日历组件应区分非本月日期的样式（加\"灰\"）。\n> 4. 长标题应可查看完整内容，可以用 tooltip，或者在详情弹窗里显示。\n> 5. 今日高亮优化，注意与事件卡片的间距友好。\n> 6. 补充所有提示语的多语言支持。\n> \n> 如需具体修复建议代码可随��� @我。\n> \n> ---\n> 对应截图请参见下方：\n> <img alt=\"日历页面截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/c4056444-f2ba-4e2c-a56a-382490c849da\" />\n> \n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#604\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

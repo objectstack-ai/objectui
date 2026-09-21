@@ -1,0 +1,33 @@
+{
+  "number": 570,
+  "kind": "pull_request",
+  "title": "Fix CI build: unused React import and incorrect InMemoryDriver method",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T00:52:40Z",
+  "updated_at": "2026-02-18T01:13:27Z",
+  "closed_at": "2026-02-18T01:11:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T01:11:20Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/570",
+  "body": "Console `tsc` fails during the `Build Core` CI job with TS6133 and TS2339/TS18047 errors in two test files.\n\n- **`ActivityFeedFilters.test.tsx`**: Remove unused `import React from 'react'` — project uses `react-jsx` automatic transform, no explicit import needed\n- **`ReportView.test.tsx`**: `InMemoryDriver` has no `insert` method; use `create` instead. Add non-null assertion on `getDriver()` which returns `T | null`\n\n```diff\n-const driver = getDriver();\n-await driver.insert('opportunity', { ... });\n+const driver = getDriver()!;\n+await driver.create('opportunity', { ... });\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix ci errors , test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

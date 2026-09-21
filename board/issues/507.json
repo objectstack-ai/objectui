@@ -1,0 +1,45 @@
+{
+  "number": 507,
+  "kind": "pull_request",
+  "title": "feat: upgrade @objectstack to 3.0.4, add preview mode support",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "examples",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-14T11:00:49Z",
+  "updated_at": "2026-02-14T12:09:40Z",
+  "closed_at": "2026-02-14T12:03:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-14T12:03:07Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/507",
+  "body": "- [x] Upgrade all @objectstack packages from ^3.0.2 to ^3.0.4 across the monorepo\n- [x] Add preview mode support to auth package\n- [x] Update documentation\n- [x] Fix CI build failure (cyclic dependency between @object-ui/console ↔ @object-ui/example-crm)\n  - [x] Remove `@object-ui/console` from examples/crm dependencies\n  - [x] Update examples/crm imports to use relative path for ConsolePlugin\n  - [x] Verified: All 215 test files pass (3998 tests), 37 packages build, lint passes\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 升级@objectstack到最新版，并参考这个开发支持预览模式\n> \n> 拉取请求: https://github.com/objectstack-ai/spec/pull/676\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

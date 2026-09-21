@@ -1,0 +1,33 @@
+{
+  "number": 584,
+  "kind": "pull_request",
+  "title": "refactor: migrate @object-ui/cli to @objectstack/plugin-ui oclif plugin",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-18T05:26:32Z",
+  "updated_at": "2026-02-18T07:18:54Z",
+  "closed_at": "2026-02-18T05:47:35Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-18T05:47:35Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/584",
+  "body": "Converts the standalone Commander.js CLI (`@object-ui/cli`) into an oclif plugin (`@objectstack/plugin-ui`) so all 15 commands are discoverable under the unified `os ui` namespace (e.g. `os ui dev`, `os ui build`).\n\n### oclif Command Classes\n- 15 oclif `Command` subclasses in `src/commands/ui/` — each a thin wrapper delegating to the existing command function\n- Args, flags, and descriptions mirror the original Commander.js definitions\n- `generate` command registers `ui:g` alias\n\n### Package Config\n- Renamed `@object-ui/cli` → `@objectstack/plugin-ui`\n- Added `@oclif/core` dependency and `oclif.commands` declaration in `package.json`\n- Split `tsup.config.ts` into two build passes: lib entries (with DTS) + oclif commands (runtime-only, no DTS)\n\n### Backward Compatibility\n- `cli.ts` Commander.js entry and `objectui` bin preserved — works as before\n- `index.ts` programmatic exports (`serve`, `init`) unchanged\n\n### Docs\n- `MIGRATION.md` — command mapping table, flag changes (`-h` → `-H` for host), deprecation timeline\n- `README.md` updated for new package name and install instructions\n- `ROADMAP.md` — added P3.5 CLI oclif Migration section, updated command counts\n\n### Fixes (pre-existing, surfaced by expanded build scope)\n- `dev.ts`: `@ts-expect-error` → `@ts-ignore` (directive was unused)\n- `start.ts`: `req` → `_req` (unused parameter)\n\n### Tests\n- 55 tests validating all command classes: extends `Command`, description present, correct args/flags/defaults\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>将 @object-ui/cli 重构为 oclif 插件（@objectstack/plugin-ui），接入统一主 CLI 生态</issue_title>\n> <issue_description>## 背景\n> \n> 当前 objectui 项目有独立的 CLI 包 `@object-ui/cli`（bin: `objectui`），基于 Commander.js 实现，包含 15+ 个命令：\n> - 开发：`init` / `dev` / `serve` / `studio`\n> - 构建：`build` / `start`\n> - 质量：`lint` / `test` / `check` / `validate` / `doctor`\n> - 脚手架：`generate` / `add` / `create-plugin`\n> - 分析：`analyze`\n> \n> **现有入口文件：** [`packages/cli/src/cli.ts`](https://github.com/objectstack-ai/objectui/blob/e7af32ead3d6254ca54c41b57d8cff392deb4e65/packages/cli/src/cli.ts)\n> \n> 随着 ObjectStack 生态统一 CLI 架构迁移到 [oclif](https://oclif.io/)（见 objectstack-ai/spec 迁移计划），objectui 的 CLI 也需要从独立 bin 改造为 oclif 插件，以实现：\n> - 用户通过统一 `os` 命令即可使用 `os ui dev` / `os ui build` 等 UI 工具链命令\n> - 消除与主 CLI 的 bin 冲突和命令发现碎片化问题\n> - 支持未来 marketplace 插件自动注册 UI 相关 CLI 扩展\n> \n> ## 工作内容\n> \n> ### 1. 命令迁移（Commander.js → oclif class）\n> 将现有所有命令从函数式导出改为 oclif Command class：\n> \n> | 现有命令 | 目标 oclif 路径 | 说明 |\n> |---------|---------------|------|\n> | `objectui init` | `src/commands/ui/init.ts` | 脚手架初始化 |\n> | `objectui dev` | `src/commands/ui/dev.ts` | 开发服务器 |\n> | `objectui build` | `src/commands/ui/build.ts` | 生产构建 |\n> | `objectui start` | `src/commands/ui/start.ts` | 生产服务 |\n> | `objectui serve` | `src/commands/ui/serve.ts` | Legacy 开发服务 |\n> | `objectui lint` | `src/commands/ui/lint.ts` | ESLint 检查 |\n> | `objectui test` | `src/commands/ui/test.ts` | 测试运行 |\n> | `objectui generate` | `src/commands/ui/generate.ts` | 代码生成 |\n> | `objectui doctor` | `src/commands/ui/doctor.ts` | 环境诊断 |\n> | `objectui add` | `src/commands/ui/add.ts` | 组件添加 |\n> | `objectui studio` | `src/commands/ui/studio.ts` | Studio UI |\n> | `objectui check` | `src/commands/ui/check.ts` | Schema 检查 |\n> | `objectui validate` | `src/commands/ui/validate.ts` | Schema 校验 |\n> | `objectui create-plugin` | `src/commands/ui/create-plugin.ts` | 插件创建 |\n> | `objectui analyze` | `src/commands/ui/analyze.ts` | Bundle 分析 |\n> \n> ### 2. 包改造\n> - 包名改为 `@objectstack/plugin-ui`\n> - `package.json` 添加 oclif 插件声明（`oclif.commands`、`oclif.hooks`）\n> - 移除独立 bin 入口，所有命令通过 oclif 插件注册自动注入主 CLI\n> \n> ### 3. 兼容性\n> - 提供 `objectui` → `os ui` 迁移文档\n> - 过渡期可保留 `objectui` 别名 bin（封装为 thin wrapper 调用 oclif）\n> \n> ## 验收标准\n> - [ ] 安装 `@objectstack/cli` + `@objectstack/plugin-ui` 后，`os ui dev` / `os ui build` 等命令自动可用\n> - [ ] `os ui --help` 显示所有 UI 工具链命令\n> - [ ] 所有现有命令功能保持不变\n> - [ ] 提供测试用例\n> - [ ] 迁移文档\n> \n> ## 相关任务\n> - objectstack-ai/spec — 主 CLI 迁移到 oclif\n> - objectstack-ai/cloud — cloud CLI 改为 oclif 插件</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#583\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

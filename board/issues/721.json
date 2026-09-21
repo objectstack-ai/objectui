@@ -1,0 +1,33 @@
+{
+  "number": 721,
+  "kind": "pull_request",
+  "title": "feat(plugin-workflow): FlowDesigner — spec v3.0.9 canvas-based flow editor",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-22T12:30:18Z",
+  "updated_at": "2026-02-22T13:06:49Z",
+  "closed_at": "2026-02-22T12:56:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-22T12:56:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/721",
+  "body": "Implements the Flow Designer roadmap item: a production canvas-based flow editor in `@object-ui/plugin-workflow` with full spec v3.0.9 type coverage, sitting between the approval-focused `WorkflowDesigner` and the BPMN-heavy `ProcessDesigner`.\n\n## New types (`@object-ui/types`)\n\nAdded to `workflow.ts` and re-exported from the package index:\n\n- **`FlowNodeType`** — 14 node types including v3.0.9 additions: `parallel_gateway`, `join_gateway`, `boundary_event`\n- **`FlowEdge`** — `type: 'conditional' | 'timeout' | 'default'` + `isDefault` flag (spec v3.0.9 default edge marking)\n- **`FlowNodeExecutorDescriptor`** — `inputSchema`, `outputSchema`, `waitEventConfig` (`FlowWaitEventType`: condition/manual/webhook/timer/signal), enhanced retry (`backoffMultiplier`, `maxRetryDelayMs`, `jitter`)\n- **`FlowBoundaryConfig`** — `attachedToNodeId`, `eventType`, `cancelActivity`, `timer`, `errorCode`\n- **`FlowVersionEntry`** / **`FlowConcurrencyPolicy`** — version history + allow/forbid/replace/queue policy\n- **`FlowBpmnInteropResult`** — BPMN XML export result with warnings\n- **`FlowExecutionStep`** — per-node execution tracking (status, timestamps, error, output)\n- **`FlowDesignerSchema`** — component schema\n\n## `FlowDesigner` component (`plugin-workflow`)\n\n```tsx\n<FlowDesigner\n  schema={{\n    type: 'flow-designer',\n    title: 'Order Processing',\n    concurrencyPolicy: 'forbid',\n    nodes: [\n      { id: 'start', type: 'start', label: 'Start', position: { x: 80, y: 200 } },\n      {\n        id: 'call-api', type: 'service_task', label: 'Call Payment API', position: { x: 300, y: 200 },\n        executor: { type: 'http', inputSchema: { url: { type: 'string' } }, timeoutMs: 30000 },\n      },\n      {\n        id: 'on-timeout', type: 'boundary_event', label: 'Timeout', position: { x: 300, y: 320 },\n        boundaryConfig: { attachedToNodeId: 'call-api', eventType: 'timer', timer: 'PT30S', cancelActivity: true },\n      },\n      { id: 'check', type: 'condition', label: 'Check Result', position: { x: 520, y: 200 } },\n    ],\n    edges: [\n      { id: 'e1', source: 'start', target: 'call-api' },\n      { id: 'e2', source: 'call-api', target: 'check', type: 'conditional', condition: 'result.status === 200' },\n      { id: 'e3', source: 'call-api', target: 'check', type: 'conditional', isDefault: true },\n    ],\n    showExecutionOverlay: true,\n    executionSteps: [{ nodeId: 'call-api', status: 'running' }],\n    showVersionHistory: true,\n    versionHistory: [{ version: 2, createdAt: '2026-02-22T00:00:00Z', isCurrent: true, changeNote: 'Added timeout' }],\n  }}\n  onSave={(nodes, edges) => persist({ nodes, edges })}\n/>\n```\n\n**Canvas interactions:** drag-to-reposition nodes, port-click edge creation, `Delete` key removal, `Ctrl+Z`/`Ctrl+Y` undo/redo, `Ctrl+S` save, zoom controls.\n\n**Panels:** left node palette (all 14 types), right property panel (node label/type/executor/boundary config; edge label/type/condition/isDefault), version history side panel, BPMN XML export.\n\n**Execution overlay:** per-node status icons (pending/running/completed/failed/skipped) driven by `executionSteps[]`.\n\nRegistered with `ComponentRegistry` as `'flow-designer'`. 15 new tests added; all 168 package tests pass.\n\n## ROADMAP\n\n- Added **P2.0 Flow Designer ✅** section with full checklist\n- Marked P2.1 (conditional edges, v3.0.9 node types, edge creation UI, property editing) and P2.4 (`plugin-workflow` items) complete\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -62,17 +62,46 @@
  *     `2026-08-01T03:00:00.000Z` is `Jul 31` in the west and `Aug 1` in the
  *     east, and a repair that touched instants reds there.
  *
- * ── Directions, predicted in writing BEFORE the run ────────────────────────
- *   Reverting `toDisplayDate` to `new Date(value)`
- *       RED: every case under "the day it names" and "the relative branch",
- *       plus the rollover case. GREEN: the three instant controls and the rig
- *       check — none of them reads the date-only arm.
- *   "Repairing" it by adding the local offset to the parsed instant instead
- *       GREEN in the west; RED on `Asia/Shanghai` / `Pacific/Kiritimati` and
- *       on the instant controls. That is the pair which makes the two halves
- *       independently falsifiable — no single fake fix greens both.
- *   Dropping the `local.setFullYear(year)` line
- *       RED: the two-digit-year case alone.
+ * ── Directions, predicted first and then MEASURED by ablating three ways ───
+ * A = revert `toDisplayDate` to the plain `new Date(value)` parse (the defect).
+ * B = "make the symptom go away": keep the date-only arm but hand back the
+ *     parsed instant shifted twelve hours, the noon trick. C = drop the
+ *     `local.setFullYear(year)` line. Columns are the observed runs, not the
+ *     predictions; two predictions were wrong and are corrected below.
+ *
+ *                                              A      B      C
+ *   rig: the child resolved the zone         green  green  green
+ *   runner still pinned to UTC               green  green  green
+ *   `2026-08-01` west of UTC                  RED   green  green
+ *   `2026-08-01` east of UTC (+14 included)  green   RED   green
+ *   the four zones agree                      RED    RED   green
+ *   the `short` face                          RED   green  green
+ *   a day with no local midnight              RED   green  green
+ *   relative, west                            RED   green  green
+ *   relative, east                           green  green  green
+ *   out-of-window absolute fallback           RED   green  green
+ *   `Yesterday` across the 25-hour day        RED   green  green
+ *   datetime in the viewer zone              green  green  green
+ *   the compact cell face                    green  green  green
+ *   midnight spelled as an instant           green  green  green
+ *   out-of-range month / unparsable          green  green  green
+ *   the rolled impossible day                 RED   green  green
+ *   a two-digit year                          RED   green   RED
+ *
+ * ⭐ Column B is the reason the east zones are driven at all. The noon shift
+ * is what "just stop it shifting" looks like written quickly: it greens every
+ * case the card reported, west of UTC, and the ONLY things that catch it are
+ * `Pacific/Kiritimati` (UTC+14, where noon UTC is already the next day) and
+ * the all-zones-agree case. A suite that drove the reported zone alone would
+ * have signed it off.
+ *
+ * ⚠️ Two predictions were wrong, both in the same direction — assuming a
+ * DESCRIBE block moves as a unit. "`2026-08-01` east of UTC" was predicted RED
+ * under A and measured green: east of UTC the UTC-midnight parse already lands
+ * on the right day, which is the card's own second datum and the reason that
+ * case is a control rather than a repeat. And the two-digit-year case was
+ * predicted to move under C alone; it also reds under A, because its `Aug 1`
+ * half shifts with every other date-only face. It is still C's only red.
  */
 import { execFileSync } from 'node:child_process';
 

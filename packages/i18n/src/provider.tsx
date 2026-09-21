@@ -25,6 +25,22 @@ import {
  * Exported so an app that builds its own i18next instance (and therefore owns
  * its bootstrap language — see {@link I18nProviderProps.instance}) can honour
  * the same preference, and so a sign-out flow can clear it.
+ *
+ * ⚠️ **What this slot means changed for a SIGNED-IN user (objectui#10059).**
+ * A signed-in user's language has one source of truth and it is not on the
+ * device: it is the server column `sys_user.locale`, read back through
+ * `GET /auth/me/localization` and written by both the profile page's language
+ * card and the console's globe menu. For that user this slot is a CACHE of the
+ * column — it still decides the first paint, because the column cannot be read
+ * synchronously, and it is then overwritten by whatever the column says. It
+ * decides on its own only BEFORE sign-in, which is the case this provider can
+ * see and the only one it adjudicates.
+ *
+ * This provider deliberately does not implement that rule: reading a `sys_user`
+ * row needs an authenticated data adapter, which is a host concern and not a
+ * dependency a renderer package takes. The host applies the column through
+ * {@link I18nContextValue.changeLanguage} like any other switch — in this
+ * repository, `@object-ui/app-shell`'s `useUserLocale`.
  */
 export const LOCALE_STORAGE_KEY = 'objectui-locale';
 
@@ -71,8 +87,11 @@ function clearStoredLanguage(): void {
  * separation is the whole point rather than a tidiness preference. The two
  * values have different provenance and therefore different rights:
  *
- * - {@link LOCALE_STORAGE_KEY} is what the *user* picked. It outranks
- *   everything and must survive a tenant reconfiguration.
+ * - {@link LOCALE_STORAGE_KEY} is what the *user* picked on this device. It
+ *   outranks everything this provider can see and must survive a tenant
+ *   reconfiguration. ⚠️ It does NOT outrank the signed-in user's own
+ *   `sys_user.locale`, which no tier here represents — see that key's own
+ *   docblock (objectui#10059).
  * - This slot is what the *admin* configured, cached so the next boot can apply
  *   it synchronously. It outranks only the environment (browser language).
  *
@@ -274,6 +293,12 @@ function resolveSeedLanguage(seed: string, config?: I18nConfig): string | null {
  * 2. the tenant's server locale, cached at {@link LOCALE_SEED_STORAGE_KEY}
  * 3. the browser language (`createI18n`'s `detectBrowserLanguage`)
  * 4. `en`
+ *
+ * ⚠️ That chain is the whole answer only for a visitor who is not signed in.
+ * A signed-in user's language is decided by `sys_user.locale` and reaches this
+ * provider as an ordinary `changeLanguage` from the host once the row has been
+ * read; tier 1 is that value's cache from then on (objectui#10059 — the reasons
+ * are on {@link LOCALE_STORAGE_KEY}, not repeated here).
  *
  * Tiers 2 and 3 are both "nobody here chose this", but they are not equally
  * informed: the tenant locale is an administrator's deliberate statement about

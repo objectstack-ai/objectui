@@ -30,6 +30,7 @@ import {
 import { buildExpressionUser } from '../providers/expressionUser.js';
 import { useTrackRouteAsRecent } from '../hooks/useTrackRouteAsRecent.js';
 import { useHomePath } from '../hooks/useHomePath.js';
+import { useSignedInUserLocale } from '../hooks/useUserLocale.js';
 import { resolveRecordFormTarget, resolveFormViewLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget } from '../utils/recordFormNavigation.js';
 import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-view';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
@@ -446,6 +447,14 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // Readers (record detail, related lists, count badges) refetch in place;
   // nothing is remounted for a data refresh.
   useMutationInvalidationBridge(dataSource);
+
+  // objectui#10059 — the signed-in user's language has ONE source of truth,
+  // `sys_user.locale`. Mounted here, beside the bridge above, because it reads
+  // the column back off that bus: the profile page's language card writes the
+  // same column through the same adapter, so its save reaches this reader and
+  // the UI follows without a reload. See `hooks/useUserLocale.ts` for why the
+  // device-local value is a cache from here on rather than a second setting.
+  useSignedInUserLocale();
 
   useGlobalUndo({
     dataSource: dataSource ?? undefined,

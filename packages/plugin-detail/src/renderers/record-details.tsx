@@ -355,8 +355,26 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // merge in any field names registered live via HighlightFieldsContext
   // (see `liveHighlightNames` above) to cover hand-authored Lightning pages
   // that don't go through the synth dedup path.
+  //
+  // ⛔ Read UN-CAST (objectui#9965). `hideFields` is DECLARED on the mirror
+  // (`RecordDetailsComponentProps.hideFields`, `string[]`, since objectui#9040,
+  // aligned to `@objectstack/spec` `RecordDetailsProps.hideFields`). A
+  // `(schema as any)` here SPENT that declaration at the one site it exists
+  // for: measured with `getTypeAtLocation` on this very expression, the cast
+  // read carried `any` and the un-cast read carries `string[] | undefined`.
+  // ⚠️ What it does NOT buy: `RecordDetailsRendererProps['schema']` is
+  // intersected with `Record<string, any>`, so a MISSPELLED key still
+  // type-checks here — this buys wrong-TYPE refusal, not wrong-SPELLING
+  // refusal. Both halves are pinned by
+  // `__tests__/record-details.hideFieldsUncast-9965.test.ts`.
+  //
+  // The `{name}` / `{field}` entries `fieldName` still tolerates below are
+  // NOT a second declared dialect — the contract declares
+  // `z.array(z.string())` and refuses them on parse (see the mirror's own
+  // note on `hideFields`); this reader stays tolerant of what already reaches
+  // it at runtime, which is why the callbacks below keep their `any`.
   const hideFieldNames = new Set<string>(
-    (Array.isArray((schema as any).hideFields) ? (schema as any).hideFields : [])
+    (Array.isArray(schema.hideFields) ? schema.hideFields : [])
       .map((n: any) => (typeof n === 'string' ? n : fieldName(n)))
       .filter((n: any): n is string => !!n),
   );

@@ -320,11 +320,18 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
         filter={schema.filter}
         dataSource={ctx?.dataSource}
         add={
-          (schema as any).add
+          // Read UN-CAST (objectui#9964). The cast that used to stand here was
+          // load-bearing for one reason only: the mirror typed
+          // `add.picker.filter` as `unknown` while this component's own prop
+          // types it `ViewFilterRule[]`, so un-casting was a TS2322 — the
+          // divergence, kept invisible by the cast. The mirror now carries the
+          // protocol's array, so the declaration reaches this read and a
+          // wrong-shaped picker filter is refused here instead of downstream.
+          schema.add
             ? {
-                ...(schema as any).add,
+                ...schema.add,
                 // The Add-button label may carry inline translations too.
-                label: pickLocalized((schema as any).add.label, language) || undefined,
+                label: pickLocalized(schema.add.label, language) || undefined,
               }
             : undefined
         }
@@ -369,7 +376,7 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
                 const id = rowId(row);
                 if (id != null) return handlers.onDelete!(id, row);
               }
-            : (schema as any).add && ctx?.dataSource
+            : schema.add && ctx?.dataSource
               ? async (row: any) => {
                   const id = row?.id ?? row?._id;
                   if (id != null) await ctx?.dataSource?.delete?.(objectName, String(id));

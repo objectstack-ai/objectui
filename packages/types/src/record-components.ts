@@ -17,7 +17,7 @@
  * @packageDocumentation
  */
 
-import type { I18nLabel } from '@objectstack/spec/ui';
+import type { I18nLabel, ViewFilterRule } from '@objectstack/spec/ui';
 
 /**
  * ARIA props shared across all record components.
@@ -396,7 +396,30 @@ export interface RecordRelatedListComponentProps {
    * RecordRelatedListProps.add.
    */
   add?: {
-    picker: { object: string; valueField?: string; labelField?: string; filter?: unknown };
+    /**
+     * `picker.filter` is the protocol's own `z.array(ViewFilterRuleSchema)`
+     * ("Restrict which records the picker offers"), and this face mirrors that
+     * declaration rather than restating it as `unknown` (objectui#9964).
+     *
+     * ## Why the mirror moved and the consumer's guard did not
+     *
+     * The sole consumer — `@object-ui/plugin-detail`'s `RelatedList`, which
+     * hands this value to `RecordPickerDialog`'s `baseFilter` VERBATIM — has
+     * typed the same key as `ViewFilterRule[]` on purpose since objectui#3831
+     * ("a looser type here is where a wrong shape would hide"). So the two
+     * declarations of one key disagreed, with the LOOSER one on the authoring
+     * face: an author (or an AI writing metadata) read "anything" for a key
+     * whose consumer demands a shape. Four `(schema as any).add` reads in that
+     * package's `record-related-list` renderer kept any compiler from saying
+     * so; objectui#9964 removed them, so this declaration now reaches the read.
+     *
+     * Tightening here narrows nothing an author could publish: the protocol
+     * declares the array form and its `strictObject` refuses every other shape
+     * at parse today. This is a narrowing being UNDONE, and it is the
+     * contract-first direction AGENTS.md #0.1 requires — the producer moves to
+     * the contract, never the renderer to a lenient dialect.
+     */
+    picker: { object: string; valueField?: string; labelField?: string; filter?: ViewFilterRule[] };
     linkField?: string;
     label?: string;
   };

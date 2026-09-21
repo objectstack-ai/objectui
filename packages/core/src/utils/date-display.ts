@@ -44,6 +44,13 @@
  * and the clock, and the one phrase `Intl` cannot produce ("Overdue Nd") comes
  * in through the INJECTED `options.t`, the same way `buildDatasetFieldHelpers`
  * in `dataset-format.ts` takes `fieldLabel`.
+ *
+ * ⚠️ There is a third ambient input, and it is the one this module has to
+ * decide about rather than pass on: the VIEWER's timezone. A value carrying a
+ * time is an instant and renders in that zone; a DATE-ONLY value names a
+ * calendar day, carries no instant, and must render as that day everywhere.
+ * `toDisplayDate` below is the single parse step that tells the two apart —
+ * every function here goes through it (objectui#10110).
  */
 
 /**
@@ -83,6 +90,72 @@ export interface DateDisplayOptions {
    * separate, deliberate call (objectui#7745's report).
    */
   style?: string;
+}
+
+/**
+ * The date-only ISO spelling — `2026-08-01`, and nothing else.
+ *
+ * Spelled exactly as `dataset-format.ts`'s `ISO_DATE_ONLY_RE`, which sniffs
+ * the same shape one file over to decide which arm a measure takes. Two
+ * spellings of one convention is what this module exists to prevent, so the
+ * two regexes are kept identical on purpose.
+ */
+const ISO_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The ONE `value -> Date` step behind every function below.
+ *
+ * ## The defect (objectui#10110)
+ *
+ * ECMAScript parses the two ISO shapes into two different zones: a DATE-ONLY
+ * form is UTC, while a date-TIME form without an offset is local. So
+ * `new Date('2026-08-01')` is UTC midnight, and every getter this module then
+ * uses — `getFullYear`, `getMonth`, `getDate`, and `toLocaleDateString`'s own
+ * internal ones — reads it back in the VIEWER's zone. West of UTC that lands
+ * on the previous calendar day: `2026-08-01` rendered `Jul 31` for a UTC-7
+ * viewer while the stored value, the API response and a UTC+8 viewer all said
+ * August 1st. The relative branch shifted with it, one day per day
+ * (`2026-08-31` read `4 days ago` on the 3rd instead of `3 days ago`),
+ * because it compares two LOCAL start-of-days.
+ *
+ * ## The repair, and why it is not an offset
+ *
+ * A date-only value names a CALENDAR DAY and carries no instant, so there is
+ * no conversion to perform: this rebuilds it at LOCAL midnight of the day it
+ * names, and every local getter downstream then reports that same day in
+ * every zone. ⛔ Nothing here adds or subtracts hours. An offset that
+ * cancels the shift would be wrong again at the next DST boundary and wrong
+ * in the opposite direction for a viewer EAST of UTC, where the UTC-midnight
+ * parse already lands on the right day — the co-located suite drives both.
+ * `GridField`'s sub-grid cell already parsed its own date-only values this
+ * way before reaching `formatDate`; this is that treatment, moved to the one
+ * place every caller passes through.
+ *
+ * A value with a time part is untouched, in both spellings: it HAS an
+ * instant, and rendering an instant in the viewer's zone is the whole point
+ * of a `datetime`. The regex is what separates them, so the split is the
+ * VALUE's shape and never the field's declared type, which this module (pure,
+ * no schema) cannot see.
+ *
+ * Acceptance is unchanged, deliberately: the engine's own parse still decides
+ * what is a date at all, and only a value it already accepted is rebuilt. So
+ * `2026-13-01` is still `—`, and a well-shaped impossible day still ROLLS
+ * (`2026-02-30` renders March 2nd) exactly as it did — a pinned behaviour of
+ * the shared display path, asserted in `dataset-format.ts`'s date suite.
+ */
+function toDisplayDate(value: string | Date | number): Date {
+  const parsed = value instanceof Date ? value : new Date(value as any);
+  if (typeof value !== 'string' || !ISO_DATE_ONLY_RE.test(value) || isNaN(parsed.getTime())) {
+    return parsed;
+  }
+  const [year, month, day] = value.split('-').map(Number);
+  const local = new Date(year, month - 1, day);
+  // Years 0-99 only: the multi-argument constructor maps them onto 1900+y, so
+  // `0026-08-01` would render as 1926 where the string parse read year 26.
+  // Setting the year back is co-extensive with that legacy mapping and a
+  // no-op on every other year.
+  local.setFullYear(year);
+  return local;
 }
 
 /**
@@ -139,7 +212,7 @@ function absoluteFallbackOptions(options?: DateDisplayOptions): DateDisplayOptio
  */
 export function formatRelativeDate(value: string | Date | number, options?: DateDisplayOptions): string {
   if (value === null || value === undefined || value === '') return '—';
-  const date = value instanceof Date ? value : new Date(value as any);
+  const date = toDisplayDate(value);
   if (!(date instanceof Date) || isNaN(date.getTime())) return '—';
 
   const now = new Date();
@@ -197,7 +270,7 @@ export function formatRelativeDate(value: string | Date | number, options?: Date
  */
 export function formatDate(value: string | Date | number, style?: string, options?: DateDisplayOptions): string {
   if (value === null || value === undefined || value === '') return '—';
-  const date = value instanceof Date ? value : new Date(value as any);
+  const date = toDisplayDate(value);
   if (!(date instanceof Date) || isNaN(date.getTime())) return '—';
 
   const effectiveStyle = style ?? options?.style;
@@ -252,7 +325,7 @@ export function formatDateTimeCompactParts(
   options?: DateDisplayOptions,
 ): { date: string; time: string } | null {
   if (value === null || value === undefined || value === '') return null;
-  const date = value instanceof Date ? value : new Date(value as any);
+  const date = toDisplayDate(value);
   if (!(date instanceof Date) || isNaN(date.getTime())) return null;
 
   return {
@@ -299,7 +372,7 @@ export function formatDateTimeCompactParts(
  */
 export function formatDateTime(value: string | Date | number, options?: DateDisplayOptions): string {
   if (value === null || value === undefined || value === '') return '—';
-  const date = value instanceof Date ? value : new Date(value as any);
+  const date = toDisplayDate(value);
   if (!(date instanceof Date) || isNaN(date.getTime())) return '—';
 
   if (options?.style === 'compact') {

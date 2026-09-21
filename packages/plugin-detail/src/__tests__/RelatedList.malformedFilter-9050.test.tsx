@@ -93,10 +93,15 @@ describe('objectui#9050 — RelatedList renders a malformed-filter state', () =>
     mount(REFUSED_FILTER, ds);
 
     const alert = await screen.findByRole('alert');
-    // The OPERATOR, which is the half the ruling asks for by name. Asserted on
-    // the alert's own text so a token that appears somewhere else on the page
-    // cannot stand in for it.
-    expect(alert.textContent).toContain('equals');
+    // The OPERATOR, asserted on the HEADLINE, ⛔ not on the banner as a whole.
+    // Measured, not assumed: the technical line under the headline is the
+    // converter's own message and it repeats the token, so a whole-banner
+    // assertion stays GREEN when the name is removed from the headline —
+    // exactly the decoration this card was told not to ship. Ablation leg B
+    // (`filterRefusalSubject` returns undefined) reds THIS line and leaves the
+    // two below green, which is what makes the two halves separable.
+    const headline = await screen.findByTestId('related-list-malformed-filter-subject');
+    expect(headline.textContent).toContain('equals');
     // …and the sentence that says what kind of problem it is. Matched on a
     // stable fragment rather than the whole copy, which is translated.
     expect(alert.textContent).toMatch(/filter is malformed/i);

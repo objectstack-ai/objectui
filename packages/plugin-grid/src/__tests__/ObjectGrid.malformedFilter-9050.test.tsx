@@ -70,7 +70,11 @@ describe('objectui#9050 — ObjectGrid names a refused filter', () => {
     );
 
     const alert = await screen.findByTestId('grid-malformed-filter');
-    expect(alert.textContent).toContain('equals');
+    // The OPERATOR on the HEADLINE, ⛔ not on the banner as a whole — the
+    // technical line under it repeats the token, so a whole-banner assertion
+    // would survive the name being dropped. See ablation leg B.
+    const headline = await screen.findByTestId('grid-malformed-filter-subject');
+    expect(headline.textContent).toContain('equals');
     expect(alert.textContent).toMatch(/filter is malformed/i);
     // Nothing was asked of the data layer — the refusal is not "no filter".
     await waitFor(() => expect(ds.find).not.toHaveBeenCalled());
@@ -91,8 +95,8 @@ describe('objectui#9050 — ObjectGrid names a refused filter', () => {
       />,
     );
 
-    const alert = await screen.findByTestId('grid-malformed-filter');
-    expect(alert.textContent).toContain('$regex');
+    const headline = await screen.findByTestId('grid-malformed-filter-subject');
+    expect(headline.textContent).toContain('$regex');
     // The half that was NOT green before this card. The generic load heading is
     // what this path used to show, and it names nothing an author can act on.
     expect(document.body.textContent).not.toMatch(/error loading grid/i);

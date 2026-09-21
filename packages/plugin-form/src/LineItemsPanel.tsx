@@ -456,7 +456,10 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
             data-testid="line-items-malformed-filter"
           >
-            <p className="font-medium">
+            {/* Separately addressable: this is the half that has to NAME the
+                operator, and the technical line below repeats the token
+                incidentally. */}
+            <p className="font-medium" data-testid="line-items-malformed-filter-subject">
               {t('view.malformedFilter', { subject: filterRefusalSubject(filterRefusal) ?? '' })}
             </p>
             <p className="mt-1 text-xs opacity-80">{filterRefusal.message}</p>

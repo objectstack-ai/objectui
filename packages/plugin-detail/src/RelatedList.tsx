@@ -1882,8 +1882,12 @@ export const RelatedList: React.FC<RelatedListProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0 pb-4 px-4">
-          <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-            <p className="font-medium">
+          <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800" data-testid="related-list-malformed-filter">
+            {/* The headline is separately addressable because it is the half that
+                has to NAME the operator. The technical line below repeats the
+                token incidentally, so a pin that read the whole banner would
+                stay green with the name removed from the headline. */}
+            <p className="font-medium" data-testid="related-list-malformed-filter-subject">
               {t('view.malformedFilter', { subject: filterRefusalSubject(filterRefusal) ?? '' })}
             </p>
             <p className="mt-1 text-xs opacity-80">{filterRefusal.message}</p>

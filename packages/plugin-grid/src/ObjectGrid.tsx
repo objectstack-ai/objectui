@@ -3524,7 +3524,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         className="p-3 sm:p-4 border border-amber-300 bg-amber-50 rounded-md"
         data-testid="grid-malformed-filter"
       >
-        <h3 className="text-amber-800 font-semibold">
+        {/* Separately addressable: this is the half that has to NAME the
+            operator, and the technical line below repeats the token
+            incidentally. */}
+        <h3 className="text-amber-800 font-semibold" data-testid="grid-malformed-filter-subject">
           {t('view.malformedFilter', { subject: filterRefusalSubject(filterRefusal) ?? '' })}
         </h3>
         <p className="text-amber-700 text-sm mt-1">{filterRefusal.message}</p>

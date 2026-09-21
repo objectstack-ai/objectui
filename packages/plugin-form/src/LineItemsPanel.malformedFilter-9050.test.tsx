@@ -78,7 +78,12 @@ describe('objectui#9050 — LineItemsPanel renders a malformed-filter state', ()
     );
 
     const alert = await screen.findByTestId('line-items-malformed-filter');
-    expect(alert.textContent).toContain('$regex');
+    // The OPERATOR on the HEADLINE, ⛔ not on the banner as a whole: the
+    // technical line under it is the converter's own message and repeats the
+    // token, so a whole-banner assertion cannot tell "names the operator" from
+    // "prints the raw error". See ablation leg B.
+    const headline = await screen.findByTestId('line-items-malformed-filter-subject');
+    expect(headline.textContent).toContain('$regex');
     expect(alert.textContent).toMatch(/filter is malformed/i);
     // Nothing was asked of the data layer: the refusal is not "no filter".
     await waitFor(() => expect(ds.find).not.toHaveBeenCalled());
@@ -92,8 +97,8 @@ describe('objectui#9050 — LineItemsPanel renders a malformed-filter state', ()
       </SchemaRendererProvider>,
     );
 
-    const alert = await screen.findByTestId('line-items-malformed-filter');
-    expect(alert.textContent).toContain('$regex');
+    const headline = await screen.findByTestId('line-items-malformed-filter-subject');
+    expect(headline.textContent).toContain('$regex');
     // The half that was NOT green before this card: the per-component boundary
     // used to catch the throw and say "failed to render", which names no
     // operator and offers no repair.

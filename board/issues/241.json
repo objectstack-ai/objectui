@@ -1,0 +1,35 @@
+{
+  "number": 241,
+  "kind": "pull_request",
+  "title": "Add documentation for field widgets and core components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T13:19:22Z",
+  "updated_at": "2026-01-27T14:11:32Z",
+  "closed_at": "2026-01-27T14:08:13Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T14:08:13Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/241",
+  "body": "Documentation was missing for the 12 field widget components (`@object-ui/fields`) and 5 core app components (`@object-ui/react`, `@object-ui/layout`). Users had no reference for available field types or core architectural components.\n\n## Changes\n\n**New documentation sections:**\n\n- **Fields** (`/docs/fields/*`) - Documents all field widget components:\n  - Input fields: Text, TextArea, Number, Currency, Date, Email, Phone, URL\n  - Selection fields: Boolean, Select, Lookup\n  - Rich content: Rich Text (Markdown/HTML)\n  \n- **Core** (`/docs/core/*`) - Documents core rendering and layout components:\n  - `SchemaRenderer` - JSON schema to React component renderer\n  - `FormRenderer` - Dynamic form engine with validation\n  - `AppShell` - Application shell with sidebar/header layout\n  - `PageHeader` - Page header with actions\n  - `SidebarNav` - Sidebar navigation with active states\n\n**Structure:**\n```\ncontent/docs/\n├── core/\n│   ├── meta.json\n│   ├── schema-renderer.mdx\n│   ├── form-renderer.mdx\n│   ├── app-shell.mdx\n│   ├── page-header.mdx\n│   └── sidebar-nav.mdx\n├── fields/\n│   ├── meta.json\n│   ├── text.mdx\n│   ├── textarea.mdx\n│   ├── number.mdx\n│   ├── currency.mdx\n│   ├── boolean.mdx\n│   ├── select.mdx\n│   ├── date.mdx\n│   ├── email.mdx\n│   ├── phone.mdx\n│   ├── url.mdx\n│   ├── lookup.mdx\n│   └── rich-text.mdx\n└── meta.json (updated with new sections)\n```\n\nEach page includes TypeScript interfaces, ComponentDemo examples, use cases, and cell renderer info.\n\n## Screenshots\n\n**Fields documentation:**\n![Fields Documentation](https://github.com/user-attachments/assets/39a58499-69d0-4263-a9ca-c3ee225a3dc4)\n\n**Core components documentation:**\n![Core Documentation](https://github.com/user-attachments/assets/243d4165-38ed-4973-a783-f3f7c4e4b11d)\n\n**Navigation structure:**\n![Documentation Navigation](https://github.com/user-attachments/assets/c380db2b-b798-490f-a7a1-b296cc3e082b)\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node /usr/local/bin/node /home/REDACTED/work/objectui/objectui/node_modules/.pnpm/next@16.1.4_@babel&#43;core@7.28.6_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/lib/start-server.js` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 在文档中如何展示字段类型组件以及基础的？page app内核组件？\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

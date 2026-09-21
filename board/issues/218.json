@@ -1,0 +1,33 @@
+{
+  "number": 218,
+  "kind": "pull_request",
+  "title": "Merge plugin-calendar-view into plugin-calendar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-26T13:22:50Z",
+  "updated_at": "2026-01-26T14:03:42Z",
+  "closed_at": "2026-01-26T13:58:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-26T13:58:32Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/218",
+  "body": "Consolidates two calendar packages into one. The `@object-ui/plugin-calendar-view` package is now part of `@object-ui/plugin-calendar`.\n\n## Changes\n\n**Package Structure**\n- Moved `CalendarView` component and `calendar-view` renderer into `plugin-calendar`\n- Both schema types (`calendar-view` and `object-calendar`) now registered from single package\n- Deleted `packages/plugin-calendar-view` directory\n\n**Exports**\n```tsx\n// plugin-calendar now exports both components\nimport { CalendarView, ObjectCalendar } from '@object-ui/plugin-calendar';\n\n// Schema types unchanged\n{ type: 'calendar-view', ... }    // Standalone calendar\n{ type: 'object-calendar', ... }  // ObjectQL-integrated\n```\n\n**Dependencies**\n- Removed `@object-ui/plugin-calendar-view` from site app\n- Updated documentation to reflect merged package\n\n**Migration**\n```diff\n- import '@object-ui/plugin-calendar-view'\n+ import '@object-ui/plugin-calendar'\n\n- import { CalendarView } from '@object-ui/plugin-calendar-view'\n+ import { CalendarView } from '@object-ui/plugin-calendar'\n```\n\nNo breaking changes to schema API or component props.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> plugin-calendar-view 合并到 plugin-calendar\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

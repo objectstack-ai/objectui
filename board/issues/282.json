@@ -1,0 +1,40 @@
+{
+  "number": 282,
+  "kind": "pull_request",
+  "title": "Plugin System: Add dependency management, lazy loading, and scaffolding CLI",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "documentation",
+    "package: core",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-30T13:03:46Z",
+  "updated_at": "2026-01-30T14:26:57Z",
+  "closed_at": "2026-01-30T14:21:25Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-30T14:21:25Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/282",
+  "body": "Implements structured plugin system with dependency resolution, lifecycle hooks, optimized lazy loading, and standardized scaffolding tooling.\n\n## Plugin Registration (`@object-ui/core`)\n\n**`PluginSystem` class** - Manages plugin lifecycle with dependency validation:\n- Enforces load order based on declared dependencies\n- Executes `register()` callback with ComponentRegistry\n- Supports async `onLoad`/`onUnload` hooks\n- Prevents unloading plugins with active dependents\n\n```typescript\nconst pluginSystem = new PluginSystem();\n\nawait pluginSystem.loadPlugin({\n  name: 'chart-plugin',\n  version: '1.0.0',\n  dependencies: ['grid-plugin'],  // Enforced at load time\n  register: (registry) => {\n    registry.register('chart', ChartComponent);\n  },\n  onLoad: async () => { /* initialization */ }\n}, ComponentRegistry);\n```\n\n## Lazy Loading (`@object-ui/react`)\n\n**`createLazyPlugin`** - Suspense-wrapped lazy loader with fallback support:\n```typescript\nconst ObjectGrid = createLazyPlugin(\n  () => import('@object-ui/plugin-grid'),\n  { fallback: <Skeleton /> }\n);\n```\n\n## Plugin Scaffolding (`@object-ui/create-plugin`)\n\n**CLI tool** generates complete plugin packages with:\n- ComponentRegistry integration boilerplate\n- Vite build + TypeScript config\n- Test setup\n- Input validation prevents path traversal (lowercase alphanumeric + hyphens only)\n\n```bash\npnpm create-plugin my-widget\n```\n\nGenerates `packages/plugin-my-widget/` with implementation template, types, tests, and build configuration.\n\n## Security\n\n- Path traversal prevention in CLI (validates against `../`, absolute paths)\n- Plugin name format enforcement (`^[a-z0-9-]+$`)\n- Error cleanup on registration failure\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 3.2 插件系统优化\n> \n> A. 插件注册增强\n> \n> 现状: 手动注册，无依赖管理\n> 优化方案:\n> \n> // packages/core/src/registry/PluginSystem.ts\n> export interface PluginDefinition {\n>   name: string;\n>   version: string;\n>   dependencies?: string[];  // 依赖其他插件\n>   peerDependencies?: string[];  // 对等依赖\n>   register: (registry: ComponentRegistry) => void;\n>   onLoad?: () => void | Promise<void>;  // 生命周期钩子\n>   onUnload?: () => void | Promise<void>;\n> }\n> \n> export class PluginSystem {\n>   private plugins = new Map<string, PluginDefinition>();\n>   private loaded = new Set<string>();\n>   \n>   async loadPlugin(plugin: PluginDefinition) {\n>     // 检查依赖\n>     for (const dep of plugin.dependencies || []) {\n>       if (!this.loaded.has(dep)) {\n>         throw new Error(`Missing dependency: ${dep}`);\n>       }\n>     }\n>     \n>     // 执行注册\n>     plugin.register(ComponentRegistry);\n>     \n>     // 执行生命周期\n>     await plugin.onLoad?.();\n>     \n>     this.plugins.set(plugin.name, plugin);\n>     this.loaded.add(plugin.name);\n>   }\n> }\n> B. 插件懒加载优化\n> \n> 现状: 部分插件在 index.tsx 中懒加载\n> 优化方案: 统一懒加载策略\n> \n> // packages/react/src/LazyPluginLoader.tsx\n> export function createLazyPlugin(\n>   importFn: () => Promise<{ default: React.ComponentType }>,\n>   fallback?: React.ReactNode\n> ) {\n>   const LazyComponent = lazy(importFn);\n>   \n>   return (props: any) => (\n>     <Suspense fallback={fallback || <Skeleton />}>\n>       <LazyComponent {...props} />\n>     </Suspense>\n>   );\n> }\n> \n> // 使用\n> const ObjectGrid = createLazyPlugin(\n>   () => import('@object-ui/plugin-grid'),\n>   <div>Loading grid...</div>\n> );\n> C. 插件开发模板\n> \n> 需求: 标准化插件开发流程\n> \n> 创建 packages/create-plugin CLI 工具：\n> \n> pnpm create @object-ui/plugin my-plugin\n> \n> # 生成结构：\n> packages/plugin-my-plugin/\n> ├── src/\n> │   ├── index.tsx           # 导出 & 注册\n> │   ├── MyPluginImpl.tsx    # 实现\n> │   ├── types.ts            # Schema 定义\n> │   └── *.test.ts           # 测试\n> ├── package.json\n> ├── tsconfig.json\n> ├── vite.config.ts\n> └── README.md\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

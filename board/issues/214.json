@@ -1,0 +1,33 @@
+{
+  "number": 214,
+  "kind": "pull_request",
+  "title": "Delete deprecated custom wrappers and migrate to Shadcn UI standard patterns",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-26T08:55:11Z",
+  "updated_at": "2026-01-26T10:33:52Z",
+  "closed_at": "2026-01-26T10:30:23Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-26T10:30:23Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/214",
+  "body": "Standardizes ObjectUI to use Shadcn's recommended patterns by deleting custom form and toast abstractions that conflict with ecosystem conventions.\n\n## Changes\n\n**Form Components**\n- Deleted `field.tsx` (custom field system) → use `form.tsx` (react-hook-form integration)\n- Deleted `input-group.tsx` (custom wrapper) → use Tailwind flex utilities directly\n- Retained `item.tsx` (generic list component, not form-specific)\n\n**Toast System**\n- Deleted `toast.tsx`, `toaster.tsx`, `use-toast.ts` (Radix-based) → use `sonner.tsx`\n- `import { Toaster }` now exports Sonner Toaster\n- Migrated internal toast renderer to use Sonner's `toast` API\n\n**Documentation**\n- Deleted `MIGRATION_GUIDE.md` and `STANDARDIZATION_SUMMARY.md`\n\n## Migration to Sonner\n\n```tsx\n// New toast API using Sonner\nimport { toast } from 'sonner';\ntoast.success('Saved');\ntoast.error('Failed');\ntoast.warning('Warning');\ntoast.info('Info');\ntoast('Message', { description: 'Details' });\n```\n\n## Migration to Shadcn Form\n\n```tsx\n// Use Shadcn's form components\n<FormField\n  control={form.control}\n  name=\"email\"\n  render={({ field }) => (\n    <FormItem>\n      <FormLabel>Email</FormLabel>\n      <FormControl>\n        <Input type=\"email\" {...field} />\n      </FormControl>\n      <FormMessage />\n    </FormItem>\n  )}\n/>\n```\n\n## ⚠️ Breaking Changes\n\nThis is a **breaking change**. The following components have been completely removed:\n- `Field`, `FieldLabel`, `FieldError`, `FieldDescription`, etc.\n- `InputGroup`, `InputGroupAddon`, etc.\n- `Toast`, `Toaster`, `ToastNotifier`\n- `useToast` hook\n\nAll usage must migrate to Shadcn's standard components and Sonner for toasts.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> # Role\n> Senior React Component Architect\n> \n> # Context\n> We are standardizing `objectstack-ai/objectui` to strictly follow Shadcn UI patterns.\n> We have already extracted business components into plugins.\n> Now we need to clean up the \"Custom Wrappers\" that conflict with Shadcn primitives in `packages/components/src/ui`.\n> \n> # Objectives\n> 1. **Standardize Forms**: The repo currently has mixed form patterns:\n>    - Standard: `form.tsx` (Shadcn's `react-hook-form` wrapper).\n>    - Non-Standard: `field.tsx`, `input-group.tsx`, `item.tsx`.\n>    - Goal: We want to prioritize `form.tsx`.\n> \n> 2. **Standardize Toasts**:\n>    - The repo has both `toast.tsx` (Radix primitive) and `sonner.tsx` (Shadcn's recommended toaster).\n>    - Goal: Consolidate on **Sonner** as the default toast solution, as it's cleaner and more modern.\n> \n> # Task 1: Form Analysis & Strategy\n> 1. Read `packages/components/src/ui/field.tsx`, `packages/components/src/ui/input-group.tsx`, and `packages/components/src/ui/item.tsx`.\n> 2. Compare them with `packages/components/src/ui/form.tsx`.\n> 3. **Determine**:\n>    - Do these custom files provide unique functionality missing from `form.tsx`?\n>    - Can we rewrite `field.tsx` to be a simple wrapper around `FormField` (from `form.tsx`) to maintain backward compatibility while using the standard implementation internally?\n>    - OR, should we mark them as `@deprecated`?\n> \n> # Task 2: Toast Consolidation\n> 1. Check usage of `toast.tsx` vs `sonner.tsx`.\n> 2. Modify `packages/components/src/ui/index.ts`:\n>    - Ensure `Sonner` is the primary export.\n>    - If `toast.tsx` (and `toaster.tsx`) is legacy, add a `@deprecated` JSDoc tag to their exports in `index.ts`.\n>    - Update `packages/components/src/ui/use-toast.ts` (if it exists) to use Sonner, OR propose a codified replacement (e.g. `import { toast } from \"sonner\"`).\n> \n> # Task 3: Execution (Refactoring)\n> Based on the analysis:\n> 1. **Refactor `field.tsx`** (if possible) to use Shadcn's `<FormItem>`, `<FormLabel>`, `<FormControl>`, `<FormMessage>` internally.\n>    - *Constraint*: It must still look standard.\n> 2. **Delete redundant files**: If `input-group.tsx` is just a flex wrapper, recommend deleting it and using standard Tailwind utility classes instead.\n> \n> # Deliverable\n> - A summary of the differences between the Custom Field system and Shadcn Form.\n> - Code changes to refactor `field.tsx` to align with Shadcn patterns (or deprecate it).\n> - Code changes to deprecate the old Toast system in favor of Sonner.\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

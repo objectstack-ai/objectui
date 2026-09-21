@@ -1,0 +1,33 @@
+{
+  "number": 196,
+  "kind": "pull_request",
+  "title": "Add documentation for ObjectKanban, ObjectCalendar, ObjectGantt, and ObjectMap view controls",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-25T15:21:40Z",
+  "updated_at": "2026-01-25T15:43:30Z",
+  "closed_at": "2026-01-25T15:36:45Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-25T15:36:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/196",
+  "body": "Completes documentation coverage for all view controls in `@object-ui/views`. Four components were previously undocumented.\n\n## Added Documentation\n\n- **ObjectKanban** - Drag-and-drop kanban board with auto-grouping by field, column summaries, card customization\n- **ObjectCalendar** - Multi-view calendar (month/week/day) for event scheduling and timeline visualization  \n- **ObjectGantt** - Project timeline with task dependencies, progress tracking, critical path\n- **ObjectMap** - Geographic visualization with marker clustering, popups, flexible location formats\n\nEach includes:\n- Interactive demo with `InteractiveDemo` component\n- JSON schema examples and TypeScript API reference\n- Real-world integration examples (5+ per component)\n- Data provider patterns (object/api/value)\n- Event handler usage\n\n## Example Usage\n\n```tsx\n<ObjectKanban \n  schema={{\n    type: 'object-grid',\n    objectName: 'tasks',\n    filter: {\n      kanban: {\n        groupByField: 'status',\n        columns: ['name', 'assignee', 'priority'],\n        summarizeField: 'estimated_hours'\n      }\n    }\n  }}\n  dataSource={dataSource}\n  onCardMove={(id, from, to) => updateStatus(id, to)}\n/>\n```\n\n## Files Changed\n\n- `content/docs/views/object-kanban.mdx` (new, 428 lines)\n- `content/docs/views/object-calendar.mdx` (new, 536 lines)\n- `content/docs/views/object-gantt.mdx` (new, 567 lines)\n- `content/docs/views/object-map.mdx` (new, 652 lines)\n- `content/docs/views/index.mdx` (updated with component categorization)\n- `content/docs/views/meta.json` (registered new pages)\n\nDocumentation structure mirrors existing `object-view.mdx` and `object-grid.mdx` patterns for consistency.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 在文档中补充所有view控件的说明并为关键功能设计演示demo效果\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

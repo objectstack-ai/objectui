@@ -1,0 +1,38 @@
+{
+  "number": 257,
+  "kind": "pull_request",
+  "title": "Align crm-app with msw-todo pattern for frontend-first development",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "examples",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-29T07:32:57Z",
+  "updated_at": "2026-01-29T12:32:52Z",
+  "closed_at": "2026-01-29T12:21:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-29T12:21:20Z",
+  "comments": 14,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/257",
+  "body": "The crm-app example had MSW infrastructure but lacked documentation and runtime parity with msw-todo. Developers couldn't easily use it for frontend debugging without a backend.\n\n## Changes\n\n- **Documentation**: Added README.md and QUICKSTART.md covering architecture, setup, and debugging\n- **Runtime**: Removed dev-only MSW gate in `main.tsx` - now runs in all modes like msw-todo\n- **Build config**: Added MSW optimizeDeps to `vite.config.ts` for proper browser bundling\n- **Error handling**: Bootstrap now catches and displays failures with readable error UI\n\n## Before/After\n\n```typescript\n// Before - MSW only in development\nif (process.env.NODE_ENV === 'development') {\n  await startMockServer();\n}\nawait initClient();\n\n// After - MSW always active, with error handling\nawait startMockServer();\nawait initClient();\n// ...\n.catch(err => {\n  console.error(\"FATAL: Application failed to start\", err);\n  document.body.innerHTML = `<div style=\"color:red; padding: 20px;\">...`;\n});\n```\n\nBoth examples now use identical pattern: Browser → MSW Service Worker → ObjectStack Kernel (in-memory) → InMemoryDriver\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> examples参考 todo-app， 把 crm-app改为msw加载模式，以便在前端调试和测试API\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

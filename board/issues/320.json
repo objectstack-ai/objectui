@@ -1,0 +1,37 @@
+{
+  "number": 320,
+  "kind": "pull_request",
+  "title": "Fix orphaned JSX causing TypeScript build failure in MasterDetailField",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-01T21:57:40Z",
+  "updated_at": "2026-02-02T01:06:36Z",
+  "closed_at": "2026-02-02T00:58:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-02T00:58:31Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/320",
+  "body": "- [x] Investigate CI build and test failures\n- [x] Fix TypeScript error in console mocks (QueryInput structure)\n- [x] Fix plugin-timeline test configuration\n- [x] Verify all builds pass\n- [x] Verify all tests pass\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21570371850/job/62148472380#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

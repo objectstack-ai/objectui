@@ -1,0 +1,36 @@
+{
+  "number": 177,
+  "kind": "pull_request",
+  "title": "[WIP] Fix action job failure in CI pipeline",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-24T06:07:44Z",
+  "updated_at": "2026-01-24T06:22:08Z",
+  "closed_at": "2026-01-24T06:19:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-24T06:19:29Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/177",
+  "body": "## Fix ObjectTable selectable property to preserve string values\n\n- [x] Investigate CI failure in workflow run 21310408055\n- [x] Identify the failing test: ObjectTable \"should support row selection for bulk operations\"\n- [x] Root cause analysis: ObjectTable.tsx line 195 converts `selectable` to boolean instead of preserving the string value\n- [x] Fix ObjectTable.tsx to pass through selectable value correctly\n- [x] Update DataTableSchema type to support 'single'/'multiple' modes for type consistency\n- [x] Run tests locally to verify the fix - all 309 tests pass\n- [x] Code review - no issues found\n- [x] Security scan with CodeQL - no vulnerabilities found\n\n## Summary\n\nFixed a bug where the `selectable` property in ObjectTable was being converted to boolean instead of preserving its original value (`'single'` or `'multiple'`). This caused test failures because the data-table component expected to receive the string value.\n\n**Changes made:**\n1. **ObjectTable.tsx**: Changed line 195 from `selectable: !!schema.selectable` to `selectable: schema.selectable` to preserve the original value\n2. **data-display.ts**: Updated DataTableSchema.selectable type to `boolean | 'single' | 'multiple'` for type consistency\n\n**Security Summary:** No vulnerabilities found in the changes.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21310408055/job/61345782331#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

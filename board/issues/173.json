@@ -1,0 +1,36 @@
+{
+  "number": 173,
+  "kind": "pull_request",
+  "title": "Add documentation and demos for AG Grid plugin",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-24T02:23:18Z",
+  "updated_at": "2026-01-24T03:37:06Z",
+  "closed_at": "2026-01-24T03:32:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-24T03:32:14Z",
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/173",
+  "body": "## Summary: Add AG Grid Documentation and Interactive Demos ✅\n\nSuccessfully added comprehensive documentation for the `@object-ui/plugin-aggrid` plugin with 8 interactive demos.\n\n### Completed Tasks\n- [x] Understand repository structure and existing ag-grid implementation\n- [x] Create `/content/docs/plugins/plugin-aggrid.mdx` with interactive demos\n- [x] Update `/content/docs/plugins/meta.json` to include plugin-aggrid\n- [x] Add plugin-aggrid to site package.json dependencies\n- [x] Import plugin-aggrid in InteractiveDemo component\n- [x] **Fix AG Grid styles not loading in Next.js** (CSS export + root layout import)\n- [x] Verify all demos render with proper styling\n\n### Changes Made\n\n**Documentation Created:**\n- `/content/docs/plugins/plugin-aggrid.mdx` - Complete documentation with 8 interactive demos\n\n**Site Integration:**\n- Updated navigation (`meta.json`) to add plugin-aggrid\n- Added dependency to site's `package.json`\n- Updated `InteractiveDemo.tsx` to import aggrid plugin\n\n**Bug Fix - AG Grid Styles:**\n- **Problem**: CSS files from node_modules weren't being bundled when imported inside lazy-loaded components in Vite library mode\n- **Solution**: \n  1. Moved AG Grid CSS imports from lazy component (`AgGridImpl.tsx`) to entry point (`index.tsx`)\n  2. Added CSS export in `package.json` exports field (`\"./style.css\": \"./dist/index.css\"`)\n  3. Imported CSS in root layout (`apps/site/app/layout.tsx`)\n- **Result**: All AG Grid themes now render correctly with complete professional styling\n\n### Files Changed\n- `packages/plugin-aggrid/src/index.tsx` - Added CSS imports at entry point\n- `packages/plugin-aggrid/src/AgGridImpl.tsx` - Removed CSS imports from lazy component\n- `packages/plugin-aggrid/package.json` - Added `\"./style.css\"` export to make CSS importable\n- `apps/site/app/layout.tsx` - Import AG Grid CSS globally in root layout\n- `content/docs/plugins/plugin-aggrid.mdx` - New documentation file\n- `content/docs/plugins/meta.json` - Added plugin to navigation\n- `apps/site/package.json` - Added dependency\n- `apps/site/app/components/InteractiveDemo.tsx` - Import aggrid plugin\n\n### Screenshot - All Grids Fully Styled ✅\n![AG Grid with Full Styling](https://github.com/user-attachments/assets/c11260e4-2710-4449-b383-42fbc51731f8)\n\nAll 7 interactive demos now render with complete AG Grid styling:\n- ✅ Proper grid borders, headers, and cell formatting\n- ✅ Theme-specific styles (Quartz, Alpine, Balham, Material)\n- ✅ Pagination controls fully styled\n- ✅ Sort/filter indicators visible\n- ✅ Row selection checkboxes styled correctly\n- ✅ Professional data grid appearance matching AG Grid design\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> aggrid应补充到文档并添加演示\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

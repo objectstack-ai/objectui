@@ -1,0 +1,33 @@
+{
+  "number": 380,
+  "kind": "pull_request",
+  "title": "Add test coverage, stories, and console demos for ListView/DetailView plugins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-03T21:21:24Z",
+  "updated_at": "2026-02-03T22:53:08Z",
+  "closed_at": "2026-02-03T22:41:53Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-03T22:41:53Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/380",
+  "body": "Completes testing and documentation for PR #379 (ListView, DetailView plugins + enhanced Dashboard/Kanban/Chatbot).\n\n## Code Quality\n- Removed 9 unused imports/variables flagged by code scanning across `plugin-detail` and `plugin-list`\n\n## Test Coverage (66+ tests)\nAdded comprehensive test suites:\n- **ListView**: Persistence, search, filtering, view switching\n- **DetailView**: Sections, tabs, related lists, loading states\n- **ChatbotEnhanced**: Markdown rendering, code highlighting, file upload, streaming\n- **DashboardGridLayout**: Edit mode, layout persistence, drag/resize\n- **KanbanEnhanced**: Virtual scrolling, column limits, collapse, drag & drop\n\n## Storybook (25+ stories)\nCreated stories demonstrating key features:\n- ListView variants: Grid, Kanban, Calendar, Chart views\n- DetailView variants: Sections, tabs, related data\n- Enhanced features: Markdown chat, grid layouts, virtual scrolling, column limits\n\nExample ListView story:\n```tsx\nexport const ContactsGrid: Story = {\n  args: {\n    type: 'list-view',\n    objectName: 'contacts',\n    viewType: 'grid',\n    fields: ['name', 'email', 'phone', 'company'],\n    sort: [{ field: 'name', order: 'asc' }],\n  }\n};\n```\n\n## Console Integration\n- Registered `@object-ui/plugin-list` and `@object-ui/plugin-detail` \n- Added demo pages to kitchen-sink example with navigation\n\n## Security\nCodeQL scan clean, no vulnerabilities introduced.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/379\n> \n> 更新测试用例，story，相关文档，console\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

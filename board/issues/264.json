@@ -1,0 +1,37 @@
+{
+  "number": 264,
+  "kind": "pull_request",
+  "title": "Integrate MSW plugin runtime mode into Storybook",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-29T12:48:19Z",
+  "updated_at": "2026-01-29T16:25:22Z",
+  "closed_at": "2026-01-29T16:25:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-29T16:25:00Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/264",
+  "body": "Integrates the MSW (Mock Service Worker) plugin runtime from `app-crm` into Storybook, enabling ObjectGrid and ObjectForm stories to fetch data from a fully-initialized ObjectStack kernel instead of using static fixtures.\n\n## Changes\n\n### MSW Runtime Setup\n- **`.storybook/msw-browser.ts`**: ObjectStack kernel initialization with ObjectQLPlugin, DriverPlugin, AppPlugin, and MSWPlugin. Seeds CRM data (contacts, opportunities) from manifest.\n- **`.storybook/preview.ts`**: Starts MSW runtime on Storybook initialization\n- **`.storybook/datasource.ts`**: Factory function for ObjectStackAdapter connecting to `/api/v1`\n\n### Story Updates\n- **`object-grid.stories.tsx`**: Added `ContactsGrid` and `OpportunitiesGrid` using `provider: \"object\"` data configuration\n- **`object-form.stories.tsx`**: Added `ContactForm` and `OpportunityForm` \n\n### Configuration\n- Added ObjectStack runtime dependencies: `@objectstack/core`, `@objectstack/driver-memory`, `@objectstack/objectql`, `@objectstack/runtime`\n- Vite aliases for `@storybook-config` and `@object-ui/data-objectstack` resolution\n\n## Example\n\n```tsx\n// Stories now use MSW-backed DataSource instead of static data\nconst dataSource = createStorybookDataSource();\n\nexport const ContactsGrid: Story = {\n  render: (args) => (\n    <SchemaRendererProvider dataSource={dataSource}>\n      <SchemaRenderer schema={args} />\n    </SchemaRendererProvider>\n  ),\n  args: {\n    type: 'object-grid',\n    objectName: 'contact',\n    data: {\n      provider: 'object',\n      object: 'contact',\n    },\n  },\n};\n```\n\n## Screenshot\n\n![Storybook with MSW Integration](https://github.com/user-attachments/assets/1e150f51-3b52-464e-929c-1f75b3b1e81d)\n\nNew stories with MSW-backed data sources visible in sidebar. Data configuration shows `provider: \"object\"` indicating runtime integration.\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `storybook.js.org`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/node_modules/.bin/../storybook/bin/index.cjs dev -p 6006 bjectStackServer gin-timeline/package.json ndor/bin/git` (dns block)\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/node_modules/.bin/../storybook/bin/index.cjs dev -p 6006 bjectStackServerOUTPUT lds/package.json-d p/bin/git` (dns block)\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/node_modules/.bin/../storybook/bin/index.cjs dev -p 6006` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 将app-crm中的msw插件运行模式集成到storybook中，并对应修改objectgrid ，objectform story\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

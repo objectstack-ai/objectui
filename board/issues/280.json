@@ -1,0 +1,33 @@
+{
+  "number": 280,
+  "kind": "pull_request",
+  "title": "Fix SELECT * incorrectly included in aggregation-only queries",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-30T10:31:29Z",
+  "updated_at": "2026-01-30T11:31:43Z",
+  "closed_at": "2026-01-30T11:29:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-30T11:29:31Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/280",
+  "body": "The QueryASTBuilder was generating invalid AST by including a wildcard field (`SELECT *`) in queries that specified only aggregations without explicit fields. This is semantically incorrect—aggregation queries should select only the aggregated values.\n\n## Changes\n\n- Modified `buildSelect()` to exclude the wildcard field when aggregations are present but no explicit fields are specified\n- Changed condition from `else` to `else if (!query.aggregations || query.aggregations.length === 0)`\n\n## Before/After\n\n```typescript\n// Query with only aggregations\nconst query = {\n  object: 'orders',\n  aggregations: [\n    { function: 'count', alias: 'total_count' },\n    { function: 'sum', field: 'amount', alias: 'total_amount' }\n  ]\n};\n\n// Before: ast.select.fields = [{ type: 'field', name: '*' }, ...2 aggregations] ❌\n// After:  ast.select.fields = [...2 aggregations] ✅\n```\n\nThis aligns the AST generation with standard SQL semantics where `SELECT COUNT(*), SUM(amount)` does not include an additional wildcard field.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21512259815/job/61983227116#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

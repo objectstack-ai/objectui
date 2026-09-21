@@ -1,0 +1,33 @@
+{
+  "number": 164,
+  "kind": "pull_request",
+  "title": "Remove duplicate navigation in DocsLayout sidebar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T11:58:25Z",
+  "updated_at": "2026-01-23T12:19:38Z",
+  "closed_at": "2026-01-23T12:16:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T12:16:52Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/164",
+  "body": "Documentation sidebar was rendering navigation links twice. The `links` prop on `DocsLayout` generates top navbar items, not sidebar navigation—sidebar comes from the `tree` prop (pageTree).\n\n## Changes\n\n- **apps/site/app/docs/layout.tsx**: Removed `links` prop from `DocsLayout`\n  - Navigation now derives exclusively from `tree={source.pageTree}`\n  - Keeps `nav` prop for logo/branding only\n\n**Before:**\n```tsx\n<DocsLayout \n  tree={source.pageTree} \n  nav={{ title: <Logo />, url: '/' }}\n  links={[...]} // Creates duplicate navigation in sidebar\n>\n```\n\n**After:**\n```tsx\n<DocsLayout \n  tree={source.pageTree} \n  nav={{ title: <Logo />, url: '/' }}\n>\n```\n\n## Screenshots\n\n**Before (duplicate navigation):**\n![image](https://github.com/user-attachments/assets/383f9cbe-c7d9-4c91-9e2f-d1d5ef603ae2)\n\n**After (single navigation):**\n![image](https://github.com/user-attachments/assets/27ee84ef-29e1-4462-bd52-7999cf9f8bf0)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 审核顶部导航控件是否符合fumadocs规范，电脑端好像目前显示了两个导航\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 235,
+  "kind": "pull_request",
+  "title": "Fix build failures: unused parameters, AG Grid type conflicts, and sidebar prerendering",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T10:56:49Z",
+  "updated_at": "2026-01-27T11:16:40Z",
+  "closed_at": "2026-01-27T11:13:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T11:13:31Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/235",
+  "body": "Build was failing with TypeScript errors in components and plugin-aggrid packages, plus Next.js prerendering errors on sidebar documentation page.\n\n## Changes\n\n- **Unused parameters (TS6133)**: Removed unused rest parameters in `SimpleTableRenderer` and `PlaceholderRenderer` destructuring patterns\n\n- **AG Grid type conflicts (TS2322, TS2769)**: \n  - Aligned `ag-grid-community` and `ag-grid-react` to matching v32.3.9 (was v35.0.1 and v32.3.4)\n  - Removed explicit `GridOptions` type annotation in `mergedGridOptions` to allow inference\n\n- **Sidebar prerendering**: Wrapped all MDX demo schemas with `sidebar-provider` component. The `Sidebar` component uses `useSidebar()` hook which requires context:\n\n```tsx\n// Before (missing provider)\n<ComponentDemo schema={{ type: 'sidebar', items: [...] }} />\n\n// After (with required provider)\n<ComponentDemo schema={{\n  type: 'sidebar-provider',\n  body: [\n    { type: 'sidebar', body: [...] },\n    { type: 'sidebar-inset', body: [...] }\n  ]\n}} />\n```\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build git e/no\u0004\u0018 get --global ponents/node_modules/.bin/vite pull.rebase` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/234\n> \n> 18:53:11.685 ../../packages/components build: \u001b[96msrc/renderers/data-display/table.tsx\u001b[0m:\u001b[93m22\u001b[0m:\u001b[93m61\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS6133: \u001b[0m'_props' is declared but its value is never read.\n> 18:53:11.686 ../../packages/components build: \u001b[96msrc/renderers/placeholders.tsx\u001b[0m:\u001b[93m14\u001b[0m:\u001b[93m61\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS6133: \u001b[0m'props' is declared but its value is never read.\n> 18:53:23.379 ../../packages/plugin-aggrid build: \u001b[96msrc/AgGridImpl.tsx\u001b[0m:\u001b[93m226\u001b[0m:\u001b[93m9\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2322: \u001b[0mType '{ pagination: boolean; paginationPageSize: number; domLayout: \"normal\" | \"autoHeight\" | \"print\"; animateRows: boolean; rowSelection: \"single\" | \"multiple\" | undefined; editType: \"fullRow\" | undefined; ... 437 more ...; onSortChanged?(event: SortChangedEvent<...>): void; }' is not assignable to type 'GridOptions<any>'.\n> 18:53:23.382 ../../packages/plugin-aggrid build: \u001b[96msrc/AgGridImpl.tsx\u001b[0m:\u001b[93m307\u001b[0m:\u001b[93m10\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2769: \u001b[0mNo overload matches this call.\n> 18:54:37.564 Error occurred prerendering page \"/docs/components/basic/sidebar\". Read more: https://nextjs.org/docs/messages/prerender-error\n> 18:54:37.567 Error: useSidebar must be used within a SidebarProvider.\n> 18:54:37.568     at Tt (.next/server/chunks/ssr/_3f0f8b0f._.js:77:57878)\n> 18:54:37.568     at Tv (.next/server/chunks/ssr/_3f0f8b0f._.js:77:59328) {\n> 18:54:37.568   digest: '2237064002'\n> 18:54:37.568 }\n> 18:54:37.569 Export encountered an error on /docs/[[...slug]]/page: /docs/components/basic/sidebar, exiting the build.\n> 18:54:37.720  ELIFECYCLE  Command failed with exit code 1.\n> 18:54:37.752 Error: Command \"pnpm --filter '../../packages/*' -r build && pnpm build\" exited with 1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

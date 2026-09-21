@@ -1,0 +1,40 @@
+{
+  "number": 400,
+  "kind": "pull_request",
+  "title": "feat: Q1 2026 Roadmap — i18n package, test infrastructure, perf utilities, quick-start guide",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "documentation",
+    "package: core",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-08T15:38:25Z",
+  "updated_at": "2026-02-09T01:16:31Z",
+  "closed_at": "2026-02-09T01:10:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-09T01:10:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/400",
+  "body": "Implements the Q1 2026 roadmap items: i18n support, test system enhancement, performance optimization, and documentation upgrade.\n\n### `@object-ui/i18n` — new package\n- i18next-based with `I18nProvider`, `useObjectTranslation` hook, `createI18n` factory\n- 10 built-in locale packs: `en`, `zh`, `ja`, `ko`, `de`, `fr`, `es`, `pt`, `ru`, `ar`\n- RTL support (`isRTL()`, `getDirection()`, auto `document.dir` updates)\n- Intl-based formatting: `formatDate`, `formatDateTime`, `formatRelativeTime`, `formatCurrency`, `formatNumber`\n- 32 tests\n\n```tsx\nimport { I18nProvider, useObjectTranslation } from '@object-ui/i18n';\n\n<I18nProvider config={{ defaultLanguage: 'zh' }}>\n  <App />\n</I18nProvider>\n\n// In components:\nconst { t, language, changeLanguage, direction } = useObjectTranslation();\n```\n\n### Test system enhancement\n- Playwright E2E config (`playwright.config.ts`) with Chromium/Firefox/WebKit/mobile projects\n- Smoke test suite (`e2e/smoke.spec.ts`)\n- 56 new core unit tests covering previously untested modules:\n  - `SchemaBuilder` (27) — all 7 builder types\n  - `SchemaValidator` (15) — validate, assert, isValid, formatErrors\n  - `ExpressionContext` (14) — scopes, dot notation, child contexts\n\n### Performance utilities\n- `createLazyPlugin()` enhanced with configurable retry logic and `PluginErrorBoundary`\n- New `preloadPlugin()` for anticipatory module loading\n\n```tsx\nconst Grid = createLazyPlugin(() => import('@object-ui/plugin-grid'), {\n  retries: 3,\n  errorFallback: ({ error, retry }) => <button onClick={retry}>Retry</button>,\n});\n\n// Preload on hover\n<button onMouseEnter={() => preloadPlugin(() => import('@object-ui/plugin-grid'))}>\n```\n\n### Documentation\n- 5-minute quick start guide (`content/docs/guide/quick-start.md`), added as first entry in guide nav\n\n### Housekeeping\n- `vitest.config.mts`: added `@object-ui/i18n` alias, excluded `**/e2e/**`\n- `.gitignore`: added `test-results/`, `playwright-report/`\n- `ROADMAP.md`: checked off completed Q1 items\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

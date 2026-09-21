@@ -1,0 +1,33 @@
+{
+  "number": 227,
+  "kind": "pull_request",
+  "title": "Fix TypeScript build errors in plugin packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T07:33:07Z",
+  "updated_at": "2026-01-27T07:52:22Z",
+  "closed_at": "2026-01-27T07:47:18Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T07:47:18Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/227",
+  "body": "CI build failing with TypeScript errors in three plugin packages: implicit `any` types and composite project configuration issues preventing workspace dependency imports.\n\n## Changes\n\n- **plugin-chatbot**: Add type annotation to ComponentRegistry callback props\n  ```typescript\n  ComponentRegistry.register('chatbot', \n    ({ schema, className, ...props }: { schema: ChatbotSchema; className?: string; [key: string]: any }) => {\n  ```\n\n- **plugin-charts**: Fix type narrowing with intermediate variable, use `ChartConfig` type\n  ```typescript\n  const newConfig: ChartConfig = {};\n  series.forEach((s: any, idx: number) => {\n    newConfig[s.dataKey] = { label: s.dataKey, color: colors[idx % colors.length] };\n  });\n  config = newConfig;\n  ```\n\n- **plugin-dashboard**: Add `DashboardWidgetSchema` type annotation to map callback\n\n- **plugin-dashboard/tsconfig.json**: Remove implicit `rootDir` constraint to allow workspace dependency imports (matches pattern in other plugins)\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21388440836/job/61569548628#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

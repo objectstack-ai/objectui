@@ -1,0 +1,33 @@
+{
+  "number": 197,
+  "kind": "pull_request",
+  "title": "Fix null/undefined handling in ObjectGrid column normalization",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-26T01:09:58Z",
+  "updated_at": "2026-01-26T03:27:33Z",
+  "closed_at": "2026-01-26T03:24:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-26T03:24:34Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/197",
+  "body": "React error #185 (invalid element type) occurred when ObjectGrid's column normalization logic accessed properties on null/undefined array elements or column objects without proper guards.\n\n## Changes\n\n**`normalizeColumns` function**\n- Check `columns[0] !== null` before `typeof` comparison\n- Return early for empty arrays\n\n**`generateColumns` callback**\n- Filter invalid columns before mapping: `col?.field && typeof col.field === 'string'`\n- Filter invalid field names: `typeof fieldName === 'string' && fieldName.trim().length > 0`\n\n## Example of Previously Failing Case\n\n```tsx\n// This would crash before the fix\n<ObjectGrid \n  schema={{\n    type: 'object-grid',\n    columns: [\n      { field: 'name', label: 'Name' },\n      null,  // Invalid element\n      { label: 'Email' }  // Missing 'field' property\n    ],\n    staticData: [...]\n  }}\n/>\n```\n\nThe fix filters out invalid entries before property access, preventing runtime errors while maintaining backward compatibility.\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 3622899342baa9ef.js?dpl=dpl_7s2jNeLMHBR1FfRvMJawhJrvsnUh:1 Uncaught Error: Minified React error #185; visit https://react.dev/errors/185 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n>     at rm (3622899342baa9ef.js?dpl=dpl_7s2jNeLMHBR1FfRvMJawhJrvsnUh:1:42422)\n>     at rf (3622899342baa9ef.js?dpl=dpl_7s2jNeLMHBR1FfRvMJawhJrvsnUh:1:41946)\n>     at ov (3622899342baa9ef.js?dpl=dpl_7s2jNeLMHBR1FfRvMJawhJrvsnUh:1:74646)\n>     at og (3622899342baa9ef.js?dpl=dpl_7s2jNeLMHBR1FfRvMJawhJrvsnUh:1:74249)\n>     at eS (b805955a28c69baa.js?dpl=dpl_7s2jNeLMHBR1FfRvMJawhJrvsnUh:1:28095)\n>     at b805955a28c69baa.js?dpl=dpl_7s2jNeLMHBR1FfRvMJawhJrvsnUh:1:28179\n>     at Array.map (<anonymous>)\n>     at b805955a28c69baa.js?dpl=dpl_7s2jNeLMHBR1FfRvMJawhJrvsnUh:1:28165\n>     at eS (b805955a28c69baa.js?dpl=dpl_7s2jNeLMHBR1FfRvMJawhJrvsnUh:1:28095)\n>     at b805955a28c69baa.js?dpl=dpl_7s2jNeLMHBR1FfRvMJawhJrvsnUh:1:28179\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

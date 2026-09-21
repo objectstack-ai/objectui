@@ -1,0 +1,36 @@
+{
+  "number": 168,
+  "kind": "pull_request",
+  "title": "Add interactive JSON schema playground with live preview",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T15:01:37Z",
+  "updated_at": "2026-01-23T15:52:31Z",
+  "closed_at": "2026-01-23T15:50:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T15:50:07Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/168",
+  "body": "Adds `/playground` route for real-time JSON schema editing and component preview to help users learn the ObjectUI schema format.\n\n## Implementation\n\n**Core functionality:**\n- Monaco editor with JSON validation and auto-formatting\n- Live `SchemaRenderer` preview synchronized with editor state\n- Four example schemas (basic, form, dashboard, list) demonstrating common patterns\n- Theme-aware editor using `prefers-color-scheme` media query\n\n**Integration:**\n- New route at `/apps/site/app/playground/page.tsx`\n- Navigation links added to site header and homepage CTA\n- Wrapped in `ObjectUIProvider` for component registration\n- Dynamic Monaco import to avoid SSR hydration issues\n\n**Example schema format:**\n```json\n{\n  \"type\": \"div\",\n  \"className\": \"space-y-4\",\n  \"children\": [\n    {\n      \"type\": \"text\",\n      \"content\": \"Welcome to ObjectUI\",\n      \"className\": \"text-2xl font-bold\"\n    },\n    {\n      \"type\": \"button\",\n      \"variant\": \"default\",\n      \"label\": \"Click me\"\n    }\n  ]\n}\n```\n\n## Screenshots\n\n**Basic example with live preview:**\n![Playground interface](https://github.com/user-attachments/assets/242c1c27-c1e1-49e5-b64d-1fe131fc4911)\n\n**Dashboard example rendering:**\n![Dashboard preview](https://github.com/user-attachments/assets/73edbca6-2671-40ee-9da0-b8bed4c23ce2)\n\n## Dependencies\n\nAdded `@monaco-editor/react@^4.6.0` to site package for editor functionality.\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node /usr/local/bin/node /home/REDACTED/work/objectui/objectui/node_modules/.pnpm/next@16.1.4_@babel&#43;core@7.28.6_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/lib/start-server.js` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> site 新增 playground ，支持在线修改json schema并预览\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

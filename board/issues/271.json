@@ -1,0 +1,33 @@
+{
+  "number": 271,
+  "kind": "pull_request",
+  "title": "Fix Storybook test-runner config loading in ES module project",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-29T23:26:55Z",
+  "updated_at": "2026-01-30T00:03:37Z",
+  "closed_at": "2026-01-29T23:59:44Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-29T23:59:44Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/271",
+  "body": "Storybook test-runner fails with \"Must use import to load ES Module\" because it uses `require()` to load the config, but project has `\"type\": \"module\"` in `package.json`.\n\n## Changes\n\n- Renamed `.storybook/test-runner.ts` → `.storybook/test-runner.cjs`\n- Converted to CommonJS syntax: `module.exports` instead of `export default`\n- Replaced TypeScript type imports with JSDoc annotations\n\n```javascript\n// Before (test-runner.ts)\nimport type { TestRunnerConfig } from '@storybook/test-runner';\nexport default config;\n\n// After (test-runner.cjs)\n/** @type {import('@storybook/test-runner').TestRunnerConfig} */\nmodule.exports = { ... };\n```\n\nThe `.cjs` extension explicitly marks the file as CommonJS, allowing Jest to load it with `require()` regardless of project module type.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21488240044/job/61935699163#step:7:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

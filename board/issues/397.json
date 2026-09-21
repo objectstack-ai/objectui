@@ -1,0 +1,38 @@
+{
+  "number": 397,
+  "kind": "pull_request",
+  "title": "Fix console form infinite loading, duplicate data seeding, and non-grid view rendering",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-08T04:21:42Z",
+  "updated_at": "2026-02-08T08:39:41Z",
+  "closed_at": "2026-02-08T08:35:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-08T08:35:22Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/397",
+  "body": "- [x] Analyze the repository structure and understand the issue\n- [x] Identify root causes\n- [x] Fix ObjectForm null schema handling in `plugin-form/src/ObjectForm.tsx`\n- [x] Fix browser.ts double data seeding\n- [x] Fix PluginObjectView layout for non-grid view height chain\n- [x] Add regression test cases (11 tests)\n- [x] Run tests to validate changes (all pass)\n- [x] Fix CI build: remove unused imports in `ConsoleIssues.test.tsx` (TS6133)\n- [x] Fix CI tests: add missing vitest aliases for `@object-ui/types/zod` and `@object-ui/plugin-report`\n- [x] All 117 test files pass (2472 tests, 0 failures)\n- [x] Code review and security scan\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

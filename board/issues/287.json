@@ -1,0 +1,33 @@
+{
+  "number": 287,
+  "kind": "pull_request",
+  "title": "Reorganize schema documentation as standard platform features",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-30T16:21:21Z",
+  "updated_at": "2026-01-30T16:52:59Z",
+  "closed_at": "2026-01-30T16:49:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-30T16:49:08Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/287",
+  "body": "The schema reference documentation (`phase2-schemas.md`) was an internal summary document that emphasized version-specific language. It needed transformation into customer-facing documentation presenting schemas as standard platform features, with content properly distributed to individual schema files.\n\n## Changes\n\n**Individual schema documentation** - Added use case sections to schema reference files:\n- `app-schema.mdx` - Multi-page apps, admin dashboards, CRM systems, SaaS products\n- `theme-schema.mdx` - Brand consistency, white-labeling, accessibility, design systems\n- `enhanced-actions.mdx` - API integration, multi-step workflows, form submissions, batch operations\n- `report-schema.mdx` - Analytics dashboards, business intelligence, automated reporting, compliance\n\n**Schema overview** - Restructured and renamed `phase2-schemas.md` to `schema-overview.md`:\n- Updated title to \"Schema Overview\" \n- Removed version-specific language and \"Phase 2\" emphasis\n- Presented features as standard platform capabilities\n- Changed \"What's New in Phase 2?\" to \"Key Capabilities\"\n- Transformed \"Upgrading from Phase 1\" to \"Advanced Features\" and \"Getting Started\"\n- Expanded installation instructions (npm/pnpm/yarn)\n- Added complete CRM quick start example\n- Reorganized learning resources by type (documentation, API reference, examples)\n\n**Navigation** - Added `block-schema` to `blocks/meta.json` (was inaccessible in sidebar) and updated guide navigation to reference `schema-overview`\n\n## Example\n\nBefore, users saw only generic descriptions. Now each schema includes practical context:\n\n```markdown\n## Use Cases\n\nAppSchema is ideal for:\n- **Multi-page applications** - Configure complex application structures with multiple routes\n- **Admin dashboards** - Create comprehensive admin panels with role-based navigation\n- **CRM systems** - Build customer relationship management interfaces\n```\n\nThe overview now provides a complete quick start instead of just API references:\n\n```typescript\nconst app: AppSchema = {\n  type: 'app',\n  name: 'enterprise-crm',\n  title: 'Enterprise CRM',\n  layout: 'sidebar',\n  menu: [/* ... */],\n  actions: [/* ... */]\n};\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 整理文档，Phase 2 Schema Reference\n> Complete reference for ObjectUI Phase 2 schemas including App, Theme, Reports, Blocks, and Enhanced Actions，这个只是总结文档不像是面向客户的文档，其中的内容放到的fumadocs文档合适的段落中。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

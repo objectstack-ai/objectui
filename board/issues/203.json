@@ -1,0 +1,33 @@
+{
+  "number": 203,
+  "kind": "pull_request",
+  "title": "Extract calendar-view to plugin package",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-26T06:32:31Z",
+  "updated_at": "2026-01-26T08:38:10Z",
+  "closed_at": "2026-01-26T08:31:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-26T08:31:36Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/203",
+  "body": "Completes the extraction of complex business UI components from `@object-ui/components` into dedicated plugin packages. The `calendar-view` component (511 LOC, month/week/day views) doesn't belong in the core Shadcn primitives library.\n\n## Changes\n\n**New Plugin Package**: `@object-ui/plugin-calendar-view`\n- Component implementation with proper `@object-ui/components` imports\n- Schema renderer for ObjectUI integration (follows chatbot/timeline/kanban pattern)\n- Standard plugin structure: package.json, tsconfig.json, vite.config.ts\n\n**Core Components Cleanup**\n- Removed `calendar-view.tsx` from `packages/components/src/ui/`\n- Removed renderer from `packages/components/src/renderers/complex/`\n- Updated exports and test suite\n\n**Type Safety**\n- Proper view mode validation (`schema.view` supports `'agenda'` but component only handles `'month' | 'week' | 'day'`)\n- No type assertions\n\n## Migration Path\n\nSchema-based usage unchanged:\n```typescript\n// Still works - renderer handles imports\n{ type: 'calendar-view', view: 'month', data: [...] }\n```\n\nDirect imports need update:\n```typescript\n// Before\nimport { CalendarView } from '@object-ui/components';\n\n// After\nimport { CalendarView } from '@object-ui/plugin-calendar-view';\n```\n\n## Status\n\nCategory A (Complex Business UI) extraction complete:\n- ✅ `chatbot` → `@object-ui/plugin-chatbot`\n- ✅ `timeline` → `@object-ui/plugin-timeline`\n- ✅ `calendar-view` → `@object-ui/plugin-calendar-view`\n\nRemaining in core: Category B wrappers (combobox, date-picker, field, filter-builder, input-group, button-group) and Category C helpers (empty, spinner, kbd, item, toaster).\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build basename ct/n\u0004\u0018` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 继续完成剩余的任务\n> \n> # Role\n> Expert Frontend Architect & Refactoring Agent\n> \n> # Context\n> We are cleaning up the `packages/components` library in the `objectstack-ai/objectui` repository.\n> Our goal is to ensure `packages/components/src/ui` contains **ONLY** standard Shadcn UI primitives (as defined in `packages/components/shadcn-components.json`).\n> Any \"Business Component\" or \"Complex UI\" currently mixed in that folder needs to be extracted into its own plugin package.\n> \n> # Task 1: Audit & Discovery\n> 1. Read `packages/components/shadcn-components.json` to get the list of \"Standard Components\".\n> 2. List all `.tsx` files in `packages/components/src/ui/`.\n> 3. Compare the two lists. **Identify all files that exist in the folder but are NOT in the JSON.**\n> 4. Output this list of \"Non-Standard Components\".\n> \n> # Task 2: Strategy & Execution Plan\n> For each \"Non-Standard Component\" identified, categorize them:\n> - **Category A (Complex Business UI)**: e.g., `chatbot.tsx`, `timeline.tsx`, `calendar-view.tsx`. -> **Action**: Move to new package `packages/plugin-[name]`.\n> - **Category B (Custom Wrappers)**: e.g., `field.tsx`, `input-group.tsx`. -> **Action**: Mark for deprecation or keep for now (do not move yet).\n> - **Category C (Helpers)**: e.g., `empty.tsx`, `spinner.tsx`. -> **Action**: Keep in core.\n> \n> # Task 3: Refactoring (The Modification)\n> Please perform the actual refactoring for **Category A (Complex Business UI)** components found (specifically `chatbot` and `timeline` to start with):\n> \n> 1. **Create New Packages**:\n>    - Create folders: `packages/plugin-chatbot` and `packages/plugin-timeline`.\n>    - Initialize `package.json` for them (copy structure from `packages/plugin-kanban`, ensuring correct name and dependencies).\n>    - Ensure they depend on `@object-ui/components`.\n> \n> 2. **Move Files**:\n>    - Move `packages/components/src/ui/chatbot.tsx` -> `packages/plugin-chatbot/src/index.tsx`.\n>    - Move `packages/components/src/ui/timeline.tsx` -> `packages/plugin-timeline/src/index.tsx`.\n> \n> 3. **Fix Imports**:\n>    - In the moved files, update imports from relative path (e.g. `../ui/button`) to package import (e.g. `@object-ui/components`).\n> \n> 4. **Clean Up**:\n>    - Delete the original files from `packages/components/src/ui/`.\n>    - Remove their exports from `packages/components/src/ui/index.ts`.\n> \n> # Output\n> Please provide the shell commands to create the directories and move files, and the code content for the new `package.json` files and updated source files.\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

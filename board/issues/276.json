@@ -1,0 +1,33 @@
+{
+  "number": 276,
+  "kind": "pull_request",
+  "title": "Fix no-case-declarations ESLint error in plugin-aggrid",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-30T07:27:54Z",
+  "updated_at": "2026-01-30T09:39:46Z",
+  "closed_at": "2026-01-30T09:37:42Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-30T09:37:42Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/276",
+  "body": "CI failing on ESLint rule `no-case-declarations` in `ObjectAgGridImpl.tsx:553`.\n\n## Changes\n\nWrapped `case 'number':` block in braces to properly scope `const precision` declaration.\n\n```diff\n-    case 'number':\n+    case 'number': {\n       const precision = (field as any).precision;\n       if (precision !== undefined) {\n         colDef.valueFormatter = (params: any) => {\n           if (params.value == null) return '';\n           return Number(params.value).toFixed(precision);\n         };\n       }\n       break;\n+    }\n```\n\nLexical declarations in case blocks require braces per ESLint rules to prevent scope leakage across cases.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21507273920/job/61965996234#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

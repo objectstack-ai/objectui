@@ -1,0 +1,33 @@
+{
+  "number": 191,
+  "kind": "pull_request",
+  "title": "[WIP] Fix object grid application error",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-25T09:50:04Z",
+  "updated_at": "2026-01-25T10:03:35Z",
+  "closed_at": "2026-01-25T10:03:14Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-01-25T10:03:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/191",
+  "body": "## Fix Object Grid Documentation Page Error ✅\n\n**Problem:** The object grid documentation page was throwing a client-side exception: \"Maximum update depth exceeded\" causing an infinite re-render loop.\n\n**Root Causes Identified:**\n1. **SelectTrigger missing ref forwarding**: The `SelectTrigger` component in `packages/components/src/ui/select.tsx` wasn't using `React.forwardRef`, causing React ref callback issues and infinite re-render loops\n2. **Renderer wrappers passing null dataSource**: The view component renderers in `packages/views/src/index.tsx` were passing `null` as dataSource without validation\n\n**Changes Made:**\n- [x] Investigate the issue and identify root cause\n- [x] Fix `SelectTrigger` component to use `React.forwardRef` pattern (consistent with other UI components like Button)\n- [x] Improve ObjectGrid, ObjectForm, and ObjectView renderer wrappers to validate inline data before rendering\n- [x] Add helpful error messages for cases without staticData or dataSource\n- [x] Test the fix by restarting dev server with cleared cache\n- [x] Verify the page loads without errors\n- [x] Run code review (✅ No issues found)\n- [x] Run security checks (✅ No vulnerabilities found)\n- [x] Verify other pages still work correctly\n\n**Files Changed:**\n1. `packages/components/src/ui/select.tsx` - Added `React.forwardRef` to `SelectTrigger` component\n2. `packages/views/src/index.tsx` - Added validation for inline data in renderer wrappers\n\n**Before (Error State):**\n![Error Screenshot](https://github.com/user-attachments/assets/841b5781-e188-41bd-871a-d368c1ddaaaf)\n\n**After (Fixed):**\n![Working Screenshot](https://github.com/user-attachments/assets/b17d529d-b623-45a7-b248-b1dfb0df5c74)\n\n**Verification:**\n- ✅ Object grid documentation page loads successfully\n- ✅ All interactive demos render correctly\n- ✅ No console errors\n- ✅ Components page verified working\n- ✅ Code review passed with no issues\n- ✅ Security scan passed with no vulnerabilities\n\nThe object grid documentation page now loads successfully with all interactive demos working correctly!\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> object grid 文档页报错\n> \n> Application error: a client-side exception has occurred while loading objectui-site-3kw3pex54-object-stack.vercel.app (see the browser console for more information).\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

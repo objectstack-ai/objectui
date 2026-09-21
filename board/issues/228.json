@@ -1,0 +1,33 @@
+{
+  "number": 228,
+  "kind": "pull_request",
+  "title": "[WIP] Fix module not found error in Turbopack build",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T07:50:22Z",
+  "updated_at": "2026-01-27T07:59:23Z",
+  "closed_at": "2026-01-27T07:59:02Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T07:59:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/228",
+  "body": "## Fix Missing Dependency in @object-ui/fields Package\n\nThe build is failing because `@object-ui/fields` imports from `@object-ui/core` but doesn't declare it as a dependency.\n\n### Plan\n- [x] Analyze the issue - fields package imports ComponentRegistry from core but missing dependency\n- [x] Add `@object-ui/core` to dependencies in `packages/fields/package.json`\n- [x] Install dependencies to ensure proper resolution\n- [x] Rebuild the fields package to verify the fix\n- [x] Test the site build to confirm resolution\n- [x] Code review completed - no issues found\n- [x] Security scan completed - no vulnerabilities detected\n\n### Summary\nSuccessfully fixed the module resolution error by adding the missing `@object-ui/core` dependency to the `@object-ui/fields` package. The original build error \"Can't resolve '@object-ui/core'\" has been completely resolved.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 15:48:46.053 \n> 15:48:46.053 \n> > @objectui/site@0.0.0 build /vercel/path0/apps/site\n> 15:48:46.053 \n> > next build\n> 15:48:46.053 \n> 15:48:47.078 \n> [MDX] generated files in 16.646888999999987ms\n> 15:48:47.084 \n> ▲ Next.js 16.1.4 (Turbopack)\n> 15:48:47.085 \n> 15:48:47.118 \n>   Creating an optimized production build ...\n> 15:49:12.240 \n> 15:49:12.240 \n> > Build error occurred\n> 15:49:12.243 \n> Error: Turbopack build failed with 1 errors:\n> 15:49:12.243 \n> ./packages/fields/dist/index.js:4:1\n> 15:49:12.243 \n> Module not found: Can't resolve '@object-ui/core'\n> 15:49:12.244 \n>   2 | import { Textarea as q, Input as _, Checkbox as Ce, Label as re, Switch as Se, Select as Te, SelectTrigger as Fe, SelectValue as Ae, SelectContent as Oe, SelectItem as Pe, Badge as w, Dialog as $e, DialogTrigger as De, Button as W, DialogContent as Ue, DialogHeader as Ie, DialogTitle as Me, Avatar as Y, AvatarFallback as z } from \"@object-ui/components\";\n> 15:49:12.244 \n>   3 | import { X as he, Search as Le, Check as Ye } from \"lucide-react\";\n> 15:49:12.244 \n> > 4 | import { ComponentRegistry as x } from \"@object-ui/core\";\n> 15:49:12.244 \n>     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n> 15:49:12.244 \n>   5 | var A = { exports: {} }, C = {};\n> 15:49:12.244 \n>   6 | var te;\n> 15:49:12.244 \n>   7 | function ze() {\n> 15:49:12.244 \n> 15:49:12.244 \n> 15:49:12.244 \n> 15:49:12.244 \n> Import trace:\n> 15:49:12.244 \n>   Client Component Browser:\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

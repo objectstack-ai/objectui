@@ -1,0 +1,33 @@
+{
+  "number": 236,
+  "kind": "pull_request",
+  "title": "Fix: useSidebar hook throws during SSR/prerendering",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T11:17:09Z",
+  "updated_at": "2026-01-27T11:40:17Z",
+  "closed_at": "2026-01-27T11:37:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T11:37:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/236",
+  "body": "Next.js build fails when prerendering pages containing `header-bar` component. The `SidebarTrigger` calls `useSidebar()` which throws when no `SidebarProvider` exists in the context tree.\n\n## Changes\n\n- Modified `useSidebar()` to return safe defaults instead of throwing when provider is missing\n- Extracted `DEFAULT_SIDEBAR_STATE` constant for consistency\n\n## Implementation\n\n```typescript\n// Before: Hard failure during SSR\nfunction useSidebar() {\n  const context = React.useContext(SidebarContext)\n  if (!context) {\n    throw new Error(\"useSidebar must be used within a SidebarProvider.\")\n  }\n  return context\n}\n\n// After: Graceful degradation\nconst DEFAULT_SIDEBAR_STATE: SidebarContextProps = {\n  state: \"expanded\",\n  open: true,\n  setOpen: () => {},\n  // ... other no-op defaults\n}\n\nfunction useSidebar() {\n  const context = React.useContext(SidebarContext)\n  return context ?? DEFAULT_SIDEBAR_STATE\n}\n```\n\nThis allows components using sidebar hooks to render during static generation while maintaining full functionality when wrapped in a provider.\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/234\n> \n> \n> 19:14:54.168 \n> 19:14:54.202 \n>   Creating an optimized production build ...\n> 19:15:19.702 \n> ✓ Compiled successfully in 25.1s\n> 19:15:19.703 \n>   Running TypeScript ...\n> 19:15:24.379 \n>   Collecting page data using 3 workers ...\n> 19:15:25.305 \n>   Generating static pages using 3 workers (0/307) ...\n> 19:15:25.848 \n> Component type \"toggle-group\" is already registered. Overwriting.\n> 19:15:25.849 \n> Component type \"table\" is already registered. Overwriting.\n> 19:15:25.880 \n> Component type \"toggle-group\" is already registered. Overwriting.\n> 19:15:25.881 \n> Component type \"table\" is already registered. Overwriting.\n> 19:15:26.122 \n>   Generating static pages using 3 workers (76/307) \r\n> 19:15:28.423 \n>   Generating static pages using 3 workers (153/307) \r\n> 19:15:30.079 \n> Error occurred prerendering page \"/docs/components/navigation/header-bar\". Read more: https://nextjs.org/docs/messages/prerender-error\n> 19:15:30.082 \n> Error: useSidebar must be used within a SidebarProvider.\n> 19:15:30.082 \n>     at Tt (.next/server/chunks/ssr/_3f0f8b0f._.js:77:57878)\n> 19:15:30.082 \n>     at <unknown> (.next/server/chunks/ssr/_3f0f8b0f._.js:77:61519) {\n> 19:15:30.082 \n>   digest: '4175081625'\n> 19:15:30.083 \n> }\n> 19:15:30.083 \n> Export encountered an error on /docs/[[...slug]]/page: /docs/components/navigation/header-bar, exiting the build.\n> 19:15:30.135 \n> ⨯ Next.js build worker exited with code: 1 and signal: null\n> 19:15:30.246 \n>  ELIFECYCLE  Command failed with exit code 1.\n> 19:15:30.269 \n> Error: Command \"pnpm --filter '../../packages/*' -r build && pnpm build\" exited with 1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

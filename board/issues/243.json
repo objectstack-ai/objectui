@@ -1,0 +1,37 @@
+{
+  "number": 243,
+  "kind": "pull_request",
+  "title": "Implement missing field type components per ObjectStack spec with documentation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "examples"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T14:39:02Z",
+  "updated_at": "2026-01-28T03:44:08Z",
+  "closed_at": "2026-01-28T03:44:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-28T03:44:08Z",
+  "comments": 24,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/243",
+  "body": "## Implementation Plan: Field Type Components ✅ COMPLETE\n\n### Task Summary\nImplement field type components according to ObjectStack spec protocol using basic components.\n\n### Field Type Analysis\nBased on `packages/types/src/field-types.ts`, all field types are now implemented:\n\n**Already Implemented (12):**\n- [x] Text (TextField) - with docs ✅ wrapped for docs\n- [x] Textarea (TextAreaField) - with docs ✅ wrapped for docs\n- [x] Number (NumberField) - with docs ✅ wrapped for docs\n- [x] Currency (CurrencyField) - with docs ✅ wrapped for docs\n- [x] Boolean (BooleanField) - with docs ✅ wrapped for docs\n- [x] Date (DateField) - with docs ✅ wrapped for docs\n- [x] Select (SelectField) - with docs ✅ wrapped for docs ✅ dropdown fixed\n- [x] Email (EmailField) - with docs ✅ wrapped for docs\n- [x] Phone (PhoneField) - with docs ✅ wrapped for docs\n- [x] Url (UrlField) - with docs ✅ wrapped for docs\n- [x] Lookup/MasterDetail (LookupField) - with docs ✅ wrapped for docs\n- [x] Markdown/HTML (RichTextField) - with docs ✅ wrapped for docs\n\n**Newly Implemented (14):**\n- [x] DateTime (DateTimeField) ✅ with docs (properly registered)\n- [x] Time (TimeField) ✅ with docs (properly registered)\n- [x] Percent (PercentField) ✅ with docs (properly registered)\n- [x] Password (PasswordField) ✅ with docs (properly registered)\n- [x] File (FileField) ✅ with docs (properly registered)\n- [x] Image (ImageField) ✅ with docs (properly registered)\n- [x] Location (LocationField) ✅ with docs (properly registered)\n- [x] Formula (FormulaField) ✅ with docs (properly registered)\n- [x] Summary (SummaryField) ✅ with docs (properly registered)\n- [x] AutoNumber (AutoNumberField) ✅ with docs (properly registered)\n- [x] User/Owner (UserField) ✅ with docs (properly registered)\n- [x] Object (ObjectField) ✅ with docs (properly registered)\n- [x] Vector (VectorField) ✅ with docs (properly registered)\n- [x] Grid (GridField) ✅ with docs (properly registered)\n\n### Implementation Checklist\n- [x] Create 14 new field widget components\n- [x] Update index.tsx with all imports and registrations\n- [x] Register all field types in ComponentRegistry\n- [x] Add field: prefix registrations for explicit usage\n- [x] Address code review feedback\n- [x] Create comprehensive documentation\n- [x] Create example schema demonstrating all types\n- [x] Create documentation pages for all 14 new field types\n- [x] Update meta.json to include all 26 field types\n- [x] Address documentation review feedback\n- [x] Register field renderers with proper wrappers\n- [x] Fix module not found error\n- [x] Fix client-side React errors\n- [x] Wrap ALL field types for documentation\n- [x] Fix dropdown positioning issues\n- [x] Import component styles in fields package\n- [x] **Fix CSS import path for build** ✅\n- [x] Build and verify package\n\n### CSS Import Path Fix\nFixed the build error where vite couldn't resolve the CSS import:\n\n**Problem**: The CSS import used `@import '@object-ui/components/src/index.css'` which tried to import from the source directory, but the `@object-ui/components` package doesn't export that path in its package.json exports.\n\n**Root Cause**: The components package exports CSS via `./style.css` which points to the built `./dist/index.css` file, not the source file.\n\n**Solution**:\nChanged the import in `packages/fields/src/index.css` from:\n```css\n@import '@object-ui/components/src/index.css';\n```\n\nTo use the published export:\n```css\n@import '@object-ui/components/style.css';\n```\n\nNow the build correctly resolves the CSS import from the components package's published export, ensuring all Shadcn UI styles are included when the fields package is used.\n\n### Quality Checks\n✅ Package builds successfully without errors\n✅ Code review feedback addressed\n✅ CodeQL security scan: 0 vulnerabilities\n✅ CRM example app builds successfully\n✅ ALL 26 field types properly registered with wrappers\n✅ Comprehensive documentation created\n✅ All 26 field types have documentation pages\n✅ Documentation can use actual field type names\n✅ Field components properly wrapped for documentation display\n✅ Module resolution fixed - site can import fields package\n✅ Client-side React errors fixed - ALL components render without exceptions\n✅ Dropdown positioning fixed - SelectField shows menu in correct position\n✅ Styling fixed - Component styles properly imported via correct export path\n✅ Build verified - fields package compiles successfully\n\n### Files Added/Modified\n- **New Components** (14): DateTimeField, TimeField, PercentField, PasswordField, FileField, ImageField, LocationField, FormulaField, SummaryField, AutoNumberField, UserField, ObjectField, VectorField, GridField\n- **Updated**: packages/fields/src/index.tsx (import CSS, wrapped ALL field types)\n- **Updated**: packages/fields/src/widgets/SelectField.tsx (fixed dropdown positioning)\n- **Created**: packages/fields/src/index.css (import component styles via correct export)\n- **Updated**: packages/fields/package.json (added sideEffects and CSS export)\n- **Updated**: packages/fields/vite.config.ts (added path alias)\n- **Updated**: apps/site/app/components/ObjectUIProvider.tsx (calls registerFields)\n- **Updated**: apps/site/package.json (added @object-ui/fields dependency)\n- **Updated**: pnpm-lock.yaml (lockfile updated with new dependency)\n- **Documentation**: examples/FIELD_TYPES.md\n- **Example**: examples/field-types-example.ts\n- **Field Docs** (14): datetime.mdx, time.mdx, percent.mdx, password.mdx, file.mdx, image.mdx, location.mdx, formula.mdx, summary.mdx, auto-number.mdx, user.mdx, object.mdx, vector.mdx, grid.mdx\n- **Updated**: content/docs/fields/meta.json\n- **Improved**: vector.mdx, grid.mdx, object.mdx (clarity improvements)\n\n### Total Field Types Implemented\n**26 field types** covering all ObjectStack spec requirements with complete, accurate, and properly-styled documentation using actual field components - ALL wrapped for documentation compatibility with proper styling and successful builds\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 根据objectstack spec协议，使用基础组件，开发每一种字段类型的组件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 213,
+  "kind": "pull_request",
+  "title": "Verify non-standard component extraction and fix lockfile dependencies",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-26T08:37:16Z",
+  "updated_at": "2026-01-26T09:04:16Z",
+  "closed_at": "2026-01-26T08:59:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-26T08:59:51Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/213",
+  "body": "## Summary\n\nAudited `packages/components/src/ui` to ensure only standard Shadcn primitives remain. Complex business components (`chatbot`, `timeline`, `calendar-view`) were already extracted to plugin packages in prior work. This PR verifies the implementation and fixes dependency mismatches.\n\n## Verification Results\n\n**Components Properly Extracted:**\n- `chatbot.tsx` → `@object-ui/plugin-chatbot` \n- `timeline.tsx` → `@object-ui/plugin-timeline`\n- `calendar-view.tsx` → `@object-ui/plugin-calendar-view`\n\nAll use package imports (`@object-ui/components`) instead of relative paths. Exports removed from core index.\n\n**Non-Standard Components Remaining (Intentional):**\n- **Custom wrappers** (6): `button-group`, `combobox`, `date-picker`, `field`, `filter-builder`, `input-group`\n- **UI helpers** (5): `empty`, `item`, `kbd`, `spinner`, `toaster`\n\nThese are utility abstractions over Shadcn primitives, not business logic.\n\n## Changes\n\n- Updated `pnpm-lock.yaml` to resolve `@types/react` and `@types/react-dom` version mismatches in `plugin-calendar-view`\n\n## Build Status\n\n✓ All packages build successfully:\n- `@object-ui/components`\n- `@object-ui/plugin-chatbot`\n- `@object-ui/plugin-timeline`\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 继续执行\n> \n> # Role\n> Expert Frontend Architect & Refactoring Agent\n> \n> # Context\n> We are cleaning up the `packages/components` library in the `objectstack-ai/objectui` repository.\n> Our goal is to ensure `packages/components/src/ui` contains **ONLY** standard Shadcn UI primitives (as defined in `packages/components/shadcn-components.json`).\n> Any \"Business Component\" or \"Complex UI\" currently mixed in that folder needs to be extracted into its own plugin package.\n> \n> # Task 1: Audit & Discovery\n> 1. Read `packages/components/shadcn-components.json` to get the list of \"Standard Components\".\n> 2. List all `.tsx` files in `packages/components/src/ui/`.\n> 3. Compare the two lists. **Identify all files that exist in the folder but are NOT in the JSON.**\n> 4. Output this list of \"Non-Standard Components\".\n> \n> # Task 2: Strategy & Execution Plan\n> For each \"Non-Standard Component\" identified, categorize them:\n> - **Category A (Complex Business UI)**: e.g., `chatbot.tsx`, `timeline.tsx`, `calendar-view.tsx`. -> **Action**: Move to new package `packages/plugin-[name]`.\n> - **Category B (Custom Wrappers)**: e.g., `field.tsx`, `input-group.tsx`. -> **Action**: Mark for deprecation or keep for now (do not move yet).\n> - **Category C (Helpers)**: e.g., `empty.tsx`, `spinner.tsx`. -> **Action**: Keep in core.\n> \n> # Task 3: Refactoring (The Modification)\n> Please perform the actual refactoring for **Category A (Complex Business UI)** components found (specifically `chatbot` and `timeline` to start with):\n> \n> 1. **Create New Packages**:\n>    - Create folders: `packages/plugin-chatbot` and `packages/plugin-timeline`.\n>    - Initialize `package.json` for them (copy structure from `packages/plugin-kanban`, ensuring correct name and dependencies).\n>    - Ensure they depend on `@object-ui/components`.\n> \n> 2. **Move Files**:\n>    - Move `packages/components/src/ui/chatbot.tsx` -> `packages/plugin-chatbot/src/index.tsx`.\n>    - Move `packages/components/src/ui/timeline.tsx` -> `packages/plugin-timeline/src/index.tsx`.\n> \n> 3. **Fix Imports**:\n>    - In the moved files, update imports from relative path (e.g. `../ui/button`) to package import (e.g. `@object-ui/components`).\n> \n> 4. **Clean Up**:\n>    - Delete the original files from `packages/components/src/ui/`.\n>    - Remove their exports from `packages/components/src/ui/index.ts`.\n> \n> # Output\n> Please provide the shell commands to create the directories and move files, and the code content for the new `package.json` files and updated source files.\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

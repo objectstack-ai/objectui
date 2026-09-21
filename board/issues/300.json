@@ -1,0 +1,38 @@
+{
+  "number": 300,
+  "kind": "pull_request",
+  "title": "Add ObjectStack Spec v0.7.1 alignment analysis and implementation roadmap",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: core",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-31T10:12:54Z",
+  "updated_at": "2026-01-31T13:11:55Z",
+  "closed_at": "2026-01-31T13:07:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-31T13:07:12Z",
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/300",
+  "body": "Comprehensive analysis of all 26 packages against ObjectStack Spec v0.7.1. Current alignment: 80%. Identified critical gaps in window functions, validation framework, and action schema.\n\n## Analysis Results\n\n**Package Inventory**\n- 26 total packages, 4 using `@objectstack/*` dependencies\n- All on latest versions (spec ^0.7.1, client ^0.7.1)\n- Dependency impact mapped across types → core → react → components chain\n\n**Alignment Breakdown**\n- ✅ Field types: 100% (37 types including vector, grid, formula)\n- ✅ Filter operators: 110% (superset with date/search extensions)\n- ✅ Plugin system: 100%\n- ⚠️ Query operations: 70% (missing window functions, 3 aggregations)\n- ⚠️ View types: 80% (missing spreadsheet, gallery, timeline)\n- ❌ Validation: 20% (2 of 9 types)\n- ❌ Actions: 30% (missing locations, params, feedback)\n\n## Critical Gaps (P0)\n\n1. **Window Functions** - Enterprise analytics blocked\n   - Missing: `row_number`, `rank`, `lag`, `lead`, `first_value`, `last_value`\n   - Effort: 2 weeks\n\n2. **Validation Framework** - Only basic rules implemented\n   - Missing: ScriptValidation, UniquenessValidation, StateMachineValidation, CrossFieldValidation, AsyncValidation, ConditionalValidation, FormatValidation\n   - Effort: 2 weeks\n\n3. **Action Schema** - Basic buttons only\n   - Missing: location-based placement, parameter collection, auto-confirmation/feedback, conditional visibility\n   - Effort: 1 week\n\n## Documentation\n\n**OBJECTSTACK_SPEC_ALIGNMENT.md** (850 lines)\n- Type-by-type comparison with code examples\n- Implementation guide with AST patterns\n- 6-week roadmap (360 hours total)\n- Migration strategy v0.3.x → v0.4.x\n\n**OBJECTSTACK_SPEC_ALIGNMENT.zh-CN.md** (400 lines)\n- Chinese translation for stakeholder review\n\n**PACKAGE_SCAN_SUMMARY.md** (200 lines)\n- Quick reference with package dependency map\n\n**ALIGNMENT_SUMMARY.txt**\n- Visual dashboard for exec summary\n\n## Implementation Roadmap\n\nTarget: v0.4.0 with 95%+ spec compliance\n\n- **Weeks 1-2**: Window functions + validation framework (160h)\n- **Weeks 3-4**: Action schema + enhanced aggregations (120h)\n- **Weeks 5-6**: Missing view plugins + polish (80h)\n\nSuccess metrics: Type compatibility 80%→95%, Validation 20%→100%, Actions 30%→95%, Query features 70%→90%\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 扫描所有软件包，对照最新的objectstack spec 协议，安排完整的开发计划。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

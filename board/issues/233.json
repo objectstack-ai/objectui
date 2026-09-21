@@ -1,0 +1,36 @@
+{
+  "number": 233,
+  "kind": "pull_request",
+  "title": "Move plugin imports from global to per-page lazy loading",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T09:53:54Z",
+  "updated_at": "2026-01-27T10:43:50Z",
+  "closed_at": "2026-01-27T10:40:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T10:40:14Z",
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/233",
+  "body": "## Task: Move Plugin Imports from Global to Per-Page ✅\n\n### Status: COMPLETE - All Issues Resolved\n\n### Completed Tasks\n- [x] Understand current architecture and plugin loading mechanism\n- [x] Create a new `PluginLoader` component for lazy-loading plugins per page\n- [x] Update each plugin documentation page to import its specific plugin\n- [x] Remove global plugin imports from `InteractiveDemo.tsx`\n- [x] Add missing plugin-dashboard dependency to site package.json\n- [x] Fix PluginLoader to use truly dynamic imports (switch-case in useEffect)\n- [x] Fix code review issues (stray backtick, default case)\n- [x] Fix SSR hydration mismatch causing client-side exception\n- [x] Add cleanup function to prevent potential race conditions\n- [x] Verify code quality with automated reviews\n\n### Latest Improvement: Cleanup Function\n\nAdded proper cleanup pattern to `PluginLoader`:\n- Introduced `cancelled` flag to track component unmount\n- Prevents `setLoaded(true)` from being called after component unmounts\n- Returns cleanup function that sets `cancelled = true`\n- Follows React best practices for async operations in useEffect\n\n### All Changes Summary\n\n**File: `apps/site/app/components/PluginLoader.tsx` (NEW)**\n- Lazy-loads specific plugins on-demand\n- Proper SSR handling (no hydration mismatch)\n- Cleanup function prevents race conditions\n- Switch-case prevents bundler from including all plugins\n\n**File: `apps/site/app/components/InteractiveDemo.tsx`**\n- Removed 14 global plugin imports\n- Removed plugin loading state management\n- Simplified to render SchemaRenderer directly\n\n**Files: 12 plugin documentation pages**\n- Wrapped content with `<PluginLoader plugins={['plugin-name']}>`\n- Each page loads only its required plugin\n\n**File: `apps/site/package.json`**\n- Added missing `@object-ui/plugin-dashboard` dependency\n\n### Benefits\n\n✅ **Performance**: Plugins load only when needed  \n✅ **Bundle Size**: 14 fewer global imports  \n✅ **SSR Compatible**: No hydration mismatches  \n✅ **Race Condition Safe**: Proper cleanup on unmount  \n✅ **Type Safe**: TypeScript compilation ready\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 应该在对应的文档演示页引入插件代码和样式，而不应该在demo控件全局引入。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

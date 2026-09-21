@@ -1,0 +1,33 @@
+{
+  "number": 401,
+  "kind": "pull_request",
+  "title": "Upgrade @objectstack dependencies to v2.0.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-09T06:56:26Z",
+  "updated_at": "2026-02-09T07:33:26Z",
+  "closed_at": "2026-02-09T07:30:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-09T07:30:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/401",
+  "body": "Bumps all @objectstack packages from `^1.1.0` to `^2.0.0` (released 2026-02-09).\n\n### Scope\n\n**9 packages upgraded:**\n- `@objectstack/spec`, `@objectstack/cli`, `@objectstack/core`\n- `@objectstack/runtime`, `@objectstack/driver-memory`, `@objectstack/objectql`\n- `@objectstack/plugin-msw`, `@objectstack/plugin-hono-server`, `@objectstack/client`\n\n**14 files modified:**\n- Root + 3 core packages (types, core, react)\n- 4 plugins (gantt, map, timeline, data-objectstack)\n- Console app + 4 examples\n- Regenerated `pnpm-lock.yaml`\n\n### Compatibility\n\nNo breaking changes. Zero code modifications required. Full backward compatibility maintained.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> @objectstack 升级到最新版，并对应调整代码\n> \n> The user has attached the following file paths as relevant context:\n>  - .github/copilot-instructions.md\n>  - .github/copilot-instructions.md\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\nCreated from [VS Code](https://code.visualstudio.com/docs/copilot/copilot-coding-agent).\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

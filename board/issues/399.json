@@ -1,0 +1,33 @@
+{
+  "number": 399,
+  "kind": "pull_request",
+  "title": "docs: Add console development plan and roadmap",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-08T12:17:00Z",
+  "updated_at": "2026-02-08T14:08:43Z",
+  "closed_at": "2026-02-08T14:05:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-08T14:05:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/399",
+  "body": "Comprehensive development plan and roadmap for `apps/console` — the reference SDUI enterprise management frontend for ObjectStack.\n\n### `apps/console/CONSOLE_ROADMAP.md` (new)\n\n- **Architecture overview** — stack diagram, package dependency tree, component hierarchy\n- **Current state audit** (v0.5.1) — completed features and 8 identified gaps\n- **10 development phases** with task breakdowns and acceptance criteria:\n  - P1–P3 (Q1): Expression engine, action system, server-driven metadata API\n  - P4–P7 (Q2): i18n, RBAC, real-time updates, performance\n  - P8–P10 (Q3): PWA/offline, advanced features (import/export, drag-drop dashboards), enterprise features (audit trail, notifications)\n- **Milestone timeline**: Alpha v0.6.0 (Mar) → Beta v0.8.0 (Jun) → RC v0.9.0 (Sep) → GA v1.0.0 (Dec)\n- **40+ feature status matrix** across objects, forms, dashboards, navigation\n- **5 key design decisions** documented: plugin-first architecture, static config fallback, expression-driven visibility, adapter pattern, multi-app routing\n- **Quality gates** and **risk register**\n\n### `apps/console/README.md` (updated)\n\n- Updated spec version reference (v0.9.0 → v1.1.0)\n- Expanded feature list and architecture diagram to reflect current state (15+ plugins)\n- Added `report` navigation type and expression-based visibility to spec compliance\n- Added documentation index linking roadmap, architecture guide, dev plan, and next steps\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

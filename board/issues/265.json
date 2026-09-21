@@ -1,0 +1,35 @@
+{
+  "number": 265,
+  "kind": "pull_request",
+  "title": "Switch remaining object stories to MSW mode",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-29T13:19:02Z",
+  "updated_at": "2026-01-29T16:21:09Z",
+  "closed_at": "2026-01-29T16:15:50Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-29T16:15:50Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/265",
+  "body": "## Switch all object-related Storybook components to MSW mode\n\nBased on PR #264, this task switches all remaining object-related components in Storybook to use MSW (Mock Service Worker) mode for data fetching.\n\n### Completed Tasks\n- [x] Understand the requirement and analyze existing code\n- [x] Review PR #264 changes (object-grid and object-form already updated)\n- [x] Identify which files need updates\n- [x] Update object-view.stories.tsx to use createStorybookDataSource and SchemaRendererProvider\n- [x] Update object-gantt.stories.tsx to use createStorybookDataSource and SchemaRendererProvider\n- [x] Update object-map.stories.tsx to use createStorybookDataSource and SchemaRendererProvider\n- [x] Run code review - No issues found\n- [x] Run security checks - No vulnerabilities found\n- [x] Fix /index.json endpoint error for ObjectStackClient.connect()\n- [x] Remove duplicate handler\n\n### Files Updated\n- ✅ object-view.stories.tsx - Added MSW integration (3 stories)\n- ✅ object-gantt.stories.tsx - Added MSW integration (2 stories)\n- ✅ object-map.stories.tsx - Added MSW integration (2 stories)\n- ✅ .storybook/msw-browser.ts - Added /api/v1/index.json handler\n- ✅ .storybook/mocks.ts - Updated comments to reflect handler in msw-browser.ts\n\n### Bug Fix\nFixed the \"Error fetching `/index.json`\" issue by adding a handler for `/api/v1/index.json` endpoint in `.storybook/msw-browser.ts`. The `ObjectStackClient.connect()` method was trying to fetch this endpoint to get server metadata, but it wasn't being handled by MSW, causing stories to fail to render.\n\n### Security Summary\nNo security vulnerabilities were found in the changes.\n\nAll object-related components in Storybook now use MSW mode for consistent data fetching from the ObjectStack runtime.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/264\n> \n> storybook中所有对象相关的组件都应该切换到msw模式\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

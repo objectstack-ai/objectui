@@ -1,0 +1,35 @@
+{
+  "number": 278,
+  "kind": "pull_request",
+  "title": "Fix no-case-declarations ESLint error in plugin-aggrid",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-30T09:03:54Z",
+  "updated_at": "2026-01-30T09:18:09Z",
+  "closed_at": "2026-01-30T09:12:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-30T09:12:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/278",
+  "body": "ESLint rule `no-case-declarations` requires lexical declarations in switch case blocks to be wrapped in braces.\n\n**Changes:**\n- Wrapped `case 'number':` block with braces in `ObjectAgGridImpl.tsx:552-561`\n\n```tsx\n// Before\ncase 'number':\n  const precision = (field as any).precision;\n  if (precision !== undefined) {\n    colDef.valueFormatter = (params: any) => { ... };\n  }\n  break;\n\n// After  \ncase 'number': {\n  const precision = (field as any).precision;\n  if (precision !== undefined) {\n    colDef.valueFormatter = (params: any) => { ... };\n  }\n  break;\n}\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21508785705/job/61975291074#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

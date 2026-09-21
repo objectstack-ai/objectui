@@ -1,0 +1,37 @@
+{
+  "number": 193,
+  "kind": "pull_request",
+  "title": "Add Zod runtime validation schemas for all UI components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "package: types"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-25T10:23:24Z",
+  "updated_at": "2026-01-25T13:30:07Z",
+  "closed_at": "2026-01-25T13:24:04Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-25T13:24:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/193",
+  "body": "Implements runtime validation schemas using Zod for all 80+ ObjectUI components, following @objectstack/spec UI specification format.\n\n## Implementation\n\n**Schema Coverage** (10 files, 2.3k LOC)\n- Base primitives + recursive SchemaNode type\n- Layout (17): Div, Flex, Grid, Card, Tabs, etc.\n- Forms (17): Button, Input, Select, DatePicker, FileUpload, etc.\n- Data Display (13): Table, DataTable, Chart, Timeline, Tree, etc.\n- Feedback (8): Loading, Progress, Toast, Skeleton, etc.\n- Disclosure (3): Accordion, Collapsible, ToggleGroup\n- Overlay (10): Dialog, Sheet, Popover, Tooltip, DropdownMenu, etc.\n- Navigation (6): HeaderBar, Sidebar, Breadcrumb, Pagination, etc.\n- Complex (5): Kanban, Calendar, FilterBuilder, Carousel, Chatbot\n\n**Key Technical Decisions**\n- Used `z.lazy()` for recursive schemas (TreeNode, MenuItem, NavLink) to handle circular references\n- Applied `.passthrough()` on BaseSchema to allow type-specific property extensions\n- Consolidated duplicate BreadcrumbSchema to navigation module\n- Removed deprecated `currentPage` property from PaginationSchema\n\n**Package Changes**\n- Added `zod@^3.22.4` peer dependency to @object-ui/types\n- Exported via `@object-ui/types/zod` path\n\n## Usage\n\n```typescript\nimport { ButtonSchema, FormSchema } from '@object-ui/types/zod';\n\n// Runtime validation with detailed errors\nconst result = ButtonSchema.safeParse({\n  type: 'button',\n  variant: 'invalid-variant',  // ❌ Error: Invalid enum value\n  size: 'lg',\n});\n\n// Type inference from schema\ntype Button = z.infer<typeof ButtonSchema>;\n\n// Validate dynamic configurations\nfunction validateComponent(config: unknown) {\n  return AnyComponentSchema.parse(config);  // Throws on invalid\n}\n```\n\n**Integration Points**\n- React Hook Form via `zodResolver`\n- API route validation\n- Component registry validation\n- Form builder type safety\n\nSee `packages/types/src/zod/README.md` for complete documentation.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按照最新的 @objectstack/spec ui 规范格式，编写所有基础components组件的zod规范。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

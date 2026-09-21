@@ -1,0 +1,35 @@
+{
+  "number": 348,
+  "kind": "pull_request",
+  "title": "Fix ES module directory import in @object-ui/core",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: core"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-02T09:26:04Z",
+  "updated_at": "2026-02-02T10:12:22Z",
+  "closed_at": "2026-02-02T10:07:06Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-02T10:07:06Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/348",
+  "body": "## Fix ES Module Directory Import Error in @object-ui/core\n\n### Problem\nTwo test files were failing in CI with `Directory import is not supported resolving ES modules` when importing from `@object-ui/core/dist/types`.\n\n### Root Cause Analysis\nThe real issue was that `packages/core/src/types/index.ts` contains ONLY TypeScript interfaces (type-only declarations), which are erased at compile time and don't generate any JavaScript output. \n\nWhen the code had `export * from './types/index.js'`, TypeScript would copy this to the output, but at runtime Node.js couldn't find `dist/types/index.js` because it was never generated.\n\nWhen changed to `export * from './types'`, Node.js tried to import from the `types` directory, which is not allowed in ES modules.\n\n### Solution\nUse `export type *` for type-only exports. This tells TypeScript to only export the types (for type-checking) without creating a runtime module dependency.\n\n```typescript\n// Before (causes runtime error - file doesn't exist)\nexport * from './types/index.js';\n\n// My first attempt (causes directory import error)  \nexport * from './types';\n\n// Correct solution (type-only export, no runtime dependency)\nexport type * from './types';\n```\n\n### Changes\n- `packages/core/src/index.ts`: Changed line 9 to use `export type *` for the types directory\n\n### Testing\n- ✅ Built all packages successfully\n- ✅ Both previously failing test files now pass  \n- ✅ All other tests continue to pass\n- ✅ Types are still exported and available for import in other packages\n- ✅ Code review completed with no issues\n- ✅ Security scan completed with no vulnerabilities\n\n### Summary\nThe fix correctly addresses the ES module directory import error by using TypeScript's `export type *` syntax for type-only exports, which avoids creating runtime module dependencies while still making the types available for type-checking.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21584186173/job/62188183149#step:9:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

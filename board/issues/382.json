@@ -1,0 +1,37 @@
+{
+  "number": 382,
+  "kind": "pull_request",
+  "title": "Fix all CI test errors (KanbanEnhanced, Dashboard, Chatbot)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-04T02:02:21Z",
+  "updated_at": "2026-02-04T03:14:47Z",
+  "closed_at": "2026-02-04T03:14:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-04T03:14:47Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/382",
+  "body": "CI tests were failing in multiple packages due to different issues. This PR fixes all failing tests and lint errors across the repository.\n\n## Changes\n\n### 1. Plugin-Kanban: Export Mismatch Fix\n**Export fix:**\n```typescript\n// Before: default export only\nexport default function KanbanEnhanced({...}) { ... }\n\n// After: both named and default exports\nexport function KanbanEnhanced({...}) { ... }\nexport default KanbanEnhanced;\n```\n\n**Test assertions updated:**\n- Card count test: changed from regex `/2/` (matched multiple elements) to exact text match `\"1 / 3\"`\n- Warning indicator test: changed from non-existent `[class*=\"warning\"]` selector to actual implementation class `.text-yellow-500`\n\nMaintains backward compatibility with existing lazy imports while fixing named imports in tests.\n\n### 2. Plugin-Dashboard: React Hooks Lint Error Fix\n**Issue**: `useMemo` hook was being called inside a `.map()` callback function, violating the Rules of Hooks.\n\n**Fix**: Replaced `useMemo` with a regular function `getComponentSchema()` since memoization provides no benefit inside a callback function.\n\n**Files changed:**\n- `packages/plugin-dashboard/src/DashboardRenderer.tsx`\n\n### 3. Plugin-Chatbot: Test Environment & Accessibility Fixes\n**Issues**:\n- All tests failing with \"ReferenceError: document is not defined\"\n- Missing accessibility labels on buttons\n\n**Fixes**:\n- Added test environment configuration: `environment: 'happy-dom'` and `globals: true` to `vite.config.ts`\n- Added `import '@testing-library/jest-dom'` to test file for DOM matchers\n- Added `aria-label` attributes to Send (\"Send message\") and Attach (\"Attach file\") buttons for better accessibility\n- Fixed test expectations to match actual component behavior (empty array instead of undefined for files parameter)\n\n**Files changed:**\n- `packages/plugin-chatbot/vite.config.ts`\n- `packages/plugin-chatbot/src/ChatbotEnhanced.tsx`\n- `packages/plugin-chatbot/src/__tests__/ChatbotEnhanced.test.tsx`\n\n## Test Results\n\n| Package | Status | Details |\n|---------|--------|---------|\n| plugin-kanban | ✅ PASS | 25/25 tests passing |\n| plugin-dashboard | ✅ PASS | 0 errors (33 warnings acceptable) |\n| plugin-chatbot | ✅ PASS | 15/15 tests passing |\n\nAll CI test errors are now resolved.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21655334952/job/62428845247#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

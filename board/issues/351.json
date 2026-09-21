@@ -1,0 +1,33 @@
+{
+  "number": 351,
+  "kind": "pull_request",
+  "title": "Fix ES module directory import errors in @object-ui/core",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-02T11:34:24Z",
+  "updated_at": "2026-02-02T12:29:23Z",
+  "closed_at": "2026-02-02T12:27:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-02T12:27:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/351",
+  "body": "CI failing on coverage step: ES modules don't support directory imports, but TypeScript wildcard type exports were compiling to `export * from './types'` (directory path without file extension).\n\n## Changes\n\n**packages/core/src/index.ts**\n- Replace wildcard type export with explicit named exports:\n  ```typescript\n  // Before: compiles to directory import\n  export type * from './types/index.js';\n  \n  // After: explicit named exports\n  export type { SchemaNode, ComponentRendererProps } from './types/index.js';\n  ```\n\n**packages/core/src/validation/index.ts**\n- Add file extension to avoid directory import:\n  ```typescript\n  // Before\n  export * from './validators';\n  \n  // After\n  export * from './validators/index.js';\n  ```\n\n**package.json**\n- Add `pretest:coverage` script to ensure packages build before coverage runs (aligns with existing `pretest` behavior)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21587442867/job/62198956503#step:9:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 253,
+  "kind": "pull_request",
+  "title": "Implement 10 missing field widgets per @objectstack/spec UI protocol",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-28T17:19:37Z",
+  "updated_at": "2026-01-29T00:30:01Z",
+  "closed_at": "2026-01-29T00:12:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-29T00:12:54Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/253",
+  "body": "ObjectUI field widget coverage was at 59% (19/32 types) relative to @objectstack/spec v0.3.3. This adds the 10 missing widget implementations to achieve 91% coverage.\n\n## Added Field Widgets\n\n**Input Controls**\n- `ColorField` - Color picker with hex input/preview\n- `SliderField` - Range slider (configurable min/max/step)\n- `RatingField` - Star rating (configurable max stars)\n- `CodeField` - Monospace code editor\n\n**Complex Inputs**\n- `AvatarField` - Profile picture uploader with base64 encoding\n- `AddressField` - Structured address (street/city/state/zip/country)\n- `GeolocationField` - Lat/long with browser geolocation API integration\n- `SignatureField` - Canvas-based signature capture\n\n**Specialized**\n- `QRCodeField` - QR code generator/display\n- `MasterDetailField` - One-to-many relationship editor\n\n## Implementation\n\nAll widgets follow the `FieldWidgetProps<T>` interface pattern with readonly/editable mode support:\n\n```tsx\nexport function ColorField({ value, onChange, field, readonly }: FieldWidgetProps<string>) {\n  if (readonly) {\n    return (\n      <div className=\"flex items-center gap-2\">\n        <div className=\"w-6 h-6 rounded border\" style={{ backgroundColor: value }} />\n        <span>{value}</span>\n      </div>\n    );\n  }\n  // ... editable mode\n}\n```\n\nRegistered in ComponentRegistry with both direct type (`'color'`) and prefixed variant (`'field:color'`) for consistency with existing patterns.\n\n## Coverage\n\nField widget implementation: 19/32 → 29/32 types (91%)\n\nRemaining 3 types are aliases handled by existing widgets (richtext/html → RichTextField).\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按照@objectstack/spec ui协议继续开发完成所有组件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

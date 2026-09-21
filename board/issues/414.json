@@ -1,0 +1,33 @@
+{
+  "number": 414,
+  "kind": "pull_request",
+  "title": "feat(types): align all packages with @objectstack/spec v2.0.1 protocol",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-09T12:48:31Z",
+  "updated_at": "2026-02-09T14:14:03Z",
+  "closed_at": "2026-02-09T13:59:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-09T13:59:07Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/414",
+  "body": "Audit and align all packages against the canonical `@objectstack/spec` v2.0.1 protocol. Core issue: missing namespace re-exports, locally redefined types that should be imported from spec, and stale version references throughout.\n\n### Namespace & utility re-exports\n\n- Added 6 missing namespace re-exports: `Kernel`, `Contracts`, `Integration`, `Studio`, `Identity`, `Security`\n- Added `defineStack`, `definePlugin`, `PluginContext` and all capability schemas/types (`ObjectStackSchema`, `ObjectStackDefinitionSchema`, etc.)\n\n```typescript\nimport { defineStack, Kernel, Contracts, Integration, Studio, Identity, Security } from '@object-ui/types';\n```\n\n### Canonical type imports (Rule: \"Never Redefine Types\")\n\n- **objectql.ts**: Replaced local definitions of `HttpMethod`, `HttpRequest`, `ViewData`, `ListColumn`, `SelectionConfig`, `PaginationConfig` with `import type` from `@objectstack/spec/ui`\n- **theme.ts**: Replaced local definitions of `ColorPalette`, `Typography`, `Spacing`, `BorderRadius`, `Shadow`, `Breakpoints`, `Animation`, `ZIndex`, `ThemeMode` with spec imports\n- `Theme` kept local — spec's Zod-inferred type has `mode` required (via `ZodDefault`), ObjectUI needs it optional\n\n### Zod schema boundary\n\n`@objectstack/spec` uses Zod v3; `@object-ui/types` uses Zod v4. Runtime schema import is impossible across this boundary. Local Zod schemas mirror spec structurally with updated JSDoc noting this constraint.\n\n### Version reference cleanup\n\n- Updated all `v0.7.1` / `v0.6.1` JSDoc references → `v2.0.1` across `packages/types`, `packages/core`, `apps/console`\n\n### Tests\n\n- Rewrote `namespace-exports.test.ts` to verify new exports (`defineStack`, `definePlugin`, `ObjectStackSchema`, capability schemas)\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

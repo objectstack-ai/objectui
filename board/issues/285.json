@@ -1,0 +1,33 @@
+{
+  "number": 285,
+  "kind": "pull_request",
+  "title": "[WIP] Fix ContactsGrid dataSource context issue - MSW handler conflict remains",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-30T16:02:28Z",
+  "updated_at": "2026-01-31T00:57:37Z",
+  "closed_at": "2026-01-31T00:57:37Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/285",
+  "body": "The ContactsGrid story remained in perpetual loading state when attempting to fetch data from MSW-backed ObjectStack runtime.\n\n## Root Causes\n\n**ObjectGrid renderer hardcoded null dataSource**\n```typescript\n// packages/plugin-grid/src/index.tsx\nconst ObjectGridRenderer: React.FC<{ schema: any }> = ({ schema }) => {\n  return <ObjectGrid schema={schema} dataSource={null as any} />;  // ❌\n};\n```\n\n**Missing coordination between msw-storybook-addon and MSWPlugin**\n- MSWPlugin expected initialized service worker but `initialize()` was missing\n- ObjectStackAdapter's `/api/v1/index.json` endpoint handler not intercepting requests\n\n## Changes\n\n- **ObjectGrid renderer**: Use `useSchemaContext()` to retrieve dataSource from SchemaRendererProvider context ✅\n- **MSW initialization**: Add loader in `preview.ts` to ensure kernel bootstrap completes before story render ✅\n- **Connection handler**: Attempted to register `/api/v1/index.json` handler in `mocks.ts` and `msw-browser.ts` with multiple URL matching strategies (absolute, relative, wildcard)\n- **Service worker**: Restore `initialize()` call required by MSWPlugin browser mode ✅\n\n## Known Issue\n\nThe grid still shows a connection error due to an unresolved conflict between msw-storybook-addon and MSWPlugin's handler registration in browser mode. The `/api/v1/index.json` endpoint is not being intercepted despite handlers being registered.\n\n**Current Error:**\n```\nConnection error: [ObjectStack] Request failed: 404 {\"message\":\"Not Found\"}\n```\n\n![Error Screenshot](https://github.com/user-attachments/assets/8914cbef-1ddd-4552-82c9-016575333f4c)\n\n## Next Steps\n\nThe recommended solution is to modify the ObjectStackAdapter or datasource configuration to bypass the connection check in Storybook environments, as MSWPlugin's `customHandlers` feature has a known limitation when used alongside msw-storybook-addon.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> storYbook Contacts Grid\n> Contacts Grid - Uses MSW-backed data from ObjectStack runtime\n> \n> This story demonstrates integration with the MSW plugin runtime mode. Data is fetched from /api/v1/data/contact via the ObjectStack kernel.\n> \n> \n> 一直显示 loading grid\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

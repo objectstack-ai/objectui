@@ -1,0 +1,35 @@
+{
+  "number": 165,
+  "kind": "pull_request",
+  "title": "Fix plugin-object and chart component display in fumadocs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T12:15:57Z",
+  "updated_at": "2026-01-23T13:53:24Z",
+  "closed_at": "2026-01-23T13:52:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T13:52:32Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/165",
+  "body": "Object and chart components were not rendering in the fumadocs site due to a disabled plugin import and incorrect component type references.\n\n## Changes\n\n**`apps/site/app/components/InteractiveDemo.tsx`**\n- Uncommented `import('@object-ui/plugin-object')` - was erroneously disabled with \"missing dependency\" note despite dependency existing\n\n**`docs/plugins/plugin-charts.mdx`**\n- Fixed component types: `line-chart` → `chart` with `chartType: 'line'` \n- Replaced `pie-chart` example with `area-chart` (pie chart not implemented)\n- Updated schema examples to use correct `series` and `config` properties:\n\n```tsx\n// Before (incorrect)\n{\n  type: \"line-chart\",\n  data: [...],\n  lines: [{ dataKey: \"revenue\", stroke: \"#8884d8\" }],\n  xAxisKey: \"month\"\n}\n\n// After (correct)\n{\n  type: \"chart\",\n  chartType: \"line\",\n  data: [...],\n  series: [{ dataKey: \"revenue\" }],\n  config: { revenue: { label: \"Revenue\", color: \"#8884d8\" } },\n  xAxisKey: \"month\"\n}\n```\n\n- Clarified two chart APIs: `bar-chart` (simple) vs `chart` (advanced with multiple series)\n\n## Screenshots\n\n**Object components now rendering:**\n![Plugin Object](https://github.com/user-attachments/assets/466eeee2-c11f-4239-80f0-d4495e918034)\n\n**Chart components with corrected documentation:**\n![Plugin Charts](https://github.com/user-attachments/assets/da10a0aa-d605-403a-a2db-cd3f01a0b33a)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fumadocss 中对象相关组件和图表相关组件不能正常显示\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

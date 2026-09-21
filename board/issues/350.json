@@ -1,0 +1,33 @@
+{
+  "number": 350,
+  "kind": "pull_request",
+  "title": "Fix ES module directory import error in @object-ui/core",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-02T10:34:27Z",
+  "updated_at": "2026-02-02T10:59:56Z",
+  "closed_at": "2026-02-02T10:59:56Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-02-02T10:59:56Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/350",
+  "body": "CI tests were failing with `Directory import '.../@object-ui/core/dist/types' is not supported resolving ES modules`. \n\nNode.js ES modules don't support directory imports without explicit file extensions, but TypeScript with `moduleResolution: \"bundler\"` allows them. The compiled output contained `export * from './types'` which works in bundlers but fails in Node.js runtime.\n\n## Changes\n\n- **packages/core/src/index.ts**: Added explicit `/index.js` extensions to all directory exports\n\n```diff\n-export type * from './types';\n-export * from './validation';\n-export * from './evaluator';\n-export * from './actions';\n-export * from './query';\n+export type * from './types/index.js';\n+export * from './validation/index.js';\n+export * from './evaluator/index.js';\n+export * from './actions/index.js';\n+export * from './query/index.js';\n```\n\nThis ensures the compiled JavaScript is compatible with Node.js's ES module resolution while maintaining TypeScript compilation with bundler module resolution.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21586376440/job/62195417535#step:9:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

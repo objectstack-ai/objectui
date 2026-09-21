@@ -1,0 +1,36 @@
+{
+  "number": 394,
+  "kind": "pull_request",
+  "title": "Add ObjectOS integration docs, console rendering guide, and AG Grid advanced stories",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-07T19:06:56Z",
+  "updated_at": "2026-02-08T02:23:58Z",
+  "closed_at": "2026-02-08T02:11:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-08T02:11:00Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/394",
+  "body": "Scanned 28 packages (15 plugins, 4 core, 9 tools), identified AG Grid v0.5.0 as most significant recent update with editing, export, context menu, and aggregation features. Created comprehensive integration documentation and Storybook coverage.\n\n## Documentation\n\n### ObjectOS Integration (`guide/objectos-integration.mdx`, 300+ lines)\n- 3 deployment patterns: monolithic, microservices, Kubernetes\n- Multi-tenancy via `TenantProvider`, RBAC via `PermissionGuard`\n- System objects integration (sys_user, sys_org, sys_role)\n- ObjectQL queries, workflows, WebSocket real-time updates\n- Migration paths from Retool/Appsmith/Mendix\n\n```typescript\nconst adapter = new ObjectStackAdapter({\n  baseUrl: 'http://localhost:3000/api',\n  headers: { 'X-Tenant-ID': 'tenant-123' }\n});\n\n<PermissionGuard roles={['admin']} permissions={['user.delete']}>\n  <DeleteButton />\n</PermissionGuard>\n```\n\n### Console Rendering (`guide/console-rendering.mdx`, 300+ lines)\n- Terminal/CLI patterns using Ink (React for CLI)\n- Table rendering (CLI-Table3), prompts (Inquirer), colors (Chalk)\n- Complete Contact Manager CLI example with CRUD ops\n- Server console integration via Hono static serving\n\n### i18n Example (`plugins/plugin-aggrid.zh-CN.mdx`)\n- Full Chinese translation of AG Grid docs\n- Template for additional language packs\n\n## Storybook\n\nAdded 8 advanced stories (`object-aggrid-advanced.stories.tsx`):\n- Status bar with aggregations (count, sum, avg, min, max)\n- Context menu (copy, export, auto-size)\n- Inline editing + multi-select\n- Full-featured combinations across 4 themes\n\nCoverage: 3 → 11 AG Grid stories (100% v0.5.0 feature parity)\n\n## Planning\n\n### 12-Month Roadmap (`OBJECTOS_INTEGRATION_ROADMAP.md`)\n**Q1:** Data layer (ObjectQL, multi-tenant, RBAC, system objects)  \n**Q2:** Workflows, real-time collaboration, analytics  \n**Q3:** Performance (<400ms FCP), i18n (10+ languages), security (WCAG 2.1)  \n**Q4:** Plugin marketplace, visual designer, cloud platform\n\nTeam: 15 people | Budget: $1.53M | Milestones: 50+\n\n## Files Changed\n- 6 new docs (2,000+ lines)\n- 1 Storybook file (8 stories)\n- 1 config update (navigation)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 扫描所有的软件包，最新修改的内容更新官网文档、storybook，并在 examples 中设计合适的例子以便在 console 中展示。考虑到这些组件都要集成到 objectos 中，安排后续完整的开发计划。\n> \n> The user has attached the following file paths as relevant context:\n>  - .github/copilot-instructions.md\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\nCreated from [VS Code](https://code.visualstudio.com/docs/copilot/copilot-coding-agent).\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

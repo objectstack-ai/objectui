@@ -1,0 +1,33 @@
+{
+  "number": 266,
+  "kind": "pull_request",
+  "title": "[WIP] Fix object form loading display issue",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-29T15:52:46Z",
+  "updated_at": "2026-01-29T16:08:11Z",
+  "closed_at": "2026-01-29T16:04:05Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-29T16:04:05Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/266",
+  "body": "## Summary\nFixed object forms in Storybook that were stuck displaying \"Loading form...\" by correcting the property name from `fields` to `customFields` when passing field objects.\n\n## Changes Made\n- [x] Fix ContactForm story to use `customFields` instead of `fields`\n- [x] Fix OpportunityForm story to use `customFields` instead of `fields`\n- [x] Fix BasicSchema story to use `customFields` instead of `fields`\n- [x] Fix ComplexFields story to use `customFields` instead of `fields`\n- [x] Verify the fix works - both Contact and Opportunity forms load correctly\n- [x] Run code review - no issues found\n- [x] Run security checks - no vulnerabilities found\n\n## Root Cause\nAccording to the `ObjectFormSchema` type definition:\n- `fields` should be an array of field **names** (strings)\n- `customFields` should be an array of field **objects** (FormField[])\n\nThe stories were incorrectly passing field objects to `fields` instead of `customFields`, causing the ObjectForm component to attempt fetching the schema from the dataSource, resulting in an infinite loading state.\n\n## Screenshot\n![Contact Form Fixed](https://github.com/user-attachments/assets/a057dc19-178b-4987-8dae-eece634c2c50)\n\nThe forms now display all fields correctly:\n- Contact Form: Name*, Email*, Phone, Title, Company, Status\n- Opportunity Form: Opportunity Name*, Amount*, Stage, Close Date, Description\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/264\n> \n> object form一直显示Loading form...\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

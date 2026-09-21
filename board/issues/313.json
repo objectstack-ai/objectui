@@ -1,0 +1,33 @@
+{
+  "number": 313,
+  "kind": "pull_request",
+  "title": "Fix test timeouts in @object-ui/components beforeAll hooks",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-01T02:59:40Z",
+  "updated_at": "2026-02-01T03:36:22Z",
+  "closed_at": "2026-02-01T03:32:16Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-01T03:32:15Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/313",
+  "body": "Three test files timing out at 10s when importing `../renderers` in `beforeAll` hooks. The import loads ~50 Radix UI components synchronously.\n\n## Changes\n\nIncreased `beforeAll` timeout to 30s in files importing renderers:\n\n```typescript\nbeforeAll(async () => {\n  await import('../renderers');\n}, 30000);\n```\n\n**Files modified:**\n- `feedback-overlay-renderers.test.tsx` (was failing)\n- `form-renderers.test.tsx` (was failing)\n- `layout-data-renderers.test.tsx` (was failing)\n- `basic-renderers.test.tsx` (preventive)\n- `complex-disclosure-renderers.test.tsx` (preventive)\n\nAll 156 tests now complete within timeout in CI environments.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21555370237/job/62110572489#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

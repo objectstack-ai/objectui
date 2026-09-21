@@ -1,0 +1,33 @@
+{
+  "number": 195,
+  "kind": "pull_request",
+  "title": "[WIP] Fix issue in action step of workflow",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-25T14:10:14Z",
+  "updated_at": "2026-01-25T14:38:35Z",
+  "closed_at": "2026-01-25T14:37:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-25T14:37:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/195",
+  "body": "- [x] Understand the issue: ObjectCalendar tests failing because mock data dates (Jan 2024) don't match the calendar's default view (Jan 2026)\n- [x] Fix test dates to use 2026 instead of 2024 to match current year\n- [x] Verify tests pass locally - all 7 tests now passing\n- [x] Run all tests to ensure no regressions - all 382 tests passing\n- [x] Request code review - 1 comment about pre-existing timeout inconsistency (not related to changes)\n- [x] Run security scan - no vulnerabilities found\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21333873399/job/61402741221#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

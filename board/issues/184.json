@@ -1,0 +1,35 @@
+{
+  "number": 184,
+  "kind": "pull_request",
+  "title": "Enhance object form and field types documentation with interactive examples",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-24T08:53:50Z",
+  "updated_at": "2026-01-24T10:23:46Z",
+  "closed_at": "2026-01-24T10:23:45Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-24T10:23:45Z",
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/184",
+  "body": "- [x] Analyze current documentation coverage for all field types\n- [x] Add missing field type examples to object-form.mdx (password, auto_number, summary, object, vector, grid)\n- [x] Add comprehensive field configuration examples (validation, conditional visibility, groups)\n- [x] Add more realistic use case examples (registration, settings, product forms)\n- [x] Add visual examples showing form layouts (vertical, horizontal, grouped)\n- [x] Add examples of field interactions and dependencies\n- [x] Verify examples are consistent with actual implementation\n- [x] Test documentation examples for syntax correctness\n- [x] Create dedicated object-field.mdx page with interactive field type documentation\n- [x] Add interactive previews for all 29 field types using InteractiveDemo component\n- [x] Update navigation to include new object-field page\n- [x] Add interactive demos to all form examples in object-form.mdx\n- [x] Address code review comments (select options format, validation property, onSuccess callbacks)\n- [x] Remove redundant JSON code blocks (InteractiveDemo has built-in code viewer)\n- [x] Remove Field Type Examples section from object-form.mdx (moved to object-field.mdx)\n\n## Summary\n\nSuccessfully enhanced ObjectForm and field type documentation with comprehensive examples and interactive previews covering all 29 supported field types.\n\n### Phase 1: Enhanced Existing Documentation\n\n**Files Modified:**\n- `content/docs/plugins/plugin-object/object-form.mdx` - Added 586 lines with detailed field examples\n- `docs/reference/field-types-examples.md` - Added 572 lines with advanced form examples\n- `docs/reference/field-types.md` - Updated field type categories\n\n### Phase 2: Created Interactive Field Types Page\n\n**Files Added/Modified:**\n- `content/docs/plugins/plugin-object/object-field.mdx` **(NEW)** - Dedicated field types documentation page with:\n  - 29 interactive field type demos using InteractiveDemo component\n  - Each example includes live preview + JSON schema configuration\n  - Organized by category (Text, Numeric, Boolean, Date/Time, Selection, Contact, File/Media, Relationships, Users, Location, Computed, Advanced)\n  - Comprehensive field type summary table with use cases\n- `content/docs/plugins/plugin-object/meta.json` - Added object-field to navigation\n\n### Phase 3: Added Interactive Form Demos\n\n**Files Modified:**\n- `content/docs/plugins/plugin-object/object-form.mdx` - Added 5 interactive form demos:\n  - Initial demo - User form with validation\n  - Contact Form - Live preview of contact creation form\n  - Custom Field Layout - Field grouping demonstration\n  - Conditional Fields - Conditional visibility example\n  - Complete Product Form - Comprehensive product form with multiple field types\n- Added Action Callbacks documentation section explaining onSuccess callback formats (JSON vs TypeScript)\n\n### Phase 4: Cleanup and Optimization\n\n**Files Modified:**\n- `content/docs/plugins/plugin-object/object-form.mdx` - Removed redundant content:\n  - Removed duplicate Field Type Examples section (663 lines) - now in dedicated object-field.mdx page\n  - Removed JSON code blocks after InteractiveDemo components (demos have built-in code viewer)\n  - Added link to ObjectField Types page in Related Components\n  - Reduced file from 1161 to 500 lines for better maintainability\n\n### Code Review Fixes\n\n- Fixed select options format in grid columns to use proper object structure ({label, value})\n- Removed unsupported validation property from form schema examples\n- Corrected all select options to consistently use {label, value} format throughout\n- Added clarification documentation for action callbacks\n\n### Coverage & Quality\n\n- **Coverage:** All 29 field types with detailed examples and interactive previews\n- **Interactive Demos:** 34 live previews (29 field types in object-field.mdx + 5 form examples in object-form.mdx)\n- **Validation:** All syntax checks passed (streamlined code blocks, 34 interactive demos)\n- **Quality:** Examples follow consistent patterns, real-world use cases, and TypeScript interface compliance\n- **Maintainability:** Removed 663 lines of redundant content, cleaner documentation structure\n\n### User Experience Improvements\n\n1. **Dedicated Field Types Page**: All field types now have their own documentation page (object-field.mdx) for easy reference\n2. **Interactive Previews**: Each field type AND form example can be tested live in the browser with built-in code viewer\n3. **No Redundancy**: Removed duplicate JSON blocks since InteractiveDemo component shows code automatically\n4. **Quick Reference**: Summary table for all field types with categories and use cases\n5. **Better Organization**: Clear separation between form examples (object-form.mdx) and field type reference (object-field.mdx)\n6. **Learning Friendly**: Real-time previews help users understand field behavior and form patterns\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完善对象表单以及各种字段类型在文档中的例子\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

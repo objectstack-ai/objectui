@@ -1,0 +1,33 @@
+{
+  "number": 356,
+  "kind": "pull_request",
+  "title": "Fix MSW endpoint mismatch: /metadata/object → /meta/object",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-02T13:12:29Z",
+  "updated_at": "2026-02-02T13:58:58Z",
+  "closed_at": "2026-02-02T13:56:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-02T13:56:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/356",
+  "body": "CI tests failing because MSW handlers intercepted `/api/v1/metadata/object/:name` while ObjectStack client calls `/api/v1/meta/object/:name`, causing unhandled fetch requests.\n\n## Changes\n\n- **Test MSW handlers** - Updated endpoint paths in:\n  - `packages/plugin-grid/src/ObjectGrid.msw.test.tsx`\n  - `packages/plugin-form/src/ObjectForm.msw.test.tsx`\n  - `packages/plugin-calendar/src/ObjectCalendar.msw.test.tsx`\n  - `.storybook/msw-browser.ts`\n\n- **Console mock server** - Added missing `/meta/object/:name` handler to `apps/console/src/mocks/server.ts` (already had `/meta/objects/:name` plural variant)\n\n**Before:**\n```typescript\nhttp.get(`${BASE_URL}/api/v1/metadata/object/contact`, () => { ... })\n```\n\n**After:**\n```typescript\nhttp.get(`${BASE_URL}/api/v1/meta/object/contact`, () => { ... })\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21591319949/job/62211927313#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

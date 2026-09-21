@@ -1,0 +1,33 @@
+{
+  "number": 169,
+  "kind": "pull_request",
+  "title": "Add collapsible editor and responsive preview modes to playground",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T16:20:40Z",
+  "updated_at": "2026-01-23T16:48:43Z",
+  "closed_at": "2026-01-23T16:44:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T16:44:13Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/169",
+  "body": "Redesigned playground UI following play.tailwindcss.com aesthetic with collapsible editor panel and device-responsive preview modes (desktop/tablet/mobile).\n\n## Changes\n\n**Collapsible Editor Panel**\n- Toggle button with smooth 300ms transitions\n- LocalStorage persistence with SSR guards (`typeof window !== 'undefined'`)\n- Dynamic layout adjustment (50%/50% → 0%/100%)\n\n**Responsive Preview Modes**\n- Desktop (100%), Tablet (768px), Mobile (375px) toggle controls\n- Icon-based mode selector (Monitor/Tablet/Smartphone from lucide-react)\n- Constrained preview containers with device frame simulation\n\n**Visual Enhancements**\n- Gradient backgrounds: `bg-gradient-to-br from-slate-50 via-white to-slate-50`\n- Backdrop blur header: `bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm`\n- Active state gradients: `bg-gradient-to-r from-blue-600 to-blue-500`\n- Enhanced Monaco editor options (smooth scrolling, cursor animations)\n\n**Code Quality**\n- Removed unused plugin imports from ObjectUIProvider (fixing module resolution errors)\n- Added SSR safety checks for localStorage access\n- Resolved Tailwind/inline style transition conflicts\n\n## Screenshots\n\n**Collapsible Editor**\n![Full Layout](https://github.com/user-attachments/assets/1a11c17f-9767-4002-a909-c077e759bc99)\n![Collapsed](https://github.com/user-attachments/assets/bf985363-934e-49b0-b25a-e2674243fe28)\n\n**Responsive Modes**\n![Mobile 375px](https://github.com/user-attachments/assets/a636b217-e371-4001-b038-5a92e75736c3)\n![Tablet 768px](https://github.com/user-attachments/assets/8339fef1-c31e-4474-bd4e-e1ede20d5883)\n\n**Examples**\n![Dashboard](https://github.com/user-attachments/assets/fc7bf637-7471-491b-81d4-023a8c1febe6)\n![Form](https://github.com/user-attachments/assets/6e0d56da-d77c-4877-805d-299ee5428ed7)\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node /usr/local/bin/node /home/REDACTED/work/objectui/objectui/node_modules/.pnpm/next@16.1.4_@babel&#43;core@7.28.6_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/lib/start-server.js` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> playground 按照 play.tailwindcss.com 风格优化，要极致美化美观，左侧代码编辑框应可以折叠，代码支持修改，代码修改之后，右侧重新渲染。右侧应该可以选择切换电脑端或手机端的效果。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

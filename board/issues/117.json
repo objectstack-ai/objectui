@@ -1,0 +1,32 @@
+{
+  "number": 117,
+  "kind": "pull_request",
+  "title": "chore(deps): bump express-rate-limit from 7.5.1 to 8.2.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-19T08:21:31Z",
+  "updated_at": "2026-01-26T15:03:48Z",
+  "closed_at": "2026-01-26T15:03:39Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-26T15:03:39Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/117",
+  "body": "Bumps [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) from 7.5.1 to 8.2.1.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/express-rate-limit/express-rate-limit/releases\">express-rate-limit's releases</a>.</em></p>\n<blockquote>\n<h2>v8.2.1</h2>\n<p>You can view the changelog <a href=\"https://express-rate-limit.mintlify.app/reference/changelog\">here</a>.</p>\n<h2>v8.2.0</h2>\n<p>You can view the changelog <a href=\"https://express-rate-limit.mintlify.app/reference/changelog\">here</a>.</p>\n<h2>v8.1.0</h2>\n<p>You can view the changelog <a href=\"https://express-rate-limit.mintlify.app/reference/changelog\">here</a>.</p>\n<h2>v8.0.1</h2>\n<p>You can view the changelog <a href=\"https://express-rate-limit.mintlify.app/reference/changelog\">here</a>.</p>\n<h2>v8.0.0</h2>\n<p>You can view the changelog <a href=\"https://express-rate-limit.mintlify.app/reference/changelog\">here</a>.</p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/fe1604d2aec7759fbe5721caf9b10664026ea672\"><code>fe1604d</code></a> 8.2.1</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/b11c05b6392021d18fa2245f1968b89713cd9667\"><code>b11c05b</code></a> Fix: don't warn for extra config from express-slow-down (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/580\">#580</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/37347330ecb5e0f6e34a278fa77502b3572f57f7\"><code>3734733</code></a> 8.2.0</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/962d737c1e4a0c279f5ae92bf773a03789259c3f\"><code>962d737</code></a> feat: Unknown Options validation check (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/578\">#578</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/992c15cc666ef2d1ee58fcbef8b6f871907f1c5f\"><code>992c15c</code></a> chore(deps-dev): bump the development-dependencies group with 3 updates (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/579\">#579</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/449a28a272dd9052106569238f1d3b76391e5f35\"><code>449a28a</code></a> chore(deps-dev): bump the development-dependencies group across 1 directory w...</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/ceaff6f970b1f65ba7a5b6f9856aeba8308be2aa\"><code>ceaff6f</code></a> chore(deps-dev): bump <code>@​biomejs/biome</code> from 2.2.5 to 2.2.6 (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/574\">#574</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/4fccb9ec0ea3d602133c6bd4a43455b7868fed21\"><code>4fccb9e</code></a> chore(deps-dev): bump lint-staged from 16.2.4 to 16.2.5 (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/573\">#573</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/b59777039bb3d85cfbc51c85cca73766dddc7684\"><code>b597770</code></a> Rework dependabot grouping</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/03e8336ff9c7e18773f178fbab94da08c4681386\"><code>03e8336</code></a> chore(deps-dev): bump mintlify from 4.2.114 to 4.2.175 (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/572\">#572</a>)</li>\n<li>Additional commits viewable in <a href=\"https://github.com/express-rate-limit/express-rate-limit/compare/v7.5.1...v8.2.1\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=express-rate-limit&package-manager=npm_and_yarn&previous-version=7.5.1&new-version=8.2.1)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot merge` will merge this PR after your CI passes on it\n- `@dependabot squash and merge` will squash and merge this PR after your CI passes on it\n- `@dependabot cancel merge` will cancel a previously requested merge and block automerging\n- `@dependabot reopen` will reopen this PR if it is closed\n- `@dependabot close` will close this PR and stop Dependabot recreating it. You can achieve the same result by closing it manually\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

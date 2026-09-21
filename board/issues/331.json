@@ -1,0 +1,41 @@
+{
+  "number": 331,
+  "kind": "pull_request",
+  "title": "[WIP] Fix CI pipeline error in testing workflow",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-02T05:51:23Z",
+  "updated_at": "2026-02-02T07:37:52Z",
+  "closed_at": "2026-02-02T07:32:45Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-02T07:32:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/331",
+  "body": "## Fix CI Pipeline Failures\n\n- [x] Investigate GitHub Actions failures\n- [x] Identify root causes:\n  - Test failure: vitest.setup.ts vs vitest.setup.tsx mismatch\n  - Lint failure: setState in useEffect in ObjectField.tsx\n- [x] Fix vitest setup file references in all package configs (10 files)\n- [x] Fix lint errors:\n  - ObjectField.tsx: setState in useEffect (added eslint-disable with justification)\n  - BooleanField.tsx: impure Math.random() call during render (replaced with useId)\n  - standard-widgets.test.tsx: removed invalid eslint-disable comment\n- [ ] Run tests locally to verify fixes\n- [ ] Run security checks\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21578712839/job/62171875623#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

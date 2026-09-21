@@ -1,0 +1,33 @@
+{
+  "number": 364,
+  "kind": "pull_request",
+  "title": "Add connection monitoring and auto-reconnect to data-objectstack adapter",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-03T01:05:13Z",
+  "updated_at": "2026-02-03T01:23:57Z",
+  "closed_at": "2026-02-03T01:17:06Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-03T01:17:06Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/364",
+  "body": "Implements connection state monitoring, automatic reconnection, and batch operation progress tracking for `@object-ui/data-objectstack`. Updates console to ObjectStack Spec v0.9.0.\n\n## Changes\n\n### @object-ui/data-objectstack\n\n**Connection State Monitoring**\n- Added 5-state connection lifecycle: `disconnected` → `connecting` → `connected` | `reconnecting` | `error`\n- Event-based subscription via `onConnectionStateChange(listener)`\n- Query methods: `getConnectionState()`, `isConnected()`\n\n**Auto-Reconnect**\n- Exponential backoff on connection failures (delay × 2^(attempts-1))\n- Configurable: `autoReconnect`, `maxReconnectAttempts`, `reconnectDelay`\n- Enabled by default with 3 retry attempts\n\n**Batch Progress Events**\n- Real-time progress tracking for bulk operations via `onBatchProgress(listener)`\n- Emits: operation type, total count, completed/failed counts, completion percentage\n\n### @object-ui/console\n\n- Updated spec compliance from v0.8.2 to v0.9.0\n- Dashboard and Page navigation already implemented, documentation updated\n\n## Usage\n\n```typescript\nconst dataSource = createObjectStackAdapter({\n  baseUrl: 'https://api.example.com',\n  autoReconnect: true,\n  maxReconnectAttempts: 5,\n  reconnectDelay: 1000\n});\n\n// Monitor connection state\ndataSource.onConnectionStateChange(({ state, error }) => {\n  if (state === 'error') console.error('Connection failed:', error);\n  if (state === 'connected') console.log('Connected to ObjectStack');\n});\n\n// Track bulk operation progress\ndataSource.onBatchProgress(({ operation, percentage, failed }) => {\n  console.log(`${operation}: ${percentage.toFixed(1)}% (${failed} failed)`);\n});\n\nawait dataSource.bulk('users', 'create', largeDataset);\n```\n\n## API Changes\n\nAll changes are backward compatible. New features are opt-in via event listeners and configuration parameters.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 4. 数据适配器\n> \n> 4.1 @object-ui/data-objectstack (v0.3.1)\n> \n> 职责: ObjectStack 服务端数据适配器\n> \n> 当前状态:\n> \n> ✅ 完整 CRUD 操作 (find, findOne, create, update, delete)\n> ✅ 批量操作 (bulk create/update/delete)\n> ✅ 元数据获取 (getObjectSchema)\n> ✅ LRU 缓存 + TTL 过期机制\n> ✅ 全面错误处理 (6种错误类型)\n> 与 Spec 对齐:\n> \n> // ✅ 实现 @objectstack/client 的完整封装\n> import { createObjectStackAdapter } from '@object-ui/data-objectstack';\n> \n> const dataSource = createObjectStackAdapter({\n>   baseUrl: 'https://api.example.com',\n>   token: 'auth-token'\n> });\n> \n> // ✅ 查询参数转换\n> const result = await dataSource.find('users', {\n>   filter: { age: { $gt: 18 } },     // ✅ ObjectQL 过滤器\n>   sort: { createdAt: -1 },          // ✅ 排序\n>   skip: 0,\n>   limit: 20\n> });\n> 缺口:\n> \n> ⏳ 连接状态监控和自动重连\n> ⏳ 批量操作进度事件\n> ⏳ 高级过滤器转换 (joins, subqueries)\n> 5. 应用层\n> \n> 5.1 @object-ui/console (v0.1.0)\n> \n> 职责: ObjectStack 控制台 - 标准运行时 UI\n> \n> 当前状态:\n> \n> ⚠️ 声明支持 ObjectStack Spec v0.8.2 (需升级到 v0.9.0)\n> ✅ 多应用支持 (App switching)\n> ✅ 动态 UI 渲染 (Dashboard, Grid, Form)\n> ✅ 权限感知导航\n> ✅ 应用品牌定制 (logo, colors)\n> 与 Spec 对齐:\n> \n> // ✅ AppSchema 支持\n> import { App } from '@objectstack/spec/ui';\n> \n> const app = App.create({\n>   name: 'my_app',\n>   label: 'My App',\n>   icon: 'users',\n>   branding: {\n>     logo: '/logo.png',\n>     primaryColor: '#10B981'\n>   },\n>   navigation: [...]  // ✅ 支持 object/dashboard/page/url/group\n> });\n> 缺口:\n> \n> ❌ 版本落后 (v0.8.2 → v0.9.0)\n> ⏳ Dashboard 导航类型为 \"planned\"\n> ⏳ Page 导航类型为 \"planned\"\n> ⏳ 动态权限检查需要完善\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

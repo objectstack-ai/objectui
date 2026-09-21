@@ -1,0 +1,35 @@
+{
+  "number": 288,
+  "kind": "pull_request",
+  "title": "Expand Storybook CRM example with Accounts entity and detail views",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-31T00:59:08Z",
+  "updated_at": "2026-01-31T01:48:51Z",
+  "closed_at": "2026-01-31T01:48:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-31T01:48:51Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/288",
+  "body": "## Summary\n\nSuccessfully enhanced the Storybook CRM example and fixed critical rendering issues.\n\n### Changes Made\n\n**New Pages:**\n- ✅ Accounts page with data grid showing 5 company records\n- ✅ Contact Detail view with info cards, quick actions, and activity timeline  \n- ✅ Opportunity Detail view with metric cards, stage progress tracker, and deal information\n\n**Enhancements:**\n- ✅ Added contact and close date columns to Opportunities grid\n- ✅ Added filter tabs to Contacts page\n- ✅ Added \"Examples\" sidebar section for detail views\n- ✅ Updated icons (Building2 for Accounts, TrendingUp for Opportunities)\n\n**Bug Fixes:**\n- ✅ **Commit 403f10e**: Fixed `view:grid` schema structure - moved `columns` from nested `props` to direct property\n- ✅ **Commit 403f10e**: Fixed `card` schema - moved `title`/`description` from nested `props` to direct properties\n- ✅ **Commit 691557b**: Fixed grid data binding - changed from `bind` to `staticData` with actual data arrays\n\n### Issue Resolution\n\nThe reported issue \"大部分页面只能看到空的方框\" (most pages show only empty boxes) was caused by two problems:\n\n1. **Schema Structure Error**: Properties like `columns`, `title`, `description` were incorrectly nested in `props` objects\n2. **Missing Grid Data**: Grids used `bind: \"contacts\"` instead of providing data via `staticData: CONTACTS_DATA.contacts`\n\n### Technical Details\n\n**Correct grid schema:**\n```typescript\n{\n    type: \"view:grid\",\n    staticData: CONTACTS_DATA.contacts,  // Direct data, not bind expression\n    columns: [  // Direct property, not in props\n        { key: \"name\", label: \"Name\", type: \"text\" }\n    ]\n}\n```\n\n**Correct card schema:**\n```typescript\n{\n    type: \"card\",\n    title: \"Total Revenue\",  // Direct property, not in props\n    description: \"Growth metric\",\n    children: [...]\n}\n```\n\n### Data Included\n- **Contacts**: 5 sample contacts with company, email, status\n- **Accounts**: 5 sample companies with industry, revenue, employees\n- **Opportunities**: 4 sample deals with amounts, stages, probabilities\n- **Detail Views**: Full contact and opportunity detail data\n\nAll pages now render with complete, working data grids and proper content display.\n\n### Quality Checks\n- ✅ Code review: No issues\n- ✅ Security scan (CodeQL): 0 vulnerabilities\n- ✅ All 7 pages functional (Dashboard, Contacts, Accounts, Opportunities, Settings, Contact Detail, Deal Detail)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 继续完善 storybook crm 案例\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

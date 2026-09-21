@@ -1,0 +1,33 @@
+{
+  "number": 273,
+  "kind": "pull_request",
+  "title": "Fix Storybook test-runner TypeError: __test must be function not boolean",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-30T00:02:52Z",
+  "updated_at": "2026-01-30T00:59:27Z",
+  "closed_at": "2026-01-30T00:54:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-30T00:54:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/273",
+  "body": "Storybook test-runner expects `window.__test` to be a function but `.storybook/test-runner.cjs` was setting it as `true`, causing all 175 tests to fail with `TypeError: __test is not a function`.\n\n## Changes\n\nChanged `.storybook/test-runner.cjs`:\n```diff\n-      window.__test = true;\n+      window.__test = () => {};\n```\n\nThe test-runner's internal evaluation logic attempts to invoke `__test()`, requiring a callable. Changed from boolean to no-op function.\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `esm.ubuntu.com`\n>   - Triggering command: `/usr/lib/apt/methods/https /usr/lib/apt/methods/https nts/src/stories-/usr/local/bin/pnpm modules/.bin/sh sh -c tsc grep /.bin/node npm --filter @obsh nts/src/stories--c /.bin/node sh de_m\u0004\u0018 tsup tui/node_modules/.pnpm/@esbuild&#43;linux-x64@0.27.2/node_modules/@esbuild/linux-x64/bin/esbuild ct/node_modules/.bin/tsc play: nts/src/stories-/home/REDACTED/work/objectui/objectui/apps/site/.next/build/postcss.js sbuild/linux-x6434055 node` (dns block)\n> - `storybook.js.org`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/node_modules/.bin/../storybook/bin/index.cjs dev -p 6006 --no-open --port 6006 eb deb deb _all.deb .deb\u0004\u0018 l.deb git b bject-ui/types b/usr/bin/python3.12 1_amd64.deb _amd64.deb amd64.deb` (dns block)\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/node_modules/.bin/../storybook/bin/index.cjs dev -p 6006 --no-open --port 6006 --ping` (dns block)\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/node_modules/.bin/../@storybook/test-REDACTED/dist/test-storybook.js --testTimeout=90000 dirname tui/\u0004\u0018 p/bin/git node k/objectui/objectui/node_modules/.bin/node npm --filter @obsh` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21499163743/job/61941313711#step:7:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 194,
+  "kind": "pull_request",
+  "title": "Fix ObjectGantt tests: handle duplicate text in sidebar and chart",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-25T13:33:14Z",
+  "updated_at": "2026-01-25T14:08:43Z",
+  "closed_at": "2026-01-25T14:06:11Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-25T14:06:11Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/194",
+  "body": "ObjectGantt renders task names in both the sidebar list and the gantt chart visualization. Tests using `getByText()` failed with \"Found multiple elements\" errors.\n\n## Changes\n\n- Updated test queries from `getByText()` to `getAllByText()` with length assertions\n- Affected tests: \"should fetch and display gantt data\", \"should render with inline data\", \"should handle task click\"\n\n```diff\n- expect(screen.getByText('Task 1')).toBeInTheDocument();\n+ expect(screen.getAllByText('Task 1').length).toBeGreaterThan(0);\n```\n\nThis is the correct Testing Library pattern when text appears in multiple DOM locations.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21333319032/job/61401378462#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

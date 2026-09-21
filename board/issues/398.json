@@ -1,0 +1,33 @@
+{
+  "number": 398,
+  "kind": "pull_request",
+  "title": "Consolidate planning documents into unified ROADMAP.md",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-08T10:53:57Z",
+  "updated_at": "2026-02-08T11:19:29Z",
+  "closed_at": "2026-02-08T11:13:25Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-08T11:13:25Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/398",
+  "body": "Project planning was fragmented across 6 documents (IMPROVEMENT_PLAN.md, OBJECTOS_INTEGRATION_ROADMAP.md, original ROADMAP.md, console dev plan, update summary, copilot instructions) with ~40% duplicate content. This created confusion about priorities and timelines.\n\n## Changes\n\n### Consolidated ROADMAP.md\n- **87% compression** (71KB → 11KB) while preserving all critical information\n- Quarterly structure (Q1-Q4 2026) with clear milestones:\n  - Q1: Infrastructure (test coverage 80%+, i18n, performance)\n  - Q2: ObjectOS integration (multi-tenancy, RBAC, enterprise features)\n  - Q3: Ecosystem (plugins, visual designer, real-time collaboration)\n  - Q4: Commercialization (Cloud platform, $500K revenue target)\n- Current status: 28 packages, 91+ components, v0.5.0 achievements\n- Identified gaps: P0 (test coverage 62%, no i18n, bundle 200KB) and P1 (multi-tenancy, workflow engine)\n- Resource planning: 15-person team, $1.57M budget, expected ROI\n- Risk matrix with mitigation strategies\n\n### Removed Obsolete Documents\nCleaned up historical planning documents that were consolidated:\n- `IMPROVEMENT_PLAN.md` (26KB)\n- `OBJECTOS_INTEGRATION_ROADMAP.md` (14KB)\n- `UPDATE_SUMMARY.md` (12KB)\n- `ROADMAP_CONSOLIDATION_SUMMARY.md` (6.5KB audit trail)\n\n### Preserved\nConsole-specific planning remains in `apps/console/DEVELOPMENT_PLAN.md` as it wasn't consolidated into the main roadmap.\n\n## Structure\n\n```markdown\nROADMAP.md\n├── Executive Summary (strategic goals)\n├── Current Status (achievements + gaps)\n├── Q1-Q4 2026 Roadmap\n├── Annual Targets (metrics table)\n├── Resources ($1.57M budget, team structure)\n├── Risk Management\n└── References (links to source docs)\n```\n\nSingle source of truth for project direction with clean repository structure.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 扫描目前软件包的开发进展，扫描项目中所有的进度计划文档，合并成一个ROADMAP\n> \n> The user has attached the following file paths as relevant context:\n>  - IMPROVEMENT_PLAN.md\n>  - OBJECTOS_INTEGRATION_ROADMAP.md\n>  - .github/copilot-instructions.md\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\nCreated from [VS Code](https://code.visualstudio.com/docs/copilot/copilot-coding-agent).\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

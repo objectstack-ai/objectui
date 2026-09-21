@@ -1,0 +1,36 @@
+{
+  "number": 391,
+  "kind": "pull_request",
+  "title": "feat: Replace hardcoded cell formatters with @object-ui/fields widgets in object-agrid",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-06T04:43:14Z",
+  "updated_at": "2026-02-07T19:02:27Z",
+  "closed_at": "2026-02-07T19:02:27Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-07T19:02:27Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/391",
+  "body": "## ✅ Implementation Complete: Integrate packages/fields into object-agrid\n\n### Objective\nImprove object-agrid to use field widget components from packages/fields for rendering cells in both read-only and edit modes.\n\n### ✅ All Changes Completed\n\n- [x] Add @object-ui/fields dependency to plugin-aggrid package.json\n- [x] Create field-renderers.tsx with cell renderer and editor utilities\n- [x] Implement custom AG Grid cell renderer that uses field widgets in read-only mode\n- [x] Implement custom AG Grid cell editor that uses field widgets in edit mode\n- [x] Update ObjectAgGridImpl.tsx to use the new cell renderers/editors\n- [x] Clean up unused imports and variables\n- [x] Address initial code review feedback\n  - [x] Use explicit `Root` type from react-dom/client instead of `any`\n  - [x] Use `unknown` type for currentValue instead of `any`\n  - [x] Replace HTML string renderers with DOM element creation for security\n- [x] **NEW: Address PR review feedback**\n  - [x] Move widgetMap to module level for better performance\n  - [x] Fix refresh() to update textContent for fallback case and return true\n  - [x] Remove redundant lookup/master_detail cases from fallback switch\n  - [x] Add comprehensive test coverage (17 new tests)\n- [x] Build the package successfully (no errors)\n- [x] All tests passing (29/29 tests, including 17 new field-renderer tests)\n- [x] Type checking passes\n- [x] CodeQL security scan passes (0 vulnerabilities)\n- [x] Final validation complete\n\n### Technical Implementation\n\n**Added Files:**\n- `packages/plugin-aggrid/src/field-renderers.tsx` (221 lines)\n  - `widgetMap`: Module-level constant mapping 21 field types to widgets (performance optimization)\n  - `getFieldWidget()`: Returns widget component for a given field type\n  - `FieldWidgetCellRenderer`: AG Grid cell renderer using field widgets in readonly mode\n  - `FieldWidgetCellEditor`: AG Grid cell editor using field widgets for editing\n  - Factory functions for creating renderers/editors with field metadata\n  - **Type-safe**: Uses `Root` type from react-dom/client\n  \n- `packages/plugin-aggrid/src/field-renderers.test.tsx` (328 lines)\n  - **17 comprehensive tests** covering:\n    - Widget mapping and fallback behavior\n    - Renderer lifecycle (init, refresh, destroy)\n    - Editor lifecycle and value handling\n    - Memory cleanup (root.unmount())\n    - Popup editor configuration\n    - Factory function behavior\n\n**Modified Files:**\n- `packages/plugin-aggrid/package.json`: Added `@object-ui/fields` workspace dependency\n- `packages/plugin-aggrid/src/ObjectAgGridImpl.tsx`: \n  - Imported field renderer utilities\n  - Replaced 160+ lines of hardcoded formatters with field widgets\n  - Removed redundant lookup case (already handled by field widgets)\n  - Only master_detail remains in fallback for specialized handling\n  - **Security**: Fallback renderers use DOM element creation instead of HTML strings\n\n### Field Types Supported\n✅ **21 field types** with full read-only and edit mode support:\n- **Text fields**: text, textarea, email, phone, url, password, code\n- **Numeric fields**: number, currency, percent, slider  \n- **Date/Time fields**: date, datetime, time\n- **Selection fields**: boolean, select, lookup\n- **Visual fields**: color, rating, image, avatar\n\n### Code Quality Metrics\n✅ **Type Safety**: Explicit types, no `any` in new code\n✅ **Security**: CodeQL scan passed (0 vulnerabilities)\n✅ **Testing**: **29/29 tests passing** (including 17 new tests for field-renderers)\n✅ **Test Coverage**: Comprehensive coverage of renderer/editor lifecycle, fallback, and edge cases\n✅ **Build**: Clean build with no errors\n✅ **Performance**: Module-level widgetMap prevents object recreation on every call\n✅ **Maintainability**: -105 lines of code (replaced hardcoded logic with reusable components)\n\n### Performance Improvements\n✅ widgetMap defined at module level (avoids recreation on every getFieldWidget call)\n✅ Improved refresh() logic returns true to avoid unnecessary DOM manipulation\n\n### Test Coverage Summary\n**New test file: `field-renderers.test.tsx`**\n- FieldWidgetCellRenderer: 10 tests\n  - Initialization (supported & unsupported types)\n  - Null value handling\n  - GUI element access\n  - Refresh behavior (widget & fallback modes)\n  - Memory cleanup on destroy\n- FieldWidgetCellEditor: 5 tests\n  - Initialization (widget & fallback modes)\n  - Value handling\n  - Popup configuration\n  - Memory cleanup\n- Factory functions: 2 tests\n  - createFieldCellRenderer\n  - createFieldCellEditor\n\n### Benefits Achieved\n✅ **Consistency**: All field types now render using the same widgets across forms, grids, and other components\n✅ **Maintainability**: Centralized field rendering logic in `@object-ui/fields` package\n✅ **Extensibility**: Easy to add new field types - just update the widget map\n✅ **Security**: DOM-based rendering prevents XSS vulnerabilities\n✅ **Performance**: Optimized widget lookup with module-level constant\n✅ **Quality**: Comprehensive test coverage ensures reliability\n✅ **DX**: Type-safe implementation with IntelliSense support\n✅ **Edit Support**: Automatic edit mode for all 21 supported field types\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完善object-agrid，应使用packages/fields 中定义的组件来渲染单元格，需要考虑只读和编辑两种模式\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

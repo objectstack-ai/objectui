@@ -1,0 +1,33 @@
+{
+  "number": 413,
+  "kind": "pull_request",
+  "title": "chore: upgrade @objectstack packages to v2.0.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-09T12:11:16Z",
+  "updated_at": "2026-02-09T12:36:30Z",
+  "closed_at": "2026-02-09T12:34:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-09T12:34:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/413",
+  "body": "Bump all `@objectstack/*` dependencies from `^2.0.0` to `^2.0.1` and align documentation references.\n\n### Package updates\n- 13 `package.json` files updated across root, apps/console, examples/\\*, and packages/\\*\n- `pnpm-lock.yaml` refreshed — all packages resolve to 2.0.1\n\n### Documentation updates\n- **ROADMAP.md** — spec version `v1.1.0` → `v2.0.1`\n- **apps/console/CONSOLE_ROADMAP.md** — spec alignment `v1.1.0` → `v2.0.1`\n- **apps/console/README.md** — spec badge `v1.1.0` → `v2.0.1`\n- **packages/types/README.md** — spec version `v0.1.2` → `v2.0.1`\n- **CHANGELOG.md** — added entry under `[Unreleased]`\n\n### Verification\nFull build (34 packages) and test suite (2560 tests / 121 files) pass clean.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

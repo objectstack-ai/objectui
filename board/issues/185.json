@@ -1,0 +1,42 @@
+{
+  "number": 185,
+  "kind": "pull_request",
+  "title": "Rename ObjectTable to ObjectGrid - Align with @objectstack/spec view.zod grid type",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "package: components",
+    "package: types",
+    "plugin",
+    "plugin: kanban",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-24T11:09:59Z",
+  "updated_at": "2026-01-25T06:23:47Z",
+  "closed_at": "2026-01-25T06:23:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-25T06:23:47Z",
+  "comments": 22,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/185",
+  "body": "## Rename object-table to object-grid - Complete ✅\n\nAll files have been updated to reflect the rename from ObjectTable to ObjectGrid:\n\n### Schema & Types ✅\n- `ObjectTableSchema` → `ObjectGridSchema`\n- Type: `'object-table'` → `'object-grid'`\n- Removed `viewType` field (fixed to grid)\n- Removed kanban/calendar/gantt configs\n- **Added missing `title` and `description` legacy fields for backward compatibility**\n\n### Component ✅  \n- `ObjectTable.tsx` → `ObjectGrid.tsx`\n- Component: `ObjectTable` → `ObjectGrid`\n- Props: `ObjectTableProps` → `ObjectGridProps`\n- Updated `ObjectView` and exports\n- **Fixed fetchData dependency array**\n- **Updated error messages to use \"grid\" instead of \"table\"**\n\n### Tests ✅\n- `ObjectTable.test.tsx` → `ObjectGrid.test.tsx`\n- `ObjectTable.viewzod.test.tsx` → `ObjectGrid.viewzod.test.tsx`\n- All references updated\n\n### Documentation ✅\n- `object-table.mdx` → `object-grid.mdx`\n- `object-table-migration.mdx` → `object-grid-migration.mdx`\n- Updated titles, descriptions, and all content\n- Clarified that ObjectGrid implements the grid view type from ListView\n- **Fixed meta.json navigation to reference object-grid**\n\n### Fumadocs Integration ✅\n- **Created `ObjectGrid.component.yml` metadata file**\n- **Removed old `ObjectTable.component.yml`**\n- **Fixed meta.json to properly route to object-grid documentation**\n- Includes enhanced props for view.zod alignment\n- Demo-ready configuration\n\n### Code Review Fixes ✅\n- Added `title` and `description` to legacy fields (backward compatibility)\n- Fixed `fetchData` useCallback dependency array\n- Updated error/loading messages to reference \"grid\"\n\n### Implementation Notes:\n- ObjectGrid implements the **grid view type** from @objectstack/spec ListView schema\n- Future view types (kanban, calendar, gantt) will be separate components (ObjectKanban, ObjectCalendar, ObjectGantt)\n- Full backward compatibility maintained through legacy field support\n- All type exports and component registry updated\n- Fumadocs metadata ready for documentation generation\n- Documentation properly routed in fumadocs navigation\n\nThis addresses all user feedback and code review comments.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按照 @objectstack/spec view.zod 全面改造 object-table \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 245,
+  "kind": "pull_request",
+  "title": "[WIP] Fix incomplete styles in CRM example Vercel deployments",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "examples"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-28T03:44:38Z",
+  "updated_at": "2026-01-28T05:00:55Z",
+  "closed_at": "2026-01-28T05:00:55Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-28T05:00:55Z",
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/245",
+  "body": "⚠️ **WORK IN PROGRESS**: This PR partially addresses the styling issues but requires additional architectural decisions.\n\nThe CRM example deployed to Vercel with incomplete styles due to missing Tailwind CSS v4 configuration and a deeper monorepo CSS architecture issue.\n\n## Changes Made\n\n**Added Tailwind v4 build configuration:**\n- Created `postcss.config.js` with `@tailwindcss/postcss` plugin\n- Added `@source` directives to `index.css` to scan all relevant packages:\n  - `./src/**/*.{ts,tsx}` - CRM app source\n  - `../../packages/components/src/**/*.{ts,tsx}` - Component library\n  - `../../packages/layout/src/**/*.{ts,tsx}` - Layout components\n  - `../../packages/fields/src/**/*.{ts,tsx}` - Form fields\n  - `../../packages/react/src/**/*.{ts,tsx}` - React renderers (ADDED)\n  - `../../packages/plugin-dashboard/src/**/*.{ts,tsx}` - Dashboard widgets\n- Added `@theme` directive to map CSS variables to Tailwind theme tokens\n- Added `@plugin 'tailwindcss-animate'` for component animations\n- Added `tailwindcss-animate` and `@tailwindcss/postcss` dev dependencies\n- Added Shadcn Sidebar CSS variables (`--sidebar`, `--sidebar-foreground`, `--sidebar-border`, etc.)\n\n## Known Issue\n\n**Styling is still incomplete** due to a Tailwind v4 + monorepo architecture limitation:\n\n- The `@object-ui/components` package builds a complete **115KB CSS file** with all Shadcn UI component styles\n- The CRM app only generates **15KB CSS** with basic utilities\n- **Root cause**: Tailwind v4 doesn't properly merge CSS from multiple packages that each have `@import 'tailwindcss'`\n- Vite aliases point to source files (for HMR), preventing import of pre-built component CSS in production builds\n- Shadcn Sidebar component classes aren't being generated despite scanning source files\n\n## Current State\n\n![Current state - styling still incomplete](https://github.com/user-attachments/assets/197587ed-985f-40e3-925c-e8147fab611f)\n\nNavigation remains unstyled, sidebar has no background/borders, component placeholders visible.\n\n## Next Steps - Decision Needed\n\nOptions to complete the fix:\n1. **Modify Vite config** to allow importing pre-built CSS (`@object-ui/components/dist/index.css`)\n2. **Copy component CSS** - Duplicate all Shadcn theme/component CSS variables to CRM app\n3. **Restructure monorepo CSS** - Centralize CSS generation or change how packages export styles\n\nAwaiting guidance on preferred approach for this monorepo.\n\n## Code Example\n\n```css\n@import 'tailwindcss';\n\n/* Scan sources for Tailwind classes */\n@source './src/**/*.{ts,tsx}';\n@source '../../packages/components/src/**/*.{ts,tsx}';\n@source '../../packages/react/src/**/*.{ts,tsx}';\n/* ... */\n\n/* Tailwind plugin for animations */\n@plugin 'tailwindcss-animate';\n\n/* Define theme colors for Tailwind 4 */\n@theme {\n  --color-border: hsl(var(--border));\n  --color-sidebar: hsl(var(--sidebar));\n  /* ... */\n}\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> example crm部署到vercel之后没有任何样式\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

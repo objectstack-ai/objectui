@@ -1,0 +1,33 @@
+{
+  "number": 220,
+  "kind": "pull_request",
+  "title": "Fix missing button colors in documentation site",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-26T15:53:19Z",
+  "updated_at": "2026-01-27T04:13:58Z",
+  "closed_at": "2026-01-27T04:12:11Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T04:12:11Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/220",
+  "body": "Button components in the documentation were rendering without colors. The site layout wasn't importing `@object-ui/components/style.css`, which defines the CSS custom properties (`--primary`, `--destructive`, etc.) that Tailwind classes depend on.\n\n## Changes\n\n- Added `import '@object-ui/components/style.css'` to `apps/site/app/layout.tsx`\n\n```diff\n import { RootProvider } from 'fumadocs-ui/provider/next';\n import './global.css';\n+import '@object-ui/components/style.css';\n import '@object-ui/plugin-aggrid/style.css';\n```\n\n## Result\n\nAll button variants now render with proper colors:\n\n![Button colors restored](https://github.com/user-attachments/assets/31be7e9a-7729-4aec-b7bf-9c7b7869a78c)\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build` (dns block)\n>   - Triggering command: `/usr/local/bin/node /usr/local/bin/node /home/REDACTED/work/objectui/objectui/node_modules/.pnpm/next@16.1.4_@babel&#43;core@7.28.6_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/lib/start-server.js` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> button 颜色都丢了。在文档演示页看不出\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

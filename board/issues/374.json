@@ -1,0 +1,33 @@
+{
+  "number": 374,
+  "kind": "pull_request",
+  "title": "Implement chart, dashboard, and report components per @objectstack/spec",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-03T10:18:12Z",
+  "updated_at": "2026-02-03T12:59:14Z",
+  "closed_at": "2026-02-03T12:59:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-03T12:59:13Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/374",
+  "body": "Completes the @objectstack/spec implementation for dashboard, chart, and report components. Adds missing chart types, metric cards, report builder/viewer functionality, and comprehensive Storybook documentation.\n\n## Chart Types\n\nAdded pie, donut, radar, and scatter charts to `AdvancedChartImpl`:\n\n```typescript\n// All registered as standalone types\n'pie-chart' | 'donut-chart' | 'radar-chart' | 'scatter-chart'\n\n// Or via unified chart component\n{ type: 'chart', chartType: 'pie' | 'donut' | 'radar' | 'scatter' }\n```\n\nImplementation uses Recharts components (`PieChart`, `RadarChart`, `ScatterChart`) with proper color palette cycling and chart-specific configurations (innerRadius for donut, PolarGrid for radar).\n\n## Dashboard Components\n\n**MetricCard** - Standalone KPI card with Lucide icon support and trend indicators:\n\n```typescript\n{\n  type: 'metric-card',\n  title: 'Total Revenue',\n  value: '$45,231.89',\n  icon: 'DollarSign',\n  trend: 'up',           // up/down/neutral with color coding\n  trendValue: '+20.1%'\n}\n```\n\n## Report Components\n\n**ReportViewer** - Renders report sections (header, summary, chart, table, text, page-break) with toolbar for export/print. Handles data aggregation for summary fields.\n\n**ReportBuilder** - Enterprise-grade interactive report configuration UI with comprehensive features:\n\n- **5 Tabbed Sections** for organized configuration:\n  - **Basic Tab**: Title, description, data source selection, and export options\n  - **Fields Tab**: Field selection with label customization, aggregation types (sum, avg, min, max, count, distinct), and summary display control\n  - **Filters Tab**: Complete filter builder with 8 operators (equals, not_equals, contains, greater_than, less_than, between, in, not_in)\n  - **Group By Tab**: Grouping configuration with custom labels and sorting (ascending/descending)\n  - **Sections Tab**: Report section builder supporting all section types (header, summary, chart, table, text, page-break)\n- **Export Configuration**: Support for PDF, Excel, CSV, JSON, and HTML formats with toggle controls\n- **Live Preview**: Real-time preview of report configuration\n- **Save/Cancel Handlers**: Complete workflow management\n\nBoth components fully implement `ReportViewerSchema` and `ReportBuilderSchema` from spec, with ReportBuilder now supporting all `ReportSchema` protocol features including filters, groupBy, sections, and export configurations.\n\n## Storybook Documentation\n\nAdded comprehensive interactive examples for all new components:\n\n- **`charts.stories.tsx`** - Added Pie, Donut, Radar, and Scatter chart examples\n- **`dashboard.stories.tsx`** - Added MetricCard and chart combination layouts\n- **`metric-card.stories.tsx`** - 8 examples showcasing icons, trends, and variations\n- **`reports.stories.tsx`** - 4 examples for ReportViewer and enhanced ReportBuilder (with pre-populated configurations demonstrating all features)\n\nTotal of 20+ interactive Storybook stories added for visual documentation and testing.\n\n## Files Changed\n\n- `packages/plugin-charts/src/AdvancedChartImpl.tsx` - Chart type implementations\n- `packages/plugin-charts/src/index.tsx` - Component registrations\n- `packages/plugin-dashboard/src/{MetricCard,ReportViewer,ReportBuilder}.tsx` - New components\n- `packages/plugin-dashboard/src/ReportBuilder.tsx` - Enhanced with tabbed interface and complete protocol support\n- `packages/plugin-dashboard/src/index.tsx` - Component registrations\n- `packages/components/src/stories-json/charts.stories.tsx` - Chart examples\n- `packages/components/src/stories-json/dashboard.stories.tsx` - Dashboard examples\n- `packages/components/src/stories-json/metric-card.stories.tsx` - MetricCard examples\n- `packages/components/src/stories-json/reports.stories.tsx` - Enhanced report examples\n\n## Testing\n\n- ✅ 16 tests passing (enhanced test coverage for ReportBuilder)\n- ✅ Build passes without errors\n- ✅ Full TypeScript support\n- ✅ Complete @objectstack/spec protocol compliance\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按照@objectstack/spec 继续完成dashboard和图表，报表相关组件的细节开发\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

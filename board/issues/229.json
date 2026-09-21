@@ -1,0 +1,47 @@
+{
+  "number": 229,
+  "kind": "pull_request",
+  "title": "Release v0.3.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T08:16:23Z",
+  "updated_at": "2026-01-27T09:03:10Z",
+  "closed_at": "2026-01-27T08:59:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T08:59:51Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/229",
+  "body": "Patch release bumping all packages from 0.3.0 to 0.3.1.\n\n## Changes\n\n- **Version bump**: All 23 workspace packages → 0.3.1\n- **CHANGELOG cleanup**: Removed unreleased entry documenting rename of `@object-ui/plugin-object` to `@object-ui/views` (neither package exists in codebase)\n- **Dependencies**: Updated internal cross-package references to 0.3.1\n\n## Release Type\n\nMaintenance release with no functional changes. All builds and tests passing (270/270).\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 发一个版本\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

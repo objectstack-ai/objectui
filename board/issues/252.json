@@ -1,0 +1,39 @@
+{
+  "number": 252,
+  "kind": "pull_request",
+  "title": "Add Storybook stories for all 14 plugin packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "dependencies",
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-28T11:26:04Z",
+  "updated_at": "2026-01-28T15:50:45Z",
+  "closed_at": "2026-01-28T15:43:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-28T15:43:28Z",
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/252",
+  "body": "## 📚 Add Storybook Stories for All Plugin Components\n\n### 🎯 Task Complete ✅\nSuccessfully evaluated the current Storybook setup and added comprehensive stories for **all 14 missing plugin components** as requested in the issue (评估目前的storybook，为所有缺少的组件插件添加story).\n\n### 📊 Summary\nCreated **14 new story files** with **41 individual story examples** covering all plugin components in the ObjectUI ecosystem.\n\n### ✅ All Plugin Components Now Have Stories\n\n#### Standalone Plugins (9 packages)\n- [x] **plugin-aggrid** - AG Grid component (`aggrid`)\n  - 3 stories: Default, WithPagination, AlpineTheme\n  - Demonstrates data grids with sorting, filtering, pagination, and theming\n- [x] **plugin-calendar** - Calendar components (`calendar-view`)\n  - 2 stories: CalendarView, MonthView\n  - Shows event calendars with different view modes\n- [x] **plugin-charts** - Chart components (`bar-chart`, `chart`)\n  - 4 stories: BarChart, MultiSeriesChart, LineChart, AreaChart\n  - Covers all major chart types with sample data\n- [x] **plugin-chatbot** - Chatbot component (`chatbot`)\n  - 3 stories: Default, WithTimestamps, CustomerSupport\n  - Interactive chat interfaces with auto-response demo\n- [x] **plugin-dashboard** - Dashboard components (`dashboard`, `metric`)\n  - 2 stories: Default, WithCards\n  - Dashboard layouts with metric widgets\n- [x] **plugin-editor** - Code Editor component (`code-editor`)\n  - 6 stories: JavaScript, TypeScript, Python, JSON, ReadOnly, LightTheme\n  - Monaco editor with multiple language support\n- [x] **plugin-kanban** - Kanban Board component (`kanban`)\n  - 2 stories: Default, ProjectManagement\n  - Drag-and-drop task boards with column limits\n- [x] **plugin-markdown** - Markdown renderer (`markdown`)\n  - 4 stories: Default, CompleteExample, CodeExample, TableExample\n  - Rich markdown rendering with code blocks and tables\n- [x] **plugin-timeline** - Timeline components (`timeline`)\n  - 4 stories: Vertical, Horizontal, Gantt, ProductRoadmap\n  - Multiple timeline visualizations including Gantt charts\n\n#### ObjectStack-Integrated Plugins (5 packages)\n- [x] **plugin-form** - Object Form component (`object-form`)\n  - 3 stories: BasicSchema, WithSections, ComplexFields\n  - Form builders with validation and field types\n- [x] **plugin-gantt** - Gantt component (`object-gantt`)\n  - 2 stories: ProjectSchedule, SimpleGantt\n  - Project timeline management with dependencies\n- [x] **plugin-grid** - Object Grid component (`object-grid`)\n  - 3 stories: UserGrid, ProductGrid, WithActions\n  - Data tables with CRUD operations\n- [x] **plugin-map** - Map component (`object-map`)\n  - 2 stories: StoreLocations, DeliveryRoutes\n  - Interactive maps with location markers\n- [x] **plugin-view** - Object View component (`object-view`)\n  - 3 stories: UserProfile, ProductDetails, OrderSummary\n  - Detail views for various data types\n\n### 🔧 Implementation Details\n- **Location**: `packages/components/src/stories-json/`\n- **Pattern**: Followed existing conventions using `SchemaRenderer` component\n- **Format**: JSON-based component schemas demonstrating real-world use cases\n- **Structure**: Each story file follows the same template as existing stories\n- **Category**: All stories organized under \"JSON/Plugins/\" in Storybook\n\n### 🐛 Fixed Build Issue\n- **Problem**: CSS preload failures and component rendering issues in deployed Storybook\n- **Root Cause**: Plugin packages have circular dependencies with `@object-ui/components`\n- **Solution**: Added Vite aliases in `.storybook/main.ts` to resolve plugin packages from source during Storybook build\n- **Result**: Storybook now builds successfully with all plugin components properly registered\n\n### ✨ Quality Assurance\n- [x] **Build**: Storybook builds successfully without errors\n- [x] **Type Safety**: TypeScript type-checking passes with no errors\n- [x] **Code Review**: Automated review found no issues\n- [x] **Security**: CodeQL scan found 0 alerts\n- [x] **UI Verification**: All 14 plugin categories visible in Storybook sidebar\n- [x] **Documentation**: All 41 individual stories accessible and properly documented\n- [x] **CSS Assets**: Plugin CSS properly bundled and loaded\n\n### 📝 Files Modified/Added\n```\npackages/components/\n├── .storybook/\n│   ├── main.ts (modified - added Vite aliases for plugins)\n│   └── preview.ts (modified - imports all plugin packages)\n├── package.json (no changes - avoided circular dependencies)\n└── src/stories-json/ (14 new files)\n    ├── aggrid.stories.tsx\n    ├── calendar.stories.tsx\n    ├── charts.stories.tsx\n    ├── chatbot.stories.tsx\n    ├── code-editor.stories.tsx\n    ├── dashboard.stories.tsx\n    ├── kanban.stories.tsx\n    ├── markdown.stories.tsx\n    ├── object-form.stories.tsx\n    ├── object-gantt.stories.tsx\n    ├── object-grid.stories.tsx\n    ├── object-map.stories.tsx\n    ├── object-view.stories.tsx\n    └── timeline.stories.tsx\n```\n\n### 🎓 Story Coverage\nEach plugin now includes stories demonstrating:\n- ✅ Default/basic usage\n- ✅ Common configurations and variants\n- ✅ Real-world use cases and examples\n- ✅ Different data structures and formats\n- ✅ Interactive features where applicable\n\n### 🔍 Before & After\n**Before**: 35 story files, 0 plugin stories, build failures\n**After**: 49 story files, 14 plugin stories covering all 14 plugin packages, successful builds\n\n### 🚀 Usage\nAll stories are now accessible in Storybook under the \"Plugins\" category:\n```bash\ncd packages/components\npnpm run storybook\n# Navigate to http://localhost:6006\n# Click \"Plugins\" to see all new stories\n```\n\n### 📚 Documentation Value\nThese stories serve as:\n1. **API Documentation**: Shows available props and schema structure\n2. **Usage Examples**: Demonstrates how to use each plugin\n3. **Visual Reference**: Provides quick preview of component capabilities\n4. **Testing Ground**: Allows interactive experimentation with component props\n\n### 🔒 Security Summary\n- No security vulnerabilities introduced\n- All code follows existing patterns and best practices\n- CodeQL analysis: 0 alerts\n\n---\n\n**Issue Resolved**: 评估目前的storybook，为所有缺少的组件插件添加story ✅\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 评估目前的storybook，为所有缺少的组件插件添加story\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

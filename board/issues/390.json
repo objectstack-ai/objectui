@@ -1,0 +1,39 @@
+{
+  "number": 390,
+  "kind": "pull_request",
+  "title": "Add inline cell editing to object-grid with batch save support",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-06T02:41:18Z",
+  "updated_at": "2026-02-06T04:34:00Z",
+  "closed_at": "2026-02-06T04:34:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-06T04:34:00Z",
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/390",
+  "body": "## Implementation Plan: Object-Grid Row Editing Feature\n\n- [x] Analyze existing codebase and understand requirements\n- [x] Add row editing state management to ObjectGrid component\n- [x] Implement inline cell editing with double-click or Enter key\n- [x] Add editable prop handling in ObjectGrid.tsx\n- [x] Integrate with data-table component for editing UI\n- [x] Add onCellChange callback support\n- [x] Add keyboard navigation for editing (Tab, Enter, Escape)\n- [x] Update DataTableSchema to support editable cells\n- [x] Create tests for row editing functionality\n- [x] Update documentation with row editing examples\n- [x] Add Storybook examples for visual testing\n- [x] Address code review feedback (remove onBlur, improve accessibility)\n- [x] Add multi-cell editing support with pending changes tracking\n- [x] Implement row-level save functionality\n- [x] Implement batch save for multiple rows\n- [x] Add visual indicators for modified rows/cells\n- [x] Add tests for batch editing\n- [x] Update Storybook with batch editing example\n- [x] Update documentation with batch editing features\n- [x] Fix code review feedback (simplify startEdit, fix test)\n- [x] Enhance Storybook examples with comprehensive demonstrations\n- [x] Add clear step-by-step instructions for using save buttons in Storybook\n- [x] Fix SchemaRendererProvider error in data-table stories\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完善object-grid，支持启用行编辑功能\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

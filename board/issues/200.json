@@ -1,0 +1,39 @@
+{
+  "number": 200,
+  "kind": "pull_request",
+  "title": "Add Shadcn component sync tooling and analysis",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "dependencies",
+    "documentation",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-26T03:36:21Z",
+  "updated_at": "2026-01-26T04:02:37Z",
+  "closed_at": "2026-01-26T04:02:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-26T04:02:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/200",
+  "body": "ObjectUI components are based on Shadcn UI but lack tooling to track versions and sync updates. This adds automated comparison and update capabilities.\n\n## Implementation\n\n**Component Manifest** (`shadcn-components.json`)\n- Maps 46 Shadcn components to registry sources\n- Identifies 14 custom ObjectUI components\n- Documents dependency graph\n\n**Dual-mode Analysis**\n- Online sync: `shadcn-sync.js` fetches from Shadcn registry, updates components with backups\n- Offline analysis: `component-analysis.js` detects customizations without network access\n- GitHub Actions: weekly automated checks with issue creation\n\n**NPM Commands**\n```bash\nnpm run shadcn:analyze      # offline: analyze 60 components, categorize by customization\nnpm run shadcn:update toast # online: update component from registry\nnpm run shadcn:diff button  # online: show differences vs Shadcn\n```\n\n## Analysis Results\n\nComponents categorized by update safety:\n- **4 safe** (minimal diff): `calendar`, `sonner`, `table`, `toast`\n- **37 review** (data-slot attributes): most form/nav components\n- **5 manual** (heavy customization): `card`, `form`, `label`, `skeleton`, `tabs`\n- **14 custom** (ObjectUI-specific): never sync\n\nKey customizations detected:\n- 280+ `data-slot` attributes across 41 components\n- Glassmorphism effects (`backdrop-blur`, gradients)\n- Custom CVA variants (`icon-sm`, `icon-lg`)\n- React Hook Form integration in form component\n\n## Example Usage\n\n```bash\n# Analyze offline to identify update candidates\nnpm run shadcn:analyze\n\n# Update safe component with backup\nnpm run shadcn:update toast -- --backup\ngit diff packages/components/src/ui/toast.tsx\n\n# Batch update all components\nnpm run shadcn:update-all  # creates timestamped backups\n```\n\n## Documentation\n\n- `docs/README_SHADCN_TOOLS.md` - entry point\n- `docs/SHADCN_QUICK_START.md` - common workflows\n- `docs/SHADCN_DEMO.md` - real-world examples\n- `docs/COMPONENT_SYNC_SUMMARY.md` - bilingual (EN/中文)\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `ui.shadcn.com`\n>   - Triggering command: `/usr/local/bin/node node scripts/shadcn-sync.js --check` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 对比目前 components 基础组件 和 https://ui.shadcn.com/docs/components 的实现差异，我要求全部使用基础组件有没有办法有脚本来更新最新版\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 127,
+  "kind": "pull_request",
+  "title": "Add bilingual in-depth analysis articles for ObjectUI",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-20T14:59:53Z",
+  "updated_at": "2026-01-25T14:49:23Z",
+  "closed_at": "2026-01-25T14:49:23Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/127",
+  "body": "Adds comprehensive technical documentation series analyzing ObjectUI's architecture, design decisions, and implementation patterns.\n\n## Articles Added\n\nFive bilingual (EN/中文) analysis articles in `/docs/analysis/`:\n\n- **Architecture Deep Dive** - Monorepo structure, rendering pipeline, expression system, plugin architecture, state management\n- **Schema-Driven Philosophy** - Design principles, comparison with Amis/Formily/Retool, best practices, trade-offs\n- **Performance Optimization** - Bundle optimization (50KB vs 300KB+ competitors), tree-shaking, code splitting, benchmarks\n- **Plugin System Architecture** - Dynamic loading, dependency resolution, plugin communication, development guide\n- **Type Safety & DX** - TypeScript-first design, type inference, IDE integration, validation\n\n## Content Highlights\n\n- ~4,800 lines total (~130KB)\n- 100+ code examples with best practices\n- Architecture diagrams and comparison tables\n- Reading guide with recommended learning paths\n\nEach article includes practical examples:\n\n```typescript\n// Example: Plugin lazy loading\nconst ChartsPlugin: Plugin = {\n  name: 'charts',\n  version: '1.0.0',\n  dependencies: [],\n  config: { lazy: true, priority: 'low' },\n  \n  async register(registry: ComponentRegistry) {\n    registry.register('line-chart', LineChart);\n    registry.register('bar-chart', BarChart);\n  }\n};\n```\n\nTarget audience: architects, developers building with ObjectUI, teams evaluating schema-driven UI approaches.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 写几篇深度分析文章\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

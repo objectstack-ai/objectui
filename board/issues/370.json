@@ -1,0 +1,42 @@
+{
+  "number": 370,
+  "kind": "pull_request",
+  "title": "Upgrade @objectstack dependencies to 0.9.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-03T06:49:19Z",
+  "updated_at": "2026-02-03T09:47:36Z",
+  "closed_at": "2026-02-03T09:47:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-03T09:47:36Z",
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/370",
+  "body": "Upgrades @objectstack kernel and related packages from 0.9.0 to 0.9.1 for latest protocol support.\n\n## Changes\n\n**Dependencies updated across 5 package.json files:**\n- Core runtime: `@objectstack/{cli,core,runtime,objectql}` → 0.9.1\n- Drivers & plugins: `@objectstack/{driver-memory,plugin-msw,plugin-hono-server}` → 0.9.1  \n- Protocol spec: `@objectstack/{spec,client}` → 0.9.1\n\n## Notes\n\nVersion 0.9.1 adds enhanced plugin schema with additional `capabilities` and `contributes` configuration options. All changes are backward compatible—no code modifications required.\n\nUpdated lockfile reflects mixed 0.9.0/0.9.1 dependencies due to workspace resolution.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> @objectstack 内核升级到最新版，并按照最新的协议要求调整代码。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

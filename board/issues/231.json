@@ -1,0 +1,33 @@
+{
+  "number": 231,
+  "kind": "pull_request",
+  "title": "Reorganize documentation: separate plugins from components, add architecture guides",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T09:07:35Z",
+  "updated_at": "2026-01-27T09:56:01Z",
+  "closed_at": "2026-01-27T09:31:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T09:31:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/231",
+  "body": "Documentation had plugin components (calendar-view, chatbot, timeline) incorrectly documented in the basic components section, and was missing foundational architecture documentation.\n\n## Changes\n\n### Documentation Structure\n- **Removed** `calendar-view.mdx`, `chatbot.mdx`, `timeline.mdx` from `content/docs/components/complex/`\n  - These belong to plugin packages and are already documented in `content/docs/plugins/`\n- **Added** missing plugin menu entries: `plugin-dashboard`, `plugin-form`, `plugin-grid`, `plugin-view`\n  - All 15 plugin packages now have menu entries in `plugins/meta.json`\n\n### New Architecture Documentation\n- **Created** `content/docs/guide/architecture.md` (10KB)\n  - Package structure and monorepo topology\n  - Schema rendering pipeline\n  - Registry pattern (Component + Field)\n  - Expression engine\n  - Styling constraints (Tailwind/CVA only)\n  \n- **Created** `content/docs/guide/layout.md` (11KB)\n  - AppShell, Page, PageHeader, SidebarNav components\n  - Layout patterns and responsive behavior\n\n- **Updated** `guide/meta.json` to include `architecture`, `layout`, `fields` (existed but was orphaned)\n\n## Result\n\nDocumentation now clearly separates plugins from basic components, all packages have menu entries, and developers have comprehensive guides for understanding the platform architecture and layout system.\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 扫描所有的软件包，更新文档中的演示，对于插件中的控件应该在插件菜单中演示，不应该在基本控件中演示。对于新增的控件添加必要的文档和菜单。完善平台必要的基本概念的介绍文档。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

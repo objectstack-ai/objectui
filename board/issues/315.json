@@ -1,0 +1,40 @@
+{
+  "number": 315,
+  "kind": "pull_request",
+  "title": "Add test environment configuration to plugin packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-01T09:23:05Z",
+  "updated_at": "2026-02-01T10:35:41Z",
+  "closed_at": "2026-02-01T10:16:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-01T10:16:52Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/315",
+  "body": "CI failing on `@object-ui/plugin-form#test` with `ReferenceError: document is not defined`. Seven plugin packages have tests but their vite configs lack DOM environment setup.\n\n## Changes\n\nAdded test configuration block to vite.config.ts in plugin packages with tests:\n\n```typescript\ntest: {\n  globals: true,\n  environment: 'happy-dom',\n  setupFiles: ['../../vitest.setup.ts'],\n  passWithNoTests: true,\n}\n```\n\nAffected packages:\n- plugin-form\n- plugin-aggrid  \n- plugin-charts\n- plugin-editor\n- plugin-grid\n- plugin-kanban\n- plugin-markdown\n\nThis aligns with the existing configuration in `@object-ui/components` and `@object-ui/fields`.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21559929720/job/62122583933#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

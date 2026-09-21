@@ -1,0 +1,33 @@
+{
+  "number": 362,
+  "kind": "pull_request",
+  "title": "Add ObjectStack Spec v0.9.0 UI alignment analysis and 6-week server integration roadmap",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-03T00:20:17Z",
+  "updated_at": "2026-02-03T21:00:00Z",
+  "closed_at": "2026-02-03T21:00:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/362",
+  "body": "Comprehensive analysis of ObjectUI's readiness for production server integration per @objectstack/spec v0.9.0 UI protocol requirements. Identifies gaps, prioritizes fixes, and provides actionable development plan.\n\n## Analysis Results\n\n**Overall Readiness: 75%** - Core capabilities present, 5 blocking issues prevent production launch.\n\n### Package Status (25 total)\n- **Core** (6): Types, Core, React, Components, Fields, Layout - 85-90% complete\n- **Plugins** (14): All stable, enterprise-ready\n- **Data Layer**: ObjectStackAdapter has CRUD + metadata + caching, missing auto-reconnect\n- **Console**: Declares v0.8.2, needs upgrade to v0.9.0\n\n### Blocking Issues (13 days total)\n\n| Issue | Priority | Days | Impact |\n|-------|----------|------|--------|\n| Console v0.9.0 upgrade | P0 | 2 | Version compatibility |\n| Conditional visibility (`visibleOn`/`hiddenOn`) | P0 | 3 | Core feature gap |\n| Error recovery + auto-reconnect | P0 | 3 | Production stability |\n| Field dependencies (`dependsOn`) | P1 | 2 | UX |\n| Async + cross-field validation | P1 | 3 | Data integrity |\n\n## Documentation Added\n\n### OBJECTSTACK_SPEC_UI_ALIGNMENT.md (534 lines)\n- Package-by-package status analysis\n- Spec v0.9.0 compliance mapping\n- Implementation gaps with priority levels\n- Technical capabilities inventory\n\n### DEVELOPMENT_ROADMAP.zh-CN.md (926 lines)\n- 6-week phased plan (18 tasks across 4 stages)\n- Code examples for each feature\n- Risk assessment matrix\n- Progress tracking milestones\n\n### EXECUTIVE_SUMMARY.zh-CN.md (302 lines)\n- Quick-scan status overview\n- Immediate action items (P0/P1)\n- KPIs and acceptance criteria\n\n## Key Gaps Identified\n\n**Type definitions exist but unimplemented:**\n```typescript\ninterface BaseSchema {\n  visibleOn?: string;    // ❌ Not rendered\n  hiddenOn?: string;     // ❌ Not rendered\n  dependsOn?: string[];  // ❌ No dependency chain\n}\n```\n\n**Data adapter missing:**\n- Connection health monitoring\n- Exponential backoff retry\n- Progress events for bulk operations\n\n## Next Steps\n\nWeek 1-2: Protocol alignment (conditional visibility, validation)  \nWeek 3-4: Server integration (error recovery, advanced queries)  \nWeek 5: Production prep (build optimization, deployment docs)  \nWeek 6: Testing (integration, E2E, security scan)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按照 @objectstack/spec zod协议中ui相关的要求，仔细扫描目前代码仓库每一个软件包的细节，汇总现状细节，以UI系统接入服务端上线为目标，安排下一步的完整开发计划。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

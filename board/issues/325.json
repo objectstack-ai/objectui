@@ -1,0 +1,37 @@
+{
+  "number": 325,
+  "kind": "pull_request",
+  "title": "Implement ObjectStack Spec v0.8.2 compliance for Console plugin integration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-02T04:24:50Z",
+  "updated_at": "2026-02-02T05:26:15Z",
+  "closed_at": "2026-02-02T05:16:18Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-02T05:16:18Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/325",
+  "body": "Console was not spec-compliant and could not be integrated as a standard ObjectStack plugin. Missing support for homePageId navigation, navigation type variants (dashboard/page/url), app branding, and plugin metadata.\n\n## Changes\n\n### AppSchema Support\n- **homePageId navigation**: Apps now respect custom landing pages; fallback to first nav item if undefined\n- **Branding**: Render logo, primaryColor, description from AppSchema\n- **Navigation types**: Support object, dashboard, page, url, group with proper routing\n- **Visibility conditions**: Honor `visible` field on navigation items\n\n### Plugin Standardization\nEnhanced `plugin.js` with ObjectStack runtime metadata:\n```javascript\n{\n  type: 'ui-plugin',\n  specVersion: '0.8.2',\n  capabilities: ['ui-rendering', 'crud-operations', 'multi-app-support', 'dynamic-navigation', 'theme-support']\n}\n```\n\n### Spec Compliance Testing\nAdded 20 test cases validating AppSchema, NavigationItem, ObjectSchema, Manifest, and Plugin configuration against spec requirements.\n\n### Documentation\n- `SPEC_ALIGNMENT.md` - Feature coverage matrix with implementation status\n- `SPEC_ALIGNMENT.zh-CN.md` - Chinese translation\n- `IMPLEMENTATION_SUMMARY.md` - Bilingual technical summary\n\n## Usage\n\n```typescript\n// objectstack.config.ts\nimport ConsolePlugin from '@object-ui/console';\n\nexport default defineConfig({\n  plugins: [ConsolePlugin]\n});\n\n// App definition with new features\nApp.create({\n  name: 'my_app',\n  homePageId: '/dashboard/main',  // Custom landing page\n  branding: {\n    logo: '/assets/logo.png',\n    primaryColor: '#10B981'\n  },\n  navigation: [\n    { type: 'object', objectName: 'contact' },\n    { type: 'dashboard', dashboardName: 'sales' },\n    { type: 'url', url: 'https://docs.example.com', target: '_blank' }\n  ]\n})\n```\n\n## Compatibility\nFully backward compatible. New features are opt-in enhancements; existing configurations unchanged.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 基于spec标准协议，完善现有console的各项功能，可作为插件接入objectstack，成为标准的UI界面。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

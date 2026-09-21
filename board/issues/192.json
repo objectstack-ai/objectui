@@ -1,0 +1,33 @@
+{
+  "number": 192,
+  "kind": "pull_request",
+  "title": "Implement remaining @objectstack/spec view types: Kanban, Calendar, Gantt, Map",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-25T10:02:55Z",
+  "updated_at": "2026-01-25T10:30:45Z",
+  "closed_at": "2026-01-25T10:22:38Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-25T10:22:38Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/192",
+  "body": "Implements the four remaining ListView types from `@objectstack/spec` view.zod schema. Previously only grid view was implemented.\n\n## Components Added\n\n### ObjectKanban\n- Groups records by configurable field (e.g., `status: \"todo\" | \"in-progress\" | \"done\"`)\n- Column summaries via `summarizeField`\n- Card display via `columns` array mapping to record fields\n\n```tsx\n<ObjectKanban \n  schema={{\n    objectName: 'tasks',\n    filter: {\n      kanban: {\n        groupByField: 'status',\n        columns: ['title', 'priority'],\n        summarizeField: 'estimated_hours'\n      }\n    }\n  }}\n  dataSource={dataSource}\n/>\n```\n\n### ObjectCalendar\n- Maps records to calendar events via date field configuration\n- Month/week/day navigation\n- Supports `startDateField`, `endDateField`, `titleField`, `colorField`\n\n### ObjectGantt\n- Timeline visualization with task bars\n- Progress overlay (0-100%)\n- Displays task list with date ranges\n- Supports `progressField` and `dependenciesField`\n\n### ObjectMap\n- Location-based visualization\n- Handles multiple coordinate formats: separate lat/lng fields, location object `{lat, lng}`, string `\"lat,lng\"`\n- Marker list sidebar\n- Placeholder implementation ready for Mapbox/Leaflet integration\n\n## Technical Details\n\nAll components:\n- Follow ObjectGrid pattern with identical data provider interface (object/api/value)\n- Convert schema sort config to DataSource QueryParams format\n- Use stable ID generation (`event-${index}` vs `Math.random()`)\n- Registered with ComponentRegistry for schema-driven rendering\n- 105/111 tests passing\n\nHelper function pattern for data fetching:\n```tsx\nconst result = await dataSource.find(objectName, {\n  $filter: schema.filter,\n  $orderby: convertSortToQueryParams(schema.sort)\n});\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按照最新的 @objectstack/spec ui 规范，开发剩余需要开发的所有view组件。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

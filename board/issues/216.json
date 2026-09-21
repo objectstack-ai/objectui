@@ -1,0 +1,36 @@
+{
+  "number": 216,
+  "kind": "pull_request",
+  "title": "Add documentation for 6 missing plugins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-26T11:16:15Z",
+  "updated_at": "2026-01-26T11:41:21Z",
+  "closed_at": "2026-01-26T11:33:44Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-26T11:33:44Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/216",
+  "body": "Six plugins existed in the monorepo but lacked documentation and couldn't be demonstrated in the site: timeline, chatbot, calendar, calendar-view, gantt, and map.\n\n## Changes\n\n**InteractiveDemo component**\n- Added lazy imports for all 6 missing plugins\n\n**Plugin documentation** (created)\n- `plugin-timeline.mdx` - Vertical/horizontal/Gantt timeline layouts\n- `plugin-chatbot.mdx` - Chat interface with message history\n- `plugin-calendar-view.mdx` - Standalone calendar (month/week/day views)\n- `plugin-calendar.mdx` - ObjectQL-integrated calendar\n- `plugin-gantt.mdx` - ObjectQL Gantt chart with dependencies\n- `plugin-map.mdx` - ObjectQL location visualization\n\n**Navigation updates**\n- Reorganized `plugins/index.md` into categories (Data Visualization, Content & Editing, Workflows & Tasks)\n- Added all plugins to `meta.json` sidebar navigation\n- Updated bundle size table\n\n**Site configuration**\n- Added workspace dependencies for new plugins to `apps/site/package.json`\n\nAll plugins now appear in the documentation with interactive examples.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 更新funadocs文档和例子，确保迁移到插件的空间能正常的演示\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

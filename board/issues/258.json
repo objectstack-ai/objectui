@@ -1,0 +1,33 @@
+{
+  "number": 258,
+  "kind": "pull_request",
+  "title": "Fix CI pipeline failures: missing dependency, incorrect import, and test prerequisite",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-29T07:54:21Z",
+  "updated_at": "2026-01-29T08:15:15Z",
+  "closed_at": "2026-01-29T08:13:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-29T08:13:29Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/258",
+  "body": "CI run #21469860180 failed in lint, build, and test steps due to missing dependencies and configuration issues.\n\n## Changes\n\n- **Lint**: Added `eslint-plugin-storybook@^0.10.2` dev dependency (compatible with Storybook 8.x)\n  \n- **Build**: Fixed package name mismatch in `examples/msw-todo/src/mocks/browser.ts`\n  ```diff\n  - import todoConfig from '@objectstack/example-todo/objectstack.config';\n  + import todoConfig from '@object-ui/example-todo/objectstack.config';\n  ```\n  Added exports field to `examples/todo/package.json` to expose config:\n  ```json\n  \"exports\": {\n    \"./objectstack.config\": \"./objectstack.config.ts\"\n  }\n  ```\n\n- **Test**: Added `@object-ui/plugin-form` and `@object-ui/plugin-grid` to pretest build chain. These packages are imported by test files but were not being built before test execution.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21469860180/job/61840095665#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

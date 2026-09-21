@@ -1,0 +1,33 @@
+{
+  "number": 363,
+  "kind": "pull_request",
+  "title": "Add black-box integration tests for core ObjectUI components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-03T00:41:51Z",
+  "updated_at": "2026-02-03T01:28:52Z",
+  "closed_at": "2026-02-03T01:17:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-03T01:17:31Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/363",
+  "body": "Adds comprehensive integration test suite following the spec-driven testing philosophy: components must render exactly as their JSON schema dictates, with mocked network layer and user-centric interactions.\n\n## Test Coverage\n\n**ObjectForm** (plugin-form)\n- Static field rendering from `customFields` array\n- Metadata-driven form generation via `objectApiName` + `DataSource.getObjectSchema()`\n- Form validation and schema fallback handling\n\n**ObjectGrid** (plugin-grid)  \n- Grid rendering with action buttons\n- Data loading via `DataSource.find()` with display verification\n- Metadata-driven column generation\n\n**Fields** (@object-ui/fields)\n- Field type mapping (`text` → `field:text`, `picklist` → `field:select`)\n- Unknown type fallback to `field:text`\n- Formatting utilities (`formatCurrency`, `formatDate`, `formatPercent`)\n\n**Dashboard** (plugin-dashboard)\n- Widget rendering on dashboard pages\n- Report table data display\n- Component registry validation\n\n## Test Pattern\n\nEach component suite follows the 4-scenario structure:\n- **A - Protocol Compliance**: JSON schema → DOM verification\n- **B - Metadata Hydration**: Server-driven schema loading\n- **C - Business Operations**: CRUD via `MockDataSource` spies\n- **D - Dynamic Behavior**: Expression evaluation and conditional rendering\n\nAll tests use `MockDataSource` to simulate `@objectstack/client` and verify both successful paths and graceful degradation (null schemas, missing data).\n\n**98 tests, 0 failures, 0 security alerts**\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> Role: ObjectUI QA Automation Architect\n> Task: Write Comprehensive Integration Tests for: [所有对象相关的组件，plugin-form, plugin-grid, fields, 报表仪表盘等等]\n> 1. Testing Philosophy\n> \n> You are writing \"Black Box\" integration tests for the ObjectUI engine.\n> \n> The Spec is Law: If the JSON Schema says \"hidden\": \"${data.status == 'closed'}\", the test MUST verify element visibility toggles when data changes.\n> The Network is Mocked: You rely on MockDataSource to simulate the @objectstack/client.\n> The User is Real: Use userEvent and screen queries to interact like a human.\n> 2. Test Suite Structure\n> \n> Please add a new describe block to apps/console/src/__tests__/BrowserSimulation.test.tsx that covers the following scenarios for [Component Name].\n> \n> Scenario A: Protocol Compliance & Rendering (The \"Static\" Test)\n> \n> Goal: Verify the component renders correctly from a pure JSON description.\n> Setup: Define a literal JSON schema object (e.g., { type: \"kanban\", props: { ... } }).\n> Actions:\n> Render it via <SchemaRenderer />.\n> Prop Mapping: Assert that schema props (e.g., cardWidth, groupBy) are reflected in the DOM (check styles or classes).\n> Event Binding: Verify that click handlers defined in events are attached (e.g., spy on the ActionRunner).\n> Scenario B: Metadata-Driven Hydration (The \"Server\" Test)\n> \n> Goal: Verify the component builds itself from Server Metadata.\n> Setup:\n> Do NOT provide column definitions/fields in the JSON schema.\n> Provide only objectApiName: \"project_task\".\n> Mock: Configure MockDataSource.getObjectSchema(\"project_task\") to return a rich schema (defining fields, types, labels).\n> Actions:\n> Render the component.\n> Wait: await waitFor(() => ...) for the async metadata fetch.\n> Assert: Check that the UI (Columns/Cards) was generated purely from the Mocked Schema return value.\n> Failure Check: Verify it handles a missing/null schema gracefully (e.g., Error Boundary or Loading Skeleton).\n> Scenario C: Business Data Operations (The \"CRUD\" Test)\n> \n> Goal: Verify the component reads/writes data correctly via the DataSource.\n> Setup: Seed MockDataSource.find with sample data.\n> Actions:\n> Read: Assert that the seeded data appears in the UI.\n> Write (Update): Simulate a user changing a value (e.g., Drag & Drop a card, or Edit a cell).\n> Spy Verification:\n> Crucial: Check MockDataSource.update (or create) was called.\n> Crucial: Assert the Exact Payload. Did it send { id: 1, status: 'done' }?\n> Ensure it did NOT send the whole object if only one field changed (Differential Update), unless the spec requires otherwise.\n> Scenario D: Dynamic Behavior (The \"Expression\" Test)\n> \n> Goal: Verify reactive logic (hidden, disabled, readonly).\n> Actions:\n> Define a schema with hidden: \"${record.priority === 'low'}\".\n> Inject data where priority: 'low'.\n> Assert the element is absent.\n> Update data to priority: 'high'.\n> Assert the element appears.\n> 3. Code Generation Template\n> \n> Please generate the test code using this structure, ensuring it fits into the existing mocks and vi setup in BrowserSimulation.test.tsx.\n> \n> describe('[Component Name] Integration', () => {\n>   it('should hydrate columns from server metadata', async () => {\n>      // 1. Setup Mock Schema\n>      const mockSchema = { ... }; \n>      vi.spyOn(mocks.MockDataSource.prototype, 'getObjectSchema').mockResolvedValue(mockSchema);\n> \n>      // 2. Render Component with just objectApiName\n>      renderApp('/test-route-with-schema');\n> \n>      // 3. Verify automatic generation\n>      expect(await screen.findByText('Field From Metadata')).toBeInTheDocument();\n>   });\n> \n>   it('should persist changes via DataSource.update', async () => {\n>      // ...\n>   });\n> });\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

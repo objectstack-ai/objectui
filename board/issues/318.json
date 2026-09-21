@@ -1,0 +1,33 @@
+{
+  "number": 318,
+  "kind": "pull_request",
+  "title": "[WIP] Update CI workflow for better reliability",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-01T13:13:46Z",
+  "updated_at": "2026-02-01T13:42:02Z",
+  "closed_at": "2026-02-01T13:29:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/318",
+  "body": "## Fix ObjectFormUnit Test Failures\n\n- [x] Investigate CI failure: 3 tests failing in ObjectFormUnit.test.tsx\n- [x] Identified issue: onSuccess callback receives undefined field values\n- [x] Debug form data handling in ObjectForm component\n- [x] Found root cause: FormSchema properties being spread onto DOM element\n- [x] Fixed by excluding schema properties from formProps spread\n- [x] Improved code maintainability with FORM_SCHEMA_PROPS constant\n- [x] Verified tests pass locally\n- [ ] Run CI tests to confirm fix\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21562472265/job/62128528540#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

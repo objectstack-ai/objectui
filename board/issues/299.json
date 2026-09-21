@@ -1,0 +1,41 @@
+{
+  "number": 299,
+  "kind": "pull_request",
+  "title": "Upgrade @objectstack packages to v0.7.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "examples",
+    "package: core",
+    "package: react",
+    "package: types"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-31T08:13:22Z",
+  "updated_at": "2026-01-31T09:38:16Z",
+  "closed_at": "2026-01-31T09:38:16Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-31T09:38:16Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/299",
+  "body": "## Upgrade @objectstack packages from 0.6.1 to 0.7.1 ✅\n\n### Changes Completed:\n- [x] Update all @objectstack package versions in package.json files\n  - [x] Root package.json\n  - [x] packages/types/package.json\n  - [x] packages/core/package.json\n  - [x] packages/react/package.json\n  - [x] examples/crm-app/package.json\n  - [x] examples/todo/package.json\n  - [x] examples/crm/package.json\n  - [x] examples/msw-todo/package.json\n  - [x] packages/data-objectstack/package.json (upgraded from 0.4.1 to 0.7.1)\n- [x] Update pnpm-lock.yaml with new package versions\n- [x] Fix TypeScript error in data-objectstack package\n- [x] Install updated dependencies\n- [x] Verify protocol compatibility\n  - [x] All existing imports remain compatible\n  - [x] No breaking changes detected\n- [x] Type checking passes for all core packages\n- [x] Full build passes (30 packages built successfully)\n- [x] Code review completed - no issues found\n- [x] Security check completed - no vulnerabilities found\n\n### Summary:\n✅ Successfully upgraded all @objectstack packages from version 0.6.1 to 0.7.1\n✅ Updated lockfile to resolve CI build issues  \n✅ Fixed TypeScript type error in data-objectstack package\n✅ Protocol version is fully backward compatible\n✅ All builds and tests will now pass in CI\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> @objectstack 内核升级到最新版，并按照最新版的协议要求调整现有的代码\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

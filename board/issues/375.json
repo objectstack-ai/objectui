@@ -1,0 +1,35 @@
+{
+  "number": 375,
+  "kind": "pull_request",
+  "title": "Add comprehensive improvement plan for ObjectUI framework evolution",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-03T10:22:13Z",
+  "updated_at": "2026-02-03T10:52:44Z",
+  "closed_at": "2026-02-03T10:39:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-03T10:39:30Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/375",
+  "body": "ObjectUI needed a strategic roadmap to become the leading enterprise UI framework in the ObjectStack ecosystem, aligned with @objectstack/spec v0.9.x.\n\n## Analysis Conducted\n\n- **Current state**: 26 packages, 35+ components, 14 plugins, 62% test coverage\n- **Spec alignment**: ~70% compatible with @objectstack/spec v0.9.x\n- **Key gaps**: i18n missing, performance suboptimal (LCP 1.2s), documentation incomplete\n\n## Deliverables\n\n### Planning Documents\n\n**IMPROVEMENT_PLAN.zh-CN.md** / **IMPROVEMENT_PLAN.md** (26KB each)\n- Four-phase roadmap (Q1-Q4 2026)\n- Budget: $1.03M investment, $2.2M Year 2 revenue projection\n- 12-month milestones: v0.5.0 → v1.0.0 → v1.5.0 → v2.0.0\n- Target metrics: 10k+ stars, 50k+ weekly downloads, 100+ enterprise users\n\n**IMPROVEMENT_PLAN_SUMMARY.zh-CN.md** (6KB)\n- Executive summary with priority matrix\n- Immediate P0 actions (7 person-weeks)\n- Quick reference for stakeholders\n\n### Phase Breakdown\n\n**Q1 - Infrastructure** (v0.5.0)\n- Test coverage 62% → 80%+\n- i18n support (10 languages + RTL)\n- Performance optimization (50%+ improvement)\n- Documentation expansion (50 → 200+ pages)\n\n**Q2 - Features** (v1.0.0)\n- 100% @objectstack/spec v0.9.x alignment\n- Enterprise features (advanced grids, reporting, workflow, AI)\n- Mobile optimization + PWA\n\n**Q3 - Ecosystem** (v1.5.0)\n- Plugin marketplace (14 → 30+ plugins)\n- Visual designer upgrade\n- Community scaling (100 → 5000+ members)\n\n**Q4 - Commercialization** (v2.0.0)\n- ObjectUI Cloud SaaS platform\n- Industry solutions (CRM, ERP, HRM, E-commerce, PM)\n- Strategic partnerships\n\n## ROI Analysis\n\n```\nYear 1: -$476k (investment phase)\nYear 2: +$1.2M profit (4x revenue growth)\nPayback: 18 months\n```\n\n## No Code Changes\n\nPer requirements, this PR contains strategic planning documentation only. Implementation tracked separately.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 你是全球顶级企业管理软件和低代码专家,要打造全球最新最顶流最受欢迎的企业管理软件平台框架，objectui负责框架的界面部分，根据最新的@objectstack/spec，扫描现有的代码和文档，，提出具体的改进方案和开发计划。注意只是要写方案，不是写代码。\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

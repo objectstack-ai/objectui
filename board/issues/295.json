@@ -1,0 +1,45 @@
+{
+  "number": 295,
+  "kind": "pull_request",
+  "title": "Fix SSR failure: make useDataScope context-optional",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "documentation",
+    "package: components",
+    "package: core",
+    "package: react",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-31T05:54:35Z",
+  "updated_at": "2026-01-31T08:47:01Z",
+  "closed_at": "2026-01-31T07:59:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-31T07:59:19Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/295",
+  "body": "Next.js build failing on `/docs/components/complex/table` during static generation because `useDataScope` unconditionally throws when `SchemaRendererProvider` is absent.\n\n## Changes\n\n- **`useDataScope` hook**: Return `undefined` instead of throwing when context is missing. Added guard to prevent reduce operation on undefined dataSource.\n\n- **`SimpleTableRenderer`**: Support inline data fallback (`schema.data`, `schema.props.data`) when no binding exists. Accept both `accessorKey`/`key` and `header`/`label` column properties for API flexibility.\n\n```tsx\n// Before: throws during SSR\nconst data = useDataScope(schema.bind);\n\n// After: gracefully handles missing context\nconst boundData = useDataScope(schema.bind);\nconst data = boundData || schema.data || schema.props?.data || [];\n```\n\nThis preserves data binding functionality while enabling components to render during static generation with inline data.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21539734678/job/62072222406#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

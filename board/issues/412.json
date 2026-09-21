@@ -1,0 +1,33 @@
+{
+  "number": 412,
+  "kind": "pull_request",
+  "title": "Fix console 404s and navigation validation errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-09T10:40:36Z",
+  "updated_at": "2026-02-09T11:23:51Z",
+  "closed_at": "2026-02-09T11:20:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-09T11:20:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/412",
+  "body": "Console browser mode fails because MSW handlers only intercept `/api/v1/...` but `ObjectStackClient` requests `/api/...`. Additionally, `type: 'report'` navigation items fail `@objectstack/objectql` Zod validation.\n\n- **MSW handler path mismatch** (`browser.ts`): Added legacy `/api` handlers alongside `/api/v1`, matching the pattern `server.ts` already uses for tests:\n  ```typescript\n  const v1Handlers = createHandlers('/api/v1', kernel, driver);\n  const legacyHandlers = createHandlers('/api', kernel, driver);\n  const handlers = [...v1Handlers, ...legacyHandlers];\n  ```\n\n- **Navigation schema validation** (`objectstack.shared.ts`): Changed injected report nav item from unsupported `type: 'report'` to `type: 'url'` with explicit path. AppSidebar renders `url` items via React Router `<Link>`, so behavior is preserved.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

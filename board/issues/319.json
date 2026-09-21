@@ -1,0 +1,36 @@
+{
+  "number": 319,
+  "kind": "pull_request",
+  "title": "Fix form schema props leaking to DOM element and overriding react-hook-form handler",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-01T13:52:00Z",
+  "updated_at": "2026-02-01T22:01:08Z",
+  "closed_at": "2026-02-01T21:57:15Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/319",
+  "body": "ObjectForm tests were failing because form submissions received SyntheticEvents instead of form data. SchemaRenderer spreads all schema properties as component props, which then get spread onto the HTML `<form>` element—this caused `schema.onSubmit` to override react-hook-form's `handleSubmit`.\n\n**Changes**\n\n- **Form renderer**: Implemented allowlist for HTML form attributes (data-*, aria-*, id, name, autoComplete, etc.), preventing schema properties from reaching the DOM element\n- **Event detection**: Added `_reactName` check to catch React Synthetic Events\n- **Cleanup**: Removed debug console.log from ObjectForm\n\n**Technical detail**\n\nBefore:\n```typescript\nconst { 'data-obj-id': dataObjId, ...formProps } = props;\n<form {...formProps} />  // Spreads schema.onSubmit, overriding RHF\n```\n\nAfter:\n```typescript\n// Extract only HTML-valid attributes\nconst htmlFormProps = {};\nfor (const [key, value] of Object.entries(props)) {\n  if (key.startsWith('data-') || key.startsWith('aria-') || \n      ['id', 'name', 'autoComplete', ...].includes(key)) {\n    htmlFormProps[key] = value;\n  }\n}\n<form {...htmlFormProps} />  // Schema props excluded\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21563669546/job/62131577552#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

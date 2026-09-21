@@ -1,0 +1,33 @@
+{
+  "number": 309,
+  "kind": "pull_request",
+  "title": "[WIP] Add tests for object table and reporting components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-31T18:34:33Z",
+  "updated_at": "2026-01-31T18:58:12Z",
+  "closed_at": "2026-01-31T18:48:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-31T18:48:20Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/309",
+  "body": "## Extend MSW Testing Infrastructure\n\nBuilding on PR #308, extend test coverage to additional components and server-driven definitions:\n\n- [x] Create MSW test suite for ObjectGrid/Table component\n  - [x] Test grid rendering with data from MSW server  \n  - [x] Test CRUD operations (create, read, update, delete)\n  - [x] Test column configuration and rendering\n  - [x] Test pagination and filtering\n  - [ ] Fix timeout issues in grid tests (all 8 grid tests timeout - needs dataSource integration)\n- [x] Create MSW test suite for Dashboard component\n  - [x] Test dashboard layout rendering (4/6 tests passing)\n  - [x] Test widget components (metrics, charts)\n  - [x] Test data loading from server\n  - [ ] Fix duplicate title issue in 2 test expectations\n- [x] Create MSW test suite for server-driven definitions\n  - [x] Test App layout definition (4/4 tests passing)\n  - [x] Test Page definition (2/3 tests passing)\n  - [x] Test component composition from server (3/4 tests passing)\n  - [x] Fixed 'div' and 'text' component registration for rendering ✅\n- [x] Update package dependencies\n  - [x] Add @object-ui/plugin-grid dependency\n  - [x] Add @object-ui/plugin-dashboard dependency\n  - [x] Add @object-ui/components dependency\n- [x] Update build configuration\n  - [x] Add packageManager field to root package.json\n  - [x] Add plugin-dashboard to pretest build script\n- [x] Import required components in test setup\n  - [x] Added @object-ui/components to vitest.setup.ts\n  - [x] Added @object-ui/plugin-dashboard to vitest.setup.ts\n  - [x] Added @object-ui/plugin-grid to vitest.setup.ts\n\n## Test Results Summary\n\n**Overall: 23/38 tests passing (60.5%)** 📊\n\n### Passing:\n- ✅ MSW Server Integration: 2/2 tests\n- ✅ Server-Driven Definitions: 9/11 tests (App layout, Page defs, Component composition)\n- ✅ Dashboard Integration: 4/6 tests (Layout rendering, widgets, server data)\n- ✅ Static Data tests: 8/8 tests\n\n### Remaining Issues:\n- ⏱️ ObjectGrid tests: 8/8 timeout (need dataSource integration fix)\n- ⚠️ Dashboard tests: 2 tests fail on duplicate text matching\n- ⚠️ ObjectForm tests: 5 pre-existing failures (not part of this PR's scope)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/308\n> \n> 相同的架构我还要测试对象表格，报表等组件，还需要测试从服务端传回的app布局定义，page定义，dashboard定义等。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

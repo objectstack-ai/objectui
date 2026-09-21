@@ -1,0 +1,35 @@
+{
+  "number": 359,
+  "kind": "pull_request",
+  "title": "Implement remaining ObjectStack Spec v0.8.2 features in console",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-02T14:18:57Z",
+  "updated_at": "2026-02-02T15:16:48Z",
+  "closed_at": "2026-02-02T15:16:48Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-02T15:16:48Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/359",
+  "body": "Console had ~80% spec alignment. This adds the missing short/medium-term features to reach ~95% (34/36).\n\n## App-Level Features\n- **Favicon & Title**: Dynamic updates via `branding.favicon`, document title syncs with active app\n- **App Selection**: Auto-select `isDefault: true` apps, filter `active: false` from dropdown\n- **Navigation Groups**: Collapsible groups via `expanded` flag, uses `Collapsible` component\n\n## Routing\nAdded two new route handlers:\n- `/dashboard/:dashboardName` → `DashboardView` (integrates `@object-ui/plugin-dashboard`)\n- `/page/:pageName` → `PageView` (integrates `PageRenderer`)\n\n## Navigation Enhancements\n- **Object Views**: Support `viewName` as query param: `/{objectName}?view={viewName}`\n- **Page Params**: Navigation items with `params` field generate query strings\n- **Title Formatting**: New `utils.ts` with `formatRecordTitle()` for `{fieldName}` interpolation\n\nExample navigation with new features:\n```typescript\nApp.create({\n  isDefault: true,  // Auto-selected on load\n  active: true,     // Filtered if false\n  branding: {\n    favicon: '/app.ico'  // Updates <link rel=\"icon\">\n  },\n  navigation: [\n    { type: 'object', objectName: 'contact', viewName: 'compact' },  // → /contact?view=compact\n    { type: 'page', pageName: 'analytics', params: { tab: 'overview' } },  // → /page/analytics?tab=overview\n    { type: 'group', expanded: false, children: [...] }  // Collapsed by default\n  ]\n})\n```\n\n## Files Changed\n**New**: `DashboardView.tsx`, `PageView.tsx`, `utils.ts`  \n**Modified**: `App.tsx` (routing + favicon), `AppSidebar.tsx` (collapsible groups), `ObjectView.tsx` (view display), `config.ts` (types), `index.html` (favicon id)\n\n## Documentation\nUpdated `SPEC_ALIGNMENT.md` (EN/CN) and `IMPLEMENTATION_SUMMARY.md` to reflect completion status. Remaining 2 features (permissions, triggers) blocked on backend integration.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 基于最新版的协议，完善console的各项功能。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

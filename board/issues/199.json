@@ -1,0 +1,33 @@
+{
+  "number": 199,
+  "kind": "pull_request",
+  "title": "Fix Kanban demo: replace unregistered 'group' component with 'flex'",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-26T03:25:13Z",
+  "updated_at": "2026-01-26T03:36:11Z",
+  "closed_at": "2026-01-26T03:33:59Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-26T03:33:59Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/199",
+  "body": "The Kanban Board interactive demo referenced a `\"group\"` component type that doesn't exist in the component registry, causing \"Unknown component type\" errors.\n\n## Changes\n\n- Replaced `type: \"group\"` with `type: \"flex\", direction: \"row\"` in `/content/docs/views/object-kanban.mdx`\n\nThe `flex` component with row direction provides identical horizontal layout behavior:\n\n```json\n{\n  \"type\": \"flex\",\n  \"direction\": \"row\",\n  \"gap\": 2,\n  \"children\": [...]\n}\n```\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix 看板控件文档演示报错\n> \n> Kanban Board - Visualize workflow stages\n> Todo → In Progress → Done\n> Unknown component type: group\n> {\n>   \"type\": \"group\",\n>   \"gap\": 2,\n>   \"children\": [\n>     {\n>       \"type\": \"card\",\n>       \"className\": \"p-3 bg-slate-50\",\n>       \"children\": [\n>         {\n>           \"type\": \"stack\",\n>           \"gap\": 1,\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 219,
+  "kind": "pull_request",
+  "title": "Remove redundant Callout import from plugin-calendar-view.mdx",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-26T14:09:48Z",
+  "updated_at": "2026-01-26T14:23:33Z",
+  "closed_at": "2026-01-26T14:22:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-26T14:22:41Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/219",
+  "body": "Build was failing with module resolution error:\n```\nModule not found: Can't resolve 'fumadocs-ui/components/callout'\n```\n\n## Changes\n\n- Removed explicit `import { Callout } from 'fumadocs-ui/components/callout'` from `content/docs/plugins/plugin-calendar-view.mdx`\n\nThe `Callout` component is already available globally via `defaultMdxComponents` configured in `apps/site/mdx-components.tsx`. The explicit import was unnecessary and causing module resolution issues during Next.js/Turbopack build.\n\n```diff\n-import { Callout } from 'fumadocs-ui/components/callout';\n-\n <Callout type=\"info\" title=\"Merged into Plugin Calendar\">\n```\n\nComponent usage remains unchanged—it's provided through the MDX components context.\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build` (dns block)\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build node k/ob\u0004\u0018 build` (dns block)\n>   - Triggering command: `/usr/bin/curl curl -I REDACTED sh -c vite build play/avatar.mdx rgo/bin/bash .config.ts ents/ai/page-actGNU_LIBC_VERSION .ts yout.shared.tsx urce\u0004\u0018 i/search/route.ts parator.mdx ndor/bin/grep ms.mdx/docs/[[..sh mponents/Logo.ts-c mponents/ObjectUnext build mponents/ComponentDemo.tsx` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> ./apps/site/.source/server.ts\n>     ./apps/site/lib/source.ts\n>     ./apps/site/app/api/search/route.ts\n>   Server Component:\n>     ./content/docs/plugins/plugin-calendar-view.mdx.js\n>     ./apps/site/.source/server.ts\n>     ./apps/site/lib/source.ts\n>     ./apps/site/app/docs/[[...slug]]/page.tsx\n> https://nextjs.org/docs/messages/module-not-found\n>     at <unknown> (./content/docs/plugins/plugin-calendar-view.mdx.js:49:1)\n>     at <unknown> (https://nextjs.org/docs/messages/module-not-found)\n>  ELIFECYCLE  Command failed with exit code 1.\n> Error: Command \"pnpm --filter '../../packages/*' -r build && pnpm build\" exited with 1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

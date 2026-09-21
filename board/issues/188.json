@@ -1,0 +1,33 @@
+{
+  "number": 188,
+  "kind": "pull_request",
+  "title": "Add interactive demonstrations to ObjectGrid documentation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-25T07:04:10Z",
+  "updated_at": "2026-01-25T08:01:12Z",
+  "closed_at": "2026-01-25T08:01:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-25T08:01:12Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/188",
+  "body": "## Enhance ObjectGrid Documentation with More Demo Examples ✅\n\n### Task Summary\nSuccessfully enhanced the object-grid component documentation with comprehensive interactive demonstration examples using preview controls (ComponentDemo and InteractiveDemo).\n\n### Completed Checklist\n- [x] Understand the current documentation structure and demo components\n- [x] Analyze existing object-grid documentation\n- [x] Create comprehensive plan for enhancements\n- [x] Add new demo examples covering various use cases:\n  - [x] Selection modes demonstration (no selection, single, multiple)\n  - [x] Advanced column configuration (width, alignment, sortable)\n  - [x] Pagination configurations (standard vs no pagination)\n  - [x] Search and filtering examples\n  - [x] Inline editing with keyboard navigation\n  - [x] Data type rendering (text, email, date, currency, boolean, select)\n  - [x] Real-world scenarios:\n    - [x] E-commerce Product Catalog\n    - [x] CRM Customer Management\n    - [x] Project Task Tracker\n    - [x] Financial Transactions\n    - [x] Sales Performance Dashboard\n- [x] Address code review feedback:\n  - [x] Fix data inconsistencies (diverse names across examples)\n  - [x] Fix currency formatting for salary fields\n  - [x] Ensure consistent data types across examples\n- [x] Fix loading state issue by using staticData instead of data\n- [x] Fix client-side exception by properly escaping quotes in JSX\n- [x] Final code review (passed with no issues)\n- [x] Security check (no issues - documentation only)\n- [x] Complete task\n\n### Summary of Changes\n\n**Added 7 Major Sections** (~427 lines):\n1. Selection Modes - 3 interactive examples\n2. Column Configuration - 2 advanced examples\n3. Pagination Options - 2 configuration examples\n4. Search and Filtering - Contact directory with real-time search\n5. Inline Editing Mode - Spreadsheet-like editing demo\n6. Data Type Rendering - 6 field types demonstration\n7. Real-World Examples - 5 comprehensive enterprise scenarios\n\n**Bug Fixes**:\n- Changed all `data: [...]` to `staticData: [...]` to use the legacy format that ObjectGrid expects for inline data (fixes loading state issue)\n- Fixed escaped quotes in product names (e.g., `\"Monitor 27\\\"\"` → `'Monitor 27\"'`) to prevent client-side JavaScript exceptions\n\n**Statistics**:\n- 17 total interactive demonstrations\n- All with Preview/Code tabs\n- Copy-paste ready snippets\n- Progressive complexity (simple → advanced)\n\n**Quality Assurance**:\n✅ Code review passed\n✅ Data consistency verified\n✅ Valid ObjectGrid schema\n✅ No security issues\n✅ Components now render properly\n✅ No JavaScript syntax errors\n\nThe documentation is now significantly enhanced and ready for deployment!\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完善表格组件的文档，使用预览控件提供更多演示事例。https://objectui.org/docs/plugins/plugin-object/object-grid\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

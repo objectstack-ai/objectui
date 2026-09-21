@@ -1,0 +1,38 @@
+{
+  "number": 234,
+  "kind": "pull_request",
+  "title": "Fix table and form demo rendering in documentation pages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T10:41:19Z",
+  "updated_at": "2026-01-27T11:49:25Z",
+  "closed_at": "2026-01-27T11:42:23Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T11:42:23Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/234",
+  "body": "Documentation page table and form demos showed \"Unknown component type\" errors instead of rendering.\n\n## Changes\n\n- **Fixed table schema property names** (`content/docs/components/complex/table.mdx`)\n  - `key` → `accessorKey` \n  - `title` → `header`\n  - Updated TypeScript interface documentation\n\n- **Registered components globally** (`apps/site/app/layout.tsx`)\n  - Wrapped root layout with `ObjectUIProvider`\n  - Components now available to all documentation pages, not just playground\n\n```diff\n// apps/site/app/layout.tsx\n <RootProvider>\n+  <ObjectUIProvider>{children}</ObjectUIProvider>\n </RootProvider>\n```\n\n```diff\n// content/docs/components/complex/table.mdx\n columns: [\n   {\n-    key: \"name\",\n-    title: \"Name\"\n+    header: \"Name\",\n+    accessorKey: \"name\"\n   }\n ]\n```\n\n## Screenshots\n\n**Before:**\n![Unknown component error](https://github.com/user-attachments/assets/5eb3ec0b-7756-44a9-8911-da63b30a1cc1)\n\n**After:**\n![Table rendering correctly](https://github.com/user-attachments/assets/db469f09-ca61-41e0-8a2d-a9c9c026eb26)\n![Form rendering correctly](https://github.com/user-attachments/assets/cfd1938a-c875-44b9-93f1-355e27c85c6b)\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node /usr/local/bin/node /home/REDACTED/work/objectui/objectui/node_modules/.pnpm/next@16.1.4_@babel&#43;core@7.28.6_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/lib/start-server.js` (dns block)\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build grep -l type.*table lugins/plugin-form.mdx e` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 文档页面 表格和表单演示一直显示加载中。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,41 @@
+{
+  "number": 167,
+  "kind": "pull_request",
+  "title": "Enforce required getObjectSchema and remove @object-ui/data-objectql package",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T14:49:46Z",
+  "updated_at": "2026-01-23T16:52:56Z",
+  "closed_at": "2026-01-23T16:47:38Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T16:47:38Z",
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/167",
+  "body": "Object components (ObjectView, ObjectTable, ObjectForm) were hard-coded to `ObjectQLDataSource`, preventing use with the new `ObjectStackAdapter` from `@objectstack/client`. Per the new specification, all DataSource implementations must uniformly support schema fetching without backward compatibility.\n\n## Changes\n\n- **DataSource interface**: Made `getObjectSchema()` **required** (not optional) for all DataSource implementations\n- **ObjectStackAdapter**: Implemented required `getObjectSchema()` via `client.meta.getObject()`\n- **Object components**: \n  - Changed type from `ObjectQLDataSource` to generic `DataSource`\n  - Removed conditional checks and fallback logic\n  - Directly call `dataSource.getObjectSchema()` assuming method always exists\n- **Example implementations**: Added `getObjectSchema()` to RestDataSource and MockDataSource with security validation\n- **Removed @object-ui/data-objectql package entirely**:\n  - Deleted entire `packages/data-objectql` directory (9 files)\n  - Package was redundant - both `ObjectQLDataSource` and `ObjectStackAdapter` wrapped `@objectstack/client` with identical functionality\n  - Removed all references from code, tests, and documentation\n  - Updated plugin-object to use `ObjectStackAdapter` from `@object-ui/core`\n\n## Security Improvements\n\n- Input validation prevents undefined or malformed object names\n- Path traversal prevention (checks for `/`, `\\`, `..`)\n- URL encoding prevents injection attacks in RestDataSource example\n\n## Usage\n\n```typescript\n// Use ObjectStackAdapter from @object-ui/core\nimport { createObjectStackAdapter } from '@object-ui/core';\n\nconst dataSource = createObjectStackAdapter({ baseUrl: '...' });\n\n// Works with all object components\n<ObjectView schema={{ type: 'object-view', objectName: 'users' }} dataSource={dataSource} />\n```\n\nAll DataSource implementations must provide `getObjectSchema()`. The new specification is enforced uniformly across the codebase with a single adapter implementation and no backward compatibility code.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 基于 @objectstack/client 组件的新API规范，改造完成现有的object 相关组件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 222,
+  "kind": "pull_request",
+  "title": "Complete documentation coverage for all packages and plugins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T05:21:29Z",
+  "updated_at": "2026-01-27T06:01:11Z",
+  "closed_at": "2026-01-27T05:56:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T05:56:28Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/222",
+  "body": "Documentation audit revealed 9 packages without READMEs, 4 plugins without content docs, incomplete main README, a corrupted file, and obsolete documentation. This adds comprehensive documentation for all 24 packages (6 core, 3 tools, 1 adapter, 14 plugins) and removes outdated content.\n\n## Changes\n\n- **Removed**: \n  - Corrupted `packages/f` file (malformed TypeScript fragment)\n  - Obsolete `content/docs/views/` directory (10 files) - references non-existent `@object-ui/views` package\n  - \"Views Package\" references from 3 plugin docs (plugin-gantt.mdx, plugin-map.mdx, plugin-calendar.mdx)\n\n- **Added Package READMEs** (9):\n  - Core: `layout`, `runner`\n  - Plugins: `calendar`, `dashboard`, `form`, `gantt`, `grid`, `map`, `view`\n\n- **Added Plugin Docs** (4): `plugin-dashboard.mdx`, `plugin-form.mdx`, `plugin-grid.mdx`, `plugin-view.mdx`\n\n- **Updated Main README**: Reorganized package list into categorized tables (Core, CLI & Tools, Data Adapters, Plugins) with accurate bundle sizes\n\n- **Updated Guides**: Plugin index and guide now reference all 14 plugins with correct lazy-load sizes\n\n## Coverage\n\n- Package READMEs: 24/24 (was 15/24)\n- Plugin documentation: 14/14 (was 10/14)\n- All documentation follows consistent format: features, installation, usage, schema API, TypeScript support\n- No duplicate or obsolete documentation\n\n## Example\n\nBefore: Plugin list incomplete, bundle sizes inaccurate\n```markdown\n**Plugins** (lazy-loaded):\n- `@object-ui/plugin-charts` - Chart components (Chart.js)\n- `@object-ui/plugin-editor` - Rich text editor components\n```\n\nAfter: Complete categorization with accurate sizes\n```markdown\n### Plugins (Lazy-Loaded)\n| Plugin | Description | Size |\n|--------|-------------|------|\n| **plugin-charts** | Chart components powered by Recharts | 80KB |\n| **plugin-dashboard** | Dashboard layouts and widgets | 22KB |\n| **plugin-editor** | Rich text editor powered by Monaco | 120KB |\n...\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 审查目前已经开发完成的组件和软件包，更新文档，删除作废的文档添加必要的文档\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

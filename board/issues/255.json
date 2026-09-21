@@ -1,0 +1,33 @@
+{
+  "number": 255,
+  "kind": "pull_request",
+  "title": "Move GitHub link from homepage buttons to fumadocs icon",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-29T00:39:27Z",
+  "updated_at": "2026-01-29T01:31:32Z",
+  "closed_at": "2026-01-29T01:31:32Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-01-29T01:31:31Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/255",
+  "body": "Consolidates GitHub repository links from multiple homepage CTAs into a single icon in the navigation using fumadocs' native `githubUrl` property.\n\n## Changes\n\n- **Layout config**: Added `githubUrl` property to fumadocs `baseOptions()`, removed text link from `links` array\n- **Homepage**: Removed GitHub buttons from hero section and CTA section\n\n```tsx\n// apps/site/lib/layout.shared.tsx\nexport function baseOptions(): BaseLayoutProps {\n  return {\n    githubUrl: 'https://github.com/objectstack-ai/objectui',  // Auto-renders as icon\n    links: [\n      { text: 'Documentation', url: '/docs' },\n      { text: 'Storybook', url: 'https://storybook.objectui.org' },\n      // GitHub link removed - now handled by githubUrl\n    ],\n  };\n}\n```\n\n## Screenshots\n\n**Homepage - GitHub icon in navigation (buttons removed)**\n![Homepage](https://github.com/user-attachments/assets/48ab743b-6ff3-458a-82e5-a07a01d50e04)\n\n**Docs - GitHub icon in fumadocs sidebar**\n![Docs](https://github.com/user-attachments/assets/dd70fb19-6ce6-4d9b-8fb7-0a27736cae17)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 优化官网GitHub链接的位置，去掉官网首页的链接，在fumadocs layout中显示为图标即可\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

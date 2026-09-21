@@ -1,0 +1,33 @@
+{
+  "number": 368,
+  "kind": "pull_request",
+  "title": "Fix CI failure: use workspace dependencies to avoid broken published packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-03T05:25:03Z",
+  "updated_at": "2026-02-03T06:03:32Z",
+  "closed_at": "2026-02-03T06:01:48Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-03T06:01:48Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/368",
+  "body": "CI tests failed with `Directory import '.../dist/types' is not supported` because some packages were pulling in published `@object-ui/core@0.3.1` which contains an invalid ES module export: `export * from './types'`.\n\n## Changes\n\n**Package dependency fixes:**\n- `packages/plugin-form/package.json`: `@object-ui/data-objectstack` ^0.3.1 → workspace:*\n- `packages/plugin-grid/package.json`: `@object-ui/data-objectstack` ^0.3.1 → workspace:*  \n- `apps/console/package.json`: `@object-ui/layout` ^0.1.1 → workspace:*\n- `pnpm-lock.yaml`: regenerated\n\n## Context\n\nThe published `@object-ui/data-objectstack@0.3.1` depends on `@object-ui/core@0.3.1`, which has:\n```js\n// Published (broken)\nexport * from './types';  // Directory imports invalid in ES modules\n\n// Workspace (correct)\nexport type { SchemaNode, ComponentRendererProps } from './types/index.js';\n```\n\nUsing `workspace:*` ensures local versions are used, bypassing the broken published packages.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21617822330/job/62300356728#step:9:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

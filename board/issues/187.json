@@ -1,0 +1,33 @@
+{
+  "number": 187,
+  "kind": "pull_request",
+  "title": "Fix TypeScript composite project errors in plugin packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-25T05:45:29Z",
+  "updated_at": "2026-01-25T06:24:47Z",
+  "closed_at": "2026-01-25T06:20:39Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-25T06:20:38Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/187",
+  "body": "TypeScript compilation was failing in CI with TS6059/TS6307 errors when plugin packages imported from `@object-ui/types` workspace dependency. The `rootDir` constraint in composite projects was rejecting transitive source files from external packages.\n\n## Changes\n\nStandardized `tsconfig.json` for three plugin packages to match working configuration pattern:\n- `plugin-kanban`\n- `plugin-markdown` \n- `plugin-object`\n\n**Configuration diff:**\n```diff\n {\n   \"compilerOptions\": {\n-    \"outDir\": \"./dist\",\n-    \"rootDir\": \"./src\",\n-    \"composite\": true,\n-    \"declarationMap\": true\n+    \"outDir\": \"dist\",\n+    \"jsx\": \"react-jsx\",\n+    \"baseUrl\": \".\",\n+    \"paths\": { \"@/*\": [\"src/*\"] },\n+    \"noEmit\": false,\n+    \"declaration\": true,\n+    \"composite\": true,\n+    \"declarationMap\": true,\n+    \"skipLibCheck\": true\n   },\n-  \"include\": [\"src/**/*\"]\n+  \"include\": [\"src\"]\n }\n```\n\nThe `skipLibCheck` option allows TypeScript to skip checking declaration files from dependencies while maintaining type safety through compiled `.d.ts` files. Removing `rootDir` permits source files from workspace packages to be included in compilation.\n\nAligns with existing configuration in `plugin-aggrid`, `plugin-charts`, and `plugin-editor`.\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build tui/node_modules/.pnpm/vitest@4.0.17_@types&#43;node@25.0.9_@vitest&#43;ui@4.0.17_happy-dom@20.3.3_jiti@2.6.1_jsdom@27.4.0_lightningcss@1.30.2/node_modules/vitest/dist/workers/forks.js-c npm --filter to resolve TypeScript compilation errors\n\nCo-authored-by: hotlong &lt;50353452&#43;hotlong@users.norepl/home/REDACTED/work/objectui/objectui/packages/plugin-markdown/node_modules/.bin/../vite/bin/vite.js cal/bin/sh` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21327615759/job/61387493613#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

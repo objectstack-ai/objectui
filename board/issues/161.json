@@ -1,0 +1,37 @@
+{
+  "number": 161,
+  "kind": "pull_request",
+  "title": "Fix fumadocs component styling: Import ObjectUI components CSS",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T09:26:16Z",
+  "updated_at": "2026-01-23T09:45:14Z",
+  "closed_at": "2026-01-23T09:41:38Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T09:41:38Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/161",
+  "body": "## Problem\n\nComponent styles missing on fumadocs documentation pages:\n- Buttons rendered without background colors (no bg-primary, bg-destructive, etc.)\n- Calendar dates and weekday headers collapsed without spacing\n\n## Changes\n\n### Fixed CSS packaging and imports\n\n- **`packages/components/package.json`**: Corrected CSS export path from `./dist/style.css` to `./style.css` → `./dist/index.css` (actual build output)\n- **`apps/site/app/layout.tsx`**: Added `import '@object-ui/components/style.css';` after global.css import\n\nThe components package builds a standalone CSS bundle (`dist/index.css`) containing all Tailwind utility classes used by components. This CSS must be imported by consuming applications.\n\n### Disabled broken plugin imports\n\n- **`apps/site/app/components/InteractiveDemo.tsx`**: Commented out `@object-ui/plugin-object` import\n- **`apps/site/app/components/ObjectUIProvider.tsx`**: Commented out `@object-ui/plugin-object` import\n\nPlugin has missing `@object-ui/data-objectql` dependency causing build failures.\n\n## Screenshots\n\n**Buttons - Before:**\n\n![Button colors missing](https://github.com/user-attachments/assets/df9b1d7f-0638-4fdd-9c15-cff59e80dc95)\n\n**Buttons - After:**\n\n![Button colors fixed](https://github.com/user-attachments/assets/87c87e49-fdf9-4279-bf4f-49f9eef8c06b)\n\n**Calendar - Before:**\n\n![Calendar text squished](https://github.com/user-attachments/assets/81e5db53-06ec-43de-baf1-c635b95abe31)\n\n**Calendar - After:**\n\n![Calendar spacing fixed](https://github.com/user-attachments/assets/a0fe16ad-3430-45d6-998d-c6c17bf71abe)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fumadocs 文档页，按钮颜色没出来，日历选择组件的文字也挤在一起\n> \n> https://objectui.org/docs/components/form/button\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

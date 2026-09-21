@@ -1,0 +1,33 @@
+{
+  "number": 238,
+  "kind": "pull_request",
+  "title": "[WIP] Fix style import issues in aggrid documentation demo",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-27T12:16:21Z",
+  "updated_at": "2026-01-27T12:31:45Z",
+  "closed_at": "2026-01-27T12:26:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-27T12:26:51Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/238",
+  "body": "## Fix plugin-aggrid documentation demo missing styles ✅\n\n### Summary\nFixed the issue where AG Grid styles were not loading in the documentation demos. The problem occurred because CSS imports in dynamically loaded modules aren't properly processed by Next.js.\n\n### Changes Made:\n- [x] Understand the issue: AG Grid CSS styles not loading in documentation demos\n- [x] Locate the problem: CSS imports in dynamically loaded modules aren't processed by Next.js\n- [x] Fix: Add AG Grid CSS imports to the root layout (apps/site/app/layout.tsx)\n- [x] Fix: Add ag-grid-community and ag-grid-react as dependencies to the site package\n- [x] Document: Add Next.js setup instructions to plugin-aggrid README\n- [x] Code Review: Passed with minor nitpicks (acceptable as-is)\n- [x] Security Check: No issues found\n\n### Technical Details:\nThe issue occurred because AG Grid CSS was only imported in the dynamically loaded plugin module (`@object-ui/plugin-aggrid`). When using dynamic imports in Next.js client components, CSS imports from the dynamically loaded module may not be properly processed.\n\n**Solution:**\n1. Added AG Grid CSS imports to `apps/site/app/layout.tsx` (root layout) - all 4 themes used in demos\n2. Added `ag-grid-community@^32.3.9` and `ag-grid-react@^32.3.9` as direct dependencies in `apps/site/package.json`\n3. Updated plugin-aggrid README with Next.js App Router setup instructions for users who might face the same issue\n\n### Files Changed:\n- `apps/site/app/layout.tsx` - Added AG Grid CSS imports (5 files: base + 4 themes)\n- `apps/site/package.json` - Added ag-grid dependencies\n- `packages/plugin-aggrid/README.md` - Added Next.js setup documentation\n- `pnpm-lock.yaml` - Updated with new dependencies\n\n### Testing:\n- ✅ All AG Grid CSS files verified to be installed correctly\n- ✅ Imports align with plugin's own implementation\n- ✅ Documentation accurately reflects the solution\n- ✅ Code review passed\n- ✅ Security scan passed (0 issues)\n\n### Security Summary:\nNo security vulnerabilities found in the changes.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> plugin-aggrid 文档演示没有正确引入样式\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

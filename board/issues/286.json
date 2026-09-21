@@ -1,0 +1,33 @@
+{
+  "number": 286,
+  "kind": "pull_request",
+  "title": "Fix dashboard stories schema and SchemaRenderer prop spreading",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-30T16:17:28Z",
+  "updated_at": "2026-01-30T17:03:04Z",
+  "closed_at": "2026-01-30T16:45:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-30T16:45:07Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/286",
+  "body": "## Fix Storybook Dashboard Component Blank Display\n\n### Problem\nThe Storybook dashboard component (storybook dashboard 组件) was displaying as blank due to two issues:\n\n1. **Incorrect Schema Structure**: The dashboard stories used `children` array instead of the `widgets` array required by the `DashboardSchema` type\n2. **Incomplete Prop Spreading**: The `SchemaRenderer` component in `@object-ui/react` only spread `schema.props` instead of the entire schema object, preventing components from receiving props like `label` and `value`\n\n### Root Cause Analysis\n\nThe `DashboardRenderer` expects a `widgets` array where each widget has:\n- `id`: Unique identifier\n- `title`: Optional title for the widget\n- `component`: The actual schema to render (e.g., metric, card)\n\nThe original stories incorrectly passed components directly as `children`, causing no widgets to be rendered.\n\nAdditionally, the `SchemaRenderer` was only spreading `schema.props`, but many components (like `MetricWidget`) expect their props directly on the schema object (e.g., `{ type: 'metric', label: 'Total Revenue', value: '$45,231.89' }`).\n\n### Changes Made\n\n#### 1. Fixed `packages/components/src/stories-json/dashboard.stories.tsx`\n- ✅ Changed `children` array to `widgets` array\n- ✅ Wrapped each component in proper widget structure with `id` and `component` properties\n- ✅ Added widget titles for the \"WithCards\" story\n- ✅ Updated both \"Default\" and \"WithCards\" stories\n\n#### 2. Fixed `packages/react/src/SchemaRenderer.tsx`\n- ✅ Added spreading of schema properties while excluding metadata (first commit)\n- ✅ Fixed React error by properly filtering out schema metadata properties like `children`, `body`, `type`, etc. that should NOT be passed as React props (second commit)\n- ✅ Maintains backward compatibility with explicit `props` object\n- ✅ Allows components to receive props directly from schema (e.g., `label`, `value`)\n\n### Screenshots\n\n**Dashboard - Default Story (3 Metric Cards):**\n![Dashboard Default](https://github.com/user-attachments/assets/5af18085-145a-4528-bbe9-f334ceddf574)\n\n**Page Story - Now Working Without Errors:**\n![Page Story Fixed](https://github.com/user-attachments/assets/7143d037-abe8-44a7-b18b-67ea5b36b760)\n\n### Testing\n- ✅ Verified Default dashboard story displays three metric cards with correct labels and values\n- ✅ Verified WithCards dashboard story displays two titled cards with nested metrics\n- ✅ Verified Page story now renders without React errors\n- ✅ Manually tested in Storybook at http://localhost:6006\n- ✅ No security vulnerabilities found (CodeQL scan passed)\n\n### Files Changed\n- `packages/components/src/stories-json/dashboard.stories.tsx` (schema structure fix)\n- `packages/react/src/SchemaRenderer.tsx` (prop spreading fix with metadata filtering)\n\n### Security Summary\nNo security vulnerabilities discovered or introduced by these changes.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> storybook dashboard 组件显示为空白\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

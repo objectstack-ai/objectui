@@ -1,0 +1,35 @@
+{
+  "number": 183,
+  "kind": "pull_request",
+  "title": "Remove references to non-existent documentation and examples",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-24T08:52:04Z",
+  "updated_at": "2026-01-24T09:35:08Z",
+  "closed_at": "2026-01-24T09:34:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-24T09:34:01Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/183",
+  "body": "The link checker failed with 46 file errors - all references to documentation files and examples that don't exist yet (docs/guide/, examples/, etc.).\n\nBased on user feedback, this PR removes all sections and references to non-existent files instead of excluding them from the link checker.\n\n## Changes\n\n- **README.md**: Removed all sections referencing non-existent documentation and examples (167 lines removed)\n  - Removed entire \"Documentation\" section with 50+ broken doc links\n  - Removed \"Examples\" section with non-existent example references\n  - Removed \"Try the Showcase\" section (pnpm showcase script doesn't exist)\n  - Removed \"Just JSON\" section (no example directories)\n  - Removed references to non-existent pnpm scripts (showcase, docs:dev, dev:crm, dev:dashboard)\n  - Removed @object-ui/designer package reference (doesn't exist)\n  - Removed GitHub Discussions link (returns 404 - not enabled)\n  - Cleaned up development setup to only reference existing scripts\n- **lychee.toml**: No changes (remains in original state)\n\n## Results\n\n- README reduced from 502 lines to 335 lines\n- Link checker now shows 0 file errors (down from 46)\n- Only network errors remain (external URLs that work in CI)\n- README now only references actual existing files and functionality\n\nThis makes the README more accurate by documenting only what currently exists. When documentation and examples are created in the future, references can be added back.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21312228974/job/61350639816#step:3:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

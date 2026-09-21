@@ -1,0 +1,33 @@
+{
+  "number": 275,
+  "kind": "pull_request",
+  "title": "[WIP] Check action logs for recent run",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-30T06:46:48Z",
+  "updated_at": "2026-01-30T06:57:36Z",
+  "closed_at": "2026-01-30T06:55:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-30T06:55:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/275",
+  "body": "- [x] Understand the CI failure - TypeScript compilation errors in packages/types due to Zod v4 API changes\n- [x] Fix z.record() calls in blocks.zod.ts (5 occurrences)\n- [x] Fix z.record() calls in crud.zod.ts (3 occurrences)\n- [x] Fix z.record() calls in reports.zod.ts (2 occurrences)\n- [x] Fix z.record() calls in theme.zod.ts (3 occurrences)\n- [x] Fix z.record() calls in views.zod.ts (1 occurrence)\n- [x] Verify the build passes\n- [ ] Run code review and security checks\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21507068321/job/61965388831#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

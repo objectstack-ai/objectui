@@ -1,0 +1,38 @@
+{
+  "number": 172,
+  "kind": "pull_request",
+  "title": "Add AG Grid plugin with lazy loading and peer dependency architecture",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T18:22:27Z",
+  "updated_at": "2026-01-24T01:37:15Z",
+  "closed_at": "2026-01-24T01:30:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-24T01:30:46Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/172",
+  "body": "Implements `@object-ui/plugin-aggrid` package integrating AG Grid Community Edition into the ObjectUI component ecosystem.\n\n## Implementation\n\n- **Lazy Loading Architecture**: Split into `AgGridImpl.tsx` (heavy imports) and `index.tsx` (lightweight wrapper with React.Suspense), ensuring AG Grid libraries load only when grid component renders\n- **Peer Dependencies**: Externalized `ag-grid-community` and `ag-grid-react` to prevent version conflicts and reduce bundle size (10.28 KB vs 894 KB if bundled)\n- **Component Registration**: Auto-registers `aggrid` type with ComponentRegistry on import\n- **Theme Support**: Quartz, Alpine, Balham, Material themes with CSS imports in implementation module\n- **TypeScript**: Exported `AgGridSchema` and `SimpleColumnDef` interfaces for type safety\n\n## Usage\n\n```typescript\nimport '@object-ui/plugin-aggrid';\n\nconst schema = {\n  type: 'aggrid',\n  rowData: [\n    { make: 'Tesla', model: 'Model Y', price: 64950, electric: true },\n    { make: 'Ford', model: 'F-Series', price: 33850, electric: false }\n  ],\n  columnDefs: [\n    { field: 'make', sortable: true, filter: true },\n    { field: 'price', sortable: true, filter: 'number',\n      valueFormatter: (params) => params.value != null ? '$' + params.value.toLocaleString() : '' }\n  ],\n  pagination: true,\n  paginationPageSize: 10,\n  theme: 'quartz'\n};\n```\n\n## Package Structure\n\n```\npackages/plugin-aggrid/\n├── src/\n│   ├── AgGridImpl.tsx    # Lazy-loaded AG Grid implementation\n│   ├── index.tsx         # Entry point with Suspense wrapper\n│   ├── types.ts          # TypeScript interfaces\n│   └── index.test.ts     # Component registry tests\n├── package.json          # ag-grid-* as peerDependencies\n└── vite.config.ts        # Externalizes ag-grid-* in build\n```\n\nFollows established plugin pattern from `plugin-charts` and `plugin-kanban`.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 新增AgGrid插件基于aggrid社区版\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

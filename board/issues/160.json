@@ -1,0 +1,35 @@
+{
+  "number": 160,
+  "kind": "pull_request",
+  "title": "Add ObjectStack protocol component evaluation and 2026 roadmap with dual component system architecture",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T07:35:22Z",
+  "updated_at": "2026-01-23T10:40:01Z",
+  "closed_at": "2026-01-23T10:40:01Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T10:40:01Z",
+  "comments": 20,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/160",
+  "body": "- [x] Translate COMPONENT_MAPPING_GUIDE.md from Chinese to English\n- [x] Update README.md language labels from \"(中文)\" to \"(English)\"\n- [x] Verify capitalization in OBJECTSTACK_COMPONENT_EVALUATION.md (already correct)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 评估整个objectstack协议需要实现的前端组件清单以及和基础的shadcn组件的区分，编写总结文档，并安排下一步的开发计划\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

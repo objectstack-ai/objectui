@@ -1,0 +1,39 @@
+{
+  "number": 294,
+  "kind": "pull_request",
+  "title": "Implement sections 3.3-3.6: Plugin scope isolation, testing standards, and build optimization",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "documentation",
+    "package: core",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-31T04:52:21Z",
+  "updated_at": "2026-01-31T05:34:22Z",
+  "closed_at": "2026-01-31T05:27:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-31T05:27:43Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/294",
+  "body": "Implements sections 3.3-3.6 from ARCHITECTURE_EVALUATION.md to improve plugin isolation, testing coverage, and build optimization.\n\n## Changes Made\n\n### 3.3 Plugin Scope Isolation ✅\nCreated a comprehensive scoped plugin system to prevent conflicts between plugins:\n\n- **New `PluginScope` interface** in `@object-ui/types` defining the contract for plugin isolation\n- **`PluginScopeImpl` class** in `@object-ui/core` implementing:\n  - Scoped component registration with namespacing (prevents plugin conflicts)\n  - Isolated state management (each plugin has its own state with size limits)\n  - Scoped event bus (events don't leak between plugins)\n  - Global event support for cross-plugin communication when needed\n  - Automatic resource cleanup on plugin unload\n- **Updated `PluginSystem`** to support both scoped (default) and legacy plugin loading modes\n- **9 comprehensive integration tests** covering component isolation, state isolation, event isolation, lifecycle management, and legacy compatibility\n\n### 3.4 TypeScript Configuration Consolidation ✅\nVerified and documented existing shared TypeScript configurations:\n\n- `tsconfig.base.json` with strict shared settings\n- `tsconfig.react.json` extending base with React/JSX settings\n- `tsconfig.node.json` extending base for Node packages\n- All 24 package tsconfig files properly extending shared configs\n\n### 3.5 Build Optimization ✅\nVerified existing Turbo configuration for parallel builds (3-5x faster):\n\n- `turbo.json` properly configured with dependency-aware pipeline\n- Caching enabled for build outputs (`dist/**`, `.next/**`, `build/**`, `storybook-static/**`)\n- Package scripts using turbo for parallel execution\n- Build system already optimized for performance\n\n### 3.6 Testing Coverage ✅\nEnhanced testing standards and requirements:\n\n- **Coverage thresholds** added to `vitest.config.mts`:\n  - 80% for lines, functions, and statements\n  - 75% for branches\n- **`TESTING_STANDARDS.md`** comprehensive documentation including:\n  - Testing guidelines and best practices\n  - Unit, integration, and E2E test patterns\n  - Visual regression testing setup with Chromatic\n  - CI/CD integration guidance\n  - Performance testing examples\n- **Integration test examples** demonstrating plugin scope isolation testing patterns\n\n## Files Changed\n\n- `packages/types/src/plugin-scope.ts` - New PluginScope interface and types\n- `packages/types/src/index.ts` - Export plugin scope types\n- `packages/core/src/registry/PluginScopeImpl.ts` - Plugin scope implementation\n- `packages/core/src/registry/PluginSystem.ts` - Updated to support scoped plugins\n- `packages/core/src/index.ts` - Export PluginScopeImpl\n- `packages/core/src/registry/__tests__/plugin-scope-integration.test.ts` - Integration tests\n- `vitest.config.mts` - Added coverage thresholds\n- `TESTING_STANDARDS.md` - Testing standards documentation\n\n## Testing\n\n- ✅ TypeScript compilation passes for all packages\n- ✅ All 9 plugin scope integration tests passing\n- ✅ Build process completes successfully\n- ✅ Code review passed with no issues\n\nThe implementation provides a solid foundation for plugin isolation while maintaining backward compatibility with existing plugins.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/289 继续按计划修改3.3-3.6\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

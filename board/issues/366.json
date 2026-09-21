@@ -1,0 +1,37 @@
+{
+  "number": 366,
+  "kind": "pull_request",
+  "title": "Fix ES module directory import error in @object-ui/core",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "dependencies",
+    "package: core"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-03T01:51:58Z",
+  "updated_at": "2026-02-03T03:41:46Z",
+  "closed_at": "2026-02-03T03:37:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-03T03:37:51Z",
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/366",
+  "body": "## Fix CI failure: ES module directory import error\n\nThe CI is failing with:\n```\nError: Directory import '/home/runner/work/objectui/objectui/node_modules/.pnpm/@object-ui+core@0.3.1/node_modules/@object-ui/core/dist/types' is not supported resolving ES modules\n```\n\n**Root Cause:**\nThe `@object-ui/core` package.json has an export for `\"./types\"` that points to `\"./dist/types/index.js\"`, but this export is never used in the codebase. The combination of the type-only re-export in `src/index.ts` and the unused package export is causing Node.js ES module resolution issues.\n\n**Solution:**\nRemoved the unused `\"./types\"` export from `packages/core/package.json`. All types remain accessible via the main `@object-ui/core` import.\n\n**Additional Fix:**\nFixed ESLint error in `packages/data-objectstack/src/index.ts` - wrapped `case 'create'` block in braces to comply with `no-case-declarations` rule.\n\n**Plan:**\n- [x] Remove unused `\"./types\"` export from `packages/core/package.json`\n- [x] Verify build succeeds locally\n- [x] Run tests to confirm the fix\n- [x] Fix lint error in data-objectstack\n- [x] Request code review (no issues found)\n- [x] Run security scan with CodeQL (no issues found)\n\n**Verification:**\n✅ Build succeeds without errors\n✅ Previously failing tests now pass:\n  - packages/plugin-form/src/ObjectForm.msw.test.tsx\n  - packages/plugin-grid/src/ObjectGrid.msw.test.tsx  \n  - apps/console/src/__tests__/BrowserSimulation.test.tsx (ES module error fixed, test passes locally)\n✅ Lint now passes (no errors, only warnings)\n✅ Code review completed - no issues\n✅ CodeQL security scan - no vulnerabilities\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21613399553/job/62286934340#step:9:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

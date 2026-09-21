@@ -1,0 +1,33 @@
+{
+  "number": 166,
+  "kind": "pull_request",
+  "title": "Reorganize plugin-object docs into subdirectory structure with component-specific pages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T13:59:57Z",
+  "updated_at": "2026-01-23T14:57:45Z",
+  "closed_at": "2026-01-23T14:47:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T14:47:14Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/166",
+  "body": "The plugin-object documentation was a single monolithic file. Restructured into subdirectory with dedicated pages for each component (ObjectTable, ObjectForm, ObjectView) for better discoverability and navigation.\n\n## Structure Changes\n\n- **Created** `/content/docs/plugins/plugin-object/` subdirectory\n- **Split** monolithic `plugin-object.mdx` into:\n  - `index.mdx` - Plugin overview with component links\n  - `object-table.mdx` - ObjectTable component reference\n  - `object-form.mdx` - ObjectForm component reference (create/edit modes)\n  - `object-view.mdx` - ObjectView component reference (list/detail/edit views)\n  - `meta.json` - Navigation metadata\n\n## Content Organization\n\nEach component page includes:\n- Interactive demos\n- Usage examples (React + JSON schema)\n- Property reference tables\n- Advanced configuration patterns\n- Cross-component navigation links\n\nNavigation now follows same pattern as `/content/docs/components/` subdirectories (basic, form, layout, etc.)\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build git /next celain --ignore-submodules | head -n 10 credential.helper modules/.bin/node` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> plugin-object 文档应展开子目录介绍每个控件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

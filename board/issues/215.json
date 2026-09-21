@@ -1,0 +1,37 @@
+{
+  "number": 215,
+  "kind": "pull_request",
+  "title": "Refactor views to Shadcn UI primitives and extract visualization plugins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-26T10:30:47Z",
+  "updated_at": "2026-01-26T11:17:12Z",
+  "closed_at": "2026-01-26T11:13:05Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-26T11:13:05Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/215",
+  "body": "Replaces raw HTML/Tailwind in field renderers with Shadcn UI components and extracts complex visualization components to separate plugin packages for better modularity.\n\n## Field Renderer Changes\n\n- **Boolean**: `Badge` with Lucide `Check`/`X` icons instead of hardcoded symbols\n- **Select**: `Badge variant=\"outline\"` with color mapping\n- **User**: `Avatar`/`AvatarFallback` primitives\n- **Email/URL**: `Button variant=\"link\" asChild` wrapping `<a>` tags\n- **Image**: Consistent `size-*` utilities\n\n## ObjectGrid Actions\n\nReplaced inline action buttons with `DropdownMenu`:\n\n```tsx\n<DropdownMenu>\n  <DropdownMenuTrigger asChild>\n    <Button variant=\"ghost\" size=\"icon\">\n      <MoreVertical className=\"h-4 w-4\" />\n    </Button>\n  </DropdownMenuTrigger>\n  <DropdownMenuContent>\n    <DropdownMenuItem><Edit /> Edit</DropdownMenuItem>\n    <DropdownMenuItem variant=\"destructive\"><Trash2 /> Delete</DropdownMenuItem>\n  </DropdownMenuContent>\n</DropdownMenu>\n```\n\n## Plugin Extraction\n\nCreated standalone packages for visualization components:\n- `@object-ui/plugin-calendar` (ObjectCalendar)\n- `@object-ui/plugin-gantt` (ObjectGantt)\n- `@object-ui/plugin-map` (ObjectMap)\n\nEach plugin includes component registration and proper externals configuration. Removed from core `@object-ui/views` package to reduce bundle size.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> # Role\n> Frontend Refactoring Specialist (Shadcn UI Expert)\n> \n> # Context\n> We are refactoring the `packages/views` package in `objectstack-ai/objectui`.\n> The goal is to ensure all \"View Components\" (which render data from ObjectQL schemas) utilize standard Shadcn UI components instead of raw HTML/Tailwind.\n> \n> # Task 1: Standardize Field Renderers (Read-Only Views)\n> 1. Read `packages/views/src/field-renderers.tsx`.\n> 2. This file currently uses raw `<span>`, `<div>`, and `<img>` tags with hardcoded Tailwind classes.\n> 3. **Refactor this file** to use Shadcn atoms imported from `@object-ui/components`:\n>    - `BooleanCellRenderer`: Use a generic `<Badge>` (Green for true, Gray for false) or an Icon (Check/X).\n>    - `SelectCellRenderer`: Replace the hardcoded color map with standard `<Badge variant=\"outline\">` or custom badge variants.\n>    - `UserCellRenderer`: Replace the `<div>` circle with `<Avatar>` and `<AvatarFallback>`.\n>    - `ImageCellRenderer`: Ensure styling is consistent (consider `<AspectRatio>` or just styled `img` with `rounded-md`).\n>    - `UrlCellRenderer` / `EmailCellRenderer`: Use `<Button variant=\"link\" className=\"p-0 h-auto\">` instead of raw `<a>` tags.\n> \n> # Task 2: Polish ObjectGrid Actions\n> 1. Read `packages/views/src/ObjectGrid.tsx`.\n> 2. Locate the \"Actions\" column generation (around line 300).\n> 3. Currently, it renders raw `<button>` elements for Edit/Delete.\n> 4. **Refactor**:\n>    - Use `<Button variant=\"ghost\" size=\"icon\">` with Lucid Icons (`Edit`, `Trash2`).\n>    - OR (Better): Wrap them in a `<DropdownMenu>` (Actions -> Edit, Delete) to save space, standardizing the \"Row Actions\" pattern.\n> \n> # Task 3: Split Heavy Views to Plugins\n> Similar to our previous work, the following files represent complex, distinct features that should be plugins:\n> - `ObjectCalendar.tsx` -> `packages/plugin-calendar`\n> - `ObjectGantt.tsx` -> `packages/plugin-gantt`\n> - `ObjectKanban.tsx` -> `packages/plugin-kanban`\n> - `ObjectMap.tsx` -> `packages/plugin-map`\n> \n> **Execution**:\n> 1. Create the new package directories.\n> 2. Move the source files.\n> 3. Create `package.json` for each (copy from `plugin-chatbot` template).\n> 4. Remove the files from `packages/views/src`.\n> 5. Update `packages/views/src/index.tsx` to remove their exports.\n> \n> # Deliverable\n> - Updated code for `field-renderers.tsx` (using Shadcn components).\n> - Updated code for `ObjectGrid.tsx` (using Shadcn Buttons/Dropdowns).\n> - Shell commands to execute the plugin extraction (Task 3).\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

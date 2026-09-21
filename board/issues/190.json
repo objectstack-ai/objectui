@@ -1,0 +1,33 @@
+{
+  "number": 190,
+  "kind": "pull_request",
+  "title": "Update documentation for @object-ui/views package reclassification",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-25T09:02:03Z",
+  "updated_at": "2026-01-25T09:51:34Z",
+  "closed_at": "2026-01-25T09:49:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-25T09:49:31Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/190",
+  "body": "Package `@object-ui/plugin-object` has been reclassified from plugin to core package as `@object-ui/views`. This updates all documentation and examples to reflect the new package name and promotes the documentation to top-level navigation.\n\n## Changes\n\n- **Import statements**: Updated all code examples from `@object-ui/plugin-object` to `@object-ui/views`\n- **Documentation location**: Moved views documentation from `/docs/plugins/views/*` to `/docs/views/*` (core package location)\n- **Documentation links**: Updated all internal references to use new `/docs/views/*` path structure\n- **Navigation metadata**: Changed section title from \"Plugin Object\" to \"Views\" and promoted to top-level navigation alongside \"guide\" and \"components\"\n\n## Example\n\nBefore:\n```tsx\nimport { ObjectForm } from '@object-ui/plugin-object';\n```\n\nAfter:\n```tsx\nimport { ObjectForm } from '@object-ui/views';\n```\n\n## Documentation Structure\n\n**Before:**\n- `/docs/plugins/views/` (nested under plugins)\n\n**After:**\n- `/docs/views/` (promoted to top-level, reflecting core package status)\n\n## Files Modified\n\n**Navigation:**\n- `content/docs/meta.json` - Added \"views\" to top-level navigation\n- `content/docs/plugins/meta.json` - Removed \"views\" from plugins section\n- `content/docs/plugins/index.md` - Updated 3 references to point to new location\n\n**Documentation Location:**\n- Moved entire `content/docs/plugins/views/` directory to `content/docs/views/`\n\n**Link Updates:**\n- `content/docs/views/meta.json` - Navigation title\n- `content/docs/views/index.mdx` - 3 internal links updated\n- `content/docs/views/object-view.mdx` - Import + 4 links updated\n- `content/docs/views/object-grid.mdx` - Import + 4 links updated  \n- `content/docs/views/object-form.mdx` - Import + 3 links updated\n- `content/docs/views/object-field.mdx` - 3 links updated\n\nCHANGELOG files intentionally left unchanged as historical records.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> Reclassifies @object-ui/plugin-object from plugin to core package, renamed as @object-ui/views.\n> \n> 现在需要接着修改所有的文档和例子\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

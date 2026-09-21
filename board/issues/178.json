@@ -1,0 +1,33 @@
+{
+  "number": 178,
+  "kind": "pull_request",
+  "title": "Drop Node 18 support - align with Vite 7 requirements",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-24T06:26:30Z",
+  "updated_at": "2026-01-24T06:49:42Z",
+  "closed_at": "2026-01-24T06:45:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-24T06:45:08Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/178",
+  "body": "Vite 7.3.1 requires Node.js 20.19+, but the project still specified `node: \">=18\"` and CI tested on Node 18.x, causing test failures with ESM module loading errors.\n\n## Changes\n\n- **CI workflow**: Remove Node 18.x from test matrix\n- **package.json**: Update engines to `node: \">=20\"`\n- **plugin-kanban/tsconfig.json**: Remove `rootDir` to eliminate TypeScript warnings when importing from workspace dependencies\n\n## Breaking Change\n\nNode 18.x is no longer supported. This aligns package requirements with the reality that Vite 7 (already in use across all packages) requires Node 20+.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21310592581/job/61346244567#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

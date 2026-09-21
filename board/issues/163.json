@@ -1,0 +1,35 @@
+{
+  "number": 163,
+  "kind": "pull_request",
+  "title": "Add mobile responsiveness to all components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T11:12:00Z",
+  "updated_at": "2026-01-23T11:54:31Z",
+  "closed_at": "2026-01-23T11:54:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T11:54:30Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/163",
+  "body": "Components were using fixed dimensions and spacing, causing overflow and poor UX on mobile devices (&lt;640px viewports).\n\n## Changes\n\nApplied mobile-first responsive design to **19 components across 8 categories**:\n\n### Basic Components (6)\n- **navigation-menu**: `w-[400px]` → `w-full sm:w-[400px]` - eliminates horizontal overflow\n- **button-group**: `inline-flex` → `flex flex-wrap sm:inline-flex` - enables vertical stacking\n- **div**: `p-4` → `p-2 sm:p-4` - reduces padding on small screens\n- **separator**: `my-4` → `my-2 sm:my-4` - tightens vertical rhythm\n- **image**: added `max-w-full h-auto` defaults - prevents overflow\n- **span**: `px-2 py-1` → `px-1.5 py-0.5 sm:px-2 sm:py-1` - optimizes inline spacing\n\n### Layout Components (4)\n- **page**: `p-6 md:p-8` → `p-4 md:p-6 lg:p-8` - progressive padding scaling\n- **container**: all 12 padding levels now responsive (e.g., `p-2 sm:p-3 md:p-4`)\n- **flex**: `gap-2` → `gap-1.5 sm:gap-2 md:gap-3` - responsive gaps\n- **stack**: `gap-2` → `gap-1.5 sm:gap-2 md:gap-3` - responsive gaps\n\n### Form Components (2)\n- **file-upload**: `p-6` → `p-4 sm:p-6` + responsive filename truncation\n- **form**: grid layout now mobile-first: `sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4`\n\n### Data Display (2)\n- **statistic**: `p-6` → `p-4 sm:p-5 md:p-6` - card padding scales\n- **kbd**: `inline-flex` → `inline-flex flex-wrap` - keys wrap on narrow screens\n\n### Navigation (1)\n- **header-bar**: `h-16 px-4` → `h-14 sm:h-16 px-3 sm:px-4` - shorter on mobile\n\n### Overlay (1)\n- **context-menu**: `w-[300px]` → `w-full sm:w-[300px]` - full width trigger on mobile\n\n### Complex (1)\n- **carousel**: slide padding `p-8` → `p-4 sm:p-6 md:p-8` - responsive padding\n\nAll changes use Tailwind's mobile-first breakpoint system (base → `sm:` → `md:` → `lg:`).\n\n## Visual Comparison\n\n**Desktop (&gt;640px)**\n<img src=\"https://github.com/user-attachments/assets/cb4c1237-7aed-47d2-819c-6ce0b24643ed\">\n\n**Mobile (375px)**\n<img src=\"https://github.com/user-attachments/assets/fb828699-7c2f-46e4-9803-06998973a23e\">\n\nComponents now adapt seamlessly across viewport sizes without breaking layouts or requiring horizontal scroll.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 修正优化所有基础组件在手机上的显示效果\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

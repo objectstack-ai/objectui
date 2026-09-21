@@ -1,0 +1,38 @@
+{
+  "number": 189,
+  "kind": "pull_request",
+  "title": "Promote plugin-object to core package as @object-ui/views",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "documentation",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-25T08:15:46Z",
+  "updated_at": "2026-01-25T08:45:49Z",
+  "closed_at": "2026-01-25T08:45:49Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-01-25T08:45:49Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/189",
+  "body": "Reclassifies `@object-ui/plugin-object` from plugin to core package, renamed as `@object-ui/views`.\n\n## Changes\n\n**Package Structure**\n- Renamed `packages/plugin-object` → `packages/views`\n- Updated package name: `@object-ui/plugin-object` → `@object-ui/views`\n- Changed keywords/classification from \"plugin\" to \"core package\"\n\n**References Updated**\n- Site app dependencies and imports\n- CLI package aliases and code generation templates\n- All documentation (README, reference docs, content/docs)\n- CHANGELOG entries for migration tracking\n\n**Migration**\n```typescript\n// Before\nimport { ObjectGrid, ObjectForm } from '@object-ui/plugin-object';\n\n// After\nimport { ObjectGrid, ObjectForm } from '@object-ui/views';\n```\n\n```json\n{\n  \"dependencies\": {\n    \"@object-ui/views\": \"workspace:*\"\n  }\n}\n```\n\nAll functionality preserved. Zero breaking changes to component APIs.\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build grep itest.mjs n-object son rep` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> plugin-object升级为内核包，叫 objectui/views\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

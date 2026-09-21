@@ -1,0 +1,33 @@
+{
+  "number": 304,
+  "kind": "pull_request",
+  "title": "Fix code injection vulnerability in validation expression evaluator",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-31T11:50:01Z",
+  "updated_at": "2026-01-31T13:10:38Z",
+  "closed_at": "2026-01-31T13:00:16Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-31T13:00:16Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/304",
+  "body": "CodeQL flagged unsafe dynamic code execution in `object-validation-engine.ts` using `new Function()` with user-provided expressions. This creates a code injection attack surface.\n\n## Changes\n\n**Security Fix**\n- Replaced `new Function()` constructor with AST-based expression parser\n- Zero dynamic code execution (no eval, no Function constructor)\n- Supports required operators: comparisons (`==`, `!=`, `>`, `<`, `>=`, `<=`), logical (`&&`, `||`, `!`), property access, literals\n\n**Before:**\n```typescript\nconst func = new Function(...contextKeys, `'use strict'; return (${sanitizedExpression});`);\nreturn func(...contextValues);\n```\n\n**After:**\n```typescript\nreturn this.evaluateSafeExpression(expression.trim(), context);\n// Parses and evaluates without dynamic code execution\n```\n\n**Known Limitations**\n- Single comparison per expression (no chaining like `a > b > c`)\n- Simple escape handling (edge cases documented in code)\n- Adequate for validation expressions; extensible if needed\n\n## Verification\n\n- CodeQL: 1 alert → 0 alerts\n- Tests: 121/121 passing (100%)\n- Backward compatible with all existing validation expressions\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/300\n> \n> 更新当前进度，并进一步完成下一步修改\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

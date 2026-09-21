@@ -1,0 +1,33 @@
+{
+  "number": 249,
+  "kind": "pull_request",
+  "title": "[WIP] Fix test failure in CI pipeline",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-28T10:05:03Z",
+  "updated_at": "2026-01-28T10:31:42Z",
+  "closed_at": "2026-01-28T10:25:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/249",
+  "body": "## Fix CI Build Failures\n\n### Issues Found\n1. **TypeScript error in ObjectGrid.tsx** - Line 344 uses invalid `variant=\"destructive\"` prop on DropdownMenuItem\n2. **Runtime error in docs build** - Header-bar component uses SidebarTrigger without SidebarProvider context\n\n### Plan\n- [x] Investigate CI failures using GitHub Actions logs\n- [x] Identify root causes of build failures\n- [x] Fix ObjectGrid.tsx - Remove invalid variant prop and use className instead for destructive styling\n- [x] Fix header-bar.tsx - Wrap SchemaRenderer in InteractiveDemo with SidebarProvider\n- [x] Test the build locally\n- [x] Address code review feedback\n  - [x] Reset SidebarProvider layout classes in demos to prevent layout issues\n  - [x] Enhance destructive menu item styling with focus background\n- [x] Verify all fixes work correctly\n\n### Changes Made\n1. **ObjectGrid.tsx**: Replaced invalid `variant=\"destructive\"` with proper className styling including focus states\n2. **InteractiveDemo.tsx**: Created DemoWrapper that provides SidebarProvider context while resetting layout classes that would interfere with isolated component demos\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21433597520/job/61718709307#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

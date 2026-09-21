@@ -1,0 +1,42 @@
+{
+  "number": 379,
+  "kind": "pull_request",
+  "title": "Phase 4: Complex & Business Components - Dashboard/Kanban/Chatbot enhancements + ListView/DetailView plugins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "documentation",
+    "examples",
+    "package: components",
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-03T20:41:41Z",
+  "updated_at": "2026-02-04T02:07:55Z",
+  "closed_at": "2026-02-04T02:01:42Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-04T02:01:42Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/379",
+  "body": "## Summary\n\nImplements Phase 4 requirements: enhances Dashboard, Kanban, and Chatbot components with enterprise features; creates `@object-ui/plugin-list` and `@object-ui/plugin-detail` from scratch.\n\n## Enhanced Components\n\n### Dashboard (`@object-ui/plugin-dashboard`)\n- **DashboardGridLayout**: Drag-drop widget positioning via `react-grid-layout`\n- Widget resizing with configurable grid constraints\n- Layout persistence to localStorage\n- Edit mode with save/cancel/reset controls\n\n### Kanban (`@object-ui/plugin-kanban`)\n- **KanbanEnhanced**: Virtual scrolling via `@tanstack/react-virtual` for 1000+ cards\n- Column collapse/expand\n- Visual card limit warnings (yellow at 80%, red at 100%)\n\n### Chatbot (`@object-ui/plugin-chatbot`)\n- **ChatbotEnhanced**: Markdown rendering via `react-markdown`\n- Code syntax highlighting via `react-syntax-highlighter`\n- File upload with MIME validation\n- Clear conversation control\n\n## New Plugins\n\n### ListView (`@object-ui/plugin-list`)\nUnified view component with type switching:\n- View types: Grid, List, Kanban, Calendar, Chart\n- View preference persistence\n- Integrated search + expandable filter panel\n- Sortable by field + direction\n\n```tsx\n<ListView\n  schema={{\n    type: 'list-view',\n    objectName: 'contacts',\n    viewType: 'grid',\n    fields: ['name', 'email', 'phone'],\n    sort: [{ field: 'name', order: 'asc' }]\n  }}\n/>\n```\n\n### DetailView (`@object-ui/plugin-detail`)\nSectioned detail pages with tab navigation:\n- Collapsible field sections\n- Tab support (Details/Related/Activity)\n- Related lists display\n- Read-only/Edit mode toggle\n- Back navigation + action buttons\n\n```tsx\n<DetailView\n  schema={{\n    type: 'detail-view',\n    title: 'Contact Details',\n    sections: [\n      { title: 'Basic Info', fields: [...] },\n      { title: 'Address', fields: [...], collapsible: true }\n    ],\n    tabs: [\n      { key: 'details', label: 'Details' },\n      { key: 'related', label: 'Related Records' }\n    ]\n  }}\n/>\n```\n\n## Technical Details\n\n**New Dependencies:**\n- `react-grid-layout` - Dashboard layout management\n- `@tanstack/react-virtual` - Virtual scrolling\n- `react-markdown` + `remark-gfm` - Markdown rendering\n- `react-syntax-highlighter` - Code highlighting\n\n**Package Structure:**\nBoth new plugins follow standard ObjectUI patterns with automatic ComponentRegistry registration, TypeScript strict mode, Tailwind CSS styling, and comprehensive documentation.\n\nAll builds pass. Tests configured and passing for new components.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 🔴 Phase 4: 复杂与业务组件 (Week 7-8)\n> \n> Week 7: Complex Components\n> \n> Day 43-44: Dashboard 组件\n> \n>  Dashboard 组件\n> 网格布局\n> 拖拽调整位置\n> Resize 调整大小\n> 响应式布局\n> 添加/删除 Widget\n> 布局持久化\n> Widget 刷新\n> 编辑模式切换\n> Day 45-46: Kanban 组件\n> \n>  Kanban 组件\n> 多列看板\n> 拖拽卡片\n> 跨列移动\n> 卡片详情\n> 添加卡片\n> 编辑卡片\n> 删除卡片\n> 列折叠\n> 卡片数量限制\n> 虚拟滚动\n> Day 47-48: Calendar 组件\n> \n>  Calendar 组件\n> 月视图\n> 周视图\n> 日视图\n> 议程视图\n> 事件展示\n> 点击事件\n> 拖拽事件\n> Resize 事件\n> 选择时间段\n> 时区支持\n> 本地化\n> Day 49: Chatbot 组件\n> \n>  Chatbot 组件\n> 消息列表\n> 输入框\n> 发送按钮\n> 流式输出\n> Markdown 渲染\n> 代码高亮\n> 文件上传\n> 用户/助手头像\n> 时间戳\n> 清空对话\n> Week 7 交付物:\n> \n> ✅ Dashboard (拖拽布局)\n> ✅ Kanban (拖拽卡片)\n> ✅ Calendar (多视图)\n> ✅ Chatbot (流式输出)\n> Week 8: Business Components (ObjectQL Integration)\n> \n> Day 50-51: ObjectGrid 组件\n> \n>  ObjectGrid 组件\n> 对象数据绑定\n> 字段类型映射\n> CRUD 操作\n> 工具栏 (创建、删除、导出、导入)\n> 高级筛选\n> 排序\n> 分页\n> 批量操作\n> 行选择\n> 自定义列\n> 关联字段展示\n> Day 52-53: ObjectForm 组件\n> \n>  ObjectForm 组件\n> 对象数据绑定\n> 字段类型自动映射\n> text → Input\n> textarea → Textarea\n> number → Input (type=number)\n> boolean → Checkbox\n> select → Select\n> date → DatePicker\n> lookup → ComboBox\n> file → FileUpload\n> 表单布局\n> 字段验证\n> 创建/编辑模式\n> 只读模式\n> 关联字段处理\n> 提交处理\n> Day 54: ListView 组件\n> \n>  ListView 组件\n> 视图类型切换 (Grid, List, Kanban, Calendar)\n> 视图配置保存\n> 筛选器\n> 排序\n> 分组\n> 自定义视图\n> Day 55: DetailView 组件\n> \n>  DetailView 组件\n> 字段分组\n> 标签页\n> 关联列表\n> 操作按钮\n> 只读/编辑切换\n> Day 56: 测试与文档\n> \n>  ObjectQL 集成测试\n>  CRUD 操作测试\n>  业务组件文档\n>  使用示例\n> Week 8 交付物:\n> \n> ✅ ObjectGrid (完整CRUD)\n> ✅ ObjectForm (字段映射)\n> ✅ ListView (视图切换)\n> ✅ DetailView\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

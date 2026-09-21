@@ -1,0 +1,39 @@
+{
+  "number": 179,
+  "kind": "pull_request",
+  "title": "Add FormRenderer component for @objectstack/spec schema-driven forms",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "package: react",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-24T06:55:26Z",
+  "updated_at": "2026-01-24T07:22:37Z",
+  "closed_at": "2026-01-24T07:16:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-24T07:16:51Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/179",
+  "body": "Implements server-driven UI form rendering using `FormViewSchema` from `@objectstack/spec`. Enables declarative form definitions with grid layouts, collapsible sections, and field validation.\n\n## Implementation\n\n**Core Components**\n- `FormRenderer`: Orchestrates form rendering from schema, manages state via react-hook-form\n- `FieldFactory`: Maps widget types to field implementations (text, number, checkbox, date, etc.)\n\n**Layout System**\n- Responsive grid with 1-4 column support (`md:`, `lg:` breakpoints)\n- Column spanning via `colSpan` property\n- Collapsible sections with toggle state\n\n**Field Features**\n- Legacy string fields and FormFieldSchema objects\n- Properties: `label`, `placeholder`, `helpText`, `required`, `readonly`, `hidden`\n- Basic validation (required fields)\n\n## Usage\n\n```tsx\nimport { FormRenderer } from '@object-ui/react';\nimport type { FormView } from '@objectstack/spec/ui';\n\nconst schema: FormView = {\n  type: 'simple',\n  sections: [{\n    label: 'Contact Info',\n    columns: 2,\n    fields: [\n      { field: 'firstName', label: 'First Name', required: true, widget: 'text' },\n      { field: 'email', label: 'Email', widget: 'email', colSpan: 2 }\n    ]\n  }]\n};\n\n<FormRenderer \n  schema={schema}\n  data={initialData}\n  onSubmit={handleSubmit}\n/>\n```\n\n## Limitations\n\n- Select widget lacks options support (requires schema extension)\n- Conditional visibility (`visibleOn`/`dependsOn`) not implemented\n- Basic validation only (required fields)\n\n## Dependencies\n\n- `@objectstack/spec`: ^0.3.2\n- `react-hook-form`: ^7.71.1\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 基于@objectstack/spec/src/view.zod，重构object-form组件\n> ---\n> \n> ### AI Instruction for Component Development\n> \n> **Prompt:**\n> \n> > Create a React component named `FormRenderer` that renders a form based on the `FormViewSchema` and `FormFieldSchema` defined in `packages/spec/src/ui/view.zod.ts`.\n> >\n> > **Requirements:**\n> > 1.  **Component Structure**:\n> >     *   Create `packages/react/src/components/form/FormRenderer.tsx`.\n> >     *   It should accept a `schema` prop of type `FormView` and a `data` prop for the initial form values.\n> > 2.  **Layout Handling**:\n> >     *   Support `FormSectionSchema` to render sections with a grid layout.\n> >     *   Respect the `columns` property (1-4 columns) of the section.\n> > 3.  **Field Rendering**:\n> >     *   Iterate through the `fields` array in each section.\n> >     *   Handle both simple string fields (legacy) and `FormFieldSchema` objects.\n> >     *   For `FormFieldSchema` objects, respect properties like `label`, `placeholder`, `helpText`, `readonly`, `required`, and `hidden`.\n> >     *   Implement `colSpan` support to allow fields to span multiple columns in the grid.\n> > 4.  **Widget Support**:\n> >     *   Implement a basic `FieldFactory` that renders different inputs based on the field type or the `widget` override property in `FormFieldSchema`.\n> >     *   Start with basic widgets: Text Input, Number Input, Checkbox.\n> > 5.  **Validation**:\n> >     *   Use `react-hook-form` and `zod` for form state management and validation.\n> >\n> > **Reference Schemas:**\n> > Use the definitions from `packages/spec/src/ui/view.zod.ts`, specifically `FormViewSchema`, `FormSectionSchema`, and `FormFieldSchema`.\n> \n> ---\n> \n> **Do you want me to execute this instruction now and create the `FormRenderer` component for you?**\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

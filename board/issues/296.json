@@ -1,0 +1,43 @@
+{
+  "number": 296,
+  "kind": "pull_request",
+  "title": "Fix Registry namespace lookup to enforce strict matching when namespace is explicit",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "package: components",
+    "package: core",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-31T06:13:43Z",
+  "updated_at": "2026-01-31T07:31:34Z",
+  "closed_at": "2026-01-31T07:31:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-31T07:31:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/296",
+  "body": "Registry namespace lookup was incorrectly falling back to non-namespaced components when an explicit namespace was provided but no match was found. This violated the expected contract where `registry.get('button', 'ui')` should return `undefined` if `'ui:button'` doesn't exist, even if `'button'` exists.\n\n## Changes\n\n**Registry.ts**\n- `get()`, `has()`, `getConfig()`: Removed fallback when namespace parameter is non-empty\n- Added deprecation warning for non-namespaced registration\n- Clarified backward compatibility behavior: when namespace is undefined, fallback lookup still works\n\n**PluginSystem.test.ts**  \n- Two tests now explicitly use legacy mode (`useScope: false`) to receive raw Registry instead of PluginScopeImpl\n\n## Behavior\n\n```typescript\nregistry.register('button', ButtonComponent, { namespace: 'ui' });\n\n// With namespace: strict lookup only\nregistry.get('button', 'ui')      // ✓ Returns ButtonComponent\nregistry.get('button', 'custom')  // ✓ Returns undefined (not button)\n\n// Without namespace: backward compat fallback\nregistry.get('button')            // ✓ Returns ButtonComponent\n```\n\nThe distinction now correctly separates \"no preference\" (fallback allowed) from \"explicit namespace request\" (strict match only).\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21539943657/job/62072940084#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

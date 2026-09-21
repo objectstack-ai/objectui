@@ -1,0 +1,36 @@
+{
+  "number": 373,
+  "kind": "pull_request",
+  "title": "Fix flaky BrowserSimulation test: async timing in ObjectForm field validation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-03T08:32:46Z",
+  "updated_at": "2026-02-03T09:36:00Z",
+  "closed_at": "2026-02-03T09:32:39Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-03T09:32:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/373",
+  "body": "The `Scenario 4: Object Create Form` test was failing in CI with `expected 0 to be greater than 0` when checking for the Date field label. The test was racing against async form rendering (client init + schema fetch + field generation).\n\n## Changes\n\n**MockDataSource interface completion**\n- Added missing `findOne` method required by DataSource interface\n\n**Async timing adjustments**\n- Increased initial field wait from 5s → 10s to account for 500ms client init delay + async operations\n- Changed sequential field validation loop to concurrent `Promise.all` (reduces max wait from 35s → 10s)\n\n**Code quality**\n- Extracted `expectLabelToExist` helper to eliminate duplication\n\n```typescript\n// Before: synchronous checks that race against rendering\nfor (const label of fieldLabels) {\n  expect(screen.queryAllByText(new RegExp(label, 'i')).length).toBeGreaterThan(0);\n}\n\n// After: concurrent async checks with proper timeout\nawait Promise.all(\n  fieldLabels.map(label =>\n    waitFor(() => expectLabelToExist(label), { timeout: 5000 })\n  )\n);\n```\n\nAll changes are test-only. No production code modified.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21622660842/job/62315046887#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,47 @@
+{
+  "number": 326,
+  "kind": "pull_request",
+  "title": "[WIP] Release a new version",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-02T04:25:09Z",
+  "updated_at": "2026-02-02T04:36:44Z",
+  "closed_at": "2026-02-02T04:36:23Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/326",
+  "body": "## Release Plan\n\n- [x] Fix changeset configuration (incorrect ignore pattern for examples)\n- [x] Create a changeset for the new release (v0.3.2)\n- [x] Run changeset version to bump package versions\n- [x] Update CHANGELOG.md with the new version\n- [x] Build and test the packages (all tests passed ✅)\n- [x] Create git tag for the release (v0.3.2)\n- [x] Final verification\n\n## Summary\n\nSuccessfully prepared **version 0.3.2** release for ObjectUI monorepo:\n\n### What was done:\n1. ✅ Fixed changeset configuration to properly ignore example packages and console app\n2. ✅ Created a comprehensive changeset documenting all improvements since 0.3.1\n3. ✅ Bumped versions across all 24 packages from 0.3.1 → 0.3.2\n4. ✅ Updated all package CHANGELOG.md files automatically\n5. ✅ Updated main CHANGELOG.md with release notes\n6. ✅ Built all packages successfully (31 packages)\n7. ✅ Ran full test suite (56 tests passed)\n8. ✅ Created git tag `v0.3.2`\n\n### Version Changes:\nAll packages bumped to **0.3.2** including:\n- @object-ui/core, @object-ui/react, @object-ui/components\n- @object-ui/fields, @object-ui/layout, @object-ui/types\n- All plugins (kanban, charts, form, grid, dashboard, timeline, gantt, calendar, map, chatbot, editor, markdown, aggrid, view)\n- @object-ui/data-objectstack, @object-ui/cli, @object-ui/create-plugin, @object-ui/runner\n\n### Next Steps:\nWhen this PR is merged to main, the GitHub Actions workflows will automatically:\n1. Create a GitHub Release for v0.3.2\n2. Publish packages to npm (if configured)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 发一个版本\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 312,
+  "kind": "pull_request",
+  "title": "Fix test timeout in plugin-editor from Monaco Editor initialization",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-01T02:47:13Z",
+  "updated_at": "2026-02-01T03:23:48Z",
+  "closed_at": "2026-02-01T02:53:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-01T02:53:56Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/312",
+  "body": "The `@object-ui/plugin-editor` test suite was timing out during the `beforeAll` hook that imports Monaco Editor. The default Vitest hook timeout (10s) is insufficient for Monaco's initialization in the test environment.\n\n## Changes\n\n- Increased `beforeAll` hook timeout to 30s in `packages/plugin-editor/src/index.test.ts`\n\n```typescript\nbeforeAll(async () => {\n  await import('./index');\n}, 30000); // 30 second timeout for Monaco Editor initialization\n```\n\nMonaco Editor is lazy-loaded in the component via `React.lazy()` but still loads synchronously when imported during test setup. The timeout accommodates this heavy dependency initialization.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21554423155/job/62108306729#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

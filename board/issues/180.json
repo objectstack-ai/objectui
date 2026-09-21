@@ -1,0 +1,37 @@
+{
+  "number": 180,
+  "kind": "pull_request",
+  "title": "Extend FormRenderer to support all 28 OpenStack standard field types",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-24T07:17:54Z",
+  "updated_at": "2026-01-24T08:34:40Z",
+  "closed_at": "2026-01-24T08:27:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-24T08:27:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/180",
+  "body": "FormRenderer (PR #179) supported 11 of 28 field types defined in `packages/types/src/field-types.ts`. This extends FieldFactory to handle the remaining 17 types.\n\n## Added Widget Types\n\n**Basic inputs**: `currency` ($ prefix), `percent` (% suffix), `phone`, `markdown`, `html` (monospace textareas)\n\n**File uploads**: `file`, `image` (with accept filtering)\n\n**Complex types**: `location` (lat/lng dual inputs), `object` (JSON-validated textarea)\n\n**Relationships**: `lookup`, `master_detail`, `user`, `owner` (select with options)\n\n**Read-only computed**: `formula`, `summary`, `auto_number`, `vector` (disabled inputs)\n\n**Placeholder**: `grid` (not yet implemented)\n\n## Extended Field Interface\n\nBase `FormField` from `@objectstack/spec` lacks properties needed for complex widgets. Added `ExtendedFormField`:\n\n```typescript\ninterface ExtendedFormField extends FormField {\n  multiple?: boolean;      // multi-select, multi-file\n  accept?: string[];       // file MIME types\n  options?: Array<{        // select/lookup options\n    label: string;\n    value: string;\n    disabled?: boolean;\n  }>;\n}\n```\n\nUsage:\n```tsx\n{\n  field: 'account',\n  widget: 'lookup',\n  options: [\n    { label: 'Acme Corp', value: '1' },\n    { label: 'Globex Inc', value: '2' }\n  ],\n  multiple: true  // array selection\n}\n```\n\n## Implementation Notes\n\n- Multiple select handling: `HTMLCollectionOf<HTMLOptionElement>` → array via `setValueAs`\n- Object field: JSON validation in register\n- Location: nested registration (`field.lat`, `field.lng`)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/179\n> \n> 在此基础上进一步开发，需要支持openstack标准src/data/field.tod中zod定义的所有的字段类型\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

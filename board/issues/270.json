@@ -1,0 +1,39 @@
+{
+  "number": 270,
+  "kind": "pull_request",
+  "title": "Upgrade to ObjectStack Spec v0.6.1 with namespace re-exports",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-29T17:11:25Z",
+  "updated_at": "2026-01-30T00:13:55Z",
+  "closed_at": "2026-01-30T00:02:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-30T00:02:01Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/270",
+  "body": "Upgrades `@objectstack/spec` dependency to v0.6.1 across core packages and exposes new protocol namespaces through `@object-ui/types`.\n\n## Changes\n\n### Dependency Updates\n- `@object-ui/types`: v0.3.3 → v0.6.1\n- `@object-ui/core`: v0.4.1 → v0.6.1\n- `@object-ui/react`: v0.3.3 → v0.6.1\n\n### Protocol Namespace Exports\nAdded namespace re-exports in `@object-ui/types/src/index.ts` to expose the full ObjectStack protocol:\n\n```typescript\nexport type { \n  Data,        // Field, Object, Schema\n  UI,          // Component definitions\n  System,      // Environment, Configuration\n  AI,          // Model, Agent\n  API,         // Endpoint, Contract\n  Auth,        // User, Session\n  Hub,         // Tenant, Space\n  Automation,  // Workflow, Trigger\n  Permission,  // PermissionSet, RLS\n  Shared       // ObjectId, Identifiers\n} from '@objectstack/spec';\n```\n\nConsumers can now use:\n```typescript\nimport { Data, UI, Auth } from '@object-ui/types';\n\nconst field: Data.Field = { name: 'email', type: 'text' };\nconst user: Auth.User = { id: 'u1', email: 'user@example.com' };\n```\n\n### Testing\nAdded namespace export verification tests covering all 10 protocol namespaces.\n\n## Backward Compatibility\nNo breaking changes. All existing code continues to work unchanged.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 🔥 Phase 1: 协议升级 (Q1 2026 - Week 1-2) - CRITICAL\n> \n> 目标: 将所有包升级到 ObjectStack Spec v0.6.1\n> \n> 任务清单:\n> \n>  1.1: 升级 @object-ui/types 依赖\n> \n>  更新 package.json: @objectstack/spec 从 v0.3.3 → v0.6.1\n>  重新导出所有协议命名空间 (Data, UI, System, AI, API)\n>  添加类型重导出: export type { Data, UI, System, AI, API }\n>  1.2: 更新 @object-ui/core 依赖\n> \n>  升级到 v0.4.1 → v0.6.1\n>  验证 Schema 验证器与新协议兼容性\n>  1.3: 更新 @object-ui/react 依赖\n> \n>  升级到 v0.3.3 → v0.6.1\n>  验证渲染器与新协议兼容性\n>  1.4: 运行完整测试套件\n> \n>  修复所有破坏性变更\n>  确保 100% 测试通过\n>  1.5: 更新文档\n> \n>  更新 API 文档引用\n> 成功标准:\n> \n> ✅ 所有包使用 @objectstack/spec v0.6.1\n> ✅ 所有测试通过\n> ✅ 零破坏性变更 (向后兼容)\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

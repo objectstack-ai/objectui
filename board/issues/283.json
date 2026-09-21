@@ -1,0 +1,39 @@
+{
+  "number": 283,
+  "kind": "pull_request",
+  "title": "Add expression caching, virtual scrolling, and developer tooling",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-30T14:23:17Z",
+  "updated_at": "2026-01-30T15:43:14Z",
+  "closed_at": "2026-01-30T15:37:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-30T15:37:09Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/283",
+  "body": "Implements performance optimizations for large datasets and developer experience improvements: expression caching to eliminate redundant parsing, virtual scrolling for efficient list rendering, schema validation helpers, and CLI tooling.\n\n## Expression Caching\n\nAdded `ExpressionCache` with LFU eviction (default: 1000 entries) integrated into `ExpressionEvaluator`. Convenience functions now share a global cache instance.\n\n```typescript\n// Before: Expression parsed on every render\nevaluator.evaluate('${data.amount > 1000}');\n\n// After: Cached and reused\nconst cache = new ExpressionCache();\nconst compiled = cache.compile('data.amount > 1000', ['data']);\ncompiled.fn({ amount: 1500 }); // true\n```\n\n**Impact:** Eliminates redundant Function constructor calls for frequently evaluated expressions.\n\n## Virtual Scrolling\n\n- **plugin-grid:** New `VirtualGrid` component using `@tanstack/react-virtual` renders only visible rows. Configurable height, row height, overscan, and custom cell renderers.\n- **plugin-aggrid:** Optimized with `rowBuffer: 10` and `debounceVerticalScrollbar` for datasets >1000 rows. AG Grid's built-in virtualization documented.\n\n**Impact:** Handles 10,000+ items without DOM bloat.\n\n## Schema Validation\n\nExported `validateSchema()` (throws) and `safeValidateSchema()` (returns result object) from `@object-ui/types/zod`:\n\n```typescript\nimport { safeValidateSchema } from '@object-ui/types/zod';\n\nconst result = safeValidateSchema({ type: 'button', label: 'Click' });\nif (!result.success) console.error(result.error);\n```\n\n## CLI Commands\n\n- `objectui validate <schema>` - Validates JSON/YAML schemas with formatted error output\n- `objectui create plugin <name>` - Scaffolds plugin structure via `@object-ui/create-plugin`\n- `objectui analyze` - Reports bundle size breakdown and performance recommendations\n- `objectui generate --from <source>` - Placeholder for OpenAPI/Prisma codegen\n\n## Files Changed\n\n- `packages/core/src/evaluator/ExpressionCache.ts` (new)\n- `packages/core/src/evaluator/ExpressionEvaluator.ts` (shared cache)\n- `packages/plugin-grid/src/VirtualGrid.tsx` (new)\n- `packages/plugin-aggrid/src/AgGridImpl.tsx` (virtual scroll config)\n- `packages/types/src/zod/index.zod.ts` (validation exports)\n- `packages/cli/src/commands/{validate,create-plugin,analyze}.ts` (new)\n\n## Dependencies\n\n- Added `@tanstack/react-virtual@^3.11.3` to `plugin-grid`\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 3.3 性能优化\n> \n> A. 虚拟滚动\n> \n> 现状: 大数据集性能问题\n> 优化方案: 在 plugin-grid 和 plugin-aggrid 中实现虚拟滚动\n> \n> import { useVirtualizer } from '@tanstack/react-virtual';\n> \n> export function VirtualGrid({ data, rowHeight = 40 }) {\n>   const parentRef = useRef<HTMLDivElement>(null);\n>   \n>   const virtualizer = useVirtualizer({\n>     count: data.length,\n>     getScrollElement: () => parentRef.current,\n>     estimateSize: () => rowHeight,\n>     overscan: 5\n>   });\n>   \n>   return (\n>     <div ref={parentRef} className=\"h-[600px] overflow-auto\">\n>       <div style={{ height: virtualizer.getTotalSize() }}>\n>         {virtualizer.getVirtualItems().map(item => (\n>           <div key={item.key} style={{ transform: `translateY(${item.start}px)` }}>\n>             <GridRow data={data[item.index]} />\n>           </div>\n>         ))}\n>       </div>\n>     </div>\n>   );\n> }\n> B. 表达式引擎优化\n> \n> 现状: 每次渲染都解析表达式\n> 优化方案: 表达式缓存与预编译\n> \n> // packages/core/src/evaluator/ExpressionCache.ts\n> class ExpressionCache {\n>   private cache = new Map<string, CompiledExpression>();\n>   \n>   compile(expr: string): CompiledExpression {\n>     if (this.cache.has(expr)) {\n>       return this.cache.get(expr)!;\n>     }\n>     const compiled = compileExpression(expr);\n>     this.cache.set(expr, compiled);\n>     return compiled;\n>   }\n> }\n> 3.4 开发体验优化\n> \n> A. Schema 验证增强\n> \n> 优化方案: 实时 Schema 验证与 IDE 提示\n> \n> // packages/types/src/zod/index.zod.ts\n> import { z } from 'zod';\n> \n> export const ComponentSchemaZod = z.object({\n>   type: z.string(),\n>   props: z.record(z.any()).optional(),\n>   children: z.lazy(() => z.array(ComponentSchemaZod)).optional()\n> });\n> \n> // 导出验证函数\n> export function validateSchema(schema: unknown) {\n>   return ComponentSchemaZod.parse(schema);\n> }\n> B. CLI 增强\n> \n> 新功能:\n> \n> # 1. Schema 验证\n> objectui validate app.json\n> \n> # 2. Schema 生成器（从 OpenAPI/Prisma）\n> objectui generate --from openapi.yaml --output schemas/\n> \n> # 3. 插件脚手架\n> objectui create plugin my-plugin\n> \n> # 4. 性能分析\n> objectui analyze --bundle-size --render-performance\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

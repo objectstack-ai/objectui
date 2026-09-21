@@ -33,6 +33,7 @@ import { resolveKeyedI18nLabel } from './utils/i18n.js';
 import { isConfigBag } from './utils/configBag.js';
 import { reportUnevaluatedExpressions } from './utils/unevaluatedExpression.js';
 import { reportDroppedPropsBag, reportRefusedPropsPredicate } from './utils/propsBagDiagnostic.js';
+import { reportRefusedDataPropSpread } from './utils/refusedDataPropDiagnostic.js';
 import { expressionBindableTextKeysFor } from '@objectstack/spec/ui';
 import {
   reportUnresolvableVisibilityPredicate,
@@ -692,56 +693,6 @@ export class SchemaErrorBoundary extends Component<
  * `useState` wiped (objectui#2954's latent hazard, made real by this line).
  */
 const NO_DATA_SOURCE: Record<string, any> = {};
-
-/**
- * Warn ONCE per distinct refused node, not once per render (objectui#9571).
- *
- * The strip below runs on every render of the node, and a warning that floods
- * the console is a warning that gets muted — the same warn-once discipline
- * `ObjectMap`'s legacy-config notice and the visibility-predicate diagnostics
- * already use. Keyed on the node's type plus its id, which is the pair an
- * author can act on; a node with no `id` is keyed on its type alone and so
- * warns once per type, which is the honest ceiling for something that cannot be
- * told apart.
- */
-const warnedRefusedDataPropNodes = new Set<string>();
-
-/**
- * Say why an authored `data` key did not reach the block (objectui#9571,
- * ruling objectui#8348 Q2-C, decision batch #136 item 3, maintainer 「同意」).
- *
- * ## Why this diagnostic is part of the change and not decoration
- *
- * ⛔ MEASURED, and it corrects the card's own premise: the ladder emits NO
- * runtime signal when it refuses an off-arm `data`. `resolveRecordSourceConfig`
- * returns `null` and falls through silently, and `validateSchema` — the
- * `__DEV__` pass in this file — never reads `data` against the block's row at
- * all. The refusal is loud at AUTHORING time (`os validate`, the save gate and
- * the zod row all reject a bare array) and mute at render time.
- *
- * So without this line, retiring the props carrier is exactly the failure shape
- * AGENTS.md #0.1 and `ObjectGrid`'s own column diagnostic exist to prevent:
- * renderer and author disagree, and the author gets a success receipt — a page
- * whose rows were on screen yesterday is blank today, with nothing anywhere
- * naming the key that was dropped or the spelling that would work.
- *
- * Read-only and `__DEV__`-only: it reports the decision made at the call site
- * and changes nothing about what is rendered.
- */
-function reportRefusedDataPropSpread(type: string, id: string | undefined): void {
-  const key = id === undefined ? type : `${type}#${id}`;
-  if (warnedRefusedDataPropNodes.has(key)) return;
-  warnedRefusedDataPropNodes.add(key);
-  console.warn(
-    `[ObjectUI] SchemaRenderer: the authored \`data\` key on <${type}${
-      id === undefined ? '' : ` id="${id}"`
-    }> was NOT passed to the component as a React prop. This block's published ` +
-      '`data` row is the `ViewData` OBJECT arm, so `data` is read from the schema ' +
-      'and judged by that row (objectui#8348). Inline rows go at ' +
-      '`data: { provider: "value", items: [...] }`; a bare array under `data` is ' +
-      'refused. A HOST passing rows down as a React `data` prop is unaffected.',
-  );
-}
 
 /**
  * One outgoing bag, minus an authored `data` key, on the object arm

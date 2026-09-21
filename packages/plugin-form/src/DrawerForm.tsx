@@ -31,6 +31,7 @@ import {
   AlertDialogDescription,
   AlertDialogAction,
   AlertDialogCancel,
+  toast,
 } from '@object-ui/components';
 import { Loader2 } from 'lucide-react';
 
@@ -39,6 +40,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 import { MasterDetailForm } from './MasterDetailForm';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
 import { buildFlatFields } from './flatFields';
+import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import {
   applyAutoColSpan,
   applyAutoLayout,
@@ -214,6 +216,9 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     [perms, schema.objectName, schema.mode],
   );
   const { t } = useDiscardTranslation();
+  // Upload-in-flight gate (objectui#10166): Save is refused, disabled and
+  // EXPLAINED while a file/image widget below is still uploading.
+  const uploadGate = useUploadGate();
   const previewMode = usePreviewMode();
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
@@ -406,6 +411,14 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
 
   // Handle form submission
   const handleSubmit = useCallback(async (data: Record<string, any>) => {
+    // An upload is still in flight (objectui#10166). Saving now writes the
+    // record WITHOUT the attachment and reports success. The footer's Save is
+    // disabled and labelled for this, so reaching here means a keyboard submit
+    // — refuse it with the same sentence the notice shows.
+    if (uploadGate.uploading) {
+      toast.error(uploadGate.reason);
+      return;
+    }
     setIsSubmitting(true);
     try {
       // No submit TARGET: a declared `submitHandler` owns the write and needs no
@@ -481,7 +494,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [schema, dataSource, objectSchema, saveWithOcc, formData, perms]);
+  }, [schema, dataSource, objectSchema, saveWithOcc, formData, perms, uploadGate.uploading, uploadGate.reason]);
 
   // Actually close the drawer, firing onCancel only when the close originated
   // from the explicit Cancel button.
@@ -816,7 +829,9 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         )}
 
         <div className="@container py-4">
-          {drawerBody}
+          {/* Every upload widget below reports into this scope, however deep —
+              a section, a tab, a subform row (objectui#10166). */}
+          <UploadGateProvider gate={uploadGate}>{drawerBody}</UploadGateProvider>
         </div>
 
         {/* Sticky footer — own action buttons. Cancel calls the discard guard
@@ -824,6 +839,8 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
             Suppressed for the master-detail path, which owns its own action bar. */}
         {!error && !loading && !(subforms?.length && schema.mode !== 'view') && (showSubmit || showCancel) && (
           <div className="shrink-0 border-t px-4 py-3 bg-background" data-testid="drawer-form-footer">
+            {/* The REASON the Save below is disabled (objectui#10166). */}
+            <UploadInFlightNotice gate={uploadGate} />
             <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
               {showCancel && (
                 <Button
@@ -840,11 +857,11 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
                 <Button
                   type="submit"
                   form={formId}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || uploadGate.uploading}
                   className="w-full sm:w-auto"
                 >
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {submitLabel}
+                  {uploadGate.uploading ? uploadGate.busyLabel : submitLabel}
                 </Button>
               )}
             </div>

@@ -172,6 +172,7 @@ const zh = {
   form: {
     noPermissionToSave: '您没有权限保存这条记录。',
     submitFailed: '保存失败，请重试。',
+    uploadInFlight: '请等待上传完成后再保存。',
     removeItem: '移除项目',
     fieldRequired: '此字段为必填项',
     invalidFormat: '格式不正确',

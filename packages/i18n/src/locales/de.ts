@@ -165,6 +165,7 @@ const de = {
   form: {
     noPermissionToSave: "Sie haben keine Berechtigung, diesen Datensatz zu speichern.",
     submitFailed: "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    uploadInFlight: "Warten Sie, bis der Upload abgeschlossen ist, bevor Sie speichern.",
     discardTitle: "Änderungen verwerfen?",
     discardMessage: "Sie haben ungespeicherte Änderungen. Wenn Sie dieses Formular jetzt schließen, gehen Ihre Bearbeitungen verloren.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible

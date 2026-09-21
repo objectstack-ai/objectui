@@ -32,6 +32,7 @@ import {
   AlertDialogDescription,
   AlertDialogAction,
   AlertDialogCancel,
+  toast,
 } from '@object-ui/components';
 import { Loader2 } from 'lucide-react';
 import { MasterDetailForm } from './MasterDetailForm';
@@ -56,6 +57,7 @@ import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
 import { useOccSave } from './occSave';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
+import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 
 // Localized strings for the unsaved-changes guard. Falls back to English when
 // no i18n provider is mounted (createSafeTranslation handles that).
@@ -218,6 +220,9 @@ export const ModalForm: React.FC<ModalFormProps> = ({
 }) => {
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
   const { t } = useDiscardTranslation();
+  // Upload-in-flight gate (objectui#10166): Save is refused, disabled and
+  // EXPLAINED while a file/image widget below is still uploading.
+  const uploadGate = useUploadGate();
   const previewMode = usePreviewMode();
   const perms = usePermissions();
   // FLS gate: drop non-readable fields, disable non-editable ones. ONE pass,
@@ -433,6 +438,14 @@ export const ModalForm: React.FC<ModalFormProps> = ({
 
   // Handle form submission
   const handleSubmit = useCallback(async (data: Record<string, any>) => {
+    // An upload is still in flight (objectui#10166). Saving now writes the
+    // record WITHOUT the attachment and reports success. The footer's Save is
+    // disabled and labelled for this, so reaching here means a keyboard submit
+    // — refuse it with the same sentence the notice shows.
+    if (uploadGate.uploading) {
+      toast.error(uploadGate.reason);
+      return;
+    }
     setIsSubmitting(true);
     try {
       // No submit TARGET: a declared `submitHandler` owns the write and needs no
@@ -510,7 +523,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [schema, dataSource, objectSchema, perms, saveWithOcc, formData]);
+  }, [schema, dataSource, objectSchema, perms, saveWithOcc, formData, uploadGate.uploading, uploadGate.reason]);
 
   // Actually close the modal, firing onCancel only when the close originated
   // from the explicit Cancel button.
@@ -889,12 +902,18 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         )}
 
         <div className="@container flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-          {renderContent()}
+          {/* Every upload widget below reports into this scope, however deep —
+              a section, a tab, a subform row (objectui#10166). */}
+          <UploadGateProvider gate={uploadGate}>{renderContent()}</UploadGateProvider>
         </div>
 
         {/* Sticky footer — always visible action buttons */}
         {hasFooter && (
           <div className="shrink-0 border-t px-4 sm:px-6 py-3 bg-background" data-testid="modal-form-footer">
+            {/* The REASON the Save below is disabled (objectui#10166). Above the
+                row rather than inside it so it reads before the dead control,
+                and so a long sentence never squeezes the buttons. */}
+            <UploadInFlightNotice gate={uploadGate} />
             <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
               {showCancel && (
                 <Button
@@ -911,11 +930,11 @@ export const ModalForm: React.FC<ModalFormProps> = ({
                 <Button
                   type="submit"
                   form={formId}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || uploadGate.uploading}
                   className="w-full sm:w-auto"
                 >
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {submitLabel}
+                  {uploadGate.uploading ? uploadGate.busyLabel : submitLabel}
                 </Button>
               )}
             </div>

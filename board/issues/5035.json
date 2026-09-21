@@ -1,0 +1,29 @@
+{
+  "number": 5035,
+  "kind": "issue",
+  "title": "finding: the ruled `submitBehavior.url` token substitution + escape now exists twice (console app, plugin-form package) — the RULE is shared, the consumer mechanics are not",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T18:28:35Z",
+  "updated_at": "2026-08-23T04:20:42Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5035",
+  "body": "Observation-class finding, recorded while implementing objectui#4989. Nothing a user hits today: the two implementations currently agree on every value, and each is pinned against the spec's own schema. `finding` label, no `pm:queue` — this is a drift-risk note for whoever next touches either file, not a defect to schedule.\n\n## What exists twice\n\nobjectstack#7496 ruled `submitBehavior.url` in three parts: relative-only, `{{record.field_name}}` interpolation, every interpolated value URL-escaped when the redirect is built. The spec enforces part 1 at the authoring door but exports no substituter, so parts 2 and 3 are the consumer's to implement. Two consumers now have:\n\n- `apps/console/src/components/submitRedirect.ts` — `checkSubmitRedirectUrl` (shape verdict, also called by `PublicFormsPage`'s authoring door) + `resolveSubmitRedirect` (substitute, escape, fail closed). Landed by PR #4992 for objectui#4190.\n- `packages/plugin-form/src/submitRedirect.ts` — `resolveSubmitRedirect` (fused: shape verdict + substitute + escape) + `submitRedirectScope`. Landed for objectui#4989.\n\n## Why this is a note and not a defect\n\nThe part that would actually hurt to duplicate — the seven refusal families — is **not** duplicated. Both modules ask `@objectstack/spec`'s own `FormViewSchema` at the moment of use and quote its message back, which is exactly what `scripts/check-spec-symbol-derivation.mjs` asks for. A spec release that widens or narrows the ruling moves both without an edit to either.\n\nWhat is written twice is about 20 lines: the token regex `/\\{\\{record\\.([a-z_][a-z0-9_]*)\\}\\}/g`, the scalar-to-string `urlValue`, the `encodeURIComponent` call, and the unresolved-brace fail-closed backstop. Both are pinned by test suites that use the live schema as the oracle on the OUTPUT (whatever is emitted must still be a value the contract accepts), so a divergence in either copy fails that copy's tests rather than shipping quietly.\n\n## The real drift surface, named\n\nTwo deliberate divergences exist already and are documented in both docblocks, so a future consolidator should know they are intentional rather than accidents:\n\n- **Return shape.** The console resolves to a `path` it hands to a ROUTER; plugin-form resolves to a `url` it hands to `window.location.assign`. Not cosmetic — it reflects that the console's two form mounts live inside its router while a published component library may be rendered outside one (see objectui#4989 defect 4, escalated for exactly that reason).\n- **Split vs fused.** The console separated the shape verdict into `checkSubmitRedirectUrl` because it owns an authoring door as well; plugin-form has no counterpart, since a renderer only ever consumes.\n\nThe plausible drift is therefore not \"the rule diverges\" but \"one copy gains a refinement the other does not\" — e.g. the token grammar widening upstream, or a decision about non-scalar values, applied in one place only.\n\n## Why it was not consolidated in objectui#4989's PR\n\nA published package cannot import an app's module, so consolidating means moving the shared mechanics DOWN into a package both depend on (`@object-ui/core` is the natural candidate — logic only, no UI deps, and `apps/console` already depends on it transitively). That is a refactor spanning an app and two packages, with a public-surface question attached (does `@object-ui/core` export a redirect resolver?), which is well outside the scope of a card about how two components consume one key. Prime Directive #10.\n\n## If it is ever scheduled, the shape\n\nMove `urlValue` + the token regex + the escape + the fail-closed backstop into one module in a shared package; keep the two return shapes as thin adapters over it (`path` for the router consumer, `url` for the browser-level one), since that difference is real. Do NOT unify the shape verdict — it is already the spec's, in both places, which is the property worth protecting."
+}

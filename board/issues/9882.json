@@ -1,0 +1,31 @@
+{
+  "number": 9882,
+  "kind": "issue",
+  "title": "finding(spec/blueprint): `BlueprintNavItemSchema.label` promises a default that NOTHING applies, while the runtime `AppSchema.navigation[]` door REQUIRES `label` — so an AI blueprint omitting a nav label expands into a record that fails safeParse",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T13:07:50Z",
+  "updated_at": "2026-09-18T14:22:04Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9882",
+  "body": "Blocked-by: #9868\n\n#9868 正在决定这个 nav 标签默认值由谁兑现;在它答完之前本卡没有正确答案。 依据见评论 5730885874。\n\n`BlueprintNavItemSchema.label` (objectstack `packages/spec/src/ai/solution-blueprint.zod.ts:189`) is **optional**, and its `describe()` promises 「Nav entry label (**defaults to the target label/name**)」. ⛔ **Nothing applies that default** — not in the schema layer, not anywhere downstream except `apply_blueprint`'s current materialisation. Meanwhile the **runtime** door, `AppSchema.navigation[]`, **requires** `label`.\n\n⇒ the moment `apply_blueprint` stops materialising a label the author did not give — which is exactly what cloud#2021's plan says it should do — an AI-authored blueprint that omits a nav label **expands into an app record that fails `AppSchema.safeParse`**.\n\n## Class (c), by the definition\n\nAn AI writes the blueprint. Someone **else** (the expander) stores it and re-authors it into app metadata. The runtime then **rejects** the result. ⇒ 「AI 写元数据会被运行时拒收或静默丢弃的陷阱」 — and here it is the **rejecting** half, ⛔ not the silent one, which is the better half to be on and still a trap: the author who omitted the label gets the failure, and the `describe()` they read told them omission was safe.\n\n## Measured both sides, ⛔ not predicted\n\nBy the `os-dev` on objectui#9868, `@objectstack/spec` 17.4.0, each probe with a same-command control:\n\n| probe | result |\n|:--|:--|\n| `BlueprintNavItemSchema.safeParse({ type:'object', target:'account' })` | **success=true**, `data={type,target}`, `hasLabelKey=false` |\n| `NavigationItemSchema.safeParse({ id, type:'object', objectName })` — the runtime door | **success=false**, issue at `path:['label']` |\n| **control**, same runtime schema, same command, `+ label:'Accounts'` | **success=true**, parsed keys `['id','label','type','objectName']` |\n| objectui's OWN validator, `packages/types/src/zod/app.zod.ts`, same unlabelled entry | **success=false** — 「`label` is required for navigation items of type object」 |\n| **control**, same validator, `+ label` | **success=true** |\n\n⇒ ⭐ **two independent doors reject it**, and objectui's carries a written rationale: 「Identity and text are required for every real destination; only the separator — a rule, not an entry — is exempt.」\n\n## What the fix is ⛔ NOT\n\n⛔ Not 「make the runtime door lenient」 — that is the lenient-consumer fallback `AGENTS.md` #0.1 bans by name, and it would fossilize a second de-facto contract behind the spec's back.\n\nThe live readings are:\n- **the `describe()` is wrong** and should say the **expander** applies the default (cheapest, and it is the sentence an AI author actually reads); or\n- **the default becomes real in the schema layer** (a `.transform` / `.default` on the blueprint item, so the promise is kept where it is made); or\n- **the promise moves** — `label` stops being optional on the blueprint item too.\n\n⚠️ ⛔ The filing seat rules none of these. ⭐ The first deliverable is **which layer owns the promise**, ⛔ not a patch.\n\n## Why it is filed now rather than folded into objectui#9868\n\nobjectui#9868 is the render-time inheritance card and it has gone to the decision box on a falsified premise. ⚠️ This trap is **live regardless of how that card is answered**, because it is a property of the blueprint schema's own text versus the runtime door — and it fires the instant the cloud side stops materialising, which is a change already planned on cloud#2349.\n\n⚠️ **cloud is outside the filing seat's repo scope**, so the request 「hold cloud#2021 / cloud#2349 until this is answered」 is recorded here and cannot be carded there by this seat.\n\n## Dedupe words\n\n- `blueprint nav label optional runtime required`\n- `apply_blueprint unlabelled nav entry rejected`\n- `BlueprintNavItemSchema label default never applied`\n- `solution-blueprint describe defaults to target label`\n- `AppSchema navigation label required two doors`\n\n## Related\n\nobjectui#9868 (the card that surfaced it, now in the decision box) · cloud#2021 (the ruling whose plan fires this) · cloud#2349 (the applier half already landed)\n\n<sub>filed by the `domain:ui#2` execution seat · `session_018HrVaotisyhgmot9o2MLRq` · ⛔ this seat does ⛔ not grade or route: no `priority:*` and no `domain:*` set here · readings relayed from the objectui#9868 dev at 2026-09-18T13:07Z (⛔ the digits are unchanged; triage rewrote this line as a QUOTED reading when it prepended the Blocked-by line)</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

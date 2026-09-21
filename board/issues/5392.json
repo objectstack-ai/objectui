@@ -1,0 +1,29 @@
+{
+  "number": 5392,
+  "kind": "issue",
+  "title": "[Decision] Should `@object-ui/types` ship a generated JSON Schema? — the contract an AI author can read before writing",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T09:14:26Z",
+  "updated_at": "2026-08-25T10:13:20Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5392",
+  "body": "Filed by the `repo:objectui` execution seat (session `session_01RV6yuVCxymHYE16PL9vQkE`) as the follow-up the 2026-08-20 ruling on #5127 surfaced. Filed unassigned. ⛔ Not a grading, ⛔ not a recommendation between the options — this is a Feature/contract question and sits on the manual floor.\n\n## Where this came from\n\n#5127 proposed minting a public `$schema` URL. The maintainer ruled **C — do not mint it** (ruling comment `5353861854`), and the reasoning turned on a question that this card is the real answer to:\n\n> 「为什么不用本地 node_modules」 · 「以后已经没有人用 vscode 了呀，代码都是 ai 写」\n\nUnder AI-first authoring, an agent does not want a URL an editor resolves. It wants two things:\n\n1. **A contract it can read *before* writing** — and in a repo, `node_modules` is right there.\n2. **A good error *after* writing** — `objectui check`, which already validates against the installed packages and is therefore version-correct by construction.\n\nItem 2 exists. **Item 1 does not**, and that is this card.\n\n## Measured, on `origin/main`\n\n| | |\n|---|---|\n| `@object-ui/types` `files` | `['dist', 'README.md', 'CHANGELOG.md', 'LICENSE']` |\n| its `exports` | 11 entries, all TS/zod module entry points — **no JSON Schema** |\n| `packages/vscode-extension/schemas/objectui-schema.json` | exists, **2723 bytes** |\n| what binds it | `contributes.jsonValidation`, by **filename glob** (`*.objectui.json`, `*.oui.json`) — not by `$schema`, no network |\n| in-repo files declaring an ObjectUI `$schema` | **0** |\n\n⚠️ **2723 bytes is a stub, not a schema.** For a vocabulary of roughly 200 registered component types plus `BaseSchema`'s full key surface, that document cannot be describing the contract. Anyone weighing this card should read it before assuming a real artifact already exists — the \"we already have one, just serve it\" framing does not survive opening the file.\n\n## The question\n\nShould `@object-ui/types` **generate and ship** a JSON Schema describing the ObjectUI node vocabulary, as a published artifact of the package?\n\nIt would be generated from the same source the package already owns (the zod mirrors under `./zod`), so it inherits version correctness: **the schema shipped in `@object-ui/types@17.5.0` describes exactly what that version accepts.** No skew, no serving obligation, no permanent identifier in users' files.\n\n## What it would buy, and what it would cost\n\n**Buys:**\n- The contract an agent reads before writing, at the version actually installed.\n- It dissolves the `$schema` URL question that #5127 hit. If a URL is ever wanted, the unpkg-pinned form this repo **already uses** for `@changesets/config` (`https://unpkg.com/@changesets/config@4.0.0/schema.json`) becomes available for free, version-pinned, with zero hosting.\n- It gives `packages/vscode-extension` a real document to bind instead of the 2.7 KB stub.\n- It may give #5127's coverage debt a second route: today **258 real schema files (60.8%)** leave the judgement surface because single-node leaves like `{type: button, label: Send Email}` carry no structural key by construction.\n\n**Costs — and these are why it is a decision, not a task:**\n- **A generated artifact is a maintained artifact.** It needs a generator, a gate that fails when it drifts from the zod source, and a place in the build. This repo has strong opinions about generated files (⛔ hand-editing them) and about gates whose green means \"did not look\".\n- **It publishes a second description of the contract.** The zod mirrors are already one; a JSON Schema is a second. This repo has an open card family about exactly that shape (#4972, `ComponentInput` in three structural copies; #4605, the zod mirror drifting from the TS declarations). Two descriptions that can disagree is the failure mode, and the mitigation — generate, never hand-write, and gate the drift — has to be part of whatever ships.\n- **Package size**, if the schema is large and shipped to every consumer.\n\n## Not in scope here\n\n⛔ This card does **not** re-open #5127's ruling. No public URL is minted by answering it either way.\n\n## Related\n\n- **#5127** / PR5334 — the ruling that surfaced this; drops the `$schema` arm, keeps the structural arm and skip count\n- **#4972**, **#4605** — the \"two descriptions of one contract can disagree\" family this would be joining\n- `.changeset/config.json` — the in-repo precedent for an unpkg version-pinned `$schema`\n\n---\n\nRestart-when: #5155 is CLOSED — `BaseSchema`'s open index signature was the decisive measurement against shipping (all 105 node roots project open; PR #6203); if #5155 closes `BaseSchema`, re-evaluate fork A per those measurements. Ruled 2026-08-25: **B — do not ship now** (recorded in the comments)."
+}

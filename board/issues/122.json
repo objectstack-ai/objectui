@@ -1,0 +1,37 @@
+{
+  "number": 122,
+  "kind": "pull_request",
+  "title": "Initialize fumadocs documentation site at /apps/site",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-20T03:09:00Z",
+  "updated_at": "2026-01-20T03:57:23Z",
+  "closed_at": "2026-01-20T03:57:23Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-20T03:57:23Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/122",
+  "body": "Migrates the official documentation site from VitePress to Fumadocs, establishing the new site at `/apps/site` using a multi-package architecture.\n\n## Changes\n\n- **Site Structure** \n  - Next.js 15 app at `/apps/site` with TypeScript, Tailwind CSS, and Fumadocs UI\n  - MDX-based documentation in `content/docs/` (Introduction, Quick Start, Installation)\n  - Homepage with navigation, docs layout with sidebar\n\n- **Configuration**\n  - Added fumadocs-core, fumadocs-mdx, fumadocs-ui dependencies\n  - Configured Next.js with MDX support via `next.config.mjs`\n  - Tailwind preset for Fumadocs UI components\n  - Source config in `source.config.ts` for MDX compilation\n\n- **Monorepo Integration**\n  - Added `/apps/*` to pnpm-workspace.yaml\n  - Root scripts: `site:dev`, `site:build`, `site:start`\n  - Updated `.gitignore` for Next.js and Fumadocs artifacts\n\n## Known Issue\n\nRoute generation requires API compatibility fix between fumadocs-mdx `.source` exports (wrapped by `_runtime.doc()`) and the loader. Build succeeds but pages return 404. Requires investigation of fumadocs 15.x integration pattern.\n\n```typescript\n// Current workaround - manual mapping from .source\nconst mappedDocs = docs\n  .filter((doc: any) => doc && doc.info && doc.info.path)\n  .map((doc: any) => ({\n    type: 'page' as const,\n    path: doc.info.path.replace(/\\.mdx?$/, ''),\n    data: { ...doc.data, body: doc.data.default },\n  }));\n```\n\n## Screenshot\n\n![Fumadocs Site Structure](https://github.com/user-attachments/assets/82d19c5f-ee5c-4d35-92b7-ff12be2b0475)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 将官网文档站点迁移到fumadocs ，位于/apps/site，使用多包架构\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

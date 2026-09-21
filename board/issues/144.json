@@ -1,0 +1,38 @@
+{
+  "number": 144,
+  "kind": "pull_request",
+  "title": "Fix fumadocs plugin preview by exporting types and loading all plugins dynamically",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-22T03:24:58Z",
+  "updated_at": "2026-01-22T04:38:47Z",
+  "closed_at": "2026-01-22T04:38:47Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-22T04:38:47Z",
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/144",
+  "body": "## Fix fumadocs plugin preview by exporting SchemaNode type and dynamic plugin loading\n\n### Problem Analysis\nThe fumadocs documentation cannot properly preview plugins because:\n1. The `SchemaNode` type was not exported from the `InteractiveDemo` component for MDX files\n2. Plugin packages were not imported, so plugin component types were not registered\n3. Static imports of plugins caused SSR issues with \"document is not defined\" errors\n4. The `plugin-object` package was missing from imports and its components lacked registration with ComponentRegistry\n\n### Solution Implemented\n\n**Type Exports**: Added `export type { SchemaNode }` to enable TypeScript autocomplete and validation in MDX files:\n- `apps/site/app/components/InteractiveDemo.tsx`\n- `apps/site/app/components/ComponentDemo.tsx`\n- `apps/site/mdx-components.tsx`\n\n**Plugin Loading**: Implemented dynamic client-side plugin loading to avoid SSR issues:\n- Added all plugin packages (`@object-ui/plugin-editor`, `@object-ui/plugin-charts`, `@object-ui/plugin-kanban`, `@object-ui/plugin-markdown`, `@object-ui/plugin-object`) as dependencies\n- Used browser-only dynamic imports with `typeof window !== 'undefined'` checks\n- Added loading state in `InteractiveDemo` to wait for plugins before rendering\n- Ensures plugins register correctly without breaking server-side rendering\n\n**Plugin Object Registration**: Fixed the plugin-object package to register its components:\n- Converted `packages/plugin-object/src/index.ts` to `index.tsx` to support JSX syntax\n- Added `ComponentRegistry.register()` calls for `object-table`, `object-form`, and `object-view` components\n- Created renderer wrappers for proper integration with the component registry\n- Updated `vite.config.ts` to point to the new `.tsx` entry file\n\n**Additional Fixes**:\n- Removed unused `SchemaNode` import from `packages/types/src/feedback.ts`\n- Maintained backward compatibility with plugin imports in `ObjectUIProvider`\n\n### Testing\n\n- ✅ Site builds successfully without SSR errors\n- ✅ All plugins load dynamically and register correctly in browser\n- ✅ TypeScript types properly exported for MDX files\n- ✅ No \"document is not defined\" errors during build\n- ✅ Loading state provides good UX while plugins initialize\n- ✅ Plugin-object components (`object-table`, `object-form`, `object-view`) now properly registered\n\n**Console verification**: The registered components now include: `[..., code-editor, bar-chart, chart, markdown, kanban, object-table, object-form, object-view]`\n\n### Screenshots\n\n**Plugin Editor documentation page:**\n![Plugin Editor Preview](https://github.com/user-attachments/assets/a83cbc12-1b78-4705-ae98-e8e0ceaa6a7f)\n\n**Plugin Object documentation page working:**\n![Plugin Object Preview](https://github.com/user-attachments/assets/dc3c8777-844a-49a6-9e89-0092fd33d90a)\n\n**All plugin components now registered:**\n![Components Registered](https://github.com/user-attachments/assets/57b4c89d-6c3b-41bb-ac07-8d718971cd9d)\n\nThe fumadocs plugin documentation pages now properly preview all plugin components including plugin-object with full TypeScript type support and no SSR issues.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fumadocs文档中不能正常的预览插件应该是type没有导入\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,29 @@
+{
+  "number": 5569,
+  "kind": "issue",
+  "title": "[finding] The approval step stepper is hand-duplicated across apps/console and packages/app-shell, and the copies had already drifted into two different overflow behaviours",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T13:31:52Z",
+  "updated_at": "2026-08-21T16:07:15Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5569",
+  "body": "Recorded while fixing objectui#5554 (PR on `claude/issue-5554-approvals-step-progress-overflow`). **Not fixed there** — deduplication is a refactor with its own surface, outside that card's declared file fence.\n\n## The observation\n\nThe approval flow step strip exists as two hand-maintained copies of the same markup, in two different packages:\n\n- `apps/console/src/pages/system/ApprovalsInboxPage.tsx` — the inbox detail drawer\n- `packages/app-shell/src/views/RecordApprovalsPanel.tsx` — the record page's approvals panel\n\nBoth read the same `flow_steps` shape (`packages/app-shell/src/hooks/useRecordApprovals.ts`), both render it under the same `length > 1` guard, both use the same `approvalsInbox.stepProgress` accessible name, and both paint the same done/current/upcoming badge palette.\n\n## Why it is worth recording rather than shrugging at\n\nThe copies **had already drifted**, and the drift was load-bearing. On `origin/main` before objectui#5554:\n\n- the `app-shell` copy carried `overflow-x-auto` and `whitespace-nowrap`, plus `min-w-4` on its connector;\n- the `console` copy carried none of those.\n\nSo the same defect — an unbounded-intrinsic-width flex row — produced two *different* user-visible failures from one root cause: the record panel scrolled itself (steps behind an unmarked gesture), while the console drawer had no scroller of its own and dragged the entire drawer sideways, blanking the panel. objectui#5554 had to describe and verify both separately for that reason.\n\nThat is the ordinary cost of hand-maintained twins: the next behavioural change to one of them is one more chance to fix half the product. objectui#5554 left them byte-for-byte identical in structure precisely so this stays a refactor and not a second bug.\n\n## Shape of the work, if it is picked up\n\nA single stepper component consuming the shared `flow_steps` type. The awkward part, and the reason this is not a five-minute change: `apps/console` and `packages/app-shell` are different packages, so the shared component needs a home and an export — most naturally in `app-shell` (which already owns the `flow_steps` type and which `apps/console` already depends on), but that is an API decision, not a mechanical move.\n\nRelated context: objectui#2763 tracks rebuilding the approval UI on the standard SDUI renderer, which would subsume this if it lands. This card is the cheaper interim, and is filed standalone rather than as a sub-issue because objectui#2763 is a tracking card whose scope is much larger than these two components.\n\nNo user-visible defect is open here — after objectui#5554 both copies behave identically. This is a maintainability finding, deliberately filed unassigned and without `pm:queue` for triage to rank."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 70,
+  "kind": "pull_request",
+  "title": "Add cloud storage functionality with Vercel KV integration in studio",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T04:25:33Z",
+  "updated_at": "2026-01-15T06:47:05Z",
+  "closed_at": "2026-01-15T06:47:05Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/70",
+  "body": "## Migration Plan: Vite + React Router → Next.js App Router\n\n### Context\nThe studio needs cloud service save functionality. Currently using localStorage, but to enable cloud saves, we need:\n- Backend API routes for CRUD operations\n- Database integration for persistent storage\n- Authentication for user-specific designs\n- Sharing capabilities\n\n### Why Next.js App Router?\n- ✅ Built-in API routes (no separate backend needed)\n- ✅ Server Components for better performance\n- ✅ Server Actions for form submissions\n- ✅ Easy authentication integration (NextAuth.js)\n- ✅ File-based routing (similar to current React Router)\n- ✅ Better SEO for landing/gallery pages\n- ✅ Modern framework aligned with React ecosystem\n\n### Implementation Checklist\n\n- [x] Setup: Create Next.js 15 app with App Router in apps/playground\n  - [x] Update package.json with Next.js dependencies\n  - [x] Create next.config.js with transpilePackages\n  - [x] Update tsconfig.json for Next.js\n  - [x] Create next-env.d.ts\n  - [x] Update .gitignore for Next.js\n  - [x] Update postcss.config.js for CommonJS\n- [x] Migration: Convert React Router pages to App Router structure\n  - [x] Create app/layout.tsx (root layout with Toaster)\n  - [x] Create app/page.tsx (Home/gallery page)\n  - [x] Create app/my-designs/page.tsx (user designs list)\n  - [x] Create components/StudioClient.tsx (Studio editor component)\n  - [x] Create app/studio/[id]/page.tsx (dynamic route wrapper)\n- [x] File Organization: Move services and data to lib directory\n  - [x] Copy src/services to lib/\n  - [x] Copy src/data to lib/\n  - [x] Update all imports to use @ aliases\n- [x] Fix Build Issues\n  - [x] Configure webpack aliases for @/ paths\n  - [x] Add 'use client' directives to components\n  - [x] Fix async params for Next.js 15\n  - [x] Remove old Vite files and src directory\n  - [x] Successfully build Next.js app\n- [x] Code Review Fixes\n  - [x] Remove obsolete eslint-disable comment\n  - [x] Add fallback UI for invalid categories\n  - [x] Fix tags consistency in grid/list views\n  - [x] Add documentation comments to config files\n  - [x] Improve error messages in next.config.js\n- [x] API Routes: Create API endpoints for design storage\n  - [x] GET /api/designs - List all designs\n  - [x] POST /api/designs - Create new design\n  - [x] PUT /api/designs/:id - Update design\n  - [x] DELETE /api/designs/:id - Delete design\n  - [x] POST /api/designs/:id/share - Generate share link\n  - [x] GET /api/designs/shared/:shareId - Get shared design\n  - [x] Create centralized serverStorage module\n- [x] Storage: Implement cloud storage abstraction\n  - [x] Add Vercel KV integration with `@vercel/kv` package\n  - [x] Implement automatic fallback to in-memory storage\n  - [x] Configure environment variables for KV\n  - [x] Create comprehensive setup documentation\n  - [x] Keep localStorage on client for offline support\n- [ ] Testing: Verify all functionality works\n  - [ ] Test dev server\n  - [ ] Test API endpoints with KV\n  - [ ] Test design CRUD operations\n  - [ ] Test share functionality\n  - [ ] Test import/export\n  - [ ] Test Studio designer features\n- [ ] Documentation: Update README and deployment guide\n\n### API Routes Implemented\n\nThe following REST API endpoints have been created with proper Next.js 15 async params support:\n\n- **GET /api/designs** - List all saved designs\n- **POST /api/designs** - Create a new design (requires `name` and `schema`)\n- **GET /api/designs/:id** - Retrieve a single design by ID\n- **PUT /api/designs/:id** - Update an existing design\n- **DELETE /api/designs/:id** - Delete a design\n- **POST /api/designs/:id/share** - Generate a shareable link for a design\n- **GET /api/designs/shared/:shareId** - Retrieve a shared design\n\nAll endpoints use a centralized `serverStorage` module (`lib/serverStorage.ts`) for storage operations.\n\n### Vercel KV Integration\n\nThe storage layer now supports both Vercel KV (for production persistence) and in-memory fallback (for local development):\n\n**Features:**\n- ✅ Automatic KV detection via environment variables\n- ✅ Graceful fallback to in-memory storage when KV is unavailable\n- ✅ Error handling with automatic fallback on KV operation failures\n- ✅ Redis-like data structure with prefixed keys (`design:*`, `shared:*`)\n- ✅ Async storage operations throughout all API routes\n\n**Setup:**\n- Add `@vercel/kv` package dependency\n- Environment variables automatically configured in Vercel\n- Local development works without KV configuration\n- Detailed setup guide available in `VERCEL_KV_SETUP.md`\n\n**Storage Strategy:**\n- **Production (Vercel with KV)**: Persistent cloud storage using Vercel KV\n- **Local Development**: Automatic in-memory fallback for seamless development\n- **Resilience**: Falls back to in-memory if KV operations fail\n\nSee `apps/playground/VERCEL_KV_SETUP.md` for complete setup instructions including how to create a KV database in Vercel, configure environment variables, and test locally.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> studio我需要实现更多的云服务的保存功能，是不是应该切换成NeX JS的App？\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

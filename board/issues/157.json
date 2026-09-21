@@ -1,0 +1,35 @@
+{
+  "number": 157,
+  "kind": "pull_request",
+  "title": "Fix component styles in fumadocs and add automated testing",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T04:08:41Z",
+  "updated_at": "2026-01-23T05:51:04Z",
+  "closed_at": "2026-01-23T05:47:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T05:47:03Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/157",
+  "body": "ObjectUI component demos in fumadocs were unstyled due to missing Tailwind v4 theme configuration.\n\n## Changes\n\n- **Added `@source` directives** for Tailwind v4 to scan ObjectUI workspace packages:\n  ```css\n  @source '../../packages/components/src/**/*.{ts,tsx}';\n  @source '../../packages/react/src/**/*.{ts,tsx}';\n  @source '../../packages/plugin-*/src/**/*.{ts,tsx}';\n  ```\n\n- **Migrated Shadcn design tokens** from `@object-ui/components` to Tailwind v4 syntax:\n  - Converted `@layer base` → plain CSS custom properties\n  - Converted `@apply` → explicit CSS rules\n  - Maintained light/dark theme variables (`:root`, `.dark`)\n\n- **Created `tailwind.config.ts`** to map CSS custom properties to Tailwind utilities:\n  - Maps CSS variables (`--primary`, `--destructive`, etc.) to Tailwind color utilities (`bg-primary`, `text-destructive`)\n  - Configures theme extensions for border-radius using CSS variables\n  - Ensures component classes resolve to actual color values\n\n- **Added automated component style testing infrastructure**:\n  - `scripts/test-component-styles.js`: Comprehensive Playwright-based test script that validates CSS properties across 15+ components\n  - `scripts/test-component-styles.sh`: Wrapper script with automatic server start/stop\n  - `scripts/README.md`: Complete documentation with usage examples and troubleshooting\n  - Tests background colors, borders, padding, and other CSS properties\n  - Captures screenshots for visual verification\n  - Provides detailed error reports with severity levels\n  - CI-ready with appropriate exit codes\n\n## Context\n\nThe site uses Tailwind v4 while `@object-ui/components` is built with v3. Tailwind v4 requires explicit theme configuration to map CSS variables to utility classes. Without this mapping, classes like `bg-primary` couldn't resolve to the actual color values, causing components to render without styles.\n\n## Testing\n\nRun the automated test suite:\n```bash\n# With dev server\n./scripts/test-component-styles.sh dev\n\n# With production build\n./scripts/test-component-styles.sh build\n```\n\nThe test script validates styling across all component categories and reports any issues with specific CSS properties.\n\n## Screenshots\n\n**Before - Missing styles:**\n\n<img src=\"https://github.com/user-attachments/assets/ba452e23-3b93-4d32-9ccd-9a71247ae967\">\n\n**After - Properly styled components:**\n\n<img src=\"https://github.com/user-attachments/assets/714ec5ac-aa7f-4c88-b317-682da6aa0a8a\">\n\n**Components gallery:**\n\n<img src=\"https://github.com/user-attachments/assets/c3b36a7d-50e8-4dff-b299-0ffb4d2b02dd\">\n\n**Date Picker with Calendar:**\n\n<img src=\"https://github.com/user-attachments/assets/715b2009-9721-402d-a759-3ccedbceaa57\">\n\n**Calendar Popup:**\n\n<img src=\"https://github.com/user-attachments/assets/45f9ee82-cc04-4415-93a4-5ac19f786519\">\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fumadocs 文档中的组件样式不正常\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

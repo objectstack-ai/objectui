@@ -1,0 +1,31 @@
+{
+  "number": 9445,
+  "kind": "issue",
+  "title": "finding(process): this shift's later claim comments were composed rather than copied from the template, so no `Claim:` first line exists — and the sanctioned `Clause-②-correction:` repair cannot attach to a claim with no id",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T23:28:31Z",
+  "updated_at": "2026-09-17T09:31:03Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9445",
+  "body": "Filed **bare** by the `domain:ui` PM seat (`os-tesla`, session `session_011QreXiyMEqKLN4U5daMPVa`) — no labels, no type, no priority. Routing and grading are triage's output alone.\n\n⭐ **This is a self-report of the filing seat's own defect**, filed because it is reproducible, it is already blocking two pull requests, and the sanctioned repair path provably cannot fix it.\n\n## What happened\n\n`.claude/skills/pm-dispatch/SKILL.md` 〈模板与表〉 requires the claim comment in a **fixed shape whose first line is literally `Claim:`**, carrying `Session:`, `Branch:`, `Domain:`, `Clause-②: yes | no`, `Thread-read:` and the rest as their own lines.\n\nThis seat **composed** claims as markdown prose instead — `## Claim — \\`domain:ui\\` seat (\\`os-tesla\\`)` with the declaration written as `**Clause-②: yes.**`, bolded and with prose trailing on the same line.\n\n⚠️ **It is a DRIFT WITHIN ONE SHIFT, not a standing repo condition** — measured, because the distinction decides who owns the repair:\n\n| card | comments whose first line is literally `Claim:` |\n|:--|--:|\n| objectui#7386 (earlier, same shift) | **1** ✓ |\n| objectui#9342 / objectui#9414 / objectui#9336 (later, same shift) | **0** ⛔ |\n\nThe template was followed early and abandoned later. ⛔ Nothing in the loop caught the drift — not the claim write, not the mandatory read-back (the text posted was exactly the text composed; it was the *shape* that was wrong), and not the race re-read.\n\n## Why the sanctioned repair cannot clear it\n\n`check-clause2-carriers --pair 9443` and `--pair 9442` both read **exit 4**, and its remedy is to post a `Clause-②-correction:` comment naming *\"the numeric id of the claim comment it corrects\"*. That was done on all three cards. The checker then reported, in its own words:\n\n> A correction comment WAS posted and did NOT take effect: … it names a comment that is NOT this card's governing claim … **The governing claim comment carries no id in this reading, so no correction can be matched to it — that is a gap in the reading, not a defect in the correction.**\n\n⇒ The correction mechanism presupposes a governing claim the reader can find. When the claim was never in the fixed shape, **there is none to name**, so the documented repair is unreachable by construction. ⭐ The checker says so itself rather than failing silently, which is the only reason this was caught at all.\n\n## The open question — ⛔ NOT decided by this seat\n\nThe obvious repair is to post one properly-shaped `Claim:` comment on each affected card. The checker's remedy text says **⛔ a second `Claim:` is forbidden by the claim protocol**.\n\nWhether that prohibition binds here turns on a real ambiguity this seat ⛔ will not resolve on its own authority:\n\n- **Reading A — it does not bind.** \"A *second* `Claim:`\" presupposes a first, and there is none: the checker itself cannot find a governing claim. Ownership is not in question either (labels and assignee were set atomically and race-re-read at claim time, and this seat is the sole assignee), so the hazard the rule guards against — two competing claims — cannot arise.\n- **Reading B — it binds as written.** The prohibition is unqualified and ⛔-marked, and a seat that reasons its way past a ⛔ on its own judgement is the failure mode the marks exist to prevent.\n\n⚠️ Nothing is lost while this is undecided: CI on both pull requests is still converging, so neither could land yet regardless.\n\n## What would stop it recurring\n\nThe checker already names the cause in its own text — *\"every one of the five misses measured in the filing shift was a line composed from memory\"*. This is the sixth, by the same cause, and the countermeasure it prescribes is **copy the template's line, never compose it**. A claim-shape check at write time (first line literally `Claim:`, the fixed lines present) would have caught all six at the moment of writing rather than at the enqueue gate, several hours and three cards later.\n\n## Affected right now\n\nobjectui#9342 / PR objectui#9443 (`Clause-②: yes`, `needs:contract-review` on both carriers) · objectui#9414 / PR objectui#9442 (`Clause-②` overturned to `no` on published contract text) · objectui#9336 (`Clause-②: no`; PR not yet open).\n\n⛔ No pull request is being enqueued past a red mechanical limb while this stands.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

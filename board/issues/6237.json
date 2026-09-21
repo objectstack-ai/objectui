@@ -1,0 +1,29 @@
+{
+  "number": 6237,
+  "kind": "issue",
+  "title": "The tabbed modal arm (`ModalForm` `contentLayout: 'tabbed'`) cannot carry a section `visibleWhen` at all — `FormFieldTab` declares no predicate slot",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "tracking"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T03:28:09Z",
+  "updated_at": "2026-08-31T01:36:44Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 29,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6237",
+  "body": "Filed unassigned by the `domain:ui` execution seat while implementing objectui#6111. Recording only — not graded, no `domain:*`. Measured on `origin/main` @ `f66072d1b`, by content.\n\nobjectui#6111's dispatch made the tabbed arm binding and in scope, with the explicit instruction: *\"If you conclude it genuinely cannot carry a predicate, say so with the measurement.\"* This is the measurement.\n\n## The measurement\n\nobjectui#6111 delivers an authored `FormSection.visibleWhen` by copying it onto the virtual `section-divider` pseudo-field each layout synthesises. The tabbed arm synthesises **no divider at all** — it renders sections as tab panels instead:\n\n```\npackages/plugin-form/src/ModalForm.tsx:638   if (schema.contentLayout === 'tabbed' && groups.length > 1) {\npackages/plugin-form/src/ModalForm.tsx:643     fields: groups.flatMap((g) => g.fields),\npackages/plugin-form/src/ModalForm.tsx:644     fieldTabs: groups.map((g, index) => ({ key, label, description, fields, containerClass })),\n```\n\nThere is no pseudo-field to copy a predicate onto, and no slot on the tab to copy it into. `FormFieldTab` (`packages/types/src/form.ts:825-849`) declares exactly five keys — `key`, `label`, `description`, `fields`, `containerClass` — and none of them is a predicate.\n\nThe renderer never evaluates a predicate for a tab either. `form.tsx:1309` builds `fieldTabs`, `:1335` resolves each tab's declared field names against the form's field list, `:1402` maps fields to tabs — no `visibleWhen` anywhere on that path. Only per-FIELD predicates are evaluated, inside `renderFormField`.\n\nSo on `contentLayout: 'tabbed'` an authored section predicate remains inert after objectui#6111, and it is the one arm of that card that cannot be closed by copying a key.\n\nThe same measurement applies to `TabbedForm.tsx` and `WizardForm.tsx`, which render sections as tabs and steps respectively. objectui#6111 deliberately did **not** plumb `visibleWhen` into their section configs: carrying a key into a type that declares it and a renderer that ignores it is the declared-not-enforced class those cards exist to close, so the key stops at the boundary rather than accumulating a fourth inert declaration.\n\n## Why this is not a one-liner\n\nAdding `FormFieldTab.visibleWhen` is a public contract change in `@object-ui/types` plus renderer semantics in `@object-ui/components`, and the semantics are genuinely undecided:\n\n1. **A hidden tab's fields are force-mounted on purpose.** `form.tsx:1301` states why: panels stay mounted and are merely CSS-hidden, so a tab the user navigated away from keeps **both its values and its validation** — rendering one form per tab lost every non-active tab's input, and unmounting made react-hook-form skip their rules, *\"which let a required field on a tab nobody opened sail past the client and return as a server 400\"* (objectui#2959). A predicate that hides a tab therefore has to answer what happens to that tab's required fields. Drop the rules and a section predicate becomes a required-ness bypass the server will reject; keep them and a required field on a hidden tab blocks the submit invisibly — which is precisely the failure objectui#2959 fixed, reintroduced through a new door.\n2. **What if the ACTIVE tab is the one that hides?** `activeFieldTab` (`form.tsx:1325`) falls back to `keys[0]`; a predicate flipping false while its tab is active needs a defined re-selection, or the form renders an empty panel.\n3. **`fieldTabs` needs more than one tab to engage** (`:1313` — `usable.length > 1 ? usable : null`). A predicate hiding one of two tabs collapses the arm into the untabbed layout mid-interaction.\n\n## Convergence worth noting before anyone picks this up\n\n`FormFieldTab` already models exactly the thing the sibling card needs — *\"a tab claims a SUBSET of the form's `fields` by name\"* — which is the grouping the flat `section-divider` list lacks. The card filed alongside this one (a section hidden by `visibleWhen` still renders its fields, because a divider has no association with the fields after it) wants the same grouping contract from the other direction. These should probably be designed together as one renderer-side section/group contract with a predicate slot, rather than as two independent patches.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

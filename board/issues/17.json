@@ -1,0 +1,33 @@
+{
+  "number": 17,
+  "kind": "pull_request",
+  "title": "Add fully functional Chatbot component",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-13T23:39:33Z",
+  "updated_at": "2026-01-14T09:35:13Z",
+  "closed_at": "2026-01-14T09:35:13Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T09:35:13Z",
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/17",
+  "body": "## ✅ Chatbot Component Implementation Complete\n\nThis PR adds a complete, fully functional Chatbot component to Object UI following the schema-driven architecture.\n\n### 📦 Components Added\n\n1. **UI Component** (`packages/components/src/ui/chatbot.tsx`)\n   - Chatbot container with message list and input area\n   - Message bubbles styled for user/assistant/system roles\n   - Avatar support with customizable fallback\n   - Auto-scrolling scroll area\n   - Input field with keyboard support (Enter to send)\n   - Optional timestamp display\n   - Typing indicator component\n\n2. **Renderer** (`packages/components/src/renderers/complex/chatbot.tsx`)\n   - Registered as `'chatbot'` type in ComponentRegistry\n   - Full schema configuration support\n   - State management for dynamic messages\n   - Event handling for message sending\n   - Auto-response demo mode\n\n3. **Demo App** (`examples/prototype/src/ChatbotDemo.tsx`)\n   - Interactive demonstration\n   - Feature documentation\n   - Usage examples\n\n### ✨ Features\n\n- ✅ Message bubbles with user/assistant/system roles\n- ✅ Avatar support for participants\n- ✅ Scrollable message history with auto-scroll\n- ✅ Input field with send button\n- ✅ Enter key to send messages\n- ✅ Timestamp display (optional)\n- ✅ Auto-response for demos\n- ✅ Fully customizable via Tailwind CSS\n- ✅ Schema-driven configuration\n- ✅ TypeScript support\n\n### 📸 Screenshots\n\n**Initial State:**\n![Chatbot Demo](https://github.com/user-attachments/assets/5a7e1750-1bde-413b-9dee-e0bc8256b673)\n\n**Interactive Conversation:**\n![Chatbot Interaction](https://github.com/user-attachments/assets/b5b44636-38e5-4ce5-bfd3-aa9b5fc430b7)\n\n### 🧪 Testing\n\n- ✅ All component tests pass (14/14)\n- ✅ Build successful\n- ✅ Manually tested in prototype app\n- ✅ Interactive features verified\n- ✅ Code review completed\n- ✅ Security checks passed (0 vulnerabilities)\n- ✅ Merged with main branch - no conflicts\n\n### 📝 Usage Example\n\n```json\n{\n  \"type\": \"chatbot\",\n  \"messages\": [\n    {\n      \"id\": \"msg-1\",\n      \"role\": \"assistant\",\n      \"content\": \"Hello! How can I help?\"\n    }\n  ],\n  \"placeholder\": \"Type your message...\",\n  \"showTimestamp\": true,\n  \"userAvatarUrl\": \"https://example.com/user.png\",\n  \"assistantAvatarUrl\": \"https://example.com/ai.png\",\n  \"autoResponse\": true,\n  \"className\": \"w-full\"\n}\n```\n\n### 🔄 Recent Changes\n\n**Latest Commit - Merge from Main:**\n- ✅ Merged latest changes from main branch\n- ✅ Resolved merge conflicts in `packages/components/src/renderers/complex/index.ts`\n- ✅ Resolved merge conflicts in `examples/prototype/src/App.tsx`\n- ✅ Integrated with new Calendar View and Filter Builder components\n- ✅ All tests passing after merge (14/14)\n\n**Previous Commits - PR Review Feedback:**\n- ✅ Renamed `userAvatar`/`assistantAvatar` to `userAvatarUrl`/`assistantAvatarUrl` for clarity\n- ✅ Replaced `any` type with `Partial<ChatMessage>` for better type safety\n- ✅ Added JSDoc documentation for the `onSend` callback\n- ✅ Replaced `Date.now()` with `crypto.randomUUID()` to prevent ID collisions\n- ✅ Updated tests to reflect prop name changes\n\nAll checks completed successfully! 🎉\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 设一个功能完整的Chatbot组件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectql/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

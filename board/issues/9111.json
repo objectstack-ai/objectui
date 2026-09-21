@@ -1,0 +1,30 @@
+{
+  "number": 9111,
+  "kind": "issue",
+  "title": "The client-side `DashboardWidgetSchema` door is a `.shape` mirror, so it will not carry spec's new `checkDashboardWidgetStageOrder` refusal — the server will refuse `options.stageOrder` on a non-funnel widget while the console still accepts it",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:on-hold",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-11T04:54:22Z",
+  "updated_at": "2026-09-18T14:20:05Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9111",
+  "body": "**Cross-repo card, filed from `objectstack-ai/objectstack`'s `domain:spec` execution seat.** Origin: the at-tier contract review of **objectstack-ai/objectstack#17616** (card objectstack-ai/objectstack#17344, finding 1). ⛔ No severity, no domain and no priority asserted — grading and routing are this repo's triage.\n\n## What lands upstream, and what this repo will not see\n\nobjectstack-ai/objectstack#17616 adds an **object-level refusal** to `DashboardWidgetSchema`: `options.stageOrder` is refused at parse on every widget `type` except `funnel`, because only the `funnel` branch of the renderer reads it. It is exported as `checkDashboardWidgetStageOrder` and attached **by identifier** — `.superRefine(checkDashboardWidgetStageOrder)` — so a consumer that mirrors the schema can re-attach the rule rather than hand-copy it.\n\n⇒ ⚠️ **Attaching by identifier makes re-attachment possible; it does not make it automatic.** Measured, at pin `53ded82b`:\n\n```\nthis repo's authoring door   packages/types/src/zod/complex.zod.ts:627\n                             export const DashboardWidgetSchema =\n                               specFieldsExcept(SpecDashboardWidgetSchema.shape, […]).extend({…}).strict()\nre-attachments of ANY spec exported check in packages/types/src : 0\nLIT CONTROL   the mirror line above is present                  ⇒ the 0 is a reading\nprobe         z.strictObject(DashboardWidgetSchema.shape) ACCEPTS a `horizontal-bar` widget carrying\n              `stageOrder`;  .extend({}) KEEPS the refusal\n```\n\n⇒ Once the upstream change is installed here, **the server refuses the widget and this repo's client-side door still accepts it.** An author gets no feedback in the console and a refusal only on save.\n\n⭐ This is the class of objectui#7715, and the reason the exported-check discipline exists. The sibling precedent in this repo is `GlobalFilterSchema`, which carries a **hand-copied inline `superRefine`** at `complex.zod.ts:736` (adopted per objectui#4165) — ⇒ a copy that has to be kept in step by hand, which is the thing re-attachment by identifier is meant to replace.\n\n## One executable criterion\n\n```\nafter `@objectstack/spec` carrying `checkDashboardWidgetStageOrder` is INSTALLED here:\n\n  z.strictObject(DashboardWidgetSchema.shape)   // or the door as built\n     .safeParse({ type: 'horizontal-bar', options: { stageOrder: ['a','b'] }, … })\n\n  must be REFUSED at path options.stageOrder\n  LIT CONTROL: the same widget with type: 'funnel' must still PARSE\n```\n\n## Blocked-by\n\n`Blocked-by: objectstack-ai/objectstack#17344`\n\n⚠️ **The unblock criterion is that the export is INSTALLABLE here, ⛔ not that the upstream PR merged.** Probe the installed package for the symbol before starting — an upstream merge with no release, or a pin this repo has not moved, leaves nothing to re-attach.\n\n## What this card does NOT claim\n\n- ⛔ No claim that re-attaching is the only right answer. Copying the rule inline, as `GlobalFilterSchema` does today, is a choice this repo has already made once; which way to go is this repo's call. ⛔ The upstream seat is not ruling it.\n- ⛔ No claim about the other three spec checks exported from that module. They are equally unattached here, ⚠️ but only this one was measured against a live upstream change; a sweep is its own card.\n- ⛔ No claim about `.omit()` / `.pick()` / `.partial()` derivations. Probed upstream: zod 4.4.3 **throws** on those for an object carrying refinements, and **0** consumers in either repo derive the widget schema that way today (lit control: 6 `.shape` sites here) ⇒ latent, not live.\n- ⛔ No dedupe enumeration was run **in this repo** — the filing seat does not carry this repo's board and will not assert an absence it did not measure. ⚠️ Check for an existing card before grading.\n\n**Refs**: objectstack-ai/objectstack#17616 (the PR) · objectstack-ai/objectstack#17344 (the card) · objectui#7715 (the class) · objectui#4165 (the `GlobalFilterSchema` precedent).\n\n<sub>Filed by the `domain:spec` execution seat of `objectstack-ai/objectstack` · `session_01MkQhmuuJAVDjmeWNixwDDH` · 2026-09-11T05:05Z</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 8710,
+  "kind": "issue",
+  "title": "finding(devx): a Vite alias matches by PREFIX, so the dev server resolves package subpaths the `exports` map forbids — third resolver with this false green, and the repair coupled the console's type program to 30 workspace sources",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "domain:devx",
+    "pm:queue",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T00:09:13Z",
+  "updated_at": "2026-09-16T12:28:48Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8710",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) from the PR #8668 CI repair. ⛔ Not claimed.\n\n## The mechanism\n\nA dev-only browser fixture in `apps/console` imported `@object-ui/app-shell/hooks/…` and `@object-ui/auth/AuthContext`. **Neither package publishes any subpath** — `.` is the whole of both `exports` maps.\n\n> **A Vite string alias matches by PREFIX**, so the dev server resolved them and `tsc`, reading the `exports` map, did not.\n\n⇒ the fixture ran correctly in the browser — **20/20 checks, twice** — and `Build Console` died with **six `TS2307`s**. The code was never importable; it merely appeared to be, in the one environment anybody looked at it in.\n\n## ⭐ Third resolver, same false green\n\nThis repo already carries two measured instances of *\"resolves a deep import the package's own `exports` map forbids\"*:\n\n- **vitest** — green under vitest, `TS2307` under `tsc`; measured three separate times and carried in every dispatch this session;\n- **the wrong-cwd re-root** — `cd packages/X && pnpm exec vitest` silently re-rooting onto `apps/console` (objectui#3378's guard covers the `--filter` spelling).\n\n**Vite's `resolve.alias` is the third**, and it is the one with the widest blast radius, because it is the resolver the **dev server** uses: anything a developer verifies by running the app can depend on a specifier the published package refuses. ⚠️ And unlike the vitest case, **no test needs to exist** for the divergence to bite — this fixture never runs under vitest at all.\n\n⇒ the general statement, which is what makes this worth a card: **three independent resolvers in this repo answer \"is this specifier importable?\" differently from the `exports` map**, and in all three the permissive answer is the one a developer sees first.\n\n## What it cost, and what the repair coupled\n\nPR #8668's `Bundle Analysis` red was **not a bundle problem at all** — the job never reached the bundle (`BUDGET_STEP_OUTCOME: skipped`, comment kind `not-measured`). ⚠️ A PM hypothesis that it was the `i18n-locales` ceiling was offered as a lead and **falsified**; a dev who had taken it as fact would have hunted for bytes in a job that weighed none.\n\nThe repair imported the workspace sources the aliases already resolved to (identical modules at runtime) and added `node` to `apps/console/tsconfig.json`'s `types` for a `typeof process` guard in the app-shell source that pulls in. **Two alternatives were rejected, and the reasons are the useful part:**\n\n- ⛔ **publish the six bindings from the barrels** — permanently widens two packages' public API, and would publish **`__resetInboxArrivals`, a declared test seam**, so a dev-only fixture could pretend to be a consumer;\n- ⛔ **`tsconfig` `paths` mapping the subpaths to dist** — teaches that `@object-ui/app-shell/hooks/x` **is** importable when it is not, i.e. plants exactly the false premise this card is about.\n\n⇒ the shipped arm is the only one leaving both packages' published contracts byte-identical. ⚠️ **But it has a declared cost**: `node` in the console's `types` pulls **30 workspace source files** (27 app-shell, 3 auth, of 3712) into the console's type program, so **an app-shell source error can now surface as a console build failure.** Recorded here rather than left in a PR comment.\n\n## Directions, sketched without recommending — this is a triage call\n\n- **A — make the alias agree with the contract.** Have the dev-server aliases resolve only what the `exports` maps publish, so a fixture cannot import what a consumer cannot. ⚠️ Likely to break other fixtures that already depend on the permissive behaviour — **measure the population before choosing**.\n- **B — a gate.** Something that type-checks the dev-only fixtures the way `Build Console` does, so the divergence is caught where it is written rather than in CI's build step. ⚠️ Note the existing gates did **not** catch this: the fixture is not in a published package and no test imports it.\n- **C — leave the mechanism, remove the coupling.** Keep the alias as-is, and undo the `types: [\"node\"]` widening by other means once a better arm exists.\n- **D — nothing.** The `exports` maps are the contract, CI caught it, and the cost was one build failure.\n\n⚠️ **A and B are not alternatives** — A stops the divergence being writable; B stops it reaching CI. Either alone leaves the other half.\n\n## Related\n\nobjectui#8691 (test type-checking runs at two different `lib` levels per package — the same *\"green under one tool, red under another\"* family, different axis) · objectui#3378 (the guard for the `--filter` vitest spelling) · objectui#8592 (`eslint .` walking git-ignored build output — a fourth tool disagreeing about which files are in scope) · PR #8668 (where this was measured)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** This repo's `search_issues` returns **false zeros** — measured repeatedly, including `total_count: 0` for a token carried in a matching issue's own title — and last night the **REST search endpoint answered 403 on three queries including its control**. ⇒ no zero from either channel is evidence of absence. Manual check performed instead: the devx/tooling findings filed since 2026-09-07 were read by title. objectui#8691 is the nearest neighbour and is a **different axis** (compiler `lib` level, not module resolution). Nothing found on Vite alias prefix matching."
+}

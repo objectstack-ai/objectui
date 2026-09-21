@@ -1,0 +1,37 @@
+{
+  "number": 80,
+  "kind": "pull_request",
+  "title": "Fix CI Build Failure - Build Ordering and Package Export Issues",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T09:41:14Z",
+  "updated_at": "2026-01-15T10:15:02Z",
+  "closed_at": "2026-01-15T10:15:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T10:15:02Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/80",
+  "body": "## Fix CI Build Failure - Build Ordering and Package Export Issues\n\n**Problem**: The CI build fails because `pnpm -r build` runs all workspace builds in parallel, causing the `designer-modes` example to fail when it tries to build before `@object-ui/components` is ready.\n\n**Root Causes**: \n1. The error `Failed to resolve entry for package \"@object-ui/components\"` occurs because the components package hasn't been built yet (no dist/ directory) when the example starts building\n2. The `@object-ui/components` package.json had incorrect export paths that didn't match the vite build output files\n\n**Solution Implemented**:\n\n- [x] Understand the issue and root cause\n- [x] Fix the build script to ensure proper dependency ordering\n  - **Chosen**: Build packages first, then examples (Option B) - most efficient for CI\n  - Modified root package.json build script: `pnpm --filter './packages/*' -r build && pnpm --filter './examples/*' -r build`\n- [x] Fix @object-ui/components package.json exports to match vite output\n  - Changed `module` from `dist/index.mjs` to `dist/index.js`\n  - Changed `main` from `dist/index.umd.js` to `dist/index.umd.cjs`\n  - Updated exports section to match\n- [x] Test the build locally to ensure it works\n- [x] Verify full build completes successfully\n\n## Changes Made\n\n**1. Root package.json**\n- Updated build script to enforce proper build order: packages before examples\n- Prevents parallel build race conditions\n\n**2. packages/components/package.json**\n- Fixed `module` field: `dist/index.mjs` → `dist/index.js`\n- Fixed `main` field: `dist/index.umd.js` → `dist/index.umd.cjs`\n- Updated `exports` section to match actual vite output\n\n## Testing\n\n- ✅ Full monorepo build completes successfully\n- ✅ All 11 packages build without errors\n- ✅ Both example applications (designer-modes and prototype) build successfully\n- ✅ Package resolution errors resolved\n\nThe changes are minimal and surgical, fixing only what's necessary to resolve the CI build failure while maintaining the existing architecture and build system.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21026372532/job/60451949849#step:6:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

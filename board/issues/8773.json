@@ -1,0 +1,32 @@
+{
+  "number": 8773,
+  "kind": "issue",
+  "title": "pm:on-hold cards encode their unlock condition inconsistently — some carry an executable `Restart-when:` probe, others carry prose no scan can ever fire on",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T05:13:04Z",
+  "updated_at": "2026-09-16T21:04:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8773",
+  "body": "A `pm:on-hold` card is only legitimate if something can wake it. Sampling this repo's held cards found both shapes side by side, so an unknown number are parked with **no mechanism that can ever return them to the queue**.\n\n## The two shapes, measured\n\n**✅ #7614 — the shape that works.** Machine-readable, with an executable probe and a touch-file index:\n\n```\nRestart-when: an `@objectstack/spec` release above 17.2.0 whose `ExecutionStepLogSchema`\n  (`@objectstack/spec/automation`) declares an optional `branch` member is installable from\n  npm and pinned by this repo\n  (probe: node -e \"const s=require('@objectstack/spec/automation');\n   process.exit('branch' in s.ExecutionStepLogSchema.shape?0:1)\" exits 0 on the installed package)\nRestart-touch: packages/app-shell/src/views/metadata-admin/previews/FlowRunsPanel.tsx\n```\n\nA scan can run that probe and get a yes/no. The card wakes itself.\n\n**⛔ #6328 — the shape that cannot fire.** No `Restart-when:` at all; the condition rides a `Blocked-by:` line that names a *state of the world* rather than an issue number:\n\n> `Blocked-by:` a released `@objectstack/spec` version carrying the `editMode` object-document declaration (objectstack#11408, PR objectstack#12208) reaching this repo's installed pin — **release-gated per the #11498 discipline, not merely merged upstream**.\n\nTwo independent failures: the `Blocked-by:` reverse index resolves **issue numbers**, and this names no issue — so the unlock-on-close scan can never match it; and there is no `Restart-when:` line, so the hold scan has no condition to evaluate. The card is correct in substance and **unreachable by machine**.\n\n## Why this is a defect and not a style preference\n\nThe governing rule is that a card with no wake-up mechanism must not be held at all — it gets a real condition, or it is closed `not_planned` (reopening is free). A hold with an unevaluable condition is the failure that rule exists to prevent: it looks tracked and is not. #6328 has sat since 2026-08-25.\n\n## Scope\n\n1. Walk this repo's open `pm:on-hold` cards (**75** at the 2026-09-09T04:2xZ reading).\n2. Classify each: (a) carries an executable `Restart-when:`; (b) carries a condition in prose; (c) carries no condition at all.\n3. For (b) and (c), do one of exactly two things — ⛔ never leave it as it is:\n   - rewrite the condition as a `Restart-when:` line with a **probe that can be executed**, plus `Restart-touch:` where a file surface is known; or\n   - if no mechanism can wake it, close `not_planned` with the reason on the closing comment.\n4. Report the (a)/(b)/(c) counts. That number is the finding.\n\n⚠️ **Substance is not in scope.** This does not re-decide whether any card should be held — only whether the hold it already has can fire.\n\n## ⚠️ This is PM-seat work, not a dev dispatch\n\nThe deliverable is issue metadata, not a diff. ⛔ Do not hand it to an `os-dev` agent expecting a PR.\n\n## Measurement honesty\n\n**2 of 9** cards in the pin-gated cluster were sampled — one of each shape. That the inconsistency exists is established; **the ratio is not measured**, and finding it is step 2 above. The 75 figure is the full open `pm:on-hold` count, not a count of defective ones.\n\n## Provenance\n\nFiled by the PM session verifying objectstack#16500 on the published 17.4.0, which surfaced the split while checking what a pin bump would actually unlock. Maintainer instruction, verbatim (⛔ 照抄不译): 「先 bump，两张卡都开出来」 and 「这两个任务都你处理」.\n\nCompanion: #8772 (take the 17.4.0 line). ⭐ Ordering is deliberate — the bump goes first, so the well-formed holds clear on their own criteria and this audit runs against what is actually left.\n\n`domain:*` / `priority:*` are triage's; `domain:devx` set here on the maintainer direct-dispatch channel — a `pm:retriage` if triage disagrees, ⛔ not a precedent."
+}

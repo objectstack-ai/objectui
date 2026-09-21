@@ -1,0 +1,31 @@
+{
+  "number": 8932,
+  "kind": "issue",
+  "title": "decision(plugin-kanban): `KanbanEnhanced.tsx` is published source with zero importers and a subpath that never resolved — delete it, or give it a real export?",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "plugin: kanban",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-10T02:56:07Z",
+  "updated_at": "2026-09-11T11:54:02Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8932",
+  "body": "Filed by the `domain:spec` @ objectui PM seat, session `session_01Jmxdo7bmeqCQHLSfmLVX9w`, as **finding F4** of the `CONTRACT_REVIEW_TIER` REWORK verdict on PR #8865 (comment `5610751162`).\n\n⛔ **This card exists because I said I would file it and did not.** The delta re-review caught the omission (*\"no `KanbanEnhanced.tsx` deletion card exists\"*) after two rounds had already passed. Recording that so the gap is on the record, not just the card.\n\n⛔ No `priority:*` — grading is triage's.\n\n## What was measured\n\nThe changeset and an in-source comment on PR #8865 originally claimed `KanbanEnhanced` *\"is still exported and still importable from `@object-ui/plugin-kanban/KanbanEnhanced`\"*.\n\n**That subpath has never resolved.** Verified independently by the contract-review seat on PR #8865's head:\n\n| reading | result |\n|---|---|\n| `packages/plugin-kanban/package.json` `exports` | `.` and `./style.css` **only** — no `./KanbanEnhanced` |\n| the package barrel | never re-exported it |\n| non-test importers of `KanbanEnhanced.tsx` | **zero** — the only reference is `kanban-handler-slots-7664.test.tsx` |\n\n⇒ **Published source that nothing can reach.** PR #8865 corrected the false wording in both places (F4's repairable half) and ⛔ deliberately did **not** delete the file — that is this card.\n\n⚠️ It is also **invisible to `check:unreferenced-sources`**, which covers `packages/components` only. So no gate will ever surface it; this card is the only thing that will.\n\n## Why this is a decision and not a cleanup\n\nDeleting published source is a **further narrowing** of what the package ships. Even unreachable source can be reached by a consumer doing something the exports map does not sanction (a deep relative import into `node_modules`), and this package has been published for many releases.\n\n⇒ ADR-0049 enforce-or-remove applies, but which limb is a ruling:\n\n**(a) Delete `KanbanEnhanced.tsx`.** Honest — it is unreachable and now provably so. ⚠️ Needs a changeset stating the removal, and someone should say whether the sibling `KanbanEnhanced`-adjacent exports (`CardTemplate`, `ColumnWidthConfig`) are in the same condition or genuinely consumed. ⚠️ Also settles what happens to `kanban-handler-slots-7664.test.tsx`, its only reference.\n\n**(b) Give it a real export.** Add `./KanbanEnhanced` to the `exports` map, making the changeset's original claim true rather than deleting the subject. ⚠️ That is a **widening** and needs its own justification: who asked for it? ⛔ Nobody has, on the evidence above.\n\n**(c) Leave it, and pin the unreachability.** Cheapest. Adds a test asserting the file has no non-test importer and no exports entry, so the false claim cannot be re-made. ⚠️ Leaves dead published source in the tree indefinitely.\n\n**This seat's recommendation: (a).** The file is unreachable by construction, the claim that it was reachable has already been corrected as false, and (b) would widen a published surface for a consumer that does not exist. ⛔ But deletion of published source is not a dev's call and not mine — hence this card.\n\n⚠️ Whoever takes it should confirm the measurement on the then-current `main`: PR #8865 retires `kanban-enhanced` as a **registry key**, and once it lands the file's situation may read differently.\n\nRefs: PR #8865 · objectui#8802 / #8257 / #8008 (the retirement) · the REWORK verdict `5610751162` (F4) · objectui#7664 (the dialect retirement that left this behind) · ADR-0049."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 74,
+  "kind": "pull_request",
+  "title": "[WIP] Redesign object form and page layout designer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "designer",
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T07:04:44Z",
+  "updated_at": "2026-01-15T07:57:37Z",
+  "closed_at": "2026-01-15T07:55:43Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/74",
+  "body": "## Specialized Designer Implementation Plan\n\n### Goal\nRedesign the designer system to include specialized, purpose-built designers for different use cases, improving usability and user experience.\n\n### Changes to Implement\n\n- [ ] **1. Create Base Designer Infrastructure**\n  - [ ] Extract common designer logic into shared utilities/hooks\n  - [ ] Create a base designer context that can be extended\n  - [ ] Refactor existing Designer to use the new base infrastructure\n\n- [ ] **2. Implement FormDesigner** (专用对象表单设计器)\n  - [ ] Create FormDesigner component with form-specific toolbar\n  - [ ] Add form-specific component palette (input fields, validation, labels)\n  - [ ] Add form preview with validation testing\n  - [ ] Add form submission configuration panel\n  - [ ] Create specialized property panel for form fields\n  - [ ] Add form-specific templates (contact form, registration form, etc.)\n\n- [ ] **3. Implement PageLayoutDesigner** (页面布局设计器)\n  - [ ] Create PageLayoutDesigner component with layout-focused toolbar\n  - [ ] Add layout-specific component palette (sections, headers, footers, grids)\n  - [ ] Add responsive layout preview (desktop/tablet/mobile)\n  - [ ] Create layout property panel with spacing/alignment controls\n  - [ ] Add page templates (landing page, dashboard, etc.)\n\n- [ ] **4. Update Package Structure**\n  - [ ] Export new designers from @object-ui/designer package\n  - [ ] Update package README with usage examples\n  - [ ] Add TypeScript type definitions\n\n- [ ] **5. Update Playground/Studio Integration**\n  - [ ] Add designer type selection (General/Form/Layout)\n  - [ ] Update Studio to use specialized designers based on selection\n  - [ ] Add examples for each designer type\n\n- [ ] **6. Documentation**\n  - [ ] Add FormDesigner documentation\n  - [ ] Add PageLayoutDesigner documentation\n  - [ ] Update migration guide for existing users\n\n- [ ] **7. Testing & Validation**\n  - [ ] Test FormDesigner functionality\n  - [ ] Test PageLayoutDesigner functionality\n  - [ ] Verify backward compatibility\n  - [ ] Run build and linting\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 目前的设计器不好用，重新思考哪些东西可以设计，比如我需要专用的对象表单设计器，页面布局设计器\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

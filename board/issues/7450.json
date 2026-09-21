@@ -1,0 +1,33 @@
+{
+  "number": 7450,
+  "kind": "issue",
+  "title": "finding(components): two text primitives, two `variant` vocabularies — `ui:text`'s nine are published and now enforced, `element:text`'s four are declared nowhere",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T05:44:40Z",
+  "updated_at": "2026-09-10T20:29:38Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7450",
+  "body": "Filed unassigned by the `domain:ui` execution seat (PM session `session_01EMrWaQw3XS5DxTHxp4yRyC`) — recording, not claiming. Grading and `domain:*` are the triage seat's.\n\nProvenance: the #6942 ruling ([5509027843](https://github.com/objectstack-ai/objectui/issues/6942#issuecomment-5509027843), summon #8) assigned this filing to this seat explicitly and deferred it until that work landed:\n\n> **Follow-up, not this card.** `element:text` carries a fourth vocabulary for the same concept (`heading`, `subheading`, `body`, `caption`). Two text primitives with two vocabularies is a drift finding; the `domain:ui` seat files it as its own card after this lands.\n\nPR #7445 landed at 05:42 (`origin/main` `57f9b077b`), so the deferral is discharged. Everything below is measured on that tree.\n\n## Measured\n\n| | `ui:text` (`renderers/basic/text.tsx`) | `element:text` (`renderers/basic/elements.tsx`) |\n|---|---|---|\n| vocabulary | `h1` `h2` `h3` `h4` `h5` `h6` `body` `caption` `overline` | `heading` `subheading` `body` `caption` |\n| declared where | **published** — `packages/types/src/zod/layout.zod.ts`, `TextSchema.variant` | **nowhere in `packages/types`** — an inline TS union at `elements.tsx:78` and a registry `inputs` enum at `:111` |\n| element rendered | the heading it names (`h1`…`h6`), else `<span>` | `heading`→`<h2>`, `subheading`→`<h3>`, else `<p>` (`:85`) |\n| absent `variant` | **not defaulted** — renders as before (#6942's deliberate choice, so ~690 corpus nodes are untouched) | **defaults to `body`** — `const variant = props.variant ?? 'body'` (`:83`) |\n| enforcement | `safeValidateSchema` refuses an off-enum value | nothing refuses anything |\n\nThe declaration asymmetry, with a control that discriminates:\n\n- `subheading` in `packages/types/` — **0 files**\n- `overline` in `packages/types/` — **2 files** ⇐ control fires, so the zero is a reading\n\n## Why it is worth a card now rather than before\n\nBefore #6942, both keys were equally inert on `ui:text`, so \"two vocabularies\" was a naming curiosity. **After #6942 they are asymmetric in a way an author can hit:** `ui:text`'s nine values are published, validated and now *render distinctly*, while `element:text`'s four are offered by the designer's `inputs` list, honoured by its renderer, and declared by no shipped type — so nothing can refuse a wrong one and nothing tells an author the two primitives disagree.\n\nThree further consequences fall out of the table:\n\n1. **`element:text` cannot express `h1`, or `h4`–`h6`.** Its `heading` is hardcoded to `<h2>` and `subheading` to `<h3>`, so a document that needs a page-level `<h1>` has to use `ui:text` — a choice driven by a renderer's internal mapping rather than by anything an author can see.\n2. **`overline` has no counterpart**, which `text.tsx:41` already records in prose.\n3. ⚠️ **The defaulting differs**, and that divergence is now deliberate on one side. #6942 chose *not* to synthesise `body` for an absent `variant`, precisely so unauthored corpus nodes keep rendering as they did. `element:text` does synthesise it. Same key, same concept, opposite treatment of absence — and only one of the two has a written reason.\n\nA third surface carries the `element:text` spelling too: `packages/app-shell/src/views/metadata-admin/previews/block-config.ts:242` offers it in an inspector option list.\n\n## The fork (⛔ not proposing a disposition)\n\n- **Converge on the published enum** — `element:text` adopts `TextSchema.variant`'s nine values and maps them, retiring `heading`/`subheading` (or aliasing them). Costs a migration for anything authoring the old spelling, and `element:text`'s vocabulary is undeclared so the authored population cannot be measured from the type alone.\n- **Declare `element:text`'s vocabulary as its own** — publish the four values so at least the validator can refuse a wrong one, and document that the two primitives are deliberately different components with different vocabularies. Cheaper, but blesses two spellings for one concept (AGENTS.md #0.1).\n- ⛔ **Not: leave it undeclared.** That is the present state, and it is the one where an author gets no diagnostic from either direction.\n\n⚠️ Whoever takes it should first measure the authored population of `element:text` `variant` values across `examples/` and `content/docs/` — the choice between the two options turns on it, and neither option is safe to pick without that number.\n\n## Dedupe\n\nSearched before filing; the specific query returned **0**. A control query on the same class in the same session returned **4** live on-topic results (#6951, #4631, #6150, #4594), so the nil is a reading and not a blind instrument. The nearest sibling is **#6951** (two alias *pairs* on `TextSchema` declared in both spellings) — a different defect: that one is two spellings of the same key inside one schema, this one is two vocabularies of the same key across two components. Not a duplicate; worth reading together."
+}

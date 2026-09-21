@@ -1,0 +1,31 @@
+{
+  "number": 10193,
+  "kind": "issue",
+  "title": "finding(i18n,console): the UI-language seed slot is device-global while the value cached into it is per-USER — a shared browser boots the second account into the first account's language",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-elon-musk",
+    "id": 328766734,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-21T03:21:56Z",
+  "updated_at": "2026-09-21T04:05:56Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10193",
+  "body": "## Summary\n\nThe UI-language seed slot is a **device-global** `localStorage` key, but the value cached into it is the **signed-in user's own** `sys_user.locale`. On a shared browser the second account inherits the first account's language.\n\nReproduction, from the mechanism below:\n\n1. Account **A** has `sys_user.locale = ja`. A signs in on a browser. `/auth/me/localization` answers `locale: ja` and the answer is cached into the seed slot.\n2. A signs out. ⛔ Nothing clears the slot — it is not keyed by user.\n3. Account **B**, with **no** `sys_user.locale` value, signs in on the same browser.\n4. B's first paint reads the seed slot and boots into **ja** — a language B never chose and no row of B's says.\n\n## Current mechanism — read off `origin/main` `e686f4d9a`\n\n| site | reading |\n|:--|:--|\n| `packages/i18n/src/provider.tsx:86` | `export const LOCALE_SEED_STORAGE_KEY = 'objectui-locale-seed'` — a **fixed** key, ⛔ no user in it |\n| `packages/i18n/src/provider.tsx:118-124` | `cacheLanguageSeed(locale)` writes that one key, or removes it |\n| `apps/console/src/LocalizationFetchProvider.tsx:91` | `if (json.authenticated !== false) cacheLanguageSeed(json.locale)` — ⚠️ writes only for an **authenticated** answer |\n| `apps/console/src/languageSeed.ts:88` | `cacheLanguageSeed(json?.locale)` — the second writer, same slot |\n| `packages/i18n/src/provider.tsx:274` | the docblock still calls it 「the **tenant's** server locale」 |\n\nThat last row is the whole defect in one line. `@objectstack/spec`'s `SessionUser.language` retirement note declares `GET /auth/me/localization` → `locale` as **the caller's own `sys_user.locale` when set**, then the request's `Accept-Language`, then the deployment default. ⇒ the value is **per-user**; the slot it is cached in is **per-device**; and the prose that would have caught the mismatch says 「tenant」.\n\n## ⭐ The control — this repo already has the remedy idiom, and it is lit\n\n`packages/app-shell` scopes exactly this class of per-user local preference by appending the user id to the key:\n\n```\nFavoritesProvider.tsx:153/162/264          scopedKey(STORAGE_BASE_KEY, userId)\nFlowPaletteRecentsProvider.tsx:74/83/139   scopedKey(STORAGE_BASE_KEY, userId)\nRecentItemsProvider.tsx:67/76              scopedKey(STORAGE_BASE_KEY, userId)\n```\n\nThree providers, nine sites, one spelling. ⇒ the language seed is the per-user preference **outside** that idiom, and the fix has a shape the tree already agrees on. ⛔ Not a new invention, and ⛔ not a reason to invent a second one.\n\n## Why it is being filed now, although it predates the change that surfaced it\n\n⛔ This is **not** a regression of objectui#10059 / PR objectui#10191, and ⛔ not a finding against that PR: both writers and the per-user resolution of `locale` were there before it. What that change does is make the leak **far more likely to fire** — its whole purpose is that a signed-in user's `sys_user.locale` becomes the single source of the UI language, so many more accounts will HAVE a column value for the slot to inherit. A latent slot becomes a populated one.\n\nSurfaced by the objectui#10059 dev as an out-of-scope finding; every reading above was **re-taken by the filing seat at source** before filing, ⛔ not relayed.\n\n## ⛔ What this card does NOT claim\n\n- ⛔ NOT measured: how long the wrong language survives for B. The reader introduced by objectui#10191 overwrites the slot once B's own row is read, so the expected exposure is **the first paint plus one round trip** — but that is a reading of the new reader's code, ⛔ not an observation, and it does not hold for any surface that consumes the slot before that reader mounts.\n- ⛔ NOT measured: whether a sign-out path anywhere clears other per-device slots and merely missed this one, or whether nothing clears any of them.\n- ⛔ NOT a claim that the tenant reading was ever correct. The docblock's 「tenant」 may have been true when written; ⛔ this card does not date it.\n\n## Acceptance\n\n1. A pin that is **red today and green after**: seed the slot as user A, mount as user B whose row carries no locale, and read that B does **not** boot into A's language. A pin that only checks the slot is written proves nothing — the defect is *whose* value it holds.\n2. Scope the slot per user with the idiom already in the tree (`scopedKey`), ⛔ not with a second spelling, and decide in the same stroke what an **unauthenticated** visitor reads — the pre-sign-in chain still needs a slot, and collapsing the two is how this gets fixed twice.\n3. Repair `provider.tsx:274`'s 「tenant」 in the same PR. ⚠️ It is the prose that hid this, so leaving it is leaving the trap.\n4. ⛔ Do not widen into the profile-card copy question — that is objectui#10051's route-D thread.\n\n<sub>Filed by the `domain:ui` execution seat · `session_01Xr7APep6jm1Zta3KUzPzZf` · every reading re-taken at source on `e686f4d9a`, 2026-09-21T03:20Z</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

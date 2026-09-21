@@ -1,0 +1,29 @@
+{
+  "number": 5674,
+  "kind": "issue",
+  "title": "[finding] `PluginComponentInput` is a published name with zero consumers, and after #4972 it is a pure alias of `ComponentInput`",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T08:30:43Z",
+  "updated_at": "2026-08-24T17:51:17Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5674",
+  "body": "Filed by the `domain:ui` execution seat (session `session_012u2pRjcqAYtoEjgr3wwhnK`), surfaced while reviewing #5671 (#4972).\n\n## Measured\n\n`packages/types/src/index.ts:912` publishes:\n\n```ts\n  ComponentInput as PluginComponentInput,\n```\n\nRepo-wide, excluding `node_modules/` and `dist/`, that is the **only** occurrence of the name — verified against `origin/main`. Nothing imports it. It is exported and never pulled.\n\n## Why now\n\nBefore #4972 the alias at least pointed at a *different* declaration: `plugin-scope.ts` declared its own 9-key `ComponentInput`, so `PluginComponentInput` named a genuinely distinct type. #5671 converges that declaration onto `base.ts`, so once it lands the alias is a published name duplicating another published name in the same entry point, with no consumer on either.\n\nThat is not a regression introduced by #5671 — it is a pre-existing zero-consumer export whose last remaining justification #5671 removes.\n\n## Ask\n\nRetirement candidate under implementation-first / startup scope discipline.\n\nRemoving a published export is a surface change and needs the normal treatment: a bump judgment under the repo's policy, and the ADR-0087 registries if the removal is spec-facing.\n\nFiling rather than doing, for one reason worth stating: *\"no importer in this repo\"* and *\"no importer\"* are different claims, and only the second one licenses deleting an export from a **published** package. This card holds the first; someone has to decide whether that is enough here.\n\nFiled unassigned."
+}

@@ -1,0 +1,29 @@
+{
+  "number": 4752,
+  "kind": "issue",
+  "title": "components: `ConfigPanelRenderer`'s `undoLabel` / `redoLabel` default to English — dormant today, and #4750 records the opposite",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T01:07:44Z",
+  "updated_at": "2026-08-23T04:20:32Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4752",
+  "body": "Found while implementing #4750 (routing the same file's `saveLabel` / `discardLabel` defaults through the locale pack). Filed unassigned and deliberately **not** fixed there — see \"why not in that PR\" below.\n\n## What was measured (on `origin/main` at `ef0d1502f`, and identically at `616a2a547`)\n\n`packages/components/src/custom/config-panel-renderer.tsx` gives two more of its parameters English literals as defaults:\n\n```\nundoLabel = 'Undo',\nredoLabel = 'Redo',\n```\n\nBoth are rendered as the `title` attribute of the header's undo / redo buttons (`config-panel-undo`, `config-panel-redo`) — a visible tooltip and the buttons' accessible name, since neither carries text.\n\n**This contradicts #4750's issue body**, which states that `closeTitle`, `ariaLabel`, `undoLabel` and `redoLabel` \"have **no** default at all, so they contribute no English\". That is true of `closeTitle` and `ariaLabel`; it is false of these two, at the commit that card was measured on.\n\n## Why it is dormant rather than user-visible\n\nThe two buttons render only when the caller passes `onUndo` / `onRedo`:\n\n```bash\ngrep -rn \"onUndo=\\|undoLabel=\\|redoLabel=\" packages/*/src apps/*/src | grep -v components/src   # zero hits\n```\n\nNo caller wires either handler, so neither button — and therefore neither label — reaches a user today. `useConfigDraft` does expose `undo` / `redo` / `canUndo` / `canRedo`, so the wiring is one prop away from being live; the day a panel adds it, the tooltip ships English in all ten locales.\n\n## Why it was not folded into #4750's PR\n\nSame defect class and same file, but the key choice is a fresh decision rather than a mechanical one, which is what the in-place exemption requires:\n\n- the packs carry **no** `common.undo` / `common.redo` (`common.save` did exist, which is why the footer fix could just reuse it);\n- the four spellings that do exist are each scoped to one surface — `grid.bulk.undo`, `gantt.toolbar.undo`, `designer.undo` / `designer.redo`, `appDesigner.undo` / `appDesigner.redo`;\n- so fixing it means either adding a shared `common.undo` / `common.redo` pair to ten packs or picking one surface's namespace for a shared primitive — a judgement, not a re-spelling.\n\nWhoever picks this up should also decide whether `closeTitle` and `ariaLabel` (genuinely defaulted to nothing, so the close button and the panel have no accessible name unless a caller supplies one) belong in the same change; that is an a11y gap rather than an i18n one, and #4750 explicitly left all four alone.\n\nBacklinks: #4750, #4748.\n"
+}

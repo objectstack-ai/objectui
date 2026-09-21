@@ -1,0 +1,37 @@
+{
+  "number": 150,
+  "kind": "pull_request",
+  "title": "Add shadcn components, renderers, TypeScript types, and comprehensive fumadocs documentation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: types"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-22T13:09:30Z",
+  "updated_at": "2026-01-22T16:22:10Z",
+  "closed_at": "2026-01-22T16:17:25Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-22T16:17:25Z",
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/150",
+  "body": "Completes shadcn UI component coverage by adding missing components, creating renderers for all documented components, adding complete TypeScript type definitions, and providing JSON schema-driven documentation organized in collapsible category navigation.\n\n## Components Added\n\n- **toast**: Radix-UI toast primitives with `useToast` hook and `Toaster` renderer\n- **date-picker**: Calendar popup integration with date-fns formatting\n- **combobox**: Searchable dropdown with Command palette integration\n\n```tsx\n// JSON schema approach\n{\n  type: 'date-picker',\n  placeholder: 'Pick a date',\n  onDateChange: 'handleDateChange'\n}\n\n// Direct usage\nimport { DatePicker } from '@object-ui/components';\n<DatePicker date={date} onDateChange={setDate} />\n```\n\n## Component Renderers Created (14 total)\n\nCreated renderer implementations for all documented components to eliminate \"unknown type\" errors:\n\n- **Form components**: combobox, command\n- **Feedback components**: toast, spinner, empty, sonner\n- **Data display**: breadcrumb, kbd\n- **Disclosure**: toggle-group\n- **Basic**: button-group, pagination, navigation-menu\n- **Layout**: aspect-ratio\n- **Overlay**: menubar\n\nEach renderer follows the ObjectUI pattern:\n- Registers with `ComponentRegistry`\n- Accepts schema props for JSON-driven rendering\n- Handles designer metadata (data-obj-id, data-obj-type)\n- Provides default props and input definitions\n\n## TypeScript Type Definitions\n\nAdded complete schema type definitions in `@object-ui/types` package for all new components:\n\n- **ComboboxSchema** - Searchable select component\n- **CommandSchema** - Command palette component\n- **SpinnerSchema** - Loading spinner\n- **EmptySchema** - Empty state display\n- **SonnerSchema** - Sonner toast integration\n- **BreadcrumbSchema** - Navigation breadcrumbs\n- **KbdSchema** - Keyboard key display\n- **ToggleGroupSchema** - Toggle button group (using `selectionType` property)\n- **ButtonGroupSchema** - Button group\n- **NavigationMenuSchema** - Navigation menu\n- **AspectRatioSchema** - Aspect ratio container\n- **MenubarSchema** - Menu bar component\n\nAll types are properly exported and integrated into the union types for each category.\n\n## Documentation\n\nComprehensive fumadocs MDX documentation for 30 components across all categories:\n- **Form**: combobox, command, date-picker, radio-group, label, input-otp, form\n- **Overlay**: alert-dialog, sheet, hover-card, context-menu, dropdown-menu, menubar\n- **Data Display**: breadcrumb, calendar, carousel, timeline, kbd\n- **Layout**: scroll-area, resizable, aspect-ratio\n- **Feedback**: toast, sonner, spinner, empty\n- **Disclosure**: toggle, toggle-group\n- **Basic**: button-group, pagination, navigation-menu, sidebar\n\nEach doc includes:\n- Interactive `ComponentDemo` examples\n- Complete TypeScript schema definitions\n- JSON property configuration patterns\n- Variant demonstrations\n\n## Documentation Organization - Collapsible Categories\n\nRestructured fumadocs navigation to display components in **expandable/collapsible category folders** in the sidebar:\n\n- **Basic** (9 components): text, icon, image, separator, html, sidebar, button-group, pagination, navigation-menu\n- **Form** (14 components): button, input, textarea, select, checkbox, radio-group, switch, slider, label, date-picker, input-otp, combobox, command, form\n- **Layout** (9 components): container, card, grid, flex, stack, tabs, scroll-area, resizable, aspect-ratio\n- **Data Display** (9 components): badge, avatar, alert, list, calendar, carousel, timeline, breadcrumb, kbd\n- **Feedback** (7 components): loading, progress, skeleton, spinner, empty, toast, sonner\n- **Overlay** (10 components): dialog, drawer, tooltip, popover, alert-dialog, sheet, hover-card, context-menu, dropdown-menu, menubar\n- **Disclosure** (4 components): accordion, collapsible, toggle, toggle-group\n- **Complex** (1 component): table\n\n### Implementation Details\n\n- Updated `docs/components/meta.json` to reference folder names directly for collapsible folder support\n- Updated subdirectory `meta.json` files for each category with complete component lists\n- Fumadocs automatically creates collapsible folders based on directory structure\n- Each category can be expanded/collapsed independently for better navigation\n\n<img src=\"https://github.com/user-attachments/assets/e1c7fc3e-d655-45e6-9457-ad971aeb7473\">\n\nUsers can now browse all components organized by expandable category folders in the documentation sidebar.\n\n## Exports\n\n- Renamed `Toaster` from toast system to `ToastNotifier` to avoid conflict with Sonner's `Toaster`\n- Exported `useToast` hook from main index\n- Set toast auto-dismiss to 5s (was 16m)\n\n## Build & Test Results\n\n- ✅ All packages build successfully\n- ✅ Documentation site builds with **123 static pages** (up from 109)\n- ✅ All **205 tests** passing\n- ✅ No TypeScript compilation errors\n- ✅ All component documentation pages render correctly with interactive demos\n- ✅ No \"unknown type\" errors - every documented component has a working renderer\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> components/ui 对齐 https://ui.shadcn.com/docs/components 所有的基础组件，可提供基于json的属性配置，并提供完善的fumadocs 文档\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

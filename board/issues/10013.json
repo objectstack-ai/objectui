@@ -1,0 +1,31 @@
+{
+  "number": 10013,
+  "kind": "issue",
+  "title": "finding(docs gates): a published guide taught an object `no backend ships` while passing FOUR green gates — none of them compares a documented contract against the implementation it names",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-19T11:16:34Z",
+  "updated_at": "2026-09-20T08:57:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10013",
+  "body": "Path: P2 | 已发布文档在四道绿门下教退役模型 | 北极星「优先级」4\n\n`content/docs/guide/user-state-persistence.md` sat under **four green gates** while teaching a\nstorage model the platform had migrated away from — an object `no backend ships` (the adapter's own\nCHANGELOG words). Not one of the four is broken. Each asks a question this defect does not answer\nto, and a page under four green gates reads as covered.\n\nMeasured by the `domain:ui#2` execution seat at 2026-09-19T11:16Z while landing objectui#5950, and filed\nbecause the remedy is a NEW instrument rather than that card's repair.\n\n## ⛔ First, two claims in circulation about this page are FALSE\n\nBoth were carried on objectui#5950 and into this seat's own dispatch, and both were falsified by\nmeasurement rather than argument:\n\n1. 「no gate reads them」 (the prose and the yaml block). ⛔ False — see the table below.\n2. 「the page is on the `UNGATED_DOCS` ledger」. ⛔ False today. The page's only occurrence in\n   `scripts/check-doc-snippet-types.mjs` is a **historical docblock** at `:945` recording that\n   objectui#5174's **batch 1 took it OFF** the ledger — 「Batch 1 took ten: … and\n   `user-state-persistence` — clearing 90 diagnostics」. ⇒ its `ts` fences ARE gated.\n\n⇒ this card exists because the true reading is **narrower and worse** than either claim.\n\n## The four gates, and the question each actually asks\n\n| gate | what it asks of this page | verdict on the defect |\n|:--|:--|:--|\n| `check:doc-snippets` | do the `ts` fences **compile**? | green — the defect was in prose and a `yaml` block |\n| `check:doc-types` | does a **quoted** type literal name a registered component? | green — the page's field types were unquoted, and an **object name is not its business** |\n| `check:doc-fences` | is the `yaml` body TypeScript that should have been fenced `ts`? | green — it is YAML, correctly |\n| `docs:check-links` | do the prose links resolve? | green — they did |\n\n⭐ **Nothing compares a documented storage contract against the adapter implementing it.** The page\nnamed an object (`user_app_state`), a key field (`kind`) and a column list, and every one of them\ncontradicted `packages/data-objectstack/src/userState.ts` — which states in its own docblock that\nthe parallel table was **considered and rejected**. No gate holds those two texts side by side.\n\n⚠️ And the `yaml` block is not invisible either: `check:doc-types` walks it and names the language in\nits diagnostic — measured by ablation on objectui#5950's branch (poison in the yaml block ⇒\n`check:doc-types` RED, reporting `(yaml)`; poison in prose outside every fence ⇒ GREEN; a control\npoison in a `typescript` fence ⇒ RED, naming the page). ⇒ the gate reads the block and asks the wrong\nquestion of it, which is a different defect from not reading it.\n\n## How long it survived, with its own evidence\n\n`packages/data-objectstack/CHANGELOG.md` `:2508`-`:2535`, the `5.0.0` minor\n「**Unify per-user UI state storage onto `sys_user_preference`**」, records the migration away from\n`user_app_state`, the rename of the option from `kind` to `key`, and — verbatim — 「Callers relying on\nthe old `user_app_state` table can pin `resource: 'user_app_state'` to keep the legacy behaviour,\n**but no backend ships that schema**」. That package is at **17.6.0** today. ⇒ the guide taught a\nshape nothing serves, across a major version boundary, under four green gates.\n\n⭐ A second reading in the same act shows the drift was **local to this page**:\n`packages/data-objectstack/README.md` and `packages/app-shell/README.md` both link to the guide and\nthe first ALREADY documents the correct `sys_user_preference` shape with the same field list. ⇒ two\ntexts in the tree disagreed and nothing compared them either.\n\n## The direction, ⛔ not chosen here\n\nThe missing instrument asks: **does a documented contract still match the implementation it names?**\nThat is not a grep — the page named the right *concepts* throughout while naming the wrong object,\nfield and columns. Plausible shapes, offered so the next reader does not start from nothing:\n\n1. **Pin the pair.** A test beside the adapter that asserts the guide names `sys_user_preference`,\n   `key` and the shipped column list — cheap, exact, and it goes red the day either side moves.\n   ⚠️ It only covers pages someone thought to pin.\n2. **Derive the claim.** Have the page's storage section generated from, or diffed against, the\n   adapter's declared options — no drift possible, at the cost of a build step for documentation.\n3. **Accept it and say so.** If neither is wanted, the honest act is to record that published docs\n   are unverified against implementation, so the next reader does not mistake four green gates for\n   coverage. ⛔ That is a decision, not an execution step.\n\nDedupe words: `doc gate storage contract drift` · `check-doc-types quoted literal only` ·\n`user-state-persistence four green gates` · `documented contract vs adapter pin` ·\n`UNGATED_DOCS ledger stale claim`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

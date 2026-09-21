@@ -1,0 +1,47 @@
+{
+  "number": 67,
+  "kind": "pull_request",
+  "title": "Release version 0.2.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "dependencies",
+    "designer",
+    "documentation",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T03:12:09Z",
+  "updated_at": "2026-01-15T03:46:16Z",
+  "closed_at": "2026-01-15T03:46:16Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T03:46:16Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/67",
+  "body": "Prepare version 0.2.0 release with test infrastructure and CI/CD workflows.\n\n## Changes\n\n**Version bumps**\n- All 11 packages updated: `0.1.0` → `0.2.0`\n  - Core: types, core, react, components, designer\n  - Plugins: charts, editor, kanban, markdown\n  - Utilities: cli, data-objectql\n\n**CHANGELOG**\n- Finalized v0.2.0 entry with release date (2026-01-15)\n- Documented test suite, CI/CD workflows, and documentation additions\n\n**Release artifacts**\n- Git tag `v0.2.0` created locally\n- `RELEASE_NOTES_v0.2.0.md` with deployment instructions\n\n## Post-merge\n\nAfter merging, push the release tag to trigger the GitHub Actions workflow:\n\n```bash\ngit checkout main && git pull\ngit tag -a v0.2.0 -m \"Release version 0.2.0\"\ngit push origin v0.2.0\n```\n\nThe workflow will create the GitHub release automatically. To publish to npm, uncomment the publish step in `.github/workflows/release.yml` and configure `NPM_TOKEN` secret.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 发一个版本\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

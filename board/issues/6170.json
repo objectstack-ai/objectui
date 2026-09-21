@@ -1,0 +1,29 @@
+{
+  "number": 6170,
+  "kind": "issue",
+  "title": "finding(plugin-timeline): the `timeline` renderer reads seven keys `TimelineSchema` does not declare, and declares three it never reads",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:blocked"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T22:10:00Z",
+  "updated_at": "2026-09-20T10:04:29Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6170",
+  "body": "Blocked-by: #10060\n\n<sub>⬆️ Re-pointed by the triage seat at 2026-09-20T10:04Z. This line read `Blocked-by: #6354` until now. #6354 was closed `duplicate` this round — ⛔ **not completed** — because `docs/NORTH-STAR.md` 〈阶段姿态〉 forbids one-card-per-key retirement (「声明了但不兑现的键按发布批量退役,不一键一卡」) and its work was folded into the release batch **#10060**. Left pointing at #6354, this card's unlock predicate (「the `Blocked-by:` target is closed」) would have fired on a **fold**, putting it back in the queue while the stage-2 tombstoning it waits for had not been done. ⛔ Nothing about this card's own direction, grade or route changed.</sub>\n\nFiled unassigned out of #6086 round 3. That round was naming the shape on property tables that named none; this table could not be named because the only candidate contradicts it.\n\n> **Status (2026-08-28):** stage 1 landed as PR #6352 (merged `e4559d1e0`, `Part of` — not `Fixes`). `TimelineSchema` now declares the authored+read set, `TimelineScale` is exported, `scale` is canonical with `timeScale` a deprecated alias, and `events` is no longer required. What remains is the ADR-0049 stage 2 tombstoning of `events` / `orientation` / `position`, which is **#6354** (`pm:on-hold`) — a breaking narrowing of a published type, maintainer floor. The `timeScale` alias retirement is **#6355**.\n\n## The fact\n\n`content/docs/plugins/plugin-timeline.mdx`'s `## Properties` table lists 8 keys. The only shape the tree names for a `timeline` node is `TimelineSchema` (`packages/types/src/data-display.ts:1204`), and it agrees on **1 of 8**.\n\n| | keys |\n| --- | --- |\n| the docs table claims | `variant`, `items`, `dateFormat`, `timeScale`, `rowLabel`, `minDate`, `maxDate`, `className` |\n| `TimelineSchema` declared (before PR #6352) | `type`, **`events`** (required), **`orientation`**, **`position`**, plus `BaseSchema` |\n\nOnly `className` (inherited) was common to both.\n\n⚠️ The count in this card's title is off by two, corrected by the implementing dev's census: against the renderer alone the read-and-never-declared set is **9, not 7** — this card omitted `scale` (added by #2942 and preferred over `timeScale`) and `onItemClick`. The declared-and-never-read count of **3** is exact.\n\n## Why it type-checked anyway\n\n`TimelineRenderer` (`packages/plugin-timeline/src/renderer.tsx:250`) is typed `schema: TimelineSchema` and destructures `variant`, `items`, `dateFormat` straight off it, then reads `schema.scale ?? schema.timeScale`, `schema.minDate`, `schema.maxDate`, `schema.rowLabel` further down. That compiles only because `BaseSchema` carries an index signature (`packages/types/src/base.ts:318`), so **any** key reads as `any`. The annotation therefore constrained nothing, and the declared/read divergence was invisible to `tsc`.\n\nThat was measured directly rather than argued: a probe authoring `variant: 'diagonal'`, `dateFormat: 'medieval'`, `scale: 'fortnight'` produced **zero** errors before the fix and three `TS2322`s after it.\n\nThe registration's own `inputs` metadata declares `variant` / `items` / `dateFormat` / … — i.e. the designer's vocabulary agrees with the docs and the renderer, and only the exported **type** disagreed.\n\n## Why it is worth a card\n\nThis is the same disease #6086 recorded, arriving from the source side: an exported type that is neither what authors write nor what the renderer reads, held together by an index signature that suppresses the only mechanical judge that would notice. `@objectstack/spec` also ships `ui/TimelineConfig.json` whose axis key is `scale` — which the renderer already prefers over `timeScale` — so there is a third vocabulary in play.\n\nThe producer-boundary check ruled binding by the maintainer was run and came back **negative**: spec's `ui/TimelineConfig.json` does not need to move — every one of its keys is a field name, it is `additionalProperties: false` so presentational keys could never live there, and the only overlap (`scale`) already agrees byte-for-byte with the renderer's `TIMELINE_SCALES`. No fork to the spec lane; `packages/spec` untouched.\n\n## Reproduce\n\n```\nsed -n '1199,1220p' packages/types/src/data-display.ts\ngrep -n 'schema\\.' packages/plugin-timeline/src/renderer.tsx\nsed -n '108,125p' content/docs/plugins/plugin-timeline.mdx\ngrep -n '\\[key: string\\]' packages/types/src/base.ts\n```\n\nRefs: #6086 · #6352 (stage 1, merged) · #6354 (stage 2, the blocker) · #6355 (`timeScale` alias retirement) · #6356 / #6357 / #6353 (findings from the same run).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

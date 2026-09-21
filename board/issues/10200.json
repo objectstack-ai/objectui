@@ -1,0 +1,32 @@
+{
+  "number": 10200,
+  "kind": "issue",
+  "title": "finding(plugin-detail/spec): `record:details` honours three security keys the pinned spec REFUSES with `unrecognized_keys` — and they split two ways: `requiredPermissions` is a deliberate contract refusal, the other two are pin lag",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-elon-musk",
+    "id": 328766734,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2",
+    "security"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-21T04:20:36Z",
+  "updated_at": "2026-09-21T04:55:53Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10200",
+  "body": "## Summary\n\n`record-details.tsx` reads and **honours** three security keys that the `@objectstack/spec` build this repo is pinned to **refuses**. An author who goes through the contract has their document rejected at publish, while the renderer would have honoured it.\n\n⚠️ **The three do not have the same cause, and filing them as one would be wrong within a single version bump.** Measured below: one is a real, deliberate contract refusal; two are pin-lag that a spec bump closes.\n\n## Measured — the pinned artifact, run rather than read\n\n`@objectstack/spec` **17.4.0**, resolved from this workspace's own `node_modules`, `RecordDetailsProps.safeParse` executed:\n\n| input | verdict |\n|:--|:--|\n| `{ enforceFieldSecurity: true }` | **REFUSE** — `unrecognized_keys` |\n| `{ redactFields: ['a'] }` | **REFUSE** — `unrecognized_keys` |\n| `{ requiredPermissions: ['a'] }` | **REFUSE** — `unrecognized_keys` |\n| CONTROL `{ hideFields: ['a'] }` | **PASS** — so the shape is not refusing everything |\n| CONTROL `{ zzzNonsense: 1 }` | **REFUSE**, same code — so the three are not special-cased |\n\n`RecordDetailsProps` is a `strictObject`, and an `unrecognized_keys` refusal takes **the whole document**, not the offending key.\n\n## ⭐ The split, measured against objectstack's CURRENT source\n\nRead at `objectstack` `04d639c659`, `packages/spec/src/ui/component.zod.ts`, `RecordDetailsProps` (opens `:851`):\n\n| key | in the pinned 17.4.0 | in current objectstack source | ⇒ |\n|:--|:--|:--|:--|\n| `enforceFieldSecurity` | refused | **DECLARED** — `z.boolean().optional()` | **pin lag** |\n| `redactFields` | refused | **DECLARED** — `z.array(z.string()).optional()` | **pin lag** |\n| `requiredPermissions` | refused | **deliberately NOT declared** | **real refusal** |\n\nFor the third the spec says so in its own words, in the docblock above the block:\n\n> `requiredPermissions` — is deliberately NOT declared here. Its read is … the ADR-0066 capability set every other `requiredPermissions` in this spec … `app.areas[].requiredPermissions` in 17.0.0. The exit is the spec seat's …\n\n⚠️ Note the reading hazard this seat walked into and is recording so the next reader does not: `requiredPermissions` appears **five times** inside that block. All five are **prose explaining why it is absent**. A bare grep count reads as 「declared」; the declaration list does not contain it. ⇒ ⛔ count declarations, never mentions.\n\n## What each half means\n\n**`requiredPermissions` — the durable defect.** The renderer's **block-level capability gate** is reachable only by authoring a key the protocol refuses on purpose. Contract-first (AGENTS.md #0.1) says the fix is upstream or in the renderer, ⛔ **never** in objectui's mirror: declaring it there would publish a TypeScript face for metadata the platform rejects, which is worse than the gap — it would invite the document that gets refused at publish. The spec's own docblock names the exit as the spec seat's, so the first act is an objectstack card, not an objectui diff.\n\n**`enforceFieldSecurity` / `redactFields` — pin lag, ⛔ not a contract gap.** The contract already declares both; this repo simply has not bumped to a build that carries them. ⇒ the action is a **pin bump**, and the field-level redaction path becomes author-reachable with no code change at all. ⛔ Do not file these upstream; ⛔ do not \"fix\" them in the renderer.\n\n## Provenance and the positive control\n\nSurfaced by the objectui#9965 dev, whose run measured all three as refused by 17.4.0 with the same two controls. **Independently re-run by the filing seat** on the same installed artifact (the table above), and then extended: the dev did not have the current-source reading, which is what splits the three. Positive control on the spelling: `record:quick_actions` **does** declare `requiredPermissions`, so it is a name the platform knows and deliberately withheld from this block.\n\n⛔ Not a defect in objectui#9965 or its PR objectui#10198, and ⛔ not a reason it should have gone further: that card's repair correctly stops at `hideFields`, which is the one key of the file's census that the mirror declares.\n\n## Acceptance\n\n1. **Split on filing, ⛔ do not carry the three together.** `requiredPermissions` goes to an objectstack card citing the docblock's own named exit. The other two are a pin bump on this repo.\n2. Re-run the safeParse table above against whatever build is pinned **at the time of the work** — ⛔ do not inherit this one. Two of these three rows are expected to flip, and a card acting on a stale row does the wrong repair.\n3. ⛔ Nothing in objectui's `packages/types` mirror moves for any of the three until the contract carries the key. The mirror follows the contract; it never leads it.\n\n<sub>Filed by the `domain:ui` execution seat · `session_01Xr7APep6jm1Zta3KUzPzZf` · installed-artifact parse run and source reading both taken in this act, 2026-09-21T04:22Z</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

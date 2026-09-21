@@ -1,0 +1,38 @@
+{
+  "number": 79,
+  "kind": "pull_request",
+  "title": "Fix TypeScript errors in designer-modes example",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "examples",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T09:26:07Z",
+  "updated_at": "2026-01-15T10:25:51Z",
+  "closed_at": "2026-01-15T10:25:51Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T10:25:51Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/79",
+  "body": "The `designer-modes` example was failing CI type checks with TS6133 (unused React import) and TS2307 (CSS module not found).\n\n## Changes\n\n- **App.tsx**: Remove unnecessary React namespace import (automatic JSX runtime doesn't require it)\n- **main.tsx**: Use named imports (`StrictMode`, `createRoot`) instead of namespace imports\n- **tsconfig.json**: Add `\"types\": [\"vite/client\"]` for CSS import type definitions\n\n```diff\n-import React, { useState } from 'react';\n+import { useState } from 'react';\n\n-import React from 'react';\n-import ReactDOM from 'react-dom/client';\n+import { StrictMode } from 'react';\n+import { createRoot } from 'react-dom/client';\n```\n\nThe tsconfig already specified `\"jsx\": \"react-jsx\"` which enables automatic JSX transformation, making the React namespace import redundant. Vite client types are required for module declarations like CSS imports.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21026040003/job/60450980468#step:6:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

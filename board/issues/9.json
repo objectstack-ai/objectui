@@ -1,0 +1,33 @@
+{
+  "number": 9,
+  "kind": "issue",
+  "title": "完善设计器的每一个细节",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-13T18:12:01Z",
+  "updated_at": "2026-01-13T18:38:50Z",
+  "closed_at": "2026-01-13T18:38:50Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9",
+  "body": null
+}

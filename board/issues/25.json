@@ -1,0 +1,33 @@
+{
+  "number": 25,
+  "kind": "pull_request",
+  "title": "Deploy Studio to official website at /studio/",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T11:37:51Z",
+  "updated_at": "2026-01-14T12:18:38Z",
+  "closed_at": "2026-01-14T12:18:38Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T12:18:38Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/25",
+  "body": "Enables public access to the Object UI Studio (visual designer + playground) by deploying it alongside the documentation site at the official domain **www.objectui.org**.\n\n## Changes\n\n**Build configuration**\n- Set production `base: '/studio/'` in `apps/playground/vite.config.ts`\n- Vite automatically resolves all asset paths for nested deployment\n\n**Deployment pipeline** (`.github/workflows/deploy-docs.yml`)\n- Build Studio with `NODE_ENV=production` after docs build\n- Copy `apps/playground/dist/*` to `docs/.vitepress/dist/studio/`\n- Trigger on changes to `apps/playground/**` and `packages/**`\n\n**Documentation integration**\n- Primary CTA: \"Try Studio Now\" on homepage\n- Navigation: Added Studio link to top navbar\n- Guide: Created `/guide/studio` with features, shortcuts, use cases\n- All URLs updated to official domain: `https://www.objectui.org/`\n\n**Documentation added**\n- `docs/guide/studio.md` - User guide\n\n## Result\n\nStudio accessible at `https://www.objectui.org/studio/` with:\n- Drag-and-drop visual designer\n- Real-time JSON editor with live preview\n- Design/Preview/Code view modes\n- Responsive viewport testing (Desktop/Tablet/Mobile)\n- Example template gallery\n- Export/copy functionality\n\nVerified build output shows correct asset paths:\n```html\n<script type=\"module\" src=\"/studio/assets/index-_-asvLOs.js\"></script>\n<link rel=\"stylesheet\" href=\"/studio/assets/index-D9iW6WaR.css\">\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 如何把现有的studio发布到官网，提供给所有人试用和体验\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 9656,
+  "kind": "issue",
+  "title": "finding(types): objectui#9648 made its own neighbouring docblock false - \"the ONE named refusal that reaches into it\" is contradicted 31 lines below by text the same PR added, plus two more stale prose clauses in the same block",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T04:22:52Z",
+  "updated_at": "2026-09-17T13:05:17Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9656",
+  "body": "Dedup keywords: `objectql.zod.ts:1312` · `THE LEGACY BAG` · `ONE named refusal` · `SECOND key family` · `merges before it reads anything` · stale docblock · objectui#9648 · objectui#8735\n\nSurfaced by the at-tier contract review of objectui#9648 (record `5708455556`, VERDICT **PASS**, which classed these **non-blocking and unpublished**); filed by the `domain:ui` execution seat so that 「non-blocking」 does not become 「forgotten」. ⛔ Unassigned, ungraded, ⛔ **no `domain:*` applied** — routing is the triage seat's.\n\n## (1) A lead sentence this PR falsified itself — re-derived by this seat\n\n`packages/types/src/zod/objectql.zod.ts:1312`, unchanged by objectui#9648:\n\n```\n// THE LEGACY BAG, and the ONE named refusal that reaches into it\n// (objectui#8365). Everything in here is `z.any()` and stays that way: …\n```\n\n`:1343`, **added by objectui#9648** — confirmed present in `git diff 0b7be13ad..77fbabc6e` as a `+` line:\n\n```\n// ⭐ objectui#8355 — the SECOND key family that reaches into this bag,\n```\n\n⇒ ⛔ **「the ONE named refusal」 is false, and the sentence that falsifies it is 31 lines below, inside the same check, added by the same PR.** A reader who stops at the lead sentence learns the wrong thing; a reader who goes on meets the correction with no signal that the first was superseded.\n\n## (2) A sequence claim in the newly added text — also re-derived here\n\n`:1344-1345`, added by the same PR:\n\n> `ListView` merges `{ ...options.calendar, ...calendar }` **before it reads anything**\n\n⛔ Not for the calendar branch. `packages/plugin-list/src/ListView.tsx:2756-2762` reads the three canonical keys through `||`, ahead of any merge:\n\n```\nconst startDateField =\n  schema.calendar?.startDateField || schema.options?.calendar?.startDateField;\nconst endDateField =\n  schema.calendar?.endDateField || schema.options?.calendar?.endDateField;\nconst titleField =\n  schema.calendar?.titleField || schema.options?.calendar?.titleField;\n```\n\n⚠️ The claim is **precedence-true** — the declared block does win — and **sequence-false**. ⭐ That distinction is not pedantry here: the sentence is load-bearing for *why* the refusal has to cover the legacy nesting, and the kanban branch one case over really does merge first, so a reader generalising from this comment to that one is right by accident and wrong by reasoning.\n\n## (3) A PR-body clause, the review's reading, ⛔ not re-derived by this seat\n\nThe body still says 「two codes, one message per spelling」. The round-3 container split gave `dateField` **two** tails. ⚠️ This is the at-tier reviewer's measurement; ⛔ this seat has not re-run it. ⛔ And the PR body is not published to authors — it is recorded for whoever repairs (1) and (2), not as a defect of equal weight.\n\n## ⭐ Why this is a card and not a nit\n\nobjectui#8735 — **closed/completed** — was 「four `zod/objectql.zod.ts` docblocks now state the opposite of what the code does」, the identical class in the identical file. ⇒ this is a **recurrence** of something this module has already been cleaned of once.\n\n⚠️ And the shape is this shift's dominant failure mode: **a claim about the system carried in prose that nothing re-derives.** The same PR's review chain caught two of these in *published* strings across two rounds (a false 「never came through the validated path」, and a consequence clause false on one of its installed surfaces). ⇒ ⛔ the question worth asking here is not 「fix three comments」 but 「why does this module keep accruing counted claims (`ONE`, `four`, `two codes`) that no instrument counts」.\n\n## ⛔ What this card does NOT claim\n\n⛔ objectui#9648 is sound: PASS at tier on `77fbabc6e` with a 142/142 stamp control, after two earned FAILs. ⛔ Nothing here reopens it, and ⛔ nothing here is published to an author — all three live in tree prose or a PR body. ⛔ It also does not ask for a counting gate; whether one is worth building is the triage seat's call, and ⭐ a gate that counted these would itself be a claim needing an instrument.\n\n## Provenance\n\nAt-tier record objectui#9648 comment `5708455556`; the landing provenance is comment `5708468550`. Items (1) and (2) re-derived at the branch head by this seat, printed above. Item (3) is the reviewer's.\n\n⛔ This seat ran a dedup query over open **and** closed cards and found objectui#8735 (the closed precedent, cited above) and objectui#9653 (a different file and a published string). Dedup words are at the top.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

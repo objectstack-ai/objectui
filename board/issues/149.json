@@ -1,0 +1,37 @@
+{
+  "number": 149,
+  "kind": "pull_request",
+  "title": "Add inline data support for ObjectTable and ObjectForm to fix documentation examples",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-22T11:43:00Z",
+  "updated_at": "2026-01-22T13:05:04Z",
+  "closed_at": "2026-01-22T13:05:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-22T13:05:03Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/149",
+  "body": "Documentation examples for `object-table` and `object-form` showed \"Loading users...\" and \"Loading form...\" indefinitely because both components always attempted to fetch from an ObjectQL server that doesn't exist in browser-only contexts.\n\n## Changes\n\n### ObjectTable\n- **Extended ObjectTableSchema** with optional `data` property for static/demo data\n- **Made dataSource optional** when inline data is provided\n- **Updated ObjectTable component** to:\n  - Skip server fetching when `data` is present\n  - Auto-generate columns from data structure if not explicitly defined\n  - Handle delete operations for both inline and server-backed modes\n- **Fixed documentation** column property names (`key`/`label` → `accessorKey`/`header`)\n\n### ObjectForm\n- **Extended ObjectFormSchema** with optional `initialData` property for static/demo data\n- **Made dataSource optional** when inline fields (`customFields`) are provided\n- **Updated ObjectForm component** to:\n  - Skip server fetching when inline fields are present\n  - Use `customFields` directly instead of generating from object schema\n  - Handle form submission without dataSource for demo purposes\n- **Fixed documentation** to use `customFields` and added required `mode` property\n\n## Usage\n\nDocumentation examples now work without a server:\n\n**ObjectTable:**\n```tsx\n<InteractiveDemo\n  schema={{\n    type: \"object-table\",\n    objectName: \"users\",\n    columns: [\n      { header: \"Name\", accessorKey: \"name\" },\n      { header: \"Email\", accessorKey: \"email\" }\n    ],\n    data: [\n      { id: 1, name: \"Alice Johnson\", email: \"alice@example.com\" },\n      { id: 2, name: \"Bob Smith\", email: \"bob@example.com\" }\n    ]\n  }}\n/>\n```\n\n**ObjectForm:**\n```tsx\n<InteractiveDemo\n  schema={{\n    type: \"object-form\",\n    objectName: \"user\",\n    mode: \"create\",\n    customFields: [\n      { name: \"name\", label: \"Full Name\", type: \"text\", required: true },\n      { name: \"email\", label: \"Email\", type: \"email\", required: true }\n    ]\n  }}\n/>\n```\n\n## Result\n\n**ObjectTable** - renders immediately with inline data:\n\n<img src=\"https://github.com/user-attachments/assets/bc01c222-128a-4edc-9e83-e2d8373d64ea\">\n\n**ObjectForm** - renders immediately with inline field definitions:\n\n<img src=\"https://github.com/user-attachments/assets/94beb101-412f-4cce-902d-3450c18eb149\">\n\nBoth components now render immediately with inline data. Backward compatible—existing server-backed usage unchanged.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> plugin-object 在fumadocs文档中的例子一直显示Loading users...，能否在浏览器中运行虚拟的服务端\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

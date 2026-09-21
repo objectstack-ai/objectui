@@ -1,0 +1,29 @@
+{
+  "number": 6327,
+  "kind": "issue",
+  "title": "finding(components): three near-identical menu-item recursions in `renderers/overlay/` — the same icon bug has now been repaired in two of them separately",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T12:59:12Z",
+  "updated_at": "2026-08-25T18:05:23Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6327",
+  "body": "Observation recorded while repairing #6278. Filed unassigned; no fix attempted, and deliberately **not** `pm:queue` — see the last section.\n\n## What was measured, at `ad54f7587`\n\n`packages/components/src/renderers/overlay/` contains three separate recursive menu-item renderers over the **same** item shape (`MenuItem` from `packages/types/src/overlay.ts`, or an `any[]` standing in for it):\n\n| file | helper | arms |\n|---|---|---|\n| `dropdown-menu.tsx` | `renderMenuItems` | leaf, submenu trigger (recursive) |\n| `context-menu.tsx` | `renderContextMenuItems` | leaf, submenu trigger (recursive) |\n| `menubar.tsx` | inline `items.map` | leaf, submenu trigger, nested child (one level, non-recursive) |\n\nThe first two differ only in the imported component names and in how a `shortcut` is drawn. The duplication is acknowledged in the source itself — `context-menu.tsx` carries the comment:\n\n```\n// Reuse helper for recursive menu items if I could share it, but for now duplicate concise logic\n```\n\n## The cost, as actually paid\n\nThe same defect — an item's authored `icon` not reaching a glyph — has now been diagnosed and repaired **once per copy**, in sequence:\n\n- #5930 repaired `dropdown-menu` (PR #5994), and ruled that repairing only the leaf arm and not the submenu-trigger arm would be \"a narrower version of the same bug\".\n- #6278 repaired `context-menu` three weeks later, porting that same diff verbatim into the file next door, including the same both-arms requirement.\n- #6326 records that `menubar` still carries it, on all three of its arms.\n\nEach copy also had to be censused separately in `scripts/check-lucide-icon-record-names.mjs`, and `menubar` cannot be censused at all today because nothing authors the key.\n\nSo this is not a tidiness observation: it is a measured pattern of one bug costing three diagnoses, three repairs and three census entries, with the divergence risk that the three arms' behaviour now drifts independently.\n\n## Why this is filed as an observation, not queued\n\nTwo reasons, both arguing against acting on it now:\n\n1. **It has no pull yet.** Nothing is blocked on the duplication; the concrete defect it produced is already answered for two of the three files. Under the startup-scope principle (core capability first, no speculative refactors), a shared-helper extraction that serves only future hypothetical bugs should wait for a real one.\n2. **It overlaps work already queued.** #5935 consolidates the eight lucide icon resolvers into one seam and would rewrite the resolution half of these renderers anyway. Extracting a shared menu-item helper before that lands would mean touching the same lines twice, in the wrong order.\n\nThe natural moment to reconsider is after #5935 lands, or the next time a third defect has to be fixed once per copy. Recording it now so that moment is recognisable rather than rediscovered.\n\n⚠️ Any consolidation must preserve what #5930 ruled: the icon resolves through `resolveIcon` (the lucide RECORD surface), **not** `LazyIcon`, which degrades an unknown name to the `Database` glyph and trades a no-icon failure for a wrong-icon one."
+}

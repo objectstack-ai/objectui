@@ -1,0 +1,43 @@
+{
+  "number": 87,
+  "kind": "pull_request",
+  "title": "Add ObjectQL 1.9.1 integration with ObjectTable and ObjectForm components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "examples",
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "plugin: kanban"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-17T00:52:52Z",
+  "updated_at": "2026-01-17T06:03:28Z",
+  "closed_at": "2026-01-17T06:03:28Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-17T06:03:28Z",
+  "comments": 19,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/87",
+  "body": "## Task: Update ObjectQL and Create Object Components Package\n\n### ✅ All Tasks Completed Successfully!\n\n#### Updates Made:\n- [x] Update ObjectQL dependencies to latest version (1.9.1)\n- [x] Create new package for ObjectQL-specific components\n- [x] Define ObjectTable and ObjectForm type schemas\n- [x] Implement ObjectTable component\n- [x] Implement ObjectForm component\n- [x] Enhance ObjectQLDataSource\n- [x] Build, test, and validate\n- [x] Add showcase examples for ObjectQL components\n- [x] Renamed package to follow naming convention\n- [x] **NEW: Fixed code review issues**\n  - [x] Corrected import paths in README from `@object-ui/data-object` to `@object-ui/plugin-object`\n  - [x] Added comprehensive JSDoc for `mapFieldTypeToFormType` helper function\n  - [x] Enhanced layout documentation to clarify grid layout support status\n  - [x] Successfully built and validated all changes\n\n### Code Review Fixes:\n1. **README Import Paths**: Fixed incorrect import statements showing old package name\n2. **JSDoc Documentation**: Added detailed documentation for field type mapping function explaining the conversion logic\n3. **Layout Documentation**: Clarified that `grid` layout is experimental and currently falls back to `vertical` layout\n\n### Package Naming:\nFollowing the established pattern where UI component packages use the `plugin-` prefix:\n- ✅ `@object-ui/plugin-object` - ObjectQL UI components plugin (ObjectTable, ObjectForm)\n- ✅ `@object-ui/data-objectql` - ObjectQL data adapter (unchanged)\n\n### Architecture:\n```\n@object-ui/plugin-object (ObjectQL UI Components Plugin)\n    ↓ depends on\n@object-ui/data-objectql (ObjectQL Data Adapter)\n    ↓ uses  \n@objectql/sdk (Official SDK)\n```\n\nAll issues identified in code review have been addressed and the package builds successfully.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> objectql 更新到最新版，新增个软件包，开始开发object相关的组件对象表格和对象表单\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

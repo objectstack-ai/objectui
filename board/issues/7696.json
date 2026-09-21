@@ -1,0 +1,32 @@
+{
+  "number": 7696,
+  "kind": "issue",
+  "title": "Analytics: a chart renders English option labels while the neighbouring list view is correct — the stated cause (#4324/#4330 leaving a cell uncovered) is FALSIFIED; determine which of the five translation-starvation paths is live",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "i18n",
+    "pm:awaiting-maintainer",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T06:10:21Z",
+  "updated_at": "2026-09-19T03:31:29Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7696",
+  "body": "Found while retiring the last i18n exemptions in the downstream `duly` app (objectstack-ai/duly#106), on `@objectstack/*` **17.3.0**. Filing rather than working around it: the app has no knob for this, and the two obvious app-side fixes are both losses (write the option labels in Chinese in the object, which breaks `en`; or drop the legend).\n\n## The gap, as a 2×2\n\nTwo cards have closed three of the four cells. The fourth is still open and nothing tracks it:\n\n| | **dotted** dimension (client-resolved) | **local** select dimension (server-resolved) |\n|:--|:--|:--|\n| **chart** (legend / series) | fixed by #4030 / PR #4324 | ⬅ **this card — still English** |\n| **table / pivot / report block** | fixed by #4030 / PR #4324 | fixed by #4330 / PR #4388 |\n\n#4324 localizes the label net \"only where the net RESOLVES labels client-side (dotted dimensions, chart paths that load object metadata)\" (#4330's own words). #4330/#4388 then took the server-resolved **local** select path — but scoped to **table/pivot and the dataset report block**. A **chart** fed by a local select dimension is server-resolved too, and it was in neither scope.\n\n## Measurement\n\n`duly_duty_register` is a dataset on `duly_duty` with a local dimension `form` (a `select` with three options) and a pie widget with `showLegend: true`. `objects.duly_duty.fields.form.options.*` **is** in the shipped zh-CN bundle, and the list view beside the dashboard renders it correctly (`周期性`).\n\n`POST /api/v1/analytics/dataset/query`, same payload, only `accept-language` varying:\n\n```\n== accept-language: zh-CN\n  rows:         ['One-off', 'Recurring', 'Standing']\n  field labels: ['形式', '清单内职责']\n== accept-language: zh\n  rows:         ['One-off', 'Recurring', 'Standing']\n  field labels: ['形式', '清单内职责']\n== accept-language: en\n  rows:         ['One-off', 'Recurring', 'Standing']\n  field labels: ['Form', 'Duties on the register']\n```\n\nTwo things this pins:\n\n1. **The locale reaches the endpoint and is honoured** — `fields[].label` switches with it (those are dataset dimension/measure labels, newly translatable via `translateDataset` in objectstack#14381). So this is not a missing-locale problem.\n2. **`rows[].form` is byte-identical in all three locales.** The option label is baked into the row server-side; `drillRawRows` keeps the stored values (`one_off` / `recurring` / `standing`) beside it. The console receives the English and has nothing to localize against, exactly the shape #4330 describes — one surface over.\n\nThe rendered legend reads `One-off / Recurring / Standing` under a title, description and axis labels that are all Chinese.\n\n## Suggested landing\n\nThe same seam #4388 used (`resolveDimensionFieldMeta` → `localizeFieldOptions`), extended to the chart path when the dimension is a local select. #4330's PM ruling already amended the #4263 no-metadata-read boundary deliberately for table/pivot and recorded the reasoning; a chart with a local select dimension is the same read for the same reason, so this looks like widening that amendment rather than opening a new one. Identity keys (colour mapping, category order, drill filters) stay on stored values per the #4263/#4273 conventions.\n\nRefs #4030, #4330, PR #4324, PR #4388, #4263, ADR-0021. Downstream evidence and screenshots: objectstack-ai/duly#106."
+}

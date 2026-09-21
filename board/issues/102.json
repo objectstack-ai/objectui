@@ -1,0 +1,48 @@
+{
+  "number": 102,
+  "kind": "pull_request",
+  "title": "Add MIT license headers to all source files",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "data-adapter",
+    "designer",
+    "examples",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-18T03:53:22Z",
+  "updated_at": "2026-01-18T05:28:56Z",
+  "closed_at": "2026-01-18T05:28:55Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-18T05:28:55Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/102",
+  "body": "Adds MIT license headers to all 275 TypeScript, JavaScript, and Vue source files across the monorepo.\n\n## Changes\n\n- **Script**: Created `scripts/add-license-headers.mjs` to automate header insertion\n  - Recursively processes `.ts`, `.tsx`, `.js`, `.jsx`, `.vue` files\n  - Excludes `node_modules`, `dist`, `build`, `.git`, `coverage`\n  - Detects existing headers in first 10 lines to prevent duplicates\n  - Idempotent: safe to re-run on any codebase state\n\n- **Headers**: Applied to all source files across packages, examples, and tooling\n  - Positioned before all imports and code\n  - Format: 8-line JSDoc-style comment with copyright notice and MIT license reference\n\n## Header Format\n\n```javascript\n/**\n * ObjectUI\n * Copyright (c) 2024-present ObjectStack Inc.\n *\n * This source code is licensed under the MIT license found in the\n * LICENSE file in the root directory of this source tree.\n */\n```\n\n## Usage\n\nRun `node scripts/add-license-headers.mjs` to add headers to new files.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 我需要给我的开源项目 ObjectUI 的所有源代码文件添加 MIT 许可协议的头部注释。\n> \n> 请编写一个 Node.js 脚本（或者直接修改文件，如果你有权限）来完成以下任务：\n> \n> 1. **目标文件**：递归遍历项目中所有的 `.ts`, `.js`, `.tsx`, `.jsx`, `.vue` 文件。\n> 2. **排除目录**：严格排除 `node_modules`, `dist`, `build`, `.git`, `coverage` 目录。\n> 3. **防止重复**：读取每个文件，如果文件顶部前 10 行内已经包含 \"Copyright\" 或 \"License\" 关键词，则跳过该文件，不要重复添加。\n> 4. **插入位置**：注释必须插在文件的最顶端（在所有的 import 语句之前）。\n> 5. **注释内容模板**：\n>    ```javascript\n>    /**\n>     * ObjectUI\n>     * Copyright (c) 2024-present ObjectStack Inc.\n>     *\n>     * This source code is licensed under the MIT license found in the\n>     * LICENSE file in the root directory of this source tree.\n>     */\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

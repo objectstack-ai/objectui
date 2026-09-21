@@ -1,0 +1,29 @@
+{
+  "number": 3912,
+  "kind": "issue",
+  "title": "页面块检查器的 `BlockPropField` 没有格式/校验能力位 —— 所有标识符类字段(section `name`、tab `key`、accordion `value`)只能靠 placeholder 陈述约定",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T01:54:23Z",
+  "updated_at": "2026-09-16T21:02:22Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3912",
+  "body": "发现于 #3819 的实施过程(围栏外,PR #3911 未夹带)。未认领,交 PM triage。\n\n## 机制\n\n`packages/app-shell/src/views/metadata-admin/previews/block-config.ts` 顶部的 `BlockPropField` 联合类型,`text` 这一支的全部可选能力就是 `placeholder`:\n\n```\n| { name: string; label: string; kind: 'text'; placeholder?: string }\n```\n\n整个联合里没有任何一支带 `pattern` / `validate` / `description`。而 `PageBlockInspector` 的 `renderField` 把 `f.label`/`f.placeholder` 直接交给 `InspectorTextField`,也没有任何校验环节。\n\n后果:凡是**值域是标识符**的curated 字段,设计器都只能\"口头\"陈述约定,拿不到任何机械拦截:\n\n- `record:details` 的 `sections[].name` —— i18n 锚点,spec describe 明写 snake_case(#3819 刚补上这个位,约定只能写在 placeholder 里)\n- `page:tabs` 的 `items[].key`\n- `page:accordion` 的 `items[].value`\n\n作者在这些格子里敲 `My Section!` 或 `Contact Info`,设计器全盘接受、写进 draft,坏掉的锚点/键要到上游 lint 或发布校验才被说出来 —— 而那时错误指认的是一个作者已经忘了自己在哪个格子里敲过的键。\n\n同一个仓里其实已有 snake_case 派生/规范化的现成件(`previews/object-fields-io.ts` 的 `Normalize an arbitrary string into a valid snake_case field name`、`metadata-admin/createDerive.ts`),`default-schemas.ts` / `anchors.ts` 也已经在用 JSON-Schema 的 `pattern: '^[a-z_][a-z0-9_]*$'` 表达同一条约束。也就是说约束在别处是**声明式**的,只有块检查器这条路上退化成了提示文字。\n\n## 为什么标 `finding` 而不是 bug\n\n今天没有用户\"撞上\"它:错值最终会被上游拦住,且需要作者主动敲一个不合约定的字符串。但它正是 AI 生成元数据最容易藏错的形状 —— 宽松的消费端。#3819 的取舍是\"没有能力位就不为一个字段单独造\",所以把能力位本身的缺失单独记在这里,严重度交 PM 分诊评。\n\n## 可能的方向(未做取舍)\n\n- 给 `BlockPropField` 的标量支加可选 `pattern?: string`(+ 一条 message),由 `renderField` 渲染成 `InspectorTextField` 的错误态;好处是**声明即强制**,和 `default-schemas.ts` 已有的表达方式对齐。\n- 或者加 `description?: string`,把 placeholder 现在超载承担的说明职责分出来(placeholder 只放示例值)。\n- 两者都会改 `BlockPropField` 这个公共形状,属于契约面决定,不适合夹带在别的单里。\n\n## 参考位置\n\n- `packages/app-shell/src/views/metadata-admin/previews/block-config.ts` —— `BlockPropField` 联合类型定义\n- `packages/app-shell/src/views/metadata-admin/inspectors/PageBlockInspector.tsx` —— `renderField`\n- `packages/app-shell/src/views/metadata-admin/inspectors/_shared.tsx` —— `InspectorTextField`\n- `packages/app-shell/src/views/metadata-admin/previews/object-fields-io.ts` —— 已有的 snake_case 规范化件\n- `packages/app-shell/src/views/metadata-admin/default-schemas.ts:29`、`anchors.ts:117` —— 同一约束的声明式写法\n\n关联:#3819 / PR #3911(补了 `sections[].name`,并在 PR 里记录了\"不为此单独造校验\"的取舍)\n"
+}

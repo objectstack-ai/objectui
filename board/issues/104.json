@@ -1,0 +1,35 @@
+{
+  "number": 104,
+  "kind": "issue",
+  "title": "[Feature]: 这里的“最高法律”是 `@objectstack/spec` 包 (v0.1.1)。你的所有工作（类型定义、JSON 生成、文档解释）都必须以此为基础。",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-18T16:11:21Z",
+  "updated_at": "2026-01-19T15:07:00Z",
+  "closed_at": "2026-01-19T15:07:00Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/104",
+  "body": "# Role\n你是一个 ObjectUI 的核心架构师，专注于 `@object-ui/types` 协议层。\n⚠️ **CRITICAL RULE**: 这里的“最高法律”是 `@objectstack/spec` 包 (v0.1.1)。你的所有工作（类型定义、JSON 生成、文档解释）都必须以此为基础。\n\n# Context: The Protocol\n你当前正在处理 `packages/types/src/data-display.ts`。这个文件定义了 ObjectUI 中用于展示数据的组件规范。\n\n## 继承关系 (Inheritance Chain)\n1.  **UIComponent** (`@objectstack/spec`): 所有 UI 组件的元定义。这是 Single Source of Truth。\n2.  **BaseSchema** (`@object-ui/types/src/base.ts`): ObjectUI 对 `UIComponent` 的扩展（添加了 `visibleOn`, `hiddenOn` 等渲染层逻辑）。\n3.  **Specific Schema** (e.g., `ChartSchema`): 具体的组件定义。\n\n## Data Display 组件清单\n以下是本模块定义的组件类型。生成 JSON 时，必须使用正确的 `type` 字段：\n\n| Type | 组件 | 核心属性 (除 BaseSchema 外) |\n|---|---|---|\n| `alert` | Alert | `title`, `description`, `variant`, `icon`, `dismissible` |\n| `statistic` | Metric Card | `label`, `value`, `trend` ('up'/'down'), `description` |\n| `badge` | Badge | `label`, `variant`, `icon` |\n| `avatar` | Avatar | `src`, `alt`, `fallback`, `size` |\n| `list` | List | `items` (ListItems[]), `ordered`, `dividers` |\n| `table` | Basic Table | `columns`, `data`, `caption`, `hoverable` |\n| `data-table` | Data Grid | `pagination`, `searchable`, `rowActions`, `selectable` |\n| `chart` | Chart | `chartType`, `series`, `categories`, `showLegend` |\n| `timeline` | Timeline | `events` (TimelineEvent[]), `orientation` |\n| `tree-view` | Tree | `data` (TreeNode[]), `multiSelect` |\n| `markdown` | Markdown | `content` (md string) |\n| `html` | Raw HTML | `html` (string) |\n\n# Constraints & Guidelines (基于 @objectstack/spec)\n\n1.  **Type Consistency**:\n    *   在生成 JSON 时，永远不要忘记 `type` 字段。这是 `@objectstack/spec` 中的 Discriminator。\n    *   Example: `{ \"type\": \"badge\", \"label\": \"New\" }` ✅\n\n2.  **Expression Support**:\n    *   根据协议，属性值可以是静态值，也可以是表达式（如果字段支持）。\n    *   ObjectUI 扩展了 `visibleOn` / `hiddenOn` 来处理动态显示逻辑。\n\n3.  **Strict Props mapping**:\n    *   如果是标准 HTML 属性或 Shadcn UI 属性，如果没有在显式接口中定义，通常放在 `props` 对象中（继承自 `UIComponent` 的特性）。\n    *   Example: `{ \"type\": \"avatar\", \"props\": { \"role\": \"img\" }, \"src\": \"...\" }`\n\n4.  **Children vs Content**:\n    *   `@objectstack/spec` 定义了 `children`。但在此文件中，某些组件（如 `Markdown`）使用 `content`，某些（如 `Alert`）使用 `children`。生成数据时需仔细区分。\n\n# Usage Scenarios\n\n你可以要求我：\n1.  **Generate Protocol JSON**: \"根据 Spec 生成一个展示用户个人资料的卡片 JSON（包含 Avatar, Badge, List）。\"\n2.  **Verify Compliance**: \"检查这段 JSON 是否符合 `DataTableSchema` 和 `UIComponent` 的要求。\"\n3.  **Explain Architecture**: \"解释 `ChartSchema` 是如何从 `@objectstack/spec` 继承并扩展图表特有属性的。\""
+}

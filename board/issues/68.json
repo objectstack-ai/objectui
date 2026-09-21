@@ -1,0 +1,35 @@
+{
+  "number": 68,
+  "kind": "pull_request",
+  "title": "Simplify studio homepage to professional development tool aesthetic",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T03:16:18Z",
+  "updated_at": "2026-01-15T04:24:16Z",
+  "closed_at": "2026-01-15T04:24:16Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T04:24:16Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/68",
+  "body": "The homepage had a marketing-focused design (hero section, decorative animations, excessive whitespace) unsuitable for a professional development tool.\n\n## Changes\n\n**Header**\n- Reduced height: 64px → 56px\n- Simplified buttons: removed shadows, reduced padding, changed \"New Design\" → \"New\"\n- Removed decorative elements (blur, heavy borders)\n\n**Hero Section Removed**\n- Large headline \"Build Stunning Interfaces, Purely from JSON\"\n- Marketing copy and product description\n- Decorative blur animations, pulsing badges, transform effects\n- Padding reduced: `py-16` → `py-6`\n\n**Category Navigation**\n- Changed from pill-style buttons to tab navigation with bottom border (VS Code-style)\n- Shows counts inline: \"Layouts (3)\"\n- Active state indicated by border-bottom instead of background fill\n\n**Template Grid**\n- Increased density: 3 → 4 columns on xl screens\n- Simplified cards: removed decorative mock windows, animations, overlays\n- Card height: fixed 288px → dynamic with `aspect-video`\n- Clean hover: border color change only\n\n**Routing Fix**\n- Template navigation corrected: `/${key}` → `/studio/${key}`\n\n## Code Impact\n`apps/playground/src/pages/Home.tsx`: +77 / -108 lines\n\n## Before / After\n\n**Before - Marketing Landing Page:**\n![before](https://github.com/user-attachments/assets/721da097-c029-4320-8685-e600ae99b0d6)\n\n**After - Professional Tool Interface:**\n![after](https://github.com/user-attachments/assets/24f6b880-656e-4577-944b-2f9436e6157f)\n\n**Category View (Data Display):**\n![category](https://github.com/user-attachments/assets/a674227d-3792-4aed-ad74-cecf3ba0982a)\n\nThe new design aligns with professional development tools (VS Code, Figma, CodeSandbox) - information-dense, minimal decoration, functional hierarchy.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 简化studio首页，你必须像一个专业的开发工具\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

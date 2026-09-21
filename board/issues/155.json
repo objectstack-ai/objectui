@@ -1,0 +1,36 @@
+{
+  "number": 155,
+  "kind": "pull_request",
+  "title": "Restructure documentation with multi-section navigation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T03:43:12Z",
+  "updated_at": "2026-01-23T04:12:28Z",
+  "closed_at": "2026-01-23T04:01:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T04:01:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/155",
+  "body": "Implements Fumadocs multi-section navigation pattern. Replaces the monolithic 50+ item sidebar with three focused sections: Guide, Components, and Ecosystem. Users now navigate via top-level links, with sidebars showing only relevant content for each section.\n\n## Changes\n\n### Navigation Structure\n- **Added top navigation**: Guide | Components | Ecosystem | Blog\n- Updated `app/docs/layout.tsx` and `app/page.tsx` with section links\n- Sidebar content now switches based on active section\n\n### Content Organization\n\n**Guide** (`/docs/guide`)\n- Getting Started: installation, CLI, studio\n- Concepts: schema rendering, data sources, expressions, plugins\n- Architecture: system design, component specs, monorepo structure\n- Reference: API docs for all packages, protocol specifications\n- Best Practices: security guidelines\n- Maintenance: versioning, migration guides\n- Support: troubleshooting, FAQ, contributing\n\n**Components** (`/docs/components`)\n- Preserved existing category structure (Basic, Form, Layout, Data Display, Feedback, Overlay, Disclosure, Complex)\n\n**Ecosystem** (`/docs/ecosystem`)\n- Plugins: official plugin gallery\n- Examples: integration examples\n- Backend integration: ObjectQL, REST/GraphQL guides\n- Deployment: hosting and containerization\n\n### File Changes\n- Restructured `docs/` directory with new subfolder hierarchy\n- Updated `meta.json` files to define section navigation\n- Created comprehensive index page for Guide section\n- Moved/copied existing content to appropriate sections\n\n## Screenshots\n\n### Top Navigation\n![Navigation bar with Guide, Components, Ecosystem, Blog links](https://github.com/user-attachments/assets/8f476a8f-1a36-46c1-a3bb-e7eba8d4add6)\n\n### Guide Section Sidebar\n![Guide sidebar showing 7 organized subsections](https://github.com/user-attachments/assets/dea8ae3b-a7be-4314-81b2-e3792ffd37ac)\n\n### Components Section\n![Components sidebar with categorized component groups](https://github.com/user-attachments/assets/776afdf5-c01a-4931-9208-17a360a64c13)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 太棒了，Fumadocs (原 Next Docs) 非常适合构建高性能、结构化的文档站点。它的核心优势是支持 多模式 (Multi-instance/Modes) 和 基于文件系统的路由。\n> 针对 ObjectUI 这样一个包含复杂组件、架构和生态的库，我建议充分利用 Fumadocs 的 “Root Toggle” (根目录切换) 或 “Top Navigation” (顶部导航分组) 功能，将文档在逻辑上拆分为不同的“空间”。\n> 优化后的 Fumadocs 结构建议\n> 不要把所有东西都塞进一个侧边栏。建议将顶层导航（Navbar）精简为 4 个核心板块，点击后侧边栏（Sidebar）会随之切换。\n> 1. 顶层导航 (Navbar / Links)\n> 在 app/layout.config.tsx 或布局配置中，只保留这几项：\n>  * Guide (指南): 包含所有非组件的文档（原理、架构、教程）。\n>  * Components (组件): 核心组件库文档（这是用户停留时间最长的地方）。\n>  * Ecosystem (生态): 包含插件、工具、ObjectStack 关联内容。\n>  * Blog (博客): 独立的博客板块。\n> 2. 目录结构与侧边栏映射 (Content Directory)\n> Fumadocs 是基于 content/docs 文件夹生成的。建议在 content/docs 下建立三个一级文件夹，分别对应上面的导航：\n> 文件结构示意：\n> content/\n>   docs/\n>     ├── guide/              <-- 对应 \"Guide\" 导航\n>     │   ├── getting-started/\n>     │   ├── concepts/\n>     │   ├── architecture/\n>     │   ├── migration/\n>     │   ├── security/\n>     │   └── faq.mdx\n>     ├── components/         <-- 对应 \"Components\" 导航\n>     │   ├── button.mdx\n>     │   ├── data-grid.mdx\n>     │   └── ...\n>     └── ecosystem/          <-- 对应 \"Ecosystem\" 导航\n>         ├── plugins/\n>         └── examples.mdx\n>   blog/                     <-- 独立文件夹\n> \n> 详细内容归类 (Mapping)\n> 现在将你原本的 16 个条目分配到这三个板块的侧边栏中：\n> A. 板块：Guide (指南)\n> 侧重于：如何使用、理解原理、解决问题\n>  * Getting Started (安装、快速上手)\n>  * Concepts (核心概念、设计哲学)\n>  * Architecture (ObjectStack 架构、底层原理)\n>  * Reference (全局 API、CLI 命令、配置项 - 注：组件 API 放组件页)\n>  * Best Practices (合并 Security Best Practices)\n>  * Maintenance (合并 Versioning & Releases, Migration Guides)\n>  * Support (合并 Troubleshooting, Frequently Asked Questions, Community)\n> B. 板块：Components (组件)\n> 侧重于：视觉展示、Props API、代码演示\n>  * Components (这里按功能分组：General, Layout, Forms, Data Display 等)\n>    * Fumadocs 支持 MDX 里的 Type Table 生成，非常适合这里。\n> C. 板块：Ecosystem (生态)\n> 侧重于：扩展、示例、周边\n>  * Plugins (官方或社区插件)\n>  * Examples (实战项目、Dashboard 模版)\n>  * Ecosystem (与其他库的集成，或 ObjectQL/ObjectOS 的链接)\n> Fumadocs 实现配置建议\n> 为了实现点击顶部导航切换侧边栏的效果，你可以使用 Fumadocs 的 Root Toggle 或配置不同的 page tree。\n> 简单做法 (Folder Separation):\n> 在 source.ts 中不需要太复杂的配置，主要是通过文件夹隔离。然后在 app/layout.config.tsx 中定义顶部链接：\n> // app/layout.config.tsx\n> import { type HomeLayoutProps } from 'fumadocs-ui/home-layout';\n> \n> export const baseOptions: HomeLayoutProps = {\n>   nav: {\n>     title: 'ObjectUI',\n>   },\n>   links: [\n>     {\n>       text: 'Guide',\n>       url: '/docs/guide', // 指向 guide 文件夹\n>       active: 'nested-url',\n>     },\n>     {\n>       text: 'Components',\n>       url: '/docs/components', // 指向 components 文件夹\n>       active: 'nested-url',\n>     },\n>     {\n>       text: 'Ecosystem',\n>       url: '/docs/ecosystem', // 指向 ecosystem 文件夹\n>       active: 'nested-url',\n>     },\n>     {\n>       text: 'Blog',\n>       url: '/blog',\n>       active: 'nested-url',\n>     },\n>   ],\n> };\n> \n> 进阶做法 (利用 Root Toggle):\n> 如果你的 Guide 和 Components 内容非常多，不想让用户在顶部切换，可以使用 Fumadocs 的侧边栏顶部下拉菜单（Root Toggle），让用户在“文档”及“组件”视图间切换。但这通常更适合版本切换。对于 UI 库，顶部导航分流是目前的最佳实践。\n> 总结优化后的体验\n> 用户进入站点：\n>  * 点击 Guide -> 侧边栏看到 \"Getting Started\", \"Concepts\"。\n>  * 点击 Components -> 侧边栏瞬间变更为 \"Button\", \"Input\", \"Grid\"。\n>  * 点击 Ecosystem -> 侧边栏变更为 \"Plugins\", \"Examples\"。\n> 这样既保留了所有内容，又不会让用户面对一个长达 50 行的侧边栏。\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

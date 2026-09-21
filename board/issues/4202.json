@@ -1,0 +1,29 @@
+{
+  "number": 4202,
+  "kind": "issue",
+  "title": "finding(components): the four declared action renderers drop `objectName`, and three of them drop `onClick` — held as KNOWN_GAPS by check:action-forward-parity",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T20:55:33Z",
+  "updated_at": "2026-08-23T04:19:51Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4202",
+  "body": "Found by the new `check:action-forward-parity` gate (#4050) on its first run. Both are **pre-existing on every surface**, so neither is a regression of that PR and neither was fixed there; they are carried in the gate's ratcheted `KNOWN_GAPS` table pointing at this issue, which fails the moment a gap is closed but the entry is left behind.\n\nFiled as observation-class: no measured instance a user hits today. See \"Grade\" below.\n\n## 1. `objectName` — dropped by all four declared surfaces\n\n`action:button`, `action:icon`, `action:group` and `action:menu` each forward an explicit key whitelist to the runner, and none of the four includes `objectName`. It is authorable (spec `ActionSchema` declares it) and the console handler reads it unconditionally on three paths:\n\n- `useConsoleActionRuntime.tsx:370` — `const obj = action.objectName || objApiName`, which picks the object the generic list-level API handler updates/executes against.\n- `useConsoleActionRuntime.tsx:151` and `:180` — the i18n scope for the param dialog's labels (`_actions.&lt;name&gt;.params.*`) and for field-backed param resolution.\n\nSo an action declaring its own `objectName` — the \"retarget a CHILD object\" case the `:180` comment describes — silently resolves against the page's object when it is rendered through one of these four. The spread-based hosts (`DeclaredActionsBar`, `RelatedRecordActionsBridge`, `ObjectGrid`, `page:header`) carry it, which is why the gap has stayed invisible: the paths where authors actually retarget an object today are the ones that spread the whole action.\n\n## 2. `onClick` — honoured by `action:menu` only\n\n`onClick` is the documented UI-local escape hatch (a direct callback that bypasses the ActionEngine). `action:menu` invokes it and returns early (`action-menu.tsx:212`); `ActionRunner` also reads it as a fallback executor. `action:button`, `action:icon` and `action:group` do **neither** — they do not call it and do not forward it, so a code-composed `onClick` on those three is silently inert.\n\nNot authorable in metadata (it is a function), which is why nothing caught it: it can only arrive from a code-composed schema, so no published app can hit it.\n\n## Grade\n\n`finding`, no `pm:queue`. Both are dormant drift of the same family as objectstack#6837 / #6938 — real drops, but neither has a measured user-facing instance: `objectName` is only ever authored today on the spread-based paths that already carry it, and `onClick` is unreachable from metadata at all. Filed so the gate's ledger has something to point at and so the next reader does not re-derive the measurement.\n\nClosing this means deleting the matching `KNOWN_GAPS` entries in `scripts/check-action-forward-parity.mjs` — the gate fails if they are left in after the gap closes.\n\n## Related\n\n- #4050 — the gate (maintainer ruling, 2026-08-10)\n- #4192 — `action:menu`'s `label` / `description` drop, fixed in the same PR\n- objectstack#6975 — the source thread\n"
+}

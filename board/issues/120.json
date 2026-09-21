@@ -1,0 +1,36 @@
+{
+  "number": 120,
+  "kind": "pull_request",
+  "title": "Fix CI build failure: missing @objectstack/spec in build dependency chain",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-19T12:39:09Z",
+  "updated_at": "2026-01-19T13:03:46Z",
+  "closed_at": "2026-01-19T13:03:46Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-19T13:03:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/120",
+  "body": "CI failed because `@object-ui/types` imports from `@objectstack/spec`, but `@objectstack/spec` was never built before the test suite ran.\n\n```typescript\n// packages/types/src/base.ts\nimport type { UIComponent } from '@objectstack/spec';  // ← Module not found\n```\n\n## Changes\n\n- **package.json**: Added `@objectstack/spec` build step to `pretest` script before `@object-ui/types`\n- **packages/objectstack-spec/package.json**: Changed build command from `tsc` to `tsc --build` (required for composite TypeScript projects)\n- **packages/objectstack-spec/tsconfig.json**: Added `moduleResolution: \"node\"` override (root uses `bundler` mode which doesn't emit library artifacts)\n\n## Technical Context\n\nTypeScript composite projects require `tsc --build` to emit output. The root tsconfig uses `moduleResolution: \"bundler\"` for app development, but library packages need `\"node\"` to generate proper declaration files.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21130492398/job/60761808508#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

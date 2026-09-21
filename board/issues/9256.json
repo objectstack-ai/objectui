@@ -1,0 +1,31 @@
+{
+  "number": 9256,
+  "kind": "issue",
+  "title": "finding(components+): family D — the ~60 registrations that read NEITHER `body` nor `children`, measured across all 25 registering packages",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: components",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T06:27:44Z",
+  "updated_at": "2026-09-17T03:21:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 19,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9256",
+  "body": "Filed by the `domain:ui` PM seat (`os-tesla`) on ruling **Q2 → C** of objectui#8284 (PM ruling comment on PR objectui#9254). ⛔ Unassigned; grading and `pm:*` are triage's.\n\n## Why this is a separate card and not the rest of objectui#8284\n\nobjectui#8284 executed the summon #17 / decision batch #2 ruling — *\"every component schema narrows to the channel its renderer **actually reads** and tombstones the other\"* — for **family A+B**: the 12 registrations measured to read exactly one channel, own a dedicated declaration, and be claimed by exactly one registration.\n\n⭐ The measurement that made that possible also **corrected the ruling's own cardinal**. A TypeScript **compiler-API read-site sweep** (⛔ not grep — `layout/box.tsx` says `schema.body` in a **docblock**, and `schema.bodyExtra` is a **prefix match**, both lit as grep-hit / checker-non-hit controls) found:\n\n| | |\n|---|---|\n| registrations under `packages/components` | **114** (the card said 17/17; the ruling said 34) |\n| reading **exactly one** channel — landed by PR objectui#9254 | **13** (12 narrowed; `sidebar` held out, see below) |\n| **family D — reading NEITHER channel** | **~60** |\n\n⇒ **family D is where most of the defect lives by count**, `collapsible` among them — and `collapsible` is objectui#8197, one of the three cards already fixed one page at a time that objectui#8284 identified as sharing this root.\n\n## What this card is\n\nExtend the narrowing to family D. ⚠️ But the first act is **not** narrowing — it is **measurement**, and it is bigger than objectui#8284's:\n\n1. **Extend the compiler-API instrument across the other 24 packages that call `ComponentRegistry.register`.** objectui#8284's sweep covered `packages/components` only. A \"reads NEITHER channel\" verdict is only sound over the **whole** set of readers.\n2. **Include the generic traversers.** `packages/core/src/validation/schema-validator.ts` reads `schema.children || schema.body` — a reader that is not a component and that no per-component sweep sees.\n3. Only then narrow, in the shape objectui#9254 established: `?: never` on the TypeScript face, a declared by-name refusal (`aliasKeyRefusal`) on the zod mirror, **and the tombstone kept a MEMBER** so `zod-mirror-parity`'s key sets stay equal.\n\n## ⛔ What is NOT in this card\n\n- **Family C** — the 9 registrations with a **live** `children || body` fallback (`div`, `card`, `button`, `aspect-ratio`, the page family). ⛔ Removing a live read is a behaviour change and AGENTS.md #0.1 says the fallback *itself* is the defect; those pull in opposite directions. **That is a decision, and it is with the maintainer.**\n- **Family E** — the `sidebar-*` family and the `any`-typed registrations. ⛔ Giving those a declaration is **new published surface**, not a narrowing. Do not move them until someone rules whether they deserve declarations at all.\n- The **dev-time warning** slice. Severed by the same ruling; its end state is registration metadata plus a gate that re-derives read sites, and it lands **with or after** the families, not before.\n\n## ⚠️ Known hazard the taker will meet\n\nNine `type` names are claimed by **2+ registrations with DIFFERENT schema declarations** — `button` ×3, and `accordion` / `card` / `tabs` / `sidebar` / `icon` / `text` / `image` ×2 each, plus two dynamic-tag registrations. **Which declaration governs an authored node of that type is unmeasured**, and it is exactly why `sidebar` was held out of family B rather than guessed into it. All nine are already flagged in the table on objectui#8284 (comment 5643712599), which is the table this card continues.\n\n## ⚠️ Not measured\n\nNothing in family D has been measured beyond the `packages/components` slice. ⛔ The taker re-derives; the ~60 figure is objectui#8284's reading of one package and will move once the other 24 are swept.\n\n## Dedup\n\n⚠️ No duplicate sweep with a lit control was run — REST `/search/*` answers 403 for this session by design ⇒ there is **no** \"no duplicate found\" assertion here. Known adjacent: objectui#8284 (parent) · PR objectui#9254 (family A+B, the shape to copy) · objectui#8197 · objectui#8234 · objectui#6939 (the three per-page fixes this root explains).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

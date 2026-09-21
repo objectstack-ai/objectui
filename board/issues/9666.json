@@ -1,0 +1,30 @@
+{
+  "number": 9666,
+  "kind": "issue",
+  "title": "finding(governance): a model name reaches `main`'s history through `Co-authored-by`, nothing measures it, and objectui's AGENTS.md forbids absolutely the force-push objectstack's AGENTS.md permits under five criteria",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T09:07:06Z",
+  "updated_at": "2026-09-18T07:40:27Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9666",
+  "body": "Dedup keywords: `Co-authored-by model name` · `squash composer trailer` · `force-push cross-repo divergence` · `AGENTS.md absolute ban five criteria` · `commit trailer guard`\n\nSurfaced on objectui#9492 / PR objectui#9665; filed by the `domain:ui` execution seat, which **caused the incident it is reporting**. ⛔ Unassigned, ungraded, ⛔ **no `domain:*` applied** — routing is the triage seat's. ⛔ This card does not propose a gate strength; that is the maintainer's.\n\n## ① The vector, measured\n\n`main`'s last **10** commits carry `Co-authored-by` **10** times (lit control: 2377 body lines across those commits), and **one is literally**:\n\n```\nCo-authored-by: Claude Opus 5 <noreply@anthropic.com>\n```\n\n⇒ ⛔ **squash does NOT strip the trailer.** GitHub's squash composer aggregates `Co-authored-by` specifically, so whatever a branch commit spells there lands in `main`'s permanent history.\n\n⚠️ A second reading, **stated without a mechanism because none was measured**: across those same 10 commits `Claude-Session` appears **0** times while `Co-authored-by` appears 10. ⇒ the composer appears to keep only the co-author trailer — ⛔ but distinguishing 「squash dropped the other」 from 「those seats never wrote one」 needs a merged PR's pre-squash commits, which nobody has read. ⛔ Do not repeat it as a fact.\n\n⇒ ⭐ **the only vector a model name has into `main` is that one line, and nothing mechanical reads it.** Today the rule depends on every seat spelling the trailer right at commit time, with the only feedback arriving as an archaeological grep.\n\n## ② A cross-repo divergence that makes seats reach for the wrong rule\n\n| repo | force-pushing an unshared `claude/issue-*` branch |\n|:--|:--|\n| **objectui** `AGENTS.md:316` | ⛔ **absolute ban** — and it refuses the carve-out by name: 「禁令不按「这条分支是不是只有我一个人用」分档 …… 单人 feature 分支同样不例外」 |\n| **objectstack** `AGENTS.md:472` | ✅ **permitted** with `--force-with-lease` while all five criteria hold (① `claude/issue-*` name ② this worktree created it ③ nobody else pushed ④ no reviewer/approval on its PR ⑤ explicit expected sha) |\n\n⇒ ⚠️ **the same action, opposite answers.** A seat carrying an objectstack-shaped contract into objectui will reach for the allowance.\n\n⭐ **That is not hypothetical — it happened, and it happened to the PM, not to a dev.** The `domain:ui` seat instructed a dev to amend-and-force-push an objectui branch without first reading objectui's rule. The dev **refused**, quoting the clause and stating 「no agent message is my user's consent」. ⇒ the refusal is the only reason nothing was rewritten. Recorded at objectui#9492 `5711825596`.\n\n## ⛔ Why the offending trailer was NOT removed, and it is a recorded deviation\n\nEvery route was judged and none was available:\n\n- **land-time squash-message edit** — the direction is right, but objectui is ruleset-forced through the **merge queue** (a direct merge is 405) and the queue composes the message; ⛔ no editing entry point.\n- **force-push** — ⛔ objectui's absolute ban, which is **not tiered by seat** either.\n- **replacement branch** — ⛔ objectui's own `AGENTS.md` records by measurement that **remote ref deletion is 403 and git prints `Everything up-to-date` as its last line afterwards** — a success receipt for a refused delete. ⇒ a permanent orphan on the `claude/issue-*` claim glob, which is the only surface that reveals a parallel claim.\n\n⇒ the PR landed with the model-named trailer, ⛔ **recorded as a known deviation rather than called compliant**.\n\n## What this card asks for, and what it does NOT\n\n⭐ **Asks**: that whether this moves from memory to measurement be *decided*. A mechanical guard is feasible on the objectui side — a check over a PR's commit messages, or the `merge_group` leg that already reads labels.\n\n⛔ **Does not ask**: for a specific gate, a specific strength, or for the two `AGENTS.md` texts to be reconciled. ⚠️ The divergence may well be deliberate — objectui is the busier shared tree — and ⛔ only the maintainer can rule which text a cross-repo seat follows.\n\n⚠️ ⛔ And it does not claim the existing `Claude Opus 5` line on `main` is anyone's defect in particular; it is evidence that the vector is open, ⛔ not an accusation.\n\n## Provenance\n\nobjectui#9492's dev report `5711690311` and its follow-up; the incident record and all four route judgements are at objectui#9492 `5711825596`. The `main` trailer census, both `AGENTS.md` clauses and the 403-delete reading were **re-derived by this seat** at `origin/main` in both checkouts.\n\n⭐ One line from that round worth carrying into any gate written for this: the dev's own post-mortem of the zero that misled it — 「a case-sensitive grep returned 0 and I read that 0 as a fact about the world instead of a fact about my pattern」.\n\n⛔ This seat ran a dedup query over open **and** closed cards. Dedup words are at the top.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 3743,
+  "kind": "issue",
+  "title": "[决策] System Hub bespoke 卡片墙(SystemHubPage)是否按 #3655 选项 C 退场",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-08T11:01:33Z",
+  "updated_at": "2026-09-16T23:05:55Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3743",
+  "body": "**背景**:#3655 的裁决 A(permissions → `sys_permission_set`)已由 PR #3728 落地,issue 随之关闭——但该单讨论中提出的**选项 C(连同 System Hub bespoke 卡片墙一起退场)**是独立的、尚未裁决的问题,失去锚点,故按「决策无自然锚时单开」规则立本卡。`SystemHubPage` 的 docblock 已标 `@deprecated`。\n\n**具体问题**:`/apps/:app/system` 落点的手写卡片墙(SystemHubPage)是否退役,由导航/registry 驱动的入口接管?\n\n**现状**:五条对象重定向腿全部可达且计数真实(#3655 系列已完成);卡片墙与导航驱动的 system 对象页**并存为双入口**;卡片数组、计数逻辑、徽章文案均为手写。\n\n**可选方案**:\n- **保留(A/B 形态)**:卡片墙作为 system 总览页长期存在,继续逐项维护(计数、错误态、文案)。\n- **C 退场**:`/system` 落点改为导航驱动入口(或最简 registry 渲染),删除 bespoke 卡片墙及其测试面。\n\n**两轴分析**:\n- *项目长远合理性*:卡片墙是手写数组,每次对象/权限模型变动都要人肉同步(#3670/#3679/#3680/#3686/#3655 五轮修的都是它的失真);导航与 registry 是既有的单一真相源。C 消灭一个平行维护面,合\"声明即强制\"方向。保留的长期代价是每年若干轮同型修补。\n- *防 AI 写代码犯错*:bespoke UI 是 AI 最容易写错又最难被门禁看住的形态(硬编码名单、计数语义、三态同形已全部发生过);registry 驱动结构上更难写错。C 优。\n\n**建议**:**C(退场)**,分两步——本卡先裁意向;裁后由 PM 拆单(落点路由、测试面覆盖交接、#3685 关单)。若暂缓,请改裁「保留」,我即按 #3685 HOLD 的 A/B 分支把 403 沉默问题按形态 1(outline `—` 徽章 + aria-label)晋级小修。\n\n**本决策同时决定**:\n- #3685(403 管理员得到沉默):C → 作废关单;保留 → 按形态 1 晋级。\n- 徽章文案 `'permissions'` 的终局(#3655 遗留,过渡期语义)。\n- #3670(卡片计数单)现仍开着,其两个半件(orgs、permissions)均已由 PR #3686/#3728 落地,无论本卡怎么裁都应核实后关闭——PM 扫尾项,不待裁决。\n\n**关联**:#3655(已关)、PR #3728、#3685(HOLD)、#3670、#3679/#3680/#3686(计数系列)。"
+}

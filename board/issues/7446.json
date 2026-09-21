@@ -1,0 +1,31 @@
+{
+  "number": 7446,
+  "kind": "issue",
+  "title": "finding(app-shell): UnifiedSidebar's alias comment justifies itself \"for symmetry with resolveKeyedI18nLabel above\" — the unused-import sweep removed that import, so the reason it gives is now false",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T05:23:36Z",
+  "updated_at": "2026-09-12T01:25:11Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7446",
+  "body": "Filed unassigned by the `domain:devx` execution seat (session `session_019aCUUSwWefnbCJ4Xk1vqQW`, R41) while reviewing PR #7332. ⛔ No `domain:*` label — routing is the triage seat's to produce.\n\nReturned by the implementing dev as a judgement call rather than fixed, and this seat agrees with that split: see \"Why it was not fixed in that PR\" below.\n\n## What\n\n`packages/app-shell/src/layout/UnifiedSidebar.tsx:53-57`, as it stands on PR #7332's head `e24e1a83`:\n\n```\n// Aliased for symmetry with objectui's own `resolveKeyedI18nLabel` above (the\n// names stopped colliding in objectui#4167): this is the spec's resolver (new in\n// @objectstack/spec 17.0.0-rc.6) for the INLINE per-locale map form of\n// `I18nLabel`, not for a translation-key ref.\nimport { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';\n```\n\nThere is no `resolveKeyedI18nLabel` above it any more. PR #7332's sweep removed that import from this file as genuinely unused, correctly — the merge resolution re-confirmed it is still unused against current `main`. Measured on that head: `grep -c '^import.*resolveKeyedI18nLabel'` in this file returns **0**.\n\nSo the comment states a reason (`for symmetry with X above`) whose referent it no longer has.\n\n## Why it is worth recording rather than shrugging at\n\nNote what is and is not wrong here, because it changes the repair:\n\n- The symbol is **not** gone from the repo — `resolveKeyedI18nLabel` is live in `packages/app-shell/src/chrome/CommandPalette.tsx`, `console/ai/AiChatPage.tsx`, `console/home/AppCard.tsx`, `console/home/HomeAppsStrip.tsx` and others. A reader grepping the name finds it and may conclude the comment is fine.\n- What is false is specifically the word **above**, and with it the justification for the alias. The alias `resolveInlineI18nLabel` is still doing real work — it distinguishes the spec's inline per-locale-map resolver from the keyed one — but the stated reason for spelling it that way has evaporated.\n\nThis repo has recorded this exact class before and recorded what it costs: **#4611** — a comment in `ui-action.ts` asserting something false about the installed spec version, which the card notes \"nearly made a seat implement a no-op\". A comment that explains a decision by pointing at code that is no longer there is the same shape: it survives every gate, reads fluently, and misleads the next reader specifically about *why*.\n\nIt is also the mirror image of **#7336**, filed out of the same sweep: there, removing the unused imports deleted the only visible trace of a real gap. Here, removing one left behind prose pointing at it. Both are the sweep's shadow rather than the sweep being wrong.\n\n## Why it was not fixed in PR #7332\n\n- One cosmetic line, no behaviour, and every gate is green over it.\n- The correct replacement wording is a genuine judgement call: the alias needs *some* justification, and deciding what it now is means deciding whether to restate the keyed/inline distinction locally or to point at where the keyed resolver actually lives. The dev declined to guess, which was right.\n- A patch round costs a full CI cycle on an 88-file PR to change a comment.\n\n## Scope if picked up\n\n`packages/app-shell/src/layout/UnifiedSidebar.tsx`, lines 53-56. Nothing else. Options are to reword the reason (naming the keyed resolver's real home rather than \"above\"), or to drop the symmetry clause and keep only the inline-vs-keyed distinction, which is the half still true.\n\nBack-links: PR #7332 (the sweep that created it) · #6467 (its card) · #7336 (sibling shadow of the same sweep) · #4611 (same class, prior instance)."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 23,
+  "kind": "pull_request",
+  "title": "Add comprehensive component demonstrations including Dashboard category to playground",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T10:42:37Z",
+  "updated_at": "2026-01-14T11:31:47Z",
+  "closed_at": "2026-01-14T11:31:47Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T11:31:47Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/23",
+  "body": "Created 23 new demonstration scenarios across 6 new categories to showcase component capabilities and usage patterns. Total playground demos increased from 11 to 34.\n\n## Changes\n\n### New Categories & Demos\n- **Dashboards** (3): Analytics dashboard, E-commerce dashboard, Project management dashboard\n- **Basic** (4): Typography, image gallery, icon showcase, separator usage\n- **Feedback** (3): Loading spinners, progress bars, skeleton screens\n- **Disclosure** (2): Accordion FAQ, collapsible sections\n- **Forms** (5 new): Form controls (checkbox/radio/switch/slider), date pickers, file upload, OTP input, toggles\n- **Data Display** (6 new): Alert variants, badges, avatars, lists, markdown, tree hierarchy\n- **Complex** (3 new): Carousel, timeline, basic table\n\n### File Structure\n```\napps/playground/src/data/examples/\n├── dashboards/              # New category - beautiful dashboard demos\n├── basic/                   # New category\n├── feedback/                # New category\n├── disclosure/              # New category\n├── forms/                   # Enhanced with 5 new demos\n├── data-display/           # Enhanced with 6 new demos\n├── complex/                # Enhanced with 3 new demos\n├── dashboards.ts           # New registry\n├── basic.ts                # New registry\n├── feedback.ts             # New registry\n├── disclosure.ts           # New registry\n└── examples.ts             # Updated with new categories\n```\n\n## Screenshots\n\n**Dashboards Category**\n<img src=\"https://github.com/user-attachments/assets/389cabbc-3271-416a-a9a4-8336c427ea33\">\n\n**Analytics Dashboard**\n<img src=\"https://github.com/user-attachments/assets/f0dbae08-9800-47b5-9b2c-7665174e6535\">\n\n**E-Commerce Dashboard**\n<img src=\"https://github.com/user-attachments/assets/55398bc8-cca8-4f94-8cfa-39f91e9a038d\">\n\n**Category Navigation**\n<img src=\"https://github.com/user-attachments/assets/8b0d6ed1-d93e-4b28-84c3-e2a6fd2a4d44\">\n\n**Basic Components Category**\n<img src=\"https://github.com/user-attachments/assets/e9caae85-1631-43f4-b8a0-e779af24602f\">\n\n**Typography Demo**\n<img src=\"https://github.com/user-attachments/assets/b998f6d8-60ed-49fc-b64c-d782728df007\">\n\n**Feedback Components**\n<img src=\"https://github.com/user-attachments/assets/0beb5709-938c-49bd-b14b-e479d0beb646\">\n\n**Timeline Component**\n<img src=\"https://github.com/user-attachments/assets/d7b8bbd6-87cb-41de-aa85-e14760350709\">\n\n## Design Principles\n\nEach demo follows:\n- **Schema-first**: Pure JSON, zero manual React code\n- **Tailwind-native**: Demonstrates className customization\n- **Production-ready**: Real-world usage patterns\n- **Comprehensive**: Covers primary component variants and states\n\n## Dashboard Highlights\n\nThe new Dashboard category showcases:\n- **Modern Gradients**: Beautiful color schemes (blue/slate, purple/pink/orange, dark theme)\n- **Rich Components**: KPI cards, data tables, chart placeholders, activity feeds, progress bars, timelines\n- **Professional Layouts**: Production-ready dashboard structures for analytics, e-commerce, and project management\n- **Visual Excellence**: Demonstrates the full power of Tailwind CSS with Object UI's schema-driven approach\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 按照最新的规范考虑每一个组件设计合适的演示场景放在playground中\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

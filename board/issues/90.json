@@ -1,0 +1,37 @@
+{
+  "number": 90,
+  "kind": "pull_request",
+  "title": "[WIP] Fix action run issue in CI/CD pipeline",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: react",
+    "plugin",
+    "plugin: kanban"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-17T05:30:02Z",
+  "updated_at": "2026-01-17T06:00:44Z",
+  "closed_at": "2026-01-17T06:00:44Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-17T06:00:44Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/90",
+  "body": "- [x] Fix React ref error in SchemaRenderer.tsx\n  - [x] Update SchemaRenderer to properly handle ref forwarding\n  - [x] Remove ref from props spreading to avoid accessing it during render\n- [x] Fix useMemo dependency array in plugin-kanban\n- [x] Fix CLI lint warnings (unused variables, @ts-ignore → @ts-expect-error)\n- [x] Run lint to verify the fix - All packages pass with 0 errors\n- [x] Run tests to ensure no regressions - All 100 tests passed\n- [x] Request code review - 1 comment received about memoization effectiveness\n- [x] Run security scan - No security issues found\n\n## Summary\nAll CI/CD pipeline issues have been resolved:\n- ✅ Linting: 0 errors across all packages\n- ✅ Tests: 100/100 tests passing\n- ✅ Security: No vulnerabilities detected\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21089178348/job/60657921452#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

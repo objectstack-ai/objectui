@@ -1,0 +1,33 @@
+{
+  "number": 16,
+  "kind": "pull_request",
+  "title": "Add Airtable-style calendar view component",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-13T18:42:23Z",
+  "updated_at": "2026-01-14T00:09:20Z",
+  "closed_at": "2026-01-14T00:09:20Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T00:09:20Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/16",
+  "body": "## Implementation Plan: Airtable Calendar Component\n\n- [x] Create calendar view UI component (month/week/day grid)\n- [x] Create event item component for displaying records as calendar events\n- [x] Implement calendar renderer component that integrates with ComponentRegistry\n- [x] Add calendar view to complex renderers\n- [x] Export calendar renderer from index\n- [x] Test the calendar component with sample data\n- [x] Verify build process works\n- [x] Create documentation/example\n- [x] Address code review feedback\n- [x] Address PR review comments (JSDoc and property redundancy)\n\n## Summary\n\nSuccessfully implemented an Airtable-style calendar component for Object UI with the following features:\n\n### Features Implemented\n✅ **Three View Modes**: Month, Week, and Day views with smooth switching\n✅ **Flexible Data Mapping**: Configure field names for title, dates, and colors\n✅ **Color Coding**: Support for custom color mappings based on event types\n✅ **Interactive Navigation**: Previous/Next buttons and \"Today\" quick navigation\n✅ **Event Display**: Smart event rendering with time display for non-all-day events\n✅ **Multi-day Events**: Properly displays events spanning multiple days\n✅ **Responsive Design**: Tailwind CSS styling with full customization support\n✅ **JSDoc Documentation**: All field mappings documented for auto-generation\n\n### Components Created\n- `CalendarView` UI component (`packages/components/src/ui/calendar-view.tsx`)\n- `calendar-view` renderer (`packages/components/src/renderers/complex/calendar-view.tsx`)\n- Documentation (`docs/components/calendar-view.md`)\n- Playground example with sample data\n\n### Recent Changes\n- Added JSDoc comments to field name mappings per Rule #3 (Schema First Mindset)\n- Removed redundant `defaultView` property, using only `view` for clarity\n- Updated property labels and descriptions for better documentation\n\n### Screenshot\n\n![Calendar View](https://github.com/user-attachments/assets/1f2f6cc2-9af2-4562-89e9-f7ffece77c68)\n\n### Usage Example\n\n```json\n{\n  \"type\": \"calendar-view\",\n  \"view\": \"month\",\n  \"colorField\": \"type\",\n  \"colorMapping\": {\n    \"meeting\": \"#3b82f6\",\n    \"deadline\": \"#ef4444\",\n    \"event\": \"#10b981\"\n  },\n  \"data\": [\n    {\n      \"id\": 1,\n      \"title\": \"Team Meeting\",\n      \"start\": \"2026-01-13T10:00:00.000Z\",\n      \"type\": \"meeting\"\n    }\n  ]\n}\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 实现airtable日历组件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectql/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

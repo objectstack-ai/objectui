@@ -1,0 +1,31 @@
+{
+  "number": 7650,
+  "kind": "issue",
+  "title": "finding(data-objectstack): the object-schema SERVE path runs no parse, so FieldSchema strictness is not evidence that a refused key cannot reach a consumer",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-04T14:36:42Z",
+  "updated_at": "2026-09-16T16:26:05Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 23,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7650",
+  "body": "Provenance: measured while running the objectui#7642 census. Filed unassigned as a `finding` — the measurement is clean, the disposition is a judgement call.\n\n## What is measured\n\nA recurring argument in this repo's alias-retirement cards runs: `@objectstack/spec`'s `FieldSchema` is strict, the key is absent from it, therefore no producer can emit it, therefore the consumer-side read is dead. That argument is sound about **authoring**. It is not sound about **serving**, because the serve path never parses.\n\n`ObjectStackAdapter.getObjectSchema` (`packages/data-objectstack/src/index.ts`) fetches the object document and returns it **verbatim**, with exactly two mutations applied on the way out:\n\n- `normalizeSchemaReferenceKeys(schema)` — the `reference` / `reference_to` pair only\n- `applyFieldWidgetOverrides(objectName, schema)` — stamps a render `widget` on specific platform fields\n\nThere is no schema validation anywhere on that path:\n\n```\nObjectSchema.parse | ObjectSchema.safeParse in packages/data-objectstack/src/index.ts : 0\n```\n\nLIT CONTROL for that zero — the same file **does** import and use spec parsers, so the instrument is not dark: `DroppedFieldsEventSchema` and `isFilterAST` are both imported from `@objectstack/spec/data` and used. The zero is a real absence, not a failed grep.\n\nThe other two `DataSource` implementations in the workspace are consistent with this: `ValueDataSource.getObjectSchema` infers `{ type: typeof value }` per key from a sample record, and `ApiDataSource.getObjectSchema` returns `{ name, fields: {} }`. Neither parses either.\n\n## Why it matters\n\nThe strict schema gates the **write** door — `PUT /api/v1/meta/object/:name` refuses a document carrying an undeclared key. It does not gate the **read** door. So:\n\n1. A document **stored before** a key was tightened is still served, verbatim, to every consumer, forever. It cannot be re-saved through the strict door, but nothing ever asks it to be.\n2. A host whose own `getObjectSchema` implementation returns a non-spec dialect is likewise served straight through — the adapter interface types the return as an unconstrained value.\n\n⇒ \"no spec-compliant producer can emit this key\" and \"this consumer read can never fire\" are **different claims**, and only the first is established by reading the schema. Several retirement cards in this family treat them as the same claim.\n\n## Scope of the consequence\n\nThis is not an argument that no alias may ever be retired. It is an argument that the retirement question has a second half that the schema cannot answer: *what happens to a stored document that already carries the key?* The `reference_to` retirement (objectui#6837 half 2) answered it — the maintainer's ruling there was that a legacy def is canonicalised **once, at the ingestion choke point** (`normalizeSchemaReferenceKeys`), never at the consumer. That is why narrowing the consumer reads was safe: the choke point covers the gap.\n\nNo equivalent choke-point canonicalisation exists for `display_field`, `description_field`, `id_field` or `lookup_filters`. So for those keys the same manoeuvre is the first half of the pattern without the second.\n\n## What a fix would be\n\nNot a code change on its own. Either:\n\n- **A** — decide the serve path should canonicalise, and extend the ingestion choke point (`normalizeSchemaReferenceKeys` or a sibling) to cover the rest of the retired dialect, which then makes consumer-side narrowing safe by the same argument that made it safe for `reference_to`; or\n- **B** — decide stored legacy documents are the server's problem (a metadata migration), and record that consumer reads may be narrowed without a client-side compatibility leg; or\n- **C** — leave both, and require every future retirement card in this family to state which of A or B it is relying on, rather than citing schema strictness alone.\n\nFiled unassigned, for triage. Related: objectui#7642, objectui#6837, objectui#7435, objectui#7155.\n\n## Routing note (2026-09-05) — `id_field` lands on option A here, not on the additive camel-leg follow-up\n\nAppended after the contract review of PR objectui#7649 (REFUSE, text-only; comment 5548607662): the follow-up blessed as C on objectui#7642 (\"add the declared camel legs\") rested on a measurement that came back false for one key. Re-measured 2026-09-05 on the pinned `@objectstack/spec@17.2.0`, `FieldSchema.safeParse`, controls lit (minimal lookup def ACCEPTED; `displayField` / `descriptionField` / `lookupFilters` ACCEPTED; `zzz_not_a_real_key` REJECTED `unrecognized_keys`): `id_field` **and `idField`** are both REJECTED `unrecognized_keys` — the spec's only `idField` sits on `InlineGridColumnSchema`, a different shape. So of the four keys above, three (`display_field`, `description_field`, `lookup_filters`) have a declared camel target the additive follow-up (objectui#7435) can re-point to; **`id_field` has none** and is excluded from that follow-up. Its route is **option A here** — which for this key first needs a declared target on `FieldSchema`, a spec-side decision — or B; never an `idField` consumer read, which would fossilise an undeclared spelling. The text above this note is unchanged.\n\nGenerated by Claude Code, session `session_01KbJQ1y1J12nZxYzFWhP8Q3`, from the objectui#7642 census."
+}

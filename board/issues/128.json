@@ -1,0 +1,44 @@
+{
+  "number": 128,
+  "kind": "pull_request",
+  "title": "Integrate ObjectStack Protocol (spec@0.1.2, client@0.1.1) into platform core",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "package: core",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "plugin: kanban"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-21T00:03:27Z",
+  "updated_at": "2026-01-21T02:30:55Z",
+  "closed_at": "2026-01-21T02:30:55Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-21T02:30:55Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/128",
+  "body": "Integrates latest ObjectStack packages to establish protocol conformance and enable native ObjectStack backend connectivity.\n\n## Dependencies\n\n- `@object-ui/types` → `@objectstack/spec@^0.1.2` (protocol foundation)\n- `@object-ui/core` → `@objectstack/client@^0.1.1` (runtime SDK)\n- `@object-ui/data-objectql` → `@objectstack/client@^0.1.1` (data adapter)\n\n## ObjectStack Adapter\n\nNew `ObjectStackAdapter` implements ObjectUI's `DataSource` interface with full protocol support:\n\n```typescript\nimport { createObjectStackAdapter } from '@object-ui/core';\n\nconst dataSource = createObjectStackAdapter({\n  baseUrl: 'https://api.example.com',\n  token: process.env.API_TOKEN\n});\n\n// Drop-in replacement for any DataSource\nconst users = await dataSource.find('users', {\n  $filter: { status: 'active' },\n  $orderby: { createdAt: 'desc' },\n  $top: 20\n});\n```\n\n**Features:**\n- CRUD operations: `find`, `findOne`, `create`, `update`, `delete`\n- Bulk operations: `createMany`, `updateMany`, `deleteMany`\n- Auto-discovery of server capabilities\n- OData-style → ObjectStack query translation\n- Full TypeScript typing\n\n## Build Configuration\n\nUpdated `vite-plugin-dts` to skip diagnostics for workspace dependencies, preventing TypeScript from traversing source files across package boundaries during builds.\n\n## Backward Compatibility\n\nZero breaking changes. ObjectStack integration is additive—existing code and data sources continue to work unchanged.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 基于最新版本的@objectstack/client，@objectstack/spec，重构平台内核代码\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

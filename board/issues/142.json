@@ -1,0 +1,36 @@
+{
+  "number": 142,
+  "kind": "pull_request",
+  "title": "Add interactive demo blocks with Preview/Code tabs and improved discoverability",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-22T01:58:29Z",
+  "updated_at": "2026-01-22T02:42:46Z",
+  "closed_at": "2026-01-22T02:40:00Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-22T02:40:00Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/142",
+  "body": "Documentation lacked interactive examples showing both live component rendering and source code. Added tab-based demo blocks to all component and plugin documentation for easier learning and code adoption. Enhanced discoverability with homepage entry point, navigation link, and comprehensive demos overview page.\n\n## Changes\n\n### New Component\n- **`InteractiveDemo.tsx`** - Tab-based demo component using Fumadocs UI\n  - Preview tab: live schema rendering\n  - Code tab: formatted JSON with copy button\n  - Supports single or multi-example layouts\n\n### Backward Compatibility\n- Re-exported `InteractiveDemo` as `ComponentDemo` - all 32+ existing component demos now have tabs\n- Zero breaking changes to existing MDX files\n\n### Plugin Documentation\n- Converted 5 plugin docs from `.md` → `.mdx`\n- Added 14 interactive examples:\n  - **plugin-markdown**: basic formatting, task lists, tables\n  - **plugin-kanban**: board layouts, WIP limits, badges\n  - **plugin-charts**: bar, line, pie visualizations\n  - **plugin-editor**: JavaScript, Python, JSON editors\n  - **plugin-object**: table, form, view components\n\n### Improved Discoverability\n- **Homepage Entry Point**: Added \"✨ Interactive Examples\" card in \"What Can You Build?\" section linking to demos overview\n- **Navigation Link**: Added \"Interactive Component Demos\" in Guide sidebar navigation for quick access\n- **Comprehensive Overview Page**: Created `/docs/guide/interactive-demos` with:\n  - Complete component catalog organized by category (Form, Layout, Overlay, Data Display, Feedback, Disclosure, Complex)\n  - Plugin showcase with feature lists and example counts\n  - Quick start guide for using interactive demos\n  - Technical explanation of how demos work\n  - Links to design resources and next steps\n- **Keyboard Accessibility**: Added focus-visible styles for keyboard navigation\n\n## Usage\n\n```tsx\nimport { InteractiveDemo } from '@/app/components/InteractiveDemo';\n\n<InteractiveDemo\n  schema={{\n    type: \"input\",\n    label: \"Email\",\n    placeholder: \"user@example.com\"\n  }}\n  title=\"Basic Input\"\n  description=\"Text input with label\"\n/>\n```\n\n## Screenshots\n\n**Component Demo - Preview Tab**\n<img src=\"https://github.com/user-attachments/assets/19f27c38-bf50-45d6-ab76-03d7f2351b60\">\n\n**Component Demo - Code Tab**\n<img src=\"https://github.com/user-attachments/assets/56831e25-de64-4210-b0c2-f97eebe36e82\">\n\n**Plugin Demo - Markdown**\n<img src=\"https://github.com/user-attachments/assets/a202f964-c182-4f1a-8afc-b9c2054b6f89\">\n\n**Plugin Demo - Kanban**\n<img src=\"https://github.com/user-attachments/assets/8817a7a9-79b1-4c1d-9247-94eef2d499de\">\n\n**Homepage - Interactive Examples Card**\n<img src=\"https://github.com/user-attachments/assets/db58cfd9-7c8f-47fc-acfa-943319b2dbd4\">\n\n**Interactive Demos Overview Page**\n<img src=\"https://github.com/user-attachments/assets/81f4442b-9662-4773-96b7-96875622d96c\">\n\n## Technical Notes\n\n- Uses Fumadocs UI's `Tabs`, `CodeBlock` components\n- JSON schemas formatted with syntax highlighting\n- No new dependencies required\n- Keyboard accessible with focus-visible styles\n- All quality checks passed (build, code review, security scan)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 在fumadocs文档中为每一个插件和组件设计功能完整的演示效果，演示效果区块，应该能够很方便的切换查看源码。目标是第一步向潜在开发者展示我们控件强大的能力，方便开发者学习和引用\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

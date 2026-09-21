@@ -1,0 +1,29 @@
+{
+  "number": 3394,
+  "kind": "issue",
+  "title": "form 组件的设计器默认值 `defaultProps: { submitLabel: 'Submit', cancelLabel: 'Cancel' }` 仍是英文字面量（本仓运行期无人读，但会绕过 #3272 的渲染期回落）",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T15:33:55Z",
+  "updated_at": "2026-09-16T21:03:05Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3394",
+  "body": "在实现 #3272(PR #3392)时发现,**未在该 PR 内修改** —— 那一单的 PM 裁定明确划到「组件侧 prop 默认」,设计器元数据是另一个面。\n\n## 现象\n\n`packages/components/src/renderers/form/form.tsx`,`ComponentRegistry.register('form', …)` 的第二个参数(组件元数据)里:\n\n```ts\ninputs: [\n  ...\n  { name: 'submitLabel', type: 'string', label: 'Submit Button Label', defaultValue: 'Submit' },\n  { name: 'cancelLabel', type: 'string', label: 'Cancel Button Label', defaultValue: 'Cancel' },\n  ...\n],\ndefaultProps: {\n  submitLabel: 'Submit',\n  cancelLabel: 'Cancel',\n  ...\n},\n```\n\n#3272 / PR #3392 把**渲染期**的英文默认值去掉了(解构不再写 `submitLabel = 'Submit'`,改为 `submitLabel ?? t('common.submit')`),于是「作者没写 label」的表单会跟随会话语言。但上面这两处元数据默认值没动。\n\n## 为什么记一条\n\n`defaultProps` 在 `packages/core/src/registry/Registry.ts` 的注释里写的是 “Default props **when dropped**” —— 设计器把组件拖进画布时的初始 props。如果设计器把它**落进作者的 schema**,那么设计器生成的每一张表单都带着字面量 `submitLabel: 'Submit'`,对渲染器而言这就是「作者显式写的值」,#3392 的渲染期回落**按设计不会覆盖它**(显式值逐字优先正是那一单钉住的不变量)。结果就是 issue #3272 描述的那种「不写 label 的作者被静默锁定英文」在设计器这条产出路径上原样保留。\n\n同理 `inputs[].defaultValue` 会成为属性面板里预填的英文。\n\n## 为什么标 `finding` 而不是直接当 bug 排期\n\n**今天本仓运行期够不到它**:全仓 grep `defaultProps`,只有两处消费\n\n| 位置 | 用途 |\n|---|---|\n| `packages/core/src/registry/Registry.ts:49` | 类型声明 `defaultProps?: Record<string, any>` |\n| `packages/core/src/registry/WidgetRegistry.ts:185` | 从 manifest 搬运到 widget 记录 |\n\n`packages/react` / `SchemaRenderer` 渲染路径上没有任何一处读它,所以它今天不影响任何渲染文本。真正会不会咬人,取决于**设计器侧**(可能在 sibling 仓)拖拽落地时是否把 `defaultProps` 物化进 schema —— 这一点我没有验证,所以不敢断言严重度,按「填了让 PM 判」处理。\n\n## 修法建议(先裁决再动)\n\n不建议单独改 form 一个组件:`defaultProps` / `inputs[].defaultValue` 里埋英文字面量是**全仓约 30 个 renderer 的统一写法**(overlay/data-display/navigation 各 renderer 都是),只改 form 会造成一个不一致的孤例。真正要问的是:\n\n- **A.** 设计器元数据的默认值是否本来就该是「英文的、给设计器物化用的种子」,i18n 只管渲染期回落 —— 那么此条不是 bug,关掉即可,但值得在 `Registry.ts` 的 `defaultProps` 注释里写明这个边界,免得下一个人(尤其是 AI 生成的元数据)以为它会跟随语言。\n- **B.** 设计器不该物化「与渲染期默认值等价」的 prop(把 `submitLabel` 从 `defaultProps` 拿掉,让它保持未声明)—— 这是与 #3272 同向的收敛,但需要设计器侧确认「未声明」在属性面板里显示成什么(空?占位提示?),并且要一次扫全部 renderer,不是一行改动。\n\n倾向 B,但这属于契约面/设计器交互的裁决,不该由某一单顺手做。\n\n## 证据等级\n\n静态证据(读 `form.tsx` 的注册元数据 + 全仓 grep `defaultProps` 的消费点),**未做浏览器复现**,也**未验证设计器是否物化**。「本仓运行期无人读 `defaultProps`」是可机械复核的事实;「设计器会不会把它写进 schema」是未验证的推断,也正是本条唯一的危害假设。\n\n关联:#3272 / PR #3392。\n"
+}

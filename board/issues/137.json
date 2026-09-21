@@ -1,0 +1,37 @@
+{
+  "number": 137,
+  "kind": "pull_request",
+  "title": "[WIP] Fix component registration issue in documentation page",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-21T16:15:28Z",
+  "updated_at": "2026-01-21T16:43:46Z",
+  "closed_at": "2026-01-21T16:43:23Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-21T16:43:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/137",
+  "body": "## Fix Icon Component Not Displaying in Documentation\n\n### Root Cause\nThe icon component and all other components were showing \"unknown component type\" error in the documentation because:\n1. **Component registration wasn't executing**: The Vite build was bundling `@object-ui/core` into the components package, causing the ComponentRegistry singleton to not work properly across module boundaries.\n2. **Icon name lookup was failing**: Lucide React exports icons in PascalCase (e.g., \"Home\", \"Star\"), but the schema uses kebab-case names (e.g., \"home\", \"star\").\n\n### Changes Made\n- [x] Identify root cause of component registration failure\n- [x] Fix Vite build configuration to externalize @object-ui/core, @object-ui/react, and @object-ui/types\n- [x] Add `sideEffects: true` to components package.json to prevent tree-shaking  \n- [x] Add `initializeComponents()` export function to ensure registration\n- [x] Update icon component to convert kebab-case to PascalCase for Lucide icon lookup\n- [x] Add proper handling for icon component size, color, and className properties\n- [x] Add displayName to IconRenderer component\n- [x] Update ObjectUIProvider to call initializeComponents()\n- [x] Test icon component displays correctly in documentation\n- [x] Verify all components are registered properly\n\n### Technical Details\n**Icon Component Enhancement:**\n- Added `toPascalCase()` utility to convert names like \"arrow-right\" → \"ArrowRight\"\n- Properly extracts and applies designer props (data-obj-id, data-obj-type)\n- Handles size property for custom dimensions\n- Merges color and className properties correctly\n- Adds warning when icon not found\n\n**Build Configuration:**\n- Made workspace packages (`@object-ui/core`, `@object-ui/react`, `@object-ui/types`) external in Vite build\n- This ensures the ComponentRegistry singleton works correctly across all packages\n- Added `sideEffects: true` to prevent bundlers from tree-shaking registration code\n\n### Result\n✅ All components now register and display correctly in the documentation\n✅ Icon component properly renders Lucide icons\n✅ Component registry shows 70+ registered components\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 文档的组件页面，组件不能显示，应该是组件没有注册 unknown component type: icon ...\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

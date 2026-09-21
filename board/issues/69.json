@@ -1,0 +1,36 @@
+{
+  "number": 69,
+  "kind": "pull_request",
+  "title": "Redesign examples based on new JSON project specification",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "examples"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T03:20:40Z",
+  "updated_at": "2026-01-15T04:11:11Z",
+  "closed_at": "2026-01-15T04:11:11Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T04:11:11Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/69",
+  "body": "## Redesign Examples Based on New JSON Project Specification\n\nThis PR redesigns the examples directory to follow the new JSON project specification, introducing a JSON-first approach for demonstrating Object UI capabilities.\n\n## Changes Made\n\n### New JSON-Based Examples\n\nCreated 4 standalone JSON schema examples that can be directly rendered using the Object UI CLI:\n\n- **basic-form/** - Contact form with validation and Tailwind styling\n- **dashboard/** - Analytics dashboard with metrics, activity feeds, and responsive grids\n- **data-display/** - User profiles, task lists, badges, and progress bars\n- **landing-page/** - Complete marketing page with hero section, features, and CTAs\n\nEach example includes:\n- `app.json` - Pure JSON schema definition\n- `README.md` - Comprehensive documentation with usage instructions and customization guide\n- `.gitignore` - Git ignore configuration\n\n### Documentation Updates\n\n- Created comprehensive `examples/README.md` with learning path and full index of all examples\n- Updated root `README.md` to prominently feature new JSON examples with CLI usage\n- Updated `docs/guide/quick-start.md` to reference actual examples instead of non-existent ones\n- Added \"Running Example Projects\" section to `docs/CLI_GUIDE.md` with detailed instructions\n- Fixed repository URL inconsistency (objectql/objectui) throughout examples documentation\n\n### Best Practices\n\n- All examples use pure JSON schemas (no code required)\n- Follow Tailwind CSS and Shadcn/UI conventions\n- Bilingual support where appropriate (cli-demo)\n- All JSON schemas validated successfully\n\n## Usage\n\nUsers can now quickly explore Object UI capabilities by running:\n\n```bash\nnpm install -g @object-ui/cli\nobjectui serve examples/basic-form/app.json\n```\n\nThis provides a clear learning path from simple forms to complex dashboards and landing pages.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 基于新的json项目规范，重新设计examples\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

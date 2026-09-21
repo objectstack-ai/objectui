@@ -1,0 +1,29 @@
+{
+  "number": 3988,
+  "kind": "issue",
+  "title": "ResponsiveGridProps.gap 收 number | string,但渲染只对 number 算 class —— 字符串间距静默丢失(连默认的 gap-4 一起丢)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T20:56:20Z",
+  "updated_at": "2026-09-16T21:02:19Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3988",
+  "body": "发现于 #3972 的实施(PR #3984),**不在该 PR 处理** —— #3972 扫的是 `registerLayout()` 的声明面(`inputs`),而这一条的两半都不在声明面上:漂的是 **TS prop 类型**与**渲染器**之间,#3984 也刻意不动 `ResponsiveGrid.tsx` 本体。未认领,交 PM triage。\n\n## 机制\n\n`ResponsiveGridProps.gap` 收 `number | string`(`packages/layout/src/ResponsiveGrid.tsx:42`):\n\n```\n/** Gap between grid items */\ngap?: number | string;\n```\n\n但渲染只对 number 算 class(`:111`):\n\n```\nconst gapClass = typeof gap === 'number' ? (GAP_CLASSES[gap] || `gap-${gap}`) : '';\n```\n\n于是 `gap=\"4\"` / `gap=\"1rem\"` 这类**类型允许**的写法拿到 `gapClass === ''` —— 不是\"退回默认间距\",而是**完全没有间距 class**:`gap = 4` 那个默认值只在 `gap` 为 `undefined` 时生效,显式传字符串会把默认值一起顶掉(`:106`)。字符串分支是条死路,而类型签名在邀请人走它。\n\n注册面这次审计判为**正确**、故未改:`{ name: 'gap', type: 'number' }` 恰好描述了渲染器真正兑现的唯一类型。所以这不是 #3832 那种\"声明面比契约窄\"的问题 —— 是 TS 类型比实现宽,#3829 家族(声明了却零实装)落在 props 接口上的一个实例。\n\n## 三条路线(需要决定,故不顺手改)\n\n- (a) 收窄类型到 `gap?: number` —— 与实现一致,对仓外传字符串的调用方是 breaking(编译期红,但那些调用今天本来就没间距);\n- (b) 实装字符串分支 —— 例如字符串走内联 style `gap` 而非 Tailwind class;要定\"字符串是任意 CSS 长度还是 Tailwind 刻度名\";\n- (c) 保留类型、在 JSDoc 写明\"字符串目前不产生间距\" —— 等于承认是 declared-but-inert,应走 ADR-0049 enforce-or-remove。\n\n## 可达性诚实标注\n\n仓内**零消费者**:除本包自身外没有任何地方渲染 `ResponsiveGrid`(`plugin-dashboard` 里的 `ResponsiveGridLayout` 是 `react-grid-layout` 的东西,同名不同物),也没有 JSON 元数据把 `responsive-grid` 当节点写。因此今天没有人被这条打到,按 observation-class 打 `finding`、不挂 `pm:queue`,定级请分诊时自行判断。\n\n## 参考位置\n\n- `packages/layout/src/ResponsiveGrid.tsx:42` —— `gap?: number | string`\n- `packages/layout/src/ResponsiveGrid.tsx:106` / `:111` —— 默认值与只认 number 的 class 计算\n- `packages/layout/src/index.ts` —— `responsive-grid` 的 `{ name: 'gap', type: 'number' }`(与实现一致,未改)\n\n关联:#3972(发现于此实施)、#3984(该单的 PR)、#3829(声明了却零读点/零实装)、#3818"
+}

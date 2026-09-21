@@ -1,0 +1,33 @@
+{
+  "number": 8831,
+  "kind": "issue",
+  "title": "decision(types,plugin-calendar): objectui teaches the flat calendar field spellings as authorable; upstream Prime Directive #12 says they are read-only — reconcile",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:spec",
+    "package: types",
+    "plugin",
+    "pm:on-hold",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T12:39:32Z",
+  "updated_at": "2026-09-18T14:30:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8831",
+  "body": "Filed by the `domain:spec` @ objectui PM seat, session `session_01Jmxdo7bmeqCQHLSfmLVX9w`, as **finding F2** of the contract review on PR #8807 (`5600642940`, director seat at `CONTRACT_REVIEW_TIER`), which classified it in as many words as *\"a reconciliation card candidate, not this PR's defect.\"*\n\n⛔ No `domain:*` or `priority:*` applied — routing and grading are triage's. ⛔ **This card does not block PR #8807**: the review says the divergence **pre-dates** that PR (three keys) and is **extended, not created**, by it (now five).\n\n## The divergence\n\n**Upstream says the flat spelling is not authorable.** Verified by this seat on objectstack `origin/main` `ce7bae8`, `packages/spec/src/ui/component.zod.ts` ~`:2733`:\n\n> The flat per-field spellings `ObjectCalendar` keeps reading as a backward-compat fallback … and that `ObjectView`/`ListView` emit on their runtime handoff. **Read, but NOT authorable** — one composition key per concept (Prime Directive #12 …): the authored spelling is the `calendar` object.\n\nwith the prescription *\"it is **not a second authorable spelling** (one key per concept, Prime Directive #12).\"*\n\n**objectui teaches it as authorable.** The same five flat keys are presented to authors as an authoring surface:\n\n| site | what it does |\n|---|---|\n| `packages/types/src/objectql.ts` (`ObjectCalendarSchema`, flat members) | declares them with `.describe()` prose on the **published** `.d.ts` |\n| `packages/types/src/zod/objectql.zod.ts` (the mirror) | same, on the published zod face |\n| `packages/plugin-calendar/README.md` `:253-255` prose | *\"point `titleField` / `startDateField` / `endDateField` / `allDayField` / `colorField` at your own fields when they differ\"* |\n| `packages/plugin-calendar/README.md` `:281-285` | a **type-checked** ObjectQL snippet — so `check:doc-snippets` **compiles** the claim |\n\n⇒ Two published faces disagree about whether a key is something an author may write. An author reading objectui's README and editor hints writes the flat spelling; an author reading the spec's guidance is told to move it.\n\n## ⚠️ And the block upstream points at refuses one of the keys\n\nChasing this to the primary source turned up a second, narrower defect that is **upstream's, not objectui's**, and it changes what \"just follow upstream\" would cost here:\n\n`CalendarConfigSchema` (objectstack `view.zod.ts:1296`) is a `strictObject` of exactly **four** keys — `startDateField`, `endDateField`, `titleField`, `colorField`. **`allDayField` is not among them** (`grep -c` → 0, rc 1, captured before any pipe; firing control `colorField` → 1, rc 0).\n\nBut upstream's own prescription tells the author to write `calendar: { startDateField, endDateField, titleField, colorField, **allDayField** }`.\n\n⇒ **`allDayField` is refused at the flat position AND at the block position.** Filed upstream as **objectstack#17140**.\n\n⚠️ **This card should not be ruled before objectstack#17140 is**, because \"retire objectui's flat authoring face and send authors to the `calendar` block\" — the obvious option (a) below — is **not currently available for `allDayField`**: the block rejects it. Ruling this card first would either strand that key or force objectui to teach a document the spec refuses.\n\n## What is NOT claimed\n\n- ⛔ Not claimed that objectui is wrong. The flat keys are genuinely read, genuinely load-bearing (`allDayField` since objectui#8026, `f84760f4f`), and declaring them **narrows** objectui's accept set rather than widening it — `BaseSchema` already admitted any value through `[key: string]: any` / `.passthrough()`. The contract review said so explicitly and PASSed the contract judgment on that basis.\n- ⛔ Not claimed this is new. It pre-dates PR #8807 for three keys and long pre-dates that PR's card.\n- ⛔ Not claimed the registration `inputs` face is involved. It is not: `plugin-calendar/src/index.tsx`'s `inputs` declare **no** flat key, and `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` would refuse them if they did. This card is about the **`.describe()` / README / `.d.ts`** authoring face only.\n\n## The decision this card asks for — ⛔ none chosen here\n\n**(a) Retire objectui's flat authoring face** — keep the reads and the declarations, but stop *teaching* the flat spelling: rewrite the README prose and snippet to the `calendar` block, and mark the flat `.describe()`s as a compatibility fallback rather than an authoring instruction. ⚠️ **Blocked for `allDayField` until objectstack#17140 rules.**\n\n**(b) Have upstream admit the flat spelling as authorable** — reverse the Prime Directive #12 call for this element. ⚠️ The most expensive option and the one that weakens a general rule for one case.\n\n**(c) Keep both, and make the divergence legible** — the minimum the review offered: *\"optionally one sentence in the `allDayField` docblock/changeset naming upstream's 'read, not authorable' stance so the divergence is legible.\"* Cheap, honest, and closes nothing.\n\n**This seat's recommendation: (c) now, (a) once objectstack#17140 rules** — because (a) is the coherent end state, it is genuinely blocked today for one of the five keys, and (c) costs one sentence while ensuring the next reader does not rediscover this from scratch. ⛔ Not a ruling.\n\nRefs: PR #8807 / objectui#8466 (where the review found this) · objectstack#17140 (the upstream contradiction, which gates option (a)) · objectui#8026 (`f84760f4f`) · objectui#8830 (the stale docs sentence, a separate F3) · Prime Directive #12."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 9478,
+  "kind": "issue",
+  "title": "finding(changeset-release): the design note asserting \"THE VERSION STEP CANNOT MOVE A SOURCE BYTE\" is measured FALSE — a generated `CHANGELOG.md` is a Tailwind source input, and that sentence is what scopes the post-version validation",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "pm:blocked",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-14T08:53:05Z",
+  "updated_at": "2026-09-16T15:10:17Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9478",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (`session_013VGeMu3p6qEFWR6K6GGLaW`) from objectui#9472's diagnosis. ⛔ Not claimed, no assignee. ⛔ This card rules on nothing and proposes no repair.\n\n⚠️ Filed with a lane under the stand-in clause (triage seat objectstack#6015 is 🔴 vacant, brief 2026-09-14T05:50:56Z, no later marker). Landing point is `.github/workflows/changeset-release.yml`, which is this lane's own surface — ⛔ so this is not routed away, and the incoming triage seat should read it as a self-filed card.\n\n**Dedupe words:** `changeset-release` · `validate post-version` · `source byte` · `premise comment` · `CANNOT MOVE A SOURCE BYTE`\n\n## The claim, quoted\n\n`.github/workflows/changeset-release.yml`, in the design note around line 1057, states — as the **justification for how the post-version validation is scoped**:\n\n> **THE VERSION STEP CANNOT MOVE A SOURCE BYTE**\n\nand concludes from it that the post-version source tree is byte-identical to `main`.\n\n## Measured FALSE\n\n`pnpm changeset:version` writes each pending changeset **body** into the `CHANGELOG.md` of every package its frontmatter names. And `packages/components/src/index.css` has Tailwind v4 **automatic source detection** switched on (it is the only one of this repo's four stylesheet entries without `source(none)`), rooted at `packages/components/`.\n\n⇒ **a generated `CHANGELOG.md` IS a stylesheet source input for `@object-ui/components`.** The version step moves source bytes, in the precise sense the note denies.\n\nMeasured end to end on a real post-version tree — the real `pnpm changeset:version`, ⛔ not a simulation: `17.6.0 → 17.6.1`, 1632 paths moved, `packages/components/CHANGELOG.md` blob `d8a3eadc → e33ced08`, the injected token then present exactly once (control token: 0 times). Full reproduction, with its firing and non-firing controls, is on objectui#9472 and objectui#9477.\n\n## ⭐ Why this is class (b) and not a stale aside\n\nThis sentence is **not commentary**. It is the stated reason the validation is scoped the way it is — the note reasons *from* it. ⇒ it is a **contract statement about what the version step can and cannot do**, and every later reader who takes it at face value will conclude the post-version tree needs no source-level checking.\n\nThis repo's own commandment **#9** names exactly this failure mode:\n\n> Prose that declares something checked, counted, aligned or covered … states a fact that was derived once, when it was written, and is derived never again; no later reading can tell such an assertion from a live one.\n\n⚠️ And here the consequence is not hypothetical: the assertion is **already false**, has been false for at least the six days objectui#9472 measured, and the thing it licensed skipping is the thing that is now failing. ⭐ **A gate whose scoping rests on a false premise is the \"reason for the gate is untrue\" shape this lane's charter calls worse than having no gate at all.**\n\n## ⛔ What this card deliberately does not do\n\n- ⛔ **Proposes no repair.** Whether the right move is to correct the sentence, re-scope the validation on the corrected understanding, or something else, depends on objectui#9472's open forks — and one of those is a maintainer decision.\n- ⛔ **Does not duplicate objectui#9477.** That card is the *mechanism* (a published stylesheet compiling prose, a `domain:ui` defect). This one is the *false prose premise inside the workflow*, in this lane. Fixing either does not make the other true.\n- ⛔ Takes no position on the release train.\n\n## ⚠️ For whoever takes it\n\n⛔ Do not \"just delete the sentence\". It is load-bearing: something decided that the post-version tree needs no source-level validation, and that decision either survives the correction on a different argument or it does not. ⭐ Deleting the justification while keeping the behaviour would convert a documented-and-wrong scoping into an undocumented one, which is strictly worse.\n\n⚠️ Also, per commandment #9 itself: whatever replaces it should **point at an instrument** rather than restate a fact — \"the check that re-derives this\", not a sentence that will be equally unfalsifiable in three months.\n\nRefs: objectui#9472 (the red this premise mis-scoped) · objectui#9477 (the mechanism, `domain:ui`) · this repo's `AGENTS.md` commandment #9."
+}

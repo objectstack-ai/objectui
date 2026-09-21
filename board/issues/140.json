@@ -1,0 +1,36 @@
+{
+  "number": 140,
+  "kind": "pull_request",
+  "title": "[WIP] Fix Vercel build error during pre-rendering",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-21T17:15:08Z",
+  "updated_at": "2026-01-21T17:26:44Z",
+  "closed_at": "2026-01-21T17:24:49Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-21T17:24:49Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/140",
+  "body": "## Fix Vercel Build Errors\n\n### Issues Identified:\n1. **Slider TypeError**: `e.values.map is not a function` when prerendering `/docs/components/form/slider`\n   - The `slider.mdx` demo passes `defaultValue: 50` as a number\n   - But `SliderSchema` and the Slider component expect `defaultValue` as `number[]` (array)\n   \n2. **Icon \"home\" not found**: Icon \"home\" (lookup: \"Home\") not found in lucide-react\n   - The `icons` object in lucide-react has `House` but not `Home`\n   - \"Home\" was renamed to \"House\" in lucide-react's icons object\n\n### Changes Made:\n- [x] Identify the root causes of both errors\n- [x] Fix slider.mdx to pass defaultValue as an array [50] instead of 50\n- [x] Fix slider renderer to handle both number and array types for backward compatibility\n- [x] Add icon name mapping in icon renderer to map \"Home\" -> \"House\"\n- [x] Test the build locally to ensure both issues are resolved\n- [x] Add documentation comments for maintainability\n- [ ] Run security checks\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix vercel 01:08:15.462 [MDX] generated files in 26.423321999999985ms\n> 01:08:15.470 ▲ Next.js 16.1.4 (Turbopack)\n> 01:08:15.470 \n> 01:08:15.503   Creating an optimized production build ...\n> 01:08:33.574 ✓ Compiled successfully in 17.7s\n> 01:08:33.575   Running TypeScript ...\n> 01:08:37.069   Collecting page data using 3 workers ...\n> 01:08:37.867   Generating static pages using 3 workers (0/90) ...\n> 01:08:38.758 Icon \"home\" (lookup: \"Home\") not found in lucide-react\n> 01:08:38.926   Generating static pages using 3 workers (22/90) \r\n> 01:08:39.447 Error occurred prerendering page \"/docs/components/form/slider\". Read more: https://nextjs.org/docs/messages/prerender-error\n> 01:08:39.451 TypeError: e.values.map is not a function\n> 01:08:39.451     at <unknown> (.next/server/chunks/ssr/_3a53ad4a._.js:80:58216) {\n> 01:08:39.451   digest: '989413814'\n> 01:08:39.451 }\n> 01:08:39.451 Export encountered an error on /docs/[[...slug]]/page: /docs/components/form/slider, exiting the build.\n> 01:08:39.493 ⨯ Next.js build worker exited with code: 1 and signal: null\n> 01:08:39.602  ELIFECYCLE  Command failed with exit code 1.\n> 01:08:39.626 Error: Command \"pnpm --filter '../../packages/*' -r build && pnpm build\" exited with 1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,29 @@
+{
+  "number": 5144,
+  "kind": "issue",
+  "title": "[finding] `userActions.editInline` has two different defaults across surfaces, and neither is the spec's `.default(false)`",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T05:06:18Z",
+  "updated_at": "2026-08-23T04:20:48Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5144",
+  "body": "## Summary\n\nRecorded from the PR for #4646/#4647 so the decision taken there is visible and revisitable, rather than buried in a comment.\n\nThe spec declares (`@objectstack/spec@17.0.0`, `src/ui/view.zod.ts:846`):\n\n```ts\neditInline: z.boolean().default(false)\n  .describe('Allow users to edit records inline … Off by default: the list is read-only unless the author opts in.')\n```\n\nobjectui now has **two** consumers of that key, reading the ABSENT case differently, and neither enforces `.default(false)`:\n\n| Surface | Reads absent as | Code |\n| --- | --- | --- |\n| ADR-0047 interface page | OFF | `InterfaceListPage.tsx:431` — `inlineEdit: userActions.editInline === true` |\n| Object-list toolbar | defer to host channel | `ListView.tsx` `inlineEditOffered` — `editInline !== false` |\n\n## Why the object-list toolbar was written that way (PR for #4647)\n\nEnforcing `.default(false)` there would remove inline editing from **every existing console list view in one release**:\n\n- nothing folds a legacy key into `editInline` (`SHOW_FLAG_TO_USER_ACTION` in `packages/core/src/utils/normalize-list-view.ts` has no entry for it), and\n- the console's own channel for this capability is the view's stored `inlineEdit` property, relayed as `onInlineEditChange` — a channel `InterfaceListPage` does not have, which is why `=== true` is right there and not here.\n\nThe reading taken follows the rule the surrounding `toolbarFlags` block states for itself — defaults \"matching what these flags have always done\", with `hideFields`/`rowColor` keeping their historical OFF because flipping them \"would grow two buttons on every existing view\" — applied in the direction that would REMOVE an affordance.\n\n## What is actually open\n\nTwo defensible readings, one contract:\n\n**A. Leave as-is.** Two surfaces, two defaults, documented. Cost: the spec's stated default is unenforced on the busier surface, so \"declared = enforced\" is not true for this key, and a reader of the spec gets the wrong answer for the console list.\n\n**B. Converge on the spec default**, and pay for it — backfill `userActions.editInline: true` onto existing stored views (a data migration), or fold the stored `inlineEdit` property into `editInline` in `normalizeListViewSchema` so the console's existing channel becomes the spec key rather than a parallel one. The fold is the more contract-first shape: one vocabulary, the #2890 pattern this block already follows for every other toggle.\n\nB is likely correct long-term and is deliberately NOT a thing to guess at — it touches stored view data and an authoring surface. Hence a finding, not a fix.\n\n## Not a defect today\n\nNothing a user hits: an author who declares the key gets exactly what they declared on both surfaces, in both directions. Only the ABSENT case differs, and only between two surfaces that already differ in what channels they carry. Labelled `finding` accordingly — no `pm:queue`.\n\n## Pinned\n\n`ListView.permissions.test.tsx` carries a case named for this — \"an ABSENT editInline defers to the host channel, keeping existing views intact\" — with the reasoning in its comment, so a future change to the default is a decision rather than an accident.\n\n## Related\n\n- #4647 — where the key got its first object-list consumer.\n- #2890 — the \"one vocabulary\" `userActions` fold this would extend."
+}

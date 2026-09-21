@@ -1,0 +1,38 @@
+{
+  "number": 75,
+  "kind": "pull_request",
+  "title": "Add changesets and automated release workflow",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "dependencies",
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T07:29:26Z",
+  "updated_at": "2026-01-15T08:16:11Z",
+  "closed_at": "2026-01-15T08:12:37Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T08:12:37Z",
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/75",
+  "body": "Implements changeset-based version management and automated npm publishing for the monorepo. Addresses the requirement: \"增加changeset以及自动化发版本流程\".\n\n## Changes\n\n### Changeset Infrastructure\n- Installed `@changesets/cli` v2.29.8\n- Configured for monorepo: public access, ignores `@apps/*` and `@examples/*`\n- Added npm scripts: `changeset`, `changeset:version`, `changeset:publish`\n\n### GitHub Actions Workflows\n\n**`changeset-release.yml`** (main → npm)\n- Detects changesets in merged PRs\n- Creates/updates \"Version Packages\" PR with version bumps and CHANGELOG updates\n- On merge: publishes to npm, creates GitHub releases\n- Requires `NPM_TOKEN` secret\n\n**`changeset-check.yml`** (PR validation)\n- Enforces changesets for package modifications\n- Skippable via `skip-changeset` or `dependencies` labels\n- Explicit `contents: read` permission\n\n### Documentation\n- **CONTRIBUTING.md**: Versioning workflow, semantic versioning guide, when to create changesets\n- **CHANGESET_SETUP.md**: Complete reference for contributors and maintainers\n- **.github/WORKFLOWS.md**: Workflow documentation\n- **.changeset/README.md**: Quick start guide\n\n## Workflow Example\n\n```bash\n# Developer workflow\npnpm changeset  # Select packages, choose semver bump, write summary\ngit add .changeset/*.md\ngit commit -m \"feat: add new component\"\n\n# After PR merge to main\n# → Bot creates \"Version Packages\" PR\n# → Maintainer merges → Automatic npm publish + GitHub release\n```\n\n## Production Setup Required\n\nAdd `NPM_TOKEN` to repository secrets (Settings → Secrets and variables → Actions)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 增加changeset以及自动化发版本流程\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,38 @@
+{
+  "number": 86,
+  "kind": "pull_request",
+  "title": "Migrate to Tailwind CSS v4 PostCSS architecture",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "examples",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T13:01:18Z",
+  "updated_at": "2026-01-19T13:43:54Z",
+  "closed_at": "2026-01-19T13:43:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/86",
+  "body": "Tailwind CSS v4 moved the PostCSS plugin to a separate package `@tailwindcss/postcss`. The build was failing with:\n```\n[postcss] It looks like you're trying to use `tailwindcss` directly as a PostCSS plugin.\nThe PostCSS plugin has moved to a separate package\n```\n\n## Changes\n\n**PostCSS Configuration**\n- Install `@tailwindcss/postcss` package across workspace\n- Update `postcss.config.js` files to reference `@tailwindcss/postcss` instead of `tailwindcss`\n\n**CSS Syntax Migration**\n- Replace `@tailwind` directives with `@import \"tailwindcss\"` (v4 syntax)\n- Replace `@apply border-border` with `border-color: hsl(var(--border))` where `@apply` references custom theme values\n- Maintain existing CSS custom properties for theming\n\n**Example:**\n```diff\n- @tailwind base;\n- @tailwind components;\n- @tailwind utilities;\n+ @import \"tailwindcss\";\n\n  @layer base {\n    * {\n-     @apply border-border;\n+     border-color: hsl(var(--border));\n    }\n  }\n```\n\n**Package Dependencies**\n- Update `peerDependencies` to support both v3 and v4: `\"tailwindcss\": \"^3.0.0 || ^4.0.0\"`\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21031227714/job/60467556908#step:6:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

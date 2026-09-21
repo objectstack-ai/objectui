@@ -1,0 +1,33 @@
+{
+  "number": 43,
+  "kind": "pull_request",
+  "title": "Update documentation for components and plugins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T19:14:01Z",
+  "updated_at": "2026-01-14T20:04:09Z",
+  "closed_at": "2026-01-14T20:04:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T20:04:08Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/43",
+  "body": "Comprehensive update of documentation for Object UI's component library and plugin system with modular plugin documentation structure.\n\n## Changes Made\n\n### English Documentation\n- **Components Guide** (`docs/guide/components.md`): Complete reference for 50+ components covering:\n  - Form components (Input, Select, Checkbox, Radio, Date Picker, etc.)\n  - Layout components (Grid, Flex, Card, Tabs, Accordion, Container)\n  - Data display components (Table, List, Badge, Avatar, Progress)\n  - Feedback components (Alert, Dialog, Toast, Popover)\n  - Navigation components (Button, Link, Breadcrumb)\n  - Installation, setup, usage examples, and customization guide\n\n- **Plugins Overview** (`docs/guide/plugins.md`): Plugin system overview with links to individual plugin documentation\n  - Lazy loading architecture and bundle size impact\n  - Auto-registration mechanism\n  - Step-by-step guide for creating custom plugins\n  - Best practices and troubleshooting\n\n- **Individual Plugin Documentation** (`docs/plugins/`): Dedicated documentation file for each official plugin:\n  - `plugin-editor.md` - Monaco Editor plugin with 100+ language support\n  - `plugin-charts.md` - Recharts visualization plugin with multiple chart types\n  - `plugin-kanban.md` - Drag-and-drop kanban board plugin\n  - `plugin-markdown.md` - GitHub Flavored Markdown renderer plugin\n  - Each includes installation, usage, schema API, examples, and TypeScript support\n\n### Navigation Updates\n- Updated VitePress configuration to include plugin documentation in sidebar navigation\n- Updated documentation index to reference new component and plugin guides\n- Added links in \"Core Concepts\" and \"By Use Case\" sections\n- Added `/plugins/` sidebar section for easy access to individual plugin docs\n\n## Documentation Coverage\n\n- Complete schema definitions and props for all components\n- Real-world examples (login forms, dashboards, data tables, kanban boards, markdown content)\n- Bundle size metrics and performance considerations for each plugin\n- Plugin architecture explanation with code examples\n- Tailwind CSS customization patterns\n- TypeScript type safety guidance\n- Property reference tables for quick lookup\n\n## Testing\n\n- ✅ Documentation site builds successfully with VitePress\n- ✅ All internal links validated\n- ✅ Navigation structure tested\n- ✅ Modular plugin documentation structure verified\n\nThe documentation is now comprehensive and modular, with each plugin having its own dedicated documentation file for easier maintenance and navigation. Developers have complete references for using and extending Object UI's component library and plugin system.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 更新控件和插件相关的文档\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

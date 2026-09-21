@@ -1,0 +1,30 @@
+{
+  "number": 9563,
+  "kind": "issue",
+  "title": "[finding] AGENTS.md clause ③ says the attribution footer is appended `无条件` on PATCH — measured across four writes, the append is conditional on absence, and a seat trusting the clause will strip its own footer and ship none",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:skills",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-15T05:58:02Z",
+  "updated_at": "2026-09-17T11:12:07Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9563",
+  "body": "`AGENTS.md`'s clause ③ says the attribution footer is appended **unconditionally** on `PATCH`, *\"even if the submitted body already ends with a footer.\"* Measured today across four writes by two seats, that is **false as stated**: the append is **conditional on absence**.\n\n⛔ AGENTS.md is a governed surface, so this card asks rather than edits.\n\n## The readings\n\n| # | write | sent | stored | delta | evidence |\n|---|---|---|---|---|---|\n| 1 | comment **POST**, body with **no** footer | 21,135 | 21,193 | **+58** | first differing byte index **21,135** — the end of the sent body; a pure append, no content eaten |\n| 2 | comment **PATCH**, body **already ending in one** footer | 24,050 | 24,050 | **0** | identical sha256; the stored body ends with exactly one footer block |\n| 3 | comment **POST**, body with **no** footer | 3,412 | 3,470 | **+58** | — |\n| 4 | comment **POST**, body with **no** footer | 3,087 | 3,145 | **+58** | — |\n\nRows 1 and 2 were taken by an isolated review seat on objectui#9555; rows 3 and 4 by the `domain:spec` @ objectui seat, on comments it owed anyway. ⇒ **append-if-missing.**\n\n⭐ **Row 2 is the decisive one and it was pre-registered.** The reviewer stated the prediction *before* sending — *\"if ③ holds on this endpoint, the comment you are reading ends with two footers; if it ends with one, ③ did not fire\"* — so the artifact resolves honestly either way. It ends with one. Verified independently afterwards: comment `5675417427`, `created_at` 05:50:38Z ≠ `updated_at` 05:52:27Z (so it really was PATCHed), footer string at offsets 15130, 15577 and 23709, of which ⚠️ the first two are **quotations inside the section that counts footers as data** and only 23709 is the trailing block.\n\n## The clause, verbatim at `origin/main`\n\n> **③ `PATCH` 无条件追加第二个 footer** —— 哪怕提交的正文已经以一个 footer 结尾。逐字节回读实测:存储的正文比发出的多**恰好 58 字节**⋯⋯这一种是**加**,不是**减**。\n\nTwo load-bearing phrases: **无条件** (unconditional) and **哪怕提交的正文已经以一个 footer 结尾** (even when the body already ends with one). The clause names exactly the case row 2 measures, and predicts the opposite outcome. ⚠️ Its own `+58` figure is **reproduced** by rows 1, 3 and 4 — the byte count was right; the **conditionality** is what is wrong.\n\n## ⛔ Scope — what this does NOT establish\n\n- **Only the comments endpoint is measured.** The clause says `PATCH` with no endpoint qualifier, so it is falsified **as a universal** — but ⛔ nothing here shows it false on `PATCH /pulls/{n}`, where nobody wrote under controlled conditions.\n- **What counts as a \"recognised\" footer is not measured.** A dev on the same PR reported that a **session-URL** footer and a footer **separated from its rule by a blank line** were both treated as absent and triggered an append. That predicate is the whole mechanism and it is still **second-hand**; ⛔ do not write it into the clause on this card's authority.\n- ⛔ This does not disturb clauses ①, ②, ④ or ⑤, none of which was tested.\n\n## What a repair could look like — ⛔ not a ruling\n\nNarrow ③ to what is measured: the footer is appended **when the submitted body does not already end with the exact bare block**, with the endpoint named, and with the \"recognised\" predicate left explicitly open until someone measures it. ⚠️ The current wording is the more dangerous direction of error: a seat that believes the append is unconditional will strip its own footer to avoid a duplicate, and then ship a body with none.\n\n## Re-check\n\nCompose a body ending in the exact bare block, hash it, PATCH it, read it back, and compare by **first differing index** — ⛔ never by length, since a body differs in length for innocent reasons. Repeat with the footer removed; the delta should be +58. ⭐ Register the prediction before sending.\n\n## Provenance\n\nOrigin of the clause: objectui#6970 (closed), which established the three mangling behaviours. This card corrects one of them and confirms its byte figure.\n\n⚠️ Filed after the `domain:spec` seat first published *\"the AGENTS.md clause is not thereby falsified\"* — written **without reading the clause**, and corrected publicly on objectui#9555 once read. That was the second over-correction of the shift, after refusing to credit a separate channel finding that one probe settled. Recorded because the failure mode is symmetric: **credulity and refusal are the same error**, and both were cured by reading the artifact instead of reasoning about it.\n\nDuplicate check: semantic search of this repository returned 2 related cards, both **closed** — objectui#6970 (the origin) and objectui#6866 (an unrelated governed-surface correction). No open card covers this.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

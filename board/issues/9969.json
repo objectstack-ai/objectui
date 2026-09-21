@@ -1,0 +1,30 @@
+{
+  "number": 9969,
+  "kind": "issue",
+  "title": "[decision] When does `Spec Main Shape Gate` become REQUIRED, and who enrols it? (residual of objectui#9860, ruling C)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:awaiting-maintainer",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T22:15:17Z",
+  "updated_at": "2026-09-20T16:17:32Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9969",
+  "body": "Maintainer-action: enrol `Spec Main Shape Gate` as a required context in ruleset `11776024`.\n\n<sub>〔阻塞不成立,已改正〕The `Blocked-by: #9943` line written here on 2026-09-20 was a half-state: that card was ALREADY closed. And the condition is measured clear, not merely closed — `Spec Main Shape Gate` reads `completed: success` on PR #9877's head `6d714173e` (34 checks, 0 pending, 0 failed). ⛔ This line is deliberately NOT written in a form a `Blocked-by:` grep can match. The seat's half of ruling A is dispatched once the setting is read back.</sub>\n\n\n<sub>Set 2026-09-20 on the maintainer's ruling 「A」 — enrol when the day-one break clears. objectui's unlock scan releases this card when #9943 closes; ⚠️ the enrolment itself is a repository setting and stays the maintainer's.</sub>\n\nos-decision-facets\n\n## 维护者速读\n\nobjectui 现在有一个新检查:把 objectui 拿 objectstack `main` 上的 `@objectstack/spec` 编译一遍,看契约形状有没有对不上。它已经写好、已经在跑、结果也已经看得见 —— 但它是**建议性**的,红了不挡任何人合并。\n\n问题只有一个:**什么时候把它变成必过的门?** 现在就变,objectui 每一个 PR 立刻全红,因为 `main` 上确实有一处对不上还没修(见 objectui#9943);永远不变,那这个门就只是个装饰。开发 agent 的建议是:等那处修好的那一刻,维护者把它登记进分支保护,席位同一时间把名字从\"不是门\"挪到\"必过\"。\n\n⛔ 这是新增必需门禁,按纪律属于人工地板,席位不能代裁。\n\n请回一个字母:A / B / C。\n\n\n## The question\n\n**When does `Spec Main Shape Gate` become REQUIRED, and who writes it?**\n\nRaised by the `os-dev` implementing objectui#9860 (ruling C) as `open_questions[1]` of its report, comment `5730282684`. It is a **residual** of executing that ruling, not the question objectui#9860 was dispatched on — so per the half-state patrol's H52 remedy it lands here as its own card rather than re-hanging `needs-user-decision` on a card that already carries a ruling.\n\n## The options, as the dev framed them\n\n| | |\n|:--|:--|\n| **A** *(dev's recommendation)* | The maintainer enrols the context in ruleset `11776024` once the day-one break clears, and the seat moves the name from `NOT_A_GATE` to `REQUIRED_CONTEXTS` in `scripts/dependabot-merge-gate.mjs` in the same window. |\n| **B** | Enrol now, and accept that every objectui PR is red until the break clears. |\n| **C** | Leave it permanently advisory. |\n\n## 四棱\n\n**① 长远** — 契约漂移的成本随时间单调上升:spec 动一次形状,objectui 这边的 `Record<ViewType, …>` 全量表就少一行或多一行,而今天没有任何东西在 PR 时刻说这句话。A 把这个读数变成落地条件,且只在它能是绿的那一刻;C 让它永远停在\"看得见但没人必须看\"。已经有一次实测:objectui#6596 的形状就是一个长期红着的检查,最后教会所有人忽略红色。\n\n**② 拉动** — 拉动这件事的是 objectui#9943(`page:` 行在退役后的 union 上 TS2353)与 objectui#9944(门禁自报的是**下界**:`&&` 与 turbo 的 fail-fast 让它少数几处就停)。两张卡都已在队列。A 的时机判据正是\"#9943 落地\"这一个可观测事件;B 不等它;C 不需要它。\n\n**③ 防 AI 犯错** — 这是本卡真正的重量。一个 AI 写的 objectui 改动今天可以引用一个 spec 已经移走的成员,build 绿、CI 绿、人看不出来,直到下一次 pin 升级把它变成运行时的形状错。必过的门把这一类错误从\"以后某次升级时爆炸\"提前到\"这个 PR 不给你合\",这是 AI 写码最需要的那种前移。B 也做到这件事,但它同时制造一个永远红的检查 —— 而\"红了照合\"一旦被学会,就等于把门拆了。\n\n**④ 不扩散** — A 是一次动作两处落笔(分支保护登记 + `NOT_A_GATE` → `REQUIRED_CONTEXTS`),`merge_group` 那条腿已经在位,所以它是单次安全动作而不是两个 PR 的来回。C 不动任何东西但把一个已经花掉的 CI 成本永久变成没有读者的输出。B 的扩散面最大:它把每一个与本主题无关的 objectui PR 都拖进这场等待。\n\n## 推荐\n\n**A**,与 dev 同向,并且理由可以独立成立:B 与 C 各自复制了一个此仓已经量过代价的失败形状 —— B 是 objectui#6596 的长期红,C 是\"声明了但没人强制\"的那一类,而那一类正是本仓 `finding` 分类里 declared≠enforced 的专门通道要求转 enforce-or-remove 的东西。A 唯一的代价是它需要一个人在一个具体时刻动手,而那个时刻有机器可读的信号(objectui#9943 关闭)。\n\n## 自检 —— 这条推荐可能错在哪\n\n- 如果 objectui#9943 的修法最终落在 objectstack 一侧(把 `page` 还回 spec 的 union),那么\"break 清除\"的时刻不在本仓,A 的触发信号要改写成一条跨仓判据,而不是\"本仓某张卡关闭\"。这一点本卡 ⛔ 没有裁,它是 objectui#9943 自己要回答的。\n- A 假设 `REQUIRED_CONTEXTS` 与 ruleset 登记必须同窗口发生。若两者可以先后落地而中间不出现\"名字在必过名单上、ruleset 里没有\"的半态,A 就可以拆成两步,门槛更低。这一点没有实测。\n\n## 置信缺口\n\n- ⛔ **未读**:ruleset `11776024` 的当前 required-checks 清单。本仓 AGENTS.md 明写 ruleset 的具体配置从仓内读不到,⛔ 不照抄任何推断,所以本卡不声称知道现在有哪些检查在名单上。\n- ⛔ **未测**:把名字移进 `REQUIRED_CONTEXTS` 而 ruleset 尚未登记时,`scripts/dependabot-merge-gate.mjs` 的行为。上面自检第二条的整个前提就悬在这个未测点上。\n\nPrior rulings read: unresolved\n\n<sub>`check-prior-rulings.mjs` was run in the objectui checkout at `2026-09-18T22:15Z` and refused with `PREREQUISITE NOT MET — docs/adr parsed to zero decision units at origin/main` (exit 3), whose own text prescribes exactly this paste value and ⛔ forbids `none`. The refusal is itself filed as objectstack-ai/objectstack#19132: objectui's ten ADR files parse to zero units, so `unresolved` is the honest line here and will stay so for every objectui decision card until that card lands.</sub>\n\n## The other two questions from the same report, disposed of here\n\n- **`open_questions[0]`** 「Who clears the day-one break — objectstack restores `page` on the spec's list-view union, or objectui stops deriving over it?」 — not a decision awaiting this inbox: it is the subject of objectui#9943, which is filed, graded and in `pm:queue`. Recorded, not re-asked.\n- **`open_questions[2]`** 「Should the gate also run on a schedule?」 — the dev recommends A (no, for now), a reversible default with a named revisit trigger. Taken under the 否决窗口 rule: **declared and executed as A**; an objection re-opens it. ⛔ Not carried into this card's question.\n\n---\n<sub>Filed by the `domain:ui#2` execution seat (`session_018HrVaotisyhgmot9o2MLRq`) at `2026-09-18T22:15Z`, as the H52 remedy for the half-state patrol row on objectui#9860. The question, its three options and the dev's recommendation are quoted from comment `5730282684`; ⛔ no code was written for this card.</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,31 @@
+{
+  "number": 4795,
+  "kind": "issue",
+  "title": "除 `content` 外没有任何文本键既被求值又被读回 —— `statistic.value` / `card.title` / `button.label` 无法绑定表达式",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:blocked"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-16T08:38:03Z",
+  "updated_at": "2026-09-10T03:13:32Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 20,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4795",
+  "body": "发现于 #4786 的实施(教学面拆 `props` 信封),真实 SchemaRenderer 探针实测。**这不是文档问题** —— 文档教错正是因为引擎这里有一个真实的洞。\n\n## 两道闸门,没有一个键同时通过(除 `content`)\n\n一个值要上屏必须同时:被 `SchemaRenderer` **求值**,且被 renderer **读回**。实测两边互不重叠:\n\n| 写法 | 求值? | 读回? | 实测渲染 |\n|---|---|---|---|\n| `{ \"type\": \"statistic\", \"props\": { \"value\": \"${data.n}\" } }` | ✅ | ❌ | 空 —— `props` 被 spread 成 React props,`StatisticRenderer` 读 `schema.value` |\n| `{ \"type\": \"statistic\", \"value\": \"${data.n}\" }` | ❌ | ✅ | 字面量 `${data.n}` |\n| `{ \"type\": \"text\", \"content\": \"${data.n}\" }` | ✅ | ✅ | `99` |\n\n`card.title` / `button.label` / `*.description` 同理。探针原文(dataSource `{ total: 99 }`):\n\n```\n@@PROBE expr/card-title-ENVELOPE   text=\"\"                    html=... props=\"[object Object]\" title=\"99\" ...\n@@PROBE expr/card-title-TOPLEVEL   text=\"${data.total}\"\n@@PROBE expr/text-content-TOPLEVEL text=\"Total: 99\"\n```\n\n注意 ENVELOPE 那行:`title=\"99\"` —— 值**确实求出来了**(99),只是作为 React prop 落到 DOM 属性上,`CardTitle` 里仍是空的。求值白做了。\n\n## 成因(读码)\n\n- `packages/react/src/SchemaRenderer.tsx` 的 evaluation memo 只处理 `content`、`props.*` 和几个谓词键;`title`/`label`/`value`/`description` 原样透传。\n- 同文件 `React.createElement(Component, { schema, ...componentProps, ...(evaluatedSchema.props || {}), ... })` —— `props` 的内容作为 React props 展开,而 `ui:*` / `page:*` renderer 一律读 `schema.*`(`packages/components/src/renderers/data-display/statistic.tsx` 读 `schema.value`;`layout/card.tsx` 读 `schema.title`;`form/button.tsx` 读 `schema.label`)。\n\n## 后果\n\n`statistic` 是仪表盘的主力组件,而它**没有任何办法**绑定一个动态数值 —— 只能由宿主在交给 SchemaRenderer 之前把值算好。教学面此前给出的\"搬到 `props` 里\"这个 workaround(protocol.md / page-builder.md / schema-expressions.md 三处成体系地写着)把\"渲染出字面量\"换成了\"渲染出空白\",更难诊断。PR(#4786)已把教学面改成如实陈述 + 走 `content` 或宿主预解析,但契约层面的洞留在这里。\n\n## 修法方向(需裁决,勿直接猜)\n\n1. **扩大求值面**:让 evaluation memo 对一组声明过的文本键(`title`/`label`/`value`/`description`)也跑模板求值。代价:哪些键算\"文本键\"需要在 `@objectstack/spec` / types 里声明清楚,否则又是一套方言。\n2. **把 `props` 并进节点**:`SchemaRenderer` 把 `schema.props` 合并进 schema 而不是 spread 成 React props。代价:与 `element:*` 的 `readProps` 语义冲突,且会把\"信封合法\"这个已被 #4786 教学面否定的形态重新变成合法。\n3. **维持现状 + 发布期诊断**:承认只有 `content` 可绑定,并对\"节点上出现未求值的 `${...}`\"给出发布期报错。\n\n个人倾向 1 或 3,但这是契约收紧,按 #3972 / #3987 家族先例应由维护者裁。\n\n## 参考\n\n- #4786 / 其 PR(教学面改写,探针实测记录)\n- #4011 / PR #4785(同一家族:catalog 已上棘轮,教学源未动)\n"
+}

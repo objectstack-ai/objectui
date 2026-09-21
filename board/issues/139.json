@@ -1,0 +1,33 @@
+{
+  "number": 139,
+  "kind": "pull_request",
+  "title": "[WIP] Fix duplicate title and summary in components documentation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-21T16:59:27Z",
+  "updated_at": "2026-01-21T17:11:10Z",
+  "closed_at": "2026-01-21T17:10:45Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-21T17:10:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/139",
+  "body": "## Fix Duplicate Titles and Descriptions in Components Documentation\n\nAccording to fumadocs specification, when frontmatter includes `title` and `description`, they are automatically rendered. The duplicate H1 heading and description paragraph should be removed from the content.\n\n### Progress Checklist\n\n- [x] Analyze all 32 component MDX files in `docs/components/`\n- [x] Remove duplicate H1 headings (e.g., `# Button`, `# Text`) from all component files\n- [x] Remove duplicate description paragraphs that repeat the frontmatter description\n- [ ] Verify the documentation renders correctly in the site\n- [ ] Take a screenshot to confirm the fix\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> components 文档中，标题和简介显示了两遍，请按 fumadocs 规范生成。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

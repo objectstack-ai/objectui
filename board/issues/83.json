@@ -1,0 +1,33 @@
+{
+  "number": 83,
+  "kind": "pull_request",
+  "title": "[WIP] Investigate large size of packaged components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T12:06:02Z",
+  "updated_at": "2026-01-15T12:30:50Z",
+  "closed_at": "2026-01-15T12:30:25Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/83",
+  "body": "## Bundle Size Reduction Plan\n\n- [x] Analyze current bundle size (1.35MB UMD, 1.77MB ESM)\n- [x] Identify issue: all dependencies were being bundled instead of externalized\n- [x] Update vite.config.ts to externalize:\n  - Workspace dependencies (@object-ui/*)\n  - All Radix UI dependencies\n  - Other heavy dependencies (lucide-react, date-fns, etc.)\n- [x] Add bundle analyzer (rollup-plugin-visualizer)\n- [x] Rebuild and verify reduction (199KB UMD, 279KB ESM - 85% reduction!)\n- [x] Optimize plugin packages:\n  - plugin-charts: externalize recharts (8.8KB UMD)\n  - plugin-editor: externalize @monaco-editor/react (2.1KB UMD)\n  - plugin-kanban: externalize @dnd-kit/* (5.6KB UMD)\n  - plugin-markdown: externalize react-markdown, remark-gfm, rehype-sanitize (2.6KB UMD)\n- [x] Run tests to ensure everything still works\n- [x] Document the change in README and BUNDLE_SIZE_OPTIMIZATION.md\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 为什么components打包之后这么大？\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

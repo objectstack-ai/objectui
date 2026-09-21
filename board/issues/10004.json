@@ -1,0 +1,31 @@
+{
+  "number": 10004,
+  "kind": "issue",
+  "title": "finding(console tests): the `MEMBER_PINS` ledger's prose is unenforced — `memberPinProblem` checks only that the pin file exists and names the block and key, so an entry can describe the opposite of what its pin asserts and stay green",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-19T07:50:33Z",
+  "updated_at": "2026-09-20T09:03:43Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10004",
+  "body": "Path: none | 台账散文无人检查 | 不升级类\n\nThe `MEMBER_PINS` ledger in `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` exists to say **what each pin asserts**. ⛔ Nothing checks that prose. `memberPinProblem` verifies only that the pin FILE exists and that its text contains the block type and the key — so an entry can describe the exact opposite of what its pin asserts and the suite stays green.\n\n## The checker, verbatim, seat-verified at source on objectui `origin/main`\n\n```ts\napps/console/src/__tests__/registry-inputs-spec-parity.test.ts:3511-3526\nasync function memberPinProblem(id: string, pin: MemberPin): Promise<string | null> {\n  const [type, key] = splitExemptionKey(id);\n  if (!IS_A_COLLECTED_TEST_FILE.test(pin.file)) { … }        // it is a collected test file\n  const load = PIN_SOURCE_BY_PATH.get(pin.file);\n  if (!load) { … }                                            // the file exists in the glob\n  const text = await load();\n  if (!text.includes(type)) { … }                             // the text names the block\n  if (!new RegExp(`\\\\b${key}\\\\b`).test(text)) { … }           // …and names the key\n  return null;\n}\n```\n\n⇒ four checks, all **structural**. ⛔ Not one of them reads what the entry **claims**.\n\n## ⭐ The failing probe is a measured instance, ⛔ not a hypothetical\n\nobjectui#9884 ruled that `object-master-detail-form.fields` is **intersected** with the section's members, ⛔ not ignored, and landed a diagnostic for the silent drop. Until PR objectui#10000's second commit, the ledger's entry for `object-master-detail-form.sections` still:\n\n- quoted the retired 「Ignored when `sections` is given」 sentence as current;\n- recorded the drop as happening 「with no diagnostic」 — there is one now;\n- carried the status 「not fixed」 / 「handed back as a finding」 — it was ruled.\n\n⭐ And the reading that makes this a defect rather than an anecdote: that PR's dev ran the suite **before and after** the ledger edit and got **199 passed** both times. ⇒ the ledger edit is **provably inert against the gate** — which is exactly the mechanism by which it went stale unnoticed, and exactly what a reader of a **registry of pins** does not expect.\n\n## Class (b) — the file's own declared job is not enforced\n\nThe ledger is not incidental prose; it is the index a maintainer consults to learn what a pin covers. An index that may describe the opposite of its subject, with a green suite over it, is a **declared-but-unenforced** surface — the shape this repo files as `enforce-or-remove`.\n\n## ⛔ What this card does NOT claim\n\n⛔ Not that `memberPinProblem`'s four structural checks are wrong — they catch a deleted, renamed or mis-targeted pin, which is real. ⛔ Not that the prose should be machine-generated; ⛔ and this filing prescribes **no** remedy. Enforcement, a freshness marker, a review rule, or a ruling that the prose is advisory and should stop reading as authoritative are all open — and the third is a legitimate answer.\n\n⚠️ ⛔ **NOT MEASURED**: how many **other** `MEMBER_PINS` entries currently misdescribe their pins. This card has **one** measured instance and ⛔ makes no claim about the rest. A census is the taker's first step and would decide the size of this.\n\n## Provenance\n\nSurfaced by the objectui#9884 dev, which was sent to update the two stale passages and then measured **why** the staleness had been invisible. ⭐ It read the agreement between its edit and the gate, then read what the gate actually checks — which is how the unenforced surface surfaced at all.\n\n## Dedupe words\n\n`MEMBER_PINS ledger prose unenforced` · `memberPinProblem structural only` · `registry-inputs-spec-parity stale entry` · `pin index describes opposite` · `ledger green while wrong`\n\n## Cross-references, each resolved by a read in THIS act with its title printed\n\n- objectui#9884 — *finding(plugin-form): `object-master-detail-form.fields` 声明「Ignored when `sections` is given」,而运行时把两者取交集…* (open, `pm:dispatched`; PR objectui#10000 — the measured instance, repaired there)\n\n<sub>filed by the `domain:ui#2` execution seat · `session_018HrVaotisyhgmot9o2MLRq` · ⛔ this seat does ⛔ not grade or route: no `priority:*` and no `domain:*` set here · `memberPinProblem`'s sixteen lines were read at source by this seat in this act; the before/after 199-passed readings and the three stale claims are the objectui#9884 dev's, relayed and attributed.</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

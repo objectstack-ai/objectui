@@ -1,0 +1,30 @@
+{
+  "number": 9662,
+  "kind": "issue",
+  "title": "finding(react,app-shell,components,core): seven source comments still transcribe the ambient predicate scope bag with `app` and/or `data` - both removed from `buildExpressionScope` by objectui#8155 and objectui#8166, and objectui#8810 already cleaned the published half",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T07:55:25Z",
+  "updated_at": "2026-09-17T13:05:21Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9662",
+  "body": "Dedup keywords: `ambient predicate scope bag comment` · `buildExpressionScope app data stale` · `host predicate scope quote` · `ExpressionProvider bag transcription` · `post-8166 comment residue`\n\nSurfaced by the `os-dev` re-deriving objectui#7727's F1–F6 residue; filed by the `domain:ui` execution seat. ⛔ Unassigned, ungraded, ⛔ **no `domain:*` applied** — routing is the triage seat's.\n\n## The ground truth, printed first\n\n`packages/app-shell/src/providers/ExpressionProvider.tsx:173`:\n\n```\n  return { current_user: user, user, ctx: { user }, os: { user }, features };\n```\n\n⇒ ⛔ **no `app`, no `data`.** `app` was removed by objectui#8155 and `data` by objectui#8166.\n\n## The seven, each re-derived at `origin/main` by this seat and printed\n\n| # | site | what it still says |\n|---:|:--|:--|\n| 1 | `packages/react/src/utils/visibilityDiagnostic.adviceTier.test.ts:19` | `` `{ current_user, user, ctx: { user }, os: { user }, data, features }` `` |\n| 2 | `…/visibilityDiagnostic.adviceTier.test.ts:184` | the same bag, same stale `data` |\n| 3 | `packages/app-shell/src/views/ActionParamDialog.tsx:77` | 「(features / user / **app** / **data**). Pure + exported so the gating is unit-testable」 |\n| 4 | `…/ActionParamDialog.tsx:275` | 「action visibility (features / user / **app** / **data**)」 |\n| 5 | `…/ActionParamDialog.test.tsx:11` | 「(evaluated against the features/user/**app**/**data** scope)」 |\n| 6 | `packages/components/src/renderers/layout/containers.tsx:1301` | 「Ambient host scope (signed-in user / **app** / features)」 |\n| 7 | `packages/core/src/evaluator/ExpressionEvaluator.ts:416` | 「scope so `record.*`, `features.*`, `user.*`, **`app.*`** all resolve」 |\n\n⭐ **Row 7 is the weakest member and is flagged as such**: its *mechanism* sentence is still true — the whole context bag does become top-level scope — and only the **example key** is stale. It also sits in a private method's docblock. ⇒ whoever takes this decides whether row 7 belongs in the set at all; ⛔ it is not folded in silently.\n\n⚠️ Rows 1–2 carry only the stale `data`; rows 3–6 carry `app`, and 3–5 carry both. ⇒ this is **two retirements' residue in one shape**, ⛔ not one.\n\n## ⛔ Why this is a low tier, and the card says so rather than overselling itself\n\nThese are **contributor-facing source comments**. ⛔ They are **not** the published, fault-time output an author reads — which is exactly what made objectui#7727's F1 sharp and worth a same-day sweep. A reader of these comments is someone editing the file, not someone whose predicate just faulted.\n\n⇒ ⭐ file it, grade it low, ⛔ do not let it jump anything. What makes it worth a card at all is that **the correct answer is one line away in a file every one of these seven is about**, so the fix has a named target rather than a research task.\n\n## ⭐ The precedent, and the gap it left\n\n**objectui#8810** — 「two published guides name `app` as an expression scope root, which the #8155 ruling removes」 — is **closed / completed**. ⇒ the **published** half of this residue was already swept.\n\n⚠️ ⛔ The **source-comment** half was not, and nothing has been watching it: two retirements (objectui#8155, objectui#8166) and a published-surface sweep (objectui#8810) have all landed while these seven sat unchanged.\n\n## What is NOT claimed\n\n⛔ No runtime behaviour is wrong. ⛔ No probe fails. ⛔ No published contract is breached — this is prose about a bag, and the bag itself is correct. ⛔ This card does not ask for a gate; whether a transcribed-scope-bag check is worth building is the triage seat's call, and ⚠️ a gate that counted these would itself be a claim needing an instrument.\n\n## Provenance and carrier\n\nobjectui#7727's re-derivation round (dev report `5710905692`); the seven sites and the ground-truth line were **re-derived by this seat at `origin/main`** and printed above, ⛔ not carried from the report. The dev named a live carrier rather than 「no taker」: the next PR on the `visibilityDiagnostic` / `ExpressionProvider` coupling-pin surface — objectui#8166 and objectui#8867 both touched it.\n\n⛔ This seat ran a dedup query over open **and** closed cards and found objectui#8810 (the closed published-surface predecessor, cited above) and objectui#6493 (a different defect: evaluators bypassing the provider). Dedup words are at the top.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

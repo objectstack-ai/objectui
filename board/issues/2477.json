@@ -1,0 +1,30 @@
+{
+  "number": 2477,
+  "kind": "issue",
+  "title": "Console AI chat (ADR-0057) — post-cleanup UX follow-ups",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-07-14T04:33:40Z",
+  "updated_at": "2026-09-19T19:31:40Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2477",
+  "body": "Follow-up UX polish surfaced during the full browser verification of the docked AI chat (ADR-0057, epic #2409 — #2467 / #2469 / #2470 / #2475). The dock is now the console's one chat presentation; these items refine it. Prioritized by day-to-day impact.\n\n## High impact\n\n### 1. Mobile chat is \"chat-only\" — no history / share / Live Canvas from the sheet\nAfter the mobile bottom sheet dropped its maximize button (#2475, it navigated away from an open Radix sheet and left the page blank), the sheet is the only mobile entry — and it has no path to the conversation-history list, share, Build Doctor, or the **Live Canvas** (ADR-0037 needs horizontal width a sheet can't give). So a mobile `build` session that drafts an app can't see the live preview.\n- Direction: a *clean* path to full-page `/ai` from the sheet (fully close the sheet, then navigate next tick — avoiding the teardown residue #2475 fixed), or a mobile history drawer + full-screen canvas toggle. Needs a small mobile IA design; own PR.\n\n### 2. Studio right dock re-expands on every visit (collapse not persisted)\n`StudioChatDock` uses `defaultExpanded: true` with in-memory state (no persist key), so a user who collapses it sees it re-open on every pillar switch / package change / re-entry, imposing ~420px on anyone who wants the classic three-zone canvas.\n- Direction: persist the collapsed preference (localStorage), scoped so it doesn't fight the console dock's own state.\n\n### 3. Studio folded layout hides the canvas while editing properties (< 2xl)\nOn non-`2xl` viewports, selecting a block auto-switches the center to the Properties tab, so the canvas (the WYSIWYG feedback) disappears while you edit. The 2xl side-by-side only helps very wide screens; `xl` (~1280–1536, the common laptop) still tabs.\n- Direction: lower the side-by-side breakpoint to `xl`, and/or keep a live mini-preview in the Properties tab.\n\n## Medium\n\n### 4. Canvas auto-maximize is an abrupt width jump\nOpening the Live Canvas snaps the rail to max width with no transition. Add a CSS width transition.\n\n### 5. Discoverability of the \"one thread, many views\" model\nMaximize (⤢) / collapse-to-dock (⇥) are icon-only; that `/ai` and the rail are the SAME conversation isn't obvious, and ⌘⇧I is unshown. A first-run hint / better tooltips would help.\n\n### 6. Console ↔ Studio share the chat width\nThe width localStorage key is shared on purpose; a wide console chat then squeezes the Studio canvas. Reconsider per-surface width, or document it.\n\n## Low / polish\n\n- 7. Empty-state suggestion chips wrap awkwardly inside the ~420px rail.\n- 8. Mobile sheet empty state has a lot of whitespace at 85svh.\n\n---\n\nPlanned order: **#2 + #3** first (small, in already-touched files, fast to verify) as one PR; **#1** as its own PR (mobile IA). Refs ADR-0057."
+}

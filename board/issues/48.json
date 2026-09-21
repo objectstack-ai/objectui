@@ -1,0 +1,37 @@
+{
+  "number": 48,
+  "kind": "pull_request",
+  "title": "Add comprehensive GitHub workflows and automation infrastructure",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T00:45:44Z",
+  "updated_at": "2026-01-15T01:14:12Z",
+  "closed_at": "2026-01-15T01:14:12Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T01:14:12Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/48",
+  "body": "Implements complete CI/CD automation including security scanning, dependency management, and project maintenance workflows.\n\n## New Workflows\n\n**Security & Quality**\n- CodeQL analysis for vulnerability detection (push/PR/weekly)\n- Gitleaks secret scanning to prevent credential leaks\n- Bundle size tracking with automatic PR comments\n\n**Automation**\n- Dependabot with smart auto-merge (patch/minor) and grouped updates\n- Auto-labeling PRs via 112 file-pattern rules\n- Stale issue/PR management (60d/45d thresholds)\n- Automatic changelog generation from conventional commits\n\n## Improvements\n\n**CI Pipeline**\n- Added pnpm store caching across all jobs (test/lint/build)\n- Multi-version testing matrix (Node 18.x, 20.x)\n- Codecov integration with proper token handling\n\n**Developer Experience**\n- Issue templates (bug/feature) with structured fields\n- PR template with comprehensive checklist\n- Workflow documentation (`.github/WORKFLOWS.md`)\n- Status badges in README\n\n## Configuration\n\n```yaml\n# dependabot.yml - Grouped updates\ngroups:\n  patch-updates:\n    patterns: [\"*\"]\n    update-types: [\"patch\"]\n  react:\n    patterns: [\"react*\", \"@types/react*\"]\n```\n\n```yaml\n# labeler.yml - Pattern-based labeling\n'package: core':\n  - changed-files:\n    - any-glob-to-any-file: 'packages/core/**/*'\n```\n\nAll workflows follow least-privilege permissions, use commit-pinned actions where security-critical, and include proper error handling.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 添加和完善必要的github工作流\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

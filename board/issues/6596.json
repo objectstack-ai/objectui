@@ -1,0 +1,29 @@
+{
+  "number": 6596,
+  "kind": "issue",
+  "title": "Machine-enforce human review on governed-surface paths — so the no-bypass rule stops resting on seat discipline alone",
+  "state": "open",
+  "state_reason": "reopened",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "pm:awaiting-maintainer"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-27T04:53:12Z",
+  "updated_at": "2026-09-10T16:04:24Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6596",
+  "body": "Provenance: maintainer ruling 2026-08-27 (PM chat, decision-inbox batch 1, adjudication session `session_01DKWDdUJ2XNRESVVWUvcpnh`), verbatim: 「同意，并继续」 — accepting Option A + C on #6325. Option C is this card: the un-reviewed AGENTS.md merge stands (audit record on #6325), and the governed-surface no-bypass rule becomes machine-enforced so the next incident does not depend on seat discipline.\n\n## Why seat discipline is not enough (measured incident)\n\nPR #6183 (governed surface: `AGENTS.md`) was correctly draft-parked; a GitHub MCP `update_pull_request` call passing only `reviewers` silently set `draft: false`; the PR entered the merge queue and merged as `5b3290fd5` with no human approval. Converting back to draft did not dequeue it. Platform fact: objectstack-ai/objectstack#12200. The mechanism — hidden tool side effect + irreversible queue — will recur.\n\n## Scope\n\nMake human review mechanically required for this repo's governed surface (2026-08-18 definition): `AGENTS.md`, `CLAUDE.md`, `.claude/**`, `skills/**`, `docs/adr/**`.\n\nCandidate shapes — the implementer measures which is viable, does not assume:\n\n- `.github/CODEOWNERS` entries scoped to exactly the governed paths, plus the branch-protection \"require review from Code Owners\" setting. The settings half is a GitHub-UI change only the maintainer can make — if this shape is chosen, the PR half lands the CODEOWNERS file and the card then moves to `pm:awaiting-maintainer` naming the exact toggle.\n- A required status check that fails any PR touching governed paths unless an explicit human approval review is present.\n\nConstraints:\n\n- The door must not block the normal dev-PR merge queue for PRs that do not touch governed paths.\n- The enforcement change itself touches governed/config surface — it lands as a draft PR for human merge, per the same rule it enforces.\n- Named reader: the objectui execution seat that implements it; central triage routes the domain label.\n- Sibling repos carry the same gap; mirroring is a separate triage/maintainer call once this repo's shape is proven — not part of this card.\n\nRefs: #6325 (incident decision + audit record), PR #6183 (timeline), objectstack-ai/objectstack#12200 (tool fact)."
+}

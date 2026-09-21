@@ -1,0 +1,32 @@
+{
+  "number": 8290,
+  "kind": "issue",
+  "title": "finding(docs): `content/docs/api/schema-reference.md`'s dashboard table teaches `colSpan` / `rowSpan` / `body` as widget keys — all three refused BY NAME by the strict `DashboardWidgetSchema` — and `refreshInterval` in milliseconds where the renderer multiplies by 1000",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T08:43:51Z",
+  "updated_at": "2026-09-12T01:23:59Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8290",
+  "body": "Observation-class finding, measured while implementing objectui#7952 (branch `claude/issue-7952-dashboard-widgets-union-arm`). Filed unassigned, not claiming, no labels — grading is the triage seat's. Same class as objectui#7035 (a published document teaching a widget shape both contract faces refuse), one document over.\n\n## The claim\n\n`content/docs/api/schema-reference.md`, the `Dashboard` property table (at `fc32921`, lines 1048-1055), says:\n\n- row `widgets` — \"`DashboardWidgetSchema[]` — Required. Widget definitions with `id`, `title`, `colSpan`, `rowSpan`, and `body`.\"\n- row `refreshInterval` — \"Auto-refresh interval in milliseconds.\"\n- the prose under the table — \"Each widget supports `colSpan` and `rowSpan` to control its size in the grid. The `body` can be any `SchemaNode`.\"\n\nNeither half is true of the shipped contract.\n\n## Measured on `fc32921`\n\n**`colSpan` / `rowSpan` / `body` — refused by name.** `DashboardWidgetSchema` has been `.strict()` since objectui#6002 (maintainer ruling 2026-08-25), and none of the three keys is declared on either face (`packages/types/src/complex.ts` `DashboardWidgetSchema`, `packages/types/src/zod/complex.zod.ts` `DashboardWidgetSchema`). Reproducer, run with `tsx` against the source zod schema:\n\n```\nDashboardWidgetSchema.safeParse({ id: 'w', title: 'x', colSpan: 2, rowSpan: 1, body: { type: 'text' } })\n=> REFUSE  unrecognized_keys at [] keys [colSpan, rowSpan, body]\n```\n\nA reader who copies the table's shape gets `objectui validate` refusing the widget with all three keys named. A widget's grid box is `layout: { x, y, w, h }` (`DashboardWidgetLayout`); its content is a spec family named in `type` with settings under `options`, or a component node in the `component` slot — the vocabulary `packages/plugin-dashboard/README.md` teaches since objectui#7035 / PR #7951.\n\n**`refreshInterval` — seconds, not milliseconds.** `packages/types/src/complex.ts` declares it \"Auto-refresh interval in seconds\", and `packages/plugin-dashboard/src/DashboardRenderer.tsx:450` does `setInterval(handleRefresh, schema.refreshInterval * 1000)`. A reader following the table who writes `refreshInterval: 30000` gets a refresh every 8.3 hours.\n\n## Why the gates are green on it\n\n`check:doc-types` asks only whether a `type` literal names a registered component; `check:doc-snippets` compiles fenced `ts` blocks, and this is a prose table; `readme-dashboard-examples-spec-valid.test.ts` reads `packages/plugin-dashboard/README.md` only. Nothing evaluates a property table against the schema it documents — the same three-gates-green shape objectui#7035 recorded for the README.\n\n## Refs\n\n- objectui#7035 / PR #7951 — the README half of the same defect class, fixed.\n- objectui#6002 — the `.strict()` ruling that makes the refusal loud.\n- objectui#7952 — where this was measured (the `widgets` type column of the same row also becomes one arm short once that card's TypeScript union lands; both belong in one docs edit).\n\nReported by the objectui#7952 developer session, `session_01QtGhnU3WnnWyiWeYQhw2aX`, via Claude Code."
+}

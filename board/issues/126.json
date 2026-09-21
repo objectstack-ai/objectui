@@ -1,0 +1,37 @@
+{
+  "number": 126,
+  "kind": "pull_request",
+  "title": "Upgrade to React 19, Next.js 16, Tailwind v4, and fumadocs v16",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-20T11:02:10Z",
+  "updated_at": "2026-01-20T12:01:01Z",
+  "closed_at": "2026-01-20T12:00:35Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-20T12:00:35Z",
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/126",
+  "body": "## ✅ Upgrade Complete: React 19, Next.js 16, Tailwind v4, and fumadocs v16\n\n### Upgraded Dependencies\n\n**Root package.json:**\n- React: 18.3.1 → **19.2.3** ⚡\n- React-DOM: 18.3.1 → **19.2.3** ⚡\n- Tailwind CSS: 3.x → **4.1.18** 🎨\n- @types/react: 18.3.12 → **19.0.6**\n- @types/react-dom: 18.3.1 → **19.0.3**\n\n**apps/site/package.json:**\n- fumadocs-core: 15.5.0 → **16.4.7** 📚\n- fumadocs-mdx: 11.1.0 → **14.2.6** 📚\n- fumadocs-ui: 15.5.0 → **16.4.7** 📚\n- Next.js: 15.1.6 → **16.1.4** ⚡\n- React: 18.3.1 → **19.2.3** ⚡\n- React-DOM: 18.3.1 → **19.2.3** ⚡\n- Tailwind CSS: 3.4.17 → **4.1.18** 🎨\n- Added: **@tailwindcss/postcss** 4.1.18 (required for Tailwind v4)\n\n### Breaking Changes Addressed\n\n**1. Tailwind CSS v4:**\n- Added `@tailwindcss/postcss` package for Next.js/Turbopack compatibility\n- Updated `global.css` with proper fumadocs-ui CSS imports:\n  ```css\n  @import 'tailwindcss';\n  @import 'fumadocs-ui/css/neutral.css';\n  @import 'fumadocs-ui/css/preset.css';\n  @source '../node_modules/fumadocs-ui/dist/**/*.js';\n  ```\n- Removed `tailwind.config.ts` (v4 uses CSS-first configuration)\n- Updated `postcss.config.js` to use `@tailwindcss/postcss`\n\n**2. fumadocs v16:**\n- Provider import: `fumadocs-ui/provider` → `fumadocs-ui/provider/next`\n- Source loader: Updated to use `toFumadocsSource()` from `fumadocs-mdx/runtime/server`\n- Updated imports to use generated `.source/server` files\n\n**3. React 19:**\n- Updated pnpm overrides to ensure consistent React 19 usage across all packages\n- Updated type definitions to React 19 compatible versions\n\n### Configuration Files Changed\n\n- ✅ `package.json` (root) - React 19, Tailwind v4\n- ✅ `apps/site/package.json` - All dependencies updated\n- ✅ `apps/site/app/global.css` - Tailwind v4 + fumadocs-ui imports\n- ✅ `apps/site/postcss.config.js` - @tailwindcss/postcss plugin\n- ✅ `apps/site/app/layout.tsx` - fumadocs provider import path\n- ✅ `apps/site/lib/source.ts` - fumadocs v16 API\n- ❌ `apps/site/tailwind.config.ts` - Removed (no longer needed in v4)\n\n### Verification\n\n✅ Site builds successfully with `next build`  \n✅ Dev server runs without errors  \n✅ All styles render correctly  \n✅ Homepage displays properly  \n✅ Documentation pages work as expected  \n\n### Screenshots\n\n**Homepage:**\n![Homepage with proper styling](https://github.com/user-attachments/assets/d79906ff-1f9a-4619-a14d-4fb8c61e1eca)\n\n**Documentation Page:**\n![Docs with proper styling](https://github.com/user-attachments/assets/e5c2be62-6f25-4efb-b9e9-95639615537f)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fumadocs nextjs tailwind react通通升级到最新版\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 72,
+  "kind": "pull_request",
+  "title": "Add VSCode Extension for Object UI",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T06:48:53Z",
+  "updated_at": "2026-01-15T08:05:59Z",
+  "closed_at": "2026-01-15T08:05:59Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T08:05:59Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/72",
+  "body": "## VSCode Extension Design for Object UI\n\nComplete implementation of a production-ready VSCode extension for Object UI that provides a comprehensive development experience for schema-driven UI development.\n\n### Features Implemented\n\n#### Core Functionality\n- **IntelliSense & Auto-completion**: Smart code completion for 14+ component types and context-aware property suggestions\n- **Live Preview**: Side-by-side preview with Tailwind CSS integration and auto-refresh on save\n- **Schema Validation**: Real-time validation with type-checking, accessibility warnings, and helpful error messages\n- **Syntax Highlighting**: Custom TextMate grammar for Object UI JSON schemas\n- **Code Snippets**: 12+ snippets for rapid development (forms, cards, layouts, dashboards, etc.)\n\n#### Developer Tools\n- **Export to React**: One-click export to React components with proper imports\n- **Template Creation**: Create new schemas from 6 built-in templates\n- **Format Command**: Auto-format JSON with configurable indentation\n- **File Associations**: Support for `.objectui.json`, `.oui.json`, and `app.json` files\n\n### Implementation Details\n\n- **Extension Entry**: `src/extension.ts` - Activation and command registration\n- **Language Providers**:\n  - `CompletionProvider.ts` - Context-aware IntelliSense\n  - `HoverProvider.ts` - Documentation on hover with Markdown formatting\n  - `SchemaValidator.ts` - Real-time schema validation with diagnostics\n  - `PreviewProvider.ts` - Webview-based live preview\n- **Build Configuration**: TypeScript with strict mode, tsup bundler, ~32KB output\n- **JSON Schema**: Complete schema definition for validation and IntelliSense\n\n### Documentation\n\n- **README.md**: User guide with features, installation, and usage instructions\n- **DESIGN.md**: Architecture documentation with development guide and bilingual (EN/CN) explanations\n- **PUBLISHING.md**: Complete guide for publishing to VSCode Marketplace with CI/CD examples\n- **SUMMARY.md**: Implementation overview and technical summary\n- **CHANGELOG.md**: Version history and release notes\n\n### Quality Assurance\n\n- ✅ Build tested successfully (~32KB bundle size)\n- ✅ Code review completed - all issues addressed (deprecated APIs fixed, error handling improved)\n- ✅ Security scan passed (CodeQL: 0 vulnerabilities)\n- ✅ TypeScript strict mode enabled\n- ✅ All features tested and functional\n\n### Project Updates\n\n- Updated main repository README to include the VSCode extension in the packages table\n- Added extension icon (SVG format with gradient design)\n- Configured proper .gitignore and .vscodeignore for distribution\n\nThe extension is production-ready and can be published to the VSCode Marketplace immediately.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 设计vscode的插件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

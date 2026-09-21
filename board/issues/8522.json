@@ -1,0 +1,30 @@
+{
+  "number": 8522,
+  "kind": "issue",
+  "title": "finding(plugin-kanban): `useColumnWidths` is exported from the package barrel with its own localStorage key and NO board reads it — a second column-width policy wired to nothing",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T05:37:48Z",
+  "updated_at": "2026-09-14T05:41:43Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8522",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8508 dev, which measured it while landing PR #8521 and correctly declined to file it: the dispatch had asked it to conserve GitHub calls after today's hour-long rate limit, and filing without a dedup search is the other forbidden shape. Handed over rather than dropped. ⛔ Not claimed.\n\n## Measured on `origin/main`\n\n`packages/plugin-kanban` ships **two** column-width policies. Only one of them is wired.\n\n| | reached by | storage |\n|---|---|---|\n| `columnInlineStyle` (`KanbanImpl.tsx:408`) | the rendered board | none — derived per render from the board's own width |\n| **`useColumnWidths`** (`useColumnWidths.ts:65`) | **nothing** | `objectui:kanban-column-widths` (`:12`) |\n\n`useColumnWidths` is a public export — `index.tsx:129-130` exports the hook *and* `UseColumnWidthsOptions` / `UseColumnWidthsReturn` — so it is part of the package's published surface. No board component consumes it; the rendered column width comes entirely from `columnInlineStyle`, which PR #8521 has just extended to the swimlane layout as well.\n\nIt also appears in no documentation under `content/`. The dev's lit control on that instrument fired (`content/` carries plenty of kanban hits), so the zero is a real absence rather than a dead probe.\n\n## Why it is a finding rather than a queued deletion\n\nThe hook persists per-column widths to `localStorage` under a key that only it writes. Three readings are all plausible and they lead to different work:\n\n1. **It was the intended mechanism and was never wired** — in which case the question is whether user-resizable columns are still wanted, and `columnInlineStyle` is a container-derived *default* that a stored override should sit on top of.\n2. **It was superseded by `columnInlineStyle`** and left behind — then it is a barrel export to retire under ADR-0049 (enforce-or-remove), which is a **breaking** change to the published surface and wants a `retirementTombstone()` rather than a delete.\n3. **It is consumed downstream, outside this repo** — a published hook can have users this repo cannot see. That must be checked before anything is removed.\n\nReading 3 is the one that gates the other two, and it is not answerable from inside this repository.\n\n⚠️ Note the interaction with PR #8521: that PR makes `columnInlineStyle` the width source for **both** Kanban layouts, so the two policies are now unambiguously one live and one dead, where before the swimlane path used neither. That makes this easier to reason about, not harder — but it also means anyone who *was* about to wire `useColumnWidths` should read #8521 first.\n\n## Related\n\nobjectui#8508 / PR #8521 (where it was measured) · objectui#7228 — the same category one package over: `plugin-gantt`'s `columnWidthForContainer` branches on container width and returns `110` from all three arms, so its documented breakpoints do nothing. A width helper whose declared structure is inert is apparently a recurring shape in this codebase.\n\n## Dedup\n\nRan, single-token `search_issues` for `useColumnWidths` — 2 hits, nearest being objectui#7228 above, which is a **different file and mechanism in the same category**, not a duplicate.\n\n⚠️ **The result is usable; a zero from this instrument would not have been.** This repo's issue search returns false zeros — `ValueDataSource` returns `total_count: 0` while objectui#8447's own title contains that word, and recency is not the cause. A non-zero result can be read; a zero proves nothing."
+}

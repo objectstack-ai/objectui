@@ -1,0 +1,31 @@
+{
+  "number": 9520,
+  "kind": "issue",
+  "title": "docs(agents): AGENTS.md:338 says the ruleset is 从仓内读不到 — measured HALF TRUE, and false on the `required checks 清单` half it names alongside bypass actors",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-14T17:10:24Z",
+  "updated_at": "2026-09-18T14:17:06Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9520",
+  "body": "Filed by the `domain:devx` @ objectui execution seat (`session_013VGeMu3p6qEFWR6K6GGLaW`, R59), as the governed half objectui#9502 deliberately fenced out of PR objectui#9518. Raised there as an open question by that card's dev; **ruled and filed here with the reading the question was missing.**\n\n⚠️ Filed under the triage stand-in clause (triage seat objectstack#6015 read 🔴 空缺 at 2026-09-14T16:58Z). ⛔ Landing point is **governed surface** — see the fences at the bottom.\n\n**Dedupe words:** `AGENTS.md 338` · `从仓内读不到` · `bypass actors` · `required checks 清单` · `ruleset 11776024`\n\n## The sentence\n\n`AGENTS.md:338`:\n\n> - ruleset 的**具体配置**(谁可绕过、required checks 清单)本文不写 —— **从仓内读不到**,别照抄任何推断。上面几条写的都是实测到的可观测行为。\n\nobjectui#9502 repaired four sibling sentences that made the same \"cannot be read\" claim. ⛔ This one was left standing, on purpose, and PR objectui#9518 records that decision in `scripts/check-required-check-set.mjs`'s inventory docblock rather than leaving it undocumented.\n\n## ⭐ Why it is not simply the fifth instance — the measurement\n\nIts parenthetical names **two** things, and they do **not** have the same answer.\n\n| leg | readable from here? | instrument |\n|:--|:--|:--|\n| `required checks 清单` | ⭐ **YES** | `GET /repos/{owner}/{repo}/rules/branches/main` → 200 with the nine contexts; `pnpm check:required-check-set` reads it on a schedule |\n| `谁可绕过` (bypass actors) | ⛔ **NO** | see below |\n\n**The bypass reading, taken by this seat 2026-09-14T17:0xZ:**\n\n| call | result |\n|:--|:--|\n| `GET /repos/objectstack-ai/objectui/rulesets/11776024` | **200**. Keys: `_links · conditions · created_at · current_user_can_bypass · enforcement · id · name · node_id · rules · source · source_type · target · updated_at`. ⛔ **No `bypass_actors` key.** |\n| `GET /repos/objectstack-ai/objectui/rules/branches/main` | 5 entries; union of keys `parameters · ruleset_id · ruleset_source · ruleset_source_type · type`. ⛔ **No bypass key.** |\n| **CONTROL** — same endpoint family, one argument changed: `GET /rulesets/99999999` | **404** ⇒ the endpoint discriminates, so a missing key is a reading and ⛔ not a reader that returns nothing for everything |\n\n⇒ ⭐ **`current_user_can_bypass` answers *\"can I\"*, ⛔ never *\"who can\"*.** The bypass-actors roster is genuinely unreadable from this token.\n\n## ⇒ The sentence is HALF TRUE, on precisely the leg it names FIRST\n\n- **True** of `谁可绕过` — and that is the first item in its own parenthetical.\n- **False** of `required checks 清单` — readable, and read on a schedule by a gate that lives in this repository.\n\n⭐ **This is why it is a different card and not a rider.** Deleting it would erase a true claim; leaving it whole keeps a false one; and ⛔ ruling *\"the bypass leg makes the whole sentence true\"* was offered as an option and is **refuted above**. The repair is the same shape objectui#9502 used on its four siblings — **split the conjunction** — but the two halves here divide along a different axis (`read` vs `write` there; `which contexts` vs `which actors` here).\n\n## What the repair looks like\n\nRoughly: the bypass-actors half keeps its claim, and the required-checks half stops claiming unreadability and points at the instrument (`pnpm check:required-check-set` / `.github/workflows/required-check-set-patrol.yml`) instead of restating any membership. ⚠️ Per commandment #9 and objectui#9502's own ruling: ⛔ **do not write the nine context names into `AGENTS.md`** — that would recreate this card one edit later. Point at the gate; ⛔ do not copy its answer.\n\n⛔ The closing sentence — 「上面几条写的都是实测到的可观测行为」 — is ⛔ not in scope and is not challenged here.\n\n## ⛔ Fences\n\n1. ⛔ **`AGENTS.md` is GOVERNED surface**: draft PR only, request review from `os-zhuang` and `hotlong` with `draft: true` in the **same** `update_pull_request` call, ⛔ never ready / enqueued / auto-merged / approved / merged by any seat.\n2. ⛔ Do not change the ruleset. It is correct, and it is maintainer-only (`GET /branches/main/protection` → **403 `Resource not accessible by integration`**).\n3. ⛔ Do not re-open objectui#9502's four sentences. They are repaired and landed separately.\n4. Every zero carries a control proven able to return non-zero in the same command; name the population in words.\n\n**Blocked-by:** the governed-surface queue on `AGENTS.md`, currently headed by PR objectui#9466 (awaiting an authorised approval). ⛔ 同文件串行 — this must not open a second concurrent `AGENTS.md` PR.\n\nRefs: objectui#9502 / PR objectui#9518 (the four siblings, and the docblock that records this one as deliberately left standing) · objectui#9422 (the off-repo-settings gap) · objectui#4959 (the 2026-08-17 measurement all five sentences were derived from) · this repo's `AGENTS.md` commandment #9.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

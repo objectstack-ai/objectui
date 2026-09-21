@@ -1,0 +1,33 @@
+{
+  "number": 29,
+  "kind": "pull_request",
+  "title": "[WIP] Enhance visual appeal of examples in studio",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T12:41:59Z",
+  "updated_at": "2026-01-14T14:10:04Z",
+  "closed_at": "2026-01-14T14:09:42Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T14:09:42Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/29",
+  "body": "## Plan: Optimize Studio Examples for Visual Appeal\n\n- [x] Enhance analytics dashboard with gradients, better shadows, and modern card designs\n- [x] Improve form examples with modern UI patterns and gradient buttons\n- [x] Update typography example with styled sections and better visual hierarchy\n- [x] Enhance image gallery with better shadows, hover effects, and spacing\n- [x] Update ecommerce dashboard example with enhanced gradients and styling\n- [x] Update project management dashboard with dark theme enhancements\n- [x] Improve complex component examples (Kanban, Timeline)\n- [x] Enhance data display examples (Alert messages)\n- [x] Fix JSON syntax errors from partial edits\n- [ ] Test examples in the playground to verify visual improvements\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 帮我优化studio中的examples,我要美观\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 85,
+  "kind": "pull_request",
+  "title": "Fix vitest plugin version mismatch causing coverage test failure",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T13:00:22Z",
+  "updated_at": "2026-01-15T13:09:42Z",
+  "closed_at": "2026-01-15T13:09:42Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T13:09:42Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/85",
+  "body": "Dependabot upgraded `vitest` to 4.0.17 but left `@vitest/coverage-v8` and `@vitest/ui` at 2.1.x, causing runtime errors during coverage collection:\n\n```\nTypeError: Cannot read properties of undefined (reading 'fetchCache')\n ❯ V8CoverageProvider.convertCoverage\n```\n\n## Changes\n\n- Upgrade `@vitest/coverage-v8`: `^2.1.8` → `^4.0.17`\n- Upgrade `@vitest/ui`: `^2.1.8` → `^4.0.17`\n\nVitest requires all companion packages to be on the same major version.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21031234106/job/60467577993#step:9:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

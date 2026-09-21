@@ -1,0 +1,29 @@
+{
+  "number": 2458,
+  "kind": "issue",
+  "title": "console-ai UX:三轮真实浏览器魔法流程测试的体验问题清单(登录无声失败/agent 蓝图感知/转介等待/i18n 混杂等)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "tracking"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T14:15:02Z",
+  "updated_at": "2026-08-23T04:18:33Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2458",
+  "body": "2026-07-13 三轮完整魔法流程真人浏览器实测(真实注册 → 建组织/环境 → SSO → ask 拒绝转介 → handoff → 蓝图 → 搭建 → 发布,本地 run-stack 栈 + 真实 LLM)中观察到的用户体验问题,按优先级合并归档。管道级缺陷(handoff 吞发 #2450、上下文携带)已另行修复合并,本清单只留**体验层**问题。纯开发环境噪音(rig 陈旧 console 服务源等)不在此列。\n\n---\n\n## 🔴 高优先级\n\n### 1. 登录提交\"无声失败\"\nCloud 登录页(:4900,SSO 跳转后)输入凭据点击「登录」可能**毫无反馈**:不跳转、不报错、按钮无 loading 态;env 登录页 console 里堆着 `HTTP request failed` 但 UI 完全安静。实测中连续复现,真实用户只会反复点击或放弃。\n**建议**:提交按钮 loading 态;失败时 toast/表单错误;fetch 异常浮出 UI 而非只进 console。\n\n### 2. agent 无视同会话里\"待确认的蓝图\"\n蓝图 A(库存管理)在同一会话里 Awaiting Approval,二次 handoff 的新需求 B(加供应商)自动发入后,agent 回答\"我这边暂时没检测到已存在的库存管理应用……请告诉我应用名\"——**让用户复述它自己两条消息前刚提出的方案**。\n**建议**:build agent 蓝图技能加规则:存在待确认蓝图时,新增需求默认提议\"并入该方案一起确认\"。\n**归属**:ADR-0057 Amendment A1(PR #2457)的 A1.c 阶段(绑定注入 + pending-blueprint amend 规则)正是此修复的结构化形式,cloud 侧改动。\n\n### 3. ask 拒绝转介的等待感\n\"帮我搭 XX\" → \"Open in Builder →\" 卡片出现约 **20 秒**,期间只有空白的\"执行过程\"占位文字。对一个本质是\"分类+转介\"的回答,又慢又安静。\n**建议**:(a) 占位换成骨架/打字指示;(b) 卡片在 suggest_builder 工具调用到达时即时渲染,不等完整散文;(c) 评估 ask 面对 build-shaped 请求的短路径提示词。\n\n## 🟡 中优先级\n\n### 4. 中英文混杂集中在魔法流程关键节点\n中文界面里:\"Open in Builder →\"、\"Suggest builder — Completed\"、\"Propose blueprint — Awaiting Approval\"、\"Not yet built\"、\"TODAY\"、\"Build Doctor\"、\"Your apps\"、\"Needs your attention\"。拒绝卡与蓝图卡恰是英文最密集处。\n**建议**:跑一遍 i18n 覆盖率报告,优先补 AI 面字符串。\n\n### 5. 用过的 \"Open in Builder →\" 卡片不失效\nask 线程积累多张卡片,旧卡仍可点击并把**过时的 prompt** 再次 handoff。\n**建议**:点击后卡片转\"已打开 ✓\"灰态,或仅最新一张保持可用。\n\n### 6. 待确认蓝图缺少全局提醒\n蓝图 Awaiting Approval 时离开 build 面,任何地方都没有角标提示。产品决策是\"自动发送、不做阻断横幅\",但**被动角标**(FAB/P3 dock 上的小红点)不属于阻断,值得做,且是 P3 dock 的顺手活。\n\n### 7. Enter 不发送\n聊天输入 Enter 只换行,需 ⌘↵ 或点按钮——与主流聊天工具肌肉记忆相反,⌘↵ 提示字号极小。\n**建议**:Enter 发送、Shift+Enter 换行(或可配置)。\n\n## 🟢 低优先级 / 产品策略\n\n### 8. 免费额度撞墙无预告\n400K token/天,几次完整构建即耗尽,用户只在发送失败时才知道。建议 AI 面加用量指示。\n\n### 9. console 首屏加载偏大\n魔法流程\"第一印象\"环节的加载等待;bundle 有拆分空间(Bundle Analysis 可佐证)。\n\n---\n\n**证据来源**:三轮实测的截图与网络捕获在 2026-07-13 的验证会话中;#2 的完整复现路径见 #2450(已修管道,agent 行为层遗留在本条)。\n**关联**:ADR-0057 Amendment A1(PR #2457)、epic #2409、#2450(已关)、#2449/#2452(已合并)。"
+}

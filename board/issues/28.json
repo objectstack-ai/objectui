@@ -1,0 +1,33 @@
+{
+  "number": 28,
+  "kind": "pull_request",
+  "title": "Implement UI components from @object-ui/types",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T12:38:52Z",
+  "updated_at": "2026-01-14T15:04:10Z",
+  "closed_at": "2026-01-14T15:04:10Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T15:04:09Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/28",
+  "body": "## Implementation Plan\n\n- [x] Add `@object-ui/types` as a dependency to `@object-ui/components` package\n- [x] Update form component renderers to use types from `@object-ui/types`:\n  - [x] button.tsx - use `ButtonSchema`\n  - [x] input.tsx - use `InputSchema`\n  - [x] textarea.tsx - use `TextareaSchema`\n  - [x] select.tsx - use `SelectSchema`\n  - [x] checkbox.tsx - use `CheckboxSchema`\n  - [x] radio-group.tsx - use `RadioGroupSchema`\n  - [x] switch.tsx - use `SwitchSchema`\n  - [x] toggle.tsx - use `ToggleSchema` ✅ Fixed fallback logic\n  - [x] slider.tsx - use `SliderSchema`\n  - [x] file-upload.tsx - use `FileUploadSchema`\n  - [x] date-picker.tsx - use `DatePickerSchema`\n  - [x] calendar.tsx - use `CalendarSchema` ✅ Removed `as any`\n  - [x] input-otp.tsx - use `InputOTPSchema`\n  - [x] form.tsx - use `FormSchema`\n- [x] Update layout component renderers to use types from `@object-ui/types`\n  - [x] card.tsx - use `CardSchema`\n  - [x] container.tsx - use `ContainerSchema`\n  - [x] flex.tsx - use `FlexSchema`\n  - [x] grid.tsx - use `GridSchema`\n  - [x] tabs.tsx - use `TabsSchema`\n- [x] Update basic component renderers to use types from `@object-ui/types`\n  - [x] div.tsx - use `DivSchema`\n  - [x] text.tsx - use `TextSchema`\n  - [x] span.tsx - use `SpanSchema`\n  - [x] image.tsx - use `ImageSchema`\n  - [x] icon.tsx - use `IconSchema`\n  - [x] separator.tsx - use `SeparatorSchema`\n- [x] Update data-display component renderers to use types from `@object-ui/types`\n  - [x] alert.tsx - use `AlertSchema`\n  - [x] badge.tsx - use `BadgeSchema`\n  - [x] avatar.tsx - use `AvatarSchema`\n  - [x] list.tsx - use `ListSchema`\n  - [x] markdown.tsx - use `MarkdownSchema`\n  - [x] tree-view.tsx - use `TreeViewSchema`\n  - [x] chart.tsx - use `ChartSchema`\n- [x] Update feedback component renderers to use types from `@object-ui/types`\n  - [x] loading.tsx - use `LoadingSchema`\n  - [x] progress.tsx - use `ProgressSchema`\n  - [x] skeleton.tsx - use `SkeletonSchema`\n  - [x] toaster.tsx - use `ToasterSchema`\n- [x] Update disclosure component renderers to use types from `@object-ui/types`\n  - [x] accordion.tsx - use `AccordionSchema` ✅ Fixed property name\n  - [x] collapsible.tsx - use `CollapsibleSchema`\n- [x] Update overlay component renderers to use types from `@object-ui/types`\n  - [x] dialog.tsx - use `DialogSchema`\n  - [x] alert-dialog.tsx - use `AlertDialogSchema`\n  - [x] popover.tsx - use `PopoverSchema`\n  - [x] tooltip.tsx - use `TooltipSchema`\n  - [x] hover-card.tsx - use `HoverCardSchema`\n  - [x] sheet.tsx - use `SheetSchema`\n  - [x] drawer.tsx - use `DrawerSchema`\n  - [x] dropdown-menu.tsx - use `DropdownMenuSchema` ✅ Added type annotation\n  - [x] context-menu.tsx - use `ContextMenuSchema` ✅ Added type annotation\n- [x] Update navigation component renderers to use types from `@object-ui/types`\n  - [x] header-bar.tsx - use `HeaderBarSchema`\n  - [x] sidebar.tsx - use `SidebarSchema` ✅ Added type annotation\n- [x] Update complex component renderers to use types from `@object-ui/types`\n  - [x] kanban.tsx - use `KanbanSchema`\n  - [x] carousel.tsx - use `CarouselSchema`\n  - [x] calendar-view.tsx - use `CalendarViewSchema`\n  - [x] filter-builder.tsx - use `FilterBuilderSchema`\n  - [x] chatbot.tsx - use `ChatbotSchema`\n  - [x] data-table.tsx - use `DataTableSchema` ✅ Removed duplicate type definition\n  - [x] table.tsx - use `TableSchema` ✅ Added type annotation\n  - [x] scroll-area.tsx - use `ScrollAreaSchema`\n  - [x] resizable.tsx - use `ResizableSchema`\n  - [x] timeline.tsx - use `TimelineSchema` ✅ Added type annotation\n- [x] Build and test the changes\n- [x] Address code review feedback\n\n## Summary\n\nThis PR completes the integration of `@object-ui/types` into `@object-ui/components`, ensuring all 60 component renderers use proper TypeScript types from the centralized type definitions package. This improves type safety, maintainability, and follows the \"Schema First\" architecture principle of Object UI.\n\n### Code Review Fixes Applied:\n1. ✅ Removed `schema.body ||` fallback in toggle.tsx (now uses only `schema.children`)\n2. ✅ Fixed accordion property name from `schema.type` to `schema.accordionType`\n3. ✅ Removed `as any` type assertion in calendar.tsx\n4. ✅ Added missing type annotations for: context-menu, dropdown-menu, table, sidebar, timeline\n5. ✅ Removed duplicate DataTableSchema interface definition\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> @copilot 应依赖 @objectql/types，并实现其中的界面控件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

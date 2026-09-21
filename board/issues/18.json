@@ -1,0 +1,33 @@
+{
+  "number": 18,
+  "kind": "pull_request",
+  "title": "Add Airtable-style timeline component with vertical, horizontal, and Gantt variants",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-13T23:58:55Z",
+  "updated_at": "2026-01-14T07:36:40Z",
+  "closed_at": "2026-01-14T07:36:40Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T07:36:40Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/18",
+  "body": "## Timeline Component Implementation\n\n- [x] Create base UI timeline component in `packages/components/src/ui/timeline.tsx`\n  - [x] Vertical timeline components (Timeline, TimelineItem, TimelineMarker, etc.)\n  - [x] Horizontal timeline components\n  - [x] Gantt/Airtable-style components (TimelineGantt, TimelineGanttBar, etc.)\n- [x] Create timeline renderer in `packages/components/src/renderers/complex/timeline.tsx`\n  - [x] Support for 3 variants: vertical, horizontal, gantt\n  - [x] Date formatting options (short, long, ISO)\n  - [x] Time scale support (day/week/month) for Gantt view\n  - [x] Row-based grouping for Gantt view\n  - [x] Interactive bars with click handlers\n  - [x] Automatic date range calculation\n  - [x] Color variants (default, success, warning, danger, info)\n- [x] Register timeline component in `packages/components/src/renderers/complex/index.ts`\n- [x] Build and verify the changes work correctly\n- [x] Create comprehensive examples in prototype app showcasing all 3 timeline variants\n- [x] Test and screenshot the timeline component\n- [x] Add test coverage for timeline component registration\n- [x] Create comprehensive documentation (TIMELINE.md)\n- [x] Address code review feedback\n  - [x] Extract date range calculation into separate helper function\n  - [x] Replace magic number with named constant (MILLISECONDS_PER_WEEK)\n  - [x] Remove unnecessary empty string from cn() call\n- [x] Merge from main branch and resolve conflicts\n- [x] All tests passing (11/11 component tests, all packages passing)\n\n## Timeline Component Features\n\n### 🎯 **Three Variants**\n\n1. **Vertical Timeline** - Classic milestone-style timeline with icons and colored markers\n2. **Horizontal Timeline** - Roadmap-style timeline for quarterly/period displays\n3. **Gantt Timeline** - Full Airtable-style timeline with:\n   - Date-based positioning\n   - Multiple row/track support\n   - Interactive bars with hover/click\n   - Auto-calculated date ranges\n   - Configurable time scales (day/week/month)\n\n### 🎨 **Fully Customizable**\n\n- 5 color variants: default, success, warning, danger, info\n- Custom icons and emojis support\n- Tailwind CSS classes for styling\n- Date format options (short/long/ISO)\n- Interactive item click handlers\n- Custom content support via schemas\n\n### 📦 **Production Ready**\n\n- ✅ Built with TypeScript\n- ✅ Full type safety\n- ✅ Test coverage included (11/11 tests passing)\n- ✅ Comprehensive documentation\n- ✅ Working examples in prototype\n- ✅ All builds passing\n- ✅ Code review feedback addressed\n- ✅ Merged with latest main branch\n\n## Test Results\n\nAll tests passing successfully:\n- **Core Package**: 1/1 tests passing\n- **React Package**: 2/2 tests passing\n- **Components Package**: 11/11 tests passing (includes timeline test)\n- **Designer Package**: 6/6 tests passing\n\n## Screenshot\n\n![Timeline Component](https://github.com/user-attachments/assets/d0c5d671-c05f-4889-8111-d69165efe3be)\n\nThe screenshot shows all three timeline variants in action:\n- ✅ Vertical timeline with project milestones\n- ✅ Horizontal timeline with quarterly roadmap\n- ✅ Gantt-style timeline with multi-track project tasks\n\n## Documentation\n\nFull documentation is available in [TIMELINE.md](packages/components/src/renderers/complex/TIMELINE.md) including:\n- Usage examples for all variants\n- Complete prop documentation\n- Advanced usage patterns\n- Custom styling examples\n- Interactive item handling\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 新建一个功能完整的类似AirTable的timeline组件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

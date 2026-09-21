@@ -1,0 +1,35 @@
+{
+  "number": 135,
+  "kind": "pull_request",
+  "title": "Add AI development prompts for ObjectUI component system",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-21T14:09:17Z",
+  "updated_at": "2026-01-21T15:20:18Z",
+  "closed_at": "2026-01-21T15:20:17Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-21T15:20:16Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/135",
+  "body": "Provides structured prompts for AI agents (Copilot, ChatGPT, Claude) to develop ObjectUI components following canonical patterns and constraints.\n\n## Structure\n\n**16 markdown files** in `.github/prompts/` organized by concern:\n\n- **Core packages** (4): types, core, react, components - defining the layered architecture\n- **Component categories** (8): basic, layout, form, data-display, feedback, overlay, navigation, complex\n- **Extensions** (2): plugin development, tools (designer/CLI/runner)\n- **Documentation** (2): master README, bilingual quick reference\n\n## Content Model\n\nEach prompt defines:\n- **Role/context** - What the AI implements (e.g., \"Schema Engine Architect\" for core package)\n- **Strict constraints** - Zero React in types/core, Tailwind-only styling, stateless components\n- **Patterns** - Implementation templates with working code\n- **Validation** - Pre-commit checklists\n\n## Key Constraints Enforced\n\n```tsx\n// ❌ Forbidden\n<div style={{ padding: '16px' }}>...</div>\nconst [state, setState] = useState()\n\n// ✅ Required  \n<div className={cn('p-4', schema.className)}>...</div>\nconst { data } = useDataContext()\n```\n\nArchitecture flow: `types (protocol) → core (logic) → react (bindings) → components (UI)`\n\n## Usage\n\n```bash\n# AI instruction\n\"Use .github/prompts/components/form-components.md to create a DatePicker\"\n\n# AI review\n\"Review my Dialog against .github/prompts/components/overlay-components.md\"\n```\n\nCovers 60+ component types with 200+ code examples. Bilingual (EN/中文).\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 帮我编写每个核心组件的AI开发或优化提示词\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

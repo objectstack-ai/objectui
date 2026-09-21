@@ -1,0 +1,37 @@
+{
+  "number": 136,
+  "kind": "pull_request",
+  "title": "Add individual component documentation pages with live demo infrastructure",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-21T15:22:02Z",
+  "updated_at": "2026-01-21T15:54:58Z",
+  "closed_at": "2026-01-21T15:54:35Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-21T15:54:35Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/136",
+  "body": "Restructures component documentation from category-based pages (e.g., `form.md` containing all form components) to individual pages per component (e.g., `form/button.mdx`, `form/input.mdx`) with live interactive demonstrations.\n\n## Changes\n\n### Demo Infrastructure\n- **ComponentDemo**: Renders ObjectUI schema as live component with title/description\n- **DemoGrid**: 2-column responsive grid for multiple demos\n- **CodeDemo**: Side-by-side schema + rendered output\n- **ObjectUIProvider**: Client component that imports `@object-ui/components` to trigger registry auto-registration\n\n### Documentation Structure\n- 32 individual `.mdx` files across 8 categories: `basic/`, `form/`, `layout/`, `data-display/`, `feedback/`, `overlay/`, `disclosure/`, `complex/`\n- Each page includes: description, interactive examples, TypeScript schema definition\n- Category-level `meta.json` files for sidebar navigation\n- Updated `components/index.md` with category overview\n\n### Example Component Page\n```mdx\n---\ntitle: \"Button\"\ndescription: \"Trigger actions with customizable styles\"\n---\n\nimport { ComponentDemo } from '@/app/components/ComponentDemo';\n\n<ComponentDemo\n  schema={{\n    type: 'button',\n    label: 'Click Me',\n    variant: 'default'\n  }}\n  title=\"Basic Button\"\n/>\n```\n\n### Dependencies\n- Added `@object-ui/{components,core,react,types}` as workspace dependencies to site package\n- Updated `pnpm-lock.yaml`\n\n## Screenshot\n\nComponent overview page showing new category-based navigation:\n\n![Component Overview](https://github.com/user-attachments/assets/9f22998a-4fd4-40fd-b7c4-44c33d5c0588)\n\n## Known Issue\n\nComponentDemo shows \"Unknown component type\" errors. Component registry population in Next.js SSR context needs investigation - likely a timing issue with side-effect imports during SSR vs client hydration.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 在文档站点中，按组件分类介绍每一个组件，并调用对应的组件演示组件显示效果。每个组件一个文档。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

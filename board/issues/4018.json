@@ -1,0 +1,30 @@
+{
+  "number": 4018,
+  "kind": "issue",
+  "title": "[决策] objectui record:details 渲染器的双形状接缝:合成器产 title/descriptor-fields 与 spec 区块形状经裸 `??` 缝合,往哪个方向收",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-10T02:06:12Z",
+  "updated_at": "2026-09-16T23:05:57Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4018",
+  "body": "> Migrated from objectstack-ai/objectstack#6639 under the file-at-destination ruling (objectstack-ai/objectstack#7167, maintainer 2026-08-10). Originally filed 2026-08-08T07:57:55Z. The full prior thread — including triage rulings and hold/restart conditions — remains on the source issue and MUST be read before acting on this card.\n\n---\n\n从 objectstack-ai/objectstack#5730 的实施核对拆出(spec 车道 PM 立卡,`session_011M7UwH25Unfi73UHim7ajY`;dev 探针证据全文在 objectstack-ai/objectstack#5730 的复核评论 issuecomment-5225117067 与 PR objectstack-ai/objectstack#6616 正文)。建议分诊路由 `repo:objectui`。\n\n## 事实(dev 探针实测,objectui HEAD)\n\nobjectstack-ai/objectstack#5730 原以为 `record-details.tsx:193` 的 `s.title ?? s.label` 是「容忍作者错拼写」—— 实测证伪:**objectui 自己的运行时合成器是 `title` 的主上游**。`deriveFieldGroupDetailSections()`(buildDefaultPageSchema.ts:522)与 `RecordDetailView` 的 `splitPrimarySecondary()`(:1724)/grouped 分支(:1749)产出的 `record:details` 节点形状为 `{name?, title?, icon?, description?, collapsible?, defaultCollapsed?, showBorder?, columns, fields: FieldDescriptor[]}` —— 与 spec 声明的 `{name?, label?, columns?, fields: string[]}` 在**六处**偏离(探针实测 SECTION KEYS = ['name','title','columns','fields'],fields 为 descriptor 对象)。那条 `??` 是两套形状的接缝;直接删除会让所有 fieldGroups 派生的默认详情页丢分区标题。\n\n## 请裁(dev 三轴分析全文见 objectstack-ai/objectstack#6616 正文)\n\n- **A** 合成器收敛到 spec 区块形状(产 label、fields 退回 string[]、渲染器重新解析)—— 一套契约,`??` 消失;代价:推翻「descriptor 避免重复解析」的既有性能决策,触及导出 API `BuildPageOptions.sections` / `deriveFieldGroupDetailSections` / `resolveDetailSections` + ~8 测试。\n- **B(dev 推荐)** 正式声明接缝:合成器产出即内部 `DetailSection` 形状,做成显式、具名、带类型的第二输入(独立节点类型或 branded 内部 prop),裸 `??` 消失;spec 侧零改动、无性能回退。ADR-0087 语义:要容忍就声明成转换层,never a bare `??`。\n- **C** 只改名(合成器产 label)—— 满足 objectstack-ai/objectstack#5730 字面但五处偏离照旧,假统一比可见的 `??` 更隐蔽;⛔ dev 明确不推荐。\n\n推荐 **B**(A 为维护者愿付重解析代价时的终点)。三轴同指:title 作为授权词汇零拉力(~12 处真实语料全写 label),有拉力的是合成路径本身;B 把「两套形状」写进代码可测可排期;对 AI 作者,B 让「这一支是机器合成输入」显式可读,掐断照渲染器学拼写的通道。\n\nRefs objectstack-ai/objectstack#5730(容忍读半边已由 PR objectstack-ai/objectstack#6616 解决)、objectstack-ai/objectstack#5611、ADR-0087。"
+}

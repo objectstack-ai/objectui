@@ -1,0 +1,31 @@
+{
+  "number": 8024,
+  "kind": "issue",
+  "title": "`PermissionGuardConfig` is published authoring surface with zero consumers, and its `fallback` union contradicts the only shipped guard implementation",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: types",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-06T11:06:43Z",
+  "updated_at": "2026-09-10T03:13:42Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8024",
+  "body": "Found while compiling `packages/permissions/README.md` for objectui#5174 batch 20 (the `UNGATED_DOCS` burn-down). Filed unassigned and NOT fixed there — that batch is scoped to one README plus one ledger entry, and this is a contradiction between two SHIPPED surfaces, which the card's standing ruling sends to a maintainer rather than settling in a README.\n\n## What\n\n`@object-ui/types` declares `PermissionGuardConfig` (`packages/types/src/permissions.ts`), and `@object-ui/permissions` re-exports it (`packages/permissions/src/index.ts`). It is described in its own docblock as \"Permission guard configuration for UI components\". The only shipped guard component, `PermissionGuard` in `@object-ui/permissions`, does not accept it and does not agree with it:\n\n| key | `PermissionGuardConfig` (`@object-ui/types`) | `PermissionGuardProps` (`@object-ui/permissions`) |\n|:--|:--|:--|\n| the required permission | `permission: string \\| PermissionAction` | `action: PermissionAction` |\n| the target object | `object?: string` (optional) | `object: string` (required) |\n| denied behaviour | `fallback?: 'hide' \\| 'disable' \\| 'redirect' \\| 'custom'` | `fallback?: 'hide' \\| 'disable' \\| 'custom'` |\n| the custom content | `fallbackComponent?: string` | `fallbackContent?: ReactNode` |\n| redirect target | `redirectPath?: string` | (nothing) |\n\nSo an author who takes the published type at its word can declare `fallback: 'redirect'` with a `redirectPath`, and nothing in this repository will ever honour either: `'redirect'` is not a member of the union the component reads, and no code reads `redirectPath` at all.\n\n## Measured, on `origin/main` `4bb33d7a4`\n\nGrep over `packages`, `apps`, `examples`, `scripts`, `content`, `docs`, `skills`, `e2e`, excluding `dist/`:\n\n- `PermissionGuardConfig` — 3 hits, all of them declaration or re-export: `packages/types/src/permissions.ts` (the `export interface`), `packages/types/src/index.ts` (barrel), `packages/permissions/src/index.ts` (barrel). **Nothing constructs one, accepts one, or reads one.**\n- `redirectPath` — 1 hit, its own declaration line.\n- `fallbackComponent` — 1 hit, its own declaration line.\n\nThere is no consumer, no test, and no doc page that teaches the type: the permissions README documents the component props, never this config shape.\n\n## Why this is worth a decision rather than a quiet edit\n\nThis is the declared-but-unenforced shape: a published type that lets an author declare a capability the runtime does not deliver, which is exactly the class the enforce-or-remove doctrine covers. The two candidate routes are not equivalent and neither is obviously right from the tree alone:\n\n1. **Retire the type.** Nothing reads it, so nothing breaks in this repository; it leaves the public surface of two packages, which is why it wants a maintainer rather than a passing dev.\n2. **Wire it.** Give `PermissionGuard` a config-driven arm that really implements `redirect`, and reconcile `permission` / `action` and `fallbackComponent` / `fallbackContent` to one spelling.\n\nRoute 2 is an expansion of declared capability with no pull recorded anywhere in the tree; route 1 is the default the startup-focus rule points at. Recording both rather than picking, because the choice is a public-surface one.\n\n⚠️ Only the two spellings that CONTRADICT are asserted above; whether `@objectstack/spec` has a say in `PermissionGuardConfig`'s shape was not measured here and should not be assumed either way.\n\n## Reachability, honestly\n\nNothing a user hits at runtime today, precisely because no code path reads the type. Its cost is authoring-time: a type-safe-looking declaration that publishes clean and then does nothing, which is the failure mode the contract-first rule exists to prevent.\n\nRelated: objectui#5174 (the burn-down that surfaced it), objectui#8008 (batch 18's two-shipped-surface finding on the same card, filed the same way).\n\nFiled by the `os-dev` seat for objectui#5174 batch 20, from session `session_01FhBNJcLRZLe8M87VcUgpKr`; left unassigned for PM triage."
+}

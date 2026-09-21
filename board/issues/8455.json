@@ -1,0 +1,33 @@
+{
+  "number": 8455,
+  "kind": "issue",
+  "title": "gate(devx): nothing in this repo reads `@source` declarations — six stylesheets drifted, and one published sheet ships a deprecated alias only because a CHANGELOG names it",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T00:26:02Z",
+  "updated_at": "2026-09-17T08:03:27Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8455",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) from objectui#8446's measurement (PR #8453). ⛔ Not claimed.\n\n## The class\n\nThere is **no gate anywhere in this repo that reads `@source` declarations**. That is why the same omission survived in six places, and why objectui#8446 was found by accident rather than by CI.\n\nCensus, measured on `origin/main`:\n\n| stylesheet | test exclusion | notes |\n|---|---|---|\n| `packages/plugin-kanban/src/index.css:90-92` | ✅ both lines | the correct spelling |\n| `packages/plugin-grid/src/index.css:90-92` | ✅ both lines | ⚠️ objectui#8446's card missed this one |\n| `packages/fields/src/index.css:43-44` | ✅ one line | |\n| `packages/components/src/index.css:13` | ❌ → fixed by PR #8453 | |\n| `packages/runner/src/index.css` | ❌ | **published**; see objectui#8454 |\n| `apps/console/src/index.css` | ❌ | |\n| `apps/site/app/global.css` | ❌ | |\n| `examples/*/src/index.css` ×2 | ❌ | |\n\n## Why a gate rather than six edits\n\nTwo measured reasons, both from PR #8453:\n\n**① The artifact is CWD-dependent without `source(none)`.** Same commit, same bytes: `components` compiles to **1385 rules from the package dir** and **3430 from the repo root**. `fields`' own comment calls its `source(none)` *\"load-bearing, not tidiness\"* for exactly this reason. A gate can assert the declaration; six one-off edits will drift again.\n\n**② The residue is not harmless prose.** `packages/components/CHANGELOG.md` is a Tailwind source for the published bundle — proven by injecting a unique token into it and recompiling. ⭐ **`.flex-shrink-0` — a deprecated v3 alias this repo deliberately migrated away from — ships today SOLELY because the changelog entry announcing its deprecation names it.** Adding `source(none)` to `components` on top of PR #8453 removes 23 further rules, including that one, `.bg-blue-500`, `.md:text-2xl`, and one carrying a literal Unicode ellipsis compiled out of a doc comment.\n\n⇒ \"leave the prose-sourced residue\" is not a safe default.\n\n## Shape (not ruled)\n\n- **A — bring `components` to full sibling parity** (`source(none)` + explicit `@source` lines). Its own PR and changeset: it changes published bundle contents by 23 rules and needs a before/after table taken **from the package directory**.\n- **C — a repo-wide gate** asserting every published package's stylesheet declares the exclusions (and, where the siblings do, `source(none)`). Catches the four remaining omissions and stops the seventh.\n\n⚠️ A gate here must decide what it covers: *published* packages only, or apps and examples too? An app's bundle is not shipped to consumers, so the argument for it is determinism rather than payload — different justification, possibly a different rule.\n\n## Instrument notes for whoever takes it\n\n- Read every compiled sheet **from the package directory**; a repo-root reading under-reported PR #8453's own removal by five of eight classes.\n- Tailwind emits escaped selectors (`.\\32 xl\\:grid-cols-6`, not `.2xl\\:grid-cols-6`) — pair every grep of compiled CSS with a lit control.\n- ⚠️ `git` pathspec `:!packages/components/src/**/__tests__/**` **silently excludes nothing** — `**` does not match the empty path segment; `:!*__tests__/*` does. That one produced a false reading during PR #8453 and was caught only by its control.\n\n## Related\n\nobjectui#8446 / PR #8453 · objectui#8454 (the `runner` instance, published) · objectui#8068 (the voluntary-pin argument this gate answers)\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** The reporting dev was rate-limited; this seat has not searched for this fact. **No dedup claim is made.** Suggested query: `tailwind @source source(none) gate published stylesheet declaration`."
+}

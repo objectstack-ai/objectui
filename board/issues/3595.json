@@ -1,0 +1,29 @@
+{
+  "number": 3595,
+  "kind": "issue",
+  "title": "runner:带 query 的导航路径不可路由,且 pushState 与 popstate 对 currentPath 的口径不一致(休眠)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T15:03:02Z",
+  "updated_at": "2026-08-23T04:18:49Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3595",
+  "body": "越界发现,记录于 #3578 / PR #3594(让站内导航保留 query string)期间。**未在该 PR 中修改** —— 它的文件面只有 `handleNavigate`。今天没有任何元数据触发这条路径,故按观察项归档,不加 `pm:queue`。\n\n## 事实(`origin/main` @ 632c07c5b,file:line)\n\n`packages/runner/src/App.tsx` 里,「路由」这个概念有两个互不一致的取值口径:\n\n1. **前进方向**(`handleNavigate`,`App.tsx:73-77`)把导航项给的整个字符串塞进 `currentPath`:\n\n   ```ts\n   setCurrentPath(to);   // to 来自 LayoutRenderer.tsx:104-105 的 item.path\n   ```\n\n2. **后退方向**(popstate handler,`App.tsx:80`)只取 pathname:\n\n   ```ts\n   const onPopState = () => setCurrentPath(window.location.pathname);\n   ```\n\n而 `currentPath` 会被直接拼进元数据文件路径(`App.tsx:91` → `lib/MetadataLoader.ts`):\n\n- `NetworkLoader.loadPage`(`MetadataLoader.ts:88-90`):`fetch(`${baseUrl}/pages${jsonPath}.json`)`\n- `LocalBundleLoader.loadPage`(`MetadataLoader.ts:36-46`):`../app-data/pages/${normalizedPath}.json`\n\n## 后果(两条,都只在导航项 `path` 自带 query 时出现)\n\n- **不可路由**:`path: '/customers?tab=open'` 会去请求 `pages/customers?tab=open.json`,必然 404 —— 页面落到 `Page not found`。也就是说 runner 的路由器根本不接受带 query 的路径,尽管 `item.path` 在类型上是随便一个字符串(`LayoutRenderer.tsx:57` 的 `item` 是 `any`)。\n- **前进/后退不对称**:同一个导航项,点进去时 `currentPath` 是 `/customers?tab=open`,浏览器后退再前进回来时(popstate)变成 `/customers` —— 两次得到不同的 `loadPage` 入参。\n\n## 为什么算休眠\n\n`git grep '\"path\": *\"[^\"]*?'` 在 `examples`/`apps`/`packages` 下**零命中** —— 本仓的示例元数据没有任何导航项的 `path` 带 query,所以今天没有用户会撞上。PR #3594 只是在 URL 拼接侧显式处理了这个形状(避免拼出 `path?a=1?b=2` 的畸形 URL),路由侧仍然无法路由它,读代码的人容易被这个不对称绊一下。\n\n## 可选方向(不预设结论)\n\n1. **明确不支持**:`handleNavigate` 里把 `to` 规范化成 pathname 再 `setCurrentPath`,与 popstate 口径统一;导航项自带的 query 只体现在地址栏,不参与页面解析。改动最小,前进/后退立刻一致。\n2. **明确支持**:`loadPage` 前先剥掉 query(两个 loader 各一处),query 交给页面自己消费 —— 但 runner 目前没有把 query 传给页面的机制,等于要先定义一个新契约。\n3. **在契约层堵住**:给导航项的 `path` 定一个不含 query 的 schema,在创作/发布期拒绝,而不是让渲染端容忍。\n\n方向 3 与本仓「fix the metadata, not the renderer」(AGENTS.md #0.1)最一致,但它牵涉 `app.menu` 的 schema 归属(`@objectstack/spec` 还是本仓),不是本记录能定的。\n"
+}

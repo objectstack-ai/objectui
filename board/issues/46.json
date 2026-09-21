@@ -1,0 +1,33 @@
+{
+  "number": 46,
+  "kind": "pull_request",
+  "title": "Replace chaotic gradient colors with standard Shadcn semantic colors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T20:05:52Z",
+  "updated_at": "2026-01-15T00:30:38Z",
+  "closed_at": "2026-01-15T00:30:38Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T00:30:38Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/46",
+  "body": "The playground had chaotic color schemes throughout, with purple/indigo/pink gradients applied to buttons, backgrounds, text, and decorative elements. This deviated from the standard Shadcn/UI design system and created visual noise.\n\n## Changes\n\n- **`apps/playground/src/index.css`**: Removed 5 chart color CSS variables from both light and dark themes\n- **`apps/playground/tailwind.config.js`**: Removed chart color definitions from Tailwind config\n- **`apps/playground/src/pages/Home.tsx`**: Replaced all gradient colors with semantic Shadcn color tokens\n- **`apps/playground/src/pages/MyDesigns.tsx`**: Replaced all gradient colors with semantic Shadcn color tokens\n- **`apps/playground/src/pages/Studio.tsx`**: Replaced all gradient colors with semantic Shadcn color tokens\n\n### Color Replacements\n\n- `bg-gradient-to-r from-indigo-600 to-purple-600` → `bg-primary text-primary-foreground`\n- `bg-gradient-to-r from-red-600 to-pink-600` → `bg-destructive text-destructive-foreground`\n- `text-indigo-600` → `text-primary`\n- `bg-indigo-50` → `bg-muted`\n- `text-gray-500` → `text-muted-foreground`\n- Removed all colored shadows (`shadow-indigo-300/50`, etc.)\n- Replaced decorative gradient backgrounds with semantic colors\n\n## Visual Impact\n\n**Before**: Chaotic purple/indigo/pink gradients everywhere\n![Before](https://github.com/user-attachments/assets/c30cdf93-62ad-4d07-9c34-298423eebb71)\n\n**After**: Clean, professional Shadcn semantic colors\n![After](https://github.com/user-attachments/assets/66e7d5af-ca75-496c-9667-bb538165d7d1)\n\n**Studio Interface:**\n![Studio](https://github.com/user-attachments/assets/20bdee91-34f6-4939-a80d-febd08f42473)\n\n**My Designs Page:**\n![My Designs](https://github.com/user-attachments/assets/1e3602d5-bd86-40e9-b715-e06848d448c8)\n\n## Benefits\n\n✅ Cleaner, more professional appearance  \n✅ Consistent with standard Shadcn/UI design system  \n✅ Better maintainability - colors are now theme-aware  \n✅ Improved accessibility - standard contrast ratios  \n✅ No breaking changes - all functionality intact\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> playground 颜色太凌乱，还是使用初始的标准颜色\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

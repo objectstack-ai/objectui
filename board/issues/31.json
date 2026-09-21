@@ -1,0 +1,33 @@
+{
+  "number": 31,
+  "kind": "issue",
+  "title": "Task: Refactor Monorepo to Support Lazy-Loaded Plugins",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T13:15:35Z",
+  "updated_at": "2026-01-14T16:08:23Z",
+  "closed_at": "2026-01-14T16:08:23Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/31",
+  "body": "\nI have an existing pnpm workspace with `packages/react` (Core) and `packages/components` (Standard Lib).\nNow I need to split heavy components into separate **Plugin Packages** and implement **Internal Lazy Loading** to optimize bundle size.\n\n## 1. New Directory Structure\nPlease create two new packages in `packages/`:\n\n1.  **`packages/plugin-editor`**:\n    * **Purpose:** A code editor component.\n    * **Simulated Heavy Dependency:** `@monaco-editor/react`.\n    * **Schema Type:** `code-editor`.\n\n2.  **`packages/plugin-charts`**:\n    * **Purpose:** A charting component.\n    * **Simulated Heavy Dependency:** `recharts` (or simply simulate a large file).\n    * **Schema Type:** `chart-bar`.\n\n## 2. ⚡️ The Lazy Loading Pattern (CRITICAL)\n\nDo **NOT** force the Host App to use `React.lazy`. The plugin itself must handle the lazy loading internally.\n\n**Implementation Requirement for each plugin:**\n1.  **`HeavyImpl.tsx`**: The actual component that imports the heavy library (e.g., Monaco).\n2.  **`index.tsx`**: The entry point. It must use `React.lazy` to import `HeavyImpl.tsx` and wrap it in `<React.Suspense>`.\n\n**Example Code Structure (for `plugin-editor`):**\n\n```tsx\n// packages/plugin-editor/src/MonacoImpl.tsx\nimport Editor from '@monaco-editor/react'; // 👈 The heavy import happens here\nexport default function MonacoImpl(props) { ... }\n\n// packages/plugin-editor/src/index.tsx\nimport React, { Suspense } from 'react';\nimport { Skeleton } from '@object-ui/components'; // Reuse skeleton from standard lib\n\n// 🚀 Lazy load the implementation file\nconst LazyEditor = React.lazy(() => import('./MonacoImpl'));\n\nexport const CodeEditorRenderer = (props) => (\n  <Suspense fallback={<Skeleton className=\"h-64 w-full bg-slate-100\" />}>\n    <LazyEditor {...props} />\n  </Suspense>\n);\n\n// Standard Export Protocol\nexport const editorComponents = {\n  'code-editor': CodeEditorRenderer\n};\n\n3. Execution Steps\n * Create Packages: Initialize plugin-editor and plugin-charts with package.json and tsconfig.json.\n * Implement Lazy Logic: Apply the pattern described above to both plugins.\n   * For plugin-charts, create a mock \"Heavy Chart\" component if you don't want to install recharts yet, but ensure the React.lazy structure is used.\n * Export Registry: Ensure package.json main points to src/index.ts (or dist).\n * Update Playground:\n   * Go to apps/playground.\n   * Add dependencies: pnpm add @object-ui/plugin-editor @object-ui/plugin-charts --workspace.\n   * In App.tsx, import editorComponents and chartComponents.\n   * Merge them into the SchemaRenderer components prop:\n     const registry = { ...standardComponents, ...editorComponents, ...chartComponents };\n\n4. Verification\nCreate a test schema in the Playground containing { \"type\": \"code-editor\" }.\nVerify that the heavy chunk (Monaco/Charts) is NOT loaded on initial page load, but only loaded when the component is rendered.\n\n"
+}

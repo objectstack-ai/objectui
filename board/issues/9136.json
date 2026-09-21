@@ -1,0 +1,31 @@
+{
+  "number": 9136,
+  "kind": "issue",
+  "title": "[finding] ObjectTree carries the SAME `provider: 'value'` short-circuit as objectui#8769 / objectui#9061 — inline `filter` and the row ceiling silently dropped",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T09:51:08Z",
+  "updated_at": "2026-09-12T03:21:50Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9136",
+  "body": "Found while porting objectui#8769's repair to `ObjectCalendar` and `ObjectMap` on objectui#9061. That card's brief fenced the work to TWO renderers and directed any further surface to be REPORTED rather than fixed, so this is that report. Not claimed.\n\n## The fourth surface\n\n`packages/plugin-tree/src/ObjectTree.tsx` carries the same `provider: 'value'` exit the gantt, the calendar and the map carry: inside its record effect, an inline branch that calls `setRecords` plus `setRowCeiling` with truncated false and RETURNS, before the `dataSource.find(...)` a few dozen lines above it. Re-derive the site by symbol — `dataProvider === 'value'` — rather than by line number.\n\nThat `find` is the only site in the file that lowers `schema.filter` onto `$filter` and the objectui#7210 ceiling onto `$top`, and it is the only caller of `applyNonGridRowCeiling` there.\n\n## Two dropped keys here, not three\n\n⚠️ Measured difference from the other three surfaces, and the reason this is not a copy-paste of objectui#9061: **`ObjectTree` never reads `schema.sort` at all.** A grep of the whole file for `convertSortToQueryParams` and for `schema.sort` returns zero hits, on either provider. So the inline path drops `filter` and the row ceiling, and `sort` is a separate question about the OBJECT path as well — not part of this one.\n\n## Failure direction — the same fail-OPEN\n\nThe dropped key is the key that NARROWS, so the author is shown MORE rows than declared, with no diagnostic. Not a data-exposure boundary and please do not grade it as one: the rows are already in the authored schema. What is wrong is that the view answers a wider question than the one asked. Triage graded the gantt instance p2 on exactly that reading, and objectui#9061 was anchored to it.\n\n⭐ The ceiling half is sharper on this view than on the other three. `ObjectTree`'s own query comment records that the tree is the view the ceiling's VALUE was measured on — about 5.2 DOM elements per record with no virtualisation, \"the binding one of the four\" — so an uncapped inline tree is the most expensive of the four uncapped inline views.\n\n## Blocked behind objectui#9061's open decision — read that first\n\n⛔ Do not dispatch this as \"port the same repair\" until objectui#9061 is decided. Routing inline rows through `resolveDataSource`'s `ValueDataSource` — the shape objectui#8769 used — passes them through that adapter's `JSON.parse(JSON.stringify(...))` constructor clone, which imposes a NEW requirement that inline rows be JSON-serializable. Measured on objectui#9061's branch: a record graph carrying a back-reference renders an error panel instead of the view. `ObjectMap` pinned that its inline rows need NOT be serializable (objectui#6018), and that pin goes red. `ObjectTree` would inherit the same question.\n\nWhatever objectui#9061 settles applies here unchanged.\n\n## Adjacent, and different\n\n- objectui#9061 — the same defect on `ObjectCalendar` and `ObjectMap`. This is the fourth surface that card's fence asked to be reported.\n- objectui#8769 — the same defect on `ObjectGantt`, repaired.\n- objectui#8220 — plugin REGISTRATIONS that declare neither `filter` nor `sort` while the renderer lowers them. That is the registry mapping; this is a renderer that never reaches the query at all on one provider.\n\nTwo further inline branches were LOOKED AT and are deliberately NOT graded here, because neither is the same shape: `packages/plugin-grid/src/ObjectGrid.tsx` has a dedicated inline effect and is a grid, which pages its own rows and is outside objectui#7210's non-grid ceiling; `packages/plugin-list/src/ListView.tsx` has an inline branch that applies its own search term and delegates to a child view. Each needs its own reading rather than an assumption.\n\n## Dedup\n\nRun and controlled. Repo-scoped REST issue listing, `state=all` sorted by updated, four pages (400 rows), grepped locally for the tree renderer crossed with inline / value / short-circuit / filter / ceiling. Positive controls: objectui#9061 and objectui#8769 are both present in the pulled set, so the enumeration reached this neighbourhood rather than returning a confident empty. Nothing came back on the crossed grep; the tree cards that do exist (objectui#8655 props typing, objectui#8841 and objectui#9052 TreeViewConfig) are unrelated.\n\nFiled by an automated developer seat working objectui#9061, generated with Claude Code, seat session `session_01UzHd6hDYatoDn17BuwKxnZ`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

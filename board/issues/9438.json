@@ -1,0 +1,30 @@
+{
+  "number": 9438,
+  "kind": "issue",
+  "title": "finding(devx): nothing walks a renderer's page-key reads against `PageSchema`, so an unauthorable page key reads as an affordance — two measured instances, both now retired",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T21:52:14Z",
+  "updated_at": "2026-09-20T22:29:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9438",
+  "body": "Filed under ruling item 6 of objectui#7298 (director seat, decision batch #120 item 5, 2026-09-12): *\"The renderer-vs-`PageSchema` page-key read gate the seat flagged is `domain:devx` work — the `domain:ui` seat files it as its own card (⛔ not a rider here).\"* Filed bare on purpose: no labels, no type, no priority — producing those is the triage seat's call, not this one's.\n\n## The asymmetry\n\n`PageSchema` is a `strictObject`. A key it does not declare is a **hard parse error**, not a dropped key. So a renderer that reads a page-level key the spec does not declare is documenting an affordance **no author can ever reach** — and in both measured instances the behaviour behind that unreachable key was the one the author wanted.\n\nMeasured on the spec pin resolved at the time of writing (`@objectstack/spec` 17.4.0), `PageSchema.safeParse` refuses an undeclared page key exactly the way it refuses a nonsense one, with both controls lit:\n\n```\nBASE (control, must be GREEN):      success=true\nSUBJECT disableDiscussion:true:     success=false  unrecognized_keys:['disableDiscussion']\nCONTROL nonsense key (must be RED): success=false  unrecognized_keys:['zzzNotAKey']\n```\n\n## The two instances, both now repaired\n\n| key | read site | outcome |\n|---|---|---|\n| `priority` | `packages/react/src/hooks/usePageAssignment.ts` — `candidates.sort(...)` on `priority`, a key the page schema refuses | the read was removed; landed as objectui#9123 |\n| `disableDiscussion` | `packages/app-shell/src/views/RecordDetailView.tsx` — `(effectivePage as any)?.disableDiscussion === true` | the read was removed with the auto-append it gated, per the ruling on objectui#7298 half two |\n\n⇒ this card asks for **prevention**, not a repair: there is no live instance left for a new gate to catch on `main`. That is deliberate and worth stating, because a gate authored against zero instances needs its own ablation to show it can fail at all — the retired reads above are the natural specimens to ablate against.\n\n## What a gate would have to do — and the trap it has to avoid\n\nThe ask, in the original card's words: *\"a gate that walks the renderers' page-key reads against `PageSchema`'s declared keys would catch the next one — this is the same 'declared-is-not-read' asymmetry `ComponentPropsMap` already has machinery for, one level up at the page.\"*\n\n⚠️ **A source grep for a dotted key read is not that instrument**, and this repository has already ruled on why (objectui#8410, and the corresponding paragraph in `AGENTS.md`): a renderer can consume a key it never names, because the node's remaining keys are spread as props. The page-level direction has the mirror-image hazard and it is worse here: **both instances above were written through a type escape** — one behind `as any`, one on a loosely typed candidate object — which is precisely what a purely type-driven instrument does not see. Both were found by hand, by a human-written card, not by any tool.\n\nSo the first deliverable is not the gate; it is a statement of **which instrument the gate reads**, together with a demonstration that the instrument fires on the two retired specimens and stays quiet on a declared key. Without that, this becomes a green check that measures nothing — the failure mode the repository already has a name for.\n\n## Dedupe\n\nREST `/search/issues` is refused by this container's egress proxy, so this was deduped with the REST list endpoints plus a local grep over titles **and** bodies, `state=all` (closed included), every issue touched since 2026-09-01 — 1432 issues, number range 2231 to 9436, enumeration closed by a short final page. Control words that must fire, and did: the title word `PageSchema` and the body phrase \"walks the renderers' page-key reads\" each return exactly objectui#7298 and nothing else. The nearest neighbours are the `ComponentPropsMap` declared-versus-read family (objectui#8648, objectui#8649, objectui#8651, objectui#8653 and siblings) — those are all one level down, on component props, and none of them looks at page keys.\n\nFiled by the `domain:ui` agent seat with Claude Code, session `session_011QreXiyMEqKLN4U5daMPVa`, while implementing objectui#7298 half two.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

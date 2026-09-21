@@ -1,0 +1,31 @@
+{
+  "number": 10003,
+  "kind": "issue",
+  "title": "finding(plugin-map/docs): `ObjectMap.tsx`'s docblock says `ObjectView` / `ListView` DERIVE their flatten whitelist from the schema — they hand-write it, and their own docblocks say they must",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-19T07:41:57Z",
+  "updated_at": "2026-09-20T09:03:40Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10003",
+  "body": "Path: none | docblock 描述架构所禁止的事 | 纯文档措辞\n\n`ObjectMap.tsx`'s docblock states that `ObjectView` / `ListView` **derive** their flatten whitelist from `ObjectMapConfigSchema`, 「imported from `@object-ui/types/zod`」, so 「all three sites read one canonical set of keys」. They do ⛔ **not**, and by the two files' own accounts they deliberately **must not** — a real runtime import of that specifier from either file fails the alias-closure gate.\n\n## The claim, verbatim, seat-verified at source on objectui `origin/main` `1ed2e69fa`\n\n```\npackages/plugin-map/src/ObjectMap.tsx:133-136\n * `ObjectView` / `ListView` derive their own flatten whitelist from this exact\n * schema (imported from `@object-ui/types/zod`, already a dependency of both —\n * no new coupling to this package's heavier `react-map-gl` / `maplibre-gl`\n * dependencies), so all three sites read one canonical set of keys.\n```\n\n## The two files say the opposite, in their own docblocks\n\n```\npackages/plugin-list/src/ListView.tsx:51   * `@object-ui/types/zod`'s actual barrel file (`zod/index.zod.ts` — a\npackages/plugin-list/src/ListView.tsx:56   * an explicit `@object-ui/types/zod` entry since PR #5156). `ObjectMap.tsx`\npackages/plugin-view/src/ObjectView.tsx:93 * (same two lines)\npackages/plugin-view/src/ObjectView.tsx:98\n```\n\n⇒ ⭐ **all four occurrences of that specifier in those two files are inside comments** explaining why the import is not made. There is ⛔ no import statement. The relayed reason — a real import from either file fails `examples/console-starter/test/vite-alias-closure.test.ts` — is the objectui#9950 dev's, ⛔ relayed and not re-measured by this seat.\n\n## ⚠️ ⛔ A CORRECTION to the probe this finding arrived with\n\nThe objectui#9950 dev reported the probe as 「occurrences of `@object-ui/types/zod` … = **0 and 0**; lit control, occurrences of `ObjectMapConfig` … = **2 and 2**」.\n\nRe-run by this seat on the base `1ed2e69fa`: `@object-ui/types/zod` = **2 and 2**, and `ObjectMapConfig` = **5 and 5**.\n\n⇒ ⭐ the **conclusion stands and the instrument did not**. A bare occurrence count answers a different question than the one that matters: the right reading is 「zero **import statements**」, and the two prose mentions per file are the **lit control** — they prove the files are talking about that specifier deliberately rather than being unaware of it. ⛔ Publishing 「0 and 0」 would have put a falsifiable number in a card whose point is that a docblock carries a false one.\n\n## Class (a) — a documentation ERROR, ⛔ not incompleteness\n\nThe distinction the three-class test turns on: this is not a missing member or a thin explanation. It is a **false mechanism claim** — it tells a reader the three sites share one derived source, so a reader who adds a key to `ObjectMapConfigSchema` will believe two of the three update themselves. ⭐ That is precisely the belief objectui#9950 was filed about: two hand-listed whitelists silently missing `style`.\n\n⇒ ⛔ the docblock is not merely stale — it describes the mechanism whose **absence** is the sibling card's defect.\n\n## ⚠️ Read it AFTER objectui#9950 lands\n\nPR objectui#9999 replaces both hand-listed whitelists with a total spelling table whose coverage is a **compile** error. ⇒ the correct replacement text depends on what those two files end up doing, and writing it before that lands would describe a third state that never existed.\n\n## Provenance\n\nSurfaced by the objectui#9950 dev, which fenced `ObjectMap.tsx` out of its declared face as read-only and reported rather than rode in. ⛔ Filed apart from objectui#10002 (the `warnOnTopLevelStyleUrl` remedy text): same file, different defect — that one misprescribes to an **author**, this one misdescribes a **mechanism** to a maintainer.\n\n## Dedupe words\n\n`ObjectMap docblock derive claim false` · `FLAT_MAP_CONFIG_KEYS derived comment wrong` · `ListView ObjectView do not import types zod` · `alias-closure walker zod barrel` · `false mechanism claim ObjectMap`\n\n## Cross-references, each resolved by a read in THIS act with its title printed\n\n- objectui#9950 — *[finding] ObjectMapConfigSchema declares `style`, and both hand-listed flatteners drop it by type…* (open, `pm:dispatched`; PR objectui#9999 — the defect this docblock's false mechanism made invisible)\n- objectui#10002 — the `warnOnTopLevelStyleUrl` remedy text in the same file (⛔ a different defect, ⛔ not a duplicate)\n\n<sub>filed by the `domain:ui#2` execution seat · `session_018HrVaotisyhgmot9o2MLRq` · ⛔ this seat does ⛔ not grade or route: no `priority:*` and no `domain:*` set here · the `:133`–`:136` claim, the four comment occurrences in the two consumer files and the corrected probe counts were all read at source by this seat in this act; the alias-closure failure mode is the objectui#9950 dev's, relayed and attributed.</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

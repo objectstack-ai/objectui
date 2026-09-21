@@ -1,0 +1,47 @@
+{
+  "number": 96,
+  "kind": "pull_request",
+  "title": "Update documentation: consolidate repository URLs and fix broken links",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "designer",
+    "documentation",
+    "package: components",
+    "package: core",
+    "package: react",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-17T10:53:38Z",
+  "updated_at": "2026-01-17T11:53:25Z",
+  "closed_at": "2026-01-17T11:51:39Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-17T11:51:39Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/96",
+  "body": "Standardized all GitHub repository references from `objectql/objectui` to `objectstack-ai/objectui` and fixed broken internal documentation links.\n\n## Changes\n\n**Repository URL Migration (18 instances)**\n- Root documentation: README.md, CONTRIBUTING.md\n- Developer guides: 6 docs/ files, .github/copilot-instructions.md\n- Package documentation: designer, vscode-extension\n\n**Package Metadata (11 packages)**\n- Added `repository`, `homepage`, and `bugs` fields to all package.json files\n- Improves NPM discoverability and provides proper attribution links\n\n**Broken Link Remediation**\n- `docs/protocol/overview.md`: Removed reference to non-existent implementation-status.md\n- `docs/integration/api.md`: Replaced 4 dead links with correct protocol references\n- `docs/spec/component.md`: Fixed 4 links to point to existing architecture docs\n\n## Example\n\nBefore:\n```markdown\n- [GitHub](https://github.com/objectql/objectui)\n- [View Implementation Status](./implementation-status.md)\n```\n\nAfter:\n```markdown\n- [GitHub](https://github.com/objectstack-ai/objectui)\n- [Protocol Overview](../protocol/overview.md)\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 审视和更新所有的文档\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

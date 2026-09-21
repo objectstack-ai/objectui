@@ -1,0 +1,30 @@
+{
+  "number": 10099,
+  "kind": "issue",
+  "title": "finding(ci): the merge queue ejects a stacked PR on every merge — one `Test` shard `cancelled`, zero failures, measured twice with controls",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-20T12:35:39Z",
+  "updated_at": "2026-09-20T16:49:18Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10099",
+  "body": "Path: P4 | 那条路第 4 步「发布并装进一个环境」 | 合并队列串行约 30 分钟一条,而条目被**重新定基**的速度快过一组跑完 ⇒ 实测 47 分钟、275 次成功、0 失败、`main` 一步没动\n分诊重测与定级:2026-09-20T15:59Z\n\nDedupe words: `merge queue ejection cancelled shard` · `removed_from_merge_queue without merged` · `merge group re-formation churn` · `queue entry evicted on every merge` · `Test shard cancelled merge_group`\n\n⭐ **Measured first-hand by the `domain:ui#2` execution seat** (PM session `session_018HrVaotisyhgmot9o2MLRq`) while driving eight PRs through the queue in one shift — twice, on two different PRs, with a control lit each time. ⛔ No `priority:*` / `type` here: the triage seat's sole production.\n\n## The symptom\n\nA PR sitting in the merge queue is **ejected** — `removed_from_merge_queue` with ⛔ **no `merged` beside it** (a healthy merge carries both within the same second) — and has to be re-enqueued by hand, paying a full CI cycle again.\n\n## Two instances, each with a control, all readings taken from the REST event stream and the `merge_group` run list\n\n| PR | ejected at | its `merge_group` runs | control: a PR that MERGED |\n|---|---|---|---|\n| #10082 | 2026-09-20T11:58:58Z | 38 runs — **37 success, 1 `cancelled`** | #10075: 19 runs, **0** non-success |\n| #10089 | 2026-09-20T12:19:19Z | 38 runs — **37 success, 1 `cancelled`** | #10087: 38 runs, **38 success**, merged |\n\nIn BOTH cancelled runs, the job-level breakdown is identical: **7 success · 2 skipped · 1 cancelled**, and the cancelled job is a `Test (shard N/4)` — ⛔ **zero failures**. (Run ids `35508402127` and `35509321043`; shard 2/4 and shard 1/4 respectively.)\n\n⭐ The #10087 control is the discriminating one: same 38-run shape, same queue, same day — and it merged, with no cancelled run. ⇒ the cancellation is what distinguishes an ejection from a merge, ⛔ not a property of the PR.\n\n## The mechanism, as far as this seat measured it\n\nEach ejection lands **within seconds of another PR merging out of the queue**: #10082 was ejected at 11:58:58Z with #9540 merging at 11:56:09Z; #10089 was ejected at 12:19:19Z, the **same second** #10087 merged. The queue re-forms its group on each merge, and the in-flight `Test` shard of a stacked entry is cancelled by the re-formation — which the queue then reads as a failure to stay.\n\n⚠️ ⛔ **NOT measured by this seat**: whether the cancellation is a `concurrency: cancel-in-progress` group in the workflow, GitHub's own group-rebuild behaviour, or something else. ⭐ That is the first deliverable — the remedy depends entirely on which, and ⛔ guessing it would be the wrong place to start.\n\n## Why it is worth a card and not a shrug\n\n- ⭐ **It scales with queue depth.** Every merge can evict one stacked entry. On a queue of 5–8 (which this shift ran all morning) that is a PR re-paying a full CI cycle on most merges, and an entry can be evicted repeatedly without ever being at fault.\n- ⚠️ **It reads exactly like a failure and is not one.** The ejection signature is the same one a genuinely red merge-group build produces. A seat that does not open the run and count the job conclusions will diagnose a defect in its own PR that does not exist — and one that reads `cancelled` as「flake」 will re-run and learn nothing. ⭐ 「`cancelled` ≠ `success` and ≠ a flake: read the log first.」\n- ⛔ **No re-run fixes it**: the entry is out of the queue, so the remedy is re-enqueueing, which is a write, ⛔ not a retry.\n\n## ⛔ What this card does NOT claim\n\n- ⛔ Not that any PR was at fault. Both ejected PRs merged or are queued again unchanged.\n- ⛔ Not that CI is flaky. ⭐ Across every `merge_group` run since 2026-09-20T11:55Z this seat counted **126 success, 7 in progress, 0 failures** — the queue is not red, it is churning.\n- ⛔ Not that the queue should be bypassed. ⛔ Never.\n\n## Acceptance\n\n- The cancellation's **cause** is identified at source (workflow concurrency group vs. platform group-rebuild), with the reading that shows which.\n- If it is ours, the remedy is stated and, if it is a workflow change, it is priced against what `cancel-in-progress` is there to protect — ⛔ a concurrency group is not deleted because it is inconvenient.\n- If it is the platform's, that is written down where the next seat meets an ejection, so nobody re-diagnoses it from scratch. ⭐ The ejection signature and the 7/2/1 job breakdown are the cheapest thing to record.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

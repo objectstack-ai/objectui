@@ -1,0 +1,33 @@
+{
+  "number": 36,
+  "kind": "pull_request",
+  "title": "[WIP] Restructure document architecture and update necessary documentation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T16:15:16Z",
+  "updated_at": "2026-01-14T16:35:32Z",
+  "closed_at": "2026-01-14T16:35:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T16:35:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/36",
+  "body": "## Documentation Architecture Reorganization - Complete ✅\n\n### Objective\nReorganize and update the documentation architecture to improve clarity, accessibility, and maintainability.\n\n### Completed Checklist\n\n- [x] **Phase 1: Create Root Documentation**\n  - [x] Create comprehensive root README.md as main entry point\n  - [x] Update root README with project overview, quick start, and navigation\n  \n- [x] **Phase 2: Create Missing Guide Documentation**\n  - [x] Create guide/schema-rendering.md - comprehensive rendering guide (7,782 chars)\n  - [x] Create guide/component-registry.md - component registration guide (9,588 chars)\n  - [x] Create guide/expressions.md - expression system guide (9,943 chars)\n  \n- [x] **Phase 3: Update VitePress Configuration**\n  - [x] Enhanced sidebar structure with better categorization\n  - [x] Added Architecture section to guide sidebar\n  - [x] Organized protocol specs into Core and Advanced\n  - [x] Added spec/ and components/ sidebars\n  - [x] Improved navigation menu with dropdown\n  \n- [x] **Phase 4: Update Documentation Structure**\n  - [x] Enhanced docs/README.md with complete structure guide\n  - [x] Added comprehensive documentation guidelines\n  - [x] Added writing style guide and Markdown examples\n  - [x] Verified documentation builds successfully\n  \n- [x] **Phase 5: Enhance Contributing and Navigation**\n  - [x] Significantly enhanced CONTRIBUTING.md with detailed guidelines\n  - [x] Added architecture overview and development best practices\n  - [x] Created comprehensive DOCUMENTATION_INDEX.md (6,883 chars)\n  - [x] Added documentation index to navigation menu\n  \n- [x] **Phase 6: Final Review & Documentation**\n  - [x] Verified all documentation builds successfully\n  - [x] Created DOCUMENTATION_REORGANIZATION.md summary\n  - [x] All cross-references working correctly\n\n### Summary of Changes\n\n**New Files Created:**\n1. `/README.md` - Root project README (9,033 chars)\n2. `/docs/guide/schema-rendering.md` - Schema rendering guide\n3. `/docs/guide/component-registry.md` - Component registry guide\n4. `/docs/guide/expressions.md` - Expression system guide\n5. `/docs/DOCUMENTATION_INDEX.md` - Complete documentation navigator\n6. `/docs/DOCUMENTATION_REORGANIZATION.md` - This reorganization summary\n\n**Enhanced Files:**\n1. `/CONTRIBUTING.md` - Expanded from 113 to 440+ lines\n2. `/docs/README.md` - Expanded from 40 to 273 lines\n3. `/docs/.vitepress/config.mts` - Improved navigation and sidebars\n\n### Key Improvements\n\n✅ **Better Discovery**: Root README provides immediate value\n✅ **Comprehensive Guides**: 3 new in-depth guides for core concepts\n✅ **Clear Navigation**: Documentation Index with multiple access paths\n✅ **Improved Structure**: Logical organization by experience level and use case\n✅ **Enhanced Contributing**: Detailed guidelines for contributors\n✅ **Build Verified**: All documentation builds successfully\n\n### Build Status\n```\n✓ building client + server bundles...\n✓ rendering pages...\nbuild complete in 10.37s\n```\n\n**Total New Content**: ~35,000+ characters of documentation\n**Documentation Coverage**: All core concepts documented\n**Build Status**: ✅ Passing\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 重新整理文档架构，更新必要文档\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

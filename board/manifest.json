@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "repo": "objectstack-ai/objectui",
+  "generated_at": "2026-09-21T08:52:22.401Z",
+  "walk_phase": "history",
+  "walk": {
+    "open_set": {
+      "complete": true,
+      "completed_at": "2026-09-21T08:50:23.550Z",
+      "cursor": null
+    },
+    "delta": {
+      "complete": false,
+      "cursor": null,
+      "since": null,
+      "slice": 300
+    },
+    "history": {
+      "complete": false,
+      "cursor": "2026-01-23T06:25:06Z"
+    }
+  },
+  "since": null,
+  "since_reason": "no previous manifest — the first run is full, and it starts with the open board",
+  "next_since": null,
+  "resume": {
+    "since": "2026-01-23T06:25:06Z",
+    "phase": "history",
+    "stopped_by": "budget",
+    "reason": "the per-run budget of 800 requests is spent"
+  },
+  "counts": {
+    "issues_open": 401,
+    "issues_closed": 6,
+    "pulls_open": 5,
+    "pulls_closed": 135,
+    "records": 547
+  },
+  "board": {
+    "open_issues_count": 406,
+    "open_pull_requests": 5,
+    "read_at": "2026-09-21T08:50:24.067Z"
+  },
+  "count_check": {
+    "verdict": "ok",
+    "reason": null,
+    "expected": 401,
+    "archived": 401,
+    "shortfall": 0,
+    "surplus": 0,
+    "gone_ledger": 0,
+    "ok": true
+  },
+  "freshness": {
+    "verdict": "fresh",
+    "pending_since": null,
+    "reason": null
+  },
+  "requests": 800,
+  "run": {
+    "numbers_read": 547,
+    "files_written": 1136,
+    "walk_complete": false,
+    "open_set_completed_here": true,
+    "delta_ran": false,
+    "delta_completed_here": false,
+    "delta_requests": 0
+  }
+}

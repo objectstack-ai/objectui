@@ -1,0 +1,33 @@
+{
+  "number": 11,
+  "kind": "pull_request",
+  "title": "[WIP] Update documentation for project",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-13T18:30:12Z",
+  "updated_at": "2026-01-13T18:40:34Z",
+  "closed_at": "2026-01-13T18:40:11Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-13T18:40:11Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11",
+  "body": "## Documentation Update Complete ✅\n\nSuccessfully updated all documentation to reflect the current package structure:\n\n### Changes Made\n\n#### Main Documentation\n- [x] Update main README.md to reflect current packages\n- [x] Update docs/guide/installation.md with current installation instructions\n- [x] Update docs/guide/introduction.md with current package names\n- [x] Update docs/spec/project-structure.md to match actual structure\n- [x] Update docs/spec/architecture.md with current layer structure\n- [x] Update docs/protocol/overview.md with correct package references\n\n#### API Documentation\n- [x] Update docs/api/core.md to reflect @object-ui/core package\n- [x] Update docs/api/react.md (already correct)\n- [x] Update docs/api/components.md (already correct)\n- [x] Update docs/api/designer.md with actual implemented features\n\n#### Package Documentation\n- [x] Update packages/designer/README.md with correct package names\n- [x] Create packages/core/README.md with comprehensive usage guide\n- [x] Create packages/react/README.md with React-specific documentation\n- [x] Create packages/components/README.md with component library guide\n\n#### Project Files\n- [x] Update CONTRIBUTING.md with correct package references\n- [x] Update CHANGELOG.md with current package names\n\n### Package Structure\n\nThe documentation now correctly reflects the actual package structure:\n- **@object-ui/core** - Core logic, types, validation (Zero React)\n- **@object-ui/react** - React bindings and SchemaRenderer\n- **@object-ui/components** - UI components (Shadcn + Tailwind)\n- **@object-ui/designer** - Visual schema editor\n\nAll outdated references to old packages (@object-ui/protocol, @object-ui/engine, @object-ui/renderer, @object-ui/ui) have been replaced with current package names.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 更新文档\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

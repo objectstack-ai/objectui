@@ -1,0 +1,38 @@
+{
+  "number": 131,
+  "kind": "pull_request",
+  "title": "feat: Convert filters to ObjectStack FilterNode AST format",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "documentation",
+    "package: core",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-21T09:00:56Z",
+  "updated_at": "2026-01-21T11:00:42Z",
+  "closed_at": "2026-01-21T10:55:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-21T10:55:12Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/131",
+  "body": "## ✅ ObjectStack Filter Rules Update - Complete\n\n### Summary\nSuccessfully updated all filter handling code to comply with **ObjectStack Protocol v0.1.2+** filter rules. All filters are now converted to **FilterNode AST format** for compatibility with the latest ObjectStack specification.\n\n### Changes Made\n- [x] Understand current filter usage in codebase\n- [x] Update objectstack-adapter.ts to handle new filter rules\n- [x] Update ObjectQLDataSource.ts to handle new filter rules  \n- [x] Add tests for filter conversion to AST format\n- [x] Review and update filter-related documentation\n- [x] Test with full test suite (119 tests passing ✅)\n- [x] Address code review feedback\n  - [x] Extract filter conversion to shared utility (eliminates code duplication)\n  - [x] Add warning for $regex operator (semantic clarity)\n  - [x] Throw error for unknown operators (no silent failures)\n  - [x] Add FilterNode type definition (better type safety)\n  - [x] Add comprehensive tests (12 new tests)\n- [x] Run security scan (0 vulnerabilities ✅)\n- [x] Verify no breaking changes introduced (backward compatible ✅)\n\n### Filter Conversion Details\n**Simple filters:** `{ status: 'active' }` → `['status', '=', 'active']`  \n**Complex filters:** `{ age: { $gte: 18, $lte: 65 } }` → `['and', ['age', '>=', 18], ['age', '<=', 65]]`\n\n**Supported operators:** $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin/$notin, $contains, $startswith, $between\n\n### Code Review Improvements\n✅ **No code duplication** - Filter conversion logic extracted to shared utility  \n✅ **$regex warning** - Users warned about limited regex support  \n✅ **Unknown operator errors** - No silent failures on unrecognized operators  \n✅ **Better types** - FilterNode type definition for improved type safety\n\n### Test Results\n- **119 tests passing** (12 new filter converter tests added)\n- **0 security vulnerabilities** (CodeQL scan clean)\n- **All builds successful**\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> objectstack升级到最新版，过滤器的规则有调整，按照新的规则修改所有的代码\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

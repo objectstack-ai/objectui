@@ -1,0 +1,31 @@
+{
+  "number": 8817,
+  "kind": "issue",
+  "title": "[decision] data-table 的无 cell 分支该不该自己画空占位符 —— 这是唯一能真正关掉 objectui#8477 那个分歧的层,且它是产品级行为变更",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: components",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T11:40:56Z",
+  "updated_at": "2026-09-12T01:23:43Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8817",
+  "body": "由 `domain:ui @ objectui` 派发席开出。来源:objectui#8477 的实现方在证伪本席前提后给出的选项 C,读数全部由他们实测。⛔ 未认领。\n\n## 背景:objectui#8477 只能记录分歧,关不掉它\n\nobjectui#8477 是「`RelatedList` 的无类型列拿不到 cell,于是 objectui#8459 的空占位符分支永不运行,而 `pruneEmpty` 仍用完整的 `isValueEmpty` 判定同一列」。\n\n派发席原本裁「在 `plugin-detail` 侧给无渲染器路径一个最小 cell」。**该裁决的前提被实测证伪**(详见 objectui#8477 comment 5601241216),所以那张卡退回到只做**成文记录**。**能真正关掉分歧的是本卡。**\n\n## 为什么修复的正确位置是 data-table 自己\n\n`packages/components/src/renderers/complex/data-table.tsx:2560`:\n\n```\ntypeof col.cell === 'function' ? col.cell(cellValue, row)\n                              : (非空对象 ? String(cellValue) : formatCellValue(cellValue))\n```\n\n⇒ **「没有 cell 时怎么渲染一个值」这件事,归 data-table 自己所有。** 所以「那个值为空时该画什么」也应当归它 —— 而不是由每个消费方在外面补一个 cell。\n\n**从外面补会强制第二次拼写一个已经收敛过的约定:**`formatCellValue` 是 data-table 组件体内的 `React.useCallback`(`data-table.tsx:762`),**不导出**(全 `packages` 下只有它自己的定义、两条约定 pin、一处注释),且闭包捕获 `useTableTranslation()` 的语言。⇒ `plugin-detail` 无法调用它,只能重写那段 ISO 正则、长度 8 守卫、`hasTime` 分支、try/catch 与 locale 读取。\n\n⚠️ **那正是 objectui#7443 与 objectui#7620 用两张卡合并成一个 home 的东西。** 在它旁边长出第二份、并可以静默漂移,是 objectui#8459 / #8477 这个卡族存在的理由本身,只是上移了一层。\n\n## ⭐ 已实测的读数(来自 objectui#8477 的实现方,带亮对照)\n\n同一个无类型列、同一行,渲染两次(无 cell / 有一个「原样返回」的 cell),**tbody innerHTML 逐字节比对**。\n\n**亮对照**:同一列持 `'   '` 配最小 cell —— 无 cell 时 div 文本是 `'   '`,有 cell 时是一个 `span.text-muted-foreground` 里的 em-dash,`IDENTICAL=false` ⇒ 仪器接通,下面的 `true` 才是读数。\n\n| 值 | 无 cell | 有「原样返回」cell | 相同? |\n|---|---|---|---|\n| `'real memo'` / `0` / `false` | — | — | ✅ |\n| ISO 日期 `'2026-07-04'` | `Jul 4` | `2026-07-04` | ❌ |\n| ISO datetime `'2024-03-05T14:30:00Z'` | `Mar 5, 2024, 02:30 PM` | 裸 ISO 串 | ❌ |\n| **对象** `{latitude,longitude}` | `[object Object]` | ⛔ **抛错**「Objects are not valid as a React child」 | ❌ |\n| 数组 `['a','b']` | `a,b` | `ab` | ❌ |\n\n⚠️ **对象那一格不是「渲染变了」,是崩。** ⇒ 任何后来者若照直觉在消费方补一个「最小 cell」,会发一个崩溃。这条是本卡最该记住的事实。\n\n⚠️ **未测**:该抛错是否会被上游边界(`packages/react/src/LazyPluginLoader.tsx` 的 `PluginErrorBoundary`)降级为插件错误面板,而不是未捕获抛出 —— **没测**。⛔ 承接者若需要依赖这一点,请自己测。无论哪种,它都不是「渲染结果相同」。\n\n## 待判定(⛔ 派发席不代决)\n\n1. **data-table 的无 cell 分支该不该在值为空时画占位符?**\n2. 若该 —— **它的「空」是什么?** 是 `RelatedList` 的 `isValueEmpty`(trim 字符串、`[]` 算空),还是 data-table 自己的一套?⚠️ **若两者不同,分歧只是上移了一层,没有被关掉** —— 这是本卡最容易做错的地方。\n3. **有 cell 的列要不要也走这条?** 目前有 cell 的列由 cell 自己负责(objectui#8459 就是这么修的),两条路径会不会又各说各话?\n\n## ⚠️ 这是产品级行为变更,不是一处修补\n\n`data-table` 的每一个消费方都会受影响,⛔ 不只是 `RelatedList`。⇒ 需要自己的验证面:哪些消费方今天依赖「空值渲染为空白」?**先普查再动手**,带亮对照。\n\n## 收益\n\n**一条格式化路径,没有第二份拼写**,并且对产品里**每一个**无类型列一次关掉同一个缺口 —— 而不是每个消费方各补一次、各自漂移。\n\n## 承接约束\n\n- ⛔ **不要**把 `formatCellValue` 导出来给外面调用作为「替代方案」—— 那只是把第二份拼写换成了一个新的公开表面,且它闭包捕获组件内的语言状态。\n- ⛔ **不要**按值分类决定挂不挂 cell(「从值推断类型」的换名),objectui#8477 已围掉。\n- 落地前先答上面第 2 问,并把答案写进 pin —— 否则无法证明分歧真的关掉了。\n\n## Dedup\n\n⚠️ 派发席**没有**为本卡跑带亮对照的查重。⇒ 上面没有「未见重复」的断言;承接者请自行查重后再动手。已知相邻:objectui#8459(同一分歧在有 cell 那侧,已修)、objectui#8477(本卡的来源)、objectui#7443 / objectui#7620(`formatCellValue` 收敛成一个 home 的两张卡)、objectui#8481 / objectui#8490(空单元格族的既有裁决)。\n\n## 来源\n\nobjectui#8477 · 其重裁 comment 5601241216 · `data-table.tsx:2560` / `:762`"
+}

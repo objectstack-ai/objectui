@@ -1,0 +1,36 @@
+{
+  "number": 148,
+  "kind": "pull_request",
+  "title": "Reorganize documentation following industry best practices",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "examples"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-22T08:45:08Z",
+  "updated_at": "2026-01-22T11:34:12Z",
+  "closed_at": "2026-01-22T11:34:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-22T11:34:12Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/148",
+  "body": "## Documentation Optimization - COMPLETE ✅\n\nThis PR reorganizes and optimizes the ObjectUI documentation following industry best practices (Microsoft Docs, Google Developer Docs, Stripe Docs).\n\n### Completed ✅\n- [x] Analyze current documentation structure\n- [x] Identify documentation framework (Fumadocs + Next.js)\n- [x] Identify duplication and organizational issues\n- [x] Research industry best practices\n- [x] Reorganize documentation structure\n- [x] Create FAQ document\n- [x] Create comprehensive Troubleshooting Guide\n- [x] Create Security Best Practices guide (with proper CSP)\n- [x] Move architecture specs to proper location\n- [x] Create Migration guides section\n- [x] Simplify guide section (removed 4 redundant files)\n- [x] Update all meta.json navigation files\n- [x] Improve main index page\n- [x] Create Ecosystem index page\n- [x] Consolidate community section\n- [x] Create Examples documentation page\n- [x] Enhance examples/README.md\n- [x] Update README.md with new documentation links\n- [x] Fix CSP security configuration (removed unsafe-inline)\n- [x] Fix Fumadocs build by adding missing meta.json files\n- [x] Add required frontmatter to all markdown files\n\n### New Documentation Structure\n```\ndocs/\n├── guide/              # Getting Started (simplified)\n│   └── cli/           # ✅ Added meta.json\n├── components/         # Component Library\n├── concepts/           # Core Concepts\n├── plugins/            # Plugin System\n├── reference/          # API & Protocol Reference\n├── architecture/       # Architecture Specs (moved from community)\n├── ecosystem/          # Integrations & Deployment\n│   └── deployment/    # ✅ Added meta.json\n├── migration/          # Migration Guides (NEW, ✅ frontmatter fixed)\n├── troubleshooting/    # Problem Solving (NEW)\n├── community/          # Contributing & Roadmap (simplified, ✅ frontmatter fixed)\n├── examples.md        # Examples Documentation (NEW)\n├── faq.md             # Frequently Asked Questions (NEW)\n├── security.md        # Security Best Practices (NEW, ✅ CSP fixed)\n├── versioning.md      # Versioning & Releases (NEW)\n└── index.md           # Improved landing page\n```\n\n### Security Improvements\n- **CSP Configuration**: Replaced `'unsafe-inline'` with nonce-based and hash-based approaches\n- **XSS Protection**: Enhanced security guidance to prevent script injection attacks\n\n### Build Fixes\n- Added `meta.json` for `docs/guide/cli/` subdirectory\n- Added `meta.json` for `docs/ecosystem/deployment/` subdirectory\n- Added YAML frontmatter to `docs/community/contributing.md`\n- Added YAML frontmatter to `docs/migration/from-objectstack.md`\n- Ensures Fumadocs can properly parse and build all documentation sections\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[Feature]: 文档优化</issue_title>\n> <issue_description>重新整理调整个文档的架构，添加必须的文档，删除不必要的文档，从行业最佳实践的角度考虑</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#147\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

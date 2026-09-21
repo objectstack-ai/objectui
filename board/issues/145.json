@@ -1,0 +1,35 @@
+{
+  "number": 145,
+  "kind": "pull_request",
+  "title": "Update Fumadocs homepage to use index.md and fix links",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-22T04:45:50Z",
+  "updated_at": "2026-01-22T05:40:37Z",
+  "closed_at": "2026-01-22T05:40:37Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-22T05:40:37Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/145",
+  "body": "- [x] Rename components index from index.mdx to index.md\n- [x] Fix all links in components index.md\n- [x] Create an index.md for plugins (similar to components)\n- [x] Move plugins directory from ecosystem/plugins to top-level docs/plugins\n- [x] Update docs/meta.json to include plugins at top level\n- [x] Update ecosystem/meta.json to remove plugins reference\n- [x] Update all references to plugin files throughout the documentation\n- [x] Fix all links in plugins index.md\n- [x] Fix lazy-loading references in plugin files and concepts\n- [x] Fix /docs/ prefixes in all documentation links\n- [x] Verify all changes work correctly\n\n## Verification Summary\n\n✅ Components index: `docs/components/index.md` (renamed from .mdx)\n✅ Plugins index: `docs/plugins/index.md` (created)\n✅ Plugins directory: Moved to top-level `docs/plugins/`\n✅ Navigation: Plugins added to docs/meta.json\n✅ All links: Fixed (no /docs/ prefixes, correct relative paths)\n✅ Old directory: `docs/ecosystem/plugins/` removed\n\nAll changes verified and complete!\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fumadocs文档的控件首页应该用index.md，并修复其中所有的链接。类似改造插件首页，并且把插件提升到文档的顶层目录。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

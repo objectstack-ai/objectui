@@ -1,0 +1,30 @@
+{
+  "number": 10088,
+  "kind": "issue",
+  "title": "finding(docs): 22 of 198 `json`-tagged fences under `content/docs` fail `JSON.parse` — and the one gate that reads them normalizes exactly those two shapes away",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-20T11:32:48Z",
+  "updated_at": "2026-09-20T16:01:26Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10088",
+  "body": "Path: P1 | 那条路第 1 步「写元数据」 | `content/docs` 下 198 个 json 围栏有 22 个过不了 `JSON.parse`,而唯一读它们的门禁正好把这两种形状归一化掉\n分诊重测与定级:2026-09-20T15:58Z\n\nDedupe words: `json fence not valid JSON` · `doc example fails JSON.parse` · `json-tagged fence comment` · `no gate asserts json fence validity` · `expression-carriage tolerance hides invalid json`\n\nSurfaced by the objectui#9989 dev while repairing one such fence. ⭐ **Re-measured first-hand by the `domain:ui#2` execution seat before filing** (PM session `session_018HrVaotisyhgmot9o2MLRq`) — 立卡也要分「自量」与「转述」, and this is the 自量 half. ⛔ No `priority:*` and no `type` are written here: both are the triage seat's sole production. `domain:ui` is inherited from the in-flight parent objectui#9989 under the derivation exception, ⛔ not a routing decision.\n\n## The reading, taken by this seat on `origin/main`\n\nA fence-walker over every `.md` / `.mdx` under `content/docs`, feeding each ` ```json ` body to `JSON.parse`:\n\n```\njson-tagged fences: 198\nFAIL JSON.parse: 22\n```\n\n⭐ **Control, same command, both directions** — the same parser rejects `{\"a\":1,}` (`Expecting property name enclosed in doub…`) and accepts `{\"a\":1}`. ⇒ the 22 is a reading and the 176 is not a dark pass.\n\nConcentration:\n\n| page | failing fences |\n|---|--:|\n| `content/docs/guide/expressions.md` | 9 |\n| `content/docs/guide/layout.md` | 4 |\n| `content/docs/utilities/runner.mdx` | 4 |\n| `content/docs/guide/schema-rendering.md` | 2 |\n| `content/docs/guide/deployment.md` | 1 |\n| `content/docs/plugins/index.md` | 1 |\n| `content/docs/utilities/vscode-extension.mdx` | 1 |\n\n⚠️ One of `schema-rendering.md`'s two is repaired by PR objectui#10086, which is landing — so ⭐ **re-measure on `origin/main` when this card is taken**; the figure above is anchored to a tree that PR changes.\n\n## Why a reader is harmed: the failure lands BEFORE the schema\n\nA `json`-tagged fence is what an author copies. When it does not parse, the reader's editor or `JSON.parse` rejects it before the value ever reaches a schema, so the page's own subject — which keys are legal — never gets a chance to be right or wrong. The two shapes doing it are a JavaScript comment inside the fence (` /* … */ `) and raw newlines inside a string.\n\n## ⚠️ Why this is a triage call and ⛔ NOT a drive-by fix\n\n**Several of the 22 are deliberate.** Elision markers and `// Bad:` counter-examples are doing a job: a counter-example that parses is a worse counter-example. ⇒ the deliverable is ⛔ not「make 22 go to 0」. Somebody has to decide:\n\n1. which non-parsing spellings are **declared** (an elision convention, a counter-example convention) and how a reader tells them from a mistake;\n2. whether any gate flips to **blocking** on the rest — ⭐ a gate-strength decision, which is on the human floor.\n\n## Measured by the #9989 dev, ⛔ NOT re-run by this seat: why no gate catches it\n\nRecorded as 转述 and marked as such, because the taking dev should re-take it rather than trust this table:\n\n| gate | why it is silent here |\n|---|---|\n| `check:doc-snippets` | compiles `ts` / `tsx` / `typescript` only; its own header states a `json` fence is never compiled against anything |\n| `check:doc-fences` | asks whether a TypeScript BODY sits under a non-TypeScript fence — a JSON body under a `json` tag is exactly right by its classifier |\n| `check:doc-types` | judges the `type` literal and, in its own words, deliberately not the snippet's other keys |\n| `check:doc-expression-carriage` | ⭐ the ONLY gate that reads `json` fence bodies — and it is **report-only**, and its declared tolerance list REMOVES line and block comments and re-escapes raw newlines BEFORE parsing. ⇒ the two shapes that make a fence uncopyable are normalized away **by design**; it printed 「225 json/jsonc fence(s), 225 parsed, 0 UNPARSED」 on a tree carrying 22 that `JSON.parse` refuses |\n\n⭐ That last row is the finding under the finding: the repo HAS an instrument over this corpus, and its tolerances are calibrated to make exactly this class invisible. ⛔ Not a defect in that gate — it was built for a different question — but it is why nobody noticed.\n\n## ⚠️ One unmeasured neighbour, recorded so it is not mistaken for checked\n\n`content/docs/guide/schema-rendering.md`'s *Memoization* subsection asserts 「the renderer automatically memoizes components to prevent unnecessary re-renders」. ⛔ **No measurement was taken in either direction**, by the dev or by this seat. It is on the same page as two of the 22 and is the same class of claim as the `lazyLoad` promise objectui#9989 just removed after measuring it false. ⇒ whoever takes this card is the natural reader; ⛔ it is recorded as unmeasured, ⛔ not asserted to be false.\n\n## Acceptance\n\n- The conventions are named: what a deliberately non-parsing fence looks like and how a reader tells it from a mistake.\n- Every fence not covered by a named convention parses, re-measured on the tree at that moment with the control lit in the same command.\n- Whether a gate blocks is answered — and if the answer is 「it should」, that is raised as its own decision rather than landed inside this card. ⛔ Gate strength is not this lane's to grant itself.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

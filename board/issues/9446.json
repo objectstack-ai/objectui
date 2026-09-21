@@ -1,0 +1,30 @@
+{
+  "number": 9446,
+  "kind": "issue",
+  "title": "finding(plugin-list): the canonical-spelling pin says a folded view `carries no `value` key at all` for valueless operators — `viewFilterFold.ts:205` writes the key whenever the source row has one, and the builder’s own row shape does",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-13T23:43:01Z",
+  "updated_at": "2026-09-16T17:05:24Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9446",
+  "body": "`packages/plugin-list/src/__tests__/convertFilterGroupToAST.canonicalSpelling.test.ts` carries this comment, and it is on `main` as of PR objectui#9362 merging at 2026-09-13T22:53:44Z:\n\n> A stored view folded by `foldFilterGroupToSpecRules` carries no `value` key at all for these operators\n\nThe fold writes the key whenever the source condition has one.\n\n## Measured on merged `main`, not on a branch\n\n**The claim is there.** `packages/plugin-list/src/__tests__/convertFilterGroupToAST.canonicalSpelling.test.ts` — **1** occurrence of the sentence, counted newline-tolerantly with `perl -0777` so the wrap inside the comment block cannot hide it. Control on the same subject, same file: `foldFilterGroupToSpecRules` reads **4**. The zero elsewhere is negative rather than void — `ListView.tsx` and `list-offered-operator-expressible-parity.test.ts` both name the function (3 hits each) and neither carries the sentence.\n\n**The claim is false.** `foldFilterGroupToSpecRules` lives at `packages/app-shell/src/views/viewFilterFold.ts:179`, and its rule construction ends:\n\n```ts\nconst rule: ViewFilterRule = {\n  field: c.field,\n  operator,\n};\nif (c.value !== undefined) rule.value = c.value as ViewFilterRule['value'];\n```\n\n`viewFilterFold.ts:201-205`. Lines 198-200 are the only place valueless operators are treated specially, and what they do is **exempt the row from being dropped** — they do not strip `value`:\n\n```ts\nconst takesValue = !VALUELESS_FILTER_OPERATORS.has(String(c.operator))\n  && !VALUELESS_FILTER_OPERATORS.has(String(operator));\nif (takesValue && isMissingValue(c.operator, c.value)) continue;\n```\n\n⇒ for a valueless operator the fold skips the drop and then falls straight into line 205, which writes `value` iff the source condition defined it.\n\n**And the common path defines it.** The FilterBuilder inserts a row as `{ field: <first column>, operator: 'equals', value: '' }` — the shape the fold's own docblock quotes at lines 155-156. `''` is not `undefined`, so a builder-authored row for `isEmpty` / `isNull` and friends folds to a rule that **does** carry `value: ''`.\n\nThe sentence is true only for a source condition that omits `value` entirely. As written it is universal, and the case it is most likely to be read about is the one where it does not hold.\n\n## Why this is being filed rather than carried\n\n⛔ **No assertion depends on it**, which is exactly why it survived. It was measured false twice during PR objectui#9362's review round, by two readers independently, and recorded three times as owed and deliberately below the landing bar — [`5654704509`](https://github.com/objectstack-ai/objectui/pull/9362#issuecomment-5654704509), [`5654896364`](https://github.com/objectstack-ai/objectui/pull/9362#issuecomment-5654896364), [`5656634548`](https://github.com/objectstack-ai/objectui/pull/9362#issuecomment-5656634548). That judgement was right at the time: it is narration, not behaviour, and holding a green PR for it would have been the wrong trade.\n\n⚠️ What changed is that the PR merged, so the false sentence is no longer one PR's debt — it is on `main`, where the next reader of that pin will take it as the fold's contract. There is no open PR touching that file, so ⛔ the \"note it in some PR's acceptance notes\" fallback does not hold: the honest carrier is a card.\n\n⚠️ One correction to the earlier records while this is being written down: two of them cite the falsifying code as `filter-converter.ts:1176-1180`. On merged `main` `packages/core/src/utils/filter-converter.ts` is a **different** file and is not where the fold lives. The citation above (`packages/app-shell/src/views/viewFilterFold.ts:201-205`) is the one measured here.\n\n## What a fix looks like\n\nOne comment. Either scope the sentence to the case that holds (a source condition with no `value` key), or drop the claim and point at `viewFilterFold.ts`'s own docblock, which already describes the drop/keep rule correctly. ⛔ No assertion should move: the pin's behaviour is not in question, only its narration.\n\n⭐ Related, ⛔ not the same card: this is the third instance in one shift of published narration contradicting the code it describes, and `AGENTS.md` line 109 (rule #9) already forbids the class while nothing enforces it. objectui#8819 is open on a gate in this family (`check:spec-symbols`, which reads only the FIRST occurrence of each claim phrase per docblock). ⛔ Whether this instance is a miss of that gate is **unmeasured** and is not claimed here.\n\n⛔ Filed bare on purpose: no `domain:*`, no `priority:*`, no type. Triage owns all three — this seat does not grade, and the measurement above is the whole of what it is offering.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

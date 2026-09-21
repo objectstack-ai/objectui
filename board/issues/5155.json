@@ -1,0 +1,30 @@
+{
+  "number": 5155,
+  "kind": "issue",
+  "title": "finding(types): BaseSchema's `[key: string]: any` leaves every component schema open, so a \"declare the surface\" fix can never reject a misspelled TOP-LEVEL key",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T07:12:04Z",
+  "updated_at": "2026-09-19T02:52:32Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5155",
+  "body": "Path: studio-authoring.authoring-validation-not-persisted\n\n> **Triage (North Star full-board re-grade, 2026-09-19):** That checklist item (\"an invalid authored shape is rejected at save with a LOCATED error\") is P1, and this card is the **structural ceiling** on it for component schemas rather than a live failure of it — hence `p2`, not the item's P1. `BaseSchema`'s `[key: string]: any` means a misspelled TOP-LEVEL key can never be rejected, so 「declare the surface」 fixes cannot reach it. North Star priority 4: 错的必须被响亮拒绝,永不静默落库. Maintainer-confirmed.\n\nFound while implementing #5018 (ObjectMapSchema alignment). Filed unassigned, not claiming. Observation-class: nothing is broken today that a user hits directly — what is recorded is a **structural ceiling on what \"declared = enforced\" can mean for component schemas**.\n\n## The fact\n\n`packages/types/src/base.ts` closes `BaseSchema` with:\n\n```ts\n  /**\n   * Additional properties specific to the component type.\n   * This index signature allows type-specific extensions.\n   */\n  [key: string]: any;\n```\n\nEvery component schema in the repo extends `BaseSchema` (`ObjectGridSchema`, `ObjectFormSchema`, `ObjectMapSchema`, …). An index signature disables TypeScript's excess-property check, so **a misspelled top-level key type-checks on every one of them**:\n\n```ts\nconst schema: ObjectMapSchema = {\n  type: 'object-map',\n  objectName: 'stores',\n  enableClusterng: true,   // accepted — no error, no hint\n};\n```\n\nThis was measured, not inferred: #5018's first draft pinned the opposite with `@ts-expect-error`, and `tsc` answered `TS2578: Unused '@ts-expect-error' directive` on exactly those two pins. The pins were corrected to record the real boundary (`packages/plugin-map/src/ObjectMap.schemaAlignment.test.tsx`, the \"does NOT reject a misspelled TOP-LEVEL key\" case).\n\n## Why it is worth recording\n\n1. **It silently bounds a whole card class.** #5018 was ruled precisely to make a misspelling loud — \"`latitudeFieId` currently renders a silent empty map\". The fix does achieve that, but only because the `map` BLOCK is a plain interface with no index signature. The same card's top-level half is unenforceable, and the next \"declare what the renderer reads\" card will discover this again from scratch unless it is written down. The `finding` cards already on this shape (#5068, #4919, #4895, #4881) are all about declaration-vs-consumption forks; this is the reason one whole direction of them cannot be closed by declaring.\n\n2. **It is the exact hiding place the platform ranks as most expensive.** Loose declaration plus tolerant consumption is where AI-authored metadata errors survive, and an index signature is the loosest possible declaration — it accepts a key the author invented, at the layer that is supposed to reject it.\n\n3. **The zod half does not cover for it either.** `packages/types/src/zod/objectql.zod.ts` builds component schemas with `BaseSchema.extend({...})`, and those are not `.strict()` — so an unknown top-level key survives a `safeParse` too. Neither layer says anything.\n\n## What is NOT being claimed\n\nThat the index signature should simply be deleted. It is load-bearing for the schema-driven model — renderers do carry keys the shared base cannot enumerate, and the doc comment says so. The costs of the alternatives are real and want measuring before anything is ruled:\n\n- **Delete it, declare per-component**: strongest authoring-time guarantee; needs every renderer's actually-read key set declared first (that is the #5018 shape, repeated ~20 times), and would break any consumer passing through extra keys.\n- **Keep it on `BaseSchema`, drop it from the leaf component interfaces** (`Omit`-and-restate, or a `Strict<T>` helper applied at the leaves): closes authoring while leaving the base's extensibility story intact; costs a mechanical change at every leaf and a gate to keep new leaves in line.\n- **Move the enforcement to the zod layer** (`.strict()` on the component schemas, publish-time validation rejecting loudly): catches the AI-authored-metadata case where it actually lands, without touching the TS surface; does nothing for a TypeScript author's editor.\n\nTriage decides whether this is worth a decision at all — it may well be correct to keep the index signature and stop implying that declared surfaces are closed. In that case the useful output is a documented statement of the ceiling, so cards stop being written as if declaring a key made its neighbours illegal.\n\n## Provenance\n\n- Measured during #5018 (`claude/issue-5018-objectmap-schema-alignment`), TS version as pinned by the repo.\n- Related, same family, different layer: #5068 (grid columns accept an undeclared spelling at runtime), #4605 (the zod BaseSchema mirror drifted from the TS one).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1,
+  "kind": "pull_request",
+  "title": "Implement visual designer for Object UI schemas",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-13T11:23:24Z",
+  "updated_at": "2026-01-13T12:54:03Z",
+  "closed_at": "2026-01-13T12:53:21Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-13T12:53:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1",
+  "body": "Adds `@object-ui/designer` package - a visual editor for creating and modifying Object UI schemas through a GUI.\n\n## Components\n\n- **DesignerContext**: State management for schema, selection, and CRUD operations\n- **Canvas**: Live preview with click-to-select and visual highlighting\n- **ComponentPalette**: Categorized browser for 50+ components (Form, Layout, Overlay, etc.)\n- **PropertyPanel**: Dynamic forms generated from component metadata with type-specific inputs\n- **Toolbar**: JSON import/export with modal editor\n- **Designer**: Main component integrating three-column layout\n\n## Usage\n\n```tsx\nimport { Designer } from '@object-ui/designer';\n\nfunction App() {\n  const [schema, setSchema] = useState({ type: 'div', body: [] });\n  return <Designer initialSchema={schema} onSchemaChange={setSchema} />;\n}\n```\n\n## Implementation Details\n\n- Real-time preview updates on property changes\n- Automatic ID generation for all nodes\n- Recursive tree operations for nested schemas\n- Support for both single-node and array body types\n- Click-to-add workflow (drag-and-drop deferred)\n\n## Documentation\n\n- English README with API reference\n- Chinese implementation guide\n- Visual layout documentation\n- Working demo application\n\nNode operations handle schema mutation immutably. Selection state syncs across all panels via Context. Component metadata drives property form generation dynamically.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 帮我开发设计器\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

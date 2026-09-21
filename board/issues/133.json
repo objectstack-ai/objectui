@@ -1,0 +1,37 @@
+{
+  "number": 133,
+  "kind": "pull_request",
+  "title": "Implement metadata-driven CRUD operations for ObjectTable and ObjectForm",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "examples",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-21T11:47:31Z",
+  "updated_at": "2026-01-21T12:39:47Z",
+  "closed_at": "2026-01-21T12:33:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-21T12:33:34Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/133",
+  "body": "ObjectTable and ObjectForm now generate UI directly from ObjectStack metadata with field-level permissions, validation, and complete CRUD operations.\n\n## ObjectTable Enhancements\n\n- **Permission-aware column generation**: Fields without `read` permission automatically excluded\n- **Row actions**: Edit/Delete buttons per row with confirmation dialogs\n- **Batch operations**: Multi-select with bulk delete via `onBulkDelete` callback\n- **Optimistic updates**: Immediate UI feedback on delete, API call in background\n\n```typescript\n<ObjectTable\n  schema={{\n    type: 'object-table',\n    objectName: 'users',\n    operations: { update: true, delete: true },\n    selectable: 'multiple'\n  }}\n  dataSource={dataSource}\n  onEdit={(record) => handleEdit(record)}\n  onDelete={(record) => handleDelete(record)}\n  onBulkDelete={(records) => handleBulkDelete(records)}\n/>\n```\n\n## ObjectForm Enhancements\n\n- **Metadata-driven validation**: Auto-generates `required`, `minLength`, `maxLength`, `min`, `max`, `pattern` rules from field metadata\n- **Conditional visibility**: Fields support `visible_on` with operators (`=`, `!=`, `>`, `in`) and logic (`and`, `or`)\n- **Permission filtering**: Fields without `write` permission excluded in create/edit modes\n- **Field type mapping**: 20+ ObjectStack field types mapped to form controls\n\n```typescript\n// Metadata with validation\n{\n  fields: {\n    email: {\n      type: 'email',\n      required: true,\n      pattern: '^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$'\n    },\n    company: {\n      type: 'text',\n      visible_on: { field: 'type', operator: '=', value: 'business' }\n    }\n  }\n}\n```\n\n## Testing\n\n- 39 tests (8 ObjectTable, 15 ObjectForm, 16 validation helpers)\n- 51% code coverage with comprehensive critical path coverage\n- Vitest configuration for React component testing\n\n## Documentation\n\n- Feature documentation: `packages/plugin-object/CHANGELOG_NEW_FEATURES.md`\n- Complete CRUD example: `examples/showcase/pages/objectql/crud-example.json`\n\n## Backward Compatibility\n\nAll changes are additive. Existing ObjectTable/ObjectForm usage unchanged. New features opt-in via props.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 目标: 完成 ObjectTable 和 ObjectForm 与完整的 ObjectStack 集成\n> \n> 任务:\n> \n>  实现 ObjectTable 的元数据驱动列生成\n>  从 ObjectStack 获取对象元数据\n>  将字段类型映射到列渲染器\n>  支持字段级权限\n>  添加列自定义 API\n>  实现 ObjectForm 的元数据驱动字段生成\n>  从 ObjectStack 获取对象元数据\n>  将字段类型映射到表单控件\n>  应用元数据的验证规则\n>  支持字段依赖关系\n>  通过 ObjectStackAdapter 添加 CRUD 操作\n>  使用验证创建操作\n>  乐观更新\n>  确认删除\n>  批量操作支持\n>  编写全面的测试（85%+ 覆盖率）\n>  创建展示示例\n> 成功标准:\n> \n> ✅ 可以从 ObjectStack 元数据生成完整的 CRUD UI\n> ✅ 所有操作正常工作\n> ✅ 验证规则得到执行\n> ✅ 测试覆盖率 ≥ 85%\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

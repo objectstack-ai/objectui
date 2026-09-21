@@ -1,0 +1,35 @@
+{
+  "number": 143,
+  "kind": "pull_request",
+  "title": "Reorganize documentation navigation for onboarding and component discovery",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-22T02:40:32Z",
+  "updated_at": "2026-01-22T03:24:20Z",
+  "closed_at": "2026-01-22T03:24:20Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-22T03:24:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/143",
+  "body": "Documentation navigation was not optimized for developer onboarding or component browsing. Menu hierarchy buried quick start content, and components lacked a comprehensive overview page.\n\n## Changes\n\n### Navigation Hierarchy\n- Reordered top-level menu: `Getting Started` → `Components` → `Concepts` → `Advanced` → `Community`\n- Renamed \"Guide\" to \"Getting Started\", \"Reference\" to \"Advanced\" for clarity\n- Integrated Ecosystem into Advanced section\n\n### Component Gallery\n- Created `/docs/components/index.mdx` as component discovery hub\n- Lists all 40+ components organized by 8 categories (Basic, Form, Layout, Data Display, Feedback, Overlay, Disclosure, Complex)\n- Includes usage patterns and schema examples\n\n### Navigation Structure\n```\nGetting Started (was 4th → now 1st)\n  ├─ Quick Start (prioritized)\n  ├─ Installation (prioritized)\n  └─ Interactive Demos\n\nComponents (was 3rd → now 2nd)\n  ├─ Component Gallery (NEW)\n  ├─ Basic (Text, Icon, Image, Separator, HTML)\n  ├─ Form (Button, Input, Select, Checkbox, Switch, Textarea, Slider)\n  └─ ...8 categories total\n\nAdvanced (renamed from \"Reference\")\n  ├─ API Reference\n  ├─ Protocol Specification\n  └─ Ecosystem\n```\n\n### Technical Details\n- All `meta.json` files use flat structure (Fumadocs requirement)\n- Category headers in sidebar via `---CategoryName` pattern\n- No URL changes, all existing links preserved\n\n## UI Changes\n\n**New Navigation Structure**\n![Navigation Overview](https://github.com/user-attachments/assets/ce787f08-91ae-4f6b-a25f-fd5a50210ba1)\n\n**Components Section with Categories**\n![Components Expanded](https://github.com/user-attachments/assets/813eea22-9f03-40dc-9092-b96eac76f797)\n\n**Component Gallery Landing Page**\n![Component Gallery](https://github.com/user-attachments/assets/07e38fb8-ffaf-45e7-be9c-3e341ffe14dc)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 重新规划文档的顶层菜单，方便浏览控件和方便开发者快速入门\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

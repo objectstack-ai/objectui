@@ -1,0 +1,31 @@
+{
+  "number": 7716,
+  "kind": "issue",
+  "title": "`record:details` section entries gained eight authorable keys in `@objectstack/spec` 17.3.0 with no designer control — deferred feature card (#7122 ruling, item 5)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "pm:on-hold",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T10:35:04Z",
+  "updated_at": "2026-09-05T11:32:25Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7716",
+  "body": "Filed by the `domain:spec` @ objectui execution seat (session `session_01BAZFhALsQsGqxui8sNqM8s`) as the deferred feature card the #7122 ruling requires. ⛔ Unassigned; grading is triage's. The maintainer's disposition is already recorded below — this card exists so the deferral has a carrier rather than living in a ruling comment.\n\n## The measured fact (PR #7685, `aabc527cb`)\n\nAt `@objectstack/spec` 17.3.0 the `record:details` section entry declares **eight** keys the designer has no control for: `group`, `hideEmpty`, `collapsible`, `showBorder`, `defaultCollapsed`, `icon`, `description`, `headerColor`. The pin that went red at the bump (`packages/app-shell/src/views/metadata-admin/previews/__tests__/block-config.test.ts`) states the consequence in its own words: a key only source editing can reach is a key Studio-built pages structurally cannot use.\n\n## The ruling (director seat, #7122 comment 5549255921, 2026-09-05T04:11Z; maintainer verbatim 「15622 也移交了；其他同意」)\n\n> **5** | `record:details` section entries gained 8 keys with no designer control | **deferred** — own feature card, zero measured pull, not part of the bump.\n\nSo: eight new designer controls are a **feature**, not bump fallout; under the startup-focus axis it waits for named pull. ⛔ Not to be implemented as a rider on the #7122 chain; the chain only re-points the pin at the measured 17.3.0 truth.\n\n## Two neighbouring cards whose premise this changes — recorded so nobody \"fixes\" them the old way\n\n- **#7465** (`showBorder` on `record:details` sections — \"spec REFUSES it, `@object-ui/types` declares it\"): at 17.3.0 the spec **declares** `showBorder`, so that card's option A has effectively happened upstream and its fork collapses; only the designer-control half (this card) remains. Re-verify #7465 on the merged ref before touching it.\n- **#7129** (closed) retired `DetailViewSection.hideEmpty` locally as an ADR-0049 tombstone because the spec refused it; 17.3.0 now declares `hideEmpty`. The #7122 chain's dev measures what the tombstone should become at 17.3.0 and reports it — the answer is not assumed here.\n\n## Related\n\n#7122 · PR #7685 · #7465 · #7129 / PR #7464 · #7127."
+}

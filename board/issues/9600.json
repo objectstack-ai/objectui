@@ -1,0 +1,28 @@
+{
+  "number": 9600,
+  "kind": "issue",
+  "title": "fix(plugin-grid): 「下载模板」列出全部字段（含系统/只读列），改调后端模板接口",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-16T07:46:13Z",
+  "updated_at": "2026-09-16T07:46:14Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9600",
+  "body": "## 问题\n\n导入页面的「下载模板」按钮,生成的模板把对象**所有字段**都列了出来,包括用户填了也写不进去的系统字段和只读字段。\n\n以一个业务对象(项目)为例,模板前 7 列全是 registry 注入的系统字段:组织标识、创建时间、创建人、更新时间、更新人、所有者、所属业务单元。因为这些字段是 registry 给**每个**对象注入的,所以**所有对象的模板都这样**,不是个别对象配错。\n\n## 根因\n\n`buildImportTemplateCsv(fields)`(`packages/plugin-grid/src/ImportWizard.tsx`)无条件把传入的 `fields` 全部列成表头,而这份 `fields` 来自 `importTargetFields(objectDef.name, objectDef.fields, perms)`(`packages/app-shell/src/views/ObjectView.tsx`)——它的用途是**映射步骤的候选目标列表**,故意放得很宽:\n\n- `writable` 字段(不论常用与否)\n- 外加 `matchOnly` 的只读 / autonumber 字段(仅供 upsert 匹配,**不能写入**)\n\n`matchOnly` 这个标记在模板生成时完全没被用上。此外 `ImportTargetField` 根本没把 schema 上的 `system` / `hidden` 带出来,所以即便想过滤也没有依据。\n\n比「列太多」更严重的是:这些只读列在导入时会被服务端 `stripReadonlyFields` 静默剥掉。用户照模板填了「创建人」,导入成功、无报错、数据没进去。**模板在教用户填注定被丢弃的列。**\n\n## 方案:删掉前端生成,改调后端模板接口\n\n模板不该有两套实现。framework 侧正在为导出接口新增模板模式(objectstack-ai/objectstack#18386):\n\n```\nGET /data/:object/export?template=true\n```\n\n它返回 0 行 + 只含「可填列」的 xlsx,并为 `select` / `boolean` 列挂 Excel 数据验证下拉、附一个「填写说明」sheet 说明值域与分隔符 —— 这些是 CSV 表达不了的。列规则、值域口径统一在服务端定义一次。\n\n本仓库要做的:\n\n1. 「下载模板」按钮改为请求上述接口并触发下载\n2. 删除 `buildImportTemplateCsv`、`exampleForField`、`firstOptionValue`、`downloadTextFile`(如无其他调用方)及 `importTemplate.test.ts`\n3. `importTargetFields` **保持不变** —— 它作为映射步骤的候选列表是正确的,`matchOnly` 字段必须继续留在映射里供 upsert 匹配(见该文件注释 #020:「记录编号往往是文件里唯一的自然键」)\n\n净效果是**减代码**,约 -70 行加一个测试文件。\n\n## 不需要新增依赖\n\n前端不再生成文件,只触发下载,因此**不需要** SheetJS / exceljs 之类的前端 xlsx 库。\n\n## 验收\n\n1. 任一对象点「下载模板」,得到的 xlsx 不含系统字段 / 只读字段 / 公式字段 / 自动编号列\n2. 映射步骤的目标字段候选**不受影响**,`matchOnly` 字段仍可选中用于 upsert 匹配\n3. 下载的模板填入数据后原样上传,导入成功且无 `invalid_option` / `invalid_boolean`\n4. 前端无新增依赖\n\n## 依赖\n\n**必须等 objectstack-ai/objectstack#18386 落地并发版后才能开工。**\n"
+}

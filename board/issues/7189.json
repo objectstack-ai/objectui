@@ -1,0 +1,30 @@
+{
+  "number": 7189,
+  "kind": "issue",
+  "title": "Grid grouping and its per-group counts are computed over the fetched page, so a group can be missing entirely with nothing on screen saying so",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T10:12:39Z",
+  "updated_at": "2026-09-20T09:20:55Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7189",
+  "body": "Blocked-by: objectstack-ai/objectstack#14556\n\n> **RULED 2026-09-02** (maintainer via the director seat, batch #7, verbatim 「7189 A  其他同意」, comment 5509036555): **option A — grouping on a list view is server-side.** The set of groups and every number in a group header are properties of the query, not of the fetched page; rows inside a group are paged. Three halves in order: spec (objectstack#14556, `domain:spec`), platform (blocked on the spec half, tracked there), then this card (`plugin-grid` consumes server group headers, `useGroupedData` stops grouping the page, the grouped exclusion in `useServerPagination` goes, the \"Partial\" marker from PR #7226 is retired once counts are server-true, the \"Grouping is page-scoped\" docs section is rewritten). Acceptance: the 186-row, five-unit, `$top: 100` fixture renders five headers reading 86/61/31/7/1 regardless of row order; every row is reachable through the UI.\n\nFound in a real application (`objectstack-ai/duly`) against published `@objectstack/*` 17.2.0, on a grid grouped by a lookup with 186 rows across 5 distinct values. A capability gap rather than a defect in the current code — the client-side implementation is correct for what it does; nothing tells an author it is page-scoped, and the failure is silent.\n\n## Measured\n\nA grid with `grouping: { fields: [{ field: 'business_unit' }] }`, default page size 100, over a store holding 186 rows distributed 86 / 61 / 31 / 7 / 1 across five units:\n\n```\nBusiness unit ▸ Northgate Operations  33\nBusiness unit ▸ Northgate Plant        3\nBusiness unit ▸ Northgate Quality     46\nBusiness unit ▸ Riverside Plant       18\n                                     ───\n                                     100     \"100 records · Showing first 100 records.\"\n```\n\nFour groups for five units. **One business unit does not appear at all**, and nothing on screen says a group is missing. The counts shown are page slices, not totals — the largest unit holds 86 rows in the store and its header reads 46.\n\n## Where it comes from\n\n`packages/plugin-grid/src/useGroupedData.ts` groups over `data`, the rows already in the browser, and computes per-group aggregations from that same array:\n\n```ts\nconst agg = aggregations && aggregations.length > 0\n  ? computeAggregations(entry.rows, aggregations)\n  : [];\n```\n\nSo both the set of groups and every number in a group header are properties of the page, not of the query. That is a reasonable implementation of client-side grouping; the problem is that nothing distinguishes it from the server-side kind at the point where an author writes `grouping: {…}`.\n\n## Why it reads as data rather than as a bug\n\nThe footer does disclose \"Showing first 100 records. More data may be available.\" But the number a reader treats as authoritative is the one in the group header, next to the group's name — and a **missing group** is worse than a wrong count, because a wrong number invites a second look and an absent row invites none. On a grid used as an org lens (\"what is outstanding, per business unit\"), a unit silently absent is a wrong answer that looks like good news.\n\nThis is the same shape as objectui#7179, filed from the same app: nothing errors, the screen is internally consistent, and the only symptom is that the answer is wrong.\n\n## Suggested direction\n\nServer-side grouping is the durable fix, and the platform demonstrably has the capability already — the same app's dashboard groups the *same field over the same data* through a dataset and gets true totals. It is the grid surface that lacks it.\n\nShort of that, two things would each remove the silent half:\n\n1. **Say it on screen.** A grouped grid whose result set exceeds the page should mark the grouping as partial in the group header area, not only in the row-count footer. Even \"grouped over the first 100 of 186\" would prevent the wrong reading.\n2. **Name it at author time.** `grouping` on a paged grid is a different feature from what its name implies. If it is going to stay client-side, the schema doc should say the groups and counts are page-scoped, so an author can decide whether that fits before shipping the view.\n\n## Application impact\n\nLow urgency for us — we are scoping the affected lens to open work, which fits one page at this product's realistic scale and is a better lens anyway. But that is a workaround at our data size, not a fix: a deployment with more open rows than a page hits it again, silently, and we have no way to detect it from inside the app."
+}

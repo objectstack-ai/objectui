@@ -1,0 +1,39 @@
+{
+  "number": 156,
+  "kind": "pull_request",
+  "title": "Upgrade @objectstack packages to v0.3.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "package: core",
+    "package: types"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T03:45:21Z",
+  "updated_at": "2026-01-23T04:07:50Z",
+  "closed_at": "2026-01-23T04:07:49Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T04:07:49Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/156",
+  "body": "Bumps @objectstack dependencies from 0.1.x to 0.3.0 across the monorepo.\n\n## Changes\n\n- **@objectstack/spec**: ^0.1.2 → ^0.3.0\n  - packages/types\n  - packages/core\n  \n- **@objectstack/client**: ^0.1.1 → ^0.3.0\n  - packages/core\n  - packages/data-objectql\n\n- Updated version compatibility table in `MIGRATION_GUIDE_OBJECTSTACK.md`\n\n## Compatibility\n\nAll builds and tests pass without modification. No breaking changes detected in the upgrade path.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 升级核心包到最新版@objectstack\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

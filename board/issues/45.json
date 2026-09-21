@@ -1,0 +1,33 @@
+{
+  "number": 45,
+  "kind": "pull_request",
+  "title": "Add cut/duplicate, tree navigation, and keyboard shortcuts to designer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T20:05:11Z",
+  "updated_at": "2026-01-15T00:11:07Z",
+  "closed_at": "2026-01-15T00:11:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T00:11:06Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/45",
+  "body": "## 完善设计器的各项功能 (Improve Designer Features)\n\n### ✅ **ALL TASKS COMPLETED + CODE REVIEW FIXES**\n\nThis PR successfully implements several high-priority enhancements to the Object UI Designer and addresses all code review feedback.\n\n---\n\n### 🔧 Code Review Fixes\n\n#### 1. **Fixed Expansion Context Logic Bug** ✅\n- Changed from simple boolean flags to discriminated union approach\n- Prevents both `expandAll` and `collapseAll` from being true simultaneously\n- Uses trigger comparison to determine active state\n\n#### 2. **Added Deep Clone Utility** ✅\n- Implemented `deepCloneNode` function with proper recursion\n- Fixes shallow copy issues in `cutNode` and `duplicateNode`\n- Prevents reference sharing between original and copied nodes\n\n#### 3. **Fixed duplicateNode Clipboard Side Effect** ✅\n- Removed unintended clipboard modification from `duplicateNode`\n- Now only creates internal copy without affecting clipboard state\n- More predictable behavior for users\n\n#### 4. **Added JSDoc Documentation** ✅\n- Comprehensive documentation for `findParentAndIndex` helper\n- Documents purpose, parameters, and return value structure\n- Improves code maintainability\n\n#### 5. **Enhanced Test Coverage** ✅\n- Added edge case tests for boundary conditions\n- Tests moving nodes already at top/bottom positions\n- Tests cutting non-existent nodes\n- Better duplicate verification (checks type, content, position)\n- Now 29 tests passing (3 new edge case tests)\n\n#### 6. **Removed Unused Code** ✅\n- Removed unused `screen` import from test file\n- Removed unused `selectedNodeId` variable from ContextMenu\n- Removed unused `cn` import from KeyboardShortcutsHelp\n- Cleaner, more maintainable code\n\n---\n\n### 🎯 Originally Implemented Features\n\n#### 1. **ComponentTree Expand/Collapse All** ✅\n- Added `TreeExpansionContext` for global expansion state management\n- Implemented `handleExpandAll` and `handleCollapseAll` functions\n- Tree nodes dynamically respond to expansion/collapse events\n\n#### 2. **Cut Functionality (Ctrl+X/Cmd+X)** ✅\n- Added `cutNode` function with deep clone support\n- Implemented as atomic copy + remove operation\n- Integrated keyboard shortcut (Ctrl+X / Cmd+X)\n\n#### 3. **Duplicate Functionality (Ctrl+D/Cmd+D)** ✅\n- Added `duplicateNode` function with proper deep cloning\n- Creates copy and inserts as immediate sibling\n- No clipboard side effects\n\n#### 4. **Move Up/Down Functionality** ✅\n- Added helper function `findParentAndIndex` for tree navigation\n- Implemented `moveNodeUp` and `moveNodeDown` functions\n- Validates move operations before execution\n\n#### 5. **Keyboard Navigation** ✅\n- Ctrl+↑ / Cmd+↑: Move component up in parent container\n- Ctrl+↓ / Cmd+↓: Move component down in parent container\n- Proper edit mode checking\n\n#### 6. **Keyboard Shortcuts Help Dialog** ✅\n- Interactive modal showing all shortcuts\n- Organized by categories (Editing/Clipboard/Organization)\n- Visual keyboard key representations\n\n---\n\n### 📊 Test Results\n\n```\nTest Files  5 passed (5)\nTests      29 passed (29)  ← +3 new edge case tests\nDuration   3.33s\n```\n\n**New Test Coverage:**\n- ✅ Move node up when already at top (boundary condition)\n- ✅ Move node down when already at bottom (boundary condition)\n- ✅ Cut non-existent node (error handling)\n- ✅ Enhanced duplicate verification (type, content, position)\n\n---\n\n### 📝 Files Changed\n\n**Core Functionality:**\n- `packages/designer/src/context/DesignerContext.tsx`\n  - Added `deepCloneNode` utility function\n  - Added JSDoc for `findParentAndIndex`\n  - Fixed shallow copy issues in cut/duplicate\n  - Removed clipboard side effect from duplicate\n  \n- `packages/designer/src/components/ComponentTree.tsx`\n  - Fixed expansion context logic (discriminated union)\n\n**Code Quality:**\n- `packages/designer/src/__tests__/keyboard-shortcuts.test.tsx`\n  - Removed unused `screen` import\n  - Added 3 edge case tests\n  - Enhanced duplicate test assertions\n  \n- `packages/designer/src/components/ContextMenu.tsx`\n  - Removed unused `selectedNodeId` variable\n  \n- `packages/designer/src/components/KeyboardShortcutsHelp.tsx`\n  - Removed unused `cn` import\n\n---\n\n### 🚀 Impact\n\n**Code Quality:**\n- ✅ No shallow copy bugs - proper deep cloning throughout\n- ✅ Better expansion logic - no simultaneous expand/collapse\n- ✅ Cleaner code - removed all unused imports/variables\n- ✅ Better documentation - JSDoc for complex functions\n- ✅ Enhanced testing - edge cases covered\n\n**User Experience:**\n- ⚡ More predictable duplicate behavior (no clipboard changes)\n- 🎯 Robust move operations (handles boundaries gracefully)\n- 📚 Well-documented codebase for future maintenance\n\nAll code review feedback addressed. Ready for merge.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完善设计器的各项功能\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

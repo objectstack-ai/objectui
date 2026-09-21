@@ -1,0 +1,31 @@
+{
+  "number": 8235,
+  "kind": "issue",
+  "title": "finding(docs/census): component reference pages document `on*` handler rows their zod twins refuse by name — 3 confirmed on top-level schemas, 14 more rows unclassified",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T02:32:45Z",
+  "updated_at": "2026-09-07T09:01:07Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8235",
+  "body": "Found while fixing objectui#8197. Measured on `origin/main` `f57ca757b`. **This is a census, not a finished diagnosis** — see \"what is and is not verified\" below before dispatching it.\n\n## The mechanism\n\n`handlerKeyRefusal(key, 'runtime-slot', label)` (`packages/types/src/zod/tombstone.zod.ts:109-123`) resolves to a `z.custom` arm whose predicate always returns `false`. Any node carrying that key is **refused by name** by the zod twin, with guidance pointing at the node-type spelling (objectui#6124). 34 keys are declared that way across `packages/types/src/zod/*.ts`:\n\n`onAction onBack onCancel onCardAdd onCardClick onCardMove onChange onClear onClick onClose onCollapsedChange onColumnAdd onColumnsReorder onComplete onConfirm onDismiss onError onEventClick onExpandChange onOpenChange onPageChange onQuickAdd onRowClick onRowDelete onRowEdit onSave onSelectChange onSelectionChange onSend onSendMessage onSlideChange onSubmit onValueChange onViewChange`\n\nThe `collapsible` and `tooltip` reference pages correctly omit their handler from the authoring fence. `content/docs/components/basic/button-group.mdx:24` correctly annotates its as `onClick?: never;  // RETIRED (objectui#6124)`. Other pages do not.\n\n## Confirmed — the row sits on a TOP-LEVEL component schema whose zod twin refuses that key\n\n| page | row | refusal arm |\n|---|---|---|\n| `content/docs/components/disclosure/accordion.mdx:30` | `onValueChange?: (value: string \\| string[]) =` then `> void;` | `zod/disclosure.zod.ts:43` |\n| `content/docs/components/disclosure/toggle-group.mdx:41` | same spelling | `zod/disclosure.zod.ts:78` |\n| `content/docs/components/basic/pagination.mdx:26` | `onPageChange?: (page: number) =` then `> void;` | `zod/navigation.zod.ts:115` |\n\nEach of these fences is an authoring `## Schema` block that a reader copies from. The documented key is refused by name the moment it is authored.\n\n## NOT verified — 14 further rows in the same shape, needing per-row classification\n\n`grep -rn '^\\s*on[A-Z][A-Za-z]*[?]\\?:' content/docs/components/` returns 17 rows total. The 14 not in the table above are **not yet classified**, and at least two distinctions matter before any of them is called a defect:\n\n- Some rows sit on a **nested item interface** (`ContextMenuItem`, `MenubarItem`, `DropdownMenuItem`, a toast action object), not on the top-level schema. Whether the item-level zod object carries a refusal arm was not checked.\n- At least one key is **not in the refusal set at all** (`tree-view.mdx:45` documents `onNodeClick`, which no `handlerKeyRefusal` call names).\n\nThe unclassified rows: `overlay/context-menu.mdx:36`, `overlay/menubar.mdx:27`, `overlay/dropdown-menu.mdx:39`, `data-display/tree-view.mdx:45`, `feedback/toast.mdx:43`, `form/form.mdx:50`, `form/input-otp.mdx:35`, `form/button.mdx:64`, `form/date-picker.mdx:34`, `complex/view-switcher.mdx:50`, `complex/filter-builder.mdx:64`, `complex/sort-ui.mdx:40`, `complex/filter-ui.mdx:45`, plus `basic/button-group.mdx:24` (already annotated, listed for completeness).\n\n## Relationship to existing cards\n\n- objectui#7898 (closed) is the same class in a **different population**: nine JSON fences under `content/docs/guide/`, including three top-level `onClick`. The `content/docs/components/**` interface fences were not in it.\n- objectui#6939 is about catalog entries failing `safeValidateSchema` — fixtures, not doc pages.\n- objectui#6143 is the gate-blindness class that lets all of this drift: these fences are `plaintext`, so `check:doc-snippets` never compiles them, and `check:doc-types` reads only `type` literals.\n\n## Spotted in passing, not measured further\n\n`pagination.mdx` also documents `currentPage`, `pageSize` and `totalItems` while `zod/navigation.zod.ts:109-116` declares `page`, `siblings`, `showFirstLast`, `showPrevNext`. That is a separate drift on the same page and was not chased.\n\n## Suggested shape\n\nOne classification pass over the 17 rows, then a single sweep — the objectui#8125 shape (one annotation pass instead of page-by-page cards), not 17 cards. Whoever takes it should decide per row between deleting it, annotating it `never` the way `button-group.mdx` does, and moving it into prose the way `tooltip.mdx` does.\n"
+}

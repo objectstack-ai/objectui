@@ -1,0 +1,33 @@
+{
+  "number": 82,
+  "kind": "pull_request",
+  "title": "[WIP] Configure pnpm merge driver for pnpm-lock.yaml",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T11:47:59Z",
+  "updated_at": "2026-01-15T11:52:38Z",
+  "closed_at": "2026-01-15T11:52:17Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T11:52:17Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/82",
+  "body": "## Configure pnpm-lock.yaml merge driver\n\nThis PR configures a custom Git merge driver for `pnpm-lock.yaml` to automatically resolve merge conflicts by regenerating the lockfile using `pnpm install`.\n\n**Changes:**\n- [x] Create `.gitattributes` file to specify merge driver for `pnpm-lock.yaml`\n- [x] Document the git configuration commands in CONTRIBUTING.md\n- [x] Verify the setup works correctly\n\n**Implementation Details:**\n1. Created `.gitattributes` with the line: `pnpm-lock.yaml merge=pnpm-merge`\n2. Added instructions in CONTRIBUTING.md for developers to run:\n   - `git config merge.pnpm-merge.name \"pnpm-lock.yaml merge driver\"`\n   - `git config merge.pnpm-merge.driver \"pnpm install\"`\n3. Verified the configuration works using `git check-attr` and `git config --get`\n\n**How it works:**\nWhen a merge conflict occurs in `pnpm-lock.yaml`, instead of showing conflict markers, Git will run `pnpm install` which regenerates the lockfile based on the merged `package.json` files. This eliminates the need for manual conflict resolution in the lockfile.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> pnpm-lock.yaml merge=pnpm-merge\n> git config merge.pnpm-merge.name \"pnpm-lock.yaml merge driver\"\n> git config merge.pnpm-merge.driver \"pnpm install\"\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

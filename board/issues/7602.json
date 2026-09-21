@@ -1,0 +1,30 @@
+{
+  "number": 7602,
+  "kind": "issue",
+  "title": "finding(core): the `reference_to`-only dev warning fires only at the two ingestion choke points that also stamp `reference` — on the real break path (a hand-written schema through any other `DataSource`) the reader fails and nothing warns",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T05:35:52Z",
+  "updated_at": "2026-09-12T01:24:53Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7602",
+  "body": "Filed by the director seat out of #6837's ruling (maintainer, 2026-09-04, decision batch #29: warn-once granularity A confirmed, card closed). Grading, `domain:*` and priority are triage's; `domain:ui` (packages/core + the readers) is the expected landing point.\n\n## The observation (measured on #6837 by PR #7539's isolated contract review, re-stated by the seat on 5530569106 / 5530850542)\n\nAfter #6837 half 2 (PR #7539, merged `045d20ba8`), every relationship-target reader resolves from `reference` alone, and `normalizeSchemaReferenceKeys` (`packages/core/src/utils/reference-keys.ts`) emits a dev-mode `console.warn` when a field carries only the legacy `reference_to`. That function has exactly two production callers — `MetadataProvider.tsx` (type cache for metadata type `object`) and `data-objectstack/src/index.ts:3913` (`getObjectSchema`) — and **both also stamp `reference`** from the legacy spelling. So the warning fires only where the def is repaired and still resolves.\n\nA schema that reaches a reader **without** passing those choke points — a hand-written `DataSource` whose `getObjectSchema` returns `{ parent_id: { type: 'lookup', reference_to: 'business_unit' } }` — is the break surface that half 2 created, and on it:\n\n```\nraw-DataSource legacy-only def:  depth = 0 (parent pointer not detected);  warnings = 0\nchoke-point control:             depth = 1;                                warnings = 1\n```\n\nThe reader fails silently. The PR's \"to make that failure audible\" claim was removed on review; the gap itself stays open. #6837's classification table §5 listed the reader-side options (B: a shared resolver that warns when it sees a legacy-only def; C: a diagnostic at the reader) and neither was taken.\n\n## Not asserted\n\nWhether any real host feeds a raw `DataSource` with legacy-only defs (the BYO population is out of tree). This card records the gap, not a demand to close it; ADR-0049's reading is that a documented, silent failure on a declared break surface is a defect class worth a graded decision (close as accepted limitation with a doc line at the reader, or add the reader-side diagnostic).\n\nRefs: #6837 (origin; comments 5530569106 · 5530850542 · 5532023018) · PR #7539 · #6719 · #6528 · AGENTS.md #0.1."
+}

@@ -1,0 +1,30 @@
+{
+  "number": 6262,
+  "kind": "issue",
+  "title": "`/forms/:name` publishes `current_user` but not `features`, so a `features.*` predicate still resolves differently there than inside an app",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T04:57:52Z",
+  "updated_at": "2026-09-10T03:13:34Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6262",
+  "body": "Found while implementing objectui#6110 (PR #6261). Recording only — not graded, no `domain:*`, unassigned.\n\nMeasured on `objectui` `origin/main` @ `cbc883960` plus PR #6261's branch.\n\n## What #6110 changed, and the half it deliberately left\n\n#6110 found that the authed internal form route `/forms/:name` had **no** `ExpressionProvider` above it at all — the console mounts one only in `AppContent` (the `/apps/:appName/*` subtree) and in app-shell's `RecordFormPage`. Its fix mounts the provider in `InternalFormRoute` with the session principal:\n\n```tsx\n<ExpressionProvider user={expressionUser}>\n```\n\n`ExpressionProvider` publishes **four** scope roots — `user` (as `current_user` + the ADR-0068 `user` / `ctx.user` / `os.user` aliases), `app`, `data` and `features`. #6110 supplies only `user`, so on `/forms/:name` `features` is `{}`.\n\n## Why that is a real asymmetry rather than a default\n\n`AppContent` fills `features` from `/api/v1/auth/config` (`getAuthConfig()`), and the flags are already load-bearing for predicate evaluation elsewhere — `ExpressionProvider`'s own docstring names `sys_organization`'s create button being hidden when `multiOrgEnabled === false`. So an authored predicate naming `features.multiOrgEnabled`:\n\n- inside `/apps/:appName/*` — resolves against the real flags;\n- on `/forms/:name` — names an unbound key, which **faults**, and `visibleWhen` fails **OPEN**, so the gated field/section is shown to everyone.\n\nThat is the same shape as #6110's own defect, one scope root over: one authored text, two verdicts depending on which route opened the form.\n\n`app` is likewise `{}` there, though that one is arguably correct by construction — `/forms/:name` names no app, which is exactly why `InternalFormRoute` renders `HomeLayout` rather than `ConsoleLayout` (see that file's comment and objectui#4109).\n\n## Why it was not fixed in #6110\n\nOut of that card's scope by its own words (it names `current_user`), and it is not a one-line addition: `features` requires an `/auth/config` fetch on a route that currently makes none, plus a decision about what a predicate should see **before** that fetch resolves. `ExpressionProvider` already documents `{}` as the deliberate pre-load state whose predicates default to visible, so a naive fetch introduces a visible-then-hidden flash on every load of this route. PR #6261 records the gap in `FormPage.tsx`'s own comment rather than papering over it.\n\n## Not yet measured\n\nWhether any shipped form-view metadata actually authors a `features.*` predicate. If nothing does, this is a latent asymmetry rather than a live break, and the honest fix may be to decide that form views may not name `features` at all — which is a contract question, not a wiring one.\n\n## Related\n\n- objectui#6110 / PR #6261 — the `current_user` half, fixed.\n- objectui#6010 — the components-renderer half."
+}

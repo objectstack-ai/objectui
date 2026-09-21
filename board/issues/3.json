@@ -1,0 +1,33 @@
+{
+  "number": 3,
+  "kind": "pull_request",
+  "title": "Add public roadmap, VitePress documentation site, and GitHub Pages deployment",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-13T12:33:21Z",
+  "updated_at": "2026-01-13T13:47:57Z",
+  "closed_at": "2026-01-13T13:47:57Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-13T13:47:57Z",
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3",
+  "body": "Created a user-facing public roadmap document (`docs/ROADMAP.md`) in English showing what features are coming and when users can expect them. Written sincerely for end users to help them evaluate Object UI and plan adoption.\n\nAdditionally, initialized a complete VitePress documentation site with protocol specifications in the root `docs/` directory and set up automated GitHub Pages deployment.\n\n## Roadmap Document\n\n- **Vision**: Clear explanation of what Object UI is and who it's for (\"JSON to world-class UI in minutes\")\n\n- **What Makes Us Different**: User benefits explained simply (3x faster, 6x smaller bundles, easy to learn, full control)\n\n- **Release Timeline**: Quarterly feature releases (Q1-Q4 2026):\n  - Q1 2026 (March): Foundation - 20+ components, schema rendering, playground\n  - Q2 2026 (June): Power Features - data management, advanced components, themes\n  - Q3 2026 (September): Visual Designer - drag-and-drop, AI assistance, collaboration\n  - Q4 2026 (December): Enterprise - security, scale, internationalization\n\n- **Feature Examples**: Practical code snippets showing how to use each feature\n\n- **What You Can Do Today**: Available actions (try preview, star on GitHub, provide feedback)\n\n- **Beyond 2026**: Future vision (multi-framework, cross-platform, AI, 3D)\n\n- **FAQ**: 7 common questions answered (production-ready date, pricing, compatibility, migration)\n\n- **Stay Updated**: How to follow progress (GitHub, email)\n\n296-line English markdown document focused entirely on user value. Each quarterly release includes practical examples and \"What this means for you\" benefit statements. Written in conversational, approachable language without internal planning details.\n\n## VitePress Documentation Site\n\nCreated a complete documentation site in the root `docs/` directory with:\n\n**Structure**:\n- Homepage with hero section, features, and quick examples\n- Guide section (Introduction, Quick Start, Installation)\n- Protocol specifications (8 protocol docs: Object, View, Page, Form, Menu, App, Report, Overview)\n- API documentation (Core, React, Components, Designer)\n- Public roadmap integrated\n\n**Features**:\n- VitePress 1.6.4 configuration with navigation and sidebar\n- Local search functionality\n- Dark/light theme support\n- Mobile responsive design\n- GitHub integration\n\n**Commands**:\n- `pnpm docs:dev` - Start development server\n- `pnpm docs:build` - Build for production\n- `pnpm docs:preview` - Preview production build\n\n**Integration**:\n- Documentation at root `docs/` directory\n- Workspace configuration for `object-ui-docs` package\n- All protocol specifications from `docs/objectql/` integrated\n\n## GitHub Pages Deployment\n\n**Automated Workflow** (`.github/workflows/deploy-docs.yml`):\n- Triggers automatically on push to `main` branch when docs change\n- Manual deployment option via workflow_dispatch\n- Uses Node 20, pnpm 8 with caching for fast builds\n- Builds documentation and deploys to GitHub Pages\n- Will be available at: `https://objectql.github.io/object-ui/`\n\n**Configuration**:\n- VitePress base path set to `/object-ui/` for GitHub Pages\n- Build output directory: `docs/.vitepress/dist/`\n- Ignores dead links for legacy documentation\n- Build output added to `.gitignore`\n\n**Requirements**:\n- GitHub Pages must be enabled in repository settings\n- Source should be set to \"GitHub Actions\"\n- Workflow permissions should allow writing to Pages\n\nThe documentation site is now at the root level and will automatically deploy to GitHub Pages on every push to main! 🚀\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 我要做全球最顶级的界面构建工具，帮我写开发计划文档\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectql/object-ui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

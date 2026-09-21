@@ -1,0 +1,31 @@
+{
+  "number": 8281,
+  "kind": "issue",
+  "title": "finding(app-shell): three BLOCK_CONFIG blocks resolve to no runtime-judgeable schema on either face — the exemption bucket objectui#8216 gate must carry",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "package: app-shell",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T07:59:08Z",
+  "updated_at": "2026-09-07T08:49:04Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8281",
+  "body": "Found by the census objectui#8216 asked for (branch `claude/issue-8216-block-config-schema-parity`). Filed unassigned. This card owns the EXEMPTION rows objectui#8216's gate lands with: each of the three blocks below is exempt there with a reason and this card's number, and each exemption is self-deleting — it goes red the moment its block resolves to a schema on either face.\n\nMeasured on `origin/main` `f20e57d62`, installed `@objectstack/spec` `17.2.0`.\n\n## The census result\n\n22 `BLOCK_CONFIG` entries. Each block was resolved against two faces:\n\n- `ComponentPropsMap[type]` from `@objectstack/spec/ui` — 42 rows, strict objects that refuse an undeclared key by name;\n- the `@object-ui/types/zod` node registry, derived mechanically by reading the `type` literal off every exported Zod object — 104 rows, `BaseSchema.passthrough()` so an undeclared key is KEPT rather than refused.\n\n18 blocks resolve to a spec props shape, 4 to a node schema (`object-grid`, `object-form`, `object-kanban` on both, `grid` on the node face only), and **3 resolve to neither**:\n\n| block | in ComponentPropsMap | in the zod node registry | in PageComponentType | in BLOCK_TYPE_META |\n| --- | --- | --- | --- | --- |\n| `element:definition-list` | no | no | no | yes |\n| `element:repeater` | no | no | no | yes |\n| `ai:input` | no | no | no | no |\n\n## Why the gap is real and not a naming accident\n\nAll three have working, registered renderers reached through `ComponentRegistry`, and two of them are offered in the palette. What none of them has is a DECLARED key set that anything can judge an authored document against:\n\n- `element:definition-list` and `element:repeater` are registered in `packages/components/src/renderers/basic/data-list.tsx` with a registry `inputs` list — a different face, on a different table, judged by a different gate (`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`, objectui#8067 / objectui#8068). That face declares TOP-LEVEL inputs only; the nested item shape of `definition-list`'s `items` is described in an `inputs` DESCRIPTION string, in prose.\n- `ai:input` has no renderer at all beyond the opt-in placeholder list, and no palette entry — that one is its own card, filed separately.\n\nThe measured cost of the absence is not hypothetical: reading the `definition-list` renderer by hand turned up a live spelling mismatch its designer controls have carried all along, filed separately. A gate cannot find that class here, because there is nothing for it to read.\n\n## The decision this needs\n\nWhether objectui-native page blocks (blocks that are in the palette but not in `PageComponentType`) should carry a declared key set at all, and on which face:\n\n- **A — a `@object-ui/types` zod node schema per block.** Puts them on the same face `object-grid` / `object-form` / `object-kanban` / `grid` already use, so one gate covers all of `BLOCK_CONFIG`. The face is `passthrough()`, so it declares rather than refuses; objectui#5155 is the standing argument about that.\n- **B — upstream them into `PageComponentType` and `ComponentPropsMap`.** Gets a STRICT oracle and one vocabulary, at the cost of a spec change per block and of committing objectstack to blocks it does not model today.\n- **C — declare the nested item shapes on the registry `inputs` face** and let objectui#8071's per-member pin work cover them. Smallest change; leaves the designer table judged by a gate that reads `inputs` rather than a schema.\n- **D — leave them undeclared, ledgered here.** The honest null option: three blocks, two of them low-traffic, in a startup-stage repo that does not expand declaration surface without pull.\n\n⚠️ Grading is triage's. What this card asks for is that the three exemptions in objectui#8216's gate stop being permanent by default — an exemption with no owning decision is the hiding place the ratchet idiom exists to prevent.\n\n## Related\n\nobjectui#8216 (the gate that carries the exemptions) · objectui#8067 / objectui#8068 / objectui#8071 (the registry `inputs` face and its per-member pins) · objectui#5155 (BaseSchema openness) · the two sibling cards filed from the same census, on `element:definition-list`'s item spelling and on `ai:input`'s orphan panel\n\nFiled by the os-dev seat of objectui#8216, session `session_01FhBNJcLRZLe8M87VcUgpKr`, using Claude Code.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

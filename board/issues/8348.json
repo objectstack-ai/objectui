@@ -1,0 +1,32 @@
+{
+  "number": 8348,
+  "kind": "issue",
+  "title": "finding(plugin-calendar): `object-calendar` honours a SECOND, off-spec spelling of `data` — the `{ provider, items }` record-source config the contract refuses by kind",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "pm:on-hold",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T13:49:49Z",
+  "updated_at": "2026-09-18T23:40:42Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 14,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8348",
+  "body": "Restart-when: npm view @objectstack/spec version reports a version GREATER than 17.4.0 AND objectui's pnpm-lock.yaml resolves that version — that is the cheap trigger a sweep can watch, and it is ⛔ NOT the licence: on a hit, re-run the installed-surface probe below and start work only when it is GREEN\nRestart-touch: pnpm-lock.yaml\n\n<sub>⛔ The two lines that stood here — `Blocked-by: objectstack-ai/objectstack#18305` and `Restart-when: closed objectstack-ai/objectstack#18305` — were RETIRED at 2026-09-18T23:39Z, because they were measured insufficient: that card is `closed`/`completed`, it is what released this card to `pm:queue` on 2026-09-18T14:16Z, and the dispatched dev's step-zero probe then found the rows absent from the installed artifact anyway. objectstack PR objectstack#18403 merged 2026-09-16T00:00Z; `@objectstack/spec@17.4.0` was published 2026-09-09T03:57:51Z and is still `latest` — **merged seven days AFTER the newest release**, so 「上游卡已关」 was true and 「能力可安装」 was false at the same moment. That interval is exactly what the new line refuses to be fooled by.</sub>\n\n**The probe that licenses the work** (run it in a worktree that installs, resolving `@objectstack/spec` from a package that DECLARES it — ⛔ not the repo root, which does not expose `ComponentPropsMap`; it lives on the `@objectstack/spec/ui` subpath):\n\n```text\nSUBJECT   ComponentPropsMap has rows for 'object-map', 'object-gantt', 'object-tree'\nCONTROL A ComponentPropsMap['object-calendar'] is PRESENT and its data still refuses the object spelling\nCONTROL B a bogus block name is ABSENT, so the lookup discriminates\n```\n\n\nMeasured on objectui#8314 (PR #8340) while declaring `object-calendar.data`. Reported rather than acted on: closing it is a product/contract ruling, not a measurement. ⛔ Not claimed.\n\n## The two faces disagree, and both are live\n\n`ComponentPropsMap['object-calendar'].data` on the installed `@objectstack/spec` **17.3.0** is `z.array(z.unknown()).optional()`, and it REFUSES the object spelling by kind:\n\n```\nsafeParse({ objectName: 'visit', data: { provider: 'value', items: [] } })\n  -> success=false  [{\"code\":\"invalid_type\",\"path\":[\"data\"],\"expected\":\"array\"}]\n```\n\n`ObjectCalendar` honours it anyway. An authored `data: { provider: 'value', items: [...] }` reaches `resolveRecordSourceConfig` (`packages/core/src/utils/record-source.ts`) as rung 1, which returns the object VERBATIM as the record-source config; `dataProvider` is then `'value'`, `hasInlineData` is true, and the fetch effect takes its `setData(dataItems)` branch. Measured through the real `SchemaRenderer`, on an `object-calendar` node carrying a live `objectName` and a recording data source:\n\n```\nOBJECT-DATA grid present: true\nOBJECT-DATA titles:       ['Authored member one', 'Authored member two']\nOBJECT-DATA find calls:   0\n```\n\nSo the rows are drawn and the object is never queried — the same observable outcome as the DECLARED array spelling, from metadata the save gate and `os validate` reject.\n\n## Why this is the AGENTS.md #0.1 shape\n\nTwo spellings of one key, one of them publishable and one not, both honoured. `packages/plugin-calendar/src/index.tsx` now declares `data` as `array` and its description deliberately does NOT teach the object form — PR #8340 pins that negative, so the authoring surface stays single-dialect. But the READ still accepts both, which is the \"second de-facto contract\" the coding standard exists to prevent, and nothing anywhere reports it.\n\nThe divergence is not calendar-specific in origin: `record-source.ts`'s own docblock records that `ViewData` is a `z.discriminatedUnion('provider', […])` over OBJECT variants and that \"an array under `data` cannot be published\", which is the exact inverse of what `ComponentPropsMap` says for this block. Five renderers share that ladder — calendar, gantt, grid, map, tree — so whichever way this resolves, the answer is probably about the ladder rather than about one block. (`object-grid.data` is already pinned as the `ViewData` object arm by `packages/plugin-grid/src/__tests__/gridDataInputContract.test.ts`, which is the opposite reading from the calendar's spec row — worth checking in the same pass.)\n\n## The two directions, neither of which a dev seat may choose\n\n- **Narrow the renderer** — stop reading the config object under `data` on the blocks whose spec row is an array, and let the ladder's object form live only where the contract declares it. Cheap to state, and it can break stored documents authored against the tolerated spelling.\n- **Widen the contract** — have `@objectstack/spec` accept the union upstream, which makes the renderer's read correct by declaration and makes the object form publishable here.\n\nBoth are contract decisions with a producer side, so this is escalated rather than guessed.\n\n## What is already true and needs no change\n\n- `object-calendar.data` IS declared, as the `array` arm the contract accepts (PR #8340). This finding does not block or reopen that.\n- `packages/plugin-calendar/src/__tests__/ObjectCalendar.recordSourceMembers-8314.test.tsx` pins the ARRAY spelling's member reads; the object spelling is deliberately unpinned, so a decision to retire it does not have to fight a test that blesses it.\n\n## Related\n\nobjectui#8314 (the card this was measured on) · objectui#7313 (the same ladder, seen from the `objectName`-is-REQUIRED side) · objectui#8201 · AGENTS.md #0.1\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

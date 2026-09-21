@@ -1,0 +1,30 @@
+{
+  "number": 7174,
+  "kind": "issue",
+  "title": "Five near-copies of `formatTimestamp` now live in `plugin-detail` + `plugin-chatbot` — sharing one needs a Clause ② ruling, so recording it instead",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T09:11:19Z",
+  "updated_at": "2026-09-12T01:25:40Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7174",
+  "body": "Recorded from #7163 (PR #7172). **Observation, not a defect** — nothing is broken by this today; it is a consolidation question that a dev agent is not allowed to answer on its own, so it is written down rather than acted on.\n\n## Why it stops at a report\n\n#7163's dispatch put it plainly: sharing this helper is decidable by measurement, **but if sharing means a new export that is Clause ② and the fable quota is exhausted — stop and report**. A shared helper has to be importable by components in two different packages, so it is a new export by construction. Hence this card instead of a refactor.\n\n## Measured on `origin/main` head `d8ec8d6d4`\n\nFive spellings of \"format a timestamp as a relative phrase\", and they are **not** interchangeable:\n\n| site | rounding | thresholds | tail |\n|---|---|---|---|\n| `plugin-detail/ActivityTimeline.tsx` | `Math.floor` | 1m / 60m / 24h / 7d | `toLocaleDateString()` |\n| `plugin-detail/RecordComments.tsx` | `Math.floor` | 1m / 60m / 24h / 7d | `toLocaleDateString()` |\n| `plugin-detail/PointInTimeRestore.tsx` | `Math.floor` | 1m / 60m / 24h, **no days branch** | `toLocaleString()` |\n| `plugin-detail/RecordMetaFooter.tsx` | `Math.floor` over seconds | 60s / 60m / 24h, unbounded days | `Intl.DateTimeFormat` |\n| `plugin-chatbot/AiPendingActionsInbox.tsx` | **`Math.round`** | **45s** / 60m / 24h / **30d** | `toLocaleDateString()` |\n\nThe first two are byte-identical to each other. The card that generated this one asserted all of `plugin-detail`'s copies were byte-identical; they are not — `PointInTimeRestore` differs by 3 lines (md5 `b36edffb…` vs `846a6b78…`, 597 vs 495 bytes), and that difference is deliberate: a revision list wants the time of day, a comment list does not.\n\nAs of PR #7172 all four `plugin-detail` copies resolve their strings from the packs, so **this is now duplicated logic, not duplicated untranslated logic**. The `plugin-chatbot` copy is still English and is filed separately as #7173.\n\n## What a decision would have to settle\n\n1. **Is one helper even correct?** Unifying the tails would silently restyle at least two surfaces (`toLocaleDateString` vs `toLocaleString` vs `Intl.DateTimeFormat`), and unifying `Math.round` with `Math.floor` moves every boundary in the chatbot inbox. A shared helper that takes enough options to preserve all five behaviours may be worth less than the duplication.\n2. **Where would it live, and what does exporting it cost?** `@object-ui/i18n` is the only package all the consumers already depend on, so it is the obvious home — and that is precisely the new public export Clause ② governs.\n3. **Is a platform primitive the better answer than a shared function?** `Intl.RelativeTimeFormat` localizes relative phrases natively and would remove the four pack keys from the picture entirely for the branches it covers — a different and possibly better shape than sharing the hand-rolled version. This would be a copy change across ten packs, so it is a product decision, not a cleanup.\n\n## Not urgent\n\nEvery site is correct and (after PR #7172, excepting #7173) translated. Filing so the duplication is visible and the next person to touch one of these five does not re-derive the comparison table, not to propose work."
+}

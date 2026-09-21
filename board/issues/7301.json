@@ -1,0 +1,31 @@
+{
+  "number": 7301,
+  "kind": "issue",
+  "title": "`record:related_list` has no `groupBy`, and its columns cannot cross a lookup — the two things a related list needs to stop being a flat strip of rows",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "pm:blocked",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T04:59:48Z",
+  "updated_at": "2026-09-05T01:26:37Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7301",
+  "body": "Two authoring limits met on the same component while building a record page over `sys_user` (objectstack-ai/duly#13). Both are expressiveness gaps rather than defects — nothing renders wrong, the page just cannot say the thing.\n\n## 1. No grouping\n\n`RecordRelatedListProps` declares `columns`, `sort`, `filter`, `limit`. There is no `groupBy`, and `RelatedList` draws its own table rather than a list view, so the grid's `grouping` block (which *does* support nested levels with per-level collapse, and which this same app uses on a `duly_duty` list view) is unreachable from a related list.\n\nThe requirement was \"their governed duties, **grouped by frequency**, so a monthly rhythm reads differently from an annual one\". The closest authorable thing is putting `frequency` first in `columns` and first in `sort`, which makes each rhythm a contiguous block. It reads acceptably and it is not grouping — no group headers, no counts per group, no collapse, and the ordering is alphabetical (`annual, daily, fortnightly, monthly, …`) rather than by cadence.\n\nSince `grouping` already exists and is already implemented for grids, the ask is mostly plumbing: let a related list accept the same block.\n\n## 2. Columns cannot cross a lookup\n\n`RelatedList` resolves lookup **labels** (it batch-fetches display names for FK cells) but has no dotted-path column support — `columns: ['assignment.assigner']` names nothing.\n\nConcretely: the page needed \"assigned work, **showing who assigned each**\". The task carries `assignment` (an FK); the assigner is `duly_assignment.assigner`, one hop on. So the column can show *which assignment* the task came from but not *who raised it*, and the reader has to click through.\n\nThe other route to the same value — a related list on `duly_assignment` itself, bound on its multi-value `assignees` field — is closed for an unrelated reason (filed separately as #7299), so on this page the requirement could not be met at all.\n\nGiven the label-resolution machinery is already there, a `columns: ['assignment.assigner']` that expands the lookup one level would cover most of what related lists need; deeper paths can stay refused.\n\n---\n\nNeither is urgent on its own. Filed because both were hit inside one component on one page, and together they are the difference between a related list and a report.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01SqkTcrxUFci7nqXdbBSe2p"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 8620,
+  "kind": "issue",
+  "title": "finding(app-shell tests): every DataPillar-rendering test prints an absorbed `dataSource.find is not a function` error, so a real error in that suite would be invisible",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T17:11:56Z",
+  "updated_at": "2026-09-10T13:13:26Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8620",
+  "body": "Filed by the `domain:ui` execution-seat PM. Measured and handed up by the objectui#6846 implementing seat (PR #8619), which correctly declined to file it itself. ⛔ Not graded and not assigned.\n\n## The finding\n\nEvery test that renders `DataPillar` — the three new files in PR #8619, and the pre-existing `DataPillar.celGate` and `StudioDesignSurface.designerRegistryMissing` — prints this to stderr on every run:\n\n```\nListView data fetch error: TypeError: dataSource.find is not a function\n```\n\nCause: the shared test mock is `useAdapter: () => ({})`, an object with no `find()`. `ListView` calls it, the call throws, and `ListView`'s best-effort `catch` absorbs it. **No assertion depends on it**, and every one of those suites passes.\n\n## ⛔ Why this is not \"just noise\"\n\nIt is not a product defect — the implementing seat was right about that, and right not to file it as one. It is a **test-hygiene defect with a specific consequence**: a suite that *always* prints an error is a suite in which a **real** error is invisible. A reader scanning that output has no baseline to notice a new line against.\n\n⭐ This is the same shape as the unattributable `ECONNREFUSED` stack that objectui#6640 was filed about, and that the network-escape guard (objectui#8537 / PR #8588) exists to attribute: a product call site catching a failure **by design**, so the test stays green while printing a stack nobody can trace to a cause. The remedy there was to serve the probe from a double rather than let it fail and be swallowed. The same remedy shape probably applies here — give the mock a `find()` — but that is the claimant's call, not mine.\n\n## What is NOT measured\n\n- **How many test files this affects.** The seat named five; I have not swept for the rest, and a count owes a lit control that fires.\n- **Whether any of those suites would actually be harmed** — i.e. whether `ListView`'s data path is load-bearing for any assertion in them, or whether the empty adapter is deliberate and the fix is simply to silence the log. If the mock is deliberately empty, the honest repair might be to assert the absence of *other* errors rather than to give the adapter a `find()`.\n- Whether the same empty-`useAdapter` mock is shared beyond `views/studio-design/`.\n\n⚠️ Do not \"fix\" this by broadening `ListView`'s catch or by suppressing console output in the test setup — that removes the signal instead of the noise, and would make the next real error *more* invisible, not less.\n\n## Provenance\n\nMeasured 2026-09-08 on PR #8619 (card objectui#6846), across `packages/app-shell/src/views/studio-design/`. The seat's own note: *\"no assertion depends on it\"*, and the stderr is *\"identical to the existing DataPillar/StudioDesignSurface tests' output\"* — i.e. this predates that PR and is not introduced by it."
+}

@@ -1,0 +1,31 @@
+{
+  "number": 8402,
+  "kind": "issue",
+  "title": "The weekly `check-links` sweep produces a correct verdict every Sunday that reaches no one — decide which mechanism carries it to a person",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T16:35:59Z",
+  "updated_at": "2026-09-14T20:55:40Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8402",
+  "body": "Blocked-by: objectstack-ai/objectstack#17132\n\nSplit out of **#8128** by the triage seat (session `session_01SwJQDFKe8tVit3BXQ9EfR5`) at the execution seat's request (`5573225131`). #8128's item 1 (the broken links) landed and is closed; this card carries item 2, which #8128's own text calls *\\\"the real card\\\"*.\n\n⛔ Not claimed, not dispatched, no code written.\n\n## The problem, in the card's own words\n\n> a weekly sweep whose only output is a red mark on a page nobody opens is the same shape as the mechanism it replaced. Something has to carry the verdict to a person.\n\nMeasured on #8128: **five scheduled sweeps, five failures**, red for a month with nothing surfacing it. The workflow produces **no required status check** (re-measured on the branch rules), by deliberate design — `check-links.yml`'s own header says the external check goes over the network and *\\\"this workflow blocks nobody, so flakiness costs a second look and nothing else\\\"*. ⇒ The cost of that (defensible) choice is the one being paid: **a workflow nobody is blocked by is a workflow nobody looks at.**\n\n⭐ And the trap that hid it: `?status=success` returns **217** for this workflow, which reads like a healthy history. All 217 are from 2026-01-24..28, on `push`/`pull_request` — triggers it no longer declares — under the scan scope it had *before* #3449 pointed it at the published tree. **Those runs are a different job wearing this job's name.** The last time this sweep passed while looking at what it looks at today was never (until #8384).\n\n## ⚠️ Urgency dropped when item 1 landed — stated so the grade is not misread\n\nPR #8384 cleared all 10 rejections and a `workflow_dispatch` run is now **green** (run 34141538996, 16:05:43Z, head `fadf6cd73`). ⇒ **There is currently no red verdict going unread**, so this card is `p3`, not `p2`. The gap is latent: it bites the next time the sweep goes red, which it will, because external links rot. ⛔ Do not read the green as this card being resolved.\n\n⚠️ One precision inherited from #8128: that green run's event is `workflow_dispatch`, not `schedule`. Same file, same `args` glob list, same `main`, so the **sweep** is green; a green run whose event is `schedule` arrives on its own the next Sunday at 04:17 UTC.\n\n---\n\n### 一句话问题\n\n我们每周日都会自动检查一次文档里的链接有没有失效,答案算得又对又新——然后没有任何人看到它。上一次它连续答了一个月「有问题」,没有一个人知道。\n\n### 选项 × 真实代价\n\n| | 做什么 | 客户可感知的后果 |\n|---|---|---|\n| **A** | 维持现状(结果只写在 job summary 页上) | 不花钱;代价是这张卡描述的情形**必然重演**——只是下一次没人会去数五次失败 |\n| **B** | 失败时自动开/更新一张 issue | 结果落在大家真正会看的地方;⚠️ 代价是**一个自动化开始往 backlog 写东西**,需要去重与自动关闭,否则它自己变成噪音源 |\n| **C** | 让结果搭一个已经有人读的面(轮次报告、看板、或某个既有的巡检页) | 不新增噪音源;代价是要**先存在**这样一个面,并且它得有人真的每周读 |\n\n### 四棱(`os-decision-facets`)\n\n- ① 项目长远合理性:B 与 C 都把「一个没人被阻塞的检查」接进一条有人读的回路,**缩小**「正确却无人接收的答案」这个特例。A 保留它,并且这个特例会在每一个新增的非阻塞检查上复制一遍——⇒ 这不只是 links 这一个工作流的事。\n- ② 实际业务拉动:今天为零(刚刚变绿),历史上是一个月。⇒ 真实但不紧急,这就是 p3 的依据。\n- ③ 防 AI 犯错:⭐ 本卡的本质是**静默**的一种:检查在跑、答案是对的、没有人收到。B 是最响亮的;C 次之;A 是明文接受静默。另注意本卡自带的那个陷阱——`?status=success` 的 217 会让任何自动化(和任何 AI)读成健康,除非它按 `event` 与时间段切开。⇒ **无论裁哪条,新机制都不许把 `status=success` 的计数当健康度读。**\n- ④ 创业阶段不扩散:A 零成本。C 复用已有面,不新增长期义务。B 新增一个需要长期喂养的自动化(去重、自动关闭、误报处理)。\n\n**推荐:C(若已存在一个每周有人读的面),否则 B。⛔ 不建议 A。**\n**置信缺口:本席不知道本仓今天是否已经有一个「每周真的有人读」的面。这个事实直接决定 C 是否可选,而本席没有测过它。⛔ 裁 C 之前请确认那个面存在且有人读。**\n\n### ⚠️ 一条必须一起看的相邻事实\n\n**objectui#8126**:`stale.yml` 有 **234 次**计划运行、**0 次**成功,自 2026-01-16 起全部在 `Set up job` 阶段失败——backlog 老化从未真正跑过。⇒ 那是**同一个家族**的另一半:一个没人看的自动化。⭐ 而它对本卡的直接意义是:**选 B 就是让一个自动化开始往 backlog 写**,而本仓已经有一个往 backlog 写的自动化坏了八个月没人发现。⛔ 裁 B 的话,新自动化自己的健康必须由**别的**东西盯着,不能由它自己报告。\n\n### 裁后执行\n\n裁 A ⇒ 关卡,关闭理由写明这是**裁定**并把它写进 `check-links.yml` 的头部注释,免得下一个人再提一次。裁 B 或 C ⇒ 转 `pm:queue` 派 `domain:devx`,交付物含机制本身 + 一个「机制自己坏了会被谁发现」的答案。\n\n### 维护者速读\n\n我们每周自动检查一次文档链接。检查是对的,但结果只显示在一个没人打开的页面上——它红了整整一个月,没人知道。链接本身已经修好了,现在是绿的,所以不急;但下次再红还是没人会知道。要么接受现状,要么让它失败时自动开一张 issue(有人看,但多一个会制造噪音的自动化),要么让结果搭上某个已经有人每周读的东西。\n**你要做的:回一个字母 —— A(维持现状)/ B(自动开 issue)/ C(搭已有的面,若存在则推荐)。**\n\n---\n\n## ⛔ 不被本卡重开的两件事\n\n- **#3213 的裁定 B** 仍然站着:一个抖动的第三方主机**不得**让无关的 PR 变红。⇒ `check-links.yml` 里两个被注释掉的触发器**保持注释**,本卡不碰它们。\n- 本卡 ⛔ 不主张那次 sweep 变红是错的。有坏链接就该红——那是工作流在正常工作。丢失的只是它的答案没到人手里。\n\nRefs: #8128(母卡,item 1 已落地并关闭)· PR #8384(`5b0df18a8`)· 绿色运行 34141538996 · #3449(把扫描面指向已发布树的那次)· #3213(裁定 B)· #7956 · **#8126**(同家族:`stale.yml` 234 跑 0 成功)。\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

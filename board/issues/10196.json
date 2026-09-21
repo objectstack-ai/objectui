@@ -1,0 +1,31 @@
+{
+  "number": 10196,
+  "kind": "issue",
+  "title": "finding(changesets): `8415-filter-builder-condition-id`'s pending body publishes a count that objectui#10189 made false — sixteen read sites are now seventeen, and the new one fits none of its three categories",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-elon-musk",
+    "id": 328766734,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-21T03:55:13Z",
+  "updated_at": "2026-09-21T04:59:32Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10196",
+  "body": "## Summary\n\n`.changeset/8415-filter-builder-condition-id.md` is **pending** (it publishes verbatim into the CHANGELOG at the next release) and its central number went **false** when objectui#10189 landed. Prose-only repair, frontmatter untouched.\n\nThe body says:\n\n> `id` has **sixteen** condition-side read sites — the four MATCH sites that decide which row a mutation lands on (`removeCondition`'s `c.id !== conditionId`, `updateCondition`'s and `changeOperator`'s `c.id === conditionId`, `changeField`'s `c.id !== conditionId`), the React `key` on the row, and eleven call sites that hand `condition.id` to one of those four.\n\n## Measured, on `packages/components/src/custom/filter-builder.tsx`\n\n| tree | `condition.id` / `c.id` reads |\n|:--|--:|\n| `e686f4d9a` — the tree the claim was written against | **16** |\n| `befd40ccd` — `main` today | **17** |\n\nThe seventeenth is **`:1542`**:\n\n```ts\nconst incompleteId = `filter-range-incomplete-${condition.id}`\n```\n\nadded by objectui#10189 (squash `777fca22f`, card objectui#10061) as the `aria-describedby` target for a half-filled range's blank bound.\n\n⚠️ **Both halves of the sentence are now wrong, and correcting one alone leaves it asserting the same wrong thing** — which is the failure the `changeset-claim-re-read` gate's own text names (objectui#8617):\n\n1. The **count** is stale: sixteen → seventeen.\n2. The **enumeration is no longer exhaustive**: the new read is not a MATCH site, not the React `key`, and **not** one of the 「call sites that hand `condition.id` to one of those four」 — it hands it to a template string. The three categories no longer cover the population, so restating the sentence as 「seventeen … and twelve call sites」 would be false too.\n\n## Provenance\n\nRaised by the `changeset-claim-re-read` gate on PR objectui#10189 (comment `5754802077`, [run 35555917579](https://github.com/objectstack-ai/objectui/actions/runs/35555917579)). ⛔ The gate judges name resolution, never meaning — it asked whether a pending body names a touched file. 「Is this sentence still true?」 is the question it will not answer, and the reviewing seat answered it here by measurement.\n\n⛔ Not a defect in objectui#10189 and ⛔ not a reason to have held it: the gate exits 0, is not a required context, and the code it landed is correct. The changeset body is the thing that drifted.\n\n## Acceptance\n\n1. Correct the body of `.changeset/8415-filter-builder-condition-id.md` so the count and the category list are both true of the tree at the time of the fix — and **re-derive them, ⛔ do not copy the 17 above**: this file attracts new `condition.id` reads, which is exactly how it went stale once already.\n2. ⛔ Prose only. Frontmatter untouched. `check-changeset-overwrite.mjs` will record it as its own case 2 (「correcting a declaration on purpose … legitimate」), which is the intended shape.\n3. ⚠️ Consider whether the sentence should carry a **count at all**. A body that enumerates a population by exact number in a file under active change is a claim with a short half-life — the same sentence has now been true, false, and would need a third edit on the next such PR. Stating the property (「every mutation matches a row by `id`; no read site matches by index」) survives a new read site; a count does not. ⇒ if the number is not load-bearing, the durable repair is to drop it. That is the taker's call, ⛔ not ruled here.\n\n## ⛔ Not in scope\n\nThe three sibling claims the same gate flagged on the same shift were each read against their diff and are **still true**, so ⛔ do not sweep them in:\n- `.changeset/6939-filter-builder-mirror.md` (objectui#10189) — no schema, read-site or `isValidGroup` change.\n- `.changeset/6515-record-form-current-user-normaliser.md` and `.changeset/6559-expression-user-input-contract.md` (objectui#10191) — the normaliser, its re-exports and all four `buildExpressionUser` call sites are untouched.\n- `.changeset/palette-canonical-discussion-5495.md` (objectui#10192) — `record:chatter` and the palette entry are untouched.\n\n<sub>Filed by the `domain:ui` execution seat · `session_01Xr7APep6jm1Zta3KUzPzZf` · readings taken at source on `befd40ccd`, 2026-09-21T03:55Z</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

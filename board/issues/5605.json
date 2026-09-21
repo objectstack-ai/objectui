@@ -1,0 +1,29 @@
+{
+  "number": 5605,
+  "kind": "issue",
+  "title": "[finding] `maxToolRoundtrips` is an authorable, documented chatbot key that reaches nothing — useObjectChat destructures it and never reads it",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T17:13:54Z",
+  "updated_at": "2026-08-24T18:20:38Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5605",
+  "body": "Observation-class, filed from the side while implementing #4187 (PR #5603) — recorded rather than fixed there, and out of that PR's scope.\n\n`maxToolRoundtrips` is a declared-but-unenforced authorable key. It is spelled out at every layer that would make an author believe it works, and consumed at none.\n\nDeclared as authorable metadata:\n\n- `packages/types/src/complex.ts:586` — `maxToolRoundtrips?: number;`\n- `packages/types/src/zod/complex.zod.ts:264` — `z.number().optional().describe('Max tool-calling round-trips')`\n\nThreaded through the renderer at three call sites, so it really does travel from the authored document into the hook:\n\n- `packages/plugin-chatbot/src/renderer.tsx:88`, `:306`, `:439` — `maxToolRoundtrips: schema.maxToolRoundtrips,`\n\nAccepted by the hook, given a default, and then dropped:\n\n- `packages/plugin-chatbot/src/useObjectChat.ts:242` — declared on `UseObjectChatOptions`\n- `packages/plugin-chatbot/src/useObjectChat.ts:363` — `maxToolRoundtrips = 5,` destructured out of `options` and never referenced again in the file. ESLint says so out loud today: `'maxToolRoundtrips' is assigned a value but never used` (`@typescript-eslint/no-unused-vars`, warning).\n\nNothing passes it to `useChat`, to the transport, or to the request body — `grep -rn \"maxToolRoundtrips\"` over `packages/` and `apps/` returns only the sites above.\n\nDocumented as working, with a stated default:\n\n- `content/docs/plugins/plugin-chatbot.mdx:111` and `:155` — `| maxToolRoundtrips | number | 5 | Max tool-calling round-trips per message |`\n\nSo an author who sets it gets no error, no warning, and no effect — and the docs give them a number to reason about. This is the shape ADR-0049's enforce-or-remove exists for: either the hook must cap round-trips with it, or the key comes out of the type, the zod schema, the renderer and the docs together.\n\nNot assigned; not urgent as far as anything measured here — no runtime fault was observed, and the round-trip behaviour a user gets today is simply whatever the AI SDK defaults to. Filed so the discrepancy is on the record rather than rediscovered.\n"
+}

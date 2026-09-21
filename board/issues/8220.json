@@ -1,0 +1,31 @@
+{
+  "number": 8220,
+  "kind": "issue",
+  "title": "finding(plugin-map/plugin-gantt/plugin-timeline): six registrations declare neither `filter` nor `sort` while all three renderers lower both onto the query — #7712's shape, but the spec cannot be cited here",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T01:46:05Z",
+  "updated_at": "2026-09-10T06:48:54Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8220",
+  "body": "Filed unassigned by the os-dev seat implementing #8171 (branch `claude/issue-8171-calendar-sort-declared-input`). Measured on `origin/main` `2efe57db0`, installed `@objectstack/spec` `17.2.0`.\n\n## Measured\n\nThree renderers lower an authored `filter` and `sort` straight onto their own fetch, exactly as `ObjectCalendar` does:\n\n- `packages/plugin-map/src/ObjectMap.tsx:795-796` — `$filter: schema.filter`, `$orderby: convertSortToQueryParams(schema.sort)`; both keys in the effect deps at `:824`.\n- `packages/plugin-gantt/src/ObjectGantt.tsx:738-739` — same pair; deps at `:785`.\n- `packages/plugin-timeline/src/ObjectTimeline.tsx:310-311` — same pair; the two keys are memo-keyed at `:246-247`.\n\nNone of the six registrations that publish those three renderers declares either key. Enumerated by reading each `index.tsx` rather than grepping for the spelling, since a population defined by omission cannot be measured by searching for what is absent:\n\n| registration | `inputs` declared |\n|---|---|\n| `plugin-map:object-map` (`index.tsx:62`) | `objectName`, `map` |\n| `view:map` (`:72`) | `objectName`, `map` |\n| `plugin-gantt:object-gantt` (`:102`) | `objectName`, plus the gantt config keys |\n| `view:gantt` (`:112`) | same |\n| `plugin-timeline:object-timeline` (`:356`) | `objectName`, plus the timeline config keys |\n| `view:timeline` (`:366`) | same |\n\nSince `sdui-parser`'s `validateTree` (`packages/sdui-parser/src/validate.ts:76`) emits `unknown-prop` for every key no `inputs` entry claims, the html tier reports both keys as unknown on all six tags while the renderers honour them — objectui#6678's shape, and the same defect #7712 (`filter`) and #8171 (`sort`) fixed on kanban and calendar.\n\n## ⚠️ Why this is NOT a mechanical repeat of #7712 / #8171 — read this before dispatching\n\nBoth of those cards rest on a spec verdict: the key is DECLARED by `@objectstack/spec`, so declaring it in `inputs` restores `declared = enforced` rather than widening past the contract. **That argument is unavailable here.** Measured at runtime, not read off a `.d.ts`:\n\n- `ComponentPropsMap` carries 42 block keys. `object-map`, `object-gantt` and `object-timeline` are **absent from all of them** — as are the bare `map` / `gantt` / `timeline` spellings.\n- Control on the same read: `object-calendar` IS present in that same map, so the absence is a verdict and not a bad import.\n\nSo these three blocks have no authored props schema at all, and `filter` / `sort` are undeclared on BOTH faces. ADR-0049 enforce-or-remove still applies, but with a prior question the calendar and kanban cards did not have to answer: **should the spec carry these three blocks first?** Declaring the keys in `inputs` alone would publish an authoring surface no spec schema backs, which is a different decision from the one #7712 made — and the kanban `limit` measurement in #7712 is the standing reminder that deriving a declaration from a neighbouring structure, rather than from the contract, publishes keys the save gate refuses.\n\n⚠️ Also unavailable here: `check:react-blocks-declaration-parity` runs manifest to spec, one direction, so it says nothing about a block the spec does not carry.\n\n## Not the same as #7470\n\n#7470 is also about `plugin-map` / `plugin-gantt` `inputs`, but it is about `objectName` being declared `required: true` against three record sources. Different key, different claim; this card is the query pair.\n\nRefs: #7712 · #8171 · #8174 · #6678 · #7470\n\nFiled by an agent seat via Claude Code, session `session_01YBWFb5YgMU5dw8p2VKj16S`.\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 8069,
+  "kind": "issue",
+  "title": "Every field-rule predicate falls back to the PERMISSIVE verdict — one typo widens the form in all three directions at once",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: core",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T14:21:36Z",
+  "updated_at": "2026-09-12T04:15:12Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 14,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8069",
+  "body": "Filed from objectui#6958 while working that card. Central triage asked for it explicitly and declined to open it itself, because it needs this lane to confirm whether each default is deliberate (objectui#6958 comment 5547207212):\n\n> `visibleWhen` **fails OPEN** (an unevaluable predicate renders the field visible) while `requiredWhen` **fails CLOSED** (an unevaluable predicate demands nothing). Both defaults are individually defensible; together they mean a typo in a predicate silently produces a *more* permissive form in both directions.\n\n⛔ Not fixed on #6958 — different mechanism, and #6958's change deliberately leans on the fail-open half (a broken predicate must never silently null a stored column).\n\n## Measured on `main`\n\n`packages/core/src/evaluator/fieldRules.ts`, `resolveFieldRuleState` — the third argument of `evalFieldPredicate` is the fallback used when the predicate cannot be evaluated:\n\n- `visibleWhen` → fallback `true` ⇒ the field is SHOWN\n- `readonlyWhen` → fallback `false` ⇒ the field is EDITABLE\n- `requiredWhen` → fallback `false` ⇒ the field demands NOTHING\n\n⇒ It is not one asymmetry between two keys; it is that **all three fallbacks point the same way — the permissive one**. A single unbound root or misspelled column in one authored predicate therefore produces a form that shows more, locks less and demands less, all from the same fault, and the three faults compose rather than cancel.\n\n## Why it is worth a card and not a shrug\n\n- The failure is **per-predicate**, so an author who mistypes one column name gets a form that still renders and still submits. There is no state in which the form says \"this rule did not run\".\n- The card that first noted it, objectui#4051, closed the SILENCE half — a faulted predicate now warns loudly (`warnPredicateFailure`, #5149). It did not touch the DIRECTION, and it only ever considered `visibleWhen`/`visibleOn`.\n- The server does not backstop two of the three. `requiredWhen` is re-enforced by `@objectstack/objectql`'s rule validator, so a fail-closed client is merely annoying there; `visibleWhen` is not a server concept at all (stated in that file's own header), so its fallback is the only verdict there is.\n\n## What this card wants decided\n\nPer-key, in this lane, with the reasoning recorded:\n\n1. Is each fallback deliberate, or is at least one of them an accident of the shared helper's signature?\n2. If deliberate, do they belong in the authored contract (`@objectstack/spec` / ADR-0089) rather than only in this function's argument list, so a producer can read what a broken predicate does before shipping one?\n3. Is there a case for a loud-but-safe middle — e.g. a faulted `visibleWhen` keeps failing open (a hidden field an author cannot reach is worse) while a faulted `requiredWhen` fails to \"required\", where the cost is a blocked submit the user can see rather than a row that quietly skipped a rule?\n\nDeliberately no recommendation here: this is the confirmation step triage asked for, not a proposal.\n\n## Dedup\n\nSearched this repo before filing; one related card, and it is closed and narrower: objectui#4051 (`visibleWhen`/`visibleOn` fail open **and silently** — the silence half is fixed). A control query in the same session returned objectui#6958 itself, so the search channel was answering."
+}

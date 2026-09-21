@@ -1,0 +1,29 @@
+{
+  "number": 2443,
+  "kind": "issue",
+  "title": "[ADR-0057] P4 follow-ups — live handoff verification + context-carrying upgrade (cloud#817)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:awaiting-maintainer"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T09:51:17Z",
+  "updated_at": "2026-09-13T15:15:53Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2443",
+  "body": "**Self-contained follow-up work order for ADR-0057 P4** (ask→build explicit handoff). Written for an agent with no prior context. Rolls up to epic #2409.\n\n## Background (already shipped — do NOT rebuild)\n\nADR-0057 P4 landed the explicit **\"Open in Builder →\"** handoff across two repos:\n\n- **cloud** — `@objectstack/service-ai-studio` gained a `suggest_builder` signal tool + an ask-only `builder_handoff` skill; the `ask` agent's instructions now call it to **decline-and-redirect** an authoring request (ADR-0063). Handler echoes `{ status: 'build_handoff', handoff: 'build', prompt, packageId? }`. Merged: **objectstack-ai/cloud#818**.\n- **objectui** — `plugin-chatbot` `detectBuilderHandoff` lifts that result onto the tool invocation; `ChatbotEnhanced` renders the **\"Open in Builder →\"** card (`onOpenBuilder` prop). `app-shell` wires the full-page `AiChatPage` (ask) + the FAB to navigate to `/ai/build?package=…&handoffPrompt=…`; the build surface seeds that prompt as its first message. Merged: **#2439**.\n\nBoth sides are unit-tested and CI-green. Read: `docs/adr/0057-console-ai-chat-one-conversation-docked.md`, cloud ADR-0063 (two agents, surface-bound), ADR-0013 (durable turns).\n\n## Tasks\n\n### 1 · Live end-to-end verification (ADR-0054 browser proof)\nThe one step not verified at merge time: the `ask` agent **actually choosing** to call `suggest_builder`. It was blocked in the authoring session **only** by that environment's egress policy denying `ai-gateway.vercel.sh` (403 CONNECT) — not by code or key.\n\nIn an environment where the Vercel AI Gateway is reachable (a valid `AI_GATEWAY_API_KEY` + `AI_GATEWAY_MODEL`, e.g. a real `openai/gpt-4o-mini`):\n- Boot the local stack (`cloud/scripts/dev-local/run-stack.sh --with-ui --seed --keep`, `OBJECTUI_ROOT=<objectui>`); put the key in `cloud/scripts/dev-local/.env.local` (gitignored).\n- Headless check first: `POST /api/v1/ai/agents/ask/chat` with a build-shaped message (e.g. *\"add a priority field to the tasks object\"*) → the stream must contain a `suggest_builder` tool call whose result carries `status: 'build_handoff'`.\n- UI proof: in `ask`, send that request → the **\"Open in Builder →\"** card renders → click → lands on `/ai/build?package=…&handoffPrompt=…` and the seeded prompt auto-sends. Attach the screenshot(s).\n\n### 2 · cloud#817 — context-carrying handoff (upgrade v1)\nToday v1 carries only `{ prompt, packageId? }`. Upgrade the handoff to carry the **ask thread's conversation context** into the Builder (durable-turn reference, ADR-0013), so `build` resumes with what the user already discussed — not just a one-line prompt.\n- **cloud**: extend the `suggest_builder` contract (or add a handoff-context endpoint) to reference the source conversation/turn; define what transfers.\n- **objectui**: consume it in the `onOpenBuilder` path (generalize `assistant/assistantBus.ts` per the ADR) instead of only the URL `handoffPrompt`; seed the Builder from the carried context.\n- Keep the ADR-0063 invariant: explicit, user-initiated switch — never a silent re-route.\n\n### 3 · FAB dismissal polish (minor)\nWhen \"Open in Builder →\" is clicked from the **console FAB** (`ConsoleFloatingChatbot`), the floating overlay does not auto-close — `FloatingChatbot`/`FloatingChatbotProvider` expose no external close control today. Add one so the FAB dismisses when it hands off to the full-page Builder (the full-page `AiChatPage` handoff already replaces the view, so only the FAB needs this).\n\n## References\nEpic #2409 · work order #2412 · ADR `docs/adr/0057-console-ai-chat-one-conversation-docked.md` · merged P4: objectstack-ai/cloud#818 + #2439 · cloud#817 (context-handoff, task 2)."
+}

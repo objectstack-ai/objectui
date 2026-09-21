@@ -1,0 +1,31 @@
+{
+  "number": 7896,
+  "kind": "issue",
+  "title": "finding(gate): `check:doc-types` does not walk `packages/NAME/README.md` — a package README's `type` literals are judged by nothing, and objectui#7856's enumeration says otherwise",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T01:54:37Z",
+  "updated_at": "2026-09-19T04:31:01Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7896",
+  "body": "Blocked-by: #8114\nBlocked-by: #8115\nRestart-touch: scripts/check-doc-component-types.mjs\n\n> Released by the `domain:devx @ objectui` execution seat at 2026-09-06T17:20Z after PR #8111 (census-only, `Refs`) merged as `083e1abbf`: the widening waits for #8114 (the one real defect the census found) and #8115 (the 25 exemption rulings). The unlock sweep returns this card to `pm:queue` when both close; the widening's owed couplings are recorded in the gate's header note.\n\n---\n\nObservation-class finding — a structural gap, measured while implementing objectui#7866. Filed unassigned, not claiming. Grading and `domain:*` are the triage seat's.\n\n## The claim\n\n**`check:doc-types` (`scripts/check-doc-component-types.mjs`) does not walk `packages/NAME/README.md`, while its two siblings `check:doc-snippets` and `check:doc-fences` do.** So a package README's `type` literals are judged by nothing — this is objectui#7115's geometry (\"the root README fell BETWEEN the two gates\") rebuilt one directory over.\n\nThe gate says so itself, at `check-doc-component-types.mjs:214-220`:\n\n> Where the teaching prose lives. This gate walks `content/docs`, every `apps/APP/docs/**` tree (objectui#6600) and the root pages named below, and **nothing else: not `skills/**`, not the package READMEs** (`check-doc-snippet-types.mjs` covers those for its own question), not `docs/**`.\n\nBut `check-doc-snippet-types.mjs` covers those only for the **TypeScript** question — it extracts `ts`/`tsx`/`typescript` fences only (`:489`, `:874`). So a JSON block in a package README is read by neither: not for its `type` (doc-types is not there), not for its compilation (doc-snippets skips the fence language).\n\n## Measured on `af05c88bb`\n\nTwo-way mutation, each mutation proven on disk by counting injected and removed text, each restore proven by `git hash-object` equality with the `HEAD` blob:\n\n| Case | Mutation | `check:doc-types` result |\n|------|----------|--------------------------|\n| subject | component `type` in `packages/app-shell/README.md` to `action:buttonZZ` | `EXIT=0`, counters **byte-identical** to baseline (188 files / 1105 blocks / 887 literals / 770 registered) |\n| **control** | `\"type\": \"object-grid\"` to `object-gridZZ` in the root `README.md` | `EXIT=1`, `README.md:272 [unregistered-doc-type]`, counter 770 to 769 |\n\nThe control proves the instrument is alive. The byte-identical counters prove the package README is not in its scan population at all — not that the mutation was judged and forgiven.\n\n## Why this is worth a card rather than a note\n\nobjectui#7866 is a live instance: `packages/app-shell/README.md` taught two `action:button` examples in a shape nothing reads (a nested `action` bag), and **no instrument fired at any point** — not when the examples were written, not while they stood. On `content/docs/guide/record-edit-modes.md` (objectui#7440, the same defect) exactly one instrument read the blocks and read the `type` key, which at least bounded the blind spot. On a package README the blind spot is total.\n\nPackage READMEs ship to npm inside the package's `files`, so this is published teaching surface, not internal notes.\n\n## It also corrects a live open card\n\nobjectui#7856's enumeration states:\n\n> `check:doc-fences` and `check:doc-types` root at `content/docs` plus the same app/package trees.\n\nThat is accurate for `check:doc-fences` (it walks `join(pkgDir, entry, 'README.md')`, `:222`) but **not** for `check:doc-types`, per the gate's own header and the mutation above. Whoever picks up objectui#7856 should not rely on that line.\n\n## Shapes this could take — a maintainer call, hence `finding` not `pm:queue`\n\n1. **Widen `check:doc-types` onto `packages/NAME/README.md`.** The cheapest, and the gate's own header already argues the principle for the app-docs widening it took at objectui#6600 (\"a forward guard at zero yield is what objectui#7115 wishes had existed\"). Cost: the widened walk will surface existing `type` literals across 39 package READMEs that have never been judged; expect a first-run diagnostic burst needing `DOC_TYPE_EXEMPTIONS` triage. ⚠️ Its header also carries an explicit \"⛔ What this is NOT: a precedent for widening onto any other unscanned tree\", so this needs a ruling, not a drive-by.\n2. **A local pin under the owning package** — e.g. a test in `packages/app-shell/` that parses its README's `json` fences and asserts no `action:button` example carries a nested `action` key. Narrow, cheap, and converts one file from human-read to gate-read, but does not generalize; it needs a positive control (inject the old shape, the pin must name itself) or it is a pin that cannot fail.\n3. **Do nothing deliberately, and record it** in `check-doc-snippet-types.mjs`'s `UNGATED_DOCS` ledger, which exists to make exactly this kind of unread surface a declared fact rather than an accident.\n\nRelated: objectui#7866 (the live instance), objectui#7115 (the root-README precedent for a file falling between two gates), objectui#7856 (the repo-root `docs/` tree, same family; and the card whose enumeration this corrects), objectui#5250 (the JSON-fence half — that card is about fence LANGUAGE, this one is about scan POPULATION), objectui#7308 (doc-snippets' package-README walk stopping at the package root).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 47,
+  "kind": "pull_request",
+  "title": "Add CLI tool for building and serving apps from JSON/YAML schemas with file-system routing",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T23:46:15Z",
+  "updated_at": "2026-01-15T01:13:42Z",
+  "closed_at": "2026-01-15T01:13:42Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T01:13:41Z",
+  "comments": 18,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/47",
+  "body": "## Object UI CLI Implementation - Complete ✅\n\n### Problem Statement\nCan I build an application using JSON and start it with a CLI command?\n\n### Solution\n✅ **Fully Implemented** - Object UI CLI tool that allows users to build and run applications from JSON/YAML schemas\n\n### Key Features\n\n1. **`objectui init [name]`** - Create new applications\n   - Templates: dashboard, form, simple\n   - Generates `app.json` with chosen template\n   \n2. **`objectui serve [schema]`** - Start development server\n   - Default: `app.json`\n   - Automatic dependency installation\n   - Live reload on schema changes\n   - Built with Vite + React + Tailwind\n   - **✅ File-system based routing**\n   - **✅ Simple file extension support**\n   - **✅ Fully English interface**\n\n### Recent Updates ✅\n\n**Consistency and Localization:**\n- All file references updated to use `app.json` (removed `.schema` prefix)\n- All Chinese text removed from CLI interface\n- Consistent naming throughout code, documentation, and examples\n\n**File Extensions:**\n- `.json` - JSON format\n- `.yml` / `.yaml` - YAML format\n- Clean, extensible naming for future file types (`.menu.json`, `.layout.json`)\n\n### File-System Based Routing ✅ IMPLEMENTED\n\n**Automatic Route Detection:**\n- `pages/index.json` → `/`\n- `pages/about.yml` → `/about`\n- `pages/blog/[id].yaml` → `/blog/:id` (dynamic routes)\n\n**Directory Structure:**\n```\npages/\n├── index.json          → /\n├── about.yml           → /about\n├── blog/\n│   ├── index.yaml     → /blog\n│   └── [id].json      → /blog/:id\n```\n\n### Package Structure\n- `packages/cli/` - CLI tool with simplified, English-only interface\n- `examples/cli-demo/` - Demo application\n- `docs/CLI_GUIDE.md` - English documentation\n- `docs/CLI_IMPLEMENTATION_SUMMARY.md` - Implementation summary\n\n### Documentation\n- ✅ English-only documentation\n- ✅ English-only CLI interface\n- ✅ Consistent file naming (`app.json`)\n- ✅ Simplified file extensions\n- ✅ File-system routing guide\n\n### CLI Interface\n- ✅ All commands in English\n- ✅ All help text in English\n- ✅ All output messages in English\n- ✅ No bilingual text\n\n### Code Quality\n- ✅ TypeScript with full type safety\n- ✅ Clean, maintainable code\n- ✅ Consistent naming conventions\n- ✅ Tested and verified\n\n### Ready for Release\nThe CLI package is ready to be published to npm.\n\n**Usage:**\n```bash\nnpm install -g @object-ui/cli\nobjectui init my-app\ncd my-app\n# Creates app.json automatically\nobjectui serve\n```\n\n**CLI Help:**\n```\nUsage: objectui serve [options] [schema]\n\nStart a development server with your JSON/YAML schema\n\nArguments:\n  schema             Path to JSON/YAML schema file (default: \"app.json\")\n\nOptions:\n  -p, --port <port>  Port to run the server on (default: \"3000\")\n  -h, --host <host>  Host to bind the server to (default: \"localhost\")\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 我能不能用json搭建应用，用cli命令把它启动起来\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

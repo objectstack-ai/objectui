@@ -1,0 +1,30 @@
+{
+  "number": 3880,
+  "kind": "issue",
+  "title": "[finding] 「同一 en 字符串必须同一译文」不能做成门禁:281 组共享 en 值里 164 组至少有一个包刻意分开译 —— 记下分母,并点出其中两组像是笔误",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-08T23:25:04Z",
+  "updated_at": "2026-09-03T12:40:10Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3880",
+  "body": "#3546 从切片二起有一条落值纪律:**en 字符串已在别处逐字节存在时,复用邻键的既有译文,不另造** —— 否则同一句英文在同一种语言里会有两个说法。切片七给 `common.done` / `common.record` / `common.retry` / `dashboard.loading` / `detail.add` / `organization.invitations.status.pending` 六个键按这条规则复用了邻键,同时刻意**不**复用四个邀请状态形容词(理由是性数一致:ru 的 `approvalsInbox.statusRejected` 是阳性 `Отклонён` 配「请求」,而「приглашение」是中性要 `Отклонено`)。\n\n顺手把这条规则的**分母**量了出来,结论是:**它永远不能变成一道门禁**。\n\n## 实测(十包全量)\n\n| 项 | 数 |\n|---|---|\n| 被 ≥2 个 key 共用的 en 字符串 | **281** 组 |\n| 其中至少一个包把它们译成两种以上 | **164** 组 |\n\n也就是 58% 的共享 en 值在某个语言里是分开译的。抽样看,绝大多数是**正当的**:\n\n- `Design in Studio` @ `topbar.designInStudio` / `perm.facet.designInStudioHint` / `console.ai.designBuiltApp` —— zh 把第三个译成 `进入 Studio 继续完善`(agent 刚建好应用后的\"继续完善\"),切片六已在 PR #3868 里立此存照;\n- `Clear` @ 5 个 key —— ja 的 `grid.bulkClear` 是 `選択解除`(清除**选择**)而其余是 `クリア`;\n- `Save` @ 8 个 key —— `form.saveRecord` 各包都带宾语(`レコードを保存` / `Datensatz speichern`);\n- `{{count}} records` @ 4 个 key —— ru 的 `lookup.recordCount` 是「名词: {{count}}」而其余是「{{count}} 名词」;\n- `Delete` @ 11 个 key —— ru 的 `layout.activityFeed.typeDelete` 是名词 `Удаление`(活动流的事件类型)而其余是动词 `Удалить`。\n\n**所以一道\"同 en 必同译\"的门禁会产生 164 个假红。** 记在这里,免得后续有人(包括 AI)把这条纪律读成不变量去实现它 —— 与 #3810 讨论的 `defaultValue` vs en 值门禁不同,那一条是**可以**落硬门禁的,这一条不行。选择只能一次次在 PR 里做,而 #3546 各切片测试文件里的 `REUSED` 清单就是这些选择唯一被记录的地方。\n\n## 其中两组看起来确实是笔误(可单独修)\n\n1. **`Done`** @ `view.done` / `form.fullscreen.done` / `grid.bulk.done` —— es 分别是 `Listo` / `Listo` / **`Hecho`**。三处都是\"完成/收工\"按钮,没有语境差别。(切片七的 `common.done` 取了 `Listo`,2:1 的多数派。)\n2. **`Loading...`** @ `common.loading` / `detail.loading` —— de 分别是 `Wird geladen...` / **`Laden...`**。同一个字符串、同样没有语境差别。顺带:`Loading…`(U+2026 版,8 个 key)在 de 里有 `Wird geladen…` / `Laden…` / `Lädt…` 三种,在 ko 里有 `로딩 중…` / `불러오는 중…` 两种 —— 见 #3878 的字形分歧。\n\n这两组是\"改一个值就完事\"的量级,但都属**改既有语言包值**,与在飞的 #3844 / #3875(es)有文件相交风险,所以未在 #3546 切片七里动。\n\n关联:#3546(切片七,发现路径)、#3810(可以落门禁的那一类)、#3878(省略号字形)、#3844 / #3875(在飞的既有值修正)。"
+}

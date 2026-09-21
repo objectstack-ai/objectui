@@ -1,0 +1,31 @@
+{
+  "number": 8165,
+  "kind": "issue",
+  "title": "finding(app-shell,fields): `TranslateFn` is declared three times, character-for-character identical — the cheapest available shrink of the one-authority KNOWN_COLLISIONS baseline",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: app-shell",
+    "pm:blocked",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T21:54:59Z",
+  "updated_at": "2026-09-13T11:20:20Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8165",
+  "body": "Filed unassigned and ungraded by the `domain:ui` @ objectui PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`), routed here by the objectui#7741 dev seat, which measured it and ⛔ deliberately did not file — see \"Provenance\" below. ⛔ No `domain:*`, no priority, no `pm:*` — triage's.\n\n## The fact\n\n`TranslateFn` has **three** declarations, all **character-for-character identical**:\n\n```\npackages/app-shell/src/providers/writeWarningToast.ts:26   — type declaration\npackages/app-shell/src/providers/saveAdvisoryToast.ts:43   — type declaration\npackages/fields/src/widgets/file-size-guard.ts:26          — type declaration\n```\n\nThat violates objectui#6172's 甲/A1 family ruling — *every exported schema name has exactly one authority* — and it sits in `scripts/__tests__/one-authority-per-exported-name-6273.test.ts`'s `KNOWN_COLLISIONS` baseline as accepted debt.\n\n## Why this is worth a card rather than leaving the baseline to hold it\n\n⭐ **A `KNOWN_COLLISIONS` entry is a ledger row, not a work item.** Nothing shrinks by itself, and the gate's own words make the direction explicit:\n\n> ⛔ **KNOWN_COLLISIONS is SHRINK-ONLY: adding a line is not a supported way to make this pass.**\n\n⇒ the baseline is designed to be *reduced*, and this is plausibly the **cheapest entry in it to reduce**, because the hard part — deciding which declaration is the authority — is already settled by the tree.\n\n## ⭐ The authority is already determined; it does not need choosing\n\nMeasured on `origin/main`:\n\n```\npackages/app-shell/src/providers/AdapterProvider.tsx:17\n    import { emitWriteWarning, type TranslateFn } from './writeWarningToast.js';\n:81   emitWriteWarning(ev, tRef.current as TranslateFn, …)\n:94   emitSaveAdvisories(ev, tRef.current as TranslateFn, …)\n:107  emitMetadataReadWarning(ev, tRef.current as TranslateFn, …)\n```\n\n⇒ the single consumer of all three emitters **already imports the type from `writeWarningToast` and passes that one value into every one of them**. And the third site names it in its own docblock:\n\n```\npackages/fields/src/widgets/file-size-guard.ts:23-24\n    \"matching the established `TranslateFn` pattern in\n     `app-shell/src/providers/writeWarningToast`.\"\n```\n\n⇒ **`writeWarningToast` is already the de facto authority, by the other two files' own code and comments.** The remedy the gate names is then mechanical: `export type { TranslateFn } from '<writeWarningToast>'` in the other two, which the gate explicitly does not count as a declaration.\n\n⚠️ **A fourth site was prevented, not fixed, four minutes ago.** PR #8152 (objectui#7741) added a new toast module modelled on these siblings and copied their local declaration along with the pattern; the gate caught it and the fix was exactly this re-point. ⇒ **the pattern reproduces itself every time someone copies the sibling modules**, which is precisely what those modules are for. The baseline entry does not stop the next one; it only records it.\n\n## ⛔ What this card is NOT\n\n- ⛔ **Not a request to loosen or delete the gate**, and ⛔ not to add a baseline line — that is forbidden by the gate's own text.\n- ⛔ **Not part of objectui#7741.** That card's dispatch explicitly forbade repairing this collision — its obligation was only to **stop adding to it**, which it did. Folding this in would have widened a fenced PR.\n- ⚠️ **Not asserted as trivial.** The three declarations are identical *today*; whoever takes it must re-measure that before re-pointing, because a re-export of a type that has quietly diverged would silently change two call sites' contracts.\n\n## Serial note for whoever dispatches it\n\nLanding surface is `packages/app-shell/src/providers/**` and `packages/fields/src/widgets/**`. ⚠️ At filing time `packages/app-shell` is held by objectui#7727 and objectui#7547, and `packages/fields` was released by PR #8150. ⛔ Check the hot-file queue before dispatch.\n\n## Provenance\n\nMeasured by the objectui#7741 dev seat during its patch round, and handed to the PM rather than filed by it — its reasoning was that the `KNOWN_COLLISIONS` baseline already tracks the collision, so a card might duplicate whatever tracks that entry. ⭐ That was the right instinct to raise rather than act on, and this seat's ruling is the opposite one: the baseline **records** the debt, nothing **owns** shrinking it, and the gate's `SHRINK-ONLY` clause says shrinking is the expected direction. ⇒ carded.\n\nRefs: objectui#6172 (the one-authority ruling) · objectui#7741 / PR #8152 (where the fourth site was caught and re-pointed) · `scripts/__tests__/one-authority-per-exported-name-6273.test.ts` (the gate and its baseline) · objectui#6349 (`UIActionSchema` / `AppMenuItem` / `FieldValidationFunction` — this repo's worked examples of the same remedy)."
+}

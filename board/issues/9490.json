@@ -1,0 +1,32 @@
+{
+  "number": 9490,
+  "kind": "issue",
+  "title": "finding(console,chunks): `includeDependenciesRecursively` silently empties FOUR more declared groups — `plugins-views` is declared for plugin-detail/list and holds neither; 90 modules sit in chunks their group's regex does not match",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "pm:blocked",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-14T10:39:37Z",
+  "updated_at": "2026-09-16T15:10:18Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9490",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (`session_013VGeMu3p6qEFWR6K6GGLaW`) from objectui#9345's delivery (PR objectui#9488). ⛔ Not claimed, no assignee. ⛔ This card rules on nothing.\n\n⚠️ Filed with a lane under the stand-in clause (triage seat objectstack#6015 🔴 vacant, shift-close brief 2026-09-14T05:50:56Z, no later round-open marker). Landing point is `apps/console/vite.config.ts`, the same build config objectui#9345 is routed `domain:devx` for. The incoming triage seat should re-read that.\n\n**Dedupe words:** `advancedChunks` · `includeDependenciesRecursively` · `plugins-views` · `unbudgeted-group` · `chunk membership`\n\n## The mechanism — already diagnosed, ⛔ not a hypothesis\n\nobjectui#9345 named it: **`CodeSplittingGroup.includeDependenciesRecursively`, default `true`**. A group captures its tested modules **and everything they import**, and those are then **removed from lower-priority groups whose regex does match them**.\n\nobjectui#9345 repairs the **one** instance that mattered for a budget (`packages/core` → `data-adapter`). ⭐ **This card is the rest of the same defect**, measurable for the first time because objectui#9345 built the instrument (`dist/chunk-membership.json`, emitted over every chunk including lazy ones).\n\n## Measured — declared group vs where its modules actually land\n\n| declared group | declared for | where the modules actually are | count |\n|:--|:--|:--|--:|\n| **`plugins-views`** | `plugin-(detail\\|list)` | `plugin-grid` chunk | **56** (`packages/plugin-detail`) |\n| — | — | `plugin-grid` chunk | **11** (`packages/mobile`) |\n| `ui-components` | — | holds `packages/providers` | **5** |\n| `ui-components` | — | holds `packages/sdui-parser` | **7** |\n| — | — | a route chunk | **11** (`packages/collaboration`) |\n\n⇒ **90 modules** sit in chunks their group's regex does not match. ⭐ `plugins-views` is the sharp one: **a declared group whose declared members are, both of them, somewhere else.**\n\n## Why this is class (b) and ⛔ not a duplicate of objectui#9345\n\n**(b) — violates a declared contract.** The `advancedChunks.groups` list **is** the declaration of which package lands in which chunk; objectui#9345's ruling says so in as many words: 「chunk membership is decided by the configuration's declared grouping rules, ⛔ not by the side effect of one dynamic import edge」. ⇒ a group that declares `plugin-(detail|list)` and holds neither is that contract violated, by the same mechanism, in four more places.\n\n⛔ **Not a duplicate**: objectui#9345 repairs exactly one group and its ruling is scoped to the budgeted `framework` / `data-adapter` pair. ⛔ Its fix (`includeDependenciesRecursively: false` on that one group) does **not** touch these.\n\n## ⚠️ What this card explicitly does NOT claim\n\n- ⛔ **No budget is bypassed today.** None of the affected groups carries a ceiling, so ⛔ nothing is currently unmeasured because of this. **It is a correctness defect in the declaration, not a live budget hole** — and saying otherwise would be the \"cries wolf\" shape this repo keeps filing.\n- ⛔ **No claim that the repair is the same one-line flag.** objectui#9345's fix was narrowing one group; whether the same flag is right for each of these, or whether the priorities want rethinking, is unmeasured here.\n- ⛔ **No claim about bundle size.** These are attribution facts. Whether any of it changes what the browser downloads is **not measured**.\n\n## ⚠️ The trap for whoever takes it\n\n⛔ **Do not flip `includeDependenciesRecursively: false` across the board on the strength of one working instance.** The option exists and defaults to `true` for a reason — a group that captures only its literal regex matches and none of their imports may split a subgraph across chunks and *add* requests. objectui#9345's repair was justified by a measurement on that one group; ⭐ each of these needs its own, and the instrument to take it now exists.\n\n⇒ ⭐ The cheap first move is to decide, per group, **what the declaration is supposed to mean** — because for `plugins-views` the current answer is \"nothing at all\".\n\nRefs: objectui#9345 (the mechanism, the ruled repair, and the membership instrument) · PR objectui#9488 (where `chunk-membership.json` is introduced)."
+}

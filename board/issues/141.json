@@ -1,0 +1,36 @@
+{
+  "number": 141,
+  "kind": "pull_request",
+  "title": "Add documentation and showcase examples for all plugins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "examples"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-21T17:25:27Z",
+  "updated_at": "2026-01-22T01:56:56Z",
+  "closed_at": "2026-01-22T01:56:56Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-22T01:56:56Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/141",
+  "body": "## Problem\n\nPlugins were inconsistently documented: `plugin-editor` and `plugin-markdown` lacked showcase examples, `plugin-object` lacked documentation. The CLI also didn't auto-import plugins, causing registration failures.\n\n## Changes\n\n### Added Showcase Examples\n- **`code-editor.json`**: Monaco editor demonstrations (JavaScript, TypeScript, Python, JSON, HTML) with theme variants and read-only mode\n- **`markdown.json`**: GFM rendering examples (headings, tables, code blocks, task lists, blockquotes)\n\n### Added Documentation\n- **`plugin-object.md`**: Complete reference for ObjectTable, ObjectForm, and ObjectView with TypeScript types and ObjectQL integration examples\n\n### Fixed Plugin Loading\n```typescript\n// packages/cli/src/utils/app-generator.ts\nimport '@object-ui/components';\nimport '@object-ui/plugin-charts';\nimport '@object-ui/plugin-editor';\nimport '@object-ui/plugin-kanban';\nimport '@object-ui/plugin-markdown';\nimport '@object-ui/plugin-object';  // Now auto-imported\n```\n\n```typescript\n// packages/cli/src/commands/dev.ts\nviteConfig.resolve.alias = {\n  '@object-ui/plugin-charts': join(cwd, 'packages/plugin-charts/src/index.tsx'),\n  '@object-ui/plugin-editor': join(cwd, 'packages/plugin-editor/src/index.tsx'),\n  '@object-ui/plugin-kanban': join(cwd, 'packages/plugin-kanban/src/index.tsx'),\n  '@object-ui/plugin-markdown': join(cwd, 'packages/plugin-markdown/src/index.tsx'),\n  '@object-ui/plugin-object': join(cwd, 'packages/plugin-object/src/index.ts'),  // Correct .ts extension\n};\n```\n\n### Updated Showcase Navigation\nAdded \"Code Editor\" and \"Markdown\" menu items to Complex section in `app.json`.\n\n## Result\n\nAll 5 plugins now have complete documentation and working showcase demonstrations.\n\n![Markdown Showcase](https://github.com/user-attachments/assets/1c27bfbf-dfa2-493f-b7dc-0e84ad6213b2)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 所有的插件也应该在文档中、演示效果。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

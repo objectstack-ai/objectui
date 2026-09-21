@@ -1,0 +1,31 @@
+{
+  "number": 8275,
+  "kind": "issue",
+  "title": "finding(ci): with both live-e2e pins now machine-held, re-decide whether the lane stays `informational` — and on what evidence",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T07:36:55Z",
+  "updated_at": "2026-09-21T05:28:51Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8275",
+  "body": "Filed per the last sentence of the maintainer ruling on #7964: *\"Whether the live-e2e lane should stay `informational` is a separate question — file it as its own card with the evidence of what the lane proves once this lands, not as a rider here.\"*\n\nBlocked-by: #7964 (the derivation PR). Do not decide this before that lands — half the evidence below is about the shape it creates.\n\n## The question\n\n`Live E2E (informational)` runs `continue-on-error: true` and is not a required context. That was decided in #2835, with an explicit precondition attached in the workflow header: *\"Do not add it to required checks (and do not remove `continue-on-error`) until the nightly record proves the lane stable.\"* Two of the reasons it could not be trusted have since been removed. This card asks the maintainer to re-decide, on the evidence, rather than let `informational` persist by default.\n\n## What the lane proves once #7964 lands\n\n- It boots a **real** `objectstack dev` backend from **published** `@objectstack/*` tarballs at `OBJECTSTACK_VERSION` (nothing built from source), serving the showcase app, and drives it with a real browser. That is the only lane in this repo that answers \"does this console work against a released backend\" — the class of defect `saved-view-filter.spec.ts` was written to pin (objectui#3431) is only answerable there.\n- The allowlist is four specs, named by `test:e2e:live:ci` in `package.json`: `screen-flow.spec.ts`, `action-modal.spec.ts`, `master-detail.spec.ts`, `saved-view-filter.spec.ts`.\n- **The pair it tests is now matched by machine, on both halves.** #7689 held `OBJECTSTACK_VERSION` to the version `pnpm-lock.yaml` resolves. #7964 removed the second pin entirely: `start-backend.sh` derives the showcase-app commit from the `@objectstack/cli@$OBJECTSTACK_VERSION` release tag at boot and refuses to start when it does not resolve. So the app source and the installed packages come from one release **by construction**.\n- That last point is the reason this card exists. Before #7689 and #7964, the lane's own contract said a mismatched pair \"proves nothing\" — so a green run genuinely carried no information, and `informational` was the honest status for it. That defect is gone. The lane's greens now mean something they did not mean before, and the status has not been revisited since.\n\n## Evidence on the other side — do not skip this\n\n- The lane is **red on `main` right now** for a reason that is not an objectui diff: the published `plugin-auth` floating onto `@better-auth/core@1.7.3` (objectstack#16186). See #7990. objectui#8084 pinned the family in `backend.env` as a workaround, and that pin is itself declared temporary.\n- Structurally, the lane depends on things outside this repo's diffs: the npm registry, `github.com` (the sparse checkout, and now the tag resolution), and the published artifacts' own transitive float. A required context that can go red for any of those turns every unrelated PR red. That is the concrete cost of promotion, and it is not hypothetical here — it happened this month.\n- Runtime: the job installs from npm, builds the console, installs Playwright browsers and polls a 300s readiness gate. Promotion puts that on the critical path of every merge.\n\n## The required contexts today, for reference\n\n`rules/branches/main` requires: `Lint`, `Type Check`, `Build & E2E`, `Test (shard 1-4/4)`, `Build Docs`, `Changeset Declaration`. `Live E2E (informational)` is not among them. Re-read the ruleset before acting on this list — it is a reading taken 2026-09-07, not a guarantee.\n\n## What a decision needs\n\nThe workflow header names the evidence itself: the **nightly record** (`schedule: cron '30 6 * * *'`). Someone should pull the last N nightly runs and separate three populations before this is decided:\n\n1. reds caused by an objectui change (the signal promotion would buy),\n2. reds caused by upstream/published-artifact drift (#7990 is one),\n3. reds caused by infrastructure (registry, network, cache, timeout).\n\nIf population 1 is non-empty and 2+3 are rare, promotion is defensible. If 2+3 dominate, the honest answer may be a third option neither #2835 nor this card has named: keep it non-required on PRs but make the **nightly** run a lane someone is accountable for, so its reds are read instead of accumulating.\n\n## Scope\n\nAnalysis and a maintainer decision — not a code change. Nothing in #7964's PR touches the workflow, deliberately.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

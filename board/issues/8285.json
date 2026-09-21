@@ -1,0 +1,33 @@
+{
+  "number": 8285,
+  "kind": "issue",
+  "title": "plugin-kanban: `quickAdd` is inert on `object-kanban` / `kanban` — `ObjectKanban` never supplies the `onQuickAdd` runtime slot the control is gated on",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "plugin: kanban",
+    "pm:on-hold",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T08:30:43Z",
+  "updated_at": "2026-09-19T17:10:10Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8285",
+  "body": "Restart-when: npm view @objectstack/spec version reports a version GREATER than 17.4.0 AND objectui's pnpm-lock.yaml resolves that version — a CHEAP TRIGGER for the sweep, ⛔ NOT the licence: on a hit, re-run the installed-surface probe in the hold comment (the ADR-0087 conversion registry must carry the `page.component.object-kanban.quickAdd` surface, with another known surface as the same-subject control) and start work only on a real reading.\nRestart-touch: pnpm-lock.yaml\n\n<sub>⬆️ Added by the `domain:ui#2` execution seat (session `session_018HrVaotisyhgmot9o2MLRq`) at 2026-09-19T17:10Z. The director seat's 2026-09-10 instruction said to move this card to `pm:blocked` with `Blocked-by: objectstack#17260`; that target CLOSED on 2026-09-12, so the line would be a satisfied-but-unreleasing block (the H26 shape). The retirement is merged on objectstack main but NOT published — `npm view @objectstack/spec version` reads 17.4.0 and that release does not carry it — so the cross-repo unlock criterion 「consumer can install it」 is unmet. Measurements and the probe are in the hold comment; ⛔ nothing else in this body was touched.</sub>\n\nFiled unassigned by the os-dev seat implementing objectui#8201 (branch `claude/issue-8201-kanban-calendar-undeclared-spec-keys`). **Measured**, not derived, on `origin/main` `fc32921aa` with `@objectstack/spec@17.3.0` as installed. This card is the issue backing objectui#8201's ruled carve-out for `object-kanban.quickAdd`; it is not a blocker for that one.\n\n## The measurement\n\n`@objectstack/spec`'s `ComponentPropsMap['object-kanban']` declares `quickAdd` as `z.boolean().optional()`, and the key parses (checked with a control key drawing `unrecognized_keys` on the same `safeParse` call, so the negative is a reading). The board does not honour it.\n\nThe chain, end to end:\n\n1. `ObjectKanban.tsx` builds `effectiveSchema` by spreading the authored node, so `quickAdd` reaches `KanbanRenderer` (`packages/plugin-kanban/src/ObjectKanban.tsx`, the `KanbanRenderer schema=...` call).\n2. `KanbanRenderer` forwards both halves: `quickAdd={schema.quickAdd}` and `onQuickAdd={schema.onQuickAdd}` (`packages/plugin-kanban/src/index.tsx`).\n3. `KanbanImpl` renders the control only when **both** are truthy — `quickAdd && onQuickAdd`, twice (the in-column button and the `QuickAddForm`).\n4. `onQuickAdd` is an objectui#6124 **RUNTIME SLOT**: a host-supplied function. `packages/types/src/zod/complex.zod.ts` refuses it by name (`handlerKeyRefusal('onQuickAdd', 'runtime-slot', ...)`) because JSON has no function value.\n5. `ObjectKanban` never supplies one. It substitutes its own `onCardMove` and `onCardClick` in the very same object literal and stops there — grep for `onQuickAdd` in `packages/plugin-kanban/src/ObjectKanban.tsx` returns **zero** hits (control: `onCardClick` returns hits in the same file, so the zero is a reading).\n6. No producer anywhere in this repo puts `onQuickAdd` on an `object-kanban` or `kanban` node. Every hit outside `KanbanImpl` / `KanbanEnhanced` / `index.tsx` is a type declaration or a test about the type declaration.\n\nSo an author writing `quickAdd: true` on an `object-kanban` node gets nothing, with no diagnostic. The sibling `kanban-ui` block is the one that honours the pair, because a React host mounting `KanbanRenderer` directly can pass the function.\n\n## Why this is not just a documentation gap\n\nThis is the \"accepted and dropped\" class the `OBJECT_KANBAN_DATA_SOURCE` docblock in `packages/plugin-kanban/src/index.tsx` already refuses one layer down for `sort` — a key mapped onto something plausible so that a value is taken and silently discarded. `quickAdd` is the same shape reached from the other direction: the spec publishes it, the renderer accepts it, and nothing happens.\n\nConsequence for objectui#8201: `quickAdd` is the one key of the fifteen that gets a carve-out rather than a declaration, and the carve-out is **premature** rather than **wrong** — the key becomes publishable the day the board can honour it without a host function.\n\n## The direction, for triage rather than as a decision\n\nThe shape that would make it honourable is the one the board already uses for card moves: `ObjectKanban` supplies its own `onQuickAdd` that writes through `dataSource.create` against `objectName`, seeding the new record's `groupBy` field with the target column id — exactly as `handleCardMove` writes `record[groupBy] = toColumnId` today, and with the same optimistic-update and rollback treatment. Required-field handling already exists next door (`RequiredFieldsDialog`, `requiredWhenPrompt.ts`), which is the part that makes a bare title insufficient for many objects and is the reason this is a product question rather than a mechanical one.\n\n⚠️ That paragraph is a sketch of the option space, **not** a design ruling. Whether the board should create records inline at all is a maintainer call.\n\n## Scope note\n\nobjectui#8201 is not addressed here and remains open; it owns the declaration question for the other fourteen keys. This card owns only the inertness of `quickAdd` on the two `ObjectKanbanRenderer` tags.\n\nGenerated by a Claude Code os-dev seat, session `session_01YBWFb5YgMU5dw8p2VKj16S`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

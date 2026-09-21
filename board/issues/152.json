@@ -1,0 +1,37 @@
+{
+  "number": 152,
+  "kind": "pull_request",
+  "title": "Fix broken documentation links and add automated link validation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-22T17:19:37Z",
+  "updated_at": "2026-01-23T02:58:06Z",
+  "closed_at": "2026-01-23T02:56:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T02:56:31Z",
+  "comments": 39,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/152",
+  "body": "## Fix broken documentation links and add automated link validation\n\nFixes broken documentation links and adds automated link validation using lychee-action for fumadocs documentation.\n\n## Changes\n\n**Validation tooling:**\n- `.github/workflows/check-links.yml` - Lychee-based link checker that runs on push to main and PRs, fails CI on broken links\n- `lychee.toml` - Configuration file with path remapping to validate internal fumadocs links (maps Next.js routes `/docs/*` to filesystem paths `docs/*` using regex)\n- `.lycheeignore` - Ignore patterns for lychee (localhost, example.com, social media links)\n\n**Documentation:**\n- CONTRIBUTING.md - Link conventions with examples\n\n**Fixed broken links:**\n- ✅ docs/index.md - Fixed ALL internal links to include `/docs/` prefix (Quick Links, hero actions, Getting Started, Components, Core Concepts, Plugins, Reference, Architecture, Ecosystem, Support, Community, CTA buttons)\n- ✅ plugin-editor.mdx - Added `/docs/` prefix to internal links\n- ✅ plugin-kanban.mdx - Added `/docs/` prefix to internal links\n- ✅ plugin-charts.mdx - Added `/docs/` prefix to internal links\n- ✅ plugin-markdown.mdx - Fixed `/api` → `/docs/reference/api/core`, added `/docs/` prefix, updated external references\n- ✅ plugin-object.mdx - Added `/docs/` prefix to internal links, removed `.md` extensions\n- ✅ navigation-menu.mdx - Fixed example hrefs to include `/docs/` prefix\n\n## Link conventions\n\nIn fumadocs with `baseUrl: '/docs'`, the baseUrl defines where docs are served in Next.js routing (`app/docs/[[...slug]]/page.tsx`). Internal links **MUST** include the `/docs/` prefix to match the actual URL structure:\n\n```markdown\n✅ [Quick Start](/docs/guide/quick-start)      # Correct - served at /docs/guide/quick-start\n✅ [API Reference](/docs/reference/api/core)   # Correct - served at /docs/reference/api/core\n\n❌ [Quick Start](/guide/quick-start)           # Wrong - results in 404\n```\n\n**Why this matters**: The `baseUrl` parameter tells fumadocs where the docs are mounted in the Next.js app structure. Links must use the full path that matches the actual URL where pages are accessible.\n\n## Validation Status\n\n**Lychee link checker** with `lychee.toml` configuration:\n- Validates all HTTP/HTTPS links are not broken (checks for 404s)\n- **Path remapping**: Uses regex to map Next.js routes (`/docs/*`) to filesystem paths (`docs/*`)\n  - Pattern: `^/docs/(.*)$ file://./docs/$1`\n  - Lychee automatically tries common extensions (.md, .mdx, etc.)\n  - Handles index files automatically\n- Scans `docs/**/*.{md,mdx}` and `README.md`\n- Checks both internal and external links\n- **Fails CI** if broken links are found, blocking code merge\n- Ignores localhost, example.com, and social media links\n- Runs on push to main and on pull requests\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fumadocs文档中的链接很容易404，修改并提供自动化测试方案。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

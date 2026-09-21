@@ -1,0 +1,36 @@
+{
+  "number": 121,
+  "kind": "pull_request",
+  "title": "Fix CI lockfile error by removing @objectstack/spec dependency",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: types"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-19T14:26:16Z",
+  "updated_at": "2026-01-19T15:03:57Z",
+  "closed_at": "2026-01-19T15:03:57Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-19T15:03:57Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/121",
+  "body": "Fixes the CI pipeline failure caused by a mismatch between `pnpm-lock.yaml` and `packages/types/package.json`.\n\n## Problem\n\nThe CI was failing with:\n```\nERR_PNPM_OUTDATED_LOCKFILE  Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up to date with packages/types/package.json\n\nspecifiers in the lockfile don't match specifiers in package.json:\n* @objectstack/spec (lockfile: workspace:*, manifest: ^0.1.1)\n```\n\nThe lockfile expected `@objectstack/spec` to be a workspace package, but `package.json` specified it as an external npm dependency (^0.1.1). Additionally, the npm package `@objectstack/spec@0.1.1` doesn't export the `UIComponent` interface that was being imported.\n\n## Changes Made\n\n- **Removed dependency**: Removed `@objectstack/spec` from `packages/types/package.json`\n- **Reverted BaseSchema**: Restored `packages/types/src/base.ts` to its original definition where `BaseSchema` defines `type` and `id` properties directly instead of extending `UIComponent`\n- **Updated lockfile**: Synchronized `pnpm-lock.yaml` to reflect the removed dependency\n\n## Testing\n\n- ✅ Frozen lockfile installation works correctly\n- ✅ TypeScript compilation passes\n- ✅ `@object-ui/types` package builds successfully\n- ✅ All dependencies resolve without errors\n\nThe changes restore the types package to its original state, removing the incorrect dependency on an external package that was causing the CI failure.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21141019742/job/60794817921#step:7:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 125,
+  "kind": "pull_request",
+  "title": "Redesign elegant homepage with fumadocs layout and navigation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-20T05:13:33Z",
+  "updated_at": "2026-01-20T08:36:28Z",
+  "closed_at": "2026-01-20T08:36:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-20T08:36:28Z",
+  "comments": 16,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/125",
+  "body": "- [x] Understand the current homepage structure\n- [x] Review project features and design principles\n- [x] Design and implement hero section with gradient background\n- [x] Add features showcase section with 6 key features\n- [x] Add code examples section with terminal-style preview\n- [x] Add stats section with gradient background\n- [x] Add use cases section\n- [x] Add call-to-action section\n- [x] Add footer with attribution\n- [x] Ensure responsive design with Tailwind classes\n- [x] Test the homepage appearance\n- [x] Address code review feedback\n- [x] Fix formatting issues\n- [x] Run final validation\n- [x] Integrate fumadocs HomeLayout with navigation, search, and theme toggle\n- [x] Update all styling to use fumadocs design tokens\n- [x] Investigate root cause and fix duplicate RootProvider issue\n\n## Screenshots\n\n### Homepage with Fumadocs Navigation\n<img src=\"https://github.com/user-attachments/assets/07be2a2b-562a-41df-a573-9a78214d72ce\">\n\n### Docs Page - After Fix\n<img src=\"https://github.com/user-attachments/assets/c0cfafeb-4d68-4382-b490-01f200791495\">\n\n## Summary\n\nThe homepage has been completely redesigned following fumadocs conventions with professional navigation, search functionality, and theme switching.\n\n### 🎯 Fumadocs Integration\n\n**Navigation Bar**: Professional navbar using fumadocs' `HomeLayout`\n- Logo with link to homepage\n- Documentation link\n- GitHub repository link\n- Search button with ⌘K keyboard shortcut\n- Theme toggle (light/dark/system modes)\n\n**Design System**: All styling uses fumadocs design tokens\n- `fd-primary`, `fd-accent`, `fd-background`\n- `fd-foreground`, `fd-muted-foreground`\n- `fd-card`, `fd-border`\n- Automatic theme adaptation\n\n### ✨ Content Sections\n\n**Hero Section**: Gradient background with clear value proposition\n- Badge showing \"The Universal Schema-Driven UI Engine\"\n- Two prominent CTAs: \"Get Started\" and \"View on GitHub\"\n- Terminal-style code preview showing JSON schema example\n\n**Features Section**: 6 key benefits with icons\n- Blazing Fast, Beautiful by Default, Developer Friendly\n- Production Ready, Modular Architecture, Backend Agnostic\n\n**Stats Section**: Key metrics (60+ Components, 85%+ Test Coverage, 50KB Bundle Size)\n\n**Use Cases Section**: 6 cards showing practical applications\n\n**CTA Section**: Engaging call-to-action with gradient background\n\n### 🔍 Root Cause Analysis & Fix\n\n**Problem**: Documentation sidebar height was calculated incorrectly\n\n**Root Cause Identified**:\nThrough commit history analysis, discovered the issue was caused by duplicate `RootProvider` components:\n\n1. **Original State**: `RootProvider` correctly in root layout\n2. **Incorrect Fix**: `RootProvider` removed from root and added to docs layout (commit a446d4a)\n3. **Partial Revert**: `RootProvider` restored to root layout for HomeLayout, but NOT removed from docs layout (commit 3911242)\n4. **Result**: Duplicate nested `RootProvider` components causing CSS conflicts\n\n**Proper Solution Applied**:\n- Removed duplicate `RootProvider` from docs layout\n- Kept single `RootProvider` in root layout (correct fumadocs pattern)\n- Removed temporary CSS hack from global.css\n- Restored clean architecture following fumadocs best practices\n\n**Correct Pattern**:\n```\nRootProvider (root layout)\n├── HomeLayout (homepage)\n└── DocsLayout (docs pages)\n```\n\n### 🔧 Technical Implementation\n\n- Uses `HomeLayout` from `fumadocs-ui/layouts/home`\n- Single `RootProvider` at root level (proper fumadocs architecture)\n- All sections use fumadocs design tokens for consistency\n- Responsive navigation with mobile support\n\n### ✅ Features Working\n\n- ✅ Navigation bar with logo and links\n- ✅ Search dialog (⌘K shortcut)\n- ✅ Theme toggle (light/dark/system modes)\n- ✅ GitHub repository link\n- ✅ Responsive design\n- ✅ All content sections preserved with fumadocs styling\n- ✅ Clean layout architecture with no duplicate providers\n\n## Quality Assurance\n✅ Root cause properly identified and documented\n✅ Duplicate RootProvider removed\n✅ Follows fumadocs best practices and conventions\n✅ Uses fumadocs design tokens throughout\n✅ Proper React keys and best practices\n✅ Consistent formatting and clean code\n✅ Navigation, search, and theme toggle tested and working\n✅ Clean architecture with proper layout nesting\n✅ Both homepage and docs pages tested and working correctly\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 重新设计精致的首页\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

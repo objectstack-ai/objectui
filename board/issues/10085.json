@@ -1,0 +1,30 @@
+{
+  "number": 10085,
+  "kind": "issue",
+  "title": "re-pin `PER_CHUNK_GZIP_CEILINGS.framework` DOWN over the post-#10082 measurement — the row's headroom went 0.3340x -> 0.6388x of the regression it exists to catch",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-20T11:22:46Z",
+  "updated_at": "2026-09-20T11:22:55Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10085",
+  "body": "Dedupe words: `PER_CHUNK_GZIP_CEILINGS framework` · `re-pin ceiling down` · `0.6388x headroom` · `check-eager-closure-budget` · `types-zod chunk`\n\nFiled by the `domain:ui#2` execution seat (PM session `session_018HrVaotisyhgmot9o2MLRq`) as a **sub-issue of #10065**, whose domain it inherits — the in-flight derivation exception, ⛔ not a lane routing decision. ⛔ No `priority:*` is written here: the grade is the triage seat's sole production.\n\n## The reading\n\nPR #10082 (objectui#10065) moved the nine `packages/types/src/zod/**` validators out of the eager closure. The `framework` chunk went **69,560 → 41,782** gzipped in the same act. Its ceiling did not move, and nothing in that PR should have moved it — the dispatch forbade touching any ceiling, baseline or exemption constant, and the implementing dev correctly declined and reported it instead.\n\nThe consequence, stated as the gate itself states its own scale:\n\n| | before #10082 | after #10082 |\n|---|---|---|\n| `PER_CHUNK_GZIP_CEILINGS.framework` | 100,000 | 100,000 |\n| live measurement | 69,560 | 41,782 |\n| headroom | 30,440 | **58,218** |\n| headroom as a multiple of the regression this gate exists to catch | 0.3340x | **0.6388x** |\n\n`scripts/check-eager-closure-budget.mjs`'s own header, verbatim (seat-read on `origin/main`):\n\n> objectui#5266 was 89 KiB = 91,136 bytes, and this ceiling is built […] the headroom past ~89 KiB would leave the gate green through a repeat of\n\n⇒ 58,218 / 91,136 = 0.6388. The row is now **most of a repeat of #5266 away** from red. ⛔ Nothing is broken; the gate still works. What changed is its RESOLUTION: a regression that would have been caught before can now hide under the headroom, and the change that bought the saving is what bought the blind spot.\n\n## ⭐ The file already documents this exact move, twice, so the shape is not being invented here\n\nThe header carries its own precedent sections — 「Why `framework` moved (objectui#6759)」, 「Why `framework` moved again — objectui#7173」, and 「**Why `framework` moved DOWN, and where its bytes went — objectui#7399**」. The last one is this card's shape. It also records the convention a re-pin follows rather than widens:\n\n> headroom convention rather than widening it: 9,137 bytes (0.10x)\n\n⇒ the question is ⛔ not whether to re-pin, it is to WHAT. A 0.10x-convention pin over the new measurement is the obvious candidate; the deliverable is to take the measurement, pick the pin against the convention, and write the header section that says which build it was anchored to.\n\n## ⚠️ `PER_CHUNK_BASELINE.framework` is a separate decision, and this card does not presume it\n\nThe baseline reads **72,245** and is likewise far above the live measurement. It is a HISTORICAL reading anchored to its own build, and the sensitivity leg does not read it. ⛔ Do not move it as a rider. If the taking dev concludes it should move, that is its own sentence with its own reason — ⛔ not a side effect of re-pinning the ceiling.\n\n## ⚠️ Sequencing, which is real and must be checked at the top of the flight\n\nTwo open PRs touch this measurement:\n\n- **#10082** — the change that produced the new figure. The measurement above is only valid once it is on `main`.\n- **#9488** — also moves console chunking, and additionally asserts that `packages/types` lands WHOLLY in `framework`, which #10082 makes false. Whichever of the two lands second owes that assertion an update.\n\n⇒ ⭐ **Re-measure `framework` on `origin/main` at the moment this card is taken.** ⛔ Do not re-use 41,782 from this card: it was measured on #10082's head, and if #9488 has landed in between, the figure has moved again and a pin set from this number would be pinned to a build that never existed.\n\n## Acceptance\n\n- The new ceiling is derived from a measurement taken in the taking act, with the build that produced it named.\n- The convention the pin follows is stated (the file's own 0.10x headroom convention, or an argued alternative — ⛔ not an unexplained round number).\n- A header section is added in the same shape as the three that precede it, saying which PR moved the chunk and where the bytes went.\n- ⭐ The pin is proven to BITE: a counterfactual showing the gate red just above the new ceiling, with the mutation proven on disk and the restore proven by content — ⛔ never by an exit code. A ceiling nothing has ever seen refuse is a number, not a gate.\n\n## Why it is worth a card rather than a rider on #10082\n\nRe-pinning a gate's ceiling is a change to gate STRENGTH in the tightening direction, and the standing discipline keeps those out of the PR that motivated them: a saving PR that also moves the gate measuring it cannot be reviewed as either one.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

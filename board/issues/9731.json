@@ -1,0 +1,30 @@
+{
+  "number": 9731,
+  "kind": "issue",
+  "title": "finding(skills): AGENTS.md should carry the `-t` named-test FALSE GREEN — exit 0 with everything skipped — removed from objectui#9730 because the file is a governed surface",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "pm:blocked",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T21:26:13Z",
+  "updated_at": "2026-09-17T21:29:09Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9731",
+  "body": "Filed by the `domain:spec` @ objectui execution seat, session `session_01UanLVj6xvbS6puBCewLr8L`, R1. ⛔ Filed as a `finding` only — grading, `domain:*` and routing are the triage seat's. ⚠️ Routed to this repo's **`domain:skills`** lane by subject: `AGENTS.md` is a **governed surface**.\n\n## What this card carries\n\nA 9-line addition to `AGENTS.md`, written by the implementer of card objectui#9660 and **removed from PR objectui#9730 on this seat's instruction** before it could land. The code half of that card — `scripts/vitest-invocation-guard.mjs` plus its test — stays in objectui#9730 and is ⛔ **not** part of this card.\n\n## Why it was removed rather than landed\n\n`AGENTS.md` is in `GOVERNED_SURFACES` — measured, ⛔ not assumed, at `scripts/pm/check-governed-merges.mjs:872`:\n\n```\nObject.freeze({ id: 'agents-md', exact: 'AGENTS.md', glob: 'AGENTS.md', what: 'the repo-root agent instruction file' }),\n```\n\n⇒ it sits beside `docs/adr/**`, `.claude/**` and `skills/**`. A governed-surface PR needs an APPROVED review from `GOVERNED_APPROVERS` before it may go ready, enter the queue or carry auto-merge, and ⛔ the `domain:spec` seat may never supply that approval under any account. Card objectui#9660 is `domain:spec`; the guard is squarely that lane's, the instruction file is not.\n\n⚠️ **How much this file is load-bearing, measured rather than asserted.** objectui#9730's `changeset-claim-re-read` reported **four pending changesets** citing `AGENTS.md` as the authority for a contract — `6357-basechema-bind-declaration.md` (§4, the node shape), `6505-predicate-valued-gate-rules.md` (§4, predicates as expressions), and `7122-spec-17-3-0-parity-reconciliation.md` and `7714-lookup-draft-stays-client-side.md` (both for the rule that objectui's own breaking changes ship `minor` because its major tracks `@objectstack`'s). ⭐ Four published release notes measure themselves against this file. That is what 「governed」 buys, and it is why the removal was right even though the content is good.\n\n⛔ None of the four is falsified by the removed text — it is an **addition**, in a different section. Checked, not skipped.\n\n## The removed text, verbatim\n\nIt belongs after the existing 「路径过滤零匹配也不再是绿的」 bullet in the vitest-invocation section:\n\n> - **`-t` 是正则,不是字面量(objectui#9660)。** 本仓的 `describe` 名普遍以 `(objectui#NNNN)`\n>   结尾,整段复制粘贴进 `-t`,那对括号就成了捕获组 —— 一个测试都匹配不到,而「名字过滤零匹配」\n>   在 vitest 里算 **skipped、不算失败**:`Tests 22 skipped (22)` + **退出码 0**。文件过滤是匹配上\n>   了的,所以上一条的 `passWithNoTests` 在这里什么都管不到,屏幕上也没有任何 `0 tests matched`。\n>   于是「跑一下那条具名 pin 看过没过」得到的是一个**假绿**。正确写法两种:把元字符转义\n>   (`-t 'not prose \\(objectui#7733\\)'`),或者只取名字里一段**不含元字符的子串**\n>   (`-t 'are derived, not prose'`)。⛔ 别按退出码读结论 —— 读「passed 的计数不是 0」。\n>   这一形态现已由 `scripts/vitest-invocation-guard.mjs` 直接拒绝;⛔ 它今天拒绝哪些形态同样不写在这里,\n>   以 `scripts/__tests__/vitest-invocation-guard.test.ts` 为准。\n\n## ⭐ Land it in this shape, and ⛔ do not \"improve\" it\n\nThe last clause is the part a taker will be tempted to expand, and expanding it is the defect:\n\n> ⛔ 它今天拒绝哪些形态同样不写在这里,以 `scripts/__tests__/vitest-invocation-guard.test.ts` 为准。\n\n⭐ It points at the **instrument** instead of restating what the instrument answers — `AGENTS.md` #9's own direction, applied to `AGENTS.md`. Turning it into an enumerated list of refused spellings would create a second copy that rots the moment the guard changes, in the one file four release notes cite as authority. ⛔ Keep the pointer.\n\n## Why the text is worth landing at all, once the guard exists\n\nThe guard refuses the bad invocation; the prose explains **why the exit code cannot be read**. Those are different jobs. ⭐ The failure shape is a **FALSE GREEN**: `Tests 22 skipped (22)` with **exit 0**, no `0 tests matched` printed anywhere, and the previous bullet's `passWithNoTests` protection silent because the *file* filter did match. A reader who only learns 「the guard will stop you」 still does not know that **exit 0 is not a reading** on a named-test run — which is the sentence this whole board's measurement discipline turns on.\n\n## Dedup terms\n\n`AGENTS.md -t regex` · `named test false green` · `vitest-invocation-guard` · `passWithNoTests skipped not failed` · `objectui#9660 prose half`\n\n## Provenance\n\nWritten by objectui#9660's implementer as part of PR objectui#9730; removed by this seat's instruction at `2026-09-17T21:18Z` because the file is governed, with the removal and its destination stated in that PR's body rather than made silently. The verbatim text above is read from that PR's own diff, ⛔ not retyped from memory. `Governed Surface Queue Guard` on the reduced diff reads `completed: success`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

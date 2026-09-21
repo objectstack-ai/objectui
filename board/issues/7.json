@@ -1,0 +1,33 @@
+{
+  "number": 7,
+  "kind": "issue",
+  "title": "构建一个 **Live Playground (实时演练场)** (用于展示引擎能力)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-13T18:11:26Z",
+  "updated_at": "2026-01-13T18:39:26Z",
+  "closed_at": "2026-01-13T18:39:26Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7",
+  "body": "对于 **Object UI** 这样一个“元数据驱动”的渲染引擎，**Examples（示例/演示）** 的设计至关重要。\n\n普通的组件库（如 AntD）只需要展示“代码 vs 组件”。\n**但你需要展示的是 “JSON Schema vs 界面”。**\n\n** 构建一个 **Live Playground (实时演练场)** (用于展示引擎能力)。\n\n我们重点讨论如何构建这个 **Live Playground**，因为这是你项目的“门面”。\n\n---\n\n### 1. 架构位置\n\n建议在 Monorepo 中创建一个独立的 Vite 应用：\n\n```text\npackages/\napps/\n└── playground/        # 👈 对外发布的演示站点\n    ├── package.json\n    ├── src/\n    │   ├── data/      # 预置的 JSON 案例\n    │   ├── layout/    # 演练场的布局框架\n    │   └── App.tsx\n    └── vite.config.ts\n\n```\n\n---\n\n### 2. 核心交互设计：Split View (左右分屏)\n\n这是低代码引擎的标准演示形态。\n\n* **左侧 (Editor):** Monaco Editor (VS Code 风格编辑器)，显示 JSON/YAML。\n* **右侧 (Preview):** `<SchemaRenderer />` 渲染结果。\n* **功能：**\n* **实时编译：** 左侧修改 JSON，右侧毫秒级更新。\n* **错误高亮：** 如果 JSON 格式错了，或者 Schema 校验不通过，直接标红。\n\n\n\n---\n\n### 3. 内容规划：你应该展示哪些 Case？\n\n不要只放几个按钮，要按**场景**分类，证明你的引擎是“全能”的。\n\n#### A. 基础原子 (Primitives)\n\n展示你对 Shadcn 的封装能力。\n\n* `input.json`: 各种状态的输入框（Required, Disabled, Error）。\n* `button.json`: 不同 Level (Primary, Ghost, Destructive) 的按钮。\n\n#### B. 复杂布局 (Layouts) - **这是你的杀手锏**\n\n证明你能搞定 B 端复杂的排版。\n\n* `grid-layout.json`: 嵌套的 Grid，响应式 (`col-span-1 md:col-span-2`)。\n* `dashboard.json`: 上面是 KPI 卡片，下面是图表和表格。\n* `tabs.json`: 选项卡切换。\n\n#### C. 数据联动 (Interactivity)\n\n证明你不是静态的，支持数据域 (DataScope)。\n\n* `form-linkage.json`:\n* 当“国家”选择“中国”时，“省份”下拉框才显示。\n* 表达式：`visibleOn: \"${country === 'cn'}\"`。\n\n\n* `crud-table.json`: 一个带搜索栏、分页、操作列的完整表格。\n\n---\n\n### 4. 代码实现参考 (The Playground App)\n\n你需要安装 `@monaco-editor/react` 来实现代码编辑体验。\n\n```tsx\n// apps/playground/src/App.tsx\nimport React, { useState, useEffect } from 'react';\nimport Editor from '@monaco-editor/react';\nimport { SchemaRenderer } from '@object-ui/react';\nimport { standardComponents } from '@object-ui/components';\nimport { examples } from './data'; // 预置的案例列表\n\nexport default function Playground() {\n  const [selectedExample, setSelectedExample] = useState('dashboard');\n  const [code, setCode] = useState(examples['dashboard']);\n  const [schema, setSchema] = useState(null);\n\n  // 实时解析 JSON\n  useEffect(() => {\n    try {\n      const parsed = JSON.parse(code);\n      setSchema(parsed);\n    } catch (e) {\n      // JSON 语法错误时保持上一次的渲染，或显示错误提示\n    }\n  }, [code]);\n\n  return (\n    <div className=\"flex h-screen w-screen\">\n      {/* 1. 侧边栏：选择案例 */}\n      <aside className=\"w-64 bg-slate-50 border-r p-4\">\n        <h1 className=\"font-bold mb-4\">Object UI Examples</h1>\n        {Object.keys(examples).map(key => (\n          <button \n            key={key}\n            onClick={() => { setSelectedExample(key); setCode(examples[key]); }}\n            className={`block w-full text-left px-2 py-1 rounded ${key === selectedExample ? 'bg-blue-100 text-blue-600' : ''}`}\n          >\n            {key}\n          </button>\n        ))}\n      </aside>\n\n      {/* 2. 左侧：代码编辑器 */}\n      <div className=\"w-1/2 h-full border-r\">\n        <Editor \n          height=\"100%\" \n          defaultLanguage=\"json\" \n          value={code} \n          onChange={(val) => setCode(val || '')}\n          options={{ minimap: { enabled: false }, fontSize: 14 }}\n        />\n      </div>\n\n      {/* 3. 右侧：实时预览 */}\n      <div className=\"w-1/2 h-full bg-white overflow-auto p-8\">\n        <div className=\"max-w-4xl mx-auto border rounded-lg shadow-sm p-6 bg-white\">\n          {schema ? (\n            <SchemaRenderer \n              schema={schema} \n              components={standardComponents} \n              // 模拟数据源，证明是 Standalone 的\n              dataSource={{ find: async () => [] }} \n            />\n          ) : (\n             <div className=\"text-red-500\">Invalid JSON</div>\n          )}\n        </div>\n      </div>\n    </div>\n  );\n}\n\n```\n\n---\n\n### 5. 关键卖点植入\n\n在 Playground 里，你还需要通过一些小细节来强化你的产品定位：\n\n1. **Tailwind Class 编辑:**\n* 在演示 `button.json` 时，故意加一行 `\"className\": \"bg-purple-500 hover:bg-purple-700\"`。\n* 让用户修改这个字符串，右边按钮颜色立马变。\n* **目的：** 展示 \"Tailwind Native\" 的威力。\n\n\n2. **移动端预览模式:**\n* 在右侧预览区加一个 [手机/平板/桌面] 的切换按钮，调整容器宽度。\n* **目的：** 展示 Responsive Grid 的能力。\n\n\n3. **Schema 导出:**\n* 加一个 \"Copy Schema\" 按钮。\n* **目的：** 方便开发者直接把调好的配置复制到他们的项目中。\n\n\n\n### 总结\n\n你的 `apps/playground` 是最好的销售工具。\n它不需要后端，不需要 ObjectOS。它只需要证明：**“给我一段 JSON，我还你一个漂亮的界面。”**"
+}

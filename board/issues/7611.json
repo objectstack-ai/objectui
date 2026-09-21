@@ -1,0 +1,30 @@
+{
+  "number": 7611,
+  "kind": "issue",
+  "title": "feat: Setup catalog pages read the registry (editable under `single`, read-only under a wall); assignment pages stay data pages; pickers list the registry (objectstack ADR-0131 D3/D7)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:blocked",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T06:06:45Z",
+  "updated_at": "2026-09-04T23:13:04Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7611",
+  "body": "**⛔ BLOCKED — the v18 development line is not open.**\n\n`Blocked-by: objectstack-ai/objectstack#15193, objectstack-ai/objectstack#15196`\n\nPart of the ADR-0131 execution tree (`objectstack-ai/objectstack#15194`). ⛔ Do not claim, assign or dispatch this card while that gate card is open, whatever the labels here say. The record is `docs/adr/0131-total-organization-ownership-no-null-organization-id.md` in `objectstack-ai/objectstack` (merged 2026-09-04).\n\n---\n\n**In one sentence.** Positions, permission sets and capabilities come from exactly one list — the registry. Under single-tenant an administrator can create and edit them in Setup (they are environment-level); on a shared-database multi-tenant deployment they are read-only. Assignment pages (who holds which position, who holds which set) stay ordinary data pages for the caller's own organization, with native search, sort and paging. Pickers list the registry. **There is no merged two-source list.**\n\nThe maintainer's Steedos lesson is the reason for that last sentence: a UI that merges an in-memory list with a database list has to re-implement search, sort and paging itself, and it drifts.\n\n**Scope.** Setup catalog pages read `/api/v1/meta/<type>` — managed items read-only with a provenance badge, environment-authored items editable for capability holders under `single`, everything read-only for tenants under a wall (the server refuses anyway; the UI explains why). Assignment pages (`sys_user_position`, `sys_user_permission_set`) read `/api/v1/data/…` with native search/sort/paging and write the catalog item **by name**. Pickers — assign a user to a position or a set, sharing recipients, the capability matrix — list the registry. Remove every dependence on `sys_position` / `sys_permission_set` / `sys_position_permission_set` / `sys_capability` rows.\n\n**Acceptance.** Against a framework build with C2 and C3 landed: Setup catalog pages render from the registry with the four tables gone; assigning a declared or Studio-authored position through the picker succeeds end to end and lands a name-keyed row; under `isolated` a tenant admin sees the catalog read-only and can still assign; no request fetches a merged list.\n\n⭐ **Parity gate (ADR-0131 §4 — this card fails without it).** Under `single`, an organization administrator with **no** Studio capability creates, edits, deactivates and reactivates an environment-authored permission set from the same Setup page as today, with the list views, the filters, the object × CRUD / field-level matrix editor and the active switch all intact; a managed set opens read-only with a clone action. **A JSON textarea in place of the matrix editor fails this card.**\n\n**Absorbs**: objectui#7205 — clicking a column header silently persisting an org-wide view overlay. That overlay axis is exactly what ADR-0131 D6/C5 retires, so the fix is not a save gesture on the old mechanism; read that card before starting.\n\nRefs: ADR-0131 D3, D6, D7, §4 parity criterion · ADR-0094 D1 · objectui#7205.\n"
+}

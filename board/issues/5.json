@@ -1,0 +1,33 @@
+{
+  "number": 5,
+  "kind": "pull_request",
+  "title": "Implement component reordering via drag-and-drop in designer canvas",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-13T13:55:13Z",
+  "updated_at": "2026-01-13T14:31:06Z",
+  "closed_at": "2026-01-13T14:31:06Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-13T14:31:06Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5",
+  "body": "Implements drag-and-drop for reordering components within the designer canvas. Previously, components could only be added from the palette; they could not be rearranged.\n\n## Changes\n\n**DesignerContext** (`packages/designer/src/context/DesignerContext.tsx`)\n- Added `draggingNodeId` state to track component being dragged\n- Implemented `moveNode()` to relocate nodes in schema tree with circular reference validation\n- Added helper functions: `findNodeById()`, `moveNodeInTree()`\n\n**Canvas** (`packages/designer/src/components/Canvas.tsx`)\n- Made rendered components draggable via `useEffect` that attaches drag handlers to elements with `data-obj-id`\n- Enhanced drop handler to differentiate between palette drops (add) and canvas drops (move)\n- Added visual feedback: grab cursor, 50% opacity on drag, dashed outline on drop target\n- Root node remains non-draggable to prevent schema corruption\n\n**Tests** (`packages/designer/src/__tests__/drag-and-drop.test.tsx`)\n- Added unit tests for `draggingNodeId` state management and `moveNode()` operations\n- All 6 tests passing\n\n## Usage\n\nComponents in the canvas now show a grab cursor and can be dragged into other containers. Drop position is currently fixed at index 0 (beginning of container).\n\n## Screenshots\n\nInitial state with two cards:\n![Designer Initial](https://github.com/user-attachments/assets/6c04dcb8-6f88-4f1c-bf6c-258479a75301)\n\nSelected card with visual feedback:\n![Card Selected](https://github.com/user-attachments/assets/e1153da8-fef5-405b-8650-7dafe2190fd6)\n\n## Limitations\n\n- Dropped components always insert at container start. Future enhancement: calculate insertion index from mouse position.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 组件在设计器器里面应该可以拖动\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 8820,
+  "kind": "issue",
+  "title": "dashboard auto-refresh: one timer instead of two byte-identical copies, and a test that observes it FIRING — the two pieces the 17.4.0 rename does not carry",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T11:47:26Z",
+  "updated_at": "2026-09-10T13:59:49Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8820",
+  "body": "⚠️ **Re-scoped 2026-09-09 by the epic PM who filed it (`session_01DuzfS5chho38Yx1jxx9DEj`). The rename itself is NOT this card's — it is #7783's, and it is implemented in open draft PR #8783.** What this card was originally asking for has been deleted from it. See the re-scope comment for the full record of the mistake.\n\n**Blocked-by: #8783** (`chore(deps): take the 17.4.0 @objectstack/* line`). ⛔ Do not start before that floor lands.\n\n## Why this card still exists after the duplicate was found\n\n#8783 renames the key everywhere it is declared and read. Two things it does **not** do, both of them squarely this repo's own quality question rather than the rename's:\n\n1. ⭐ **Nothing observes the timer firing.** The dashboard tests #8783 touches — `dashboardAuthoredInputs`, `ConfigPanel.i18nWiring`, `dashboard-config`, `page-app-dashboard-spec-parity` — are **declaration pins** to a schema. Every one of them stays green if the interval never fires. That is exactly the class of gate the 2026-08-31 ruling is about: a test that goes green while the feature is dead.\n2. **The timer exists twice, byte-identical.** `packages/plugin-dashboard/src/DashboardGridLayout.tsx:147-152` and `DashboardRenderer.tsx:450-455` carry the same `if (!schema.<key> || <= 0 || !onRefresh) return; setInterval(handleRefresh, <key> * 1000)`. Two copies means the rename — and every future change to the refresh contract — has to be made twice and can drift once.\n\n## Prior art on the branch — read it before you write anything\n\nBranch **`claude/issue-8820-dashboard-refresh-interval-seconds`**, commit **`e5d95e1a`**, pushed, **no PR** (it would have fought #8783 for six files). It already contains a working version of both pieces:\n\n- the two timers collapsed into one `useDashboardAutoRefresh` hook;\n- a **16-case pin** that mounts **both** components and asserts `onRefresh` **call counts** under fake timers — including the `0` trap case (`0` is a configured value, not \"unset\");\n- **ablation-proven**: removing the new key from the reader's key list turns **6 of 16** red, including the case on both surfaces; restore verified by blob hash back to `37fb2b61`, tree clean.\n\n⛔ **One thing on that branch must be dropped when you rebase:** it reads **both** spellings by *presence*, as a pre-bump compatibility shim. Once #8783's floor lands the old key is a **tombstone that refuses at parse**, so the fallback becomes unreachable code. Keep the hook and the pin; delete the both-spelling read.\n\n## Acceptance\n\n- One timer implementation, used by both surfaces; ⛔ no behaviour change beyond de-duplication.\n- A test that **fails when the interval does not fire** — assert call counts under fake timers, ⛔ not the presence of a prop.\n- Rebased onto #8783's floor, reading only `refreshIntervalSeconds`.\n- Prove the pin is load-bearing: ablate the reader, show the specific cases go red, restore, show the tree clean.\n- The repo's verify slice green.\n\n## ⛔ Not in this card\n\n- **The rename** — #7783 / PR #8783. ⛔ Do not touch the published `inputs` row, the config-panel key, the i18n label, or the pin tests; they are in that diff.\n- ⛔ **`plugin-report`'s `refreshInterval` is a DIFFERENT carrier and must not move.** Measured on `e9d92120`: `refreshInterval` has **39** occurrences repo-wide (not the 26 this card originally claimed). Dashboard carriers are `DashboardGridLayout:147-152` · `DashboardRenderer:450-455` · `index.tsx:94` · `DashboardConfigPanel:108` · `metadata-form-i18n.ts:91` · `complex.ts:2103` · `complex.zod.ts:1154` (that last one is `DashboardConfigSchema`, objectui-local). **Untouched, different schemas:** `plugin-report/src/ReportViewer.tsx:230` · `types/src/reports.ts:479` · `types/src/zod/reports.zod.ts:177` (objectui-local, zero `@objectstack/spec` import — the spec rename cannot reach it) · `types/src/ai.ts:516` (`AIInsightsSchema`) · `types/src/data.ts:1378` (`DataBinding`, **milliseconds**). Spec 17.4.0's own migration ledger names exactly one surface: `dashboard.refreshInterval`.\n- The `sdui.manifest.json` refresh — belongs to whichever pin bump carries the rename, per #7783.\n\nRefs: #7783 (the rename, the duplicate this card was) · #8783 (its implementation, the floor) · hotcrm#1579 (the epic that filed this)."
+}

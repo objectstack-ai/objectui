@@ -1,0 +1,31 @@
+{
+  "number": 9820,
+  "kind": "issue",
+  "title": "finding(app-shell tests): a FOURTH foreign-target `tree` fixture that both sweeps are blind to — `expandableFamily.identity-5874` builds it through a `field('tree')` factory, so neither the target-key grep nor the `type: 'tree'` emit scan sees it",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T07:05:21Z",
+  "updated_at": "2026-09-18T07:15:56Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9820",
+  "body": "Found by re-running objectui#8031's shape scan **as a shape scan**, at the dispatching seat's explicit instruction to re-derive the population before declaring three — and it is the fourth. Verified line by line by the reviewing seat before filing.\n\n## What\n\n`packages/app-shell/src/utils/expandableFamily.identity-5874.test.ts` builds every fixture field through a factory that takes the field type as an argument and attaches the same target to all of them:\n\n| line | reading |\n|---|---|\n| `:122` | `reference: 'accounts',` — inside the shared `field()` factory |\n| `:134`, `:137` | `objectName: 'deal'` / `name: 'deal'` — the declaring object's identity |\n| `:142` | `parent_node: field('tree'),` |\n| `:210` | `expect(out.referenceTo).toBe('accounts');` |\n\n⇒ a `tree` field whose target names **another object** (`deal` declaring, `accounts` targeted), in the **canonical** spelling.\n\n## ⭐ Why BOTH previous sweeps were blind to it, which is the point of the card\n\n- objectui#7839's sweep was keyed on the **target key**. Here the key sits inside a shared factory with no `tree` in sight — the grep lands on a helper.\n- objectui#8031's sweep was keyed on `type: 'tree'` **emits**. Here the type is an **argument**, `field('tree')`, so there is no literal `type: 'tree'` to match.\n\n⇒ **the population is defined by neither spelling.** Triage's own lesson on objectui#8031 was *\"a population defined by a spelling is not the population defined by the shape\"*; this instance shows the shape scan needs one more turn of the same screw — a factory call is a shape a text scan does not see either.\n\n⭐ And it is the live counterexample that makes objectui#8031's pin answer sound: a gate keyed on literal `type: 'tree'` emits would have gone **green** while this stayed open.\n\n## ⛔ NOT the same disposition as objectui#8031's three\n\nThose three were dropped because the key was **inert** — refused at parse, read by nobody, annotating nothing. **Here the target is load-bearing**: `:210` asserts `referenceTo` is `'accounts'` for the tree row, so dropping the key turns the suite red.\n\n⇒ a fix has to **choose**, and that is why this is a card and not a drive-by:\n\n- rename the tree row's target to the declaring object (`deal`) and move that assertion; or\n- split the shared `field()` helper so the tree member can carry a different target from the lookup family.\n\n⛔ Neither is picked here. ⚠️ And note the second option touches a helper every field in the fixture flows through, so its blast radius inside this suite is larger than it looks.\n\n## What is and is not refused today\n\n⚠️ Measured on the installed pin, `@objectstack/spec@17.4.0`, with a nonsense-key negative control: a `tree` field with a declared `reference` naming **another** object is **ACCEPTED** — `refuseForeignTreeReference` landed on objectstack `main` **after** this pin was cut. ⇒ this fixture is refused **upstream**, ⛔ not by the copy this repo installs today.\n\n⭐ That makes this a **latent** card rather than a live one, and the grading should say so: it goes live the day objectui bumps to a spec that carries the refusal, and on that day it is a red suite rather than a finding.\n\n## Not measured\n\n⛔ Whether other fixtures in this repo build fields through a type-argument factory the same way — only this one was found, and finding it was a by-product rather than a census. ⛔ Whether the `field()` helper is shared beyond this file. ⛔ Which of the two remedies costs less; no attempt was made.\n\n⚠️ Recorded so the next enumeration does not re-derive it: the two remaining `type: 'tree'` emits that carry a declared target — plugin-tree's `expandFls-7429` and `settledSchemaKeying-6481` — were checked and are **legal self-references**, and the deliberately foreign arms in objectui#7839's own suite are that suite's subject matter and must stay.\n\nRefs: objectui#8031 (the three whose scan found this, and whose pin answer this justifies) · objectui#7839 (the original four, and the sweep keyed on the target key) · objectui#5874 (the card this fixture pins).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

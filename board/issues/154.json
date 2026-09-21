@@ -1,0 +1,33 @@
+{
+  "number": 154,
+  "kind": "pull_request",
+  "title": "[WIP] Organize existing component inventory for objectstack client",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T03:37:26Z",
+  "updated_at": "2026-01-23T03:43:47Z",
+  "closed_at": "2026-01-23T03:43:25Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/154",
+  "body": "- [ ] Analyze existing component structure and ObjectStack integration\n- [ ] Create comprehensive component inventory document\n- [ ] Document ObjectStack client integration status\n- [ ] Create prioritized development plan based on new ObjectStack client\n- [ ] Identify missing components and integration gaps\n- [ ] Finalize and review documentation\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 整理现有组件清单，基于新的objectstack client，安排下一步的优先开发计划。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

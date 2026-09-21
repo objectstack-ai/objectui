@@ -1,0 +1,31 @@
+{
+  "number": 9164,
+  "kind": "issue",
+  "title": "finding(core): `convertFiltersToAST` still hands an EMPTY OPERATOR MAP back as the caller's object — `{ a: {} }` reaches the plain route as `?a=[object Object]` and the $expand route as a `filter={\"a\":{}}` the spec refuses",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T13:17:38Z",
+  "updated_at": "2026-09-12T05:16:41Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9164",
+  "body": "Measured while landing objectui#9030 (the TRUE-identity fold's key counting). Out of that card's scope — it is a different member of the same tail, its repair is a different shape, and all three cards on this tail measured this one and deliberately left it. ⛔ Not claimed. Grading and `domain:*` are the triage seat's. Filed unassigned.\n\n## The class\n\n`convertFiltersToAST`'s general tail returns the CALLER'S ORIGINAL OBJECT when no condition was produced. objectui#8770 removed the TRUE-identity combinators from that tail, objectui#9020 removed the all-skipped filter, objectui#9030 removed the mixture of the two. **An empty operator map is still in it**, and it is the one member for which the object is neither ruled-TRUE nor \"no constraint\": the loop ENTERS the key and the operator loop simply runs zero times.\n\nobjectui#8770 stated the invariant those three cards each enforced for their own member, and it is pinned in their test files in those words: *\"a value this function returns is either `undefined` — no filter — or something `isFilterAST` accepts. A plain object is neither.\"* `{ a: {} }` still returns a plain object.\n\n## Measured\n\nOn `origin/main` `3b6bc6959` plus the objectui#9030 branch (which does not touch this input — it is a control there and returns the object on both trees). Driven through `ObjectStackAdapter.find` with a mocked `fetch`, reading the query string each route actually built. The `$expand` presence is the discriminator `find()` branches on, so these two calls are the two routes:\n\n```\nfilter                    plain route                      $expand / $search route\n{ a: {} }                 ?a=[object+Object]               ?populate=owner&filter={\"a\":{}}\n{ a: {}, b: undefined }   ?a=[object+Object]               ?populate=owner&filter={\"a\":{}}\n{ $and: [], a: {} }       ?$and=&a=[object+Object]         ?populate=owner&filter={\"$and\":[],\"a\":{}}\n\nCONTROL  {}               (no parameters at all)           ?populate=owner\nCONTROL  { a: 'x' }       ?filter=[\"a\",\"=\",\"x\"]            ?populate=owner&filter=[\"a\",\"=\",\"x\"]\n```\n\nThe controls are lit in the same run: an empty filter sends nothing, and a filter that lowers sends a real AST on both routes. So `?a=[object+Object]` is a measurement, not the harness's only output.\n\n## Why this is a defect and not the boundary it looks like\n\nTwo routes, two different questions, and **neither is the author's**:\n\n- the plain route hands a non-AST value to `client.data.find`, whose else-branch spreads a plain object's entries as query parameters — so the field name became a parameter NAME and its value stringified to `[object Object]`. There is no `filter` parameter at all;\n- the `$expand` / `$search` route JSON-serialises the same object into `filter={\"a\":{}}` — and `{ field: {} }` is the widening `@objectstack/spec` REFUSES. objectui#9001 quotes the table's own note for the neighbouring rule verbatim: *\"the widening #5240 refused `{ field: {} }` over, one level in\"*.\n\n⚠️ This card does NOT claim the repair is to fold it. The three cards above each read this input as \"not my member\" and said so — objectui#8770's file pins *\"an empty operator map still returns the original object\"* and its tail comment says moving `{}` is *\"a separate argument nobody has made\"*. That is true of FOLDING. What none of them evaluated is the third option: an empty operator map is a filter the author wrote and that says nothing, on a key that exists — the same \"author learned nothing at lowering time\" the array arm and the exotic-comparand arm are each REFUSALS for, in this same function, with `FilterOperatorError`.\n\n⇒ The three candidate answers are fold to `undefined`, refuse with `FilterOperatorError`, or lower to something the spec accepts. Deciding between them needs a ruling, which is why this is filed rather than repaired in passing.\n\n## Scope fence\n\n- ⛔ Not a re-opening of objectui#8770, objectui#9020 or objectui#9030. Their members, their folds and their counts are all correct and must stay; `{ a: {} }` satisfies none of their guards by construction, because its key is PROCESSED rather than skipped and is not a combinator.\n- ⛔ `{}` (the empty filter) is a different input again — it has no key at all, and `toFilterNode` already folds it one level up.\n\n## Dedup\n\n`search_issues` (repo-scoped, semantic) over the `convertFiltersToAST` neighbourhood returns 8 cards — objectui#9030, #8770, #9001, #8530, #8567, #8555, #8976, #6948 — none of them this shape, and the instrument is validated by that return: it is the known neighbourhood, closed cards included. Local `git grep` over the tree finds this input pinned only as a boundary control in three test files, never as a card.\n\nFiled by the `os-dev` seat that implemented objectui#9030, session `session_01UzHd6hDYatoDn17BuwKxnZ`, with Claude Code."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 38,
+  "kind": "pull_request",
+  "title": "Migrate @object-ui/data-objectql to @objectql/sdk v1.8.2",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T17:51:16Z",
+  "updated_at": "2026-01-14T18:25:34Z",
+  "closed_at": "2026-01-14T18:25:34Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T18:25:34Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/38",
+  "body": "## Plan: Update @object-ui/data-objectql to use @objectql/sdk\n\n- [x] Add @objectql/sdk as a dependency to @object-ui/data-objectql package.json\n- [x] Refactor ObjectQLDataSource to use @objectql/sdk client instead of direct fetch calls\n- [x] Update imports and type definitions to use @objectql/types from the SDK\n- [x] Update tests to work with the new SDK-based implementation\n- [x] Verify the build passes\n- [x] Update documentation to reflect SDK usage\n- [x] Run final tests to ensure everything works\n- [x] Address code review feedback\n- [x] Fix operator precedence in type cast\n- [x] Implement MongoDB-like operator conversion ($gte, $lte, $in, etc.)\n- [x] Improve bulk operations to support both `id` and `_id` fields\n- [x] Fix hooks dependency array syntax error\n- [x] Add clarifying comment for PUT method in update test\n\n## Summary\n\nSuccessfully updated `@object-ui/data-objectql` to use the official `@objectql/sdk` package (v1.8.2) and addressed all code review feedback.\n\n### Latest Changes:\n\n1. **Fixed hooks.ts**: Removed duplicate dependency array syntax error\n2. **Fixed operator precedence**: Changed `response as T || null` to `response ? (response as T) : null`\n3. **Enhanced filter conversion**: Now handles MongoDB-like operators ($gte, $lte, $gt, $lt, $in, $nin, etc.)\n4. **Improved bulk operations**: \n   - Support both `id` and `_id` fields\n   - Better error messages\n   - Proper handling of update payloads (excludes id from update data)\n   - Delete operations support both objects and direct ID values\n5. **Added test**: New test case for MongoDB operator conversion\n6. **Test clarification**: Added comment explaining that the SDK uses PUT (not PATCH) for updates\n\n### Test Results:\n- ✅ All 14 tests passing\n- ✅ Build successful\n- ✅ No TypeScript errors\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 更新到objectql最新版，此时'@object-ui/data-objectql'应依赖 @objectql/sdk\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

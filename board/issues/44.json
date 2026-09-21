@@ -1,0 +1,33 @@
+{
+  "number": 44,
+  "kind": "pull_request",
+  "title": "Add test coverage for plugin component registration and configuration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T19:16:19Z",
+  "updated_at": "2026-01-15T00:16:08Z",
+  "closed_at": "2026-01-15T00:16:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T00:16:07Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/44",
+  "body": "## Design Test Cases for Plugins ✅\n\n### Completed Tasks\n- [x] Analyze repository structure and existing test patterns\n- [x] Create test suite for @object-ui/plugin-charts (11 tests)\n- [x] Create test suite for @object-ui/plugin-markdown (5 tests)\n- [x] Create test suite for @object-ui/plugin-editor (7 tests)\n- [x] Create test suite for @object-ui/plugin-kanban (8 tests)\n- [x] Add test scripts to plugin package.json files\n- [x] Run all plugin tests to verify they pass (31 tests passed)\n- [x] Code review completed (no issues found)\n- [x] Security scan completed (no vulnerabilities found)\n- [x] Merge main branch and resolve conflicts\n- [x] **Fix `pnpm test` command**\n\n### Summary\nSuccessfully fixed the `pnpm test` command to work correctly in the monorepo setup:\n\n#### Fix Details\n- **Root test script**: Changed from `pnpm -r test` to `vitest run` to use the root's vitest installation\n- **Added pretest script**: Builds required packages (@object-ui/types, core, react, components) before running tests\n- **Result**: All 86 tests now pass (including 31 plugin tests + 55 existing tests)\n\n#### Previous Issues\nThe original `pnpm -r test` approach tried to run each package's test script individually, but vitest was only installed at the root level, causing \"vitest: not found\" errors in package contexts.\n\n#### Test Coverage by Plugin\n1. **@object-ui/plugin-charts** (11 tests) - chart-bar and advanced chart components\n2. **@object-ui/plugin-markdown** (5 tests) - markdown rendering component\n3. **@object-ui/plugin-editor** (7 tests) - Monaco code editor component\n4. **@object-ui/plugin-kanban** (8 tests) - kanban board component\n\nAll tests validate ComponentRegistry integration, metadata, inputs, and default props.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 为插件设计测试用力\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

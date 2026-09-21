@@ -1,0 +1,40 @@
+{
+  "number": 88,
+  "kind": "pull_request",
+  "title": "Add comprehensive showcase documentation, deployment guides, and interactive component documentation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "examples",
+    "package: components",
+    "package: types",
+    "plugin",
+    "plugin: charts"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-17T04:56:20Z",
+  "updated_at": "2026-01-17T12:12:54Z",
+  "closed_at": "2026-01-17T12:09:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-17T12:09:19Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/88",
+  "body": "Provides complete solution for enabling website visitors to explore and deploy the Object UI Showcase, addressing the requirement for documentation and deployment strategy. Includes Shadcn-style interactive component documentation with a 3-phase implementation plan.\n\n## Documentation Suite (11 files, ~72KB)\n\n**User-Facing Guides:**\n- `docs/guide/showcase.md` - Complete component catalog (60+ components across 8 categories), local setup, learning paths\n- `docs/guide/try-it-online.md` - Browser-based trial options, interactive examples, embedding instructions\n- `docs/guide/interactive-showcase.md` - **NEW**: Shadcn-style interactive component documentation guide with 3-phase implementation plan (immediate → 2-4 weeks → 2-3 months)\n- `docs/SHOWCASE_PLAN_CN.md` - Full implementation strategy in Chinese: 3-phase rollout, cost analysis, success metrics\n\n**Deployment Guides:**\n- `docs/deployment/showcase-deployment.md` - Production deployment for 5 platforms (Vercel, Netlify, GitHub Pages, Docker, AWS) with CI/CD configs\n- `docs/QUICKSTART_DEPLOY.md` - 15-minute deployment path with essential configs only\n- `docs/README_SHOWCASE_DOCS.md` - Documentation index with quick navigation\n\n**Example Templates:**\n- `examples/showcase/pages/form/button-enhanced.json` - **NEW**: Shadcn-style component page template showing preview + description + code with copy buttons\n\n**Configuration Updates:**\n- VitePress navigation: Added \"Showcase\" to main nav, created \"Try & Explore\" sidebar section with \"Interactive Documentation\" link\n- README: Added prominent showcase section with quick start commands\n\n## Interactive Component Documentation (Shadcn-Style)\n\n### Phase 1: Enhanced Documentation (Immediate - Ready Now) ✅\n- **Preview + Code Combined**: Component rendering effect with JSON schema side-by-side\n- **Copy Buttons**: Easy code extraction with one-click copy\n- **Multiple Examples**: Each variant documented with description\n- **Props Documentation**: Complete property tables\n- **Installation & Usage**: Clear guidelines for each component\n- Uses existing components - no new development required\n\n### Phase 2: Interactive Editor (2-4 weeks) ⏳\n- Monaco code editor integration\n- Real-time preview updates\n- Live JSON editing capability\n- Users can modify code and see effects instantly\n\n### Phase 3: Dedicated Playground (2-3 months) 📅\n- Full IDE-like experience\n- Shareable links\n- Template gallery\n- AI assistance\n\n**Example Structure:**\n```\n┌─────────────────────────────────────┐\n│ Component Name                      │\n│ Description                         │\n├─────────────────────────────────────┤\n│ Installation                        │\n├─────────────────────────────────────┤\n│ Usage Guidelines                    │\n├─────────────────────────────────────┤\n│ Example 1: Primary                  │\n│   [Live Preview Card]               │\n│   [JSON Code with Copy Button]     │\n├─────────────────────────────────────┤\n│ Props Table                         │\n├─────────────────────────────────────┤\n│ Related Components                  │\n└─────────────────────────────────────┘\n```\n\n## Deployment Options\n\n| Platform | Time | Cost | Use Case |\n|----------|------|------|----------|\n| Vercel | 10 min | $0 | Quick deploy (recommended) |\n| GitHub Pages | 20 min | $0 | Open source |\n| Docker | 30 min | Infrastructure | Self-hosted |\n\n## Quick Start\n\n```bash\n# Local trial\npnpm showcase\n\n# Deploy to production\nnpm install -g vercel\nvercel --prod\n```\n\n## Component Coverage\n\n- **Basic** (6): Div, Text, Icon, Image, HTML, Separator\n- **Layout** (8): Flex, Grid, Card, Tabs, Container, Sidebar, Header, Stack\n- **Form** (13): Input, Select, Checkbox, Radio, Switch, Slider, Date Picker, Calendar, Toggle, File Upload, Textarea, Input OTP\n- **Data Display** (7): Table, List, Badge, Alert, Avatar, Statistic, Tree View\n- **Feedback** (4): Toast, Progress, Loading, Skeleton\n- **Overlay** (9): Dialog, Sheet, Drawer, Popover, Tooltip, Hover Card, Alert Dialog, Dropdown Menu, Context Menu\n- **Disclosure** (2): Accordion, Collapsible\n- **Complex** (10+): Data Table, Kanban, Charts, Calendar View, Timeline, Carousel, Resizable, Scroll Area, Chatbot, Filter Builder\n\nAll examples include copy-paste ready JSON schemas with Tailwind customization support.\n\n## Benefits\n\n**For Users:**\n- ✅ See component + code together (like Shadcn UI)\n- ✅ Understand component usage immediately\n- ✅ Copy JSON schemas with one click\n- ✅ Browse multiple examples per component\n- ✅ Learn all props and options\n\n**For Project:**\n- ✅ Professional documentation quality competitive with Shadcn/Ant Design\n- ✅ Lower learning curve for new users\n- ✅ Clear upgrade path to interactive editing\n- ✅ Phase 1 template ready for immediate use\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 帮我提出一个方案，我如何在官网让大家试用我们的showcase，写文档\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

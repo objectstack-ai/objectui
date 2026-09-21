@@ -1,0 +1,38 @@
+{
+  "number": 73,
+  "kind": "pull_request",
+  "title": "[WIP] Remove playground project and related studio deployments",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T07:00:42Z",
+  "updated_at": "2026-01-15T07:30:52Z",
+  "closed_at": "2026-01-15T07:30:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T07:30:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/73",
+  "body": "## Plan to Remove Playground Project and Studio Deployment\n\n- [x] Remove the `apps/playground` directory entirely\n- [x] Remove playground-related scripts from root `package.json`\n- [x] Update `README.md` to remove studio deployment link (`play.objectstack.ai`)\n- [x] Update `docs/index.md` to remove studio deployment link\n- [x] Update `docs/guide/studio.md` to remove studio deployment link\n- [x] Update `docs/ROADMAP.md` to remove playground references\n- [x] Update `CONTRIBUTING.md` to remove playground references\n- [x] Update `VERIFICATION.md` to remove playground references\n- [x] Update `docs/lazy-loaded-plugins.md` to remove playground references\n- [x] Build and verify the remaining packages still work\n\n## Summary\n\nSuccessfully removed the `apps/playground` project and all references to the studio deployment URL (`play.objectstack.ai`) from the repository. \n\n### Changes Made:\n1. **Deleted**: Entire `apps/playground` directory (75+ files)\n2. **Updated package.json**: Removed `playground` and `dev` scripts, changed `dev` to use `prototype` instead\n3. **Updated documentation**: \n   - Replaced studio deployment links with references to the `@object-ui/designer` package\n   - Updated examples to use `pnpm designer` or `pnpm prototype` instead of `pnpm playground`\n   - Removed all references to `play.objectstack.ai`\n4. **Verified**: All builds and tests pass successfully (95 tests passing across 16 test files)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 删除playground项目，相关的studio部署和链接\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

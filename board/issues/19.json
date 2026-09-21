@@ -1,0 +1,33 @@
+{
+  "number": 19,
+  "kind": "pull_request",
+  "title": "Add Markdown component with GFM support and XSS protection",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T00:00:22Z",
+  "updated_at": "2026-01-14T01:01:37Z",
+  "closed_at": "2026-01-14T01:01:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T01:01:36Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/19",
+  "body": "## Implementation Plan for Markdown Component\n\n- [x] Explore repository structure and understand component architecture\n- [x] Add markdown rendering library (react-markdown) as dependency\n- [x] Create markdown UI component in src/ui/\n- [x] Create markdown renderer in src/renderers/data-display/\n- [x] Register markdown component in data-display index\n- [x] Add tests for markdown component\n- [x] Build and verify the implementation\n- [x] Create example/demo to verify visual output\n- [x] Run code review and address security concerns\n- [x] Run security scan with CodeQL - No vulnerabilities found\n- [x] Add JSDoc documentation following \"Schema First\" principle\n- [x] Merge latest code from main branch\n\n---\n\n## Summary\n\nSuccessfully implemented a new Markdown component for Object UI with comprehensive JSDoc documentation and merged latest changes from main branch.\n\n### Changes in This Update\n\n✅ **Added JSDoc Documentation**\n- Added comprehensive JSDoc comments to `MarkdownProps` interface\n- Added detailed JSDoc to the markdown renderer component\n- Documentation follows \"Schema First\" principle for auto-generated docs\n- Includes usage examples and feature descriptions\n\n✅ **Merged Main Branch**\n- Successfully merged 133 commits from main branch\n- No conflicts encountered\n- All tests pass after merge\n- Build successful\n\n### Component Features\n- Full markdown rendering with GitHub Flavored Markdown support\n- XSS protection via rehype-sanitize\n- Dark mode support\n- Tailwind CSS prose styling\n- Comprehensive JSDoc documentation for API reference generation\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 新建一个makkdown的组件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

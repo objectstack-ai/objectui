@@ -1,0 +1,30 @@
+{
+  "number": 7502,
+  "kind": "issue",
+  "title": "finding(fields): `deriveLookupColumns` is exported from the package root but its `objectSchema` parameter type is a third unexported `ObjectSchemaLike`",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T12:35:35Z",
+  "updated_at": "2026-09-12T01:25:02Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7502",
+  "body": "Found while implementing objectui#7324 (the same defect in `@object-ui/plugin-form`). Filed rather than fixed: `packages/fields` is outside that card's package, and its shape is a **third** distinct type, so folding it in would have made #7324's own surface decision harder to review, not easier.\n\n## The gap\n\n`packages/fields/src/widgets/deriveLookupColumns.ts:65` exports:\n\n```\nexport function deriveLookupColumns(\n  objectSchema: ObjectSchemaLike | null | undefined,\n  { displayField, max = 4 }: DeriveColumnsOptions,\n): LookupColumnDef[]\n```\n\nand `packages/fields/src/index.tsx:3210` carries it to the package root with `export * from './widgets/deriveLookupColumns.js';` (present in the built root surface, `packages/fields/dist/index.d.ts:722`).\n\nIts first parameter type is declared at `:21` with **no `export` keyword**:\n\n```\ninterface ObjectSchemaLike {\n  fields?: Record<string, { type?: string; label?: string; hidden?: boolean; system?: boolean }>;\n  highlightFields?: unknown;\n  displayFields?: unknown;\n}\n```\n\n`export *` does not carry a module-private declaration, so the name never reaches the root. `DeriveColumnsOptions` — the OTHER parameter type on the same signature — **is** exported. `ObjectSchemaLike` is the one that is not. Same asymmetry, same consequence: a consumer of `deriveLookupColumns` cannot name what it must pass, so it restates a producer-owned shape by hand, and the restatement is invisible to every gate until the producer's shape moves.\n\n## What makes this its own card rather than part of objectui#7324\n\nIt is a **third** structurally distinct shape carrying the name `ObjectSchemaLike` in this repo, and it is not interchangeable with either of the two in `plugin-form`:\n\n| declaration | `fields` value type | other members |\n|:--|:--|:--|\n| `plugin-form/src/deriveMasterDetail.ts` (now `ChildObjectSchemaLike`) | `any` | `name?` |\n| `plugin-form/src/schemaDefaults.ts` (now `FieldDefaultsSchemaLike`) | `{ defaultValue?, type?, reference?, reference_to? }` | — |\n| `fields/src/widgets/deriveLookupColumns.ts` (this one) | `{ type?: string; label?: string; hidden?: boolean; system?: boolean }` | `highlightFields?`, `displayFields?` |\n\nNote this one pins `type` and `label` to `string`, where the `plugin-form` defaults shape leaves `type` as `unknown` — so it is not a subtype of either. Whoever takes this should run the same structural comparison objectui#7324 ran before choosing a name, and should NOT reuse a name that already means something else in a sibling package a consumer may import alongside this one.\n\n## Options\n\n- **A. Rename at the declaration site to something that says what it constrains** (as objectui#7324 did for its two), export it, and let `export *` carry it. Reversible, no behaviour change; the whole cost is choosing a name that does not collide.\n- **B. Replace it with `@object-ui/types`' `ObjectSchemaMetadata`.** ⚠️ Measured on the `plugin-form` pair and **refused** there: that type requires `name` and requires a `type` on every field, so it NARROWS what such a function accepts rather than widening it. Re-measure here before assuming otherwise — the readers differ.\n- **C. Leave it.** Every consumer keeps restating the shape.\n\nRecommendation: **A**, for the same reason objectui#7324 landed on it — smallest reversible step, and B needs evidence this repo has not yet produced for this call site."
+}

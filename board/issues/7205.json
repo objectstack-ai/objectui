@@ -1,0 +1,30 @@
+{
+  "number": 7205,
+  "kind": "issue",
+  "title": "Clicking a column header silently persists an org-wide view overlay carrying the entire view definition — no save gesture, no indication",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T11:17:48Z",
+  "updated_at": "2026-09-04T06:13:58Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7205",
+  "body": "Blocked-by: #7611\n\nAn affordance question rather than a defect: the persistence works as designed and is correctly gated. What is surprising is that a *transient* gesture performs a *durable, org-wide* write with nothing distinguishing the two.\n\nFound in a real application (`objectstack-ai/duly`) against published `@objectstack/*` 17.2.0, and then measured properly before reporting, because the first version of this finding could not say who was affected.\n\n## What happens\n\nClicking a grid column header to sort issues, per click:\n\n```\nPUT /api/v1/meta/view/duly_task.default\n  {\"label\":\"All tasks\",\"type\":\"grid\",\"data\":{…},\"columns\":[…],\n   \"sort\":[{\"field\":\"status\",\"order\":\"asc\"}],\"bulkActionDefs\":[…]}\n→ 200 {\"success\":true,\"message\":\"Saved customization overlay (org=org_…, state=active) …\"}\n```\n\nTwo clicks, two persisted writes. No save gesture, no confirmation, no indication in the UI that anything was stored — it looks exactly like an ephemeral sort.\n\nThe stored row, read out of `sys_metadata`:\n\n```\ntype: view   name: duly_task.default\nscope: \"platform\"   owner: null   organization_id: org_…   state: active\n```\n\n`owner` is null and the scope is org-wide. This is not a per-user preference.\n\n## Two things that make it more than cosmetic\n\n1. **The overlay carries the entire view definition**, not just the sort — columns, bulk actions, everything. So it also freezes the rest of the view at whatever the app shipped on the day of the click. A later release that adds a column to that view is silently ignored in any org where someone once sorted it.\n2. **It is org-wide.** In the app that found this, the affected views are shared surfaces — one of them is defined by its sort and filter (a \"not moving\" lens ordered by last-touched), so re-sorting it changes what the whole tenant's manager sees, not just the clicker's screen.\n\n## Who is affected — measured, since the first draft of this could not say\n\nThe write is gated on the `manage_metadata` capability, which is platform-admin only. Measured against a live app with three self-registered accounts each bound to exactly one application permission set (binding verified by A/B: a bound holder reads its object `200`, an unbound account `403`):\n\n| caller | `PUT /api/v1/meta/view/duly_task.default` |\n|:--|:--|\n| anonymous | `401 UNAUTHENTICATED` |\n| application member role | `403 FORBIDDEN` — ``requires the `manage_metadata` capability`` |\n| application manager role | `403 FORBIDDEN` — same |\n| application admin role | `403 FORBIDDEN` — same |\n| platform admin | `200` — overlay saved |\n\n`sys_metadata` stayed at `total: 0` across every refused attempt. The compound twin door (`PUT /api/v1/meta/<object>/views/<name>`) and the `DELETE` reset door carry the identical gate — checked, because a gate on one door and not its twin is the usual bypass.\n\n**So this is not a privilege problem**, and the report is correspondingly smaller than it first looked: ordinary users cannot do this. It is a platform admin surprising themselves — which, given that a platform admin is exactly who demos and evaluates an app, is still worth an affordance.\n\n## Suggested direction\n\nSeparate the two actions, which today share one gesture:\n\n- a **sort** is transient and personal — it should not survive a reload for anyone but the person who did it, if at all;\n- **persisting an org-wide overlay** is an administrative act and deserves an explicit save, ideally naming what it will do (\"save this arrangement for everyone in the organisation\").\n\nIf the current behaviour is intended for admins as a convenience, the minimum would be to say it happened — a toast or an indicator that the view now has a customization, with the reset action within reach. Today the only way to discover the overlay exists is to read `sys_metadata` or notice that a later release's view changes never arrived.\n\nRecorded app-side as objectstack-ai/duly#84, which carries the full method.\n"
+}

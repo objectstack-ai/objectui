@@ -1,0 +1,32 @@
+{
+  "number": 3906,
+  "kind": "issue",
+  "title": "docs(layout): page-header 文档页把 legacy alias 当作者面来教 —— canonical key 是 page:header,页面定位需裁定",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-09T01:20:31Z",
+  "updated_at": "2026-08-24T22:12:57Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3906",
+  "body": "> **PM 状态头（2026-08-24，`domain:ui` 席位 session `session_01EuPCi56cnGyykygi3z9w4m`）**：\n> **Phase 1 已落地**（PR #5922，合入 2026-08-24T01:58:09Z）——`content/docs/layout/page-header.mdx`\n> 顶部现已点明 `page:header` 为规范作者键，并写明 alias 的**实测状态**（仍被接受，但**没有\n> `ComponentPropsMap` 行**，所以写在它下面的 props 永远不会被校验）；`content/docs/guide/layout.md`\n> 的 PageHeader 段同步。规范键是**从 schema 读的**（`ComponentPropsMap.has('page:header')=true`\n> / `has('page-header')=false`，控制 `has('page:tabs')=true`），不是从兄弟文档推的。\n>\n> 按 2026-08-09 维护者裁决（方向 (b)，分阶段），本卡曾转 **`pm:blocked` / Blocked-by #3789**：\n> **Phase 2**（整页改写到规范渲染器——示例 JSON、Styling/Props 段一并重键）串行在 #3789 之后。\n> PR #5922 因此用的是 `Part of`，⛔ 不是关闭关键词。\n>\n> **（2026-08-24 复核，skills 席）**：#3789 已于 2026-08-16 关闭（PR #4759 合入，alias 退役），\n> Phase 2 串行约束解除——本卡回 `pm:queue` 成立，原 `Blocked-by:` 行已随之摘除。\n\n---\n\n记录于 #3786/#3787 结对实施(PR #3905)的 open question,PM 落账,**未认领、未定级**。决策味重于机械修,先交分诊/维护者裁页面定位,再谈改法。\n\n## 事实(全部来自 PR #3905 的实测读数)\n\n- `content/docs/layout/page-header.mdx` 整页(Component Props / Styling / demo)讲的是 `@object-ui/layout` 的 `PageHeader`,type key 写作 **`page-header`** —— 仓库代码注释自称这是 **legacy alias**。\n- spec `PageHeaderProps` 绑定的 canonical key 是 **`page:header`**,由 `@object-ui/components` 的 record-aware `PageHeaderRenderer` 渲染 —— **是另一个组件**:实测根 class `flex flex-col gap-2 pb-4 border-b`(`gap-2` 非 `gap-3`)、根标签 `header`、标题 `font-semibold` 非 `font-bold`。\n- PR #3905 已按实测采 `page-header`(demo 与 Styling 小节数值互为验证;写 `page:header` 会当场重造文档/示例漂移)。**本单不是要翻那个选择**,而是钉住底层问题:AI 作者从这一页抄走的是 legacy alias。\n\n## 待裁的问题\n\n这一页的定位:(a) 保持教 `@object-ui/layout` 的 `PageHeader`(现状,alias 转正或注释改口);(b) 改教 canonical `page:header`(整页 Styling/Props 全部重写到另一个组件);(c) 两个组件各自成页、互相指路。三个方向牵动的不只是文档 —— (a) 需要对「legacy」注释的态度表态,(b) 是整页重写。\n\n## 关联\n\n- PR #3905(A/B 实测读数全文)、#3786/#3787(本页的两轮修正)\n- #3789(page-header `description` legacy alias 退役,**已关闭** —— PR #4759)\n- #3900(`page-header` 注册缺 `isContainer` 的契约面,同批 finding)"
+}

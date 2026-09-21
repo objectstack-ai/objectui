@@ -1,0 +1,31 @@
+{
+  "number": 7297,
+  "kind": "issue",
+  "title": "No record-context binding for filter values — `element:number` and every `dataSource` filter on a record page can only be scoped to the VIEWER, never to the record",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T04:58:22Z",
+  "updated_at": "2026-09-05T01:22:15Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7297",
+  "body": "Measured on `@objectstack/spec` 17.2.0 + objectui at the current checkout, while authoring a read-only \"member detail\" record page over `sys_user` for the Duly app (objectstack-ai/duly#13).\n\n## The gap\n\nOn a `type: 'record'` page, exactly **one** authorable component binds itself to the record in context: `record:related_list`, via `relationshipField` / `relationshipValueField`.\n\nEvery other data-bearing component takes a `FilterCondition` (`element:number`, and the component-level `dataSource` binding on anything). The complete dynamic vocabulary for a filter value is `CONTEXT_TOKENS` — `{current_user_id}` and `{current_org_id}` (`@objectstack/spec/data`, `context-tokens.zod.ts`), re-exported verbatim by `@object-ui/core`'s `filter-tokens.ts`. **Both name the signed-in viewer.** There is no token for the record the page is bound to.\n\n`ElementNumberRenderer` (`packages/components/src/renderers/basic/elements.tsx`) confirms it from the other end — it passes `props.filter` straight to the adapter and adds nothing record-shaped:\n\n```js\nconst rows = await adapter.aggregate(props.object, {\n  function: props.aggregate,\n  filter: props.filter,\n  …\n});\n```\n\n## Why it bites\n\n`element:number` is the only component that renders a computed figure. So \"how many open tasks does **this person** have\" — the single most obvious thing to put at the top of a record page — is not authorable. What you get if you write the obvious thing is a count over the whole org, sitting under that person's name, which reads as their number. That is a silent wrong answer, and on the page in question it would also have been a comparison-to-peers the product forbids.\n\nNote the asymmetry that makes it easy to trip over: `visibleWhen` on the *same component* **does** bind `record` (`PageComponentSchema`: \"Page predicates bind the live page surface: `record` + `current_user` plus page state as `page.<var>`\"). So the author can already say *whether* the block renders based on the record, but not *what it counts*.\n\n## What we did instead\n\nThree `record:related_list`s (Open / Late / Not moving), each correctly record-scoped and each rendering a real count in `RelatedList`'s badge (the server `total`). It works and it is honest, but it is three tables where three numbers were wanted.\n\n## Suggested shape\n\nA `{record_id}` filter token alongside the two existing ones, resolved by `resolveContextTokens` from the record context when one is mounted and refused (loudly, like an unknown token) when it is not. The vocabulary lives in `@objectstack/spec`, so this needs the spec side too — filing here because the resolver and the record context are both objectui's, and `CONTEXT_TOKENS` is already consumed as a re-export rather than a fork (objectui#3003).\n\nWhatever the spelling, the failure mode to avoid is the current one: an author writes a plausible filter, gets a number, and the number is about everybody.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01SqkTcrxUFci7nqXdbBSe2p"
+}

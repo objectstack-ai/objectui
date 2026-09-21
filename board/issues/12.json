@@ -1,0 +1,33 @@
+{
+  "number": 12,
+  "kind": "pull_request",
+  "title": "[WIP] Enhance UI components for forms and layouts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-13T18:33:35Z",
+  "updated_at": "2026-01-13T18:44:51Z",
+  "closed_at": "2026-01-13T18:44:29Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-13T18:44:29Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12",
+  "body": "## Plan: Complete Component Library\n\nBased on the problem statement, I need to implement/enhance the following components:\n\n### Forms Components\n- [x] Input - Already implemented\n- [x] Select - Already implemented\n- [x] Checkbox - Already implemented\n- [x] Radio - Already implemented (radio-group)\n- [x] DatePicker - Implemented with calendar and input trigger\n- [x] File Upload - Implemented with file selection and preview\n\n### Data Components\n- [x] Table - Already implemented\n- [x] List - Implemented ordered and unordered lists\n- [x] Card - Already implemented\n- [x] Tree View - Implemented collapsible tree structure\n\n### Layout Components\n- [x] Grid - Implemented responsive grid layout\n- [x] Flex - Implemented flexible box layout\n- [x] Container - Implemented max-width container\n- [x] Tabs - Already implemented\n\n### Feedback Components\n- [x] Alerts - Already implemented\n- [x] Toasts - Already implemented (toaster)\n- [x] Dialogs - Already implemented (alert-dialog, dialog)\n- [x] Loading States - Implemented loading spinner component\n\n### Implementation Complete\n✅ All components have been implemented\n✅ Added date-fns dependency for date formatting\n✅ Updated index files to export new components\n✅ Build successful\n✅ Tests added and passing (9/9 tests)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完善组件 Forms: Input, Select, Checkbox, Radio, DatePicker, File Upload\n> Data: Table, List, Card, Tree View\n> Layout: Grid, Flex, Container, Tabs\n> Feedback: Alerts, Toasts, Dialogs, Loading States\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

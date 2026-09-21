@@ -1,0 +1,37 @@
+{
+  "number": 153,
+  "kind": "pull_request",
+  "title": "Revert: Fix CSS variable conflicts between ObjectUI and fumadocs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T03:01:02Z",
+  "updated_at": "2026-01-23T03:32:19Z",
+  "closed_at": "2026-01-23T03:29:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T03:29:01Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/153",
+  "body": "The initial fix caused CSS variable conflicts that broke the homepage styles. This PR reverts those changes.\n\n## Problem\n\nThe initial attempt to fix missing styles added `@import '@object-ui/components/index.css';` to global.css, which caused the homepage to break due to CSS variable conflicts:\n\n- ObjectUI's CSS defines unprefixed CSS variables (`--background`, `--foreground`, `--primary`, etc.)\n- Fumadocs theme uses prefixed variables (`--fd-background`, `--fd-foreground`, `--fd-primary`, etc.)\n- Importing ObjectUI CSS overwrote fumadocs' variables, breaking the homepage theme\n\n## Discovery\n\nAfter investigation, the plugin demo pages **already work correctly** without the CSS import - they use fumadocs' CSS variables and render properly.\n\n## Changes\n\n**`apps/site/app/global.css`**\n- Reverted: Removed ObjectUI component CSS import that was causing conflicts\n\n**`packages/components/package.json`**\n- Reverted: Removed CSS export paths that were not needed\n\n## Result\n\n**Homepage (Fixed):**\n<img src=\"https://github.com/user-attachments/assets/bd80f270-f282-4ad7-9b08-cd1d2ee0de14\">\n\n**Plugin Demos (Working):**\n<img src=\"https://github.com/user-attachments/assets/d4bfab55-647c-4a6e-a636-52e7b43777b6\">\n\nAll pages now display correctly:\n- ✅ Homepage uses fumadocs theme without CSS conflicts\n- ✅ Plugin demos render with proper styles using fumadocs CSS variables\n- ✅ No CSS variable conflicts between ObjectUI and fumadocs\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fumadocs 文档的演示的组件很多丢失了样式\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

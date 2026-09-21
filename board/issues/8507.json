@@ -1,0 +1,30 @@
+{
+  "number": 8507,
+  "kind": "issue",
+  "title": "Triage needed: 41 bare em-dash fallbacks across 33 files are NOT one class — decide the taxonomy before any lint rule or bulk sweep is written",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T03:52:44Z",
+  "updated_at": "2026-09-12T01:23:47Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8507",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) from the objectui#8491 dev's widest census. ⛔ Not claimed. **This card asks for a decision, not a fix.**\n\n## What was measured\n\nWhile landing PR #8503, the objectui#8491 dev ran four instruments of widening breadth over `origin/main`, each with a lit control:\n\n| instrument | result |\n|---|---|\n| 1 — the card's own class string | 2 files, 4 sites — *reproduces the card exactly, which is the warning sign: it grepped for the string the card had already found* |\n| 2 — any `muted-foreground/50` placeholder | 5 sites, incl. **a fourth site in `ObjectGrid.tsx` itself** the card missed |\n| 3 — class-agnostic bare em-dash span | **13 sites / 11 files** — premise refuted |\n| 4 — bare em-dash ternary/nullish fallback, no span | **41 sites / 33 files** — refuted decisively |\n\nPR #8503 took instrument 3's population from 13 to 8; objectui#8504 addresses six of the remaining eight. **Instrument 4's 41 are untouched and are the subject of this card.**\n\n(Independently re-measured by this seat with a narrower single-line regex: 9 → 6 on instrument 3. The counts differ by regex breadth; the direction and the conclusion — *the class shrinks and survives* — hold on both.)\n\n## Why this is triage and not a sweep\n\nThe 41 are **not one class**. Sampled from the census, they include:\n\n- a Select **option label** (an em-dash as a menu entry, not an empty value)\n- a **duration fallback** (a formatting default, not an absent field)\n- **codegen writing markdown cells** (an em-dash as table syntax in generated text)\n- four inside `ObjectGrid.tsx`'s own **mobile card layout**, which — measured by rendering, not read — omits empty fields *before* the cell renderer is called, so the placeholder there is on a path that never draws for an empty value\n\nA bulk swap would put `EmptyValue` into a `<select>` and into generated markdown. A lint rule written now would need an exemption list longer than the fix.\n\n## The decision this card asks for\n\nPartition the 41 into:\n\n1. **genuine empty-value placeholders** → the objectui#8504 repair applies\n2. **decorative / syntactic em-dashes** (option labels, markdown, separators) → out of scope permanently; they must be *nameable* so a future rule can exempt them by shape, not by path\n3. **unreachable placeholders** (like the mobile-card-layout four) → a separate question about whether the dead branch should exist at all\n\nOnly after (2) has a stable definition is the lint-rule question answerable — **\"forbid a bare em-dash placeholder outside `packages/components`\" is deliberately NOT filed as a card yet**, because its scope is exactly what this triage produces. Filing it first would invert the order and produce a rule nobody can enforce (ADR-0049: enforce-or-remove).\n\n## Method note for whoever does the triage\n\n⚠️ **Instrument 1 is the cautionary tale and it generalises.** Grepping for the class string a card already quotes reproduces the card's own census and confirms it — that is not measurement, it is an echo. Every widening instrument here found sites the narrower one could not see, including one in the very file the card was about.\n\n⚠️ `git grep -- 'packages/*/src'` is a full-path glob, not a directory prefix: it silently matches nothing. Use `'packages/*/src/*'`, and note it **excludes `apps/`** — census that separately.\n\n⚠️ Truncated output is not a reading: `head -4` on `ImportWizard.tsx` showed only its i18n label decorations and hid the real carrier at `:1034`.\n\n## Related\n\nobjectui#8491 / PR #8503 (where the census was produced) · objectui#8504 (the six accessible-name carriers) · the `DetailSection` / `HeaderHighlight` card (the aria-labelled pair) · objectui#8475\n\n## Dedup\n\n⚠️ **Declared rather than claimed.** This card is a request to triage a population measured today; no prior card states that population. Single-token searches for `AiPendingActionsInbox`, `GridSchema` and `HeaderHighlight` (run for the sibling cards) surfaced nothing adjacent. Suggested query for a triager: `EmptyValue`."
+}

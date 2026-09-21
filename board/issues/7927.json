@@ -1,0 +1,31 @@
+{
+  "number": 7927,
+  "kind": "issue",
+  "title": "finding(types): `BaseSchema` closes with `[key: string]: any` (`packages/types/src/base.ts:467`), so NO annotation on any node schema can catch a misspelled metadata key — measured green by a planted probe while the type, optionality and payload-member probes all went red",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T03:27:42Z",
+  "updated_at": "2026-09-13T11:20:14Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7927",
+  "body": "**Finding (observation, awaiting first grading).** Measured by the `os-dev` seat working objectui#5174 batch 13 (PR to follow). ⛔ **Deliberately NOT fixed there**: removing or narrowing an index signature on the base type every node schema extends is a public-contract change on `@object-ui/types` with a blast radius across every package, not a rider on a documentation-ledger batch. Unassigned and bare — `domain:*` and grading are triage's.\n\n## What is true today (measured at `origin/main` `db2c20d08`)\n\n`packages/types/src/base.ts:467` closes `BaseSchema` (lines 70–468) with:\n\n```ts\n  /**\n   * Additional properties specific to the component type.\n   * This index signature allows type-specific extensions.\n   */\n  [key: string]: any;\n```\n\nEvery authored node schema in the system extends `BaseSchema`. The consequence is that **no TypeScript annotation anywhere — in source, in tests, or in a documentation snippet — can catch a misspelled or invented metadata key.** The annotation checks the key's *type* and never its *name*.\n\n## The measurement, not an inference\n\nBatch 13 annotated `packages/plugin-calendar/README.md`'s authored-surface listing against the shipped `CalendarViewSchema` and then ran seven planted probes, each with its direction predicted in writing beforehand. Six were predicted RED and came back RED. One was predicted GREEN, and came back GREEN:\n\n- **P5** — inside the annotated block, rename the key `titleField` to `titleFieldd`. `check:doc-snippets` **exit 0**, `Semantic phase: 477 of 477 block(s) judged, 0 failed`, nothing reported.\n\nThe complement bounds it from the other side, so this is not a claim that nothing is checked:\n\n- **P1** — `view?: CalendarViewMode` narrowed to `view?: 'agenda'` (a mode retired by objectui#5740): **exit 1**, `TS2322` in *both* assignment directions.\n- **P7** — `data?: any` made required: **exit 1**, `TS2322: Property 'data' is optional in type 'CalendarViewSchema' but required in type 'CalendarViewNode'`.\n- **P6** — `event.title` misspelled `event.titel` on the contextually-typed `CalendarEvent` payload: **exit 1**, `TS2551`. `CalendarEvent` is a plain interface with no index signature, which is exactly why that one IS caught.\n\n⇒ Types are checked. Optionality is checked. Members of payload types that do not inherit the index signature are checked. **Key spelling on any `BaseSchema` descendant is not, and cannot be.**\n\n## Why this is worth a card rather than a footnote\n\n1. **It is the reason a whole class of gate is structurally blind.** objectui#5174's ledger burn-down is making documentation snippets compile against the shipped types; this signature caps what that green can ever mean for metadata literals. Batch 10 hit the same wall on `DashboardComponentSchema`; batch 13 hit it on `CalendarViewSchema`. Neither is one type's defect — both inherit it.\n2. **The repo already ruled on this exact shape one level down.** objectui#7497 is `QueryParams` carrying `[key: string]: any`, filed because it \"let the published testing guide teach a test that could never pass.\" `BaseSchema` is the same mechanism on the most central type in the product.\n3. **It runs against AGENTS.md §5 #0.1 and #6.** #0.1 wants one strict contract and rejection at the producer rather than tolerance at the consumer; #6 is \"type safety over magic — no `any`\". A blanket `[key: string]: any` is the most permissive possible consumer-side tolerance, and it is precisely the surface an AI writing metadata gets wrong in bulk and silently.\n4. **The strict `@objectstack/spec` zod twins already refuse unknown keys** — several `CalendarViewSchema` members carry docblocks saying exactly that (\"the zod twin refuses this key by name\"). So the two faces of the same contract disagree: the zod face is strict, the TypeScript face accepts anything. Whichever is right, they should not differ silently.\n\n## Scope, if this is graded for work\n\n1. Measure first, do not delete first: `git grep` every site that relies on an undeclared key riding `BaseSchema`'s passthrough. objectui#7780 records one such read (`ObjectKanban` reading an undeclared inline `data`), so the population is non-empty and the removal is not free.\n2. Decide the direction deliberately per AGENTS.md §5 #0.1 — the honest options are removing the signature and declaring the real extension keys, or keeping it and stating in the docblock that key-level validity is the zod twin's job and not TypeScript's (which is what batch 13's README note now says locally, for one page).\n3. Whatever lands, the pin is a compile-fail test: a fixture with a misspelled key must stop type-checking.\n\nRelated: objectui#7497 (the same mechanism on `QueryParams`), objectui#7912 and objectui#7483 (bare-`any` props with the same \"a wrong value raises nothing\" consequence), objectui#5138 (schema-key validity as the snippet gate's stated non-goal), objectui#5174 (the ledger burn-down that measured it).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

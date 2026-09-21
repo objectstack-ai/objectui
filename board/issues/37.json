@@ -1,0 +1,33 @@
+{
+  "number": 37,
+  "kind": "pull_request",
+  "title": "Add ObjectQL data source adapter for Object UI frontend controls",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T16:50:53Z",
+  "updated_at": "2026-01-14T17:49:13Z",
+  "closed_at": "2026-01-14T17:48:56Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T17:48:56Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/37",
+  "body": "Implements integration layer for connecting Object UI components to ObjectQL API backends via universal DataSource interface.\n\n## Implementation\n\n**New Package: `@object-ui/data-objectql`**\n- `ObjectQLDataSource` class implementing universal `DataSource<T>` interface\n- Automatic query parameter translation (OData-like → ObjectQL format)\n- React hooks: `useObjectQL`, `useObjectQLQuery`, `useObjectQLMutation`\n- Authentication, multi-tenant (spaceId), configurable timeouts\n\n**Query Parameter Mapping**\n| Universal | ObjectQL | Example |\n|-----------|----------|---------|\n| `$select` | `fields` | `['name', 'email']` |\n| `$filter` | `filters` | `{ status: 'active' }` |\n| `$orderby` | `sort` | `{ created: -1 }` |\n| `$skip`/`$top` | `skip`/`limit` | pagination |\n\n## Usage\n\n```tsx\nimport { ObjectQLDataSource } from '@object-ui/data-objectql';\n\nconst dataSource = new ObjectQLDataSource({\n  baseUrl: 'https://api.example.com',\n  token: authToken,\n  spaceId: workspaceId\n});\n\n// With components\n<SchemaRenderer schema={schema} dataSource={dataSource} />\n\n// With hooks\nconst { data, loading, error } = useObjectQLQuery(\n  dataSource, \n  'contacts',\n  { $filter: { status: 'active' }, $top: 20 }\n);\n```\n\n## Documentation\n\n- Package README with full API reference\n- Integration guide at `/docs/integration/objectql.md`\n- Usage examples in `/examples/objectql-integration/`\n- Updated main README with data integration section\n\n## Testing\n\n13 unit tests covering CRUD operations, query conversion, auth headers, error handling, and configuration options.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 设计如何让前端控件接入objectql api\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

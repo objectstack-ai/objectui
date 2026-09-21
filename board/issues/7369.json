@@ -1,0 +1,31 @@
+{
+  "number": 7369,
+  "kind": "issue",
+  "title": "finding(studio): 属性面板的 metadata-form 本地化终态应直接消费平台本地化的 form/bundle，删掉 objectui 侧对照表（#7254 的 A→C 路线）",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "i18n",
+    "pm:on-hold",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T13:28:16Z",
+  "updated_at": "2026-09-13T11:19:51Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7369",
+  "body": "## 观察（来自 objectui#7254 的 dev 报告，PM 定级为 finding）\n\nobjectui#7254 / PR #7366 把 Studio 属性面板（仪表盘 inspector）的中文覆盖落在了 `views/metadata-admin/i18n.ts` 的 `engine.*` 专用字典（新增 `metadata-form-i18n.ts` 喂给 spec 自己的 `resolveMetadataFormLabels`），而不是 `@object-ui/i18n` 十语言包——理由：同一面板其它字符串已在 `engine.*`；`@object-ui/i18n` 强制十包对齐会为八种无拉动的语言发明技术表单文案。PM 裁：**现状接受（A），终态是 C**。\n\n## 终态 C（本卡记录，暂不排期）\n\n这些字符串本质上是 spec 的（metadata form 标签）。框架已经在 `/meta/types` 条目的嵌套 `form` 上用同一个 `resolveMetadataFormLabels` 做服务端本地化，objectstack 也已发布 `dashboard` 的 zh/ja/es bundle。终态是 objectui 的 inspector **直接消费线上的本地化 `form`**（或 objectstack 发布的 `metadataForms` bundle），删掉 objectui 侧的对照表——#7366 落地的形状（同一 resolver、同一键约定）让这一步只是一个调用点换数据源。\n\n## 未做的原因（前提，待验）\n\n- 服务端本地化的 `form` 今天没有线程到 inspector；\n- cloud 租户环境里能否拿到该 bundle 未在真实 rig 上验证。\n\nRe-check：`grep -rn \"resolveMetadataFormLabels\" packages/app-shell/src/views/metadata-admin/`；`grep -rn \"metadataForms\" /Users/zhuangjianguo/Documents/GitHub/objectstack/packages/platform-objects/src | head`。\n\n关联：objectstack#14586（\"Tailwind units\" 帮助文案）、objectstack#14587（zh-CN metadata-forms 陈旧）。\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 7028,
+  "kind": "issue",
+  "title": "Tighten `data-objectstack`'s envelope-tolerant row extraction to the single post-unwrap spelling — after objectstack#13079's ruled convergence lands",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T13:39:57Z",
+  "updated_at": "2026-09-04T23:13:07Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7028",
+  "body": "Condition 2 of the objectstack#13079 ruling (2026-08-31, director batch #19, option A approved): the SDK's four envelope-returning methods (`analytics.query` / `analytics.meta` / `analytics.explain` / `automation.trigger`) converge on `unwrapResponse`, and this tolerant chain must be tightened in the same wave so defensive coding is not read as contract.\n\n## The site\n\n`packages/data-objectstack/src/index.ts:4846` — the row-extraction chain accepts BOTH spellings: `data.rows` (post-unwrap) and `data.data.rows` (envelope). Today the envelope branch matches for the four unconverged methods; after convergence the post-unwrap branch matches. The caller census (objectstack PR #13647) found this is the ONLY production SDK call site in objectui — it survives convergence untouched, which is exactly why it must then be tightened: the next reader will take the tolerant chain as evidence that the producer is ambiguous by design.\n\n## ⛔ Sequencing gate — do not start before\n\nobjectstack#13079's convergence PR is merged AND objectui has adopted the `@objectstack/*` version carrying it. Tightening FIRST breaks today's envelope reads for the four unconverged methods — the tolerant chain is currently load-bearing.\n\n## Deliverable\n\nReduce the chain at this site to the single post-unwrap spelling. A pin that fails loudly if an envelope shape reappears at this boundary is welcome, scoped to this site.\n\nRefs: objectstack#13079 (ruling + four-lens record), objectstack PR #13647 (census)."
+}

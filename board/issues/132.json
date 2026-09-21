@@ -1,0 +1,35 @@
+{
+  "number": 132,
+  "kind": "pull_request",
+  "title": "Component inventory, ObjectStack integration roadmap, and AI development prompts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-21T11:20:53Z",
+  "updated_at": "2026-01-23T03:37:10Z",
+  "closed_at": "2026-01-23T03:37:10Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/132",
+  "body": "Establishes baseline component inventory (72 total, 58 complete), 8-week development plan for ObjectStack client integration, and comprehensive AI development prompts for each core component.\n\n## Component Inventory\n\nCreated comprehensive documentation (COMPONENT_INVENTORY.md) covering:\n\n- **9 core categories**: Basic (7), Form (15), Layout (9), Data Display (6), Complex (10), Navigation (2), Overlay (9), Feedback (4), Disclosure (2)\n- **5 plugin packages**: Charts (3), Editor (1), Kanban (1), Markdown (1), Object (2)\n- **ObjectStack integration status**: ✅ Adapter operational, 🔴 UI components need integration\n\n## AI Development Prompts\n\nCreated AI_DEVELOPMENT_PROMPTS.md with detailed prompts for AI-assisted component development:\n\n- **15+ component prompts** covering all categories (Basic, Form, Layout, Data Display, Complex, Plugins)\n- **Structured format** for each component: Requirements, Props, Implementation guidelines, Example schemas, Test cases\n- **ObjectStack integration patterns** for data-driven components (DataTable, ObjectTable, ObjectForm, FilterBuilder, Kanban)\n- **Implementation best practices** including component structure templates and testing patterns\n- **Ready-to-use prompts** for AI assistants to accelerate component development\n\nEach prompt provides complete guidance on building components with Shadcn/UI, Tailwind CSS, and ObjectStack integration.\n\n## Critical Gaps\n\n| Component | Gap | Impact |\n|-----------|-----|--------|\n| ObjectTable/ObjectForm | No metadata-driven UI generation | 🔴 Flagship components blocked |\n| Filter Builder | No FilterNode AST conversion | 🔴 Query filtering non-functional |\n| Kanban | No CRUD/state persistence | 🔴 Popular component incomplete |\n| File Upload | No storage backend | 🟡 Common use case missing |\n| Chart | Static data only | 🟡 Dashboard utility limited |\n| Tree View | No hierarchical queries | 🟡 Organizational data unsupported |\n\n## 8-Week Priority Plan\n\n**Phase 1 (Weeks 1-4)**: Critical ObjectStack Integration\n- Metadata → UI generation (ObjectTable, ObjectForm)\n- Filter UI → FilterNode AST (Filter Builder)\n- Full CRUD + drag-drop persistence (Kanban)\n\n**Phase 2 (Weeks 5-6)**: High Priority\n- File storage adapter integration\n- Chart data binding to ObjectStack queries\n- Tree View hierarchical query support\n\n**Phase 3 (Weeks 7-8)**: Quality &amp; Documentation\n- Test coverage to 85%+\n- Showcase examples\n- Integration guides\n\n## ObjectStackAdapter Status\n\nAlready operational with:\n```typescript\nimport { createObjectStackAdapter } from '@object-ui/core';\n\nconst dataSource = createObjectStackAdapter({\n  baseUrl: process.env.API_URL,\n  token: process.env.API_TOKEN\n});\n\n// Full CRUD operational\nawait dataSource.find('users', {\n  $filter: { status: 'active', age: { $gte: 18 } }, // Auto-converts to FilterNode AST\n  $orderby: { createdAt: 'desc' },\n  $top: 20\n});\n```\n\nNext step: wire components to leverage this adapter for metadata-driven UI generation using the AI development prompts as guidance.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 整理现有组件清单，基于新的objectstack client，安排下一步的优先开发计划。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

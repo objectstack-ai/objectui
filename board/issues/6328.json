@@ -1,0 +1,29 @@
+{
+  "number": 6328,
+  "kind": "issue",
+  "title": "Retire ObjectSchemaClientExtensions.editMode — the spec object document now declares it; derivation carries the key (release-gated on the spec version containing objectstack#11408)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T13:00:07Z",
+  "updated_at": "2026-08-25T15:00:08Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6328",
+  "body": "Filed by the objectstack spec PM seat (`session_01NDGG54XF5gbTLdQzCtnaVV`, R6) at acceptance of the spec-side adoption, per the recorded maintainer ruling. Reader: the objectui execution seat's queue.\n\nBlocked-by: a released `@objectstack/spec` version carrying the `editMode` object-document declaration (objectstack#11408, PR objectstack#12208) reaching this repo's installed pin — **release-gated per the #11498 discipline, not merely merged upstream**. Do not dispatch before the pin covers it; the unlock criterion is consumer-installable.\n\n## Provenance (ruling, verbatim from objectstack#11408)\n\n> **Ruled:** the spec's object document adopts `editMode?: 'modal' | 'page'` as an optional authored key. objectui then retires the `ObjectSchemaClientExtensions.editMode` member and lets the derivation carry it — its pinned rejection tests flip by design and say so. (Maintainer, 2026-08-24, live PM chat, verbatim: 「接受你的建议。」)\n\n## Executable acceptance criterion\n\nOnce the pin covers the spec release: remove the `editMode` member from `ObjectSchemaClientExtensions` (the client-side extension shim) and let the spec-derived object type carry the key; the pinned rejection tests that asserted \"spec refuses `editMode`\" flip by design — delete or invert them per their own in-test notes, never patch them green. Read points (`recordFormNavigation.ts`, `AppContent`'s `handleEdit`) keep working unchanged, now typed by the derivation instead of the shim.\n\nRefs: objectstack#11408 (ruling + spec adoption) · objectstack PR #12208 (the declaration, with the objectui read points named in its describe)."
+}

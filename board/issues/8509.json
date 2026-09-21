@@ -1,0 +1,30 @@
+{
+  "number": 8509,
+  "kind": "issue",
+  "title": "DECISION NEEDED: `kanban-col-*` heading ids are read by NOTHING — neither Kanban layout associates a column with its content, and the code comment inviting the obvious repair would mint a second set of dead ids",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T03:53:56Z",
+  "updated_at": "2026-09-12T01:23:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8509",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`). Measured on `origin/main`. ⛔ Not claimed. **Escalated rather than dispatched: the repair requires an a11y decision this seat should not make.**\n\n## Measured, with lit controls\n\n| instrument | result |\n|---|---|\n| `kanban-col-` in `packages/plugin-kanban/src/*` | fires — minted at `KanbanImpl.tsx:319` on every column heading |\n| `aria-labelledby` in `packages/plugin-kanban/src/*` | **0** |\n| `aria-labelledby` in `packages/*/src/*` (lit control) | fires — 20 occurrences in `app-shell/.../SchemaForm.tsx` alone |\n| `kanban-col-` anywhere outside `plugin-kanban` | **0** |\n\nSo the zero is real, not a dead instrument. `KanbanImpl.tsx:319`:\n\n```tsx\n<h3 id={`kanban-col-${column.id}`} className=\"…\">{column.title}</h3>\n```\n\n**That id is referenced by nothing.** The only reader anywhere is a test asserting the heading exists (`__tests__/swimlaneColumnHeaderRow-7303.test.tsx:248`, `container.querySelector('h3#kanban-col-open')`). No `aria-labelledby` points at it, in this package or any other.\n\n## ⚠️ Why this is escalated and not dispatched\n\nThe natural reading of the code invites the **wrong repair**. `KanbanImpl.tsx:660` describes the swimlane header row as:\n\n> *\"a SECOND header implementation, parallel to the per-column `<h3 id={\\`kanban-col-${column.id}\\`}>` that `KanbanColumnView` renders\"*\n\nRead literally, that says the swimlane path is missing ids the other path has, and the fix is to give the swimlane's plain `<span>` titles ids too. **That would mint a second set of ids nobody reads.** The association was never wired on either path; the ids are a declared-but-not-read shape — the same category objectui#7735 and objectui#7361 fixed on `GridSchema` / `maxWidth` defaults, and the same one objectui#8491 just closed at the value level.\n\nThis seat nearly filed exactly that wrong card. The premise check — grepping for the *consumer* rather than the producer, with `aria-labelledby` in a package that uses it heavily as the control — is what caught it. Recorded because the same shape has now bitten twice (objectui#8481 was the mirror image: sibling components asserted to lack a guard that they had, with the identical hole).\n\n## The decision this card asks for\n\nWhat should the association actually be? These are genuinely different products, not spellings of one:\n\n1. **`aria-labelledby` on each column's card list**, pointing at the existing `<h3>` — smallest change, but the swimlane layout has no column components to hang it on, so it fixes one layout only.\n2. **`role=\"columnheader\"` plus a grid/table role structure** — announces the board as a grid, which is arguably what it is, but it is a structural change to both layouts and interacts with the drag-and-drop semantics.\n3. **`aria-label` per cell**, composing column title and lane name — works uniformly in both layouts and needs no ids at all, at the cost of a repeated announcement per cell.\n\nOption 3 would make the `kanban-col-*` ids formally dead and they should then be **removed** under ADR-0049 (enforce-or-remove) rather than left as decoration.\n\n⚠️ Whatever is chosen must cover **both** layouts, or it re-creates today's asymmetry in a new place.\n\n## Not measured here\n\nWhether any screen reader currently announces something useful by accident (e.g. through DOM order alone). That is worth knowing before pricing the options, and it is not something this repo's CI can tell you.\n\n## Related\n\nobjectui#7303 / `swimlaneColumnHeaderRow-7303.test.tsx` (where the two header implementations are documented) · objectui#7735, objectui#7361 (the declared-but-not-read category) · objectui#8491, objectui#8504 (the same category at the value level) · ADR-0049\n\n## Dedup\n\nRan, single-token `search_issues`. `swimlane` → 0 with `KanbanImpl` → 1 as the lit control for the same query shape (objectui#4254, closed, `requiredWhen` on drop — unrelated). Nothing filed about Kanban accessibility or column association."
+}

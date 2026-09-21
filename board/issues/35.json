@@ -1,0 +1,33 @@
+{
+  "number": 35,
+  "kind": "pull_request",
+  "title": "[WIP] Evaluate which controls should be placed in plugins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T16:09:24Z",
+  "updated_at": "2026-01-14T17:43:41Z",
+  "closed_at": "2026-01-14T17:43:41Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T17:43:41Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/35",
+  "body": "## Plan: Extract Heavy Components to Plugins ✅ COMPLETED\n\nBased on the plugin architecture analysis, the following components have been successfully extracted from `@object-ui/components` into separate plugin packages to reduce bundle size and improve lazy-loading:\n\n### Components to Extract:\n\n- [x] **Analyze current dependencies and component usage**\n  - [x] Identify components using heavy dependencies (recharts, markdown, dnd-kit)\n  - [x] Review existing plugin architecture (plugin-charts, plugin-editor)\n  - [x] Document which components should move to plugins\n\n- [x] **Create plugin-markdown package**\n  - [x] Create package structure for @object-ui/plugin-markdown\n  - [x] Move markdown UI component to plugin\n  - [x] Implement lazy loading wrapper\n  - [x] Update dependencies (react-markdown, remark-gfm, rehype-sanitize)\n  - [x] Add type definitions\n  - [x] Configure build setup\n  - [x] Add README documentation\n  - [x] **Bundle: 262 KB (66 KB gzipped), lazy-loaded**\n\n- [x] **Create plugin-kanban package**\n  - [x] Create package structure for @object-ui/plugin-kanban\n  - [x] Move kanban UI component to plugin\n  - [x] Implement lazy loading wrapper\n  - [x] Update dependencies (@dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities)\n  - [x] Add type definitions\n  - [x] Configure build setup\n  - [x] Add README documentation\n  - [x] **Bundle: 79 KB (21 KB gzipped), lazy-loaded**\n\n- [x] **Consolidate chart components**\n  - [x] Add advanced chart renderer to plugin-charts\n  - [x] Support multiple chart types (bar, line, area)\n  - [x] Update exports and registration\n  - [x] **Bundle: 538 KB (135 KB gzipped), lazy-loaded**\n\n- [x] **Update @object-ui/components**\n  - [x] Remove heavy dependencies from package.json (recharts, markdown, dnd-kit)\n  - [x] Remove markdown, kanban, and chart renderers\n  - [x] Remove markdown, kanban, and chart UI components\n  - [x] Update exports in index files\n  - [x] **Result: ~900 KB - 1 MB reduction in bundle size**\n\n- [x] **Update examples and documentation**\n  - [x] Update playground to import new plugins\n  - [x] Add plugin dependencies to playground package.json\n  - [x] Create markdown-demo.json example\n  - [x] Create kanban-demo.json example\n  - [x] Update plugins-showcase.json with all plugins\n  - [x] Update plugins.ts exports\n\n- [x] **Testing and validation**\n  - [x] Build plugin-markdown successfully\n  - [x] Build plugin-kanban successfully\n  - [x] Build plugin-charts with advanced features\n  - [x] Build components package (reduced size)\n  - [x] Verify all plugins work correctly\n  - [x] Create comprehensive summary documentation\n\n## Summary\n\n✅ **Successfully extracted 3 heavy components into lazy-loaded plugins**\n✅ **Reduced @object-ui/components bundle size by ~50%**\n✅ **Maintained zero-configuration developer experience**\n✅ **All builds passing, ready for testing**\n\nSee `PLUGIN_EXTRACTION_SUMMARY.md` for complete details.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 基于插件体系重新思考哪些控件应该放在插件中\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

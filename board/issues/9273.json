@@ -1,0 +1,32 @@
+{
+  "number": 9273,
+  "kind": "issue",
+  "title": "finding(process): test-selection narrowing is defined by the dependency graph, so it is blind by construction to census and prose pins — three instances in one session, all reaching CI red",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:blocked",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-12T09:55:23Z",
+  "updated_at": "2026-09-14T17:22:16Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9273",
+  "body": "Raised by the `os-dev` seat on objectui#9170 after the **same blind spot bit the same card twice, from two different directions**, and filed by the `domain:ui` PM seat because it is a change to shared guidance rather than to code, and because a third instance landed on an unrelated PR in the same session. ⛔ Filed as a `finding` only; grading is the triage seat's.\n\n## The claim\n\nSeat guidance says to validate a change by running **the changed package's tests**, and that narrowing is defined by the **dependency graph**. ⭐ That universe systematically excludes an entire class of readers: **a census or prose pin reaches its subject by some route other than importing it**, and lives outside the changed package *on purpose*, because watching across a package boundary is the whole reason it exists.\n\n⇒ the filter is not merely incomplete. It is **blind by construction** to exactly the pins written to catch cross-package drift.\n\n## Three measured instances, all in one session\n\n| # | the change | the reader that was missed | how it reached the subject |\n|:--|:--|:--|:--|\n| 1 | objectui#9169 round two removed a `t()` call site | `residue-namespaces-3546.test.tsx` | reads the renderer's **source text**, imports nothing |\n| 2 | objectui#9169 round three removed a rendered `<p>` | `examples/schema-catalog/test/kanban-column-cards-6939.test.tsx` | a **DOM element census** on the kanban surface; imports no locale pack |\n| 3 | objectui#9261 narrowed `body`/`children` on 62 declarations | `packages/plugin-calendar/src/readme-calendar-view-schema.test.ts` | holds a **README prose figure** (\"how many keys the schema has\") to the interface |\n\n⚠️ Instances 1 and 2 are the same card with **opposite** narrowings: an import-graph narrowing could not see a source-text pin, and a \"tests that read the locale packs\" narrowing could not see an element census. Both seats' narrowings were reasonable, declared, and wrong in the same way.\n\nAll three reached CI red. None was a logic defect — in every case the pin was **reporting correctly** and the change had legitimately moved what it counted.\n\n## The generalisation, in the reporting seat's own words\n\n> Both are cases of a narrowing whose universe is defined by the dependency graph missing readers that reach the subject by some other route.\n\n## Proposed rule — the mechanical half is the valuable half\n\n⭐ Before pushing a change that **deletes or moves a call site, a rendered node, or a declaration key**, grep the repository for what that site *produced* — the rendered strings, the counted shape, the key name — not only for what *imports* it.\n\nThat one sentence would have caught all three. It is cheap, it survives being read once, and it needs no tooling.\n\n⚠️ ⛔ Do not state the rule as \"run the whole suite.\" That is the expensive non-answer: it is what the narrowing exists to avoid, seats already declare `pnpm test` as CI's, and a rule nobody can afford to follow is not followed.\n\n## What is NOT measured\n\n- **How often this actually bites.** Three instances in one session is the sample; ⛔ it is not a rate. Whether these pins are rare or common in the tree is unmeasured.\n- **Whether a lint or gate could enforce it.** A gate that maps \"deleted rendered string → census pins that quote it\" may or may not be derivable. ⛔ Not designed here, and the prose rule stands on its own without it.\n- Instance 3's full extent: objectui#9261 is enumerating which *other* published READMEs state a key count for a narrowed declaration. Its answer will say whether prose figures are a one-off or a family.\n\n## Where the rule lives\n\n`AGENTS.md` is the source of truth for working in this repo, and the `domain:ui` PM seat has already added the mechanical half to its own dispatch template as an interim measure. ⛔ This seat did not edit `AGENTS.md` — that surface belongs to the skills seat, which is why this is a card and not a PR.\n\n## Related\n\n- objectui#9170 / PR objectui#9169 — instances 1 and 2, with the reporting seat's write-up in three commit messages and the PR.\n- objectui#9256 / PR objectui#9261 — instance 3.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 21,
+  "kind": "issue",
+  "title": "在开发对象相关组件时，应该一套标准API搞定所有业务",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T01:19:32Z",
+  "updated_at": "2026-01-14T17:15:16Z",
+  "closed_at": "2026-01-14T17:15:16Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/21",
+  "body": "这是一个架构设计的核心问题。要在 Object UI 中实现“一套标准 API 搞定所有业务”，你需要使用 适配器模式 (Adapter Pattern)。\n核心思想是：Object UI 组件不直接调用 axios 或 fetch，而是调用一个标准化的 DataSource 接口。\n你需要在你的 RestDataSource 中实现这 5 个标准方法。\n1. 定义标准接口 (The Contract)\n在 @object-ui/types 或 @object-ui/core 中，应该已经定义好了这个接口。这是所有数据源必须遵守的“法律”。\n// packages/core/src/data/DataSource.ts\n\nexport interface DataSource {\n  /**\n   * 查询列表 (用于表格、看板、下拉选项)\n   * @param resource 资源名称 (如 'users', 'orders')\n   * @param params 查询参数 (分页、过滤、排序)\n   */\n  find(resource: string, params?: any): Promise<any[]>;\n\n  /**\n   * 查询详情 (用于详情页、编辑表单回显)\n   * @param resource 资源名称\n   * @param id 记录ID\n   */\n  findOne(resource: string, id: string | number): Promise<any>;\n\n  /**\n   * 创建记录 (用于新建表单提交)\n   * @param resource 资源名称\n   * @param data 表单数据\n   */\n  create(resource: string, data: any): Promise<any>;\n\n  /**\n   * 更新记录 (用于编辑表单提交)\n   * @param resource 资源名称\n   * @param id 记录ID\n   * @param data 修改的数据\n   */\n  update(resource: string, id: string | number, data: any): Promise<any>;\n\n  /**\n   * 删除记录 (用于删除按钮)\n   * @param resource 资源名称\n   * @param id 记录ID\n   */\n  delete(resource: string, id: string | number): Promise<void>;\n}\n\n2. 实现通用适配器 (The Implementation)\n你需要写一个通用的 RestDataSource 类，把上述标准方法映射到你的 REST API 规范（假设你的 API 遵循 RESTful 风格）。\n// packages/data-rest/src/RestDataSource.ts\nimport { DataSource } from '@object-ui/core';\n\nexport class RestDataSource implements DataSource {\n  private baseUrl: string;\n  private headers: Record<string, string>;\n\n  constructor(options: { baseUrl: string; headers?: Record<string, string> }) {\n    this.baseUrl = options.baseUrl.replace(/\\/$/, ''); // 去掉末尾斜杠\n    this.headers = {\n      'Content-Type': 'application/json',\n      ...options.headers,\n    };\n  }\n\n  // 内部 fetch 封装\n  private async request(url: string, method: string, body?: any) {\n    const res = await fetch(`${this.baseUrl}${url}`, {\n      method,\n      headers: this.headers,\n      body: body ? JSON.stringify(body) : undefined,\n    });\n    \n    if (!res.ok) throw new Error(`API Error: ${res.statusText}`);\n    return res.json();\n  }\n\n  // 1. 实现 Find (Grid / List) -> GET /resource\n  async find(resource: string, params?: any) {\n    // 将参数转换为 query string (如 ?page=1&status=active)\n    const queryString = params ? '?' + new URLSearchParams(params).toString() : '';\n    return this.request(`/${resource}${queryString}`, 'GET');\n  }\n\n  // 2. 实现 FindOne (Form Load) -> GET /resource/:id\n  async findOne(resource: string, id: string | number) {\n    return this.request(`/${resource}/${id}`, 'GET');\n  }\n\n  // 3. 实现 Create (Form Submit) -> POST /resource\n  async create(resource: string, data: any) {\n    return this.request(`/${resource}`, 'POST', data);\n  }\n\n  // 4. 实现 Update (Form Submit) -> PUT /resource/:id\n  async update(resource: string, id: string | number, data: any) {\n    return this.request(`/${resource}/${id}`, 'PUT', data);\n  }\n\n  // 5. 实现 Delete (Button Action) -> DELETE /resource/:id\n  async delete(resource: string, id: string | number) {\n    return this.request(`/${resource}/${id}`, 'DELETE');\n  }\n}\n\n3. UI 如何自动调用这些方法？\n这就是 \"Schema-Driven\" 的魔力所在。你的 JSON Schema 不需要写代码，只需要声明“意图”。\n场景 A：渲染一个表格 (Grid)\nObject UI 的 GridRenderer 会自动调用 dataSource.find()。\n{\n  \"type\": \"grid\",\n  \"resource\": \"orders\",  // 👈 告诉 DataSource 查哪个资源\n  \"columns\": [...]\n}\n\n * 内部行为： 组件加载时 -> 调用 dataSource.find('orders', { page: 1 })。\n场景 B：提交一个表单 (Form)\nObject UI 的 FormRenderer 会根据是否有 docId 自动判断是创建还是更新。\n{\n  \"type\": \"form\",\n  \"resource\": \"orders\",\n  \"body\": [...]\n}\n\n * 新建模式： 点击提交 -> 调用 dataSource.create('orders', formData)。\n * 编辑模式 (传入了 id)： 点击提交 -> 调用 dataSource.update('orders', id, formData)。\n场景 C：点击删除按钮 (Action)\n通过配置 Action 来触发删除。\n{\n  \"type\": \"button\",\n  \"label\": \"Delete\",\n  \"actionType\": \"ajax\",\n  \"confirm\": \"Are you sure?\",\n  \"api\": {\n    \"method\": \"delete\", // 👈 对应 DataSource.delete\n    \"resource\": \"orders\",\n    \"id\": \"${_id}\"      // 👈 从当前行数据获取 ID\n  }\n}\n\n4. 最终如何在项目中使用？\n在你的 Host App (前端项目) 中，只需初始化一次，全局注入。\n// src/App.tsx\nimport { RestDataSource } from './data/RestDataSource';\nimport { SchemaRenderer } from '@object-ui/react';\n\n// 1. 配置你的通用后端地址\nconst myApi = new RestDataSource({\n  baseUrl: 'https://api.myapp.com/v1',\n  headers: { Authorization: 'Bearer xxxxx' }\n});\n\n// 2. 注入到渲染器\nexport default function Page() {\n  return (\n    <SchemaRenderer \n      dataSource={myApi} // 👈 这一步打通了所有 CRUD\n      schema={myPageSchema} \n    />\n  );\n}\n\n总结\n你不需要为每个页面写 fetch。\n只要你的后端 API 符合一定的规范（或者你在 RestDataSource 里做好了转换），前端只需要传入一个 JSON 配置，增删改查就全部自动完成了。\n"
+}

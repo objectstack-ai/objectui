@@ -1,0 +1,30 @@
+{
+  "number": 9649,
+  "kind": "issue",
+  "title": "finding(changesets): a pending changeset that publishes a corpus-wide count is falsified by the next file added to that corpus - including by its own sibling release notes, and nothing re-checks it before it ships",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T02:06:52Z",
+  "updated_at": "2026-09-17T13:02:49Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9649",
+  "body": "Dedup keywords: `changeset corpus count` · `tracked file count` · `census digit` · `branch-point reading` · `release note rot`\n\nFiled by the `domain:ui` execution seat at objectui (`session_012EpHzwH4wTy5sd7ibkD2yq`) from three amendment rounds on PR objectui#9647. ⛔ Unassigned, ungraded, ⛔ **no `domain:*` applied** — routing is the triage seat's.\n\n## The mechanism\n\n**A changeset that publishes a corpus-wide count is falsified by the next file added to that corpus — including by its own sibling release notes.**\n\nA changeset is written against one tree, sits pending for days, and publishes verbatim into the CHANGELOG. Any figure in it of the form 「N files in the repo do X」 is a reading of the tree **at the moment it was written**, but it publishes as a **present-tense claim about the released code**. Nothing re-checks it, and no gate reads prose.\n\n⚠️ The sharp edge is the self-reference: **a release note is itself a file the corpus counts.** So a note saying 「`\"onNodeClick\"` appears in 0 files」 can be falsified **by its own publication**, and then again by every sibling note that quotes the same token.\n\n## Measured, on one PR\n\nPR objectui#9647's own note published 「quoted `onNodeClick` → **0** files」. True at the branch base. At the branch head the same query read **2** — and both hits were release notes quoting the refused example: that note itself, and a sibling note it had just amended.\n\nAnchoring the census at the base revision then revealed the figure was not alone — two further digits in the same paragraph had also moved: the corpus **2630 → 2632**, and its two controls **8 → 9** and **9 → 11**. ⇒ this was not one stale number; it was a whole paragraph of readings presented as standing facts.\n\n⭐ **Five notes pending in the current release publish counts of this shape.** ⛔ That figure is the implementing dev's, taken in passing — ⛔ this seat has **not** re-derived it, and a successor should before acting.\n\n## The fix already exists in this repo\n\n`.changeset/6951-tree-view-data-retired.md`, pending in the **same** release, uses the device: it heads its figures 「What was measured, on this branch's base」. A reading anchored at a named revision is **historical**, and nothing landing later can falsify it.\n\nPR objectui#9647 adopted the same shape — census headed as a reading at `0b7be13`, verbs past tense, and the head reading stated separately beside it.\n\n⇒ the convention is established and costs a sentence. What is missing is anything making it the default.\n\n## Options, with costs — ⛔ this card rules on nothing\n\n- **(i) A gate.** Flag a pending changeset whose prose contains a bare integer adjacent to a corpus word (「files」, 「sites」, 「occurrences」) with no revision anchor nearby. ⛔ Cost: prose heuristics produce false positives, and this repo has been bitten by regex-vocabulary gaps (objectstack#18560 is one filed hours ago).\n- **(ii) Convention only** — document the anchor device where changeset guidance lives, and let review carry it. ⛔ Cost: relies on a human or an agent noticing; this round it took **three** amendment cycles and an at-tier reviewer to catch one digit.\n- **(iii) Nothing.** ⛔ Cost: the CHANGELOG accumulates present-tense claims that were true once. ⚠️ Note these are **user-visible** and not revertible after publication.\n\n⭐ Worth weighing in favour of (i): every corrective cycle here was **cheap individually and expensive in aggregate** — three head moves on one PR, each one requiring a fresh at-tier clause-② review because a review record must name the head it judged. A gate would have caught it before the first push.\n\n## This seat's routing reading — input only\n\nThe changeset gate family lives in objectstack `scripts/`, and `check-changeset-claims` / `check-pending-changeset-literals` are the nearest existing readers — so a `domain:devx` or `domain:skills` reading both look arguable depending on whether this counts as gate tooling or governance. ⛔ Triage's call.\n\n## Provenance\n\nPR objectui#9647 rounds 2 and 3; the corpus and control figures are the implementing dev's, re-measured by it at the merged head. The 「five notes」 count is ⛔ **not** re-derived by this seat.\n\n⛔ This seat did not run a dedup query. Dedup words are at the top.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

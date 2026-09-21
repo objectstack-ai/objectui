@@ -1,0 +1,37 @@
+{
+  "number": 158,
+  "kind": "pull_request",
+  "title": "Migrate packages to Tailwind CSS v4 (fumadocs standards)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "examples",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T05:51:04Z",
+  "updated_at": "2026-01-23T06:25:06Z",
+  "closed_at": "2026-01-23T06:19:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T06:19:56Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/158",
+  "body": "Upgrades all package code components from Tailwind CSS v3 to v4, following fumadocs CSS-first configuration standards.\n\n## Changes\n\n**Dependencies**\n- Upgraded to `tailwindcss@^4.1.18` and `@tailwindcss/postcss@^4.1.18` in:\n  - `packages/components`\n  - `packages/runner`\n  - `examples/object-view-demo`\n  - `examples/designer-modes`\n\n**PostCSS Configuration**\n- Replaced `tailwindcss` plugin with `@tailwindcss/postcss` in all PostCSS configs\n\n**CSS Migration (v3 → v4)**\n```css\n# Before (v3)\n@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n@layer base {\n  * { @apply border-border; }\n}\n\n# After (v4)\n@import 'tailwindcss';\n\n@source './src/**/*.{ts,tsx}';\n@plugin 'tailwindcss-animate';\n\n@theme {\n  --color-border: hsl(var(--border));\n  --color-background: hsl(var(--background));\n  /* ... */\n}\n\n* { border-color: hsl(var(--border)); }\n```\n\n**Removed Files**\n- Deleted `tailwind.config.js` from all packages (v4 uses CSS-first configuration via `@theme`, `@source`, `@plugin` directives)\n\n**Key Technical Changes**\n- Content scanning: JavaScript `content: []` array → CSS `@source` directive\n- Plugins: JavaScript `plugins: []` array → CSS `@plugin` directive  \n- Theme: JavaScript `theme.extend` → CSS `@theme` block\n- Utilities: Removed `@apply` (v4 incompatible) → plain CSS properties\n- Layer wrappers: Removed `@layer base` (v4 unnecessary)\n\n## Notes\n\nReference implementation already existed in `apps/site`. CSS custom properties for runtime theming (`:root`, `.dark`) remain unchanged for backwards compatibility.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 所有软件包代码组件按照fumadocs的标准统一升级到tailwind 4\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

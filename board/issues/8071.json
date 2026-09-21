@@ -1,0 +1,34 @@
+{
+  "number": 8071,
+  "kind": "issue",
+  "title": "objectui#8068 的过渡背书：58 个 array/object 类 input 仍无 per-block 成员 pin（逐条转 pin，删豁免）",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched",
+    "priority:p3",
+    "tests",
+    "tooling"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-06T14:27:33Z",
+  "updated_at": "2026-09-18T18:59:22Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 78,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8071",
+  "body": "## 事实（objectui#8068 落地时实测于 `origin/main` @ `3686a44`）\n\nobjectui#8068 让 `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` 要求：`covered`\n集合里每一个 `type` 含 `array` / `object` 臂的已注册 input，都必须有一条具名的 per-block 成员 pin，缺失即红。\n\n普查数字是这张卡的理由：\n\n| 读数 | 值 |\n|:--|:--|\n| `covered` 块上 array/object 臂的 input | **77**（22 个块） |\n| 其中已有成员 pin | **19** |\n| **无 pin** | **58** |\n\n58 是「几十个」而不是「个位数」，所以 #8068 按它自己规定的那条路走：带**自删除豁免**的过渡。\n58 个 key 逐个具名登记在该文件的 `MEMBER_PIN_EXEMPTIONS` 里，理由指向本卡。\n**本卡的工作就是把它们一个个变成 pin。** 每写完一条 pin，就在同一笔改动里删掉它的豁免条目\n—— `carries no stale member-pin exemption` 会点名要求这件事。\n\n## 判据（#8068 定的，本卡不重定）\n\n一条 pin 必须**约束渲染器实际读取的形状**，而不只是复述注册声明。注册写 `of: 'string'`\n而代码把成员当对象读，正是 #8068 存在的那个洞（`page:header.actions` / objectstack#11592）。\n\n参照范例（#8068 登记的 19 条里的四条）：\n\n- `packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts`\n- `packages/plugin-detail/src/__tests__/recordHighlightsInputs.spec-parity.test.ts`\n- `packages/plugin-detail/src/__tests__/recordRelatedListInputs.spec-parity.test.ts`\n- `packages/components/src/__tests__/page-header-action-ids.test.tsx`\n\n## 58 个待写的 pin\n\n> ⏱ **DATED READING —— 下面这份 58 键清单与本节末尾的「近似契约测试」那段，写于 objectui#8068 落地时（`origin/main` @ `3686a44`），当时为真；到 2026-09-18T02:51Z 已被 slice 1–10 证伪。原文保留，⛔ 不改写 —— 改写会毁掉「它当时为真」这件事，而它当时确实为真。**\n>\n> **权威清单是常量，永远不是本卡的散文**：`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` 里的 `MEMBER_PIN_EXEMPTIONS`（配 `MEMBER_PIN_EXEMPTION_CEILING`）。issuecomment-5599611864 已经这样说过一次。\n>\n> 证伪者：PR objectui#8737（slice 1，2026-09-09T00:00Z 起）及其后各 slice，最新一笔是 PR objectui#9759（slice 10）。\n>\n> 实测于 `origin/main` @ `c0b68d14d`，用 AST/深度扫描数常量的直接成员，⛔ 不数本卡的行：\n>\n> | 读数 | 值 |\n> |:--|:--|\n> | 本卡这份清单里**已经不再豁免**（已有 pin）的键 | **32** |\n> | 本卡这份清单里**仍然豁免**的键 | **26** |\n> | 常量里**本卡从未列出**的豁免键 | **2** —— `object-kanban.columns` · `object-kanban.dataSource` |\n> | `MEMBER_PIN_EXEMPTIONS` 现值 | **28**（= 26 + 2） |\n>\n> ⇒ 这份清单**两个方向都失真**：按它派发，会去钉已经钉好的键，**同时**整个漏掉两个真的还欠 pin 的键。\n>\n> ⚠️ 本节末尾点名的三处「近似契约测试」（`object-form.fields` · `object-grid.exportOptions` · `object-grid.bulkActions`/`bulkActionDefs`）**全部已在 slice 1 钉成 pin**。这句话已经带偏过两次派发（objectui#9759 的 dev 第二次测出并停手）。下一位派发者：先读常量。\n\n\n- `element:button` — `action`\n- `element:number` — `filter`\n- `element:record_picker` — `dataSource` · `label` · `placeholder` · `sort`\n- `object-form` — `customFields` · `dataSource` · `fields` · `initialData` · `initialValues` · `mobile` · `sections` · `submitBehavior`\n- `object-grid` — `aggregations` · `batchActions` · `bulkActionDefs` · `bulkActions` · `columns` · `conditionalFormatting` · `dataSource` · `exportOptions` · `filter` · `grouping` · `navigation` · `operations` · `pagination` · `rowActions` · `rowColor` · `searchableFields` · `selection` · `sort`\n- `object-master-detail-form` — `dataSource` · `details` · `fields` · `initialData` · `initialValues` · `sections`\n- `object-metric` — `aggregate` · `compareTo` · `dataSource` · `drillDown` · `filter` · `trend`\n- `page:accordion` — `items`\n- `page:tabs` — `items`\n- `record:activity` — `types`\n- `record:alert` — `action`\n- `record:chatter` — `feed`\n- `record:discussion` — `feed`\n- `record:path` — `stages`\n- `record:quick_actions` — `actionNames` · `requiredPermissions`\n- `record:related_list` — `actions` · `columns` · `dataSource` · `filter` · `sort`\n\n⚠️ 其中几个已经有**近似**的契约测试，只是没有点名到块 + key（所以 #8068 的机械定位器认不出来），\n转 pin 时先去读它们，很可能只差一条断言：`packages/plugin-form/src/sectionFields.spec-parity.test.ts`\n（`object-form.fields` 的成员词汇表）· `packages/types/src/__tests__/export-options-spec-parity.test.ts`\n（`object-grid.exportOptions`）· `packages/types/src/__tests__/bulk-action-spec-parity.test.ts`\n（`object-grid.bulkActions` / `bulkActionDefs`）。\n\n## 第二半：`covered` 之外的注册面（⚠️ 本卡不含，只在此记数以免它无声消失）\n\n同一次普查读到的更宽的数字：整个注册图上 **501** 个已注册 type 名（含别名，例如 `object-grid` /\n`plugin-grid:object-grid` / `view:grid` 是同一份注册的三个名字），**1539** 个 input，其中\n**310** 个带 array/object 臂。上表的 77 个是它们里落在 `ComponentPropsMap` 上的那部分；\n其余 **233** 个所在的块**没有** spec 契约条目，`registry-inputs-spec-parity.test.ts`\n的每一条方向（正向 / 反向 / arm）**从来**都没判过它们 —— #8068 的新方向沿用同一个 `covered`\n集合，所以也没判。这不是一次收窄，是那个文件既有的覆盖边界；但「没有任何东西看着它」\n这句话对这 233 个仍然成立，需要单独裁决：它们该不该被钉住，用什么权威去比对。\n\nRefs: objectui#8068（本卡的来源）· objectui#8067（姊妹卡：给 `ComponentInput` 加成员形状槽位）\n· objectstack#11592 · objectui#6252\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

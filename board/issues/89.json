@@ -1,0 +1,36 @@
+{
+  "number": 89,
+  "kind": "pull_request",
+  "title": "[WIP] Fix action step error in CI workflow",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-17T05:13:55Z",
+  "updated_at": "2026-01-17T05:27:07Z",
+  "closed_at": "2026-01-17T05:26:46Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-17T05:26:46Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/89",
+  "body": "## Fix chart-bar component missing default color property\n\n### Problem\nTest failure in `packages/plugin-charts/src/index.test.ts`:\n- Test expects `color` property in defaultProps to be `'#8884d8'`\n- Current implementation missing `color` in defaultProps object (line 69-70)\n- Input definition for color exists (line 57) but lacks defaultValue\n\n### Solution Applied\n- [x] Understand the issue from CI logs\n- [x] Locate the failing test and source code\n- [x] Add missing `color` property to defaultProps in chart-bar registration\n- [x] Add defaultValue to color input definition for consistency\n- [x] Verify the fix by running tests locally - all tests pass\n- [x] Ensure no other components are affected\n\n### Changes Made\n1. Added `color: '#8884d8'` to `defaultProps` object in chart-bar component registration\n2. Added `defaultValue: '#8884d8'` to color input definition\n\n### Test Results\n✅ All 11 tests in `packages/plugin-charts/src/index.test.ts` pass\n✅ All 100 tests across the entire project pass\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/21088836829/job/60657230181#step:7:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

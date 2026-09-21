@@ -1,0 +1,30 @@
+{
+  "number": 8628,
+  "kind": "issue",
+  "title": "finding(core/contract): `aspect-ratio` is the one declared layout container the curated vocabulary has never ruled on, either way",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T17:58:40Z",
+  "updated_at": "2026-09-15T14:57:22Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8628",
+  "body": "Filed out-of-scope by the objectui#6879 execution seat (session `session_01YBWFb5YgMU5dw8p2VKj16S`). ⛔ Recording only — no `domain:*`, no grading, no type; that is triage's to produce. ⛔ Not fixed in objectui#6879's PR: that card moves the curated roster for `box`, and curating (or refusing) a second type is a separate decision.\n\n## The fact, measured\n\nobjectui#6879 needed a DERIVED population for its pin — \"the declared container types of the JSON layout vocabulary\" — instead of a hand-carried roster. The population it built is\n\n```\nLayoutSchema.options            (the runtime-enumerable zod authoring union,\n                                 packages/types/src/zod/layout.zod.ts)\n  ∩ ComponentRegistry meta isContainer === true\n```\n\nMeasured on `origin/main` at `86ef0c764`, that population has **7 members**:\n\n| type | in `PUBLIC_BLOCKS`? |\n|---|---|\n| `card` | yes |\n| `container` | yes |\n| `flex` | yes |\n| `grid` | yes |\n| `stack` | yes |\n| `box` | no — objectui#6879 adds it |\n| `aspect-ratio` | **no, and no card has ever said why** |\n\nAfter objectui#6879 lands, `aspect-ratio` is the **only** member of that derived population outside the curated vocabulary.\n\n## Why it is worth a card rather than a shrug\n\n`box`'s five siblings are curated because ADR-0080's Tier B is \"a thin layout/content layer\". `aspect-ratio` sits in the same declared population and is simply absent — not excluded on stated merits. The distinction matters because the two states read identically from outside:\n\n- **excluded on merits** (like `element:image`, `record:chatter`, `action:bar` — each carries its reason in `apps/console`'s `DELIBERATELY_UNCURATED`), or\n- **forgotten** (like `record:line_items` in objectui#3006 and `box` in objectui#6879).\n\nThe tree does record the absence as an observable fact — `packages/components/src/renderers/layout/aspect-ratio.tsx` says, at its registration, \"Not in `PUBLIC_BLOCKS`, so the react-page scope builder never saw this tag\". That is a note about a consequence, not a ruling about the vocabulary.\n\n## What the decision looks like\n\nTwo coherent answers, and the card only needs one of them chosen:\n\n1. **Curate it** — add `aspect-ratio` to `PUBLIC_BLOCKS` Tier B. It declares four real inputs (`ratio`, `image`, `alt`, `className`) and a container slot, so it is authorable today; the catalog teaches it.\n2. **Refuse it on stated merits** — e.g. \"a ratio box is `box` plus a Tailwind aspect utility, and the vocabulary carries one spelling per concept\" (the reasoning `element:image` already carries). Then the reason moves into the ledger entry and stops being a placeholder.\n\n## Where it is parked meanwhile\n\nobjectui#6879's PR adds the derived pin with a **one-entry ledger**, and that entry is this issue. It is a forcing function, not a licence: the pin goes red the moment a new declared layout container is neither curated nor ledgered, and this entry is required to name a tracking issue.\n\n## Dedupe\n\nREST is 403 for this seat (`GitHub access is not enabled for this session`), so the sweep ran through one targeted MCP `search_issues` — declared as a channel switch. Zero hits for an `aspect-ratio` + curated-vocabulary pairing; the same call returned objectui#6879 itself, so the zero is a measurement rather than a broken query. Local `git grep` over `*.md` / `*.ts` / `*.tsx` for `aspect-ratio` intersected with `public|curat|vocabul|tier`: zero hits.\n\nRefs: objectui#6879 (the card that measured this population) · objectui#6764 (declared the containment) · ADR-0080 (the curated contract)"
+}

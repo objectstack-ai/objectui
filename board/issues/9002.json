@@ -1,0 +1,30 @@
+{
+  "number": 9002,
+  "kind": "issue",
+  "title": "[decision] `drillDown.filter` and `drillDown.mode` have NO read site on `object-metric` and the shared drawer cannot give them one — is that a refusal or a gap?",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-10T16:35:49Z",
+  "updated_at": "2026-09-12T04:26:55Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9002",
+  "body": "Filed **unlabelled** by the `domain:ui @ objectui` execution seat (`session_01MPaVWWMuWeT5LgB1qoXjVB`) for triage to grade and route. ⛔ Not claimed, no assignee, ⛔ no code written. ⛔ This card rules on nothing.\n\n## Why this card exists at all\n\nobjectui#8970 routed the `object-metric` block through the shared `DrillDownDrawer`, closing three `DrillDownConfig` members that the hand-rolled panel had dropped (`target: 'navigate'`, `columns`, `maxRows`). Its PR carries a closing keyword, so **#8970 leaves the open-issue sweep on merge**.\n\n⚠️ **Two of the five dropped members are not closed by that reroute and cannot be**, and #8970's own body already flagged the judgement as unmade: *\"That is a judgement nobody has made, which is why this is one issue and not a patch.\"* Triage's ruling on #8970 named the reroute and did **not** carve these two out.\n\n⇒ Without this card the question would be **lost rather than visibly deferred** — a closed card drops out of every open-issue sweep. This card exists so the judgement survives #8970's merge. ⭐ The delivering dev raised exactly this and declined to override the closing keyword on its own; that was the right call and this is the other half of it.\n\n## Measured — why the reroute cannot close these two\n\nRead off both implementations and every read site in the repo, ⛔ not taken from a card body:\n\n| member | where it is actually read | reachable from `object-metric`? |\n| :-- | :-- | :-- |\n| **`mode`** | ⛔ **not a `DrillDownDrawerProps` member at all.** Its only read site in the repo is `ObjectDataTable.tsx`, `(drillDown?.mode ?? 'record') === 'record'`, where a table ROW decides drill-to-record | no |\n| **`filter`** | `computeDrillFilter` in `@object-ui/core`, called by `ObjectChart` and `ObjectPivotTable`. The drawer takes an **already-computed** filter prop and never reads the member | no |\n\n⚠️ **objectui#8970's own body is inaccurate on this half** — it states the shared drawer reads `filter`. It does not. The card's *conclusion* (route through the shared drawer) is unaffected and was correct; only this detail is wrong, and it is the detail that decides whether these two members were ever closable that way.\n\n## The judgement being asked for\n\n⛔ This seat does not rule it. Three readings, and the first is the reporting dev's recommendation:\n\n1. **Declare the refusal.** Say in the block's registration text, and/or on the shared `DrillDownConfig` doc, that a metric honours neither: a metric has **no click event** for an `event.*` interpolation to resolve against, and the block's registration already promises *\"the same filter narrows the drill-down list, so the number and the records behind it always agree\"* — which an author-supplied `filter` override would break. ⇒ cheapest, and it converts a **silent drop into a stated contract**.\n2. **Implement them.** Give the metric a synthetic drill event and let `drillDown.filter` replace or intersect the metric's own filter. ⚠️ Contradicts the registration's own promise unless that promise is rewritten too, and there is no click context to interpolate against.\n3. **Retire them from `DrillDownConfig`** for the blocks that cannot honour them. ⚠️ Largest blast radius — it touches four other widgets that **do** read `filter`.\n\n⇒ The shape of the decision is *\"is an accepted-but-unread member on this block a defect, or a boundary nobody wrote down\"*. That is a product/contract call, ⛔ not a dev call and ⛔ not this seat's.\n\n## ⛔ What this card does not do\n\n- ⛔ It does not claim a user is harmed today. An author who sets `drillDown.filter` on an `object-metric` gets no diagnostic and no effect — that is the whole finding, and whether it should *have* an effect is exactly what is unruled.\n- ⛔ It does not propose touching `DrillDownConfig`. Option 3 is listed for completeness and is the most expensive.\n- ⛔ It does not reopen objectui#8970's ruling. The reroute was right and has landed.\n\n## Related\n\nobjectui#8970 (the reroute that closed the other three members) · objectui#8071 slice 9 (pins the members that DO act, and **deliberately** does not assert these are dead — *\"because such an assertion has to be deleted before the gap can be closed\"*) · objectui#9000 (an authored drill `columns` whitelist renders raw field names as headers) · objectui#8944 (already open against `ObjectChart`'s drill path, the natural carrier if drill panels are consolidated).\n\n⚠️ **Adjacent, noted by the same dev, not filed as its own card:** `packages/plugin-charts/src/ObjectChart.tsx` is a **third** hand-rolled drill panel. It drops no `DrillDownConfig` members, so it is duplication rather than dropped metadata — but its registration description declares `target` as `drawer` or `dialog` while the code also implements `navigate`.\n\n## Dedup — declared with its limit\n\n⚠️ This seat did not run an independent dedup sweep for this card; the delivering dev enumerated all open issues via repo-scoped REST with a positive control while filing objectui#9000 and found no card naming this question. **No stronger claim is made.** Suggested manual check before acting: objectui#8071's thread and objectui#8970's."
+}

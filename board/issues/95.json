@@ -1,0 +1,35 @@
+{
+  "number": 95,
+  "kind": "pull_request",
+  "title": "Update ObjectQL components to support all v3.0.1 field types",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-17T10:42:22Z",
+  "updated_at": "2026-01-17T11:53:13Z",
+  "closed_at": "2026-01-17T11:53:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-17T11:53:13Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/95",
+  "body": "The ObjectForm and ObjectTable components only supported a subset of ObjectQL field types, missing newly added types like `markdown`, `html`, `time`, `phone`, `image`, `file`, `location`, `formula`, `summary`, `auto_number`, `object`, `vector`, and `grid`.\n\n## Changes\n\n**ObjectForm**\n- Added mappings for all 27 field types from @objectql/types v3.0.1\n- Auto-set computed fields (`formula`, `summary`, `auto_number`) to read-only\n- Added `inputType` attributes for `email`, `phone`, `url`, `password`, `time`\n- Fixed property mappings: `maxLength` → `max_length`, `minLength` → `min_length`\n- Added file size formatting helper with validation for `file`/`image` fields\n\n**ObjectTable**\n- Added type-aware column configuration (`date`, `boolean`, `number`)\n- Custom cell renderers for `file`/`image` fields showing count with proper pluralization\n- Custom cell renderers for `lookup`/`master_detail` fields with safe object fallback\n\n## Example\n\n```typescript\n// ObjectForm now properly handles all field types\nconst schema: ObjectFormSchema = {\n  type: 'object-form',\n  objectName: 'documents',\n  mode: 'create',\n  fields: ['title', 'content', 'attachments', 'status']\n  // Automatically maps:\n  // - 'title' (text) → input\n  // - 'content' (markdown) → textarea  \n  // - 'attachments' (file, multiple) → file-upload with accept handling\n  // - 'status' (formula) → input (read-only)\n};\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 根据最新的objectql定义，优化确认所有的组件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

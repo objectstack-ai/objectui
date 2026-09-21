@@ -1,0 +1,30 @@
+{
+  "number": 8652,
+  "kind": "issue",
+  "title": "decision(plugin-kanban): `navigation` is read off the kanban node and declared on neither arm — while the grid schema declares it (5 of 7, objectui#8327 class (a))",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T19:55:31Z",
+  "updated_at": "2026-09-13T09:38:44Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8652",
+  "body": "Filed by the `domain:spec` @ objectui seat, 2026-09-08T19:56Z, as **5 of the 7 per-package rulings** the objectui#8327 unit ruling requires (comment `5587717012`, Q2 option **A**). **Anchor: objectui#8327.**\n\n⛔ Filed unassigned, not claiming. ⛔ No `domain:*`, priority or type applied — routing and grading are triage's.\n\n## The read — measured at `origin/main` `154fe2a` by the TypeScript checker, ⛔ never a grep\n\n| file | key (line of the first read) | evidence |\n| --- | --- | --- |\n| `plugin-kanban/src/ObjectKanban.tsx` | `navigation` 822 | not a declared member of `ObjectKanbanSchema \\| KanbanSchema`; **compiles only through the string index signature** |\n\n## ⭐ Do not rule this one alone — the same key appears three times with two different verdicts\n\n`navigation` is not a one-package question, and the census shows why:\n\n| package | site | verdict |\n| --- | --- | --- |\n| **plugin-kanban** (this card) | `ObjectKanban.tsx:822` | **undeclared** |\n| **plugin-timeline** (objectui#8654) | `ObjectTimeline.tsx:556` | **undeclared** |\n| plugin-view | `ObjectView.tsx:1920` | **declared** — `packages/types/src/objectql.ts:1821` |\n| plugin-calendar | `ObjectCalendar.tsx:645` | declared on the `ObjectGridSchema` arm (`objectql.ts:960`), undeclared on `CalendarSchema` |\n\n⇒ The same authoring concept is **declared on the grid/view schemas and undeclared on kanban, timeline and calendar's calendar arm.** That is one ruling applied inconsistently, ⛔ not three independent questions — and whoever rules any of them should rule the family, or say explicitly why kanban differs.\n\n⚠️ The per-package unit is deliberate (objectui#8327 refused one card for all 29, because the 29 span three different question types). It is ⛔ not an instruction to answer identical questions differently.\n\n## The question\n\nDeclare `navigation` on the kanban schema · retire the read · or route it to the producer as host-composition surface (pinned, ⛔ not declared — the shape objectui#5091 / objectui#5097 already ruled elsewhere). ⚠️ The fact that `objectql.ts` already declares it for the grid is evidence for **declare**, but it is evidence, ⛔ not the ruling.\n\n## ⛔ What this card must not become\n\n⛔ Not a row in `undeclared-but-consumed-keys-6150.test.ts` · ⛔ not folded into objectui#8347 · ⛔ declaring a key is a published-type widening ⇒ Clause ② with `needs:contract-review` on card and PR.\n\n## Refs\n\nobjectui#8327 (census, unit ruling, full per-key table at comment `5587605667`) · objectui#8654 (plugin-timeline, the same key) · objectui#8651 (plugin-calendar, the same key on one union arm) · objectui#8410 · objectui#5155 · objectui#8347 · ADR-0049.\n\n---\n\nBlocked-by: objectstack-ai/objectstack#17987\n\n⭐ **RULED 2026-09-13 — option B (maintainer, verbatim: 「B」).** The premise the original ruling hung on (P1) was measured FALSE, and the platform validator was measured to REFUSE `navigation` **by name** on the `object-kanban` and `object-calendar` element faces while this repo's renderers read and honour it. ⇒ the repair belongs at the producer. The spec half is objectstack#17987; this card waits on it.\n\n⚠️ **Unlock criterion is CONSUMER-INSTALLABLE, ⛔ not \"objectstack#17987 merged\":** this card returns to the queue when a released `@objectstack/spec` carrying the declaration is installable here and this repo's pin has moved.\n\n⚠️ A branch named `claude/issue-8652-kanban-navigation-family` exists on origin. It is **CONTENTLESS** — 0 commits, tip equals base `85243729`, empty diff — pushed as a routing probe before the gate was measured, and it could not be deleted (four retries, `remote end hung up` each time). ⛔ Do not read it as an active claim.\n\n⚠️ The ⛔ line above — *\"declaring a key is a published-type widening ⇒ Clause ② …\"* — was written about declaring in **this repo's mirror**. Under ruling B the declaration happens in the platform first; the objectui half is then a mirror alignment and its Clause-② grading is re-taken when it is dispatched, ⛔ not inherited from that line."
+}

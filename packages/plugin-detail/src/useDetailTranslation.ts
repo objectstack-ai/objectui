@@ -286,6 +286,11 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.restoring': 'Restoring…',
   'detail.confirmRestore': 'Confirm Restore',
   'detail.restoreToPoint': 'Restore to this point',
+  // objectui#9050 — RelatedList's malformed-filter state. Byte-identical to
+  // the `en` pack (`defaults-maps-mirror-en-pack`), and present HERE as well
+  // because a provider-less host mounting `RelatedList` directly is exactly
+  // the case with no per-component error boundary above it either.
+  'view.malformedFilter': 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
 };
 
 /**

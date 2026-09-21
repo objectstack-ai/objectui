@@ -902,6 +902,7 @@ const fr = {
     tabActionsFor: "Actions de vue pour {{name}}",
     readonlyAriaLabel: "Vue en lecture seule",
     readonlyTooltip: "Vue système — définie dans le code, en lecture seule.",
+    malformedFilter: "Le filtre de cette vue est incorrect, aucun enregistrement n’est donc affiché : la condition {{subject}} ne peut pas être appliquée.",
   },
   designer: {
     undo: "Annuler",

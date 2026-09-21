@@ -902,6 +902,7 @@ const ja = {
     tabActionsFor: "{{name}} のビュー操作",
     readonlyAriaLabel: "読み取り専用ビュー",
     readonlyTooltip: "システムビュー — コードで定義され、読み取り専用です。",
+    malformedFilter: "このビューのフィルターが不正なため、レコードを表示しません：{{subject}} の条件を適用できません。",
   },
   designer: {
     undo: "元に戻す",

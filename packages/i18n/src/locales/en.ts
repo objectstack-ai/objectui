@@ -1045,6 +1045,7 @@ const en = {
     tabActionsFor: 'View actions for {{name}}',
     readonlyAriaLabel: 'Read-only view',
     readonlyTooltip: 'System view — defined in code, read-only.',
+    malformedFilter: 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
   },
   detail: {
     back: 'Back',

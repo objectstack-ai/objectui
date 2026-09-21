@@ -103,7 +103,7 @@
  * sibling of `@object-ui/plugin-form`'s `omitServerResolvedDefaults`.
  */
 
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
+import { Suspense, useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -114,6 +114,14 @@ import {
   type FieldRulePredicate,
 } from '@object-ui/core';
 import { omitServerResolvedDefaults, resolveSectionGroupReferences } from '@object-ui/plugin-form';
+// ADR-0059's published door for a host that renders field widgets OUTSIDE the
+// form renderer: `resolveFormWidgetType` + `getLazyFieldWidget` hand back the
+// very component `@object-ui/fields` registers for the form, so a host built on
+// this seam "can never drift behind the form surface" (that resolver's own
+// docblock). `@object-ui/app-shell`'s `ActionParamDialog` is the other host on
+// it. Reached here for ONE type — see the `file` arm of {@link FieldInput} and
+// the note above it about the arms this switch still spells by hand.
+import { getLazyFieldWidget } from '@object-ui/fields';
 import { usePredicateScope } from '@object-ui/react';
 import { useSafeFieldLabel } from '@object-ui/i18n';
 import type { FormFieldSpec, FormSectionSpec, FormViewSpec } from '@object-ui/app-shell';
@@ -163,6 +171,28 @@ interface ObjectFieldDef {
   required?: boolean;
   defaultValue?: unknown;
   maxLength?: number;
+  /**
+   * The upload configuration `@objectstack/spec` declares on a field and the
+   * shared `FileField` reads — `multiple`, `accept` (a list of MIME types or
+   * extensions) and `maxSize` (BYTES).
+   *
+   * Admitted here for the reason objectui#5627 states about the conditional
+   * rules two slots down: nothing downstream can read a key this file's payload
+   * types do not admit, so a `file` field rendered through the shared widget
+   * would have been a single-file, unfiltered, unbounded dropzone no matter
+   * what the object declared — the widget's defaults, not the author's. The
+   * server already serves all three (spec's field schema declares
+   * `multiple` / `accept` / `maxSize`); only this app's narrowed view of the
+   * payload dropped them.
+   *
+   * ⛔ Not read by any other arm of {@link FieldInput}: `multiple` on a
+   * `select` would select a DIFFERENT widget on the sibling chain
+   * (`MULTI_VALUE_FORM_TYPES`), and this switch has no such arm. Carrying the
+   * key here is not a claim that the hand-rolled arms honour it.
+   */
+  multiple?: boolean;
+  accept?: string[];
+  maxSize?: number;
   options?: Array<{ value: string; label?: string }> | string[];
   placeholder?: string;
   helpText?: string;
@@ -461,6 +491,15 @@ interface RenderableField {
   defaultValue?: unknown;
   options?: Array<{ value: string; label: string }>;
   maxLength?: number;
+  /**
+   * The upload configuration, copied straight off the object field — see
+   * {@link ObjectFieldDef.multiple}. Read by exactly one arm of
+   * {@link FieldInput}, the `file` one, and handed on to the shared widget
+   * whole rather than re-interpreted here.
+   */
+  multiple?: boolean;
+  accept?: string[];
+  maxSize?: number;
   colSpan: 1 | 2 | 3 | 4;
 }
 
@@ -632,6 +671,12 @@ export function buildSections(
         // override can only NARROW what the author sees at the input; the
         // object's storage ceiling still decides at submit time.
         maxLength: override.maxLength ?? def.maxLength,
+        // The object's upload configuration, `def` alone: the FormView field
+        // override (`FormFieldSpec`) declares none of these three, so there is
+        // no per-form ceiling to prefer here the way `maxLength` has one.
+        multiple: def.multiple,
+        accept: def.accept,
+        maxSize: def.maxSize,
         colSpan: override.colSpan ?? 1,
       });
     }
@@ -1466,6 +1511,20 @@ async function submitInternal(
 const FIELD_CLASS =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50';
 
+/**
+ * The shared `file` control, resolved once (objectui#10167).
+ *
+ * Module scope, not inside the arm that renders it, for two reasons that point
+ * the same way. `react-hooks/static-components` refuses a component value
+ * produced during render — a fresh component identity remounts its subtree and
+ * loses its state — and the type is pinned at `'file'` here, so there is
+ * nothing per-render to resolve anyway. The resolver caches per type, and the
+ * chunk itself is still lazy: `React.lazy` defers the import until the arm
+ * first renders, so hoisting the lookup does not eagerly pull the widget into
+ * this route's bundle.
+ */
+const FileWidget = getLazyFieldWidget('file');
+
 interface FieldInputProps {
   field: RenderableField;
   /**
@@ -1483,9 +1542,24 @@ interface FieldInputProps {
   state: { readonly: boolean; required: boolean };
   value: unknown;
   onChange: (v: unknown) => void;
+  /**
+   * Upload-in-progress signal, forwarded by the `file` arm alone.
+   *
+   * The widget contract states what this is for outright — upload widgets fire
+   * it "so a host can block submit until a presigned upload settles", because
+   * the value only becomes a `sys_file` id once the upload resolves. A form
+   * that submits mid-flight therefore stores nothing for the field while
+   * reporting success, which is the same silent-empty-file class objectui#10131
+   * measured on the dialog host.
+   *
+   * ⛔ Deliberately NOT spread onto the other arms: they render DOM elements
+   * directly, and an unknown prop on one would reach the DOM as an attribute
+   * (the same reason `ActionParamDialog` gates it on the widget type).
+   */
+  onUploadingChange?: (uploading: boolean) => void;
 }
 
-function FieldInput({ field, state, value, onChange }: FieldInputProps) {
+function FieldInput({ field, state, value, onChange, onUploadingChange }: FieldInputProps) {
   const common = {
     id: `f_${field.name}`,
     name: field.name,
@@ -1608,6 +1682,59 @@ function FieldInput({ field, state, value, onChange }: FieldInputProps) {
         </div>
       );
     }
+    /**
+     * The one arm that does NOT hand-roll its control (objectui#10167).
+     *
+     * `file` is a declared field type whose control already exists and already
+     * works on the sibling chain, so an `input type="file"` written out here
+     * would be a second upload pipeline beside the shared one: a second size
+     * guard, a second progress surface, and — the part that actually breaks —
+     * a second answer to what a submitted file VALUE is. The shared widget
+     * uploads through the ambient `UploadProvider` adapter and stores the
+     * reference form (a bare `sys_file` id) when the adapter surfaces one,
+     * falling back to the legacy inline blob when it does not; a hand-rolled
+     * control would put a raw `File` into `values` and the engine would answer
+     * `expected string, received object` (the shape objectui#10131 measured).
+     *
+     * So this arm asks ADR-0059's resolver for the SAME component the record
+     * form renders, and gets out of the way. The seam is lazy by construction,
+     * hence the boundary; `ActionParamDialog` is the other host on it.
+     *
+     * ⚠️ `common` is deliberately NOT spread. It carries `required`,
+     * `placeholder` and a text-input `className` — none of which is on the
+     * widget contract (`required` is refused there by name, so that the
+     * required marker keeps a single author), and spreading it would push
+     * them at the widget's DOM. `value` is passed RAW for the same kind of
+     * reason: the `v` coercion above turns `null` into `''`, while this
+     * widget's value is a reference id, an expanded file object, or an array
+     * of either — never a string to render.
+     */
+    case 'file':
+      return (
+        <Suspense
+          fallback={
+            <div
+              className="h-24 w-full animate-pulse rounded-md border border-dashed border-input bg-muted/40"
+              aria-hidden="true"
+            />
+          }
+        >
+          <FileWidget
+            id={common.id}
+            name={common.name}
+            value={value ?? null}
+            onChange={onChange}
+            field={field}
+            readonly={state.readonly}
+            // The announced channel for required, not the native attribute:
+            // this page draws the marker beside the label itself, and arming
+            // the browser's constraint bubble as well would put two validators
+            // on one field (the ruling `ActionParamDialog` records).
+            aria-required={state.required || undefined}
+            onUploadingChange={onUploadingChange}
+          />
+        </Suspense>
+      );
     default:
       return (
         <input
@@ -1731,6 +1858,18 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
   const [loaded, setLoaded] = useState<LoadedForm | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [submitting, setSubmitting] = useState(false);
+  /**
+   * Which rows currently have an upload in flight, keyed by field name
+   * (objectui#10167). Only the `file` arm ever writes here.
+   *
+   * Per NAME rather than a single counter so two upload rows cannot cancel each
+   * other out: a counter incremented and decremented by two widgets that
+   * settle out of order reaches zero while one is still running, and the guard
+   * below would open early. A name that is absent or `false` is not uploading,
+   * which is what every non-upload row is, forever.
+   */
+  const [uploading, setUploading] = useState<Record<string, boolean>>({});
+  const isUploading = Object.values(uploading).some(Boolean);
   /**
    * The sonner id this form's submit OUTCOME is published under — one id for
    * the confirmation and for the refusal, so the later of the two SUPERSEDES
@@ -2119,6 +2258,9 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
                     state={state}
                     value={values[f.name]}
                     onChange={(v) => setValues((prev) => ({ ...prev, [f.name]: v }))}
+                    onUploadingChange={(u) =>
+                      setUploading((prev) => (prev[f.name] === u ? prev : { ...prev, [f.name]: u }))
+                    }
                   />
                   {f.helpText && (
                     <p className="mt-1 text-xs text-muted-foreground">{f.helpText}</p>
@@ -2136,12 +2278,17 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
           </div>
         )}
         <div className="flex justify-end gap-2">
+          {/* Blocked while an upload is in flight (objectui#10167): a file's
+              value only becomes a `sys_file` id once the adapter settles, so a
+              submit that beats it writes an empty field and still reports
+              success. The widget contract exists for this — see
+              `FieldInputProps.onUploadingChange`. */}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || isUploading}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
           >
-            {submitting ? 'Submitting…' : 'Submit'}
+            {submitting ? 'Submitting…' : isUploading ? 'Uploading…' : 'Submit'}
           </button>
         </div>
       </form>

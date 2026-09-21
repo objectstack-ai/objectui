@@ -111,9 +111,42 @@ describe('check-upstream-port-parity is wired, not merely present', () => {
     // forward: everything the patrol watches, other than the workflow file that
     // declares the watch, is a ported program and must be pinned.
     for (const p of watched.filter((w) => !w.startsWith('.github/'))) expect(pinned).toContain(p);
-    // back: the patrol's own unit, identified by where the sweeper lives, must
-    // still be in that filter.
-    for (const p of pinned.filter((f) => f.startsWith('scripts/pm/'))) expect(watched).toContain(p);
+    // back: a pinned program that NO workflow watches is a stale obligation —
+    // pinned against drift, and absent from the pull request that drifts it.
+    //
+    // ⚠️ Re-scoped a second time by objectui#9387, for the same reason the
+    // paragraph above re-scoped it once: `scripts/pm/` stopped being a synonym
+    // for "the patrol's unit" the moment a second ported program landed beside
+    // the sweeper. The board archiver lives there, is watched by its OWN
+    // workflow, and ⛔ has no business in the patrol's filter — it is not a
+    // module the patrol loads, and declaring it there would run the patrol on
+    // pull requests that cannot affect it. So the question each pinned program
+    // answers is "WHICH workflow watches me", and the sweeper's answer is still
+    // this patrol, asserted by name below.
+    //
+    // ⛔ A named map rather than a directory walk: a walk would make this file a
+    // tree reader that `markdown-test-inputs.test.ts` then has to adjudicate,
+    // and the set is small enough that a third ported program landing under
+    // `scripts/pm/` SHOULD cost a deliberate line here rather than being
+    // absorbed silently.
+    const WATCHER_OF: Record<string, string> = {
+      'scripts/pm/check-half-states.mjs': '.github/workflows/half-state-patrol.yml',
+      'scripts/pm/board-snapshot.mjs': '.github/workflows/board-snapshot.yml',
+    };
+    for (const program of pinned.filter((f) => f.startsWith('scripts/pm/'))) {
+      const watcher = WATCHER_OF[program];
+      expect(
+        watcher,
+        `${program} is pinned and no workflow here is named as watching it. Name the workflow ` +
+          `whose \`pull_request\` paths include it: a pinned program nothing watches is pinned ` +
+          `against drift and absent from the very pull request that drifts it.`,
+      ).toBeTypeOf('string');
+      const wf = parseYaml(fs.readFileSync(path.join(ROOT, watcher), 'utf8'));
+      expect(wf.on.pull_request.paths).toContain(program);
+    }
+    // …and the sweeper specifically stays in THIS patrol's filter, which is the
+    // half the generalisation above would otherwise have given away.
+    expect(watched).toContain('scripts/pm/check-half-states.mjs');
   });
 
   it('every pinned file is one the gate actually runs on when it drifts', () => {

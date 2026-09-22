@@ -1166,6 +1166,30 @@ const DEFAULT_GROUPS_PER_PAGE = 10;
 const DEFAULT_SERVER_WINDOW_SIZE = 50;
 
 /**
+ * The mode a `selection` object with no `type` member asks for (objectui#9837,
+ * ruling A-prime: presence enables, an explicit off wins).
+ *
+ * ⚠️ Derived, not chosen freely. The ruling's first clause is that writing the
+ * object turns selection ON, so the only values that satisfy it are the two
+ * enabling ones — and `'multiple'` is already this renderer's own answer to
+ * "selection is on, nothing said which kind": it is what the bulk-action
+ * auto-enable arm resolves to, and what the legacy `selectable: true` means
+ * (`packages/types/src/data-display.ts`, "boolean: Enable/disable selection
+ * (true = multiple selection)"). `'single'` would be a third, unstated opinion.
+ *
+ * ⚠️ `@objectstack/spec`'s own `SelectionConfigSchema` declares `type` with
+ * `.default('none')`, which this constant deliberately does NOT follow: honouring
+ * it would make a written object mean OFF and contradict the ruling's first
+ * clause outright. It is reachable only through a PARSE, and this repo's mirror
+ * strips imported defaults at the import boundary
+ * (`packages/types/src/zod/imported-defaults.ts`), so an omitted `type` stays
+ * omitted on the way to this read — but metadata parsed by the spec bundle
+ * itself arrives carrying `type: 'none'` and is then an EXPLICIT off here.
+ * Handed back as a question on objectui#9837 rather than decided here.
+ */
+const DEFAULT_SELECTION_TYPE = 'multiple' as const;
+
+/**
  * The ONE resolver for an authored page size, for the reason the `rowHeight`
  * resolver just above exists: one resolver at every entry is what keeps the
  * answer single (objectui#4443).
@@ -4005,10 +4029,22 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         : [];
   const hasBulkActions = effectiveBulkActions.length > 0 || bulkActionDefs.length > 0;
   let selectionMode: 'none' | 'single' | 'multiple' | boolean = false;
-  if (schema.selection?.type) {
-    selectionMode = schema.selection.type === 'none' ? false : schema.selection.type;
+  if (schema.selection !== undefined) {
+    // "presence enables; an explicit off wins" — the ONE rule both
+    // object-armed keys on this block obey (objectui#9837, ruling A-prime, batch
+    // #162 item 2), `paginationEnabled` below being the other half.
+    //
+    // Writing the object is how an author asks for selection; `type: 'none'`
+    // is this key's own explicit off and beats the presence. Before the ruling
+    // the read was `schema.selection?.type`, so an object with no `type` fell
+    // through to the legacy arms and the object itself meant NOTHING — the
+    // exact opposite of what the neighbouring `pagination` key taught, with no
+    // error and no diagnostic either way.
+    const authoredType = schema.selection?.type;
+    selectionMode =
+      authoredType === 'none' ? false : (authoredType ?? DEFAULT_SELECTION_TYPE);
   } else if (schema.selectable !== undefined) {
-    // Legacy support
+    // Legacy support — read only when `selection` is absent.
     selectionMode = schema.selectable;
   } else if (hasBulkActions) {
     // Auto-enable multi-select when bulk actions exist
@@ -4354,9 +4390,23 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   };
 
   // Determine pagination settings (support both new and legacy formats)
-  const paginationEnabled = schema.pagination !== undefined 
-    ? true 
-    : (schema.showPagination !== undefined ? schema.showPagination : true);
+  //
+  // "presence enables; an explicit off wins" — the same ONE rule
+  // `selectionMode` above obeys (objectui#9837, ruling A-prime, batch #162 item 2).
+  //
+  // The order of the two arms is the whole ruling. `pagination` declares no off
+  // switch of its own (its members are `pageSize` / `pageSizeOptions`), so the
+  // deprecated flat `showPagination: false` is the ONLY way an author can turn
+  // paging off — and it therefore has to be read BEFORE the object's presence.
+  // Before the ruling the presence check ran first and hard-forced `true`,
+  // which made `showPagination: false` unreachable the moment the object was
+  // written: a block that cannot turn off the thing it names (objectui#9819).
+  const paginationEnabled =
+    schema.showPagination === false
+      ? false // explicit off wins, whatever `pagination` says
+      : schema.pagination !== undefined
+        ? true // the object's presence asks for paging with its settings
+        : (schema.showPagination ?? true); // neither written: today's default
   
   // Through the same resolver as the two seeds above (objectui#9853). This
   // site used `||` and the seeds used `??`, so one authored `pageSize: 0`

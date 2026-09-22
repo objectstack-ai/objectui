@@ -1,0 +1,30 @@
+{
+  "number": 1812,
+  "kind": "pull_request",
+  "title": "fix(app-shell): interface pages open records again — configurable drawer / page / none",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T04:38:44Z",
+  "updated_at": "2026-06-20T04:42:22Z",
+  "closed_at": "2026-06-20T04:39:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T04:39:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1812",
+  "body": "## Summary\n**Regression fix.** `InterfaceListPage` never passed a record-click handler or navigation config to `ListView`, so clicking a row / title / card on **any** interface-page visualization (grid, kanban, gallery, calendar, timeline, gantt, map) did nothing — records were dead. (Object views were unaffected; only the interface pages added this session.)\n\nWires record-opening the way `ObjectView` does, and makes it **author-configurable** via `interfaceConfig.recordAction`:\n- **`drawer`** (default) — right-side peek panel rendering the record's real detail page (`RecordDetailView`), URL-driven via `?recordId=…` (shareable, survives refresh).\n- **`page`** — full-page navigate to the record route.\n- **`modal`** — overlay.\n- **`none`** — rows not clickable.\n\nCmd/Ctrl/middle-click always opens in a new tab.\n\n## Verification\nClicking a task on Task Triage opens the drawer with the full record detail (path stepper + highlights + Overview/Schedule/Details); `?recordId=` round-trips; tsc clean.\n\nPairs with objectstack-ai/framework#TBD (adds `recordAction` to InterfacePageConfig + the page form select).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

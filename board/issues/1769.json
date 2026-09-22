@@ -1,0 +1,32 @@
+{
+  "number": 1769,
+  "kind": "pull_request",
+  "title": "fix(console): docs ToC click jumps to home under <base href>",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T02:47:29Z",
+  "updated_at": "2026-06-16T15:15:20Z",
+  "closed_at": "2026-06-16T15:15:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T15:15:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1769",
+  "body": "## Problem\n\nOn a metadata-docs page (`/apps/:pkg/docs/:name`), clicking an entry in the right-side **本页目录 / On this page** ToC navigates to the **home page** instead of scrolling to the heading.\n\n## Root cause\n\nWhen the console is served under a sub-path, the host (`@objectstack/framework`, `packages/cli/src/utils/console.ts`) injects `<base href=\"…/_console/\">` into the HTML. This is intentional and required — it lets relative asset URLs (`./assets/...`) resolve and lets React Router derive its `basename` from `document.baseURI`.\n\nSide effect (per the HTML spec): with a `<base>` tag, **fragment-only** links resolve against the *base URL*, not the current page. So `DocPage`'s ToC anchors `<a href=\"#id\">` navigate the browser to `/_console/#id` — whose pathname `/` is, under the `/_console` basename, the **home route**.\n\nThe same trap hits in-body markdown fragment links like `[x](#section)` (the existing content-click handler only intercepted `/docs/` links).\n\n## Fix\n\n`<base>` is load-bearing and can't be removed, so handle fragment navigation in JS:\n\n- Add `scrollToHeading(id)` — `scrollIntoView` + `history.replaceState` writing an **absolute** path (`location.pathname + search + #id`), which ignores `<base>`.\n- ToC anchors get an `onClick` that calls it (bare `href=\"#id\"` kept for a11y / modified-click).\n- `onContentClick` now also routes `#section` body links through the same helper.\n\nNo behavioural change when no `<base>` tag is present.\n\n## Test\n\n- [ ] Serve console under `/_console/`, open a long doc, click a ToC item → page scrolls to the heading, URL becomes `…/docs/<name>#<id>`, no home redirect.\n- [ ] In-body `[x](#section)` link → same scroll behaviour."
+}

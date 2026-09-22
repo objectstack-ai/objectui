@@ -1,0 +1,32 @@
+{
+  "number": 1964,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): dataset filter builder ignores incomplete conditions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T09:48:23Z",
+  "updated_at": "2026-06-24T09:56:13Z",
+  "closed_at": "2026-06-24T09:56:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T09:56:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1964",
+  "body": "Found by **dogfooding** the create-canvas scope filter (#1959): adding a filter row but leaving its **value blank** serialized to `{ organization_id: { $eq: \"\" } }` — a silently-wrong filter (matches only empty → excludes everything) instead of \"no filter\".\n\n`groupToCondition` now **skips rows with an empty/`undefined`/`[]` value** (value-less operators like is-empty / is-not-empty are still kept). Applies to both the dataset **Scope filter** and **per-measure** filters (shared converter). +1 unit test (9 pass).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

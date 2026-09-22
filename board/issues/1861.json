@@ -1,0 +1,33 @@
+{
+  "number": 1861,
+  "kind": "pull_request",
+  "title": "fix(dashboard): complete drill chain in shared DrillDownDrawer (pivot + dataset)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T12:39:39Z",
+  "updated_at": "2026-06-21T12:43:21Z",
+  "closed_at": "2026-06-21T12:39:55Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T12:39:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1861",
+  "body": "Follow-up to #1859. That PR completed the segment → list → record drill chain for **object-backed chart and KPI** drill-through lists, but the shared `DrillDownDrawer` — used by **pivot** and **dataset** widget drill-through — still rendered a non-clickable record list. So the chain was inconsistent across widget types.\n\n`DrillDownDrawer` now enables record drill on its filtered list (`mode: 'record'`, dialog target so it stacks over the drawer), matching the chart/KPI path. Every drill-through list now lands on a clickable record.\n\n## Verification\n- New test asserts `DrillDownDrawer`'s list wires record drill (rows become clickable). The record drawer opening on click is already covered by `ObjectDataTable.drill.test`.\n- `plugin-dashboard` full suite: **87 passed / 0 failed**; type-check clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

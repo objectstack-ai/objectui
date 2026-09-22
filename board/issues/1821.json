@@ -1,0 +1,32 @@
+{
+  "number": 1821,
+  "kind": "pull_request",
+  "title": "feat(list): iOS/Linear segmented view switcher for 2–4 visualizations",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T11:30:32Z",
+  "updated_at": "2026-06-20T11:34:09Z",
+  "closed_at": "2026-06-20T11:30:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T11:30:42Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1821",
+  "body": "## What\n\nWhen a list exposes a small set of visualizations (2–4), the view switcher now renders as a **unified segmented control** — a rounded track where the active segment lifts onto a white thumb — instead of a dropdown. Lists with 5+ visualizations keep the compact dropdown so the toolbar stays one line.\n\nThis is part of the \"Linear on desktop, iOS-native on mobile\" direction for the showcase.\n\n## Details\n\n- New inline segmented variant in `ViewSwitcherDropdown` (the existing API/handlers are reused — same `handleViewChange`, same view-transition animation).\n- `role=\"tablist\"` / `role=\"tab\"` / `aria-selected` for accessibility.\n- Labels collapse to icons under `sm:` with `aria-label`/`title` preserved, so the mobile toolbar stays compact and one line.\n\n## Verification\n\nVerified on `showcase_active_projects` (grid + kanban = 2 views) via the dev console:\n- **Desktop (1440px):** segmented track with `[Grid | Kanban]`, active segment on a white thumb; clicking Kanban switches the view and moves the thumb. ✅\n- **Mobile (390px):** collapses to icon-only segments, compact one-line toolbar. ✅\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,39 @@
+{
+  "number": 1907,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/* from 9.11.0 to 10.0.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T10:52:59Z",
+  "updated_at": "2026-06-22T10:56:31Z",
+  "closed_at": "2026-06-22T10:53:26Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T10:53:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1907",
+  "body": "## Summary\n\nUpgrade `@objectstack/spec`, `@objectstack/client` and `@objectstack/formula` from `^9.11.0` to `^10.0.0` across all workspace packages and apps (12 `package.json` files + `pnpm-lock.yaml`). All four packages (incl. transitive `@objectstack/core`) resolve to `10.0.0`.\n\n`@objectstack` 10.0.0 is the **ADR-0058 expression/predicate unification** — almost entirely server-side (CEL→FilterCondition pushdown, RLS enforcement, build-time predicate validation). Every symbol objectui consumes is unchanged, so no API migration was needed:\n\n- `@objectstack/spec/ui` (all consumed types/schemas), `Expression`\n- `@objectstack/client`: `ObjectStackClient`, `QueryOptions`\n- `@objectstack/formula`: `ExpressionEngine`\n- `ai` / `zod` peer/deps already matched (`^6.0.0` / `^4.4.3`) — no peer change.\n\n## Incidental fix\n\n`packages/plugin-list/src/UserFilters.tsx` had a **pre-existing** latent type error (`handleTabChange(tab.id)` passing `string | undefined`) that turbo's cache was masking — confirmed failing identically on `9.11.0`. The package.json change busts that cache, so it's fixed here: tab identity now resolves `id ?? name` (the convention `normalizeTabPresets` already uses). No behavior change for tabs that have an `id`.\n\n## Verification\n\n| Check | Result |\n|---|---|\n| `pnpm type-check` | ✅ 60/60 tasks |\n| `pnpm build` | ✅ 42/42, exit 0 |\n| `pnpm test` | ✅ 4250 passed, 24 skipped |\n\nThe single test \"failure\" in the full run (`useResponsiveSidebar`) is a flaky timeout under machine load — zero objectstack references, passes in isolation.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

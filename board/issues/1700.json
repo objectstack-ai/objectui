@@ -1,0 +1,33 @@
+{
+  "number": 1700,
+  "kind": "pull_request",
+  "title": "fix(plugin-chatbot): make AI-turn liveness real, not a fake clock",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T13:49:03Z",
+  "updated_at": "2026-06-13T13:52:37Z",
+  "closed_at": "2026-06-13T13:49:12Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T13:49:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1700",
+  "body": "## Why\n\nThe elapsed counter shipped in #1699 ticked off a **client-side `setInterval`** — it kept counting up regardless of what the server was doing. If the connection dropped, it would happily keep showing \"still working.\" That's reassurance-theater: it *looks* like liveness but proves nothing. (用户: \"不能假装，要真的工作才对\" — don't fake it, it has to actually work.)\n\n## What\n\nDrive the indicator off **real observed stream activity** instead of a clock.\n\n`useChat` (AI SDK v6) surfaces server bytes by mutating its message parts — a streamed token, a tool delta, or a `data-build-progress` update. We turn that into an honest signal:\n\n- **`useTurnLiveness(active, activityKey)`** — stamps the instant real data arrives (the `activityKey` changes) and measures *seconds since the last byte*. `live` means \"the server genuinely sent us something in the last few seconds.\"\n- **`LivenessIndicator`** renders three states, each a real fact:\n  - 🟢 **receiving** (emerald pulse + `m:ss`) — bytes arrived recently\n  - ⚪ **waiting** (muted) — request in flight, nothing back yet (pre-first-token). Never claims \"receiving\" when nothing has been received.\n  - 🟠 **stalled** (amber + \"no response for *N*s\") — genuinely silent past 6s — the honest \"we haven't heard back\" cue.\n- The **build panel** feeds its live progress (`phase:done:items`) as the activity key. A healthy build streams progress every few seconds → reads as *receiving*; a true stall flips to amber. A hard disconnect still surfaces via the existing error banner.\n\n## Honest limitation (follow-up)\n\nDuring a genuinely **silent-but-alive** server stretch (e.g. an LLM call inside a tool that emits nothing for >6s), the client can only truthfully say \"no response for *N*s\" — it cannot prove the socket is alive from the client alone. Proving \"still connected\" there requires a **server-side SSE keep-alive heartbeat** (`encodeVercelDataStream` in framework `service-ai`). This PR stops the lying; the heartbeat (separate, cross-repo) would let those quiet windows read green *truthfully*. Happy to do that next.\n\n## Verification\n\n- **71/71** unit tests. 4 new ones render the real component under fake timers and assert the honest behavior: pre-first-token shows a neutral wait (not a fake `m:ss`), a quiet stream escalates to amber \"…*N*s\", a streaming build reads as *receiving*, and a stalled build flips amber then **recovers on the next byte**.\n- `tsc --noEmit` clean, `vite build` clean. New code is lint-clean (no `Date.now()`/ref reads during render).\n\nSupersedes the clock-only behavior from #1699.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

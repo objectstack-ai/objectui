@@ -1,0 +1,34 @@
+{
+  "number": 1850,
+  "kind": "pull_request",
+  "title": "feat(studio): harden designer preview against page-locking overlay forms",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T06:38:09Z",
+  "updated_at": "2026-06-21T06:45:14Z",
+  "closed_at": "2026-06-21T06:45:12Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T06:45:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1850",
+  "body": "Follow-up hardening to #1840. Two layers so a form rendered live on any preview surface can't mount a page-locking modal: (1) a shared inline/overlay form-type classifier (previews/form-preview.ts) used by both ViewPreview and PageBlockCanvas; (2) a PreviewModeContext so DrawerForm/ModalForm render inline under a PreviewModeProvider (hard backstop; runtime unaffected, defaults false). Tests: form-preview.test.ts (classifier + drift guard) and PreviewMode.test.tsx (drawer/modal mount a dialog at runtime, render inline with no dialog under the provider). plugin-form (134) and app-shell/previews (121) suites green; @object-ui/react type-checks clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

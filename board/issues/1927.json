@@ -1,0 +1,32 @@
+{
+  "number": 1927,
+  "kind": "pull_request",
+  "title": "fix(studio/flow): wire decision branches to edges, expand screen config, align simulator",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-23T17:51:17Z",
+  "updated_at": "2026-06-23T17:55:02Z",
+  "closed_at": "2026-06-23T17:53:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-23T17:53:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1927",
+  "body": "Four+1 fixes for the **Studio Flow Builder**, found dogfooding it as a business user (companion to objectstack-ai/framework#2250 for the engine-side assignment fix).\n\n## 1. Decision branches now route at runtime 🔴\nThe \"Branches\" editor wrote `node.config.conditions` but the outgoing edges it created stayed bare `{id,source,target}` — no `condition`, no `label`. The engine **and** the in-Studio simulator branch only on `edge.condition`, so a decision built entirely in Studio left every out-edge unconditional and **ran all branches**. (Hand-authored example flows dodge this by setting `edge.condition` explicitly.)\n\nBranches now mirror onto the node's out-edges, by order:\n- `FlowCanvas.addNode` carries the matching branch onto a newly-connected edge.\n- `FlowNodeInspector.setField` re-syncs existing edges when branches are edited (`expression: 'true'` → the default/`else` edge).\n\nNo engine change needed — the engine reading `edge.condition` was already correct; the gap was purely the missing auto-wire.\n\n## 2. Screen node config expanded\nThe form exposed only `fields`; it now also edits `title`, `description` (interpolates `{var}`), `waitForInput`, and the object-form keys (`objectName`, `idVariable`, `mode`, `defaults`) — so a message screen or an object-form wizard step no longer requires dropping to Advanced JSON.\n\n## 3. Simulator applies assignment nodes\nAssignment was a no-op pass-through, so a Debug run never reflected `Set variables`. It now normalizes the same shapes the engine accepts (`assignments` map/array + flat) and interpolates `{var}`.\n\n## 4. Simulator screen-pause parity\nThe simulator paused on every screen; it now pauses only when the screen collects input (`fields`) or sets `waitForInput`, matching the engine's `shouldPause` — a field-less screen passes through.\n\n## 5. Palette HTTP de-dup\nThe base palette hardcoded the deprecated `http_request` alias while the engine publishes the canonical `http`, listing two HTTP entries. Base now uses `http` (merges into one), aliased to the `http_request` config group so the inspector is unchanged.\n\n## Verification\nEnd-to-end in the browser via a console Vite dev server run from this branch (`apps/console` `pnpm dev`, proxy `/api` → a running backend). A Debug run (`discount_pct = 25`) routed to the **High** branch only, set `approval_path`, and passed a field-less screen through. `flow-simulator.test.ts` updated + 2 new tests (16 passing).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

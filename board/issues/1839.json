@@ -1,0 +1,32 @@
+{
+  "number": 1839,
+  "kind": "pull_request",
+  "title": "feat(console): Studio datasource manager — test & sync objects from a datasource",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T03:36:51Z",
+  "updated_at": "2026-06-21T03:43:18Z",
+  "closed_at": "2026-06-21T03:43:16Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T03:43:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1839",
+  "body": "## What\n\nAdds a **System → Datasources** surface to the console so admins can manage runtime datasources and **sync external tables in as objects** — the long-missing \"test datasource + sync objects\" flow, now wired into the Studio design experience.\n\nThis is a control-plane concern (datasource lifecycle) that intentionally lives **outside** the generic metadata-admin engine, wrapping the framework `datasource-admin` REST routes.\n\n### Features\n- **List** runtime datasources (`GET /api/v1/datasources`) — driver, status, origin.\n- **Test connection** (`POST /api/v1/datasources/:name/test`) → toast with latency.\n- **Sync objects**: introspect remote tables (`GET …/remote-tables`) → pick tables → generate an object definition per table (`POST …/object-draft`) → create each via the normal metadata channel (`MetadataClient.save('object', …)`).\n- New **System hub card** for discoverability; route mounted at `system/datasources`.\n\n### Depends on\nFramework [#2085](https://github.com/objectstack-ai/framework/pull/2085) (read-only introspection routes + by-name test). Merge that first.\n\n## Verification (live, browser)\nAgainst a live sqlite datasource (`demo_ext`):\n- ✅ Hub card → page → lists `demo_ext`\n- ✅ **Test** → `demo_ext: connection ok (1ms)`\n- ✅ **Sync** → introspect returns `customers`/`orders` → select both → **Create 2 objects** → both created as real object metadata (object count 79 → 81; `customers` has fields `id, name, email, created_at`, bound to `demo_ext`)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

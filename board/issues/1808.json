@@ -1,0 +1,30 @@
+{
+  "number": 1808,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Studio can create list/interface pages directly (dogfooding fixes)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-19T15:29:48Z",
+  "updated_at": "2026-06-19T15:33:18Z",
+  "closed_at": "2026-06-19T15:30:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-19T15:30:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1808",
+  "body": "## Summary\n\nDogfooding the Studio **create-page** flow as an admin building business views surfaced that you couldn't create the platform's *primary* page type — a **list / interface page** — and the create form was clumsier than the editor. Three fixes, all browser-verified:\n\n### `anchors.ts` (page create config)\n- **Page type now offers `list` (first + default).** The create enum was `['record','app','home','dashboard','utility']` — no `list` at all, so an admin building views was stuck on `record`. (Also dropped roadmap `dashboard`, matching the edit form.)\n- **`createSeed` pre-binds the chosen object** as `interfaceConfig.source` for list pages → a freshly created page renders its data immediately.\n- **`Object` field is now a `ref:object` picker** (was free text — type the name and hope), with a type-agnostic description.\n\n### `SchemaForm.tsx`\n- The flat auto-form (no FormView layout — e.g. create mode) now honors an explicit **`widget`** on a raw JSON-schema property, which is what lets `createSchema`'s `object: { widget: 'ref:object' }` render the picker. General + back-compat (only when a property declares `widget`).\n\n## Verified end-to-end (Studio, live showcase)\nCreated **\"My Open Tasks\"** from scratch: type defaulted to `list`, source pre-bound, object chosen via the picker → preview rendered immediately. Configured user-filter **Tabs** (In Progress / Done) + a **Mark Done** object-action button, **published**, and the live page filters correctly (In Progress → 2 rows). 274 metadata-admin tests pass; `tsc` clean.\n\n## Also found (reported, not in this PR)\n- **Pages list lands empty**: it's hard-scoped to `projectPackages[0]` (`app.objectstack.template.project`), but the app's pages live in another package, so the list shows `0` across all sources even after creating a page. Root cause: `ResourceListPage` mandatory package scope + a default package that owns no rows of the type. Recommend defaulting to a package that actually has items (or an \"all packages\" view). Deliberately not fixed here — it touches the package-scope model and wants its own change.\n- **Create form shows 3 validation errors on a blank form** (known artefact per the ResourceEditPage comment) — consider deferring validation until first edit/blur.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1729,
+  "kind": "pull_request",
+  "title": "fix(console): syntax-color chat code blocks (Streamdown Tailwind classes were purged)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T09:47:30Z",
+  "updated_at": "2026-06-14T09:51:02Z",
+  "closed_at": "2026-06-14T09:47:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T09:47:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1729",
+  "body": "## Symptom\n\nCode blocks in the AI chat render **monochrome** — no syntax highlighting (every token near-black), unlike ChatGPT/Claude.\n\n## Root cause\n\nStreamdown colors each token via an inline `--sdm-c` CSS variable **plus** a Tailwind arbitrary-value utility it emits at runtime: `text-[var(--sdm-c,inherit)]` (+ a `dark:` variant reading `--shiki-dark`, and matching `bg-[var(--sdm-tbg)]` / `bg-[var(--shiki-*-bg,...)]`). Those class strings live in `node_modules/streamdown/dist`, and **Tailwind v4 doesn't scan node_modules**, so the utilities are purged. Result: the inline `--sdm-c` colors are present but there's no `color: var(--sdm-c)` rule to apply them → inherited near-black.\n\nThe console already safelists *some* Streamdown classes via `@source inline(...)` (list markers, whitespace) — but it **missed the color/background ones**.\n\n## Fix\n\nAdd the missing color + background utilities to the existing safelist (same `@source inline(...)` pattern):\n\n```\ntext-[var(--sdm-c,inherit)]\ndark:text-[var(--shiki-dark,var(--sdm-c,inherit))]\nbg-[var(--sdm-tbg)]   dark:bg-[var(--shiki-dark-bg,var(--sdm-tbg))]\nbg-[var(--sdm-bg,inherit)]   dark:bg-[var(--shiki-dark-bg,var(--sdm-bg,inherit))]\n```\n\n## Verification\n\nInspected the compiled stylesheet in the running console:\n- **Before:** 0 generated rules reference `--sdm-c` (purged).\n- **After:** Tailwind emits `.text-[var(--sdm-c,inherit)] { color: var(--sdm-c,inherit) }` + the bg/dark variants, and Streamdown's exact token markup renders in 5 distinct colors (keyword/string/function/param), confirming the inline per-token `--sdm-c` colors now apply.\n\nCSS-only safelist change; no behavior/runtime risk.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

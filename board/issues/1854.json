@@ -1,0 +1,34 @@
+{
+  "number": 1854,
+  "kind": "pull_request",
+  "title": "feat(forms): declarative navigateOnSuccess + resetOnSuccess on object-form",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T07:31:06Z",
+  "updated_at": "2026-06-21T07:53:24Z",
+  "closed_at": "2026-06-21T07:53:22Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T07:53:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1854",
+  "body": "Completes the declarative success behaviors for **metadata-only** forms (which can't pass an `onSuccess` function), alongside `successMessage` (#1848). Closes the form half of #1849.\n\n### Added (on `ObjectFormSchema`)\n- **`navigateOnSuccess?: string`** — after a successful create/update, navigate here. `{id}`/`{recordId}` are interpolated from the saved record; the URL is same-origin-guarded. Takes precedence over the toast (landing on the new record *is* the confirmation).\n- **`resetOnSuccess?: boolean`** — after a successful create, reset the form for another entry. The wizard returns to a **cleared step 1** (via a remount nonce, since the step form is otherwise reused across steps to retain back/forward values). Ignored when `navigateOnSuccess` is set.\n\n### Implementation\nBoth wired in `ObjectForm` and `WizardForm` via a small shared `successBehavior.ts` helper, kept **dependency-free** on purpose (importing the redirect guard from `EmbeddableForm` would create a cycle `EmbeddableForm → ObjectForm → WizardForm → here`).\n\n### Testing\n`WizardForm.successBehavior.test.tsx`: navigate (interpolates `{id}`, skips toast) + reset (returns to cleared step 1, toasts). Full plugin-form form suite green on a clean base (ObjectForm.test.tsx + regression + successMessage + new): **12/12**.\n\n### Not included\n`onSuccess` as a function stays the runtime/host path; this only adds the declarative metadata fields.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 1868,
+  "kind": "pull_request",
+  "title": "feat(console-ai): split AI surfaces — agent-scoped /ai/:agent routing + launcher",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T15:44:41Z",
+  "updated_at": "2026-06-21T21:17:43Z",
+  "closed_at": "2026-06-21T21:17:42Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T21:17:42Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1868",
+  "body": "## Why\n\nThe two built-in assistants were mixed in one full-page surface behind a hidden, `?agent=`-gated dropdown. The product owner found the combined chat/build surface confusing (Claude Code separates \"chat\" vs \"code\"; Airtable Omni keeps them distinct). This splits them into their own pages and fixes the known StrictMode deep-link bug where `?agent=metadata_assistant` didn't activate on the dev server.\n\nThis is the **objectui** half of a Path A rename (`metadata_assistant`→`build`, `data_chat`→`ask`). It is written to work **before, during, and after** the cross-repo rename via an alias layer, so it can land independently. Framework + cloud rename + the `agent_id` data migration follow in separate PRs.\n\n## What\n\n- **Canonical route is generic & agent-scoped:** `/ai/:agent` and `/ai/:agent/:conversationId`. The active agent is derived from the path param (resolved against the live `GET /ai/agents` catalog) — the `?agent=` query snapshot is gone (that's what StrictMode's double-mount + the `/ai`→`/ai/:id` rewrite used to drop).\n- **New alias module** (`@object-ui/plugin-chatbot/agentAliases`): friendly route names (`build`/`ask`) ↔ built-in ids, resolving to whichever the catalog actually serves. `resolveDefaultAgentName` is now alias-aware. Custom `*.agent.ts` agents route by their own name, unchanged.\n- **Dropdown → launcher:** navigates to `/ai/:agent` instead of toggling an in-surface mode; always available when >1 agent, lists custom agents naturally.\n- **Back-compat redirects:** bare `/ai` → default agent surface; `/ai?agent=X` → `/ai/X`; legacy built-in id (`/ai/metadata_assistant`) → friendly form (`/ai/build`); legacy bare `/ai/:conversationId` → `/ai/:agent/:conversationId` (resolved via the conversation's `agentId`).\n- **Per-surface branding + starters:** Build = authoring empty-state + build starters; Ask = data-query empty-state + data starters (alias-aware).\n- **Conversations sidebar scoped to the active agent** (lenient: never hides a null-agent or the currently-open conversation).\n- **Per-agent conversation resolution fix:** landing on `/ai/:agent` (or switching via the launcher) used to resume a *scopeless / previous-agent* conversation because `useChatConversation` resolved once per user. Now keyed per `(user, scope)`, gated on the agent being known, with the URL-mirror guarded against the switch-transition race.\n- **Home:** \"Build with AI\" → `/ai/build`; added \"Ask AI\" → `/ai/ask`.\n- **ConsoleLayout / FAB** build-agent checks + labels made alias-aware (FAB binding per app is unchanged).\n- i18n (en/zh): `ask`/`build` labels, per-surface empty states, `home.askAI`.\n\n## Verification (live, against the local EE rig on :3100 — `data_chat` + `metadata_assistant`)\n\n| Acceptance | Result |\n|---|---|\n| (a) `/ai/build` opens Build directly, build starters, build→draft→Publish | ✅ drafted `bug` object + Publish affordance |\n| (b) `/ai/ask` opens the data assistant + data starters | ✅ |\n| (c) `/ai/<custom>` generic routing | ✅ via resolver (unit-tested; no custom agent on the rig) |\n| (d) legacy `/ai`, `/ai?agent=…`, `/ai/:conversationId` redirect | ✅ all canonicalize correctly |\n| (e) FAB binds per app | ✅ Studio→Build, simple_crm→Ask |\n| (f) old names still resolve (alias) + conversations still appear | ✅ + Ask/Build now resolve **distinct** convs; switch doesn't leak |\n\nAdded 14 unit tests for the alias resolver (legacy + renamed catalogs, custom-agent, non-agent segments). Note: component test files can't run via direct vitest locally (`@tailwindcss/postcss` missing from node_modules — reproduces on `main` too); they run in CI.\n\n## Follow-ups (Path A, separate PRs)\n- framework `service-ai`: rename `data_chat`→`ask` (+ back-compat alias in the agent resolver / `/agents/:name/chat`); **expose `agentId` on the conversation list+detail API** (this rig's build omits it, so sidebar scoping + legacy-id agent resolution currently degrade gracefully to the default).\n- cloud `service-ai-studio`: rename `metadata_assistant`→`build`; update the Studio app `defaultAgent`.\n- one-time migration of `ai_conversations.agent_id` (+ `ai_messages`) old→new.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

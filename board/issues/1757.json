@@ -1,0 +1,34 @@
+{
+  "number": 1757,
+  "kind": "pull_request",
+  "title": "fix(chart): render ADR-0021 dataset-bound chart views (framework#1890)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "plugin: charts"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T12:40:24Z",
+  "updated_at": "2026-06-15T13:03:45Z",
+  "closed_at": "2026-06-15T13:03:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T13:03:42Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1757",
+  "body": "## What\n\nChart views authored to the **current** spec rendered **nothing**. Post-ADR-0021 the spec exposes only `dataset` / `dimensions` / `values` (the legacy inline `xAxisField` / `yAxisFields` / `aggregation` shape was removed in `@objectstack/spec` 9.0.0), but the chart renderers were never migrated — they still read the removed legacy keys. A spec-compliant chart view showed an empty canvas.\n\nSurfaced by the view-schema liveness audit (objectstack-ai/framework#1890).\n\n## Change\n- **`ObjectChart`** — when a chart binds to a `dataset`, fetch via the governed `dataSource.queryDataset` path (the same path the dashboard `DatasetWidget` and dataset-bound reports use, so numbers/labels/formats stay consistent). Legacy single-object `aggregate` kept as a deprecated fallback.\n- **object-chart schema** (`@object-ui/types`) — `objectName`/`xAxisField` now optional; added optional `dataset`/`dimensions`/`values`.\n- **`ListView`** (`type:'chart'`) + **`ObjectView`** (plugin-view & app-shell) — chart case emits the dataset shape when `chart.dataset` is set; legacy aggregate retained as a deprecated fallback so pre-ADR-0021 metadata keeps rendering.\n\n## Verification\n- Core packages build green (`@object-ui/types`, `plugin-charts`, `plugin-list`, `plugin-view`).\n- **In-browser**: showcase Task → \"Hours by Status (Chart)\" view (binds `showcase_task_metrics`) now renders a bar chart with live data (was blank before the change).\n\nRefs objectstack-ai/framework#1890\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

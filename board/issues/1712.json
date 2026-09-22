@@ -1,0 +1,33 @@
+{
+  "number": 1712,
+  "kind": "pull_request",
+  "title": "feat(plugin-chatbot): render AI data-query charts inline (data-chart)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T20:55:53Z",
+  "updated_at": "2026-06-13T21:05:25Z",
+  "closed_at": "2026-06-13T21:05:23Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T21:05:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1712",
+  "body": "## What\n\nCompanion to the framework **`visualize_data`** tool ([framework#1820](https://github.com/objectstack-ai/framework/pull/1820)). The data-query assistant can now answer with a **chart** rendered inline in the chat bubble, instead of only text/markdown.\n\n## How\n\n- **`mapMessages.ts`** — `extractCharts()` lifts every `data-chart` stream part (emitted by `visualize_data` via `ctx.onProgress`) into `ChatMessage.charts`, with defensive narrowing and stable ordering for multiple charts. Mirrors the existing `data-build-progress` → `buildProgress` path.\n- **`ChatbotEnhanced.tsx`** — adds the `ChatChart` type + `charts` field and renders each chart via `<SchemaRenderer schema={{ type: 'chart', … }}/>` (through the `ComponentRegistry` `'chart'` component — no hard dependency on `plugin-charts`). The chart gets a definite `width: min(520px, 80vw)`: the chat bubble is `w-fit` while recharts' `ResponsiveContainer` is `width:100%`, a circular dependency that otherwise leaves recharts measuring 0 and the bars unpainted; a viewport-relative width breaks the cycle.\n\n## Testing\n\n- `mapMessages.test.ts` — +3 tests (single chart lift, multi-chart order + series-less drop, absent → `undefined`). Suite green (22 tests), typecheck clean.\n- End-to-end (live, real LLM): AI picks `visualize_data` → `data-chart` part → a 5-bar chart (task counts by status) renders in the console chat bubble.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

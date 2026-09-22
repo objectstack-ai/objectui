@@ -1,0 +1,30 @@
+{
+  "number": 1760,
+  "kind": "issue",
+  "title": "app-shell tsc build fails under full turbo build (missing plugin-* .d.ts), masked by turbo cache",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T13:05:21Z",
+  "updated_at": "2026-06-15T16:14:15Z",
+  "closed_at": "2026-06-15T16:14:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1760",
+  "body": "## Problem\n\n`@object-ui/app-shell` builds with `tsc` (composite). Under a **full turbo build** (`pnpm turbo run build --filter='./packages/*'`, as the `performance-budget.yml` \"Bundle Analysis\" job runs), app-shell's `tsc` fails with ~25 `error TS2307: Cannot find module '@object-ui/plugin-*'` across many files (DashboardView, ReportView, RecordDetailView, ObjectView, previews, …) plus cascading `IntrinsicAttributes` / implicit-any errors that are all downstream of the unresolved plugin modules.\n\nThis is **long-masked by turbo cache**: any PR that does **not** change an app-shell dependency gets a cache hit for `app-shell#build` and the job is green (e.g. #1743). The first PR that touches an app-shell dependency (e.g. #1757 changed `@object-ui/types` + `plugin-charts/list/view`) invalidates the cache, app-shell actually re-builds, and the latent failure surfaces.\n\n## Evidence\n\n- `pnpm --filter @object-ui/app-shell build` **in isolation** (deps' `dist` already present) → **exit 0, 0 errors**.\n- `pnpm turbo run build --filter='./packages/*'` from clean → app-shell fails (37 successful, 1 failed). Same in CI Bundle Analysis (re-run reproduced).\n- All errors are module-resolution for plugin-* packages app-shell *does* declare as deps; none are in PR-specific code.\n\n## Likely root cause\n\nplugin-* packages build via `vite build`; app-shell's `tsc` needs their `.d.ts`. Under turbo's parallel build the `.d.ts` for some plugin-* packages isn't reliably present/ready when app-shell's `tsc` runs (vite dts emit timing / declaration outputs not declared as turbo `outputs` for cache-correct ordering). app-shell's `tsconfig` references only 6 composite packages; the plugin-* deps resolve via node module resolution against `dist`.\n\n## Suggested directions (pick one)\n\n1. Ensure every plugin-* `vite build` emits `.d.ts` and declares it in turbo `outputs` so ordering/caching is correct.\n2. Switch app-shell's build off composite `tsc` to the same `vite build` the plugin packages use.\n3. Add the plugin-* packages to app-shell `tsconfig.references` (requires they be composite).\n\n## Impact\n\nBlocks the \"all-green\" bar for **any** PR that changes an app-shell dependency, even when the PR's own code is correct (e.g. #1757, verified via Build & E2E + in-browser). Surfaced by objectstack-ai/framework#1890 / #1757.\n"
+}

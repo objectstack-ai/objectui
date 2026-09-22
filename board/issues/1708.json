@@ -1,0 +1,32 @@
+{
+  "number": 1708,
+  "kind": "pull_request",
+  "title": "feat(console): DocPage resolves docs package-scoped (ADR-0048)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T14:45:26Z",
+  "updated_at": "2026-06-13T14:53:49Z",
+  "closed_at": "2026-06-13T14:53:47Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T14:53:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1708",
+  "body": "## What\n\nThe doc viewer at `/apps/:appName/docs/:name` now threads the route's package-id segment into `meta.getItem('doc', name, { packageId: appName })`, so the single-doc fetch is **package-scoped** (prefer-local) on the server.\n\n## Why\n\nUnder ADR-0048 (option A), the route segment is the package id. Two installed packages may ship a doc with the same bare name (e.g. `intro`); previously a single-doc fetch was context-free and always resolved to whichever package registered first. With the package threaded through, each resolves within its own package — so `doc` names no longer need a globally-unique namespace prefix (the prefix becomes a convention, like `page`/`dashboard`/`report`).\n\nThe legacy top-level `/docs/:name` path (no `appName`) keeps its context-free behavior.\n\n## Server dependency\n\nRequires the framework serving-path fix in [framework#1816](https://github.com/objectstack-ai/framework/pull/1816) (the cacheable single-item REST path was dropping `?package=`; now it bypasses the cache and threads `packageId` through `getMetaItem`).\n\n## Verification\n\nEnd-to-end in the browser against a real registry-level collision (two packages each shipping `doc/showcase_index`):\n\n- `/apps/com.example.showcase/docs/showcase_index` → Showcase's conformance-fixture doc\n- `/apps/com.objectstack.studio/docs/showcase_index` → \"STUDIO VERSION\" doc\n\nNo console errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

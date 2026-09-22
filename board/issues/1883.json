@@ -1,0 +1,34 @@
+{
+  "number": 1883,
+  "kind": "pull_request",
+  "title": "feat(app-shell): global settle signal + region aria-busy (ADR-0054 Phase 3)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T05:48:51Z",
+  "updated_at": "2026-06-22T05:58:23Z",
+  "closed_at": "2026-06-22T05:58:22Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T05:58:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1883",
+  "body": "## What & why\n\n**ADR-0054 \"UI testability contract\" — Phase 3 (machine-readable async state, C5).** Gives an automated (AI) browser driver one predicate — \"is the app idle?\" — so it can wait for settle instead of hardcoding timeouts or scraping per-component spinners.\n\n## Changes\n\n- **Global in-flight signal** (`observability/settleSignal`): a module counter incremented around every outbound request by wrapping the adapter's `fetch` with `withSettleSignal()` in `AdapterProvider`. `installSettleSignalGlobal()` installs live `window.__objectui.{pendingRequests, idle}` getters plus `whenIdle(timeoutMs?)` and `subscribe()`.\n- **React binding**: `useSettleSignal()` → `{ pending, idle }` (via `useSyncExternalStore`). Lower-level `getPendingRequests` / `subscribeSettle` / `whenIdle` / `withSettleSignal` / `installSettleSignalGlobal` exported. 8 unit tests.\n- **Region-level state**: the list-view root and record-picker results region set `aria-busy` while fetching and `data-state=\"loading|idle\"` — complementing the Radix `data-state` already on overlays.\n- README: \"Settle signal\" usage section.\n\n```js\n// e2e / AI driver:\nawait page.waitForFunction(() => window.__objectui?.idle === true);\n// or window.__objectui.pendingRequests === 0  /  await window.__objectui.whenIdle()\n```\n\n## Verification (browser, agent-browser / CDP)\n\nWorktree console (`:5182`, my `packages/*/src` via HMR) → `app-showcase` backend (`:3010`):\n\n- `window.__objectui` present with live `idle`/`pendingRequests` + `whenIdle`/`subscribe`. ✅\n- `pendingRequests` **peaks at 8** during app load and during a palette record search, then **settles to 0** (`idle === true`). ✅\n- `whenIdle()` resolves. ✅\n- List region reports `data-state=\"idle\"` when settled (10 rows live); `aria-busy` correctly absent when not busy. ✅\n- No auth/console regressions — the fetch wrapper preserves authenticated requests (verified zero stray failures on a clean load).\n\nUnit/type: settleSignal (8) + app-shell (658) + plugin-list (127) + fields (4236) suites green; `tsc` build green.\n\n## ADR rollout\nPhases 1 (#1879) + 2 (#1882) merged. This is Phase 3. Next: Phase 4 (locator coverage), Phase 5 (ratchet).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

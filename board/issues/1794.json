@@ -1,0 +1,32 @@
+{
+  "number": 1794,
+  "kind": "pull_request",
+  "title": "feat: iOS desktop home (bento) + tier-B polish",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-18T05:28:59Z",
+  "updated_at": "2026-06-18T12:11:25Z",
+  "closed_at": "2026-06-18T12:11:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-18T12:11:23Z",
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1794",
+  "body": "Follow-up to #1793 (Liquid Glass desktop theme, tier A — merged). Two things: tier-B component polish, and a **Home page redesign**.\n\n## Home redesign — bento launcher\n\nRe-architect Home from a tall single-column hero+list into a two-column bento:\n\n- **Slim hero**: greeting + Build-with-AI on one row; dropped the oversized 48px title, the redundant count chips (`StatPill`), and the \"HOME\" eyebrow\n- **Main column**: Recently Accessed + Applications grid (3-up)\n- **Right rail** (new) — surfaces the launcher-relevant slices of the notification center, with real data:\n  - **Needs your attention** — pending approvals count + CTA (`/api/v1/approvals/requests`)\n  - **Pinned** — starred items (favorites store)\n  - **Activity** — recent `sys_activity` feed\n- New `useHomeInbox` hook: one-shot fetch (no polling — the bell stays live), degrades to empty on 404/error. Activity rows mapped from plugin-audit's columns (`actor_name`/`summary`/`object_name`/`timestamp`); content-less login/system rows filtered out. New `HomeRail` holds the three cards. Notifications intentionally stay in the bell (not duplicated on Home).\n\n## Tier-B polish\n\n- Home StatPills (now removed by the redesign) and **Studio quick-action chips** → iOS filled-gray capsules\n- **Card press-springback** (`active:scale`) on AppCard / RecentApps / StarredApps; squircle (`rounded-xl`) recent/starred icon tiles\n- **`record:path` status stepper** (plugin-detail): Salesforce chevron tessellation → iOS connected rounded segments (completed=mint, current=accent, upcoming=muted); won/lost terminals + mobile pill row unchanged\n\n## Not changed\n\n- Quick-filter rows (All / In Progress / …): already render via shadcn segmented `Tabs` — already iOS-style.\n\n## Verification\n\nBuilt and verified live in-browser (Chrome extension, on the user's own browser): bento layout renders, right rail shows a real pending approval + real activity entries. `type-check` passes for `@object-ui/app-shell` (27) + `@object-ui/plugin-detail` (9); ESLint 0 errors. App-level only; no shared `packages/components/src/ui` edits.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

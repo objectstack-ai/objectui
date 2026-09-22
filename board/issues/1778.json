@@ -1,0 +1,32 @@
+{
+  "number": 1778,
+  "kind": "pull_request",
+  "title": "feat(i18n): translate action description (last gap of action i18n, cloud#73)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T09:11:52Z",
+  "updated_at": "2026-06-16T09:18:54Z",
+  "closed_at": "2026-06-16T09:18:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T09:18:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1778",
+  "body": "Closes the **description** half of objectstack-ai/cloud#73 (\"动作的 description 与参数 label/helpText/placeholder 无法翻译\").\n\n## Re-verification of #73\nRe-checked the current state — most of #73 is **already done & wired**:\n- action **label** → `actionLabel`; **confirmText** → `actionConfirm`; **successMessage** → `actionSuccess`\n- param **label/placeholder/helpText** → `actionParamText`; option **label** → `actionParamOptionLabel`\n  (resolved in `useConsoleActionRuntime` / `RecordDetailView` before the dialog opens)\n\nThe **one** missing piece: the action's own `description` — there was no `actionDescription` resolver, so it flowed to `useActionModal` raw (untranslated).\n\n## This PR\n- Adds `actionDescription` to `useObjectLabel` (mirrors `actionSuccess`; convention `objects.{object}._actions.{action}.description`).\n- Wires it at the two descriptor-build sites so the dialog gets a localized description (same mechanism as the already-live `actionParamText`).\n- Updates the runtime test mock so existing tests stay green.\n\n## Note on verification\nNo shipped action currently sets a top-level `description`, so this is a forward-looking capability with **no visible change today** — a browser demo would show nothing different without manufacturing a description+translation fixture. Verified by build + full **app-shell (546)** and **i18n (120)** suites; the wiring is byte-identical to the param-text path that already translates live.\n\nOut of scope (separate, minor): `MetadataTypeActions` (admin tooling) renders `action.label` raw, bypassing i18n. `QuickActions` is already `t()`-based (not a gap).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1727,
+  "kind": "pull_request",
+  "title": "feat(ai-chat): absolute-date tooltip on conversation-list timestamps",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T08:56:12Z",
+  "updated_at": "2026-06-14T08:59:37Z",
+  "closed_at": "2026-06-14T08:56:23Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T08:56:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1727",
+  "body": "## What\n\nThe conversation list shows a **relative** timestamp (\"2 minutes ago\") — scannable but vague (2pm vs 2am? which day last week?). This adds a native `title` tooltip carrying the full locale **date + time**, revealed on hover, matching ChatGPT/Claude. Empty/invalid timestamps produce no tooltip.\n\nNative `title` (not a Radix Tooltip) keeps it zero-dependency and layout-safe inside the scroll-area + row button.\n\n## Test\n\n`ConversationsSidebar.test.tsx`: the relative-timestamp span exposes a non-empty, date-bearing `title`. Suite green (3).\n\nSmall readability win in the AI chat conversation-list (③) polish track, on top of date-groups + search highlighting (#1726).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 1911,
+  "kind": "pull_request",
+  "title": "fix(dashboard): scale fraction-stored percent measures to display magnitude",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T13:54:47Z",
+  "updated_at": "2026-06-22T13:58:32Z",
+  "closed_at": "2026-06-22T13:55:14Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T13:55:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1911",
+  "body": "## Problem\n\nOn AI-built (and hand-authored) dashboards, a `percent` measure metric card renders at **1/100th scale** — e.g. an average win probability of `0.608` shows as **`0.6%`** instead of **`60.8%`**. The list view shows each row's percent correctly (`0.75 → \"75%\"`), so the two surfaces disagree.\n\n## Root cause\n\n`percent` fields store a **fraction (0–1)** (the percent edit widget `PercentField` divides input by 100 on save; confirmed live: a 12-row opportunity set had `win_probability_sum = 7.3`, `avg = 0.608`).\n\nTwo formatters scaled differently:\n\n| Surface | Formatter | Behavior | `avg 0.608` + `'0.0%'` |\n|---|---|---|---|\n| List cell | `formatPercent` (`@object-ui/fields`) | `value<1 → ×100` | — (per-row `0.75 → \"75%\"` ✓) |\n| Dashboard metric / table / pivot | `formatMeasure` (`@object-ui/core`) | appended `%`, **no ×100** | **`\"0.6%\"`** ✗ |\n\n`formatMeasure` powers every dataset-bound surface (ADR-0021): `DatasetWidget` metric/table/pivot, `DatasetReportRenderer`, `DatasetPreview`. The `'0.0%'` format is valid numeral.js (which multiplies by 100), but `formatMeasure` is a hand-rolled formatter that omitted the ×100. The framework analytics layer does **no** server-side scaling, so this is purely a client render bug (no double-divide).\n\n## Fix\n\nAdd `percentDisplayValue()` to `@object-ui/core` as the **single source of truth** for percent display scaling:\n- `formatMeasure` applies it when the format contains `%` → `0.608 → \"60.8%\"`.\n- `formatPercent` (list cell) rewired to call the same helper (behavior-identical) so the list cell and the dashboard metric can never drift again.\n\nWhole-percent storage (magnitude ≥ 1, e.g. a `progress` field storing `57`) still passes through unchanged, matching the list renderer's existing heuristic exactly.\n\n## Tests\n\n- **Unit** (`dataset-format.test.ts`): `formatMeasure(0.6083, '0.0%') → \"60.8%\"`; `formatMeasure(50, '0%') → \"50%\"` (whole unaffected); boundary cases.\n- **Component** (`DatasetWidget.test.tsx`): real metric widget fed the live value `0.6083` with format `'0.0%'` → renders **`60.8%`**, asserts `0.6%` is gone.\n- Full workspace suite: **4278 passed**, 0 regressions.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

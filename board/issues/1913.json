@@ -1,0 +1,36 @@
+{
+  "number": 1913,
+  "kind": "pull_request",
+  "title": "fix(grid): ObjectGrid 真正的服务端分页 (#2212)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T15:38:19Z",
+  "updated_at": "2026-06-22T15:48:00Z",
+  "closed_at": "2026-06-22T15:47:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T15:47:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1913",
+  "body": "配合框架修复 objectstack-ai/framework#2212(`findData` 返回真实 `total`/`hasMore`)。\n\n后端报对了匹配总数与 `hasMore` 之后,前端还必须**真正用上**它:按页用 `$skip` 取数、翻页时重新请求,而不是一次取一批后在内存里切片——后者会让第一批之后的记录永远翻不到。\n\n## 改动\n- **ObjectGrid** (`packages/plugin-grid/src/ObjectGrid.tsx`):新增 `serverPage`/`serverPageSize` 状态;以 `$top` + `$skip = (page-1)*size` 取数;对象/筛选/排序变化时重置到第 1 页。对扁平的服务端列表(非内联数据、非分组视图),以 manual 模式驱动 DataTable:`rowCount` = 真实总数,`onPageChange`/`onPageSizeChange` 触发服务端重新取数。\n- **DataTable** (`packages/components/src/renderers/complex/data-table.tsx`):新增 `manualPagination`/`rowCount`/`page`/`onPageChange`/`onPageSizeChange`。manual 模式下把 `data` 当作当前页**原样渲染、不做客户端切片**,并按 `rowCount` 计算总页数。\n- **data-objectstack 适配器** (`packages/data-objectstack/src/index.ts`):优先采用服务端 `hasMore`,缺失时才退化为页内估计。\n- **types** (`packages/types/src/data-display.ts`):声明 DataTable 的 manual 分页属性。\n\n## 测试\n- 新增 `data-table-manual-pagination.test.tsx`(3 例):按 `rowCount` 推总页数、不做客户端切片、`onPageChange` 上报翻页。\n- 新增 `plugin-grid/.../serverPagination.test.tsx`(4 例):渲染**真实 ObjectGrid** + mock 服务端,断言首页 `$skip=0`、翻页 `$skip>0` 重新取数、总页数取自真实 total、改页大小重新取数并回到第 1 页。\n- **全量套件通过:4227 passed | 24 skipped(301 文件)**。\n\n> 后端配套 PR:objectstack-ai/framework#2222"
+}

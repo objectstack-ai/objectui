@@ -1,0 +1,32 @@
+{
+  "number": 1731,
+  "kind": "pull_request",
+  "title": "feat(app-shell): type customDomain/sso runtime features (cloud ADR-0011/0012)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T12:25:10Z",
+  "updated_at": "2026-06-14T12:28:45Z",
+  "closed_at": "2026-06-14T12:25:13Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T12:25:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1731",
+  "body": "## What\n\nCompletes the wire contract for the billing entitlements work: the cloud control plane now ships `features.customDomain` / `features.sso` on `/api/v1/runtime/config` (derived from the env's plan entitlements via the open-core feature seam — framework #1847 / cloud #306). This types them on `RuntimeFeatures` so the SPA can consume them.\n\n**Safety**: commercial flags default **OFF** and turn on **only** when the server explicitly grants them — an older/vanilla runtime that omits the keys never leaks a paid affordance.\n\n## Verification\n\nNew `runtime-config.test.ts`: default-off before init, server-grant on `true`, business grants both, and the omitted-keys case stays off. 4/4 pass.\n\nGating an actual custom-domain / SSO **settings UI** on these flags is a follow-up once those product surfaces exist (none today). This lands the typed contract end-to-end.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

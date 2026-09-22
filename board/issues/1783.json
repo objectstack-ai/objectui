@@ -1,0 +1,33 @@
+{
+  "number": 1783,
+  "kind": "pull_request",
+  "title": "feat(app-shell): render full object forms (incl. master-detail) in screen-flow wizard steps",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T16:00:13Z",
+  "updated_at": "2026-06-16T16:07:21Z",
+  "closed_at": "2026-06-16T16:03:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T16:03:54Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1783",
+  "body": "## What\n\n`FlowRunner` can now render an **`object-form` screen-flow step**: when a paused screen carries `kind: 'object-form'`, it mounts the real `<ObjectForm>` for the named object (auto-routing to `MasterDetailForm` when the object declares inline child collections), prefilled from the step's `defaults`. The form persists itself (atomic master-detail batch), then resumes the run with the saved record id bound to the step's `idVariable`.\n\nThis is the renderer half of the master-detail **lead → customer + opportunity conversion wizard** (framework companion PR `feat/master-detail-convert-wizard`). `dataSource` / `objects` are now threaded through all three `FlowRunner` mount points (`RecordDetailView` ×2, `useConsoleActionRuntime`).\n\n## Pre-existing bugs fixed (each breaks normal forms too, not just the wizard)\n\n1. **Master-detail prefill dropped** — `ObjectForm` didn't forward `initialValues` / `initialData` when routing to `MasterDetailForm`, so prefilled header values were lost on any master-detail create form. Now forwarded through `ObjectForm` → `MasterDetailForm` → parent form.\n\n2. **PercentField blocked form submit** — the widget assumed values are `0–1` fractions (`value × 100`), so a `0–100` field (e.g. `probability` default `50`) rendered as **5000%**. That exceeds the input's `max=100`, so HTML5 constraint validation marks the field `:invalid` and **silently blocks the entire form's submit** (button click / `requestSubmit` become no-ops). Now treats a field declaring `max > 1` as the `0–100` whole-number convention, matching the read-side formatter. Fixes submit for *any* form containing a 0–100 percent field.\n\n3. **batchTransaction unauthenticated under cookie sessions** — `ObjectStackAdapter.batchTransaction` did a raw `fetch` without `credentials: 'include'`. The browser console authenticates by cookie (no bearer `token`), so every master-detail batch save `401`'d. Now sends the session cookie; bearer (server-to-server) and cookie (console) auth both work.\n\n## Verification\n\nEnd-to-end in the console against `app-crm`: the conversion wizard renders both full forms with prefill carryover and the live product line-item grid, and the final Save persists the opportunity + line item atomically and completes the flow. Changes run clean through the console's Vite dev build (workspace `@object-ui/*` aliased to `src`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

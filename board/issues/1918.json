@@ -1,0 +1,33 @@
+{
+  "number": 1918,
+  "kind": "pull_request",
+  "title": "fix(ai-chat): route AI-built apps by packageId, not the app name (ADR-0048)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-23T04:45:44Z",
+  "updated_at": "2026-06-23T04:49:33Z",
+  "closed_at": "2026-06-23T04:46:16Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-23T04:46:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1918",
+  "body": "Founder-spotted, same theme as objectstack-ai/cloud#449. The AI build chat's **Open app** / **Preview** (and the auto-opened LiveCanvas preview) navigated to `/apps/<appName>` (e.g. `/apps/library`) using the app's machine **name**. Per **ADR-0048** the `/apps/<segment>` route is keyed on the app's **package id** (`app.<slug>`, globally unique) — the name is the LLM's free choice and isn't unique (two AI apps can both be `library`). The launcher already does this via `appRouteSegment`; only the AI-chat paths regressed.\n\n## Fix\nThread the app's package id (route segment) through the chat callbacks:\n- `onOpenBuiltApp` / `onPreviewDraftApp` / `onDraftArtifacts` gain the package segment.\n- The draft **Preview** button and the artifact-stream emit pass `draftReview.packageId`.\n- `AiChatPage` navigates / sets the canvas to `appSegment ?? appName`.\n- `LiveCanvas` keys its iframe URL on the segment (display still uses the name).\n\nThe `BuildProgressPanel` \"Open app\" still falls back to the name (build-progress carries no package id) — no regression; the package-bearing paths are fixed.\n\n## Verification\n- Live-confirmed the bug on the EE rig (`/apps/library/fh79_book`, app in `app.fh79`).\n- plugin-chatbot + app-shell typecheck clean; 49 ChatbotEnhanced tests pass (2 new: Preview passes the package segment; `onDraftArtifacts` carries it).\n\nReaches prod via framework `.objectui-sha` pin → cloud pin bump.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1939,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): dataset create opens the rich designer + dual-axis preview",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T04:12:44Z",
+  "updated_at": "2026-06-24T04:20:44Z",
+  "closed_at": "2026-06-24T04:20:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T04:20:42Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1939",
+  "body": "## Summary\nTwo dataset-designer UX wins found while dogfooding online dataset design in Studio — the two highest-value items deferred from objectui#1931 (they were blocked then because the report-create canvas work was in flight; it has since merged, so both are now safe to build on).\n\n### 1. Create → the rich designer (not the generic form)\n`dataset` joins `object` / `report` in `CREATE_MODE_CANVAS_TYPES`, so **\"New dataset\" opens the structured designer** (base-object picker, joins, dimension/measure editors, **live preview**) instead of the degraded generic `SchemaForm`. `DatasetDefaultInspector` gains a **create-mode Name field** that auto-derives a snake_case identifier from the label until edited (mirrors `ReportDefaultInspector` / `ObjectDefaultInspector`), so a dataset created through the canvas saves with a valid identity instead of dead-ending on the empty-name rule.\n\n### 2. Mixed-scale preview → secondary (right) Y axis\nWhen a preview mixes a **ratio/percent** measure (e.g. `utilization`, `0.0%`) with **magnitude** measures (currency in the hundred-thousands), the ratio measures now plot as a **line on a secondary right Y axis** via the existing `combo` chart — no longer crushed to an invisible sliver next to the bars. Same-scale selections stay a plain bar chart. (No change to the shared chart component — reuses `combo`'s existing dual-axis.)\n\n## Verification\n- Tests: `DatasetDefaultInspector` +2 (create-mode Name shown/hidden + slug), `DatasetPreview` +1 (dual-axis caption); **metadata-admin sweep 339 pass**.\n- **Browser-verified** in showcase Studio (console rebuilt + vendored):\n  - `…/metadata/dataset/new` opens the **DATASET designer** (Name `snake_case identifier`, Base object picker, Included relationships, live preview) — the generic \"Basics/Groupable axes\" form is gone.\n  - A mixed-scale dataset preview renders a **left axis (¥, 80万→0)** + **right axis (ratio, 1→0)**, Budget/Spent as bars + Utilization as a line, caption \"Ratio measures (Utilization) use the right axis\", table `64.0% / 96.0% / 97.8% / 0.0%`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

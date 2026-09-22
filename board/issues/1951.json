@@ -1,0 +1,32 @@
+{
+  "number": 1951,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): remove unwired \"Certified\" measure toggle from dataset designer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T05:37:06Z",
+  "updated_at": "2026-06-24T05:48:30Z",
+  "closed_at": "2026-06-24T05:48:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T05:48:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1951",
+  "body": "measure.certified is `dead` in the spec liveness ledger — declared but read by nothing (no certifier authority, no provenance, not surfaced where reports pick measures). A checkbox the author flips on their own work is a fake trust signal, not certification. Remove the toggle + the create default; the spec field stays dormant (liveness=dead) so existing data is untouched. Bring it back only with real governance (separate `dataset.certify` authority + `certifiedBy/At` + a badge at point-of-consumption). Tests: DatasetDefaultInspector 12 pass (new test asserts no Certified toggle renders).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1920,
+  "kind": "pull_request",
+  "title": "feat(authz): ADR-0066 D4 UI half — gate actions by requiredPermissions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-23T11:59:05Z",
+  "updated_at": "2026-06-23T12:06:34Z",
+  "closed_at": "2026-06-23T12:06:32Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-23T12:06:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1920",
+  "body": "The UI half of **ADR-0066 D4** (dual-surface action gates). The framework server already enforces `action.requiredPermissions` (403 — the source of truth; objectstack-ai/framework#2238). This derives the same gate in the console so a button the user can't use is **hidden** rather than shown-then-403'd.\n\n### Changes\n- **`@object-ui/core` ActionEngine.getActionsForLocation**: filters out actions whose `requiredPermissions` aren't ALL held by the caller's `systemPermissions`. **Fail-OPEN** when `systemPermissions` is unknown (`undefined`) — the server still 403s, and hiding on missing data is a worse regression than a button that errors clearly. Mirrors the existing App/nav `requiredPermissions` gate.\n- **`@object-ui/permissions`**: `PermissionContextValue` exposes `systemPermissions: string[]` + `hasCapabilities(required)`. `MePermissionsProvider` wires them from `/me/permissions` (which already returns `systemPermissions`). `usePermissions` no-provider fallback + the legacy role-based `PermissionProvider` fail-open.\n- **`@object-ui/app-shell`** `useConsoleActionRuntime`: injects `user.systemPermissions` into the action runtime context so the engine gate can read it.\n\n### Tests\n`ActionEngine.requiredPermissions.test.ts` (+5): no-gate / held / not-held / AND-semantics / fail-open. `@object-ui/core` + `@object-ui/permissions` type-check clean; ActionEngine suite (15) green.\n\nPairs with framework ADR-0066 D4 (#2238, merged). UI gating is derived/secondary — server enforcement is the security boundary.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

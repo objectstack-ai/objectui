@@ -1,0 +1,32 @@
+{
+  "number": 1867,
+  "kind": "pull_request",
+  "title": "feat(studio): calmer remove control + metadata-driven pickers across inspectors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T15:41:19Z",
+  "updated_at": "2026-06-21T15:48:04Z",
+  "closed_at": "2026-06-21T15:48:02Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T15:48:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1867",
+  "body": "## Why\n\nA follow-up UX pass over the Studio metadata-admin inspectors, applying the lessons from the dataset designer ([#1865](https://github.com/objectstack-ai/objectui/pull/1865)) to the editors that shared the same two problems: an alarming remove button, and free-text where a metadata-driven picker should be.\n\n## What\n\n**1. Calmer shared remove control (systemic)**\n`InspectorRemoveButton` rendered a full-width **solid-red** destructive bar in every curated inspector's footer (object field, view column, app nav, flow node/edge, page block). It's now a muted **outline** button with a trash icon that turns destructive-red only on hover — same footer layout, far less alarming. One change, all six inspectors.\n\n**2. Dashboard widget binding → pickers**\nThe widget inspector bound dataset / dimensions / measures / object / value+category fields as **free text** (dataset typed by hand; dimensions & measures as comma-separated strings) — the dataset-designer trap, worse for the CSV lists. Rebound to the live schema, reusing the Report inspector's proven controls:\n- dataset → searchable combo over the dataset catalog,\n- dimensions / measures → the reorderable, add-from-catalog `DatasetNamesEditor` fed by the bound dataset's semantic layer (now exported from the report inspector — one shared implementation),\n- object → object-catalog combo; value/category field → field combo over the bound object's fields.\n\nEach combo keeps a custom-value escape hatch (offline / computed paths). Catalog hooks are hoisted above the inspector's early returns to keep hook order stable.\n\n**3. View designer object → picker**\nThe view's base-object binding was free text; now a searchable object-catalog combo.\n\n## Test plan\n- `DashboardWidgetInspector.test.tsx` rewritten for the picker UI (sections gated by a bound dataset, members render, object/field pickers resolve catalog labels, readOnly disables every combo); catalog hooks stubbed for a network-free render.\n- Local: app-shell `tsc --noEmit` ✅ · inspectors suite 11 files / 91 tests ✅ · eslint 0 errors.\n- Browser-verified against the HotCRM showcase backend:\n  - Dashboard `sales_dashboard` → widget inspector: dataset/object/value/category are dropdowns; the value-field combo lists the bound object's 30 real fields (searchable); object resolves to its label (商机).\n  - View `crm_account.my_accounts`: base object is a dropdown (客户).\n  - View column inspector footer: \"删除列\" is now a calm outline + trash button, no solid-red bar.\n  - No console errors; live previews unaffected.\n\n## Deferred (own follow-up PRs)\n- **App-nav icon** → a proper icon picker (needs the Lucide icon widget extracted + virtualized; ~1000 entries).\n- **Object-field lookup advanced props** (`displayField` / `sortField` / `filter`) → needs the CEL condition builder wired in.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

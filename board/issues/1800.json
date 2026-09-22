@@ -1,0 +1,33 @@
+{
+  "number": 1800,
+  "kind": "pull_request",
+  "title": "fix(plugin-dashboard): show 0 (not \"No rows\") for an empty-dataset metric",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-18T23:22:01Z",
+  "updated_at": "2026-06-18T23:25:39Z",
+  "closed_at": "2026-06-18T23:22:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-18T23:22:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1800",
+  "body": "## Problem\n\nA metric / KPI widget (single value, or any dimensionless dataset widget) rendered the dashed **\"No rows\"** empty state when its query returned no rows. But a count/sum over an empty dataset is **0**, not \"no rows\". On a freshly built app every KPI — \"Total Books\", \"Active Loans\", … — read as *broken* until data existed (observed during the 2026-06-18 magic-flow review).\n\n## Fix\n\nThe empty-rows guard now skips metric widgets and falls through to the metric branch, which defaults the absent value to `0` → `formatMeasure` renders **\"0\"** (or \"$0\", per the measure format). Charts and tables keep the \"No rows\" state — there is genuinely nothing to plot.\n\n## Tests\n\n+3 (12/12 pass): empty metric → `0`; empty metric with `$` format → `$0`; empty dimensioned chart → still `No rows`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

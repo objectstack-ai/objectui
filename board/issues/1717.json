@@ -1,0 +1,30 @@
+{
+  "number": 1717,
+  "kind": "pull_request",
+  "title": "fix(home): link into apps by package-id route segment (ADR-0048)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T02:00:38Z",
+  "updated_at": "2026-06-14T02:06:56Z",
+  "closed_at": "2026-06-14T02:06:54Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T02:06:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1717",
+  "body": "## Bug\n\nOpening an app from the console **home** page produced a **name-form** URL (e.g. `/apps/studio`) instead of the canonical package-id form (`/apps/com.objectstack.studio`) that the rest of the nav uses.\n\nThe ADR-0048 emission fix (#1696) updated the sidebar / app-switcher / command-palette to link via `appRouteSegment(app)` (= `_packageId ?? name`), but **missed the home surface**:\n- `HomePage.tsx` app grid: `navigate(\\`/apps/${app.name}\\`)`\n- `AppCard.tsx` favorite href: `href: \\`/apps/${app.name}\\``\n\n## Fix\n\nBoth now use `appRouteSegment(app)`.\n\n## Verification\n\nBrowser-tested against a live backend (dev console with live source; the `/_console/` bundle on a deployed backend is pinned and picks this up on its next `@objectstack/console` bump):\n\n- Click **Studio** card → `/apps/com.objectstack.studio` ✅ (was `/apps/studio`)\n- Click **HotCRM** card → `/apps/app.objectstack.hotcrm/dashboard/executive_dashboard` ✅, app renders (Executive dashboard, full nav). No console errors.\n\n(App names ≠ package ids, confirmed via `/meta/app`: `studio`→`com.objectstack.studio`, `crm_enterprise`→`app.objectstack.hotcrm`, `showcase_app`→`com.example.showcase`.)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

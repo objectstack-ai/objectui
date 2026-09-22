@@ -1,0 +1,32 @@
+{
+  "number": 1775,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): book metadata display UI (ADR-0046 §6)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T07:29:35Z",
+  "updated_at": "2026-06-17T05:58:46Z",
+  "closed_at": "2026-06-17T05:58:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-17T05:58:44Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1775",
+  "body": "## What\n\nThe framework added a `book` metadata type (ADR-0046 §6) — a documentation **navigation spine**: ordered groups whose membership over docs is *derived* from each group's `include` rule (glob / `{ tag }`), with an explicit `pages` override for curated order. objectui had **no display surface** for it. This adds the standard per-type display layer the metadata-admin engine expects, mirroring every existing type.\n\n## Changes\n\n- **`BookPreview.tsx`** — visualises the authored spine: identity/access header (label, slug, `audience` chip → org/public/profile), groups sorted by `order`, each group's `include` rule + `package` scope, and any explicit `pages` override (doc entries, `---` separators, `...` rest, badges, external links). Reads the draft defensively and degrades to a hint rather than throwing. Toolbar links to `GET /meta/book/:name/tree` for the live-resolved tree.\n- **`default-schemas.ts`** — fallback JSONSchema for the Form tab (name/label/description/slug/icon/order/audience/groups).\n- **`i18n.ts`** — type label (EN *Documentation Book* / ZH *文档手册*).\n- **`builtinComponents.tsx`** — `registerMetadataResource` (domain `system`, list columns incl. audience + group count).\n- **`BookPreview.test.tsx`** — 8 cases (empty / glob / tag / explicit-override / orphan group / ordering / malformed draft).\n\n## ⚠️ Deployment note\n\nThe metadata-admin type list is **server-driven** from `/meta/types` (filtered to the active project package). This client registration only *enhances* a server-provided entry — it does **not** make `book` appear on its own. `book` was added to the spec in the framework repo (ADR-0046, commit `71578f2b3`) but is **not** in the published `@objectstack/spec@9.5.1` objectui currently depends on. So this is the ready-and-waiting client display layer; `book` renders end-to-end once the backend serves a framework build that includes it.\n\n## Verification\n\n- `tsc --noEmit` ✅ (exit 0)\n- `vitest run BookPreview.test.tsx` ✅ 8/8\n- `eslint` ✅ 0 errors (5 `any` warnings, consistent with the neighboring `AppPreview` convention)\n\nNot browser-verified: `book` isn't server-served in the current env (backend on spec 9.5.1), so a dev server wouldn't exercise it — unit tests are the meaningful proof here.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n## Relationship to #1774 (ADR-0051)\n\nSeparate, complementary surface. #1774 implements ADR-0051 — `element:metadata_viewer` + the ` ```metadata ` doc fence (rendering metadata views *inline inside docs*). This PR is the ADR-0046 `book` **management/display UI** in the metadata-admin Studio (authoring the navigation spine). Different ADR, different surface; no overlap in touched files.\n"
+}

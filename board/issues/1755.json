@@ -1,0 +1,33 @@
+{
+  "number": 1755,
+  "kind": "pull_request",
+  "title": "feat(plugin-chatbot): send a stable per-turn turnId for safe Retry (ADR-0013 D1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T08:12:46Z",
+  "updated_at": "2026-06-15T09:15:39Z",
+  "closed_at": "2026-06-15T09:15:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T09:15:36Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1755",
+  "body": "## ADR-0013 D1 — client turnId\n\nPart of the cross-repo durable-turn work for [cloud#334](https://github.com/objectstack-ai/cloud/issues/334). Pairs with framework [#1900](https://github.com/objectstack-ai/framework/pull/1900) (server-side dedup/short-circuit) and a cloud SHA bump, coordinated via the ADR-0012 cross-repo recipe. Builds on D2 ([#1742](https://github.com/objectstack-ai/objectui/pull/1742)) which reconciles a turn that actually succeeded; D1 covers the genuinely-failed retry path.\n\n### Change\nThe chat transport now stamps a stable `turnId` on every outgoing turn, derived from the id of the user message that triggered it. On Retry the AI SDK re-sends the SAME triggering user message (regenerate-message keeps the trailing user turn), so the id — and thus the `turnId` — is identical across the original send and the retry. The server uses this key to dedup the inbound user message and short-circuit a completed turn instead of re-running tools / re-planning.\n\n- `useObjectChat`: `DefaultChatTransport.prepareSendMessagesRequest` → `withTurnId` (extracted + exported for unit testing). One transport covers both consoles (`AiChatPage` + `ConsoleFloatingChatbot`); it is the only `DefaultChatTransport` in the codebase.\n\n### Tests\n`withTurnId`: derivation from last user message, stability across Retry, distinct id per new turn, defensive no-user case. Green alongside `mapMessages`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

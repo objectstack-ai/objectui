@@ -1,0 +1,32 @@
+{
+  "number": 1820,
+  "kind": "pull_request",
+  "title": "feat(detail): iOS grouped-inset record detail on mobile",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T11:06:12Z",
+  "updated_at": "2026-06-20T11:09:45Z",
+  "closed_at": "2026-06-20T11:06:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T11:06:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1820",
+  "body": "**Phase 1** of the agreed **\"Linear on desktop, iOS-native on mobile\"** direction (premium feel + real mobile target).\n\n`DetailSection` now renders fields as **iOS grouped-inset rows on mobile** — label left, value right, hairline dividers between rows inside the section card (the native iOS Settings/detail form). **Desktop is unchanged**: the dense multi-column grid with label-on-top is kept for scannability.\n\n- Branch is **mobile-only** (`useIsMobile`) and **read-mode only** — inline editing falls back to the stacked layout so inputs have room.\n- Zero desktop impact; low risk.\n\n## Verified\nShowcase Account 360 + Settings record pages at **390×844** (grouped-inset rows) and **1440** (unchanged dense grid). 48 detail tests pass.\n\n> Next phases (for discussion, not in this PR): segmented controls for view switchers, a subtle/fast motion pass, surface/type refinement. This PR is the flagship to validate the look.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

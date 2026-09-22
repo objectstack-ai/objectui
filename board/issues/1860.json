@@ -1,0 +1,32 @@
+{
+  "number": 1860,
+  "kind": "pull_request",
+  "title": "feat(fields): zero-config multi-column lookup picker + i18n",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T12:22:04Z",
+  "updated_at": "2026-06-21T13:18:22Z",
+  "closed_at": "2026-06-21T13:18:20Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T13:18:20Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1860",
+  "body": "## Problem\n\nBrowser-testing the showcase lookup picker surfaced that the Record Picker and quick-select popover **degrade to a single name-only column** whenever a lookup field doesn't declare explicit `lookup_columns` — which is *every* lookup in app-showcase and CRM today. Picking an Account showed only the name, with no way to disambiguate. The picker strings were also hardcoded English inside the localized (zh-CN) UI.\n\nThis is the **renderer track** of a broader lookup-UX effort (gap analysis benchmarked the picker against Salesforce / Power Apps / Mendix / SAP Fiori / ServiceNow / Airtable). Companion tracks (framework spec wiring + showcase config/seed) follow separately.\n\n## Changes\n\n- **`deriveLookupColumns()`** — when no `lookup_columns` are authored, derive a multi-column, disambiguating set from the *referenced object's* schema: honour its `displayFields` when present, else the display field plus the next few business fields in declaration order, skipping system/audit fields and heavy non-tabular types. Column `type` is carried through, so the picker renders currency / select-badge / date / link cells via the shared cell renderer.\n- **Inline popover secondary line** — shows the first derived non-display field when no explicit `description_field` is set.\n- **Filter bar auto-enabled** from the derived typed columns.\n- **i18n** — localize all previously-hardcoded English picker strings via a new `lookup` namespace (en + zh added; other locales fall back to en).\n\n## Verification\n\n- Unit test `deriveLookupColumns.test.ts` (7 cases: ordering, label/type carry-through, system-field & non-tabular skipping, max cap, `displayFields` honouring, de-dupe).\n- **Live** against app-showcase (zh-CN): the Account picker now shows **客户名称 / 行业 / 年收入 / 网站** — Industry as colored badges, Annual Revenue formatted, Website as links — instead of a single \"NAME\" column, fully localized (搜索…, 3 条记录, 筛选).\n\n### Before → After\nBefore: one column `NAME`, `Search...`, `3 records`.\nAfter: 4 sortable typed columns + filter bar, all in Chinese.\n\nNote: other locale bundles fall back to English for the new `lookup.*` keys; translating them is a small follow-up."
+}

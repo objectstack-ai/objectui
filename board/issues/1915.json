@@ -1,0 +1,34 @@
+{
+  "number": 1915,
+  "kind": "pull_request",
+  "title": "fix(console): render shared AI conversations with real chat cards, not raw JSON",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-23T01:57:55Z",
+  "updated_at": "2026-06-23T02:01:21Z",
+  "closed_at": "2026-06-23T01:58:26Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-23T01:58:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1915",
+  "body": "## Problem\n\nThe public `/s/:token` share page dumped a shared AI conversation's raw `{\"type\":\"tool-result\",…}` envelope as a wall of text instead of the proper chat cards. Reported on a shared MES conversation.\n\n**Before → After** (verified against the live shared conversation):\n\nThe share page rendered `ai_messages.content` verbatim, so assistant tool turns showed the raw blueprint JSON instead of the \"Proposed plan\" card.\n\n## Root causes (both objectui-side)\n\n1. **Own renderer.** `SharedRecordPage.tsx` had a one-off `extractMessageText()` instead of the live chat pipeline (`toUIMessages → hydratedMessagesToChatMessages → ChatbotEnhanced`, which merges a tool CALL with its RESULT and lifts the `proposedPlan`/`draftReview` cards). Same divergence class as the AiChatPage-has-its-own-converter gotcha.\n2. **Shape mismatch.** The framework share endpoint (`plugin-sharing` `GET /:token/messages`) returns **flat `ai_messages` rows** (tool CALLS in a separate `tool_calls` column, RESULTS as a JSON-stringified array in `content`) — *not* the reconstructed `ModelMessage[]` that authenticated `GET /conversations/:id` returns via `ObjqlConversationService.toMessage`. So `toUIMessages` couldn't consume the raw rows.\n\n## Fix\n\n- **`aiMessageRowsToServerMessages`** (new, in `useChatConversation.ts`) mirrors the server's `toMessage` row→ModelMessage mapping client-side, so the share page reconstructs the exact shape the live chat already trusts, then reuses the identical hydrate chain.\n- **`readOnly` prop on `ChatbotEnhanced`** — hides the composer; tool cards already degrade to read-only when no action callbacks are passed.\n- Rewrote the share page's `ai_conversations` branch to render `<ChatbotEnhanced readOnly>`.\n\nThe shared transcript now shows the same user bubble, \"Propose blueprint ✓ Completed\" card, \"Proposed plan\" card (object chips + field counts, \"N objects · N views · N dashboards\", assumptions) and formatted markdown as the live chat — no raw JSON, no input box.\n\n## Verification\n\n- Live-verified against the real prod share link (local console `pnpm dev` with `VITE_SERVER_URL` pointed at the prod share API — resolve/messages routes are anonymous/public).\n- Typecheck clean across app-shell / plugin-chatbot / console (turbo, 34 tasks).\n- Added unit + e2e tests: flat-row reconstruction in `useChatConversation.test.ts`, and a raw-rows → \"Proposed plan\" card e2e in `AiChatPage.hydration.test.ts` (reproduces this exact MES case). 12 tests pass.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

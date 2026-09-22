@@ -1,0 +1,32 @@
+{
+  "number": 1865,
+  "kind": "pull_request",
+  "title": "feat(studio): metadata-driven pickers for the dataset designer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T15:06:09Z",
+  "updated_at": "2026-06-21T15:19:47Z",
+  "closed_at": "2026-06-21T15:19:45Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T15:19:45Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1865",
+  "body": "## Why\n\nThe dataset DefaultInspector's three free-text inputs — **base object**, **included relationships**, and dimension/measure **`field`** — forced authors to recall exact API names. That gap (vs. mainstream low-code dataset builders, which let you *pick* from the live schema) is the most-felt difference for the dataset designer.\n\n## What\n\nReplace the free-text inputs with searchable dropdowns over the live object graph, and surface previously JSON-only fields.\n\n**P0 — metadata-driven pickers**\n- **Base object** → object dropdown (shows the object's label).\n- **Included relationships** → dropdown of the base object's `lookup` / `master_detail` fields (the join allowlist), with the target object as a hint.\n- **Dimension / measure `field`** → grouped, searchable dropdown of base fields **+ `relationship.field`** paths for each included relationship (fetches each relationship's target object on demand). Picking a dimension field auto-infers its `type`.\n- Every combo keeps a **\"Use «typed»\" custom-value** escape hatch (offline catalog, computed path, server-only field).\n\n**P1 — surface JSON-only fields in an Advanced disclosure**\n- Dimension: `label`, `dateGranularity` (when type = date).\n- Measure: `label`, `format`, `currency`, and a **derived-measure** editor (`op` + operands, excluding self).\n\n**P2 — context**\n- Join-path hint (`base → rel (target)`).\n- Reverse-lineage banner (\"Bound by N reports · M dashboards — changes affect them.\").\n\n## Files\n- `useDatasetFields.ts` (new) — `useObjectOptions` / `useDatasetFieldCatalog` / `useDatasetUsage` + exported pure normalizers. Resolves a lookup's target from `reference` (framework) and `reference_to`/`referenceTo` (spec) shapes.\n- `InspectorComboField.tsx` (new) — searchable, grouped single-select (cmdk) with custom-value support.\n- `DatasetDefaultInspector.tsx` — rewired to the pickers + advanced fields + hints.\n\n## Test plan\n- `useDatasetFields.test.ts` (new) — unit tests for the pure normalizers (`resolveLabel`, `resolveReferenceTo`, `fieldTypeToDimensionType`, `normalizeObject`, `buildFieldOptions`, `referencesDataset`).\n- `DatasetDefaultInspector.test.tsx` (updated) — structural + behavioral (add/remove/edit, derived toggle, readOnly).\n- Local: app-shell `tsc --noEmit` ✅ · inspectors suite 11 files / 93 tests ✅ · eslint 0 errors.\n- Browser-verified against the showcase backend: object/relationship/field pickers resolve real schema, `account.*` cross-object paths appear, join-path + lineage render, no console errors, live preview unaffected.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 1949,
+  "kind": "pull_request",
+  "title": "chore: drop unrendered blank/record_review page types (align with framework#2265)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: react",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T05:18:13Z",
+  "updated_at": "2026-06-24T05:21:25Z",
+  "closed_at": "2026-06-24T05:18:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T05:18:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1949",
+  "body": "Companion to framework#2265 (enforce-or-remove of unrendered roadmap page types). Drops objectui's now-dead references to `blank` / `record_review` so the upstream spec can **hard-remove** `BlankPageLayoutSchema` / `RecordReviewConfigSchema`.\n\n## Changes\n- **`PageType` union** (`types/layout.ts`): removed `dashboard` / `form` / `record_detail` / `record_review` / `overview` / `blank` — none have a renderer; dropped from `@objectstack/spec` PageTypeSchema. (`grid/gallery/kanban/calendar/timeline` stay — those are list *visualizations* mislabeled as page kinds, a separate cleanup.)\n- **`PageLayout.blankLayout`** removed; **spec→SDUI bridge** no longer maps `spec.blankLayout` / `spec.recordReview`, and its local `BlankPageLayoutItem` interface is gone.\n- Removed the **redundant `BlankPageLayout{,Schema,Item,ItemSchema}` re-import** from `@objectstack/spec/ui` in `types/index.ts` (it was never used — objectui has its own local types).\n- Updated the two tests that asserted the old 16-type union / blank layout mapping.\n\n## Verification\n- ✅ `tsc --noEmit` clean across `@object-ui/types`, `@object-ui/react`, `@object-ui/components` (incl. the updated test files).\n- Note: a parallel PR (#1948) already shipped the slotted-Preview render fix; this is unrelated and orthogonal.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

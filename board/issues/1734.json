@@ -1,0 +1,33 @@
+{
+  "number": 1734,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): row Edit/Delete honor object userActions.{edit,delete}",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T15:45:05Z",
+  "updated_at": "2026-06-14T15:52:10Z",
+  "closed_at": "2026-06-14T15:52:08Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T15:52:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1734",
+  "body": "## Problem\nThe list row kebab rendered the **generic Edit/Delete** entries whenever the consumer wired `onEdit`/`onDelete` callbacks — independent of the object's CRUD affordance flags (`userActions.edit` / `userActions.delete`).\n\nSo an object that opts out of generic CRUD by setting `userActions.edit:false` / `delete:false` (e.g. `sys_environment`, which ships a dedicated **Rename** action + a cascade-teardown **Delete** action) still got:\n- a generic **Edit** it had explicitly turned off, and\n- a generic **Delete** that **duplicated** its own Delete action in the same kebab.\n\n(Found in the cloud customer-journey audit: the environment row kebab showed `编辑 · 删除 · … · Rename · … · Delete` — a confusing duplicate.)\n\n## Fix\nGate `canEdit` / `canDelete` on `objectSchema.userActions.{edit,delete}`:\n- explicit `false` → suppress the generic entry,\n- `undefined` / `true` → unchanged (every main list keeps its out-of-box kebab).\n\nExtracted the decision into a pure `resolveRowCrudAffordances()` helper with unit tests (6 cases incl. the sys_environment opt-out and independent edit/delete gating).\n\n## Tests\n`packages/plugin-grid/src/__tests__/rowCrudAffordances.test.ts` — 6 pass. Full `@object-ui/plugin-grid` suite: **59 pass**. Build clean.\n\nPairs with cloud#312 (which set `userActions.edit/delete:false` + added the Rename/Delete actions) and objectui#1732 (auto-form honoring `hidden`). Ships to cloud via `bump-objectui`."
+}

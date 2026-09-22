@@ -1,0 +1,32 @@
+{
+  "number": 1705,
+  "kind": "pull_request",
+  "title": "feat(console/ai): draggable chat ↔ preview split (ChatGPT/Claude-style)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T14:37:33Z",
+  "updated_at": "2026-06-13T14:41:19Z",
+  "closed_at": "2026-06-13T14:37:43Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T14:37:42Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1705",
+  "body": "## Why\n\nWhen the Live Canvas **preview** opens, the chat column was a fixed 42% — no way to rebalance. Continuing the \"preview makes it cramped\" thread (#1703), add a **draggable divider** between chat and preview, like ChatGPT's canvas / Claude's artifacts.\n\n## What\n\n- **Drag** the divider to resize; the width **persists** (localStorage).\n- **Clamped both ways** so neither pane collapses: chat ≥ 360px, and never so wide the preview drops below 420px. A `ResizeObserver` re-clamps when the window shrinks or the chats list collapses.\n- **Double-click** to reset; **←/→** resize by 24px when the divider is focused (`role=\"separator\"`, keyboard-accessible).\n- A transparent **overlay during the drag** keeps pointer events flowing past the canvas **iframe** (which would otherwise swallow them mid-drag).\n\nClamp logic is a pure exported `clampChatPaneWidth`; the `useResizableChatPane` hook keeps all DOM reads in handlers/effects (none during render).\n\n## Verification\n\n- **482/482** tests (5 new on the clamp: floor at min, cap so preview keeps room, in-range untouched, tiny-container floor wins, unmeasured container → floor only).\n- `tsc` clean; no new lint errors.\n\nDesktop-only divider (`md:block`), matching the desktop split. Pairs with the collapsible list (#1703) — together they make the preview workspace comfortable on any width.\n\nNote: clamp + persistence are unit-tested; I haven't captured a live-rig screenshot of the drag (needs a console rebuild into the EE rig) — can do on request.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

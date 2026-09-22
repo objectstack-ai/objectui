@@ -1,0 +1,30 @@
+{
+  "number": 1888,
+  "kind": "pull_request",
+  "title": "fix(i18n): localize the AI build affordances (console.ai zh/en)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T06:22:17Z",
+  "updated_at": "2026-06-22T06:44:16Z",
+  "closed_at": "2026-06-22T06:44:14Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T06:44:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1888",
+  "body": "## Why\nThe `/ai/build` full-page surface (AiChatPage) passes its build-affordance labels via `t('console.ai.*', { defaultValue })`, but a whole set of those keys were **absent from the locale bundles**, so zh users saw English fallbacks — including the new \"Proposed plan\" card (#1875/#1884) and the publish/preview/next-steps affordances.\n\n## What\nAdded the missing keys to **zh.ts** (real localization) and **en.ts** (canonical key + silences the dev missing-key warning):\n`planTitle, planQuestions, planAssumptions, planApproveHint, planApprove, planAdjust, planApproveMessage, planApproveDefaultsMessage, publishDrafts, publishOk, seedWarn, nextSteps, openBuiltApp, previewDraft, resizeSplit, hideChats, showChats`. Values mirror the `ConsoleFloatingChatbot` locale object so both AI surfaces read identically.\n\n## Verification\n`@object-ui/i18n` type-check + 156 tests green (zh conforms to the `TranslationKeys` shape).\n\nCloses the localization gap surfaced during the #1884 live test.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

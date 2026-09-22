@@ -1,0 +1,32 @@
+{
+  "number": 1725,
+  "kind": "pull_request",
+  "title": "feat(app-shell): searchable Lucide icon-picker widget for metadata icon fields",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T07:55:27Z",
+  "updated_at": "2026-06-14T08:04:42Z",
+  "closed_at": "2026-06-14T08:04:41Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T08:04:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1725",
+  "body": "## What\n\nMetadata `icon` fields (page / app / object) were a plain text input — authors had to know and type an exact Lucide icon name. This adds an **`icon` form widget**: a searchable combobox for the metadata-admin `SchemaForm`.\n\n- **Trigger** previews the current icon (live) + shows the name; a chevron opens the picker.\n- **Picker** is a search box over the full Lucide `iconNames` catalog plus a grid of matching icons (preview + name, capped at 60 for chunk-load sanity — the search narrows it). Selecting writes the kebab-case name string.\n- **Out-of-catalog values survive** — a non-Lucide name (another icon library, or a typo to fix later) renders on the trigger and stays reachable as a \"keep\" option, so re-opening never silently drops it.\n- Built **inline (no Radix portal)** so the search + grid render eagerly — the same jsdom-friendly choice the other pickers (`view-ref`, `filter-mode`) rely on for their tests.\n- Reuses `LazyIcon` / `toKebabIconName` from `@object-ui/components` and lucide's `iconNames`. Registered as `'icon'` in the `WIDGETS` map.\n\nReusable for any string `icon` field via `widget: 'icon'` in a spec `*.form.ts`. The framework page-form hint that activates it for the page editor is a paired PR: objectstack-ai/framework#feat/page-icon-widget.\n\n## Tests\n\n`IconPickerWidget.test.tsx` (mirrors `ViewRefWidget.test.tsx`): registry presence, renders the combobox trigger, opens + filters the grid by query, writes the selected name through `onChange`, and preserves an out-of-catalog value (renders it + offers a keep option). All 5 pass; `type-check` clean; no new lint findings.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

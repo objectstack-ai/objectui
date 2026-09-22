@@ -1,0 +1,34 @@
+{
+  "number": 1923,
+  "kind": "pull_request",
+  "title": "feat(charts,dashboard): data-screen customization — bare metric, chart palette, donut/horizontal-bar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "plugin: charts"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-23T13:59:06Z",
+  "updated_at": "2026-06-23T14:06:54Z",
+  "closed_at": "2026-06-23T14:06:52Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-23T14:06:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1923",
+  "body": "Follow-up to #1922 — the remaining **data-screen (大屏) customization** primitives, so a metadata-authored page can build a polished, *data-bound* dashboard without per-page hacks.\n\n## What\n\n- **`object-metric` `variant:'bare'`** — renders a big tinted number + label with no card chrome (the dense KPI look data-screens want) while staying fully data-bound. `card` (default) is unchanged. (`MetricWidget`, `ObjectMetricWidget`)\n- **`object-chart` `colors` prop** — overrides the theme's `--chart-1..n` palette for both categorical and series colors, so a page/dashboard can brand its charts with one cohesive ramp (replaces the `--chart` CSS-var override workaround). (`AdvancedChartImpl.getPalette`, forwarded by `ChartRenderer`)\n- **Compact metric formatting** — numeral-style `'0.0a'` / `'$0a'` → `1.1M` / `$1M`, so large KPI values don't overflow a tile. (`MetricWidget.formatMetricValue`)\n- **`ObjectChartSchema.chartType` widened** to `donut` / `horizontal-bar` / `column` — already rendered by `AdvancedChartImpl`, previously only reachable by passing an untyped string.\n\nAll additive / backward-compatible (new optional props; `card` + existing formats unchanged).\n\n## Why\n\nThese are the platform gaps that blocked a good-looking 大屏 from page metadata alone (KPIs were boxy stat-cards, charts inherited a multi-hue \"rainbow\", big numbers overflowed). Now exercised by the framework showcase \"Command Center\" page.\n\n## Test\n\n- `tsc` clean on the three packages; existing tests unaffected (additive).\n- Verified end-to-end in the framework showcase (light + dark): live bare KPIs, cohesive palette via `colors`, donut, compact `1.1M` budget."
+}

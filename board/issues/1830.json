@@ -1,0 +1,33 @@
+{
+  "number": 1830,
+  "kind": "pull_request",
+  "title": "feat(plugin-report): currency-aware, i18n labels in the dataset report renderer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T16:59:34Z",
+  "updated_at": "2026-06-20T17:11:51Z",
+  "closed_at": "2026-06-20T17:11:49Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T17:11:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1830",
+  "body": "## What\n\nPorts the dashboard `DatasetWidget` reporting fixes (PR #1825 / #1827 / #1828) to the standalone **Reports** renderer (`packages/plugin-report/src/DatasetReportRenderer.tsx`), which had the *same* confirmed user-visible problems:\n\n1. **Raw field names in headers** — `DatasetReportTable` rendered `{c}` (the dimension/measure name); `DatasetMatrixTable` used a `humanizeDimension()` Title-Case helper, not the real label.\n2. **No currency awareness** — `formatCell()` was plain number formatting, with no `currency` / `Intl` and the wrong-symbol problem.\n3. **No i18n** — `\"Total\"` and friends were hardcoded English; no `useObjectTranslation` / `useSafeFieldLabel`.\n4. `useDatasetRows` dropped the server-returned `fields` (label/format/currency) and `object`, so there was nothing to render a real label from.\n\nThe analytics server (`service-analytics`, already merged) returns per-field `label` (dimensions **and** measures), measure `format`, `currency`, and `object` in the dataset query result — `queryDataset` already surfaces them (`packages/data-objectstack/src/index.ts`).\n\n## Changes\n\n- **`useDatasetRows`** now captures and returns `fields` and `object`.\n- **Headers** resolve through `field label → i18n fieldLabel → raw name` (drops the `{c}` and `humanizeDimension` fallbacks). `humanizeDimension` is removed.\n- **Measure cells + server totals** use a currency-aware `formatMeasure(v, format, currency)` mirroring `DatasetWidget` — `Intl` symbol from the field's declared `currency`, numeral `format` for grouping/decimals/percent, and **no** misleading `$` when there's no currency. Dimension cells keep `formatCell`.\n- **i18n** via `useObjectTranslation` / `useSafeFieldLabel` with graceful fallback (no provider → English default, never a raw key). `\"Total\"` → `tt('report.total', 'Total')`.\n- Drill-through and server-supplied totals behavior is **unchanged**.\n\n## Tests\n\nExtended `DatasetReportRenderer.test.tsx` (vitest): label headers (flat + matrix, with raw-name fallback), currency formatting (no-currency = plain number, declared currency = Intl symbol, matrix cells + totals), and the i18n `Total` English fallback.\n\n- `pnpm --filter @object-ui/plugin-report exec vitest run` → **39 passed** (4 files)\n- `npx turbo run type-check --filter=@object-ui/plugin-report` → **green**\n\n> Note: `main` CI is currently red due to 7 unrelated plugin-list/ListView tests (separate task in flight); unrelated to this change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

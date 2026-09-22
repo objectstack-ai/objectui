@@ -1,0 +1,32 @@
+{
+  "number": 1704,
+  "kind": "pull_request",
+  "title": "feat(app-shell): ADR-0047 — usable interface-page config panel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T14:29:54Z",
+  "updated_at": "2026-06-13T14:39:02Z",
+  "closed_at": "2026-06-13T14:39:00Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T14:39:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1704",
+  "body": "## Why\nThe interface/list-page config panel (e.g. `showcase_task_workbench`) was unusable: it dumped the whole generic page form (page type/template, data-context, region designer — none of which apply), `Allowed Visualizations` was a free-text box, and selecting **kanban** did nothing (the live switcher only ever showed *Grid*).\n\nPer the product direction, the panel stays **protocol/schema-driven** — these are renderer + widget fixes plus a backend form reorg (see companion framework PR), not a bespoke inspector.\n\n## Changes\n- **SchemaForm — honour collapsible sections.** `FormSectionSpec.collapsible/collapsed` were already declared by the spec but ignored by the renderer; now collapsible sections render in a `Collapsible` with a chevron (`defaultOpen = !collapsed`). Section-level `visibleOn` (CEL/object form) already filtered — confirmed by test.\n- **MultiSelect widget for `array<enum>`.** `inferWidget` now maps an enum-item array to a new `multiselect` widget (toggleable chips from `items.enum`) instead of the free-text tag fallback. Drives `appearance.allowedVisualizations` — pick, don't type.\n- **Default viz bindings (InterfaceListPage).** When a viz is whitelisted but the source view carries no binding, derive a sensible default from the object (kanban groupField ← first select/status field, calendar ← first date field, gallery ← first image field), mirroring `defaultColumnsFromObject`. Fixes \"added kanban but the switcher only shows Grid\": `ListView.availableViews` only offers a viz when its binding resolves.\n\n## Tests\n15 new component/unit tests (all green): `MultiSelectWidget.test.tsx`, `SchemaForm.collapsible.test.tsx` (incl. section `visibleOn` hiding), `InterfaceListPage.defaults.test.tsx`.\n\n## Verification notes\nLogic locked by the tests above; the served form reorg was API-verified against a local backend, and the renderer changes were confirmed active in the browser (collapsible section triggers render). Full live click-through was constrained by local dev-env instability (flapping backends + a cross-origin dev-auth cookie quirk) — the behaviour is covered deterministically by the tests.\n\nCompanion: framework PR reorganises `page.form.ts` (hide region/data-context for list pages, prominent Interface section).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

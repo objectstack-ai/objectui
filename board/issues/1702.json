@@ -1,0 +1,33 @@
+{
+  "number": 1702,
+  "kind": "pull_request",
+  "title": "feat(plugin-chatbot): drive build liveness off the server keep-alive seq",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T14:11:16Z",
+  "updated_at": "2026-06-13T14:14:48Z",
+  "closed_at": "2026-06-13T14:11:33Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T14:11:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1702",
+  "body": "## Why\n\nThe build panel's liveness (from #1700) keys off a content signature (`phase:done:items`). The server now sends **keep-alive heartbeats** during long, quiet seed-generation windows (cloud #287) — but those re-emits are **content-identical** (the reconciled `data-build-progress` part has a stable id), so the content key wouldn't change and the panel would still flip to amber mid-build *despite real bytes arriving*.\n\n## What\n\nRead the server's monotonic **`seq`** through `extractBuildProgress` into `ChatBuildProgress`, and prefer it as the build panel's activity key — falling back to the content signature when it's absent (older runtimes). `seq` advances on every emit including heartbeats, so a long quiet seed-generation window now reads as honestly **\"receiving\"** — driven by real server bytes, not a clock.\n\n## Verification\n\n- **72/72** tests. New one re-renders the panel with a **bumped `seq` + identical content** across a 9s span and asserts it **never goes amber** — directly contrasting the existing test where an *unchanged* snapshot correctly goes amber after 6s.\n- `tsc` + `vite build` clean; new code lint-clean.\n\nPairs with cloud #287. Completes the honest-liveness arc: #1700 stopped the client from lying; #287 + this let the genuinely-busy quiet build windows read green **truthfully**.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

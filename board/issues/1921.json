@@ -1,0 +1,32 @@
+{
+  "number": 1921,
+  "kind": "pull_request",
+  "title": "feat(chatbot): reveal Build/Ask switcher in the app FAB when AI dev is unlocked",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-23T12:19:45Z",
+  "updated_at": "2026-06-23T14:37:07Z",
+  "closed_at": "2026-06-23T14:37:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-23T14:37:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1921",
+  "body": "## What & why\n\nThe bottom-right floating assistant (FAB) bound each app to a single agent and **hid the agent picker** unless `VITE_AI_SHOW_AGENT_PICKER` was set. So a user on an AI-unlocked environment who wanted to \"keep developing\" couldn't switch from `ask` (read-only data/query) to `build` (authoring) inside the panel — `ask` only suggests, it won't model/extend. Only the full `/ai` page exposed the switch.\n\n## Change\n\nThe picker now **auto-reveals only when AI development is unlocked for the viewer** — the live agent catalog (`GET /api/v1/ai/agents`) serves **both** an `ask` and a `build` agent (alias-aware, so legacy `data_chat`/`metadata_assistant` count) **and** authoring isn't deployment-disabled (`aiStudio`). Pure end-user apps (only `ask`) stay clean and never see a picker — preserving the original \"end users shouldn't have to choose\" design. An explicit `showAgentPicker` prop or `VITE_AI_SHOW_AGENT_PICKER` still forces it on.\n\nPrecedence (in the new `agentPicker.ts` helper): explicit prop → `VITE_AI_SHOW_AGENT_PICKER` → AI-dev-unlocked auto-reveal.\n\n- `agentPicker.ts` — new pure, unit-tested helper (`shouldShowAgentPicker` / `isAiDevUnlocked`); extracted because `ConsoleFloatingChatbot` is too heavy to unit-test in isolation.\n- `ConsoleFloatingChatbot.tsx` — computes `showAgentPicker` via the helper; updated prop JSDoc + header comment.\n- `agentPicker.test.ts` — 14 cases (both-present, alias catalog, ask-only, custom-only, aiStudio-off, env force, prop-override precedence).\n\nNo call-site edits: `ConsoleLayout` and `HomeLayout` already render the FAB without `showAgentPicker`, so auto-reveal covers both surfaces. Switching to `build` remounts the chat onto the build endpoint via the existing `key`, so propose/apply + `create_object` run from the panel (all build props are already wired in the render). The concept mirrors `HomePage`'s existing `askAvailable && buildAvailable`.\n\n## Verification\n\n- ✅ `vitest run src/layout` — 15/15 pass\n- ✅ `tsc --noEmit` — clean (deps built in worktree)\n- ✅ `eslint` — 0 errors, 0 new warnings\n- ✅ `pnpm build` — clean, emits `agentPicker.{js,d.ts}`\n- ⚠️ Live browser e2e not run here — needs an AI-unlocked backend (both agents) which requires the `scripts/dev-local` stack + `OS_CLOUD_API_KEY` + AI key, absent in CI/this checkout. Manual check: open an app in an AI-unlocked env → open FAB → confirm the 构建/智能助手 picker is visible → switch to 构建 → send \"加个对象\" → confirm it routes to the build agent (plan/propose-apply or `create_object`), not advice.\n\n## Rollout\n\nSDUI/SPA change — ships via objectui PR → framework `.objectui-sha` bump → cloud pin.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

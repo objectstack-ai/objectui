@@ -1,0 +1,32 @@
+{
+  "number": 1743,
+  "kind": "pull_request",
+  "title": "fix(action): consume spec `disabled` (boolean|CEL) in action button (framework#1885)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T07:25:33Z",
+  "updated_at": "2026-06-15T08:14:35Z",
+  "closed_at": "2026-06-15T08:14:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T08:14:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1743",
+  "body": "## What\n\nThe action button renderer only read a **non-spec `enabled`** prop. The spec field is **`disabled`** (boolean | CEL predicate — disabled when TRUE), which had **zero consumers** — so a spec-authored `disabled` guard silently did nothing.\n\nSurfaced by the metadata property liveness audit (objectstack-ai/framework#1878, item #1885; ADR-0049 \"enforce-or-remove\").\n\n## Change\n`action-button.tsx` now consumes `disabled` as the primary control (via the existing `toPredicateInput`/`useCondition`, which already handle boolean + CEL `{source}` forms). The legacy non-spec `enabled` is retained as a **deprecated fallback** so existing metadata keeps working.\n\n## Verification\n`tsc --noEmit` clean for `@object-ui/components`.\n\nRefs objectstack-ai/framework#1885\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

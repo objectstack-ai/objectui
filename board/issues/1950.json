@@ -1,0 +1,32 @@
+{
+  "number": 1950,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): new script action seeds a valid body; add create-roundtrip conformance guard",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T05:30:01Z",
+  "updated_at": "2026-06-24T05:33:44Z",
+  "closed_at": "2026-06-24T05:30:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T05:30:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1950",
+  "body": "## Problem\n\nFound dogfooding the Studio metadata designers. A new **action** defaults to `type: 'script'` (`ActionType.default`), which the spec requires to carry an executable `body` **or** `target`. The action create form seeded **neither**, so \"New action → fill name → Save\" failed validation (**422**), and AppPlugin registered no engine handler (the #2169 \"Mark Done\" runtime miss).\n\nThis is one instance of a recurring family — **the designer produces a minimal shape the spec rejects, so create→save 422s** — that passes every other gate because code-authored examples always supply full shapes (same class as the dashboard-`layout` P1).\n\n## Fix\n\n1. **action create**: seed a no-op L2 body in `createDefaults` (`{ type: 'script', body: { language: 'js', source: 'return { success: true };' } }`) so the default create round-trips; the author edits the source after.\n2. **conformance guard** (`createConformance.test.ts`): for every authorable type in the registry, build its DEFAULT create-form output (`createBuildBody` / `createDefaults` + minimal `createFields`, exactly as `ResourceEditPage.doSave`) and assert it passes spec validation. Reads the **actual registry config** so it can't drift from what the designer emits. Canvas-create types (object/report — dataset picked interactively) are excluded with a documented reason; the guard logs covered/excluded types.\n\n## Verification\n\n- The guard was **red on `action`** (`requires inline body`) before the fix, **green after** — 11 passed.\n- It also surfaced `report` (canvas-create, correctly excluded) and a self-inflicted `flow` `type` gap (now simulates the required pick).\n- Full `metadata-admin` suite: **362 passed**, no regressions.\n\nCloses the \"renders/creates in the designer ≠ persists\" coverage gap for the metadata create flows.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

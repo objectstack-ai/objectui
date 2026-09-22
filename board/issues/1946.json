@@ -1,0 +1,30 @@
+{
+  "number": 1946,
+  "kind": "pull_request",
+  "title": "feat(studio): add \"Local / Custom (this env)\" scope to the package selector",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T04:34:37Z",
+  "updated_at": "2026-06-24T04:42:51Z",
+  "closed_at": "2026-06-24T04:42:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T04:42:50Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1946",
+  "body": "## Why\nFound while dogfooding Studio in a self-hosted, metadata-customizable environment\n(single-tenant — there is no org dimension; the real axis is *code package* vs.\n*runtime / DB-authored*).\n\nThe Studio package selector only ever listed **code packages**. Metadata authored\nat runtime (a custom object you create in Studio) is correctly org-scoped —\n`package_id = null`, `sys_metadata` provenance — so it was **filtered out of every\ncode-package view**. Navigating to such an item redirected to \"new\" (it wasn't in\nthe active package's list), even though the object existed and was editable.\n\nThis was surfaced by framework #2252 + objectui #1937: those stop runtime metadata\nfrom being mis-stamped into a loaded code package (so it stays editable), which\ncorrectly leaves it `package_id = null` — and therefore invisible under any code\npackage. This PR closes that last gap by making the local scope a first-class,\nalways-present selector entry.\n\n## What\n- **`ContextSelectors`** (the app-level scope dropdown): append a stable\n  \"Local / Custom (this env)\" option (value `sys_metadata`) for the package\n  selector. The metadata list/get API already treats `?package=sys_metadata` as\n  exactly this local scope (read returns `package_id = null` items; write persists\n  `package_id = null`). Kept the sentinel/label inline to avoid an import cycle\n  with the metadata-admin views.\n- **`StudioHomePage` / `DirectoryPage` / `ResourceListPage`**: accept the local\n  scope (so it no longer redirects) and show this environment's runtime-authored\n  items. Deduplicated three identical package-list builders into a shared\n  `buildPackageScopeOptions` helper (`package-scope.ts`).\n- **`ResourceListPage`** client-side scope filter: the Local scope matches\n  untagged / `sys_metadata` rows (previously they \"never matched\", per the old\n  comment).\n- **Studio home grid**: under the Local scope, show every runtime-creatable type\n  so you can start authoring locally even with zero items yet.\n- i18n: `engine.package.local` (en + zh).\n\n## Verification (browser, console dev server → showcase backend)\n- Selector shows **本地 / 自定义（本环境）**; selecting it lists this environment's\n  runtime objects (e.g. `asset_verify`, source = 运行时).\n- Clicking such an object **opens it (no redirect to \"new\"), fully editable, no\n  read-only banner** — the end-to-end repro of the original bug now passes.\n- `@object-ui/app-shell` ContextSelectors tests green; lint clean (only the\n  pre-existing `react-hooks/static-components` warnings shared with main).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

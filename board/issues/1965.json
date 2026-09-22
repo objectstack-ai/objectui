@@ -1,0 +1,32 @@
+{
+  "number": 1965,
+  "kind": "pull_request",
+  "title": "fix(studio): preview joined reports in the report editor (was \"design blind\")",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T09:50:50Z",
+  "updated_at": "2026-06-24T09:59:15Z",
+  "closed_at": "2026-06-24T09:59:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T09:59:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1965",
+  "body": "## Problem\nDogfooding report design in Studio as a business user: building a **joined** report, the live preview pane showed *\"Bind a dataset to preview this report\"* and never rendered anything — so the author designed **blind**.\n\nRoot cause: `ReportPreview` mounts the runtime `ReportRenderer` **only** when the draft has a top-level `dataset`. A joined report carries its data on `blocks` (no top-level `dataset`), so it fell through to the dataset-bound empty state — which is also semantically wrong for joined (joined reports don't bind a top-level dataset).\n\nThe runtime `DatasetReportRenderer` already renders joined reports (a vertical stack of dataset-bound blocks); only the **studio editor preview** lagged.\n\n## Fix (1 file + tests)\n`ReportPreview` now renders through the same `ReportRenderer` when the draft is **either** dataset-bound **or** a joined report with ≥1 dataset-bound block — pixel-equal with the runtime block stack — and shows a **joined-aware empty state** (*\"Add a block to preview this joined report\"*) when no block is bound yet.\n\n## Verification\n- **Browser** (showcase data): a joined report with an `open_tasks` block now renders the block's Status × Tasks table live in the editor preview (previously: empty state).\n- **Tests**: `ReportPreview.dataset.test.tsx` — added 2 joined cases (renders blocks / joined-aware empty state); **7/7 pass** (5 existing dataset/matrix/filter cases unchanged).\n\n## Scope\nPure studio-preview fix; no change to the runtime renderer, the report schema, or the inspector. Found alongside (not fixed here) some joined-block *authoring* UX gaps — the block editor uses the generic SchemaForm (free-text dataset, full inline chart schema, `*` markers on the optional chart) rather than the curated dataset-aware pickers the top-level report has; worth a follow-up.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

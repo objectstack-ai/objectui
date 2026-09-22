@@ -1,0 +1,30 @@
+{
+  "number": 1844,
+  "kind": "pull_request",
+  "title": "fix(app-shell): edit-in-studio pencil no longer overlaps interface-page toolbar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T05:11:38Z",
+  "updated_at": "2026-06-21T05:19:41Z",
+  "closed_at": "2026-06-21T05:19:39Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T05:19:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1844",
+  "body": "On an interface (list) page whose header surfaces toolbar buttons (e.g. an Approvals page with a \"Mark Done\" object action), PageView's absolute top-right **\"Edit in studio\" pencil sat on top of the rightmost button**, clipping its label (\"Mark Don●\").\n\n### Fix\nPageView passes `reserveEditAffordance={canEditInStudio}` to `InterfaceListPage`, which reserves right padding on its header row **only when the pencil is shown**. Non-admin / non-editable pages are unchanged (no extra gutter).\n\n### Testing\nVerified in the browser on the showcase Approvals page: \"Mark Done\" now renders in full with the pencil cleanly separated to its right.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

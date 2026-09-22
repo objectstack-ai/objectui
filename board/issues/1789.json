@@ -1,0 +1,35 @@
+{
+  "number": 1789,
+  "kind": "pull_request",
+  "title": "feat(plugin-form): render object fieldGroups as full-width, collapsible form sections",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "examples",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-17T03:31:52Z",
+  "updated_at": "2026-06-17T05:47:27Z",
+  "closed_at": "2026-06-17T05:47:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-17T05:47:25Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1789",
+  "body": "## What & why\n\n对象字段渲染也需要支持 `fieldGroups` 属性——之前只有设计器（designer preview）会按字段分组（field groups）布局，运行时的实际表单仍是平铺的。本 PR 让运行时表单渲染也遵循对象元数据上声明的字段分组，并支持**整行**、**可收缩**的分组。\n\nWhen an object declares top-level `fieldGroups` and its fields opt into a group via `field.group === group.key`, the runtime `SimpleObjectForm` now auto-derives form sections from that metadata — so groups authored in the object designer actually render as sections on the record form, not only in the designer preview. Groups render full-width and can be made collapsible.\n\n## Changes\n\n### Field-group sections (base)\n- **New** [`packages/plugin-form/src/fieldGroups.ts`](packages/plugin-form/src/fieldGroups.ts)\n  - `readObjectFieldGroups` — normalize an object's `fieldGroups` list (incl. `collapsible` / `collapsed` flags).\n  - `deriveFieldGroupSections` — build sections from generated `FormField`s + declared groups, mirroring the designer's `groupEntries` semantics: sections in declared order, empty declared groups dropped, ungrouped fields collected into a trailing **untitled** section. Returns `null` (→ flat form) when no groups are declared or no field opts into one. Passes `collapsible`/`collapsed` through to the section.\n\n### Full-width + collapsible groups, and a submit-bug fix\n- [`ObjectForm.tsx`](packages/plugin-form/src/ObjectForm.tsx)\n  - Carry each field's `group` onto the generated `FormField`; compute `effectiveSections` (explicit `schema.sections` **or** derived field-group sections).\n  - **Single-form rendering.** Previously each derived section rendered its own `<SchemaRenderer type=\"form\">` — N independent react-hook-form instances — with the submit button only on the last one, so **submit captured just the last group's fields and silently dropped every other group's edits**. All sections now share ONE form (the same pattern `DrawerForm` uses): a virtual `section-divider` field renders each group's header and the group's fields follow inline. This fixes submit, lets a collapsed group hide its fields (`hidden: true`) while react-hook-form retains their values, and lets cross-section field conditions resolve via `watch()`.\n  - Per-section collapse state, toggled from the section header chevron; `collapsed` declares the initial state.\n\n### Example (byo-backend-console)\n- Fixed the Tailwind v4 entry (`index.css`) so `@object-ui` components are actually styled (was using obsolete v3 `@tailwind` directives + missing `@source`/`@theme`).\n- Added a standalone `/form/:objectName` route rendering the simple `ObjectForm`, and a sidebar link.\n- The `contact` mock declares two **collapsible** groups (Identity, Contact Info) plus an ungrouped field (Notes) to demo grouping end-to-end.\n\n## Behavior / compatibility\n\n- Only kicks in for the default simple form when the consumer passes **no** explicit `schema.sections`. Tabbed/wizard/split/drawer/modal variants and master-detail are unchanged.\n- Objects without `fieldGroups` (or with no field referencing a declared group) render exactly as before (flat).\n- Visual note: derived sections render as full-width underlined section headers (chevron when collapsible), not bordered cards — required to keep all fields in one form for correct submit + collapse.\n\n## Tests\n\n- `fieldGroups.test.ts` — normalization, declared-order grouping, empty-group dropping, trailing untitled bucket, label fallback, **collapsible/collapsed read + passthrough**.\n- `ObjectForm.test.tsx` — a schema with `fieldGroups` renders section headers + all fields (incl. ungrouped); a schema without groups stays flat; **collapsing a group on header click removes its fields from the DOM and restores them on expand**.\n- plugin-form suite green (incl. the 18 fieldGroups/ObjectForm tests). Verified live in the example: collapse toggles fields, and a typed value survives a collapse/expand round-trip (proving the shared form retains it)."
+}

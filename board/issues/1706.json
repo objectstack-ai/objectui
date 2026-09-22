@@ -1,0 +1,34 @@
+{
+  "number": 1706,
+  "kind": "pull_request",
+  "title": "feat(gantt): 导航 + 年刻度 + 保存布局 + 导出 PDF",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T14:38:02Z",
+  "updated_at": "2026-06-14T01:42:37Z",
+  "closed_at": "2026-06-14T01:42:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T01:42:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1706",
+  "body": "## 概述\n\nGantt 插件第三组增强:**导航 + 年刻度 + 保存布局 + 导出 PDF**。基于已合并的 #1689 之后的工作,净差异仅本组改动(GanttView ~335 行、ObjectGantt 5 行)。\n\n## 改动\n\n- **年刻度(year granularity)** — 新增 `year` 粒度,时间轴一列一年,上方带「20XXs」十年分组带;`ResourceWorkload` 同步支持 year 列宽与标签。\n- **导航(navigation)** — 工具栏新增 **本周 / 本月** 跳转按钮(配合已有 **今天**),横向滚动时间轴到当前周 / 月起点。\n- **保存布局(persist layout)** — 新增 `persistLayoutKey` / `onLayoutChange`;工具栏「保存布局」按钮把当前**粒度 + 缩放 + 任务列折叠**快照写入 `localStorage`(key `gantt-layout:<对象>:<视图>`),下次加载自动恢复;显式 `viewMode` prop 优先。`ObjectGantt` 默认按数据对象派生 key,可用 `persistLayout: false` 关闭。\n- **导出 PDF** — 将整图 SVG 栅格化为 JPEG,内嵌进**零依赖单页 PDF**(`DCTDecode`),与导出 PNG 并列;`buildExportSvg` 复用于两种导出。\n\n## 测试\n\n- 新增 [`GanttView.layout.test.tsx`](packages/plugin-gantt/src/GanttView.layout.test.tsx)(12 例)+ `ObjectGantt.test.tsx`(持久化 key 接线 2 例)。\n- **173 测试全部通过**,`tsc --noEmit` 干净。\n\n## 浏览器留痕\n\n`scripts/verify-export-layout.mjs`(**7/7 通过**),截图 45–48 持久化于 `docs/verification/`:\n\n| 截图 | 内容 |\n|---|---|\n| 45 | 年刻度 — 一列一年 + 十年带 |\n| 46 | 本周/本月导航 |\n| 47 | 保存布局 |\n| 48 | 重载后布局恢复 |\n\n导出 PNG/PDF 通过下载魔数校验(`‰PNG` / `%PDF-`)。\n\n文档与 skill(`page-builder.md`)已同步更新。\n\n> 注:本 PR **不自动合并**。原计划落地的 #1689 已合并关闭,故新开此 PR 承载第三组工作。\n"
+}

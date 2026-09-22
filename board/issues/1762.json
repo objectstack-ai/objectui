@@ -1,0 +1,30 @@
+{
+  "number": 1762,
+  "kind": "pull_request",
+  "title": "fix(form): honour form view layout (tabbed/wizard/split) in full-page record form (framework#1890)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T14:09:52Z",
+  "updated_at": "2026-06-15T14:16:52Z",
+  "closed_at": "2026-06-15T14:16:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T14:16:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1762",
+  "body": "## What\n\nThe full-page record form (`RecordFormPage`, used by `:objectName/new` and `:objectName/record/:recordId/edit`) hard-coded `formType: 'simple'`, so a record's declared form view layout (`tabbed` / `wizard` / `split`) was ignored — every full-page create/edit rendered a flat stack regardless of the spec. `ObjectForm` already implements `TabbedForm` / `WizardForm` / `SplitForm`; the entry point just never passed the layout through.\n\nSurfaced by the viewschema liveness audit (objectstack-ai/framework#1890, recommendation #2).\n\n## Change\n\n`RecordFormPage` now reads the object's `form` / `formViews.default` `type` + `sections` and forwards them (plus variant props: `defaultTab`, `tabPosition`, `allowSkip`, `showStepIndicator`, `split*`) to `ObjectForm`. **Page-level layouts only** — `drawer` / `modal` are presentation/open-modes, not record-page layouts, so they fall back to `simple` here.\n\n## Verification\n\n**Browser-verified**: `/apps/showcase_app/showcase_task/new` now renders a **tabbed** form (Overview / Schedule / Details tabs, switching shows each section's fields) instead of one flat stack. (`RecordFormPage` had no type errors in the build; the worktree's app-shell `tsc` failure is the pre-existing #1760 turbo-cache debt, unrelated.)\n\n## Known limitation — modelling debt (M2)\n\n`formType` conflates **two orthogonal dimensions**: *layout* (`simple`/`tabbed`/`wizard`/`split`) and *presentation container* (`drawer`/`modal`). The real modal create/edit entry points (`AppContent`, `useActionModal`) set `formType:'modal'`, so a modal form **cannot also be tabbed** — the field can only hold one value. Fully fixing form variants across modal/drawer surfaces needs `formType` split into `layout` ⊥ `presentation`. Tracked in objectstack-ai/framework#1890 for a small ADR + M2 work; this PR fixes the full-page route, which is the clean case.\n\nRefs objectstack-ai/framework#1890\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

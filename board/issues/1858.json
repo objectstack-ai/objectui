@@ -1,0 +1,35 @@
+{
+  "number": 1858,
+  "kind": "pull_request",
+  "title": "fix(currency): resolve tenant default currency across long-tail renderers",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T11:37:26Z",
+  "updated_at": "2026-06-21T11:43:07Z",
+  "closed_at": "2026-06-21T11:43:05Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T11:43:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1858",
+  "body": "## What\n\nPhase 2b (final) of the currency-resolution work (ADR-0053). The low-level field/cell renderers already funnel through `resolveFieldCurrency` + `useLocalization` ([#1856](https://github.com/objectstack-ai/objectui/pull/1856)/[#1857](https://github.com/objectstack-ai/objectui/pull/1857)). This unifies the **remaining (\"long-tail\") renderers** onto the same resolution chain so a tenant's `localization.currency` flows everywhere instead of being hard-coded to `USD` or read from only one of `currency`/`defaultCurrency`.\n\n**Resolution chain** (shared `resolveFieldCurrency`): explicit field `currency` → `currencyConfig.defaultCurrency` → legacy `defaultCurrency` → tenant `localization.currency` → plain number.\n\n## Renderers migrated\n\n| Package | Site | Before |\n|---|---|---|\n| `plugin-dashboard` | `ObjectMetricWidget` inferred currency | read only `defaultCurrency`/`currency` |\n| `plugin-dashboard` | `ObjectDataTable` symbol-format cell | no tenant fallback |\n| `plugin-grid` | `useColumnSummary` footer | read only `currency`/`defaultCurrency` |\n| `plugin-grid` | `ObjectGrid` compact amount + name-inferred cells | bare number |\n| `plugin-detail` | `DetailView` summary metrics | read only `currency` |\n| `plugin-gantt` | `ObjectGantt` currency tooltips | no currency at all |\n| `components` | `element:number` (`format: 'currency'`) | **baked-in `USD`** |\n\n## Architecture\n\n`resolveFieldCurrency` moves into `@object-ui/i18n` (co-located with `useLocalization`, which supplies the tenant default); `@object-ui/fields` re-exports it, so the existing `@object-ui/fields` import path is unchanged. `@object-ui/i18n` added as a dep to `plugin-grid` / `plugin-gantt` / `plugin-detail`.\n\n## Compatibility\n\nNo behavior change when no tenant currency is configured: a field that declares its own currency, or a deployment with no `localization.currency`, renders exactly as before. `element:number` keeps `USD` as the last-resort fallback.\n\n## Tests\n\n- `@object-ui/i18n` — `resolveFieldCurrency` precedence (canonical home).\n- `@object-ui/plugin-grid` — `useColumnSummary` tenant-default footer (renderHook + `LocalizationProvider`); explicit column currency still wins; plain number with no tenant.\n- `@object-ui/plugin-dashboard` — `ObjectDataTable` renders a currency-type column with the tenant default through `CurrencyCellRenderer`.\n\nAll touched-package suites green; type-check clean across all 7 packages.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

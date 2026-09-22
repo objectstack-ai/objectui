@@ -1,0 +1,32 @@
+{
+  "number": 1756,
+  "kind": "pull_request",
+  "title": "fix(app-shell): declare internal plugins as devDependencies (fix turbo build race → staging + Bundle Analysis)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T12:37:46Z",
+  "updated_at": "2026-06-15T12:44:37Z",
+  "closed_at": "2026-06-15T12:44:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T12:44:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1756",
+  "body": "## Problem\n`@object-ui/app-shell` imports a dozen `@object-ui/plugin-*` packages but only declared them in **`peerDependencies`**. turbo's `^build` topological order tracks `dependencies` + `devDependencies`, **not** `peerDependencies` — so those plugins build **in parallel** with app-shell. When app-shell wins the race, the plugins' `dist/.d.ts` aren't there yet and its `tsc` fails with `TS2307: Cannot find module '@object-ui/plugin-*'` (plus cascaded `TS7006` implicit-any).\n\nThis was a latent race masked by build-cache hits. An objectui SHA bump (cache miss) exposed it, breaking **`deploy-cloud-staging`** and the objectui **Bundle Analysis** check. It is unrelated to the ADR-0013 D1 logic — the D1 chat-transport change was merely the SHA bump that triggered the cache miss.\n\n## Fix\nMirror the internal plugins into `devDependencies` (`workspace:*`). turbo now builds them before app-shell. `peerDependencies` are unchanged (runtime/host-provided semantics + publish surface intact); `devDependencies` aren't published.\n\n## Verification (deterministic)\n`turbo run build --filter=@object-ui/app-shell --force`:\n- **before:** fails (`TS2307` for plugin-chatbot/form/designer/…)\n- **after:** passes — 27/27 tasks (12 plugins built first, then app-shell)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

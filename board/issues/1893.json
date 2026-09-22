@@ -1,0 +1,33 @@
+{
+  "number": 1893,
+  "kind": "pull_request",
+  "title": "fix(actions): warn when an action is hidden by a throwing visible predicate",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T07:24:29Z",
+  "updated_at": "2026-06-22T07:35:19Z",
+  "closed_at": "2026-06-22T07:35:17Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T07:35:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1893",
+  "body": "Defense-in-depth companion to framework#2185. `ActionEngine.getActionsForLocation` is fail-closed: a `visible` predicate that throws hides the action silently — usually a bare field ref (`!done` vs `!record.done`), undeclared in the `{ record, recordId, objectName, user }` scope. This made the #2183 bug nearly invisible. The catch now emits a one-time `console.warn` (deduped per predicate) naming the action + error with the `record.<field>` tip; behaviour is unchanged (still fail-closed hidden). 2 new tests; suite 10 pass.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

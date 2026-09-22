@@ -1,0 +1,33 @@
+{
+  "number": 1805,
+  "kind": "pull_request",
+  "title": "feat(studio): visual Tabs preset editor + canonical tab schema (ADR-0053)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-19T12:41:55Z",
+  "updated_at": "2026-06-19T12:45:33Z",
+  "closed_at": "2026-06-19T12:42:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-19T12:42:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1805",
+  "body": "## Summary\n\nCloses the last **Airtable-parity gap** in the Studio page designer and removes a three-way schema drift behind it.\n\nWhen verifying the Studio page-design tool against Airtable's Interface Designer, every `interfaceConfig` control had a visual editor **except** the end-user **Tabs** filter element — selecting `userFilters.element: 'tabs'` showed only a hint to *\"edit tab presets in the source / JSON view\"*, while Dropdown got a visual field picker and the base **Filter By** got a visual `{field, operator, value}` rule builder.\n\n### What changed\n\n**1. Visual Tabs preset editor** (`FilterModeWidget`)\nTabs mode now renders a full editor:\n- add / remove / reorder (↑↓) tabs, inline-editable **label**\n- per-tab **filter rules** with a `{ field, operator, value }` builder (field select + operator select + value input, add/remove) — same UX as \"Filter By\"\n- **Show \"All records\"** toggle\n- derived `snake_case` **name** shown read-only; de-duped on write\n- reads either shape (canonical or legacy) and always **writes canonical**\n\n**2. Single canonical tab schema** (correct-by-construction AI authoring)\nThe tab-preset shape had drifted: the Zod/TS type said `{ id, filters, default }`, but every example *and* the runtime consumer used `{ name, filter, isDefault }` — reconciled only by `normalizeTabPresets`. An AI following the schema and a human following the examples would emit different metadata.\n\nBoth the TS type (`ListViewSchema.userFilters.tabs`) and the Zod `UserFilterTabSchema` are now the canonical:\n```ts\n{ name, label, icon?, filter: [{ field, operator, value }], isDefault? }\n```\nLegacy `{ id, filters, default }` stay **deprecated-optional** (`refine: name || id`) so older metadata keeps validating; the editor/AI now emit one consistent form.\n\n**3. Fixed a stale test**\n`should validate toggle mode userFilters` expected success, but ADR-0053 already removed `'toggle'` from the element enum (this test was already red on `main`). It now correctly asserts rejection.\n\n## Verification\n\n- ✅ Unit tests: types **69** + FilterModeWidget **10** + PagePreview/SchemaForm **5** pass\n- ✅ `tsc --noEmit` clean for both `@object-ui/types` and `@object-ui/app-shell`\n- ✅ Browser-tested in Studio against the live showcase backend: the editor reads the 4 existing presets (In Progress / Urgent / In Review / Done), each with its `field=equals=value` rule; **Add tab** + **Add rule** drive the live page preview in real time; draft discarded afterward so the showcase metadata is unchanged.\n\n| Airtable \"User filters → Tabs\" | Studio (before) | Studio (after) |\n|---|---|---|\n| Add/name/reorder filter tabs | JSON-only | ✅ visual |\n| Per-tab filter conditions | JSON-only | ✅ visual `{field, operator, value}` |\n| Show \"All records\" | JSON-only | ✅ toggle |\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

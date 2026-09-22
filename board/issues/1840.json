@@ -1,0 +1,32 @@
+{
+  "number": 1840,
+  "kind": "pull_request",
+  "title": "fix(studio): designer canvas no longer freezes on drawer/modal form blocks",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T04:28:28Z",
+  "updated_at": "2026-06-21T04:36:32Z",
+  "closed_at": "2026-06-21T04:36:30Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T04:36:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1840",
+  "body": "## Problem\n\nIn the page designer (e.g. `metadata/page/showcase_new_project_wizard`), selecting **Drawer** (or **Modal**) as a form block's *Form type* freezes the whole editor — the UI becomes unresponsive.\n\n## Root cause\n\n`PageBlockCanvas` → `BlockLivePreview` renders each block with the **real runtime renderer** behind a `pointer-events-none` click-trap, so the canvas mirrors the live preview. For an `object-form` block with `formType: 'drawer'`/`'modal'`, the rendered `DrawerForm`/`ModalForm` mounts a Radix `Sheet`/`Dialog` **through a portal at `<body>`** with `open` defaulting to `true`.\n\nThe portalled overlay escapes the canvas click-trap, and Radix's modal mode sets `pointer-events: none` on `<body>` plus a focus trap — so the entire designer becomes unclickable the moment you pick \"Drawer\". It looks frozen.\n\n`ViewPreview` already guards against this with an `INLINE_FORM_TYPES` coercion (drawer/modal → simple); the newer live `PageBlockCanvas` path was missing the equivalent guard.\n\n## Fix\n\nAdd `toCanvasSchema(block)` — coerce overlay form types (`drawer`/`modal`) to an inline `simple` form before handing the schema to `SchemaRenderer`. The canvas shows the form's field layout in place; the **saved metadata keeps its real `formType`**. Handles both the canonical `properties.formType` shape and a hoisted top-level `formType`, and never mutates the input block.\n\n## Tests\n\n- New unit tests for `toCanvasSchema`: drawer/modal → simple, inline types (simple/tabbed/wizard/split) untouched, top-level + `properties` shapes, no input mutation, non-form blocks unchanged.\n- Full `metadata-admin/previews` suite green (12 files / 115 tests).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

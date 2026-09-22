@@ -1,0 +1,35 @@
+{
+  "number": 1781,
+  "kind": "pull_request",
+  "title": "fix(grid): paginate grouped view + share one horizontal scrollbar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T11:15:07Z",
+  "updated_at": "2026-06-16T15:16:52Z",
+  "closed_at": "2026-06-16T15:16:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T15:16:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1781",
+  "body": "## Problem\n\nWhen grouping is enabled in the list view, three bugs appear:\n\n1. **Data shown incompletely** — every group rendered as its own table at once, columns squeezed.\n2. **No pagination** — groups were never paginated.\n3. **No x-axis scrollbar** — each group sized/scrolled independently (or not at all), columns never aligned.\n\nReported on the MTC `mtc_lead` list (75+ groups), but the bug is generic to any grouped `ObjectGrid`.\n\n## Fix\n\n- **Paginate whole top-level groups** — a group is never split across a page. Reuses the schema page size (fallback 10) with a chevron pager (first / prev / next / last) + a page-size selector. Resets to page 1 when grouping config, page size, or data changes.\n- **One shared horizontal scrollbar** — pre-compute shared column widths from the full dataset (same heuristic as DataTable autosize) and wrap every per-group sub-table in a single `overflow-auto` + `min-w-max` container, so columns align and there's exactly one x-axis scrollbar.\n- **New `DataTableSchema.disableInnerScroll`** — lets a sub-table overflow into the shared scroller instead of creating its own. Frozen columns are disabled in grouped mode (their sticky offsets don't compose with the shared scroller). Flat (non-grouped) view behavior is unchanged — all changes are gated behind this flag.\n- **i18n** — reuses existing `table.rowsPerPage` / `table.pageInfo` keys (also added to the grid's no-provider fallback map). No new locale keys.\n\n## Tests\n\n`packages/plugin-grid/src/__tests__/groupedPagination.test.tsx` — 7 cases rendering the real `ObjectGrid`:\n- first page shows N of M groups (rest not in DOM)\n- pager + page info render when >1 page\n- next / last navigation swaps the rendered groups\n- last page shows the partial remainder\n- changing page size repaginates and resets to page 1\n- no pager when all groups fit one page\n- grouped tables are wrapped in one shared `overflow-auto` + `min-w-max` scroll container\n\nFull `@object-ui/plugin-grid` suite: 66 passing. `types`, `components`, `plugin-grid` all build clean."
+}

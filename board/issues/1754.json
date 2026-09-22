@@ -1,0 +1,33 @@
+{
+  "number": 1754,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/formula from 9.0.0 to 9.5.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: core"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T08:01:03Z",
+  "updated_at": "2026-06-15T16:44:06Z",
+  "closed_at": "2026-06-15T16:44:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T16:44:04Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1754",
+  "body": "Bumps [@objectstack/formula](https://github.com/objectstack-ai/framework/tree/HEAD/packages/formula) from 9.0.0 to 9.5.1.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/framework/releases\">@​objectstack/formula's releases</a>.</em></p>\n<blockquote>\n<h2><code>@​objectstack/formula</code><a href=\"https://github.com/9\"><code>@​9</code></a>.5.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [ee72aae]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/9\"><code>@​9</code></a>.5.1</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/framework/blob/main/packages/formula/CHANGELOG.md\">@​objectstack/formula's changelog</a>.</em></p>\n<blockquote>\n<h2>9.5.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [ee72aae]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/9\"><code>@​9</code></a>.5.1</li>\n</ul>\n</li>\n</ul>\n<h2>9.5.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [d08551c]</li>\n<li>Updated dependencies [707aeed]</li>\n<li>Updated dependencies [7a103d4]</li>\n<li>Updated dependencies [4b01250]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/9\"><code>@​9</code></a>.5.0</li>\n</ul>\n</li>\n</ul>\n<h2>9.4.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [060467a]</li>\n<li>Updated dependencies [0856476]</li>\n<li>Updated dependencies [b678d8c]</li>\n<li>Updated dependencies [b678d8c]</li>\n<li>Updated dependencies [b678d8c]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/9\"><code>@​9</code></a>.4.0</li>\n</ul>\n</li>\n</ul>\n<h2>9.3.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [1ada658]</li>\n<li>Updated dependencies [3219191]</li>\n<li>Updated dependencies [290f631]</li>\n<li>Updated dependencies [50b7b47]</li>\n<li>Updated dependencies [f15d6f6]</li>\n<li>Updated dependencies [f8684ea]</li>\n<li>Updated dependencies [b4765be]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/9\"><code>@​9</code></a>.3.0</li>\n</ul>\n</li>\n</ul>\n<h2>9.2.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [2f57b75]</li>\n<li>Updated dependencies [2f57b75]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/9\"><code>@​9</code></a>.2.0</li>\n</ul>\n</li>\n</ul>\n<h2>9.1.0</h2>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/cdebb74e0392ef1f99fda3672c20645fc585b938\"><code>cdebb74</code></a> chore: version packages</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/734adf30f5a5be7db40f734296558eb143dafc33\"><code>734adf3</code></a> chore: version packages</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/dfae1f2a229d7cc69846ee374617a48ec21f24f1\"><code>dfae1f2</code></a> chore: version packages</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/c970440c6c3954b4763c0e8a3ece00c09176d6fd\"><code>c970440</code></a> chore: version packages</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/2fa3aef42f1046fae411bb5c4fcb899ce949b9a4\"><code>2fa3aef</code></a> chore: version packages</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/a491d12cbb075e9c39278eee9c215d25cb9829c3\"><code>a491d12</code></a> chore: version packages (<a href=\"https://github.com/objectstack-ai/framework/tree/HEAD/packages/formula/issues/1733\">#1733</a>)</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/de5f475d5185bcf51763a3c4f52a13c6da0db37f\"><code>de5f475</code></a> chore: version packages (<a href=\"https://github.com/objectstack-ai/framework/tree/HEAD/packages/formula/issues/1731\">#1731</a>)</li>\n<li>See full diff in <a href=\"https://github.com/objectstack-ai/framework/commits/@objectstack/formula@9.5.1/packages/formula\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

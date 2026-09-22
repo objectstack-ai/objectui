@@ -1,0 +1,32 @@
+{
+  "number": 1948,
+  "kind": "pull_request",
+  "title": "fix(studio): render slotted record pages in the page-editor Preview tab",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T05:06:14Z",
+  "updated_at": "2026-06-24T05:09:56Z",
+  "closed_at": "2026-06-24T05:06:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T05:06:58Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1948",
+  "body": "## Problem\n\nA `kind: 'slotted'` record page renders **blank in the Studio page-editor Preview tab**, while the **Design tab works correctly** (shows each slot — header/actions/alerts/highlights/details/tabs/discussion — marking inherited ones \"Inherited from the default page\" and showing authored overrides).\n\n**Root cause:** [`PagePreview.tsx`](https://github.com/objectstack-ai/objectui/blob/main/packages/app-shell/src/views/metadata-admin/previews/PagePreview.tsx) renders the runtime `<SchemaRenderer>` on the raw draft, whose `regions` is an empty `[]` for a slotted page (overrides live in `slots`). With no regions to walk, the `record` page renderer paints nothing.\n\nThe runtime (`RecordDetailView`) never renders slotted pages directly — it synthesizes the canonical default layout via `buildDefaultPageSchema(objectDef, { slots })` and applies the slot overrides. The Studio Preview now does the same.\n\n## Fix\n\n- **Reuse the runtime synthesis path:** when `draft.kind === 'slotted'`, build the render schema via `buildDefaultPageSchema(recordSchema, { slots })` — identical to `RecordDetailView` — so omitted slots fall through to the synthesized header/details/discussion while authored slots (highlights/tabs/…) override in place. Non-slotted pages render their authored schema unchanged.\n- **Bind a real sample record:** the synthesized `record:*` blocks render against the existing record-picker binding (from the P2 fix), so the author sees live data.\n- **Broaden record-page detection** to `type: 'record' || pageType: 'record'`, matching `usePageAssignment`, so the sample-record binding fires for both the editor-draft and persisted-envelope shapes.\n\n## Verification\n\n- **Unit:** 3 new tests in `PagePreview.test.tsx` assert the synthesized `regions` contain the default `page:header`/`record:discussion` plus the authored `highlights` (fields preserved) and `tabs` (custom tab) overrides; a control test confirms non-slotted pages pass through unchanged. Full previews suite green (124/124).\n- **End-to-end (browser, real backend):** created a slotted `showcase_account` page overriding `highlights` + `tabs`, opened the Preview tab — no longer blank. Renders the synthesized **Northwind** header, the authored highlights strip with **live data** (Industry: Retail · Annual Revenue: 8,000,000 · Website · Lifecycle: Active), the authored **Custom Slot Tab**, the Overview details, and the synthesized Discussion footer. No new console errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

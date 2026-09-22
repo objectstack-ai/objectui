@@ -1,0 +1,30 @@
+{
+  "number": 1792,
+  "kind": "pull_request",
+  "title": "fix(app-shell): merge action bodyExtra into RecordDetailView update payload",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-18T02:13:05Z",
+  "updated_at": "2026-06-18T13:21:08Z",
+  "closed_at": "2026-06-18T13:21:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-18T13:21:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1792",
+  "body": "## Problem\n\n`type: 'api'` actions invoked from a **record-detail page** silently fail to\npersist when their mutation payload is carried in `bodyExtra` rather than in a\nvisible `params` array. The success toast fires, but nothing is written.\n\nThe **exact same action works from a list row**, which is the confusing part\nusers hit first.\n\n### Root cause\n\n`RecordDetailView`'s `apiHandler` builds its `dataSource.update` payload from\n`action.params` only:\n\n```ts\nconst params = { ...(action.params || {}) };\ndelete params._rowRecord;\n// ...\ndefault:\n  if (Object.keys(params).length > 0) {          // <-- empty → skipped\n    await dataSource.update(objectName!, pureRecordId!, params);\n  }\n```\n\nA **pure-confirm action** — `confirmText` + a hidden trigger field, with the\ntrigger carried entirely in `bodyExtra` and **no `params` array** — therefore\ncollects empty `params`, fails the `Object.keys(params).length > 0` guard, and\nno-ops.\n\nThe list-row path does not have this bug because the shared console runtime\nalready merges `bodyExtra`:\n\n```ts\n// packages/app-shell/src/hooks/useConsoleActionRuntime.tsx:239\nif (action.bodyExtra && typeof action.bodyExtra === 'object') {\n  Object.assign(body, action.bodyExtra);\n}\n```\n\nThis is also what the `ActionSchema` contract documents — `bodyExtra` is\n\"applied last; overrides user params\" (`@objectstack/spec`,\n`object.zod` → `bodyExtra?: Record<string, unknown>`).\n\nSo `RecordDetailView`'s handler was simply missing the merge that the\nlist/PageView path already had.\n\n## Fix\n\nMerge `action.bodyExtra` into `params` right after stripping `_rowRecord`,\nmirroring the shared runtime exactly. The merge runs before the `switch`, so\nthe named `opportunity_*` cases are unaffected (they build explicit payloads)\nand the generic `default` update now includes the constant fields.\n\n```ts\nif (action.bodyExtra && typeof action.bodyExtra === 'object') {\n  Object.assign(params, action.bodyExtra);\n}\n```\n\nOne file, +11 lines (8 of them an explanatory comment).\n\n## Testing\n\n- `pnpm --filter @object-ui/app-shell type-check`: **no new errors** — the diff\n  produces the identical pre-existing error count (26 → 26, all in unrelated\n  files: i18n exports, `ActionResult` typing, `plugin-report`), none in the\n  edited region.\n- `pnpm --filter @object-ui/app-shell exec vitest run src/hooks/__tests__/useConsoleActionRuntime.test.tsx`:\n  **12/12 pass** — confirms the `bodyExtra` contract this change brings the\n  detail-page path in line with.\n- `bodyExtra` is a typed optional on the spec `ActionSchema`\n  (`Record<string, unknown> | undefined`); the guard + `Object.assign` is\n  type-safe and matches the existing sibling usage.\n\n## Note for reviewers\n\n`RecordDetailView` keeps its own `apiHandler` (dataSource-based, for the\nalready-loaded record) distinct from `useConsoleActionRuntime`'s HTTP-fetch\n`apiHandler`. Both transports are legitimate, but the `bodyExtra` handling had\ndrifted between them. This PR restores parity with a minimal change;\nconsolidating the two handlers is a larger refactor and intentionally left out\nof scope.\n"
+}

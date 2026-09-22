@@ -1,0 +1,32 @@
+{
+  "number": 1928,
+  "kind": "pull_request",
+  "title": "fix(console): resolve ctx.user-gated record-header actions for platform admins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T00:24:43Z",
+  "updated_at": "2026-06-24T00:28:18Z",
+  "closed_at": "2026-06-24T00:25:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T00:25:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1928",
+  "body": "## Problem\n\nRecord-header action menus (the env detail \"⋯\" overflow, drawer peek + full-page) silently hid every action gated on `ctx.user.*`. Concretely, `sys_environment`'s **\"Change Plan (admin)\"** action (`visible: '… && ctx.user.isPlatformAdmin == true'`) never showed — even for platform admins — so super-admins had **no UI path** to comp/override an environment's plan; only the API/CLI worked.\n\n## Root cause\n\nThe record-header overflow is rendered by `PageHeaderRenderer` (`packages/components/src/renderers/layout/containers.tsx`). Its `headerActions` filter built the visibility `evalCtx` from the **record only** (`{ ...record, record, data }`). So record-field predicates like `status == \"active\"` / `plan != \"free\"` resolved, but `ctx.user.isPlatformAdmin` hit an **undefined `ctx`** → the expression evaluated to `undefined` → `if (!result) return false` filtered the action out.\n\nA second, contributing gap: `AppContent.tsx`'s `expressionUser` forwarded only `{ name, email, role }`, dropping `isPlatformAdmin` from the ambient predicate scope's user.\n\n## Fix (2 files)\n\n- **`containers.tsx`** — `PageHeaderRenderer` now reads `usePredicateScope()` and merges the ambient host scope's `user` plus a canonical `ctx.*` namespace (`{ user, record, data, app, features }`) into the header-action visibility `evalCtx`, alongside the existing record-field spread.\n- **`AppContent.tsx`** — `expressionUser` now forwards `id / roles / isPlatformAdmin`, so the ambient scope's user carries the platform-admin flag the predicates gate on.\n\nNo metadata or backend changes — the action definition and the cloud `change_plan` handler were already correct.\n\n## Verification\n\nBrowser-verified end-to-end against the local cloud console (platform admin, `sys_environment`):\n- \"Change Plan (admin)\" now renders in **both** the record drawer peek and the full-page record view.\n- Selecting a paid plan (Business) → Confirm → \"Plan updated.\", **no payment / checkout**; DB shows `plan=business` with `sys_billing_subscription=[]` and `sys_billing_transaction=[]`.\n- Downgrade Business→Free via the same UI also works; record-field-gated actions (e.g. `buy_credits` on `plan != \"free\"`) continue to evaluate correctly.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

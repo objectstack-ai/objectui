@@ -1,0 +1,36 @@
+{
+  "number": 1730,
+  "kind": "pull_request",
+  "title": "feat(docs): mermaid diagrams + long-doc table of contents (ADR-0046)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "plugin",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T11:08:50Z",
+  "updated_at": "2026-06-14T12:19:28Z",
+  "closed_at": "2026-06-14T12:19:26Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T12:19:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1730",
+  "body": "## Why\n\nFollow-up to the docs hub work — the two genuinely-needed rendering features for ADR-0046 docs, grounded in the existing renderer (which already does GFM tables, admonitions, code highlighting, heading anchors):\n\n- **Mermaid** — flows / state-machines / sequences are the platform's core domain and are inherently visual; mermaid is **text → SVG**, so it gives diagrams while staying inside the v1 image/binary ban.\n- **Long-doc TOC** — `rehype-slug` already emits heading anchors but there was no table of contents; longer docs need one.\n\n## What\n\n**`@object-ui/plugin-markdown`**\n- `<Mermaid>` renders ```mermaid fenced blocks: mermaid is **lazy-loaded** (docs with no diagrams pay nothing), `securityLevel: 'strict'`, and the SVG is injected by this trusted component **after** `rehype-sanitize` runs (the two sanitizers never fight). A render error soft-degrades to the raw source in a `<pre>`. `rehype-highlight` is told `plainText: ['mermaid']` and the block is intercepted at the `<pre>` level so no code wrapper is emitted.\n- `extractToc(markdown)` builds a TOC whose slugs come from the **same `github-slugger`** `rehype-slug` uses (every heading advances the slugger, so duplicate `-1/-2` suffixes line up) — that's what makes a `#id` link resolve to the rendered anchor. Skips fenced code, strips inline markdown, returns h2–h3 by default.\n\n**`@object-ui/console`** — `DocPage` shows a sticky right-rail TOC (`本页目录` / \"On this page\") for docs with ≥3 headings, with `scroll-mt` so the sticky header doesn't overlap anchored jumps.\n\n**`@object-ui/i18n`** — `help.onThisPage` (en/zh; other locales fall back to the default).\n\n## Verification\n\n- Unit tests: `toc.test.ts` (6 cases incl. slug parity with rehype-slug & fenced-code skipping) + 2 mermaid routing tests; full file run green (18/18).\n- i18n parity test green (40/40); console `tsc --noEmit` clean.\n- **Browser** (showcase backend + console): a demo doc with two mermaid blocks + multiple headings — both diagrams render to SVG, ordinary ```ts still highlights, and the TOC rail lists all 5 sections with the h3 nested. Screenshot captured.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

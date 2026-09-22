@@ -1,0 +1,32 @@
+{
+  "number": 1959,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): visual filter authoring in the dataset designer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T07:17:30Z",
+  "updated_at": "2026-06-24T07:25:47Z",
+  "closed_at": "2026-06-24T07:25:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T07:25:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1959",
+  "body": "Adds a visual filter editor (shared FilterBuilder) for the dataset Scope filter (`dataset.filter`) and per-measure Filter (`measure.filter`) — previously only editable via the raw Source tab, despite both being applied at runtime (dataset-executor ANDs scope into every query; measure filters run as supplementary grouped queries). New unit-tested `datasetFilterCondition.ts` bridges the builder's flat group ⇄ spec Mongo-style FilterCondition; non-representable shapes (nested/$or/multi-op) degrade to 'edit in Source'. Tests: converter 8 + inspector 13. Reuses the FilterBuilder already shipped in list/page filters.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

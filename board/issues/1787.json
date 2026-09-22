@@ -1,0 +1,33 @@
+{
+  "number": 1787,
+  "kind": "pull_request",
+  "title": "feat: CEL disabled on action buttons + record-page Undo wiring",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-17T01:25:13Z",
+  "updated_at": "2026-06-17T01:28:51Z",
+  "closed_at": "2026-06-17T01:25:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-17T01:25:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1787",
+  "body": "## What\n\nAction UX follow-ups (the polish items from the prior round): evaluate a CEL `disabled` predicate on action buttons, and wire the record-page Undo affordance.\n\n### CEL `disabled` on action buttons\n`Action.disabled` already accepted a CEL predicate in the spec, but the renderers only honoured the **boolean** form (the CEL was silently ignored, like `visible` once was). Now:\n- **page header** (`components/layout/containers`) evaluates `disabled` against the record — mirroring its existing `visible` eval. **Verified**: the CRM \"Reassign Lead\" header button greys out on a converted lead and is enabled otherwise.\n- **row menu** (`plugin-grid/RowActionMenu`) evaluates `disabled` per row item (boolean or CEL against the row), and skips the click when disabled.\n- **record:quick_actions** (`plugin-detail`) evaluates `disabled` per button and shows a running spinner.\n\nSo an action can now **grey out** conditionally (`disabled`) instead of only **hiding** (`visible`).\n\n### Record-page Undo wiring\n- `action-button` now forwards `undoable` / `recordIdField` on execute (they were dropped, so undoable actions lost their Undo affordance through this path).\n- `RecordDetailView` mounts `useGlobalUndo` and wires its success toast to offer \"Undo\" for `undoable` actions (capturing prior field values from the loaded record).\n\n## Verification notes (honest)\n- CEL `disabled` in the **page header**: browser-verified (greyed Reassign on a converted lead; enabled on a new lead).\n- CEL `disabled` in the **row menu** and the **record-page Undo** wiring: code-complete and mirror existing, verified patterns (the row-menu `visible` eval; the list-path Undo shipped earlier), but not re-driven end-to-end this session due to grid hover/menu flakiness in the harness.\n- **Separate pre-existing gap flagged**: record-header actions that require **param collection** don't trigger it (the header's action runtime isn't wired to the record's param-collection handler), so a param-based undoable action can't be driven from the header. Undo from the **list** works (shipped previously). This is out of scope here.\n\nOnly the example's \"Reassign Lead\" action declares a non-boolean `disabled`, so the new evaluation has no effect on existing actions.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

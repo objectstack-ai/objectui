@@ -1,0 +1,32 @@
+{
+  "number": 1930,
+  "kind": "pull_request",
+  "title": "feat(studio/flow): context-aware Start trigger fields + explicit decision-branch binding",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T00:35:13Z",
+  "updated_at": "2026-06-24T00:38:57Z",
+  "closed_at": "2026-06-24T00:35:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T00:35:19Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1930",
+  "body": "Two **Studio Flow Builder** UX improvements surfaced reviewing the flow design interface (follow-ups to the decision/screen/simulator fixes in #1927).\n\n## 1. Start node trigger fields are context-aware\nThe Start node showed `Object` and `Entry condition` (record-trigger config) even on **screen / manual** flows where they don't apply — confusing for a business user building a wizard. They're now gated by the chosen `triggerType`: shown for record / schedule / webhook / event triggers, hidden for manual / unset. A field that already holds a value is never hidden, so existing flows are unaffected.\n\n**Verified:** on a screen flow the Start node shows only `Trigger`; picking \"Record updated\" reveals `Object` + `Entry condition`; switching to \"Manual / autolaunched\" hides them again.\n\n## 2. Decision branches can be bound to edges explicitly\nDecision branches live in `node.config.conditions` and route via `edge.condition`. #1927 auto-wires them by **order**, which is fragile if edges are connected out of branch order. Now, selecting a decision out-edge shows a **Branch** picker listing the source decision's branches (`label · condition`, or `· default`). Picking one writes that branch's expression / label (or marks the default) onto the edge — explicit, order-independent binding. A \"— Custom —\" option preserves manual editing.\n\n**Verified:** the picker auto-detects the edge's current branch, lists all branches + Custom, and round-trips correctly (High ↔ Standard·default rewrites condition / default flag + the canvas edge label).\n\n## Tests\n`flow-node-config.test.ts` (5) covers the trigger-field gating; existing inspector / simulator / palette tests green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

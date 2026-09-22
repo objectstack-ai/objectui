@@ -1,0 +1,33 @@
+{
+  "number": 1790,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): resolve spec `field` key in section forms (fixes form render crash)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-17T07:57:18Z",
+  "updated_at": "2026-06-17T08:05:42Z",
+  "closed_at": "2026-06-17T08:05:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-17T08:05:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1790",
+  "body": "## Problem\n\nOpening a **Create/Edit** form for an object whose form view declares sections crashed the entire form:\n\n> Component \"form\" failed to render: Cannot read properties of undefined (reading 'split')\n\nRepro: HotCRM → Account → **New** (any object with a tabbed/sectioned form view).\n\n## Root cause\n\nForm-view sections declare fields with the spec key **`field`** (`FormFieldSchema`), e.g.:\n\n```ts\n{ field: 'name', required: true, colSpan: 2 }\n```\n\nThe sectioned form variants' `buildSectionFields` read `fieldDef.name` (undefined) and pushed the raw spec object straight through. That field reached react-hook-form's `<Controller name={undefined}>`, which crashes on `name.split('.')`.\n\nIt surfaces through the New/Edit modal (`AppContent` forwards raw spec `sections` via `contentLayout: 'tabbed'`), which bypasses the `form-view` spec-bridge that *does* map `field`→`name`.\n\n## Fix\n\n- New shared **`packages/plugin-form/src/sectionFields.ts`** normalizer handling all three section-field shapes — string shorthand, spec `{ field }` object, and runtime `FormField` — always producing a real `name`, merging object-schema metadata (type/options/validation) with spec overrides (`helpText`→description, `readonly`→disabled, required, colSpan, …). Disambiguates spec-vs-runtime by whether `field` is a string or a metadata object.\n- Wired all five variants (`Tabbed`/`Wizard`/`Split`/`Drawer`/`Modal`) + the `ObjectForm` section filter to it (dedups ~210 lines of near-identical code).\n\n## Tests / verification\n\n- **+7 unit tests** (`sectionFields.test.ts`), incl. the exact crash case.\n- **111 existing plugin-form tests** still pass; package build + DTS compile clean.\n- **Verified live in the browser** against real HotCRM data: the Create Account modal renders fully across all tabs (Profile, Financials, Locations w/ composite address + geo, Description) with zero console errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

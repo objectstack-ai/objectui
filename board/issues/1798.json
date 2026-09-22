@@ -1,0 +1,32 @@
+{
+  "number": 1798,
+  "kind": "pull_request",
+  "title": "fix(app-shell): refresh metadata after a live-registry change (chat publish + marketplace install)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-18T15:49:07Z",
+  "updated_at": "2026-06-18T22:57:25Z",
+  "closed_at": "2026-06-18T22:57:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-18T22:57:23Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1798",
+  "body": "## Problem\n\nA live-registry change made **out-of-band** from the metadata trees left the nav/forms **stale until a manual browser refresh**. Two reported instances, same root cause:\n\n1. **Chat-card \"Publish\"** (`AiChatPage.onPublishDrafts`) promotes drafts to live but — unlike `DraftPreviewBar`, which does a full `window.location.reload()` — refetched nothing.\n2. **App Marketplace install** — the user reported the installed app only shows up after a browser refresh. `MarketplacePackagePage` called the **local** `refreshMetadata()` (its own MetadataProvider context only — not the nav sidebar's tree); the Browse-grid `doOrgInstall` refetched nothing.\n\nThe nav sidebar / app switcher is rendered by a *different* MetadataProvider than the surface that triggered the change, so a local refresh never reached it.\n\n## Fix\n\nOne coarse **\"live world changed, refetch\"** pulse on the existing assistant bus, consumed by **every** mounted MetadataProvider:\n\n- **assistantBus**: `emitMetadataRefresh()` / `subscribeMetadataRefresh()` — fire-and-forget, off the snapshot bus (mirrors the existing canvas-invalidate channel).\n- **MetadataProvider**: on the pulse, `refresh()` every loaded type — in every tree (nav included), not gated to preview-drafts mode.\n- Emitters on success: `AiChatPage` publish, `MarketplacePage.doOrgInstall` (Browse grid), `MarketplacePackagePage.doInstall` (env) + `doInstallLocal` (local).\n\nReuses the proven `invalidate → bump → re-render` path the canvas channel already drives. **Additive**: with nothing emitting/subscribing it's a no-op.\n\n## Verification — browser E2E on an isolated local stack\n\nInstalled \"Local Sample App\" from the marketplace and captured the network. Immediately after the install POST, **with no page navigation/reload**, the client refetched every loaded metadata type:\n\n```\nPOST /api/v1/cloud-connection/install            200\nGET  /api/v1/cloud-connection/installation?...   200\nGET  /api/v1/meta/app                             200   ← refresh() fired\nGET  /api/v1/meta/object                          200\nGET  /api/v1/meta/view                            200\nGET  /api/v1/meta/dashboard                       200\nGET  /api/v1/meta/report                          200\nGET  /api/v1/meta/page                            200\n```\n\nThat refetch cascade is exactly `emitMetadataRefresh() → subscribeMetadataRefresh → refresh()`. Before this change the install POST fired alone and the user had to reload. The publish path shares the same bus + subscriber, so it's covered by the same mechanism.\n\n(Note: the seeded sample package registers no nav-visible app of its own, so there was no new launcher entry to screenshot — the decisive evidence is the live refetch cascade above.)\n\n- Bus unit tests **7/7**; app-shell `tsc` clean.\n\nSupersedes the publish-only scope this PR originally shipped with.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

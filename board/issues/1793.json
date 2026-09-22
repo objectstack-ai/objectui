@@ -1,0 +1,32 @@
+{
+  "number": 1793,
+  "kind": "pull_request",
+  "title": "feat(console): iOS \"Liquid Glass\" desktop theme",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-18T04:54:44Z",
+  "updated_at": "2026-06-18T05:20:21Z",
+  "closed_at": "2026-06-18T05:20:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-18T05:20:19Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1793",
+  "body": "## What\n\nGives the **desktop** console an iOS (latest \"Liquid Glass\") look & feel. App-level theming, delivered in clearly-delimited, deletable blocks. The shared shadcn UI library (`packages/components/src/ui`, the no-touch zone) is **not** edited — restyling is done via CSS tokens + role/attribute-scoped overrides in `apps/console/src/index.css`, plus two small home-page component tweaks in `packages/app-shell`.\n\n## Scope (tier A — \"desktop is iOS now\")\n\n**Global theme tokens & materials** — `apps/console/src/index.css`\n- iOS concentric corners (`--radius` 0.5 → 0.875rem; dialogs extra-rounded)\n- \"grouped\" system-gray canvas so white cards/popovers float as layers\n- SF Pro / `-apple-system` typography, antialiasing, iOS tracking\n- frosted-glass (backdrop-blur) **top bar** and **sidebar**\n- iOS **system-blue** accent (`#007AFF` / dark `#0A84FF`) for console chrome — per-app brand colors (injected as inline `<html>` vars) intentionally still win, so the branding system is preserved\n- iOS-green toggles, blue selection, thin scrollbars, button press-springback\n- dark mode retuned to iOS near-black (#0e0e10)\n- **overlay**: dialog / sheet / ⌘K backdrop → iOS spotlight-style blur+lighten (not flat 80% black)\n- **slider**: solid white knob with soft shadow instead of a hollow accent ring\n\n**Home page** — `packages/app-shell/src/console/home/`\n- hero display name uses the iOS-blue accent (solid) instead of the indigo→fuchsia gradient that clashed with the new accent\n- AppCard: dropped the hard color top stripe — accent now lives only in the rounded-2xl (squircle) icon tile, iOS springboard style\n- AppCard: \"No description\" no longer italic\n\n## Verification\n\nRan the console locally and verified in-browser (Chrome DevTools), light + dark, across **8 surfaces**: home, login, list/grid, kanban board, record-detail sheet, ⌘K command palette, create-record form dialog, Studio admin. Token-level theme carries ~80% of surfaces; remaining gaps are isolated component details (tracked as tier B/C below).\n\n`type-check` passes for `@object-ui/app-shell` + `@object-ui/console`. (The one pre-existing `react-hooks/static-components` lint error at `AppCard.tsx:46` is outside this diff.)\n\n## Not in this PR (follow-ups)\n\n- **Tier B** (low-risk polish): iOS filled-gray capsule chips; card `:active` press-scale; detail-page status-stepper chevrons → simpler segments\n- **Tier C** (iOS signature, higher cost): Large-Title collapse-into-navbar on scroll; \"Recently visited\" as an iOS inset-grouped list\n\n## Revert\n\nDelete the `iOS theme` blocks at the end of `apps/console/src/index.css` and revert the two `packages/app-shell/src/console/home/` tweaks.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

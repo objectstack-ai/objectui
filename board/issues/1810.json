@@ -1,0 +1,30 @@
+{
+  "number": 1810,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Studio list defaults to current app's package; create form holds back validation noise",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-19T16:16:43Z",
+  "updated_at": "2026-06-19T16:20:23Z",
+  "closed_at": "2026-06-19T16:17:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-19T16:17:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1810",
+  "body": "## Summary\n\nTwo dogfooding follow-ups from building views in Studio — the remaining friction reported in the previous round, now fixed.\n\n### 1. Pages / metadata list opened **empty**\nThe list is hard-scoped to one project package and defaulted to `projectPackages[0]` (alphabetically first — `app.objectstack.template.project`), which owns none of the current app's rows. So every source read `0` even though the app has pages, and you couldn't find what you'd created.\n\n`DefaultMetadataList` now resolves the **current app's package** (route `appName` → app metadata `_packageId`) and defaults the scope to it; falls back to the package that owns the most rows of the type, then the first package. The Showcase app's Pages list now defaults to `?package=com.example.showcase` and shows its **5 pages** instead of 0.\n\n### 2. Blank create form opened covered in validation errors\nA new-page form fired 3 red \"required\" errors before the user typed anything — reads as broken, not helpful. Added `createDirty` (flips on first edit); the diagnostics banner and inline field errors are suppressed on a **pristine** create form (via `displayIssues`). The save path still validates, and validation reappears the moment the author edits a field.\n\n## Verification (Studio, live showcase)\n- Pages list defaults to `com.example.showcase` and lists the 5 showcase pages (was empty).\n- New-page form is clean on open; typing one character surfaces validation again.\n- 274 metadata-admin tests pass; `@object-ui/app-shell` tsc clean.\n\nFollows objectstack-ai/objectui#1808 (create-list-page dogfooding fixes).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

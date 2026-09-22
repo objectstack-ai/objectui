@@ -1,0 +1,32 @@
+{
+  "number": 1941,
+  "kind": "pull_request",
+  "title": "test(metadata-admin): Studio object-designer dogfood gate (F1-F6) + restore F6 wording",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T04:18:45Z",
+  "updated_at": "2026-06-24T04:26:45Z",
+  "closed_at": "2026-06-24T04:26:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T04:26:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1941",
+  "body": "## Summary\n\nA regression gate that drives the **Studio object designer as a business user** and pins the six UX classes fixed in #1926 — the kind static gates (build / unit / spec-liveness) miss because the break only appears when a real user drives the real controlled inputs against the real spec validator.\n\nTwo layers, matching the repo's existing split:\n\n**Live e2e** — `e2e/live/studio-object-designer.spec.ts` (the `test:e2e:live` suite, run against a real stack; excluded from the default CI e2e via the existing `testIgnore: ['**/live/**']`):\n- **F2** — object Name accepts a **typed** underscore. Uses `pressSequentially`, not `.fill()` — `.fill()` sets the value in one shot and would hide the per-keystroke trim.\n- **F3** — a field API name derives from its label on blur.\n- **F4** — adding a picklist + an empty option row does **not** trip spec validation (negative assertion settles first, since live validation is debounced).\n- **F1** — a newly created package appears in the switcher **without a reload** (creates + cleans up a throwaway package).\n\n**Component / unit** (fast layer, CI-gated by the existing `Test` job):\n- **F5** — `JsonSourceEditor` falls back to an editable textarea when Monaco can't paint (offline / CSP / blocked workers). Added a test-tunable `fallbackDelayMs`.\n- **F6** — `artifactLockedBanner` wording (en + zh): not \"shipped by a code package\", and states the real edit path.\n\n## Plus a hooks-only commit\n\n`data-testid` hooks for stable selectors (no behavior change): `object-name-input`, `field-apiname-input`, `field-label-input` (via an optional `InspectorTextField` `testId`), `package-id-input`/`package-name-input`, `package-switcher`, `source-editor`, `metadata-validation-banner`, `readonly-banner`.\n\n## This gate immediately earned its keep\n\nThe **F6 test failed on its first run**: a parallel PR (#1937, branched off pre-#1926 `main`) had silently **reverted** the banner wording back to \"shipped by a code package\". Re-applied here (`i18n.ts`) — exactly the regression class this gate exists to catch.\n\n## Verification\n\n- Live e2e: 4/4 pass against a real stack. Red-on-bug **proven** — F2 goes red when the trailing-`_` trim is reintroduced; F4 goes red when empty option rows are persisted again.\n- Component/unit: F5 + F6 (en/zh) pass; F6 red-on-bug was demonstrated organically (it caught #1937's revert).\n- Changed files: 0 new lint errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

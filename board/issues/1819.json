@@ -1,0 +1,30 @@
+{
+  "number": 1819,
+  "kind": "pull_request",
+  "title": "fix(fields): honor hex option colors in status/select badges",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T10:44:18Z",
+  "updated_at": "2026-06-20T10:47:42Z",
+  "closed_at": "2026-06-20T10:44:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T10:44:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1819",
+  "body": "## Problem\nSelect/status badge colors silently **ignored the field option's `color` when it was a HEX value** — which is how objects almost always declare it. `getBadgeColorClasses` only matched **named** palette keys (`red`/`blue`/…) against `BADGE_COLOR_MAP`, so a hex like `#8B5CF6` fell through to a semantic-by-value / hash heuristic, producing colors that contradicted the author's intent:\n\n| Option (defined) | Rendered (before) |\n|---|---|\n| In Review `#8B5CF6` (purple) | **alarming red** |\n| Backlog `#94A3B8` (grey) | yellow |\n| Medium `#3B82F6` (blue) | amber |\n\nThis is the bug behind \"列表配色看着有点不对\" — every app declaring option colors as hex hit it.\n\n## Fix\nAdd `hexToPaletteName()` (HSL hue-bucketing; low-saturation → gray) + `resolveColorName()`, and use them in `getBadgeColorClasses`, `getSemanticColorName`, and the `dot` appearance path. Hex option colors now resolve to the nearest palette color and render as intended. Named colors, the value-semantic map, and the hash fallback are unchanged.\n\n## Verified\nTasks list (`:5181`): **In Review → purple, Backlog → grey, Medium → blue**, Done green, Urgent red — all matching `task.object.ts`. 142 badge/color/select tests pass.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

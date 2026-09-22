@@ -1,0 +1,30 @@
+{
+  "number": 1944,
+  "kind": "issue",
+  "title": "Flow builder: live preview for Screen nodes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T04:24:17Z",
+  "updated_at": "2026-06-24T06:06:10Z",
+  "closed_at": "2026-06-24T06:06:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1944",
+  "body": "## Problem\n\nThe Screen node config (title / description / fields / object-form — expanded in #1927) is authored **blind**: there's no way to see what the screen will look like to the end user. The Debug simulator, when paused at a screen, shows only `paused` — it doesn't render the form. Screen flows are user-facing wizards, so designing a form without seeing it is error-prone (field order, labels, types, object-form layout).\n\n## Proposal\n\nA **live preview** that renders the screen as the end user would see it — title, description, the input `fields` (or the full object-form when `objectName` is set). Surface it in the node config panel and/or in the Debug simulator when paused at a screen. Reuse the **runtime** `ScreenSpec` renderer (and `plugin-form`/`ObjectForm` for object-form mode) so the preview matches runtime exactly.\n\n## Acceptance criteria\n\n- [ ] Preview reflects `title`, `description` (with `{var}` interpolation), `fields`, and object-form mode (`objectName`/`defaults`).\n- [ ] Updates live as the node config changes.\n- [ ] Reuses the runtime screen/form renderer (not a separate reimplementation — avoids design↔runtime drift, cf. the simulator divergence fixed in #1927).\n\n## Pointers\n\n- The flow-runner renders the `ScreenSpec` at runtime (the engine's `screen` executor emits it) — reuse that renderer.\n- `inspectors/flow-node-config.ts` — `screen` config group.\n- `plugin-form` `ObjectForm` for object-form mode.\n- `previews/FlowSimulatorPanel.tsx` — the paused-at-screen state where a preview would also fit."
+}

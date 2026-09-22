@@ -1,0 +1,33 @@
+{
+  "number": 1886,
+  "kind": "pull_request",
+  "title": "fix(actions): handle type:'form' in ActionRunner",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T06:16:03Z",
+  "updated_at": "2026-06-22T06:31:35Z",
+  "closed_at": "2026-06-22T06:31:33Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T06:31:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1886",
+  "body": "## Problem\n\n`ActionRunner`'s execution switch had cases for `script` / `url` / `modal` / `flow` / `api` / `navigation` but **none for `form`**. A `type: 'form'` action therefore fell through to the legacy `executeActionSchema` path and silently no-opped — e.g. a \"Log Time\" / open-form button did nothing when clicked (no navigation, no error, no network).\n\n## Fix\n\nAdd `executeForm`, which opens the FormView as a routed page (`/forms/:name`, the route the action spec documents) via the injected navigation handler, forwarding the current record id as `?recordId=` (hosts that don't support it ignore the param). Falls back to a `redirect` result when no navigation handler is set, mirroring `executeUrl` / `executeNavigation`.\n\n## Tests\n\n4 new cases in `ActionRunner.test.ts` (record-id route, navigation-handler delegation, bare-route fallback, missing-target error). Full suite: **58 pass**.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

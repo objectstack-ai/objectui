@@ -1,0 +1,32 @@
+{
+  "number": 1845,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): currency-aware, labelled headers in the dataset preview",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T05:20:45Z",
+  "updated_at": "2026-06-21T05:27:03Z",
+  "closed_at": "2026-06-21T05:27:01Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T05:27:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1845",
+  "body": "## What\n\nFound during an audit of sibling dataset-render surfaces (after [#1830](https://github.com/objectstack-ai/objectui/pull/1830) / [#1841](https://github.com/objectstack-ai/objectui/pull/1841) / [#1842](https://github.com/objectstack-ai/objectui/pull/1842)). The live dataset-authoring preview (`DatasetPreview`) had the **same three bugs** the dashboard widget and report renderer were already fixed for:\n\n1. Raw dimension/measure **names** in table headers (`<th>{c}`).\n2. A local **currency-blind** `formatCell` (plain `toLocaleString`).\n3. No i18n.\n\nIt renders the *same* `queryDataset` result a dashboard/report does, so authors saw a different rendering of the exact numbers their published surfaces show.\n\n## Fix\n\nReuse the shared helpers instead of a bespoke formatter:\n- `buildDatasetFieldHelpers` + `useSafeFieldLabel` → headers resolve **field label → i18n fieldLabel → raw name**.\n- `formatMeasure` → measure cells use the field's declared **currency** (`Intl` symbol) + numeral format, never a misleading `$`; `formatDimensionValue` for dimensions.\n- The preview chart's series **label** now uses the display label too (was the raw measure name).\n\nGraceful: when the result carries no field metadata (older server), headers fall back to the raw name and amounts to plain numbers — no regression (the existing `fields: []` test still passes).\n\n## Tests\n- `DatasetPreview` → **6 passed** (+2: labelled headers, and currency / no-currency formatting).\n- `type-check` green for `app-shell`.\n\n## Audit note\nSwept all dataset-consuming surfaces: `ReportPreview` already delegates to the (fixed) `DatasetReportRenderer`; `ObjectChart` uses the label-aware `buildChartSeries`. `DatasetPreview` was the one remaining instance. Separately, `plugin-grid/useColumnSummary.ts` has a currency-blind aggregation footer, but it's a different data source (grid field metadata, not dataset results) — left as a potential follow-up, not in scope here.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1834,
+  "kind": "pull_request",
+  "title": "feat(studio): open the icon picker in a roomy modal",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T18:40:19Z",
+  "updated_at": "2026-06-20T18:46:30Z",
+  "closed_at": "2026-06-20T18:46:28Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T18:46:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1834",
+  "body": "## Summary\n\nThe inline icon popover was cramped for browsing ~2000 Lucide icons. The picker now opens in a centered **modal** (Dialog): wider layout, a large search box, an 8-column grid showing up to 120 results, a \"none\" clear cell, and a \"showing the first N of M — type to narrow\" hint. Selecting writes the icon name and closes the modal; out-of-catalog values stay reachable.\n\n## Verification\nVerified live on the App editor: clicking the Icon field opens the modal (\"Choose an icon\", search, 8-col grid, \"Showing the first 120 of 1964…\"); searching \"rocket\" narrows to the match; selecting it writes the value and closes the modal. Full metadata-admin test suite (274) passes, including the existing IconPickerWidget tests.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

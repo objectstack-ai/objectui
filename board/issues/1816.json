@@ -1,0 +1,32 @@
+{
+  "number": 1816,
+  "kind": "pull_request",
+  "title": "fix(layout): responsive page regions + grid columns on mobile",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T09:13:46Z",
+  "updated_at": "2026-06-20T09:17:09Z",
+  "closed_at": "2026-06-20T09:13:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T09:13:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1816",
+  "body": "Mobile-mode QA (390×844) found two foundational responsiveness gaps that made every composed page render poorly on phones.\n\n## 1 — Region layouts didn't stack\nSidebar + main stayed **side-by-side at all widths** — on a phone the sidebar squeezed main to an unreadable sliver. `RegionLayout`, `header-sidebar-main`, and three-column templates now use `flex flex-col md:flex-row`, and sidebars are `w-full` on mobile (fixed width only at `md+`, via a new `getSidebarWidthClass` that returns **literal** responsive strings so Tailwind's JIT emits them). Rails stack above/below main on phones, restore side-by-side on desktop.\n\n## 2 — Layout grid didn't collapse\nA bare numeric `columns: N` rendered `grid-cols-N` at **all** widths — a 4-up KPI row became 4 slivers on mobile. A bare numeric columns (no explicit responsive object / `sm/md/lg/xlColumns`) now ramps mobile-first: `grid-cols-1 sm:grid-cols-2 md:grid-cols-N`. Explicit responsive configs keep full control.\n\n## Verified\nBrowser-tested at **390×844** and **1440×900**: showcase home, My Work, dashboard, list/table, and record pages all read well on mobile and are unchanged on desktop. `components` layout tests pass (1203).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

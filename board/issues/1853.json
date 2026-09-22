@@ -1,0 +1,32 @@
+{
+  "number": 1853,
+  "kind": "pull_request",
+  "title": "feat(studio): generic secret + dynamic-config widgets for metadata-admin SchemaForm",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T07:01:01Z",
+  "updated_at": "2026-06-21T07:11:31Z",
+  "closed_at": "2026-06-21T07:07:01Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T07:07:01Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1853",
+  "body": "## What\nTwo reusable widgets for the metadata-admin `SchemaForm`, so **any** metadata type gets them — finishing the secret-field GAP and generalizing the datasource driver→config form logic.\n\n### `secret` (write-only / masked)\nCredential input with reveal toggle + Clear. A stored secret reads back as `SECRET_MASK`, so the box starts empty and **blank = keep** (emits the mask, a no-op write); typing replaces; Clear emits `null`. Auto-detected by `format: 'password'` / `writeOnly`, or a conservative name convention (secret/token/apiKey/accessKey/clientSecret/credential/privateKey/passphrase). Bare `password` is intentionally **excluded** (auth owns that, one-way hashed).\n\n### `dynamic-config` (dependency-driven sub-form)\nAn object field whose sub-schema is chosen by a **sibling field's value**: `fieldSpec.dependsOn` → `context.dynamicSchemas[value]`. Canonical case: a datasource `config` that changes fields per driver — but it's generic (\"pick X → these settings\").\n\nBoth registered in `WIDGETS`; `secret` wired into the SchemaForm detection chain (priority right after field-ref). `WidgetContext` gains `dynamicSchemas`.\n\n## Why\nThese were the two backlog items from the datasource-in-the-engine work: the engine couldn't render secret/credential fields or driver-dependent config generically, so datasource shipped a bespoke form. These widgets make the capability generic and reusable; datasource (and other side-effectful types) can adopt them.\n\n## Tests\n`SecretWidget` (5) + `DynamicConfigWidget` (5) green; app-shell typecheck clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

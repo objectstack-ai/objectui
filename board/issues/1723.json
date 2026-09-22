@@ -1,0 +1,32 @@
+{
+  "number": 1723,
+  "kind": "pull_request",
+  "title": "feat(app-shell): interface Add-Record config takes effect; honest view picker (ADR-0047)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T07:42:24Z",
+  "updated_at": "2026-06-14T07:48:43Z",
+  "closed_at": "2026-06-14T07:48:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T07:48:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1723",
+  "body": "Round-2 polish of the ADR-0047 interface-page config panel, found while browser-verifying the previous round.\n\n## 1. Fix: the Add-Record config did nothing (functional bug)\n`InterfaceListPage` built the schema it hands to `ListView` but **never forwarded `interfaceConfig.addRecord`**. `ListView` gates the Add button on `schema.addRecord?.enabled` (ListView.tsx:380, tested), so on an interface page the button **could never appear** regardless of the panel's Add-Record toggle/position/mode — exactly the \"配置点了没反应\" (configs that do nothing) complaint.\n\nFix: one-line passthrough `addRecord: cfg.addRecord`. The consumer side is already covered by ListView tests (enabled true/false, `userActions.addRecordForm` gate, position top/bottom).\n\n## 2. View picker no longer mislabels resolvable values\nThe new `view-ref` picker tagged a stored `sourceView` like the bare `default` as **\"(not in object)\"** even though the runtime resolves it. The widget now mirrors `InterfaceListPage.resolveSourceView` — exact name, `<object>.<name>` suffix match, or the `default`/`list` special-case — via an extracted, unit-tested `resolveStoredViewRef`. A bare `default` now shows the matched view's label (e.g. **\"All Tasks → showcase_task.default\"**) instead of a false warning.\n\n## Verification\n- **Browser (live, showcase backend on :3000, worktree console):** the picker now renders \"All Tasks → showcase_task.default\" for the stored bare `default` (screenshot-confirmed) — item 2.\n- **Unit:** `resolveStoredViewRef` 5 cases (suffix match, exact FQN, default/list special-case, unknown→unresolved, empty); existing ViewRef/MultiSelect/InterfaceListPage suites green (21 tests).\n- `tsc --noEmit` on `@object-ui/app-shell` → 0 errors.\n- Item 1 is a passthrough into a gate the ListView test-suite already locks; the previously-missing key meant the button never rendered on interface pages.\n\n## Follow-ups (spun off, not in this PR)\n- Icon field has no picker (plain text input) — a lucide icon-picker widget.\n- Metadata-editor load failures can surface as \"required\" validation errors instead of a clear \"failed to load\" state.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

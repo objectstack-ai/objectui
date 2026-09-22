@@ -1,0 +1,30 @@
+{
+  "number": 1933,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Build-history timeline + revert UI for AI builds (ADR-0067)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T02:27:33Z",
+  "updated_at": "2026-06-24T02:38:08Z",
+  "closed_at": "2026-06-24T02:38:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T02:38:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1933",
+  "body": "Adds the user-facing half of ADR-0067: a **Build history** timeline with per-commit **Revert**, on the unpublished-app banner.\n\n## What lands\n- **`commitHistory.ts`** — `fetchCommits` (`GET /packages/:id/commits`) + `revertCommit` (`POST /packages/:id/commits/:cid/revert`), cookie-authenticated (mirrors `draftStatus.ts`).\n- **`CommitTimeline.tsx`** — a `Sheet` slide-over listing commits newest-first (message · actor · time · apply/revert badge), with a **Revert** action per apply commit. Mirrors `DraftChangesPanel.tsx`.\n- **`UnpublishedAppBar`** — a **History** button (package-scoped) that opens the timeline; reverting refreshes the app view.\n\nThe model: you don't approve each publish — you review the timeline and revert if a change was wrong.\n\n## Verification\n`pnpm --filter @object-ui/app-shell type-check` → exit 0, 0 errors. i18n via inline `defaultValue` (no locale-file parity churn). Pairs with framework + cloud ADR-0067 PRs (the timeline data comes from the framework commit routes).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

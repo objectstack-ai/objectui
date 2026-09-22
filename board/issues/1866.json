@@ -1,0 +1,36 @@
+{
+  "number": 1866,
+  "kind": "pull_request",
+  "title": "feat(dashboard): drill 'Open in list' escape hatch + unify report drill",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T15:06:28Z",
+  "updated_at": "2026-06-21T15:10:01Z",
+  "closed_at": "2026-06-21T15:06:51Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T15:06:51Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1866",
+  "body": "Implements the mainstream BI **peek-then-escalate** drill model (Looker drill modal → Explore, Power BI \"see records\" → drill-through page). Follow-up to objectstack-ai/objectui#1859 / objectstack-ai/objectui#1861.\n\n## Why\nDrill-through opening an in-place drawer (keep context) is the right *default* — but users sometimes need the full object **list page** (sort, bulk-select, export, shareable URL). Mainstream platforms offer both, picked by intent. This adds the escalation path and unifies dashboards + reports.\n\n## Changes\n- **`DrillNavigationContext`** (`@object-ui/react`) — host provides `openRecordList(object, filter)`; the renderer stays decoupled from console routing. Hidden gracefully when no host wired it (self-contained peek).\n- **Escape hatch** — the drill drawers (pivot/dataset via `DrillDownDrawer`, chart via `ObjectChart`, KPI via `ObjectMetricWidget`) render **\"Open in list →\"** in the header.\n- **`DrillDownConfig.target: 'navigate'`** — skip the drawer and open the list directly; degrades to `'drawer'` when no host handler.\n- **`ReportView` drill → drawer** — report drill-through now opens the same in-place drawer (peek → click a row to open a record) instead of navigating away. The escape hatch preserves the previous navigate-to-list behavior, so no capability is lost; the ADR-0021 D2 raw-key filter is reused unchanged.\n- **app-shell** — `useOpenRecordList` (the `/apps/:app/:object?filter[...]` navigation) + `DrillNavigationProvider` in `DashboardView` and `ReportView`.\n- **i18n** — `dashboard.openInList` (en/zh).\n\n## Verification\n- New tests: escape hatch shows/navigates with the drill filter; hidden without a host handler; `target: 'navigate'` opens the list directly and degrades to drawer. `plugin-dashboard` + `plugin-charts` + `react` suites: **149 passed / 0 failed**. Type-check clean across affected packages + downstream (app-shell), 29 turbo tasks.\n- Browser (showcase console): dashboard drill drawer shows **\"在列表中打开\"**, which navigates to `…/showcase_project?filter[account]=<raw id>`; report drill now opens the **in-place drawer** (no page jump) with the escape hatch. Zero console errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 1859,
+  "kind": "pull_request",
+  "title": "feat(dashboard): expand drill-in — table/list row→record + scatter/treemap/sankey drill-through",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T11:59:06Z",
+  "updated_at": "2026-06-21T12:09:10Z",
+  "closed_at": "2026-06-21T12:06:13Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T12:06:13Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1859",
+  "body": "## What & why\n\nDrill-in was only fully realized on a couple of widgets. This expands it to the gaps, and formalizes the two interaction semantics mainstream BI/low-code platforms separate (Power BI *drill-through* vs Salesforce list-row → record).\n\n`DrillDownConfig` gains a `mode` discriminator:\n- `'filter'` (default) — **drill-through**: aggregate bucket (pivot cell / chart segment / KPI) → filtered record list.\n- `'record'` — **drill-to-record**: a table/list row → that record's detail. Default for table/list.\n\n## Changes\n\n**1. Chart drill-through completion** — scatter / treemap / sankey now wire `onClick` and reuse ObjectChart's existing drill drawer. Radar is intentionally excluded (a polar polygon has no single clickable category point). The Recharts-payload → drill-event mapping is extracted to pure, unit-tested functions (`chartDrillEvents.ts`). Fixes a stale comment that claimed scatter/funnel had no click wiring.\n\n**2. Table/list drill-to-record** — clicking a row in an object-backed table/list opens that record read-only in a `RecordDetailDrawer` (Sheet, or Dialog). Field labels + cell formatting are shared with the table via a new `recordFields` module so a value reads identically in the cell and the drawer. Object-backed table/list widgets get this on by default; authors opt out with `drillDown:{enabled:false}`. An author-supplied `onRowClick` always wins.\n\n**3. Completes the drill chain** — the chart/KPI drill-through record lists now drill into a record too (rendered as a dialog so it stacks over the outer drawer), matching Power BI's segment → list → record path.\n\n**4. Config panel** — `scatter/treemap/sankey/table/list` added to `DRILL_DOWN_TYPES` so the drill toggle is offered for them.\n\n**5. vitest** — exclude in-repo `.wt-*` git worktrees so sibling-branch test copies aren't globbed into runs.\n\n## Verification\n\n- 40 new tests; `plugin-dashboard` + `plugin-charts` full suites **107 passed / 0 failed**. Integration test renders the real `data-table` and asserts the record drawer opens on row click; author `onRowClick` preserved; disabled / filter-mode tables don't drill.\n- `type-check` clean across affected packages + downstream consumers (app-shell / components / react), 29 turbo tasks.\n- Browser smoke on the showcase console (code live via src alias + HMR): dashboards render with **zero console errors**, drill-through still works, table rows correctly become drill-enabled. Live record-drawer click wasn't exercisable because the showcase backend only seeds dataset-bound tables — covered by the integration test.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

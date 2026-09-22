@@ -1,0 +1,33 @@
+{
+  "number": 1739,
+  "kind": "pull_request",
+  "title": "feat(i18n): locale-aware element:text / element:button / action params",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T02:31:03Z",
+  "updated_at": "2026-06-15T02:39:08Z",
+  "closed_at": "2026-06-15T02:39:07Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T02:39:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1739",
+  "body": "Locale-aware text so server-driven metadata carries inline translations. pickLocalized(value,language) in @object-ui/i18n resolves string or {en,zh-CN,zh,default} to active language. element:text content + element:button label + ActionParamDialog params now localize. Degrades safely (no provider -> en). Unblocks localizing cloud Pricing page + Upgrade dialog. Tests: pickLocalized unit + 25 existing renderer tests pass."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 1947,
+  "kind": "pull_request",
+  "title": "feat(dashboard): dataset chart widgets use select/lookup option colors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T04:42:46Z",
+  "updated_at": "2026-06-24T04:46:12Z",
+  "closed_at": "2026-06-24T04:43:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T04:43:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1947",
+  "body": "## What\n\nDashboard `DatasetWidget` charts grouped by a **select/lookup dimension** (e.g. project `health`) now paint each category in its **field option color** instead of the generic `--chart-1..5` palette.\n\n## Why\n\nThis is the dashboard counterpart of the `object-chart` view fix (objectstack-ai/objectui#1932). Before, only the chart **view** resolved semantic option colors; dashboard widgets over the same dataset still showed health \"Red\" as teal. Now both surfaces match.\n\n## How\n\n- `DatasetWidget` resolves the first dimension's option colors using the dataset's base `object` + dimension→field map **the query already returns** (`state.object` / `state.dimensionFields`), fetches the object schema, and threads a per-category `categoryColors` map into the chart schema. The renderer (`AdvancedChartImpl`, shipped in #1932) already applies that map, with the positional palette as fallback.\n- Extracts the value/label→color resolution into a shared **`buildOptionColorMap`** in `@object-ui/core`, now used by **both** `DatasetWidget` and `ObjectChart` (the chart view's inline loop is refactored to call it — behavior-preserving).\n\nKeyed by BOTH option `value` and `label`, since the server resolves dataset select dimensions value→label while the legacy path keeps the raw value.\n\n## Test\n\n- `@object-ui/core` `buildOptionColorMap` unit test (5 cases: value+label keying, null/empty/no-color, partial, malformed) — passing.\n- Renderer behavior covered by `AdvancedChartImpl.colors.test.tsx` (#1932) — still passing.\n- Charts only; metric/table/pivot widgets are unaffected. Best-effort: any failure leaves the positional palette.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1955,
+  "kind": "pull_request",
+  "title": "feat(studio): simulate approval decisions in the flow debugger",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T06:42:24Z",
+  "updated_at": "2026-06-24T06:45:01Z",
+  "closed_at": "2026-06-24T06:42:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T06:42:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1955",
+  "body": "## What & why\n\nFollow-up to [#1954](https://github.com/objectstack-ai/objectui/pull/1954) (ADR-0044 revise-loop **authoring**). That PR let authors *draw* a revise loop, but the designer-time **Debug simulator** still couldn't *walk* one: it treated an `approval` node as a pass-through that **fanned out to every out-edge at once** (approve + reject + revise simultaneously), so a revise loop just bounced around the back-edge until it tripped the step ceiling. You could draw the loop but not simulate it.\n\n## Change\n\nModel an `approval` as a **durable pause** (like `wait` / `screen`) — which is what it is in the engine (ADR-0019):\n\n- The run **suspends** at the approval node (`pausedReason: 'approval'`).\n- The Debug panel offers the node's out-edge labels as **decision buttons** (`approve` / `reject` / `revise`).\n- Resuming routes down **only the chosen branch** — mirroring how the engine resumes a suspended approval by `branchLabel` — instead of fanning out.\n- A full revise loop is now walkable in the debugger: **revise → wait → resubmit (back-edge) → round 2 → approve → done**, with the approval node suspending once per round.\n- An unmatched decision falls back to fanning out (mirroring the engine's label-fallback) and is logged so the author notices an unrouted decision.\n\n## Files\n\n- `previews/simulator/flow-simulator.ts` — `approval` pause case; `resume({ screenOutputs?, decision? })` + `resumeApproval()` (route by out-edge label).\n- `previews/FlowSimulatorPanel.tsx` — per-decision **Continue** buttons when paused at an approval; `Run` no longer blind-resumes an approval pause (would fan out).\n\n## Verification\n\n- **Unit (simulator)**: approval pauses + routes only the chosen branch; **full revise-loop walk** (revise → wait → resubmit/back-edge → round 2 → approve → done, approval suspends twice); unmatched-decision fallback.\n- **Component (panel UI)**: renders approve/reject/revise buttons on pause; clicking through **revise → Continue → approve** drives the run to `done` — the same path a browser check would exercise.\n- Full metadata-admin suite **388 green** (5 new); `type-check` 0 errors; `eslint` clean.\n\n> Browser drivers (chrome-devtools / preview server) were unavailable this run due to parallel-session contention, so the panel UI is covered by the component test above rather than a live screenshot.\n\nFollows #1954.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

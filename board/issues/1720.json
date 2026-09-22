@@ -1,0 +1,30 @@
+{
+  "number": 1720,
+  "kind": "pull_request",
+  "title": "fix(app-shell): merge draft overlay over effective baseline (preserve inherited fields)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T02:25:59Z",
+  "updated_at": "2026-06-14T03:25:27Z",
+  "closed_at": "2026-06-14T03:25:26Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T03:25:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1720",
+  "body": "## Why\nWhen editing a metadata item, a pending **draft overlay** can carry only the *edited* fields. `ResourceEditPage` was using that draft **wholesale** (`draftReal ?? lay.effective`), so any field the user never touched — notably `type` — was dropped from the editing baseline.\n\nThat bites section-level `visibleOn` predicates: ADR-0047 hides the **Data Context** / **Layout** sections on a list page via `data.type == 'list'`. If `type` is missing from the draft value, the predicate misfires. (The companion ADR-0047 work — [#1704](https://github.com/objectstack-ai/objectui/pull/1704) / framework [#1817](https://github.com/objectstack-ai/framework/pull/1817) — is verified working in a clean environment; this PR hardens the partial-draft path so it can't regress.)\n\n## Change\nMerge the draft **over** the effective baseline at all three draft-init sites (initial load + two post-save reloads):\n\n```\nconst baseline = lay.effective ?? lay.code ?? {};\nconst initial = draftReal ? { ...baseline, ...draftReal } : baseline;\n```\n\nStandard overlay semantics — the draft still wins for anything it carries; inherited fields survive. No-op when the draft is already a full snapshot.\n\n## Risk\nLow. If a draft intentionally *omitted* a field to mean \"removed\", the baseline value would resurface — but metadata drafts are full/additive snapshots, not deletion diffs, so this is not a concern in practice.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

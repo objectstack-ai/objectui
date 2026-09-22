@@ -1,0 +1,32 @@
+{
+  "number": 1726,
+  "kind": "pull_request",
+  "title": "feat(ai-chat): highlight matched term in conversation-list search",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T08:09:12Z",
+  "updated_at": "2026-06-14T08:13:00Z",
+  "closed_at": "2026-06-14T08:09:27Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T08:09:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1726",
+  "body": "## What\n\nSearching the AI conversation list already filters rows, but gave **no hint which word matched**. This wraps each case-insensitive occurrence of the query in a styled `<mark>` across the row **title and preview**, so search results are scannable — matching ChatGPT/Claude.\n\n## Notes\n\n- **Purely additive**: with no active query the text renders untouched, so the common (non-searching) path pays nothing.\n- Conservative styling via existing design tokens (`bg-primary/20`), original casing preserved.\n- Threaded the active `filter` query into `ConversationRow` via a new optional `query` prop; new module-level `highlightQuery(text, query)` helper.\n\n## Test\n\n`ConversationsSidebar.test.tsx`: typing a query filters out non-matching rows and renders the matched substring inside a `<mark>`. Full sidebar suite green (6).\n\nPart of the AI chat UX polish pass (the conversation-list \"③\" track). Structural list features (date groups, collapsible sidebar, keyboard shortcuts, resizable split) are already merged; this is a focused readability win on top.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

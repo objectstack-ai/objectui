@@ -1,0 +1,30 @@
+{
+  "number": 1836,
+  "kind": "pull_request",
+  "title": "feat(studio): no-code condition builder for CEL predicate fields",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T19:06:52Z",
+  "updated_at": "2026-06-20T19:13:36Z",
+  "closed_at": "2026-06-20T19:13:34Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T19:13:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1836",
+  "body": "## Summary\n\nGeneralises the Action visible/disabled condition builder to CEL predicate fields across the studio, so admins build conditions visually (field · operator · value, AND/OR) instead of hand-writing CEL.\n\n- **ConditionBuilder**: accepts a pre-fetched field catalog and an optional label, so it embeds in the generic form.\n- **widgets**: a `condition` widget wrapping `ConditionBuilder` (fields from the widget context) + registry entry.\n- **SchemaForm**: auto-detect CEL fields by name convention (`visible` / `hidden` / `disabled` / `visibleOn` / `condition` / `*When`) so generic forms get the builder without per-form wiring.\n- **PageBlockInspector**: a page block's `Hidden (CEL)` now uses the builder.\n\nThe round-trip guard is preserved — a complex hand-authored CEL that the builder can't represent stays in a raw expression textarea (toggle), so nothing is rewritten or lost.\n\n## Verification\nVerified live: selecting a page block shows its **Hidden (CEL)** field as the no-code builder (\"Add condition\" / Expression toggle). Full metadata-admin test suite (274) passes.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

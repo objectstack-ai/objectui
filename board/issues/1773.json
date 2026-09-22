@@ -1,0 +1,30 @@
+{
+  "number": 1773,
+  "kind": "pull_request",
+  "title": "fix(marketplace): read install state via dedicated route + restore env install-context (UX#4)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T07:02:08Z",
+  "updated_at": "2026-06-16T07:08:55Z",
+  "closed_at": "2026-06-16T07:08:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T07:08:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1773",
+  "body": "Completes the install-picker env annotation dropped from #1772.\n\n**Root cause**: `getCloudInstallationInfo`'s cloud-control branch read the generic `/api/v1/data/sys_package_installation`, which returns 0 rows in the control plane (the row exists but isn't exposed there) and carries `package_version_id`, not a version string. So the annotation had no data.\n\n**Fix**: switch to the dedicated `/cloud/environments/:id/installations/:packageId` route — the same one the tenant proxy already uses — which reads the control DB directly and resolves the human-readable version. Pairs with objectstack-ai/cloud#370 (adds a user-mode org guard to that route).\n\n**Restored**: each environment in the \"Install to cloud\" picker now shows its install state (\"Installed v1.0.0\" / \"Update → v1.0.1\").\n\nVerified end-to-end in the browser on the local stack.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

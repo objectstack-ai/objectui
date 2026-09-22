@@ -1,0 +1,33 @@
+{
+  "number": 1916,
+  "kind": "pull_request",
+  "title": "fix(list): server-side pagination through ListView → ObjectGrid (#2212)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-23T02:47:41Z",
+  "updated_at": "2026-06-23T04:36:58Z",
+  "closed_at": "2026-06-23T04:36:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-23T04:36:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1916",
+  "body": "## Why\n\nFollow-up to #1913. That PR made **ObjectGrid** do true server-side pagination, but it never engaged for an actual **list view** — the original #2212 symptom persisted in the app.\n\nRoot cause: `ListView` fetches its own data and passes the window **down** to the child `object-grid` as a `data` prop. ObjectGrid treats a passed `data` array as inline/static value data (`hasInlineData = true`), which forces `useServerPagination = false`. So the inner `DataTable` client-paginated the single fetched window:\n\n- footer showed `pages = window / pageSize` (e.g. \"共 10 页\" capped at 100 rows)\n- records beyond the first window were unreachable\n\nThis is exactly #2212, layered on top of the now-fixed framework `findData` `total`/`hasMore` (objectstack-ai/framework#2222).\n\n## What\n\nSingle pager, server-driven — **no second pager added** (the existing inner DataTable pager is reused):\n\n- **ObjectGrid** — honour *external* manual-pagination props (`manualPagination` / `rowCount` / `page` / `onPageChange` / `onPageSizeChange`) supplied by a host even when data arrives inline, forwarding them straight to the one DataTable pager (gated `!isGrouped`). ObjectGrid's own-fetch server pagination from #1913 is unchanged.\n- **ListView** — own server pagination for the flat grid view: track page + total, send `$skip = (page-1)*size`, read the real match `total`, and hand the window + manual-pagination props to the child grid. Reset to page 1 (by value signature, so ListView's own mount-time sort/grouping re-inits don't snap the page) on object/filter/sort/search/grouping/page-size change. Suppress the \"showing first N\" cap warning once a real total is known.\n\n## Tests\n\n- ObjectGrid external-manual passthrough with inline data (2)\n- ListView → grid server-pagination contract: first window has no `$skip`, real total + manual props handed down, page turn refetches with `$skip`, page-size change resets to page 1 (4)\n- Full suite green: 4233 passed.\n\n## Live verification (EHR `production_plan`, 3125 rows)\n\n- One pager reading **\"第 1 页, 共 32 页\"** (`ceil(3125/100)=32`), not \"共 10 页\".\n- Last page reachable — shows records **#3101–3125** (\"25 条记录\"), impossible before the fix.\n- `$skip=3100` round-trips with `total=3125`; exactly one pagination region in the DOM.\n\nRefs #2212. Depends on framework `findData` total/hasMore fix (objectstack-ai/framework#2222)."
+}

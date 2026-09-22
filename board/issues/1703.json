@@ -1,0 +1,32 @@
+{
+  "number": 1703,
+  "kind": "pull_request",
+  "title": "feat(console/ai): collapsible conversations list (auto-tucks when preview opens)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T14:26:02Z",
+  "updated_at": "2026-06-13T14:29:47Z",
+  "closed_at": "2026-06-13T14:26:13Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T14:26:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1703",
+  "body": "## Why\n\nThe desktop AI chat pins an 18rem conversations list at all times. When the Live Canvas **preview** opens, the layout becomes *list + chat (42%) + preview* — the chat column gets cramped (the exact complaint: \"右侧展开预览之后，屏幕空间就特别窄\"). Make the list collapsible to reclaim that space.\n\n## What\n\n- **Manual:** a desktop header toggle (`PanelLeftClose` / `PanelLeftOpen`) collapses/expands the list; the preference **persists** (localStorage).\n- **Auto:** opening the preview **auto-tucks** the list and **restores** it on close — but only if the auto-collapse is what hid it. A manual toggle, or a list the user already collapsed, is **never overridden**; auto-collapse is transient (not persisted). The rule is \"never fight the user.\"\n\nThe collapse logic is extracted into an exported `useCollapsibleChatsList` hook (testable in isolation). `ChatPane` reports the preview opening/closing up via a new `onCanvasOpenChange` callback.\n\n## Verification\n\n- **477/477** tests (5 new on the hook): default expanded + persisted toggle, init-from-storage, auto-tuck + restore on preview close, **respect a manual collapse** (no spurious re-expand), and a **manual toggle during preview taking control** (no auto-restore after).\n- `tsc` clean; new code lint-clean.\n\nMobile is unchanged (it already uses a Sheet drawer). First step in a broader chat-UX pass.\n\nNote: logic is unit-tested; I haven't yet captured a live-rig screenshot of the collapse animation (needs a console rebuild into the EE rig) — can do on request.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

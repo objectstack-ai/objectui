@@ -1,0 +1,33 @@
+{
+  "number": 1748,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fumadocs-ui from 16.9.3 to 16.10.3",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T07:55:31Z",
+  "updated_at": "2026-06-15T08:11:53Z",
+  "closed_at": "2026-06-15T08:09:02Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-15T08:09:02Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1748",
+  "body": "Bumps [fumadocs-ui](https://github.com/fuma-nama/fumadocs) from 16.9.3 to 16.10.3.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/fuma-nama/fumadocs/releases\">fumadocs-ui's releases</a>.</em></p>\n<blockquote>\n<h2>fumadocs-ui@16.10.3</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>5499f59: type-safe provider props\n<ul>\n<li>fumadocs-core@16.10.3</li>\n</ul>\n</li>\n</ul>\n<h2>fumadocs-ui@16.10.2</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>\n<p>e977acf: <strong>Change the TOC variants</strong></p>\n<p>The &quot;clerk&quot; TOC variant will revert to the original Clerk-like style, the redesigned TOC (the one you see on official docs) will be the new default.</p>\n</li>\n<li>\n<p>0997dd6: Deprecate <code>type: &quot;xxx&quot;</code> usage of <code>useDocsSearch()</code>, pass the <code>client</code> object instead. The allows a smaller bundle size with improved performance.</p>\n</li>\n<li>\n<p>Updated dependencies [7e9548b]</p>\n</li>\n<li>\n<p>Updated dependencies [0997dd6]</p>\n</li>\n<li>\n<p>Updated dependencies [71d58b8]</p>\n<ul>\n<li>fumadocs-core@16.10.2</li>\n</ul>\n</li>\n</ul>\n<h2>fumadocs-ui@16.10.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>5017289: Use stable <code>fuma-translate</code></li>\n<li>7a77722: fix display name of languages\n<ul>\n<li>fumadocs-core@16.10.1</li>\n</ul>\n</li>\n</ul>\n<h2>fumadocs-ui@16.10.0</h2>\n<h3>Minor Changes</h3>\n<ul>\n<li>\n<p>779efff: <strong>Introduce new translations API</strong></p>\n<p>It is now powered by <code>fuma-translate</code>. Be careful: while the API surface is same, some translation keys are changed, unused labels will be ignored.</p>\n</li>\n</ul>\n<h3>Patch Changes</h3>\n<ul>\n<li>0cc1fac: Make <code>uiTranslations()</code> optional for translations API</li>\n<li>Updated dependencies [9b9545f]\n<ul>\n<li>fumadocs-core@16.10.0</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/b308a19caef541632d727e8935084b6e7968b344\"><code>b308a19</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3360\">#3360</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/5499f59ea7cfbb293f5304efce0977de99c2a696\"><code>5499f59</code></a> feat(ui): type-safe provider props</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/cfe022641e275cb76141f23d6bbc977579a9df10\"><code>cfe0226</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3358\">#3358</a> from kakduki/earn-fumadocs-ui-bugs-metadata</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/ec0b6821fe0d94ff6172f5247f7fdc4ce28993d8\"><code>ec0b682</code></a> chore: bump deps</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/a9f988897e7dc4ef3d62b2865d80da2f5607701e\"><code>a9f9888</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3354\">#3354</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/e977acfc8c180fe3e991975feb73aaff59d793bf\"><code>e977acf</code></a> refactor(ui): change TOC variants</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/7e9548bd9b4a6000004ac23af45cbfe47faa97f6\"><code>7e9548b</code></a> fix(core): fix possible infinite re-renders</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/0997dd65f2d29505ba13daa66af45d9dd474ffda\"><code>0997dd6</code></a> refactor(core): deprecate <code>type: &quot;xxx&quot;</code> usage of <code>useDocsSearch()</code></li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/71d58b85e7416a41d768218d1e46c171b69298e7\"><code>71d58b8</code></a> fix types</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/f69f84fc1a57db298410e00937f574428973cb88\"><code>f69f84f</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3353\">#3353</a>)</li>\n<li>Additional commits viewable in <a href=\"https://github.com/fuma-nama/fumadocs/compare/fumadocs-ui@16.9.3...fumadocs-ui@16.10.3\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1929,
+  "kind": "pull_request",
+  "title": "fix(studio): enable report authoring (create flow, chart render, dataset-aware inspector)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T00:33:40Z",
+  "updated_at": "2026-06-24T00:39:19Z",
+  "closed_at": "2026-06-24T00:36:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T00:36:18Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1929",
+  "body": "## Problem\nDogfooding report design in Studio (browser, as a business user) surfaced that **you could not create a report at all**. Only `object` was in `CREATE_MODE_CANVAS_TYPES`, so report-create fell back to a stale \"name-first\" form whose create-config (`objectName`, `columns: []`) predates the ADR-0021 dataset-bound model — saving failed server validation *\"a report needs `dataset` + `values`\"* with no field in the UI to supply them. Several follow-on gaps too (post-save package loss, embedded `chart` never rendered, free-text axis fields).\n\n## Changes (5 files)\n- **Report create uses the canvas + `ReportDefaultInspector`** — add `'report'` to `CREATE_MODE_CANVAS_TYPES`; inspector exposes an auto-derived snake_case **Name** in create mode; fix the stale create-config in `anchors.ts` (drop `objectName`/`columns`, seed `type: 'summary'` + `drilldown: true`).\n- **Preserve `?package=` on post-create navigation** — was dropped, so the editor reloaded a blank draft in the user's default package.\n- **Render a report's embedded `chart`** in `DatasetReportRenderer` — it was authorable in Studio but never rendered (the dataset-bound renderer was table/matrix-only). Renders via the lazily-registered generic chart component; requests a non-animated render (`isAnimationActive: false`) for export/background-tab safety.\n- **Dedicated Chart panel in the inspector** — chart type + **dataset-aware X-Axis (dimension) / Y-Axis (measure) dropdowns** + title. Replaces free-text axis inputs and the vague *\"Chart: Required text value\"* validation.\n\n## Verification\n- Live in Studio (against real showcase data): created a summary report (bar chart renders), a matrix (status × priority with totals), a donut (ring renders), package preserved on save, drilldown ON by default.\n- Tests: `plugin-report` **44/44**, `ReportDefaultInspector` **10/10**.\n\n## Scope note\nThe `isAnimationActive: false` request is forward-compatible: the generic chart component's `isAnimationActive` plumbing lands with the in-flight **data-screen/categoryColors** chart work (parallel branch), so report charts already render for users (they animate) and become deterministic once that lands. This PR deliberately excludes the chart-component files to avoid entangling that diverged WIP.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 1802,
+  "kind": "pull_request",
+  "title": "refactor: remove list quickFilters mechanism (ADR-0053 phase 3a)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-19T09:14:00Z",
+  "updated_at": "2026-06-19T09:19:11Z",
+  "closed_at": "2026-06-19T09:19:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-19T09:19:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1802",
+  "body": "Part of **ADR-0053** (list-view navigation — two mutually-exclusive modes). Retires one of the five overlapping list-nav mechanisms.\n\n## What\nThe standalone list-view `quickFilters` (chip row) only duplicated `userFilters` `tabs`. Removed completely:\n- **types**: `NamedListView.quickFilters`, `ListViewSchema.quickFilters`, the `QuickFilterItem` / `ObjectUIQuickFilterItem` / `SpecQuickFilterItem` types + index re-exports\n- **zod**: `quickFilters` schema\n- **@object-ui/core**: deleted `utils/normalize-quick-filter.ts` (+ export)\n- **plugin-view** `ObjectView`: dropped the quickFilters pass-through\n- **plugin-list** `ListView`: removed state, memo, filter-merge, deps, toggle handler, the chip render row, and the empty-state condition\n- **react** spec-bridge: dropped the `quickFilters` input field, import, and normalization mapping\n- **tests** updated (plugin-list ListView, react SpecBridge/P1SpecBridge)\n\n## Not touched\n`plugin-gantt`'s own `quickFilters` (`QuickFilterDef` on `GanttConfigEx`, the per-field dropdown row above the chart) is **independent** of list-view nav and stays as-is.\n\n## Verification\n- Full monorepo `type-check` passes (58/58).\n- Affected tests green (195).\n- (The one `react-hooks/rules-of-hooks` lint error in `ListView.tsx:295` is pre-existing — a deliberate try/catch `useObjectLabel` wrapper — unrelated to this change.)\n\nFollow-ups (ADR-0053): suppress `renderNamedViewTabs` in app-shell context; fold `viewDef.tabs` → `userFilters.tabs`; shared `ListNavBar`; Zod `refine` + `check` guardrails; rewrite fixtures.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

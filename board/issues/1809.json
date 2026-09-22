@@ -1,0 +1,33 @@
+{
+  "number": 1809,
+  "kind": "pull_request",
+  "title": "feat(plugin-gantt): locate icon + flash highlight + group node type (4-level tree)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-19T16:13:40Z",
+  "updated_at": "2026-06-20T05:49:03Z",
+  "closed_at": "2026-06-20T05:49:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T05:49:01Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1809",
+  "body": "## What\n\nThree Gantt enhancements, driven by a manufacturing-scheduling spec (项目 → 产品 → 排产计划 → 派工单):\n\n1. **Locate-on-timeline icon** — each task-list **End** cell gets a 🞋 (Crosshair) button. Clicking it smooth-scrolls the timeline to center that row's bar **and** pulses the bar with a ring (`gantt-flash`) so it's easy to spot after the scroll. The button reveals on row hover; `stopPropagation` keeps it from opening the detail drawer.\n\n2. **`type:'group'` node kind** — a pure tree header that is expandable/collapsible like a summary row but renders **no timeline bar**. This makes pure grouping levels (项目/产品: 左侧成树、右侧无条) possible — previously any node with children always drew a summary bar. Children still render their own bars normally.\n\n3. **4-level demo fixture** (`?mfg=1`) — 项目A → 产品A-1/A-2 → 排产计划 → 派工单(WO001 张三…), exercising group headers + summary bars + task bars together.\n\n## Spec coverage\n\n| 层级 | 节点 | 要求 | 状态 |\n|---|---|---|---|\n| 一级 项目 | `type:'group'` | 无条 · 展开/折叠 | ✅ |\n| 二级 产品 | `type:'group'` | 无条 · 展开/折叠 | ✅ |\n| 三级 排产计划 | summary | 有时间条 · 全部甘特操作 | ✅ |\n| 四级 派工单 | task | 子任务条 | ✅ (有条) |\n\nNot in this PR (follow-ups, noted with the requester): seed-able \"三级默认折叠\" prop, and per-node read-only lock so 派工单 is view-only while 排产计划 stays draggable.\n\n## i18n\n\nAdds `gantt.row.locate` (zh `在甘特图上定位` / en `Locate on timeline`) plus the standalone fallback in `GANTT_DEFAULT_TRANSLATIONS`.\n\n## Verification\n\n- `pnpm --filter @object-ui/plugin-gantt vitest run` → **188 passed (16 files)**.\n- Manual (demo `?mfg=1`): only 排产计划 rows carry summary bars and only 派工单 rows carry task bars; the 项目/产品 group rows render no bar; collapsing 项目A hides its whole subtree and expands back; locate click centers + flashes the target bar.\n\n## Config-driven (not hardcoded)\n\nNo business terms live in the component — `GanttView` only knows the generic primitives `parent` (builds the tree) and `type` (node kind). The 4-level manufacturing data lives **only in the demo fixture** (`demo/main.tsx`), never in the runtime.\n\nThe structure is configured through **view metadata**, not code:\n- `parentField` → which record field builds the hierarchy\n- `typeField` → which record field maps to the node kind. A value of `group` (or `folder`) now yields the no-bar header; `summary`/`project`/`phase` keep a bar; `milestone`/`task` as before.\n\nSo an app models 项目/产品 as records whose `typeField` = `group`, and 排产计划/派工单 fall out of the `parent` chain + start/end fields — no plugin changes needed.\n"
+}

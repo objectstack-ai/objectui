@@ -1,0 +1,32 @@
+{
+  "number": 1758,
+  "kind": "pull_request",
+  "title": "feat(app-shell): unify D2 reconcile-on-error across chat surfaces (ADR-0013)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T12:53:25Z",
+  "updated_at": "2026-06-15T12:59:54Z",
+  "closed_at": "2026-06-15T12:59:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T12:59:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1758",
+  "body": "## Why\nADR-0013 **D2** ([#1742](https://github.com/objectstack-ai/objectui/pull/1742)) added \"reconcile a stream-transport failure instead of blindly retrying\" to **AiChatPage only**. The console **floating chatbot** still showed a scary \"Response failed / Retry\" even when the turn had actually completed server-side (the runtime persists the final reply *before* streaming). This unifies the behaviour so both surfaces reconcile.\n\n## Change\nExtract the D2 wiring into a shared hook **`useReconcileOnError`** (GET conversation → `isReconcilableCompletedTurn` → re-hydrate via `setMessages` + suppress the banner), used by both surfaces:\n- **AiChatPage**: refactored onto the hook (behaviour unchanged, −26 lines of inline code).\n- **ConsoleFloatingChatbot**: now reconciles too — wires `onError` + `setMessages`, gates the error banner behind suppression, resets suppression on a fresh send.\n\n## D1 + D2 end-to-end\nRetry on a genuinely-incomplete turn re-sends with the **same `turnId`** (the banner's Retry → `reload`/regenerate), so it's idempotent under D1 (no duplicate user row, no tool re-run). Completed-but-stream-dropped turn → reconciled to a non-event.\n\n## Tests\n- 4 new `renderHook` cases for `useReconcileOnError` (completed → re-hydrate+suppress; incomplete → surface; no conversationId → no-op; resetSuppression).\n- Existing `reconcileTurn` (6) intact; `pnpm --filter \"@object-ui/app-shell...\" build` clean.\n\nRefs #334.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

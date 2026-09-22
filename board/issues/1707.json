@@ -1,0 +1,32 @@
+{
+  "number": 1707,
+  "kind": "pull_request",
+  "title": "feat(console/ai): keyboard shortcuts — ⌘⇧O new chat, ⌘⇧S toggle list",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T14:42:55Z",
+  "updated_at": "2026-06-13T14:46:45Z",
+  "closed_at": "2026-06-13T14:43:06Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T14:43:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1707",
+  "body": "## Why\n\nPower-user parity with ChatGPT / Claude — drive the AI chat from the keyboard.\n\n## What\n\n- **⌘/Ctrl+Shift+O** → new conversation\n- **⌘/Ctrl+Shift+S** → toggle the conversations list (drives the same persisted collapse from #1703)\n\nBoth use the ⌘/Ctrl+Shift modifier, so they're safe to fire even while the composer is focused (ordinary typing can't produce them). Surfaced in the keyboard-shortcuts cheatsheet (the `?` dialog) under a new **\"AI assistant\"** group, so they're discoverable.\n\nMatch logic is a pure exported `matchAiChatShortcut`.\n\n## Verification\n\n- **487/487** tests (5 new on the matcher: ⌘ and Ctrl variants → new-chat / toggle-list, requires Shift, rejects Alt and a missing ⌘/Ctrl, ignores unrelated keys).\n- `tsc` clean; no new lint errors.\n\nThird of the chat-UX pass (after collapsible list #1703 and resizable split #1705).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

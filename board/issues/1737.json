@@ -1,0 +1,30 @@
+{
+  "number": 1737,
+  "kind": "pull_request",
+  "title": "fix(studio): readable dashboard KPI titles + package-scoped metadata list",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T23:30:30Z",
+  "updated_at": "2026-06-15T02:23:27Z",
+  "closed_at": "2026-06-15T02:23:25Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T02:23:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1737",
+  "body": "Two Studio metadata-admin designer UX fixes, both found during a browser sweep of the designers against the HotCRM showcase package and verified live (vite dev → showcase backend).\n\n## 1. Dashboard KPI titles unreadable in the design canvas\nThe runtime dashboard grid is 12 columns wide. Inside the Studio canvas with the inspector open, the available width collapses to ~500px, squeezing metric cards to ~120px so their titles truncate to a couple of characters (\"管道…\"). `DashboardPreview` now pins a desktop-like minimum width so the grid lays out as end users see it; the parent's `overflow-auto` adds a horizontal scrollbar when the canvas is narrower.\n\n**Verified:** all four KPI titles on `sales_dashboard` (\"管道总额 / 本季度已成交 / 进行中商机 / 平均订单金额\") render in full (measured 0 truncation vs. the previous 42px clamp).\n\n## 2. Metadata list counts & empty-state ignored the active package\nThe list header counts (条目 / 全部来源 N), source filter, diagnostics badges, and empty-state copy all keyed off the unscoped `items` array, which holds rows from every package (server `list()` is not package-scoped — the page scopes client-side). For a type the package owns none of but others do (dataset: HotCRM has 0, 7 exist elsewhere), the list showed a contradictory **条目 7 / 已筛选 0** and the wrong empty message *没有匹配 \"\" 的结果* (emptyQuery with a blank query) instead of *暂无 … 条目*.\n\nIntroduced a memoized `scopedItems` (project-package + per-type `listFilter` scope) and keyed every count, the source dropdown, and the empty-state discriminator off it. The table still renders the query/source-filtered subset.\n\n**Verified:** dataset → `0 / 0 / 全部来源 (0)` + *暂无 Dataset 条目* + 新建 CTA; view → `80 / 80 / 全部来源 (80)` (was 134/80) with all rows intact; read-only empty type (email_template) → clean *暂无 邮件模板 条目* + read-only hint.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1917,
+  "kind": "pull_request",
+  "title": "fix(chatbot): Built-badge for built plans + visible liveness timer & offline state",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-23T03:27:30Z",
+  "updated_at": "2026-06-23T03:31:14Z",
+  "closed_at": "2026-06-23T03:28:39Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-23T03:28:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1917",
+  "body": "AI build chat-UX fixes from founder dogfood (objectstack-ai/cloud#441 companion).\n\n## Changes\n- **#3 \"Build it\" re-click** — after a build completed, the earlier \"Proposed plan\" card kept its active \"Build it\" button; clicking it re-sent the approval and rebuilt the whole app. A plan is now \"built\" once an `apply_blueprint` invocation appears after it (keyed on `toolName`, so it survives a reload that strips the rich `draftReview`). When built, the actions collapse to an inert \"Built\" badge; a later, not-yet-built plan keeps its live button. Adds `planBuiltLabel` (localized zh \"已搭建\").\n- **#2 Visible liveness** — the loading indicator was too faint, showed no countdown before the first server byte, and never surfaced a network drop. Now: `LivenessIndicator` shows the live `m:ss` timer in EVERY tier (not only `receiving`); a new `offline` tier driven by `navigator.onLine` + online/offline events shows a red WifiOff \"Connection lost — reconnecting…\" instantly; a `ToolRunningTimer` puts the same timer + offline cue on running tool chips (\"Propose blueprint · Running\") and the build progress panel. Adds `connectionStalledLabel`/`connectionOfflineLabel`.\n\n## Verification\n- 47 ChatbotEnhanced tests pass (new: always-on timer, offline tier, running-tool timer; updated stall format).\n- Live (console dev proxied to the EE rig): \"Built\" badge on a built plan vs active \"Build it\" on an un-built one in the same conversation; `🕐 m:ss` timer in the build panel; browser \"Offline\" + \"Response failed · Retry\" on a dropped turn.\n\nNote: reaches production via the objectui → framework `.objectui-sha` pin → cloud bump flow.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

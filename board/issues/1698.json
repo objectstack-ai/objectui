@@ -1,0 +1,30 @@
+{
+  "number": 1698,
+  "kind": "pull_request",
+  "title": "fix(app-shell): send current-page object to the AI assistant context",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T13:24:14Z",
+  "updated_at": "2026-06-13T13:30:07Z",
+  "closed_at": "2026-06-13T13:30:05Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T13:30:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1698",
+  "body": "## Problem\n\nThe floating console assistant forwarded `appName` + the full `objects` list but **never the object the user is actually viewing**. So asking it to *analyse this object* (especially in a non-English prompt) gave the agent nothing to anchor on, and it replied that it couldn't find the object.\n\n## Change\n\n`ConsoleFloatingChatbot` now derives the current object/record from the route — mirroring `useTrackRouteAsRecent`'s URL layout (`/apps/:appName/:objectName[/:recordId]`), tolerant of a `_console` shell prefix and validated against the app's object list — and passes them as `context.objectName` / `context.recordId`.\n\nThe backend (framework PR [#1815](https://github.com/objectstack-ai/framework/pull/1815)) uses these to inject the object's schema into the system prompt and scope data queries to it, so \"analyse this object\" works without the user naming it.\n\nObject routes only — dashboard/page/report/metadata segments and the `new` record route are excluded, so the designer `editing` context is unaffected.\n\n## Notes\n\nPer-request `body` is rebuilt each render (it's in the transport `useMemo` deps), so navigating between objects updates `objectName` on the next message.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

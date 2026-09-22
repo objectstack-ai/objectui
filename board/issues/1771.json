@@ -1,0 +1,30 @@
+{
+  "number": 1771,
+  "kind": "pull_request",
+  "title": "feat(marketplace): \"update available\" badge + Update CTA on package detail",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T03:15:42Z",
+  "updated_at": "2026-06-16T03:22:30Z",
+  "closed_at": "2026-06-16T03:22:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T03:22:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1771",
+  "body": "Pairs with cloud #364 (version-targeted install + `check_app_updates`). When the current env has an **older** version of a package installed than the latest published, the marketplace package-detail header now shows an amber **\"Update available → vX\"** badge and the primary CTA becomes **\"Update to vX\"** (enabled).\n\nPure UI — uses data already on the page (`cloudInstalledVersion` vs `latestVersion`); no new endpoints.\n\n## Surface note\nInstalled-version detection uses `getRuntimeConfig().defaultEnvironmentId`, which is set in a **tenant-env console** (where the badge fires) but empty in the cloud-control console (no single current env) — same existing limitation as the \"Installed vX\" badge right next to it. Code compiles, app-shell tsc passes, console builds (chunk emitted).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

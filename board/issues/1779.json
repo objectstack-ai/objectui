@@ -1,0 +1,34 @@
+{
+  "number": 1779,
+  "kind": "pull_request",
+  "title": "feat(detail): timeline drill-to-source link (ADR-0052 ActivityPointer)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T09:37:54Z",
+  "updated_at": "2026-06-16T09:41:24Z",
+  "closed_at": "2026-06-16T09:38:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T09:38:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1779",
+  "body": "## What\n\nPairs with framework's `sys_activity.source_object/source_id` (ADR-0052 §5, ActivityPointer model). When an activity row carries a **source pointer** — an email derived from a `sys_email` row, a call/meeting task — the record timeline now renders a **\"View source →\"** link so the user drills from the one-line summary to the full record. Reuses the URL pattern `InboxPopover` already uses for notification source pointers.\n\n- `@object-ui/types`: `FeedItem` gains `sourceObject`/`sourceId` (distinct from `source` = origin channel).\n- `app-shell` `RecordDetailView`: map `sys_activity.source_object/source_id` → `FeedItem` in the existing sys_activity→feed mapper.\n- `plugin-detail` `RecordActivityTimeline`: render the drill link when present.\n- i18n `detail.viewSource`; unit test (2/2): link renders with the right href when source present, absent otherwise.\n\n**Reactions + threading were already wired** (`sys_comment.reactions`/`parent_id` parsed in `RecordDetailView`) — this PR adds the missing ActivityPointer drill-through, the genuinely-new piece.\n\n## Verification\n\n`pnpm --filter @object-ui/plugin-detail exec vitest run … RecordActivityTimeline.source.test.tsx` → **2/2 pass**. `@object-ui/types` + `plugin-detail` typecheck clean.\n\n> Note: `app-shell` has a **pre-existing** typecheck error on `actionDescription` (`RecordDetailView:122`, `useConsoleActionRuntime:90`) on `main`, unrelated to this change (my edit is the source pointer in the sys_activity mapper).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

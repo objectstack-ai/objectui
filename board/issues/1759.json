@@ -1,0 +1,30 @@
+{
+  "number": 1759,
+  "kind": "issue",
+  "title": "Dataset chart: visualise the second dimension as grouped series (multi-dim charts)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T12:53:36Z",
+  "updated_at": "2026-06-15T13:18:19Z",
+  "closed_at": "2026-06-15T13:18:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1759",
+  "body": "## Problem\n\nDataset-bound chart rendering (introduced in #1757 / objectstack-ai/framework#1890) only honours the **first** dimension. When a chart's dataset selects two dimensions (e.g. `dimensions: ['status', 'priority']`), `queryDataset` correctly returns the full `status × priority` grouping, but the renderer maps `xAxisKey = dimensions[0]` and `series = values`, so:\n\n- the X axis repeats the first-dimension label once per second-dimension bucket (e.g. `Backlog`, `Backlog`, `Done`, `Done`, …), and\n- the **second dimension is not visualised at all** — no per-`priority` colour/group/legend.\n\nThe data is all there; the second dimension is just invisible. This is a pre-existing limitation of the dashboard `DatasetWidget` that the chart-view renderer (`ObjectChart`) inherited.\n\n## Proposed fix\n\nWhen `dimensions.length >= 2` (and a single measure), pivot the long-format result into wide-format and derive one **series per second-dimension value**:\n\n- `xAxisKey = dimensions[0]`\n- `series = distinct values of dimensions[1]` (one coloured/grouped bar series each)\n- cell value = `values[0]`\n\nApply consistently in **both** `ObjectChart` (`plugin-charts`) and `DatasetWidget` (`plugin-dashboard`) — ideally via a shared `buildChartSeries(rows, dimensions, values, fields)` helper so numbers/labels stay identical across surfaces.\n\nEdge cases to define: 2 dims + N measures (ambiguous — fall back to measures-as-series on dim0), >2 dims (use first two), missing second-dim buckets (zero-fill).\n\n## Verification\n\nshowcase Task → \"Hours by Status (Chart)\" (`dimensions: ['status','priority']`) should render grouped/coloured bars by priority with a priority legend.\n\nRefs objectstack-ai/framework#1890, #1757\n"
+}

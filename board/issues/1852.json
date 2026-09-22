@@ -1,0 +1,30 @@
+{
+  "number": 1852,
+  "kind": "pull_request",
+  "title": "perf(studio): lazy-mount live block previews in the page designer canvas",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T06:51:44Z",
+  "updated_at": "2026-06-21T06:59:30Z",
+  "closed_at": "2026-06-21T06:59:28Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T06:59:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1852",
+  "body": "The page-designer canvas renders each block with the real runtime renderer. Data-bound blocks (object-grid, record:related_list, object-kanban, repeater) each fetch on mount, so a tall page fired every query at once and the canvas got sluggish as block count grew (surfaced during the designer option-sweep QA at ~30+ blocks).\n\n**Change:** gate each `BlockLivePreview` behind an `IntersectionObserver`. Off-screen blocks render a lightweight placeholder and mount the real component (and fire their query) only once they scroll within ~300px of the viewport. Once mounted they stay mounted, so re-scrolling never re-fetches.\n\nRenders immediately when there is no real `IntersectionObserver` or under vitest (`import.meta.env.MODE === \\\"test\\\"`), so SSR and the existing canvas tests are unaffected.\n\n**Verified in-browser** on a tall page: fresh load mounts only the in-viewport blocks (4/7 deferred as placeholders, 3 mounted at a 577px viewport); scrolling a placeholder into view mounts it. No freeze regression (body pointer-events stays auto, 0 dialogs).\n\napp-shell/previews suite green (121 tests).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

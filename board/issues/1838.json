@@ -1,0 +1,32 @@
+{
+  "number": 1838,
+  "kind": "pull_request",
+  "title": "feat(studio): input + result dialogs for metadata-type actions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T02:33:06Z",
+  "updated_at": "2026-06-21T02:40:14Z",
+  "closed_at": "2026-06-21T02:40:12Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T02:40:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1838",
+  "body": "## Summary\n\nMetadata **type-level** actions (`MetadataTypeActions`, e.g. datasource \"Test connection\") previously only fired an `api` fetch + toast — no input dialog, unlike business-object actions. This adds dialog support by **reusing the shared runtime dialog components**:\n\n- `params` declared as an **array of ActionParam descriptors** are now collected from the user via `ActionParamDialog` before the request (collected values become the request body + `${param.X}` token source). A static `params` object still forwards as-is — backward compatible.\n- Actions declaring `resultDialog` render the API response in `ActionResultDialog`; otherwise a success toast (now honoring `successMessage`/`errorMessage`).\n- `confirmText` + auth-aware fetch + `refreshAfter` unchanged.\n\nThis lets type-level actions (e.g. a future datasource **\"sync objects\"** action) collect inputs and show rich results, matching business-object action UX — the prerequisite we identified for wiring datasource sync into Studio.\n\n## Verification\n3 new unit tests (no-params direct run, array-params → dialog → body, resultDialog reveal); full metadata-admin suite (277) passes; type-checks. The existing no-params `test_connection` path is unchanged. (Live `datasource` has no runtime records in the showcase — read-only/code-defined — so the button isn't browser-reachable there; the new branches are covered by the unit tests.)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

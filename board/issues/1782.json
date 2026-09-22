@@ -1,0 +1,33 @@
+{
+  "number": 1782,
+  "kind": "pull_request",
+  "title": "feat(i18n): translate sort/filter builders and view menus",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T12:29:34Z",
+  "updated_at": "2026-06-16T15:17:12Z",
+  "closed_at": "2026-06-16T15:17:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T15:17:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1782",
+  "body": "## What\n\nCloses the remaining hardcoded-English gaps in the **sort panel**, **filter panel**, the **view tab menus**, and the **Manage Views dialog** (reported with screenshots showing English in an otherwise-localized console).\n\n### Before → after (now driven by i18n with English fallback)\n- **Sort builder**: `Sort by` / `Then by` / `Select field` / `A → Z` / `Z → A` / `Add sort`\n- **Filter builder**: `Where` / `AND`·`OR` / `Clear all` / `Select field` / operator picker (all 15 operators) / `Select value` / `Add filter` / lookup picker search & empty states\n- **View tab bar** (chevron dropdown + right-click context menu + overflow): `Edit view config` / `Rename` / `Duplicate` / `Set as default` / `Pin·Unpin view` / `Change view type` / `Delete view` / `Manage all views…` / `N more`\n- **Manage Views dialog**: title/description, search placeholder, empty state, row menus, pin/default/drag aria labels, footer buttons\n\n## How\n- New top-level namespaces **`filterBuilder`** and **`sortBuilder`** (incl. `operators.*`), plus **`view.editViewConfig`**, **`view.manageViewsDescription`**, **`view.defaultBadge`**, added to **all 10 built-in locales** (en, zh, ja, ko, de, fr, es, pt, ru, ar). Top-level + `common` key parity preserved.\n- `sort-builder.tsx` / `filter-builder.tsx` use `createSafeTranslation` (resilient outside an `I18nProvider`). Operator text renders from `filterBuilder.operators.<value>`; the English `label` in `defaultOperators` stays as the fallback.\n- `ViewTabBar.tsx` and `ManageViewsDialog.tsx` use the `useObjectTranslation` fallback helper (key missing / no provider → English).\n\n## Test\n- `@object-ui/i18n` suite green (40/40, incl. locale top-level + `common` parity).\n- `@object-ui/i18n` type-check, `@object-ui/components` build, `@object-ui/plugin-view` build all pass.\n- No test asserted on the changed literal strings."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1864,
+  "kind": "pull_request",
+  "title": "feat(types): formalize $searchFields in QueryParams (ADR-0061 P3)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: types"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T15:04:32Z",
+  "updated_at": "2026-06-21T15:13:35Z",
+  "closed_at": "2026-06-21T15:13:33Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T15:13:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1864",
+  "body": "Closes the client↔server drift flagged in the record-search liveness audit: `ListView` already sends `$searchFields` (derived from a view's `searchableFields`), but it was an **undocumented extension** missing from the `QueryParams` contract.\n\nAdds `$searchFields?: string[]` to `QueryParams` as a documented, optional **override**: per ADR-0061, the server intersects it with the object's allowed searchable set and it can only *narrow*, never widen, the metadata-resolved default (`object.searchableFields`). Omit it to let the server resolve fields from metadata (the normal case).\n\nPairs with framework **#2134** (the server-side `$search` executor). Type-only change."
+}

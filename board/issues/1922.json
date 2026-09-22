@@ -1,0 +1,34 @@
+{
+  "number": 1922,
+  "kind": "pull_request",
+  "title": "feat(charts,layout): full-bleed pages, container-scaled donuts, gradient fills (大屏)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "plugin: charts"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-23T12:46:41Z",
+  "updated_at": "2026-06-23T12:54:01Z",
+  "closed_at": "2026-06-23T12:53:59Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-23T12:53:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1922",
+  "body": "Three **additive** renderer capabilities that let metadata-authored SDUI pages reach \"data-screen / 大屏\" quality. Motivated by building a Command Center big-screen in the framework showcase, where the frame was fully styleable (ADR-0065) but the data widgets were not.\n\n## Commits\n1. **full-bleed page when main region `width:'full'`** — the page main area spans the full content width instead of being capped, so a `width:'full'` region truly fills a wide screen. Opt-in / backward compatible (only affects `width:'full'` regions). — `packages/components/src/renderers/layout/page.tsx`\n2. **pie/donut scale to container** — donut/pie radius scales to the chart container instead of a fixed 80px, so rings fill their panel (no more tiny ring in empty space). Responsive; affects all pie/donut charts. — `packages/plugin-charts/src/AdvancedChartImpl.tsx`\n3. **gradient fills for bar & area** — series render with a subtle vertical gradient from the series colour. Pure visual polish. — `packages/plugin-charts/src/AdvancedChartImpl.tsx`\n\n## Why\nCharts/metrics rendered at \"admin-dashboard\" quality regardless of frame styling. These close the biggest gaps for big-screen / dashboard pages and are reusable by any page or dashboard.\n\n## Risk\nLow. (1) is opt-in (`width:'full'` only); (2)/(3) are visual with no API changes.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

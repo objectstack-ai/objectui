@@ -1,0 +1,33 @@
+{
+  "number": 1882,
+  "kind": "pull_request",
+  "title": "feat(app-shell): useUrlOverlay primitive + URL-addressable shortcuts dialog (ADR-0054 Phase 2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T05:25:17Z",
+  "updated_at": "2026-06-22T05:33:14Z",
+  "closed_at": "2026-06-22T05:33:12Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T05:33:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1882",
+  "body": "## What & why\n\n**ADR-0054 \"UI testability contract\" — Phase 2 (overlay primitives).** Generalizes the Phase 1 command-palette reference fix into a reusable primitive, and brings a second navigable overlay (the keyboard-shortcuts dialog) to the contract.\n\n## Changes\n\n- **`useUrlOverlay(key, { alias?, value?, replace? })`** — a router-aware hook that stores a navigable overlay's open state in a `?<key>=1` URL search param. Idempotent open (C1: `openOverlay()`/`setOpen(true)` are no-ops when already open, never toggle), deep-linkable / restore-on-reload / back-forward aware (C3). Exported from `@object-ui/app-shell`. 8 unit tests (MemoryRouter).\n- **`CommandPaletteProvider`** refactored onto `useUrlOverlay('palette', { alias: 'cmdk' })` — behavior unchanged; ~50 lines of bespoke URL logic removed.\n- **`KeyboardShortcutsDialog`** — was reachable **only** via the `?` key (sole keyboard trigger) with toggle-as-open `useState`. Now:\n  - URL-addressable via `?shortcuts=1` (C3),\n  - **click-reachable** via a new \"Keyboard shortcuts\" item in the header Help menu (C2),\n  - `?` remains an accelerator,\n  - carries `data-testid=\"overlay:keyboard-shortcuts\"` (C4).\n- The shared overlay primitives (`Dialog`/`Sheet`/`Drawer`/`Popover`/`DropdownMenu`/`AlertDialog`) already forward `data-testid` onto their content and emit Radix `data-state=\"open|closed\"` — verified and documented in the README; no code change needed.\n\n## Verification (browser, agent-browser / CDP-real keystrokes)\n\nWorktree console (`:5182`, my `packages/*/src` via HMR) → `app-showcase` backend (`:3000`):\n\n- **Palette regression (refactor):** clicking the top-bar trigger still opens it (`?palette=1`); Escape closes + clears the param. ✅\n- **Shortcuts via Help-menu click (new C2 entry):** opens `overlay:keyboard-shortcuts`, URL gains `?shortcuts=1`, `role=\"dialog\"`. ✅\n- **Shortcuts deep-link:** `?shortcuts=1` opens it on fresh page load. ✅\n- **`?` accelerator:** still toggles the dialog. ✅\n- No Radix/a11y console errors.\n\nUnit/type: `useUrlOverlay` (8) + app-shell suite (650) + i18n (156) green; `tsc` build green.\n\n## ADR rollout\nPhase 1 (#1879) merged. This is Phase 2. Next: Phase 3 (settle signal), Phase 4 (locator coverage), Phase 5 (ratchet).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

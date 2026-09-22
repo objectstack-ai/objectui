@@ -1,0 +1,32 @@
+{
+  "number": 1833,
+  "kind": "pull_request",
+  "title": "feat(studio): color-variant swatch picker for color fields",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T18:12:48Z",
+  "updated_at": "2026-06-20T18:28:05Z",
+  "closed_at": "2026-06-20T18:28:03Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T18:28:03Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1833",
+  "body": "## Summary\n\nColor fields (`colorVariant` on metrics / dashboard widgets, badge tones, …) are a fixed semantic palette, but were edited as text dropdowns — the admin couldn't see the actual color. This adds one shared swatch picker (colored circles, selected ring) used across the generic form and the curated inspectors.\n\n- **color-variant-field** (new): shared `COLOR_VARIANTS` palette + `ColorVariantPicker`.\n- **widgets**: `color-picker` widget (enum → swatch row; free string → native hex input) + registry entry.\n- **SchemaForm**: auto-detect color fields by name convention (`color` / `colorVariant` / `*Color`) so generic forms get the picker without per-form wiring.\n- **DashboardWidgetInspector**: Color Variant is now a swatch row.\n- **block-config + PageBlockInspector**: new `color` field kind; object-metric Color renders as swatches.\n\n## Verification\nVerified live: the page **object-metric Color** and the **dashboard widget Color Variant** both render the swatch row with the correct color pre-selected (blue).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

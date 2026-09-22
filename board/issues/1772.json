@@ -1,0 +1,34 @@
+{
+  "number": 1772,
+  "kind": "pull_request",
+  "title": "feat(console): dynamic action result toast + list error state + per-version release notes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T05:30:00Z",
+  "updated_at": "2026-06-16T06:02:21Z",
+  "closed_at": "2026-06-16T06:02:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T06:02:18Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1772",
+  "body": "Three console UX improvements **surfaced and browser-verified** while testing the ADR-0010 version lifecycle. All framework-level and independent. Pairs with objectstack-ai/cloud#368 (backend).\n\n## 1. Dynamic action result toast (keystone)\n`ActionRunner` now prefers a **dynamic** server message (`result.data.message`) over the static `action.successMessage`. Server-driven actions compute a real outcome the static label can't express. Verified live:\n- `check_app_updates` → \"No apps installed.\" / \"All installed apps are up to date.\"\n- install → \"Installed Local Sample App v1.0.0.\" / \"Reinstalled …\" / \"Updated … v1.0.0 → v1.0.1.\"\n\nFalls back to the static label, then a default. **+2 regression tests.**\n\n## 2. List error state (≠ empty) — verified\n`ListView` previously logged fetch failures then rendered \"Create your first record\" — telling a user to create data when the load actually *failed*. A failed fetch now renders a dedicated **error panel with Retry**. loading / error / first-run / filtered-empty are four distinct states. New i18n keys added to the central **en/zh** locales (the console uses central i18n, not the plugin-local fallback). Verified live: injected a fetch failure → error panel rendered → Retry recovered the list.\n\n## 3. Per-version release notes — verified\nPackage detail version history shows per-version `release_notes` (distinct from the package-level description). Backed by cloud#368 exposing the field. Verified live: a version's release note rendered under v1.0.0.\n\n## Dropped from scope\nAn env-install-context annotation for the cloud-control install picker was prototyped and **dropped**: the multi-env picker only renders in cloud-control, where `sys_package_installation` is not currently readable via `/api/v1/data` (returns 200 + 0 rows despite the row existing). Tracked separately.\n\n## Test\n- `core` + `plugin-list` + `app-shell` + `i18n` build clean (tsc); i18n locale-parity tests green.\n- Core suite: **3906 passed** (incl. 2 new ActionRunner cases). i18n: 120 passed.\n- Browser E2E on the full local stack (cloud control plane + console overlay).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

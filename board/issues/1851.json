@@ -1,0 +1,30 @@
+{
+  "number": 1851,
+  "kind": "pull_request",
+  "title": "fix(i18n): add missing console login keys (signingIn, ssoHandoff)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T06:41:23Z",
+  "updated_at": "2026-06-21T06:52:50Z",
+  "closed_at": "2026-06-21T06:52:48Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T06:52:48Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1851",
+  "body": "The console LoginPage references `auth.login.signingIn` and `auth.login.ssoHandoff`, but the i18n bundles only carried `defaultValue` fallbacks — so each render logged a `[object-ui i18n] Missing translation` dev warning (surfaced during the designer option-sweep QA).\n\nAdds both keys to `en` and `zh`, matching the in-code defaults. `ssoHandoff` keeps the `{{target}}` interpolation.\n\ni18n suite green (150 tests, incl. key parity).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1799,
+  "kind": "pull_request",
+  "title": "docs(adr): ADR-0053 list-view navigation — two mutually-exclusive modes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-18T23:01:33Z",
+  "updated_at": "2026-06-18T23:02:41Z",
+  "closed_at": "2026-06-18T23:02:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-18T23:02:39Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1799",
+  "body": "Codifies the long-standing list-view confusion and the agreed fix.\n\n## Decision\nA list renders **exactly one** navigation mode, chosen by **context**:\n- **Object default list (`ObjectView`) → `views`** (Salesforce): named-list-view switcher only. **Per-user** owned (author-seeded defaults + each user's own views).\n- **List in a page (`InterfaceListPage`) → `filters`** (Airtable): `userFilters` (`dropdown` | `tabs`) only. **Page-author** fixed.\n\nThe two never coexist. `quickFilters` is **deprecated** (it only duplicates `userFilters` `tabs`); `userFilters.element` canonical = `dropdown | tabs` (`toggle` deprecated).\n\n## Key points\n- **Discriminated union `ListNav`** → \"both modes\" is unrepresentable; metadata is correct-by-construction (important since apps are AI-authored).\n- **AI-authoring safety** in 5 layers: schema (union) → context default → Zod/`check` validation (AI self-corrects) → field descriptions → runtime determinism.\n- **Views vs page-tabs are NOT merged** — they differ on *ownership* (user-configurable vs author-fixed); concepts stay separate, **presentation is shared** via one `ListNavBar`.\n- **Phasing**: (1) runtime `navMode` mutual-exclusion + `quickFilters`→named-views adapter; (2) discriminated union + validation + shared component; (3) migration + removal.\n\nDoc only. Implementation follows in subsequent PRs.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

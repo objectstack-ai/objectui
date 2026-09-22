@@ -1,0 +1,30 @@
+{
+  "number": 1811,
+  "kind": "pull_request",
+  "title": "feat(app-shell): auto-derive gantt + map bindings for interface pages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T00:58:01Z",
+  "updated_at": "2026-06-20T01:01:38Z",
+  "closed_at": "2026-06-20T00:58:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T00:58:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1811",
+  "body": "## Summary\nInterface pages already auto-derive **kanban / calendar / gallery / timeline** field bindings from the object when whitelisted. This extends the same to the last two record visualizations, so a list/interface page can offer **any** visualization by whitelisting it alone:\n\n- `defaultGanttFromObject` — start + end date (name-disambiguated, else first two date fields) + optional progress.\n- `defaultMapFromObject` — a location/geo field → `options.map.locationField`.\n\n## Verification\nBrowser-tested in the showcase: **Team Schedule** (gantt bars), **Work Map** (10 location pins), and an **All Views** page whose switcher now offers all 7 record visualizations (Grid/Kanban/Gallery/Calendar/Timeline/Gantt/Map). `@object-ui/app-shell` tsc clean.\n\nEnables the framework showcase's per-visualization interface pages (objectstack-ai/framework).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1829,
+  "kind": "pull_request",
+  "title": "fix(forms/dashboard/related-list): four showcase-QA rendering fixes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T16:56:23Z",
+  "updated_at": "2026-06-20T17:09:07Z",
+  "closed_at": "2026-06-20T17:09:05Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T17:09:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1829",
+  "body": "Found while QA-ing a showcase project-delivery workspace end-to-end in the browser. Four independent, business-facing rendering fixes:\n\n### 1. WizardForm — multi-step create posted an empty body\nA multi-step `object-form` (`formType: 'wizard'`) submitted `{}` (or only the last step's fields), so the server rejected every required field. Two root causes:\n- The footer **Next/Create buttons bypassed the inner form** and called the wizard's own (never-populated) `formData`.\n- The create-mode **data-seeding effect re-ran on `dataSource`/`objectSchema` identity churn**, resetting `formData` to `{}` mid-wizard.\n\nFix: buttons now submit the inner form natively (`<form id>` + `type=\"submit\"`), which validates each step and collects values via `getValues()`; the create seed is made idempotent with a ref guard.\n\n### 2. DashboardRenderer — chart widgets rendered as empty cards\nCharts showed nothing (recharts logged `width(-1) height(-1)`) because the positioned grid used `auto-rows-min`, collapsing any widget with no intrinsic height. The explicit-columns grid now uses `gridAutoRows: minmax(5rem, auto)` so spanned chart rows get a real height while tables can still grow. Metric tiles are unaffected.\n\n### 3. RelatedList — auto-derived columns led with system audit fields\nFor a child object without a name/title (e.g. invoice lines), auto-derived related-list columns led with `Created At / Last Modified At`, pushing business columns (qty, price, amount) past the column cap. System audit fields are now sorted last.\n\n### 4. ObjectForm / WizardForm — no feedback on successful create\nA metadata-only page can't pass an `onSuccess` function, so a successful create/update was silent. They now show a default `toast.success('Created'/'Saved')` when no handler is provided (guarded so a `submitHandler` host like MasterDetailForm never double-toasts).\n\n## Testing\nAll four verified in the browser against the showcase workspace (wizard create now persists all fields; Delivery Operations + Chart Gallery render every chart family; invoice Related tab leads with business columns).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

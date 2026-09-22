@@ -1,0 +1,33 @@
+{
+  "number": 1843,
+  "kind": "pull_request",
+  "title": "test(forms/related-list): regression coverage for showcase-QA fixes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T05:00:13Z",
+  "updated_at": "2026-06-21T05:07:18Z",
+  "closed_at": "2026-06-21T05:07:16Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T05:07:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1843",
+  "body": "Adds regression tests for the showcase-QA fixes so they can't silently regress (one of them briefly slipped off `main` during a concurrent branch switch before being restored by #1831 — this locks it down).\n\n### Coverage\n- **WizardForm** (`WizardForm.regression.test.tsx`)\n  - A multi-step `object-form` (`formType: 'wizard'`) create submits the **merged payload from every step**, not an empty/last-only body.\n  - The footer **Next/Create buttons are wired to submit the inner step form** (`type=\"submit\"` + `form={id}`) instead of calling the wizard's stale `formData`. This is the assertion that fails if the create-bug fix regresses.\n- **RelatedList** (`RelatedList.systemcolumns.test.tsx`)\n  - Auto-derived columns **deprioritize system audit fields** (`created_at`/`updated_at`) so business columns lead for child objects without a name/title (e.g. invoice lines).\n\n### Not covered (intentional)\nThe dashboard chart-height fix isn't unit-tested: the existing `DashboardRenderer` render suite is `describe.skip`'d for a CI hang, and a CSS layout collapse (recharts `width(-1)`) isn't observable in jsdom. It's covered by the showcase smoke instead.\n\n### Testing\n`vitest run` on both files: 3 passed. Verified the button-wiring assertion fails against the pre-fix WizardForm (valid guard).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

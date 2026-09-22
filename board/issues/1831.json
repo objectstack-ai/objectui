@@ -1,0 +1,32 @@
+{
+  "number": 1831,
+  "kind": "pull_request",
+  "title": "feat(studio): page WYSIWYG canvas, nested-block config, and type-aware Action authoring",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T17:12:31Z",
+  "updated_at": "2026-06-20T17:19:14Z",
+  "closed_at": "2026-06-20T17:19:11Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T17:19:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1831",
+  "body": "## Summary\n\nImproves the Studio metadata-admin authoring experience across **Page** and **Action** types.\n\n### Page editor\n- **Editable config for nested page blocks** — `object-grid` (table), `object-form`, `object-metric`, `object-kanban`, `grid` get curated inspector fields; a generic **Advanced** editor renders every remaining property (scalars as typed inputs, objects/arrays as editable JSON) so the panel never diverges from source. `childGroups` fixed (`page:card` → `properties.children`, `grid` added, generic fallback) so nested blocks are selectable.\n- **WYSIWYG design canvas** — the Design canvas now renders each block's **real component** (same `SchemaRenderer` as Preview) behind a select/drag overlay, with a grid laying children out in its configured column count — mirroring the dashboard editor's design mode. All selection/drag/add/nested-edit ergonomics preserved.\n\n### Action editor\n- **Type-aware inspector** (`ActionDefaultInspector`) — replaces the flat SchemaForm with a progressively-disclosed, type-first editor (Basics / Behavior-by-type / Inputs / Placement / Feedback / Conditions / AI). Advanced/rare props fall through to a SchemaForm fed the live server schema with curated keys hidden.\n- **Test request runner** — for `type: api`, composes and sends a real request (with the session bearer) and renders the HTTP status + response.\n- **No-code condition builder** (`ConditionBuilder`) — `[subject][op][value]` rows over the bound object's fields + context, joined AND/OR, compiled to CEL. Stateful (in-progress rows persist); round-trip guard keeps complex hand-authored CEL in a raw textarea; empty predicate unsets the field.\n- **Placement simulation** — \"Where it appears\" mocks the button in record header / list row / toolbar / more-menu / section / command-palette per the action's `locations`.\n\n## Verification\nAll changes verified live in the browser against the showcase app (page `showcase_my_work`, dashboard/view/report/flow/object editors, and actions): type-aware branching (api → method+endpoint, script → body editor), the test runner (real `POST` → HTTP response), the condition builder (`record.status != 'done'` compiled), and placement mocks. Type-check passes for all touched files.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

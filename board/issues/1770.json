@@ -1,0 +1,33 @@
+{
+  "number": 1770,
+  "kind": "pull_request",
+  "title": "fix(markdown): docs table first column flush against border (padding)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: markdown"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T02:52:05Z",
+  "updated_at": "2026-06-16T15:15:36Z",
+  "closed_at": "2026-06-16T15:15:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T15:15:33Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1770",
+  "body": "## Problem\n\nIn rendered metadata-docs tables, the **first column** (e.g. the 对象 column) sits flush against the left border, misaligned with the other columns. Same for the last column against the right border.\n\n![first column padding issue](first column 对象 text jammed against the left cell border)\n\n## Root cause\n\n`MarkdownImpl` renders tables with bordered cells:\n\n```\n\"prose-table:border prose-th:border prose-th:bg-muted prose-td:border\"\n```\n\nBut `@tailwindcss/typography` zeroes the edge padding on table cells — `padding-inline-start: 0` on each row's **first** cell and `padding-inline-end: 0` on the **last** cell — because it assumes borderless tables where flush edges align with the surrounding text column. With cell borders added, that zeroed padding makes the first column's text touch the left border.\n\n## Fix\n\nRestore symmetric horizontal padding on the first/last cell in `markdown-theme.ts`:\n\n```css\n.os-markdown table th:first-child,\n.os-markdown table td:first-child { padding-inline-start: 0.6666667em; }\n.os-markdown table th:last-child,\n.os-markdown table td:last-child { padding-inline-end: 0.6666667em; }\n```\n\n`0.6666667em` matches prose-sm's inner-cell padding (MarkdownImpl uses `prose prose-sm`), so all columns get equal horizontal padding. The `.os-markdown` class selector outranks typography's zero-specificity `:where()` rules, so no `!important` is needed.\n\n## Test\n\n- [ ] Render a GFM table in a doc → first/last column text has the same horizontal padding as inner columns; no text flush against the border."
+}

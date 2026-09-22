@@ -1,0 +1,30 @@
+{
+  "number": 1835,
+  "kind": "pull_request",
+  "title": "feat(studio): reference pickers for Action target (flow/page/view)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T18:53:35Z",
+  "updated_at": "2026-06-20T19:00:27Z",
+  "closed_at": "2026-06-20T19:00:24Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T19:00:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1835",
+  "body": "## Summary\n\nThe Action editor's `target` was a free-text field for `flow`/`modal`/`form` types — admins had to know and type exact metadata names. It now resolves against the matching metadata type:\n\n- **useMetaOptions** (new): generic name+label loader for any metadata type (generalises `useObjectOptions`).\n- **ActionDefaultInspector**: `flow` → flow picker, `modal` → page picker, `form` → view picker; `url`/`api` stay free text. Out-of-catalog values are preserved as a \"(not found)\" option so nothing is silently dropped.\n\n## Verification\nVerified live: a `flow`-type action's **Flow name** is now a dropdown of the real flows (current target resolved to its label; opening it lists all flows). Full metadata-admin test suite (274) passes.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

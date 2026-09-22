@@ -1,0 +1,36 @@
+{
+  "number": 1912,
+  "kind": "pull_request",
+  "title": "feat(core,react): scoped style-object rendering (ADR-0065)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: components",
+    "package: core",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T14:41:03Z",
+  "updated_at": "2026-06-22T14:49:19Z",
+  "closed_at": "2026-06-22T14:49:16Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T14:49:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1912",
+  "body": "Implements the **ADR-0065** SDUI styling mechanism (objectstack-ai/framework ADR-0065): metadata-authored styling as a **scoped style-object** instead of arbitrary Tailwind classes.\n\n## What\n\n- **`@object-ui/core`** — `compileScopedStyles(selector, responsiveStyles)` / `scopeClassFor(id)` / `hasResponsiveStyles()` (`packages/core/src/styling/`). Pure `data → CSS string`, desktop-first, mirrors Builder.io's `createCssClass`/`responsiveStyles`.\n- **`SchemaRenderer`** — for any node with `responsiveStyles`, compiles id-scoped CSS, injects a `<style data-os-scope>` tag, and appends the scope class to the node (set on both the `className` prop and `schema.className` so every renderer honours it).\n- **Theme** — an SDUI design-token palette (`--space-*`, `--radius-xl`, `--shadow-*`, `--surface`, `--brand`, `--text-strong`, `--hairline`, …) added to `apps/console` + `@object-ui/components` `:root`. Color tokens alias the shadcn theme → auto light/dark.\n\n## Why it's correct\n\n- **Build-independent** — styles are data compiled at render; arbitrary values (`44px`, `#1a2b3c`) and tokens (`var(--space-6)`) pass through verbatim, no Tailwind JIT needed.\n- **Collision-free** — each node's CSS is scoped to its own class and injected **unlayered**, so it reliably beats base Tailwind utilities (which are in `@layer utilities`) without `@layer` gymnastics. No two-build cascade war.\n- **Responsive-correct** — breakpoint maps → generated `@media (max-width)`, never author-written `md:` classes.\n\n## Verification\n\n- Core unit test **6/6** (`scoped-styles.test.ts`): scoping, generated `@media`, arbitrary-value + token passthrough, sanitization.\n- **No regression**: `@object-ui/react` suite **4284 passed / 24 skipped**.\n- **End-to-end in a real `SchemaRenderer` render** (a Pricing page authored purely with `responsiveStyles` + tokens, zero class strings): **89 per-node scoped `<style>` tags** injected; the `$29` price node computes **`font-size: 40px`** — the unlayered scoped rule correctly beats the layered `text-sm`. (Screenshot in the linked thread.)\n\nConsumed by cloud (bumps `.objectui-sha`, migrates its built-in pages off raw className).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

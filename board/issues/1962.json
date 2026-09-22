@@ -1,0 +1,32 @@
+{
+  "number": 1962,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): call useRecordContext unconditionally; clear render-purity lint",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T08:24:34Z",
+  "updated_at": "2026-06-24T09:21:03Z",
+  "closed_at": "2026-06-24T09:21:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T09:21:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1962",
+  "body": "## Summary\n\nCleanup of **pre-existing** ESLint **errors** in `@object-ui/plugin-form` (not introduced by recent screen-preview work). Lint is non-blocking for merges here, so this is housekeeping — but the first one is a genuine correctness hazard.\n\nThe package now has **0 ESLint errors**. No behavior change.\n\n### 1. `LineItemsPanel.tsx` — `react-hooks/rules-of-hooks` (the real bug)\n\n`useRecordContext()` was called inside a `try/catch`, which ESLint flags as *\"React Hook is called conditionally\"*. A hook called conditionally can crash or corrupt hook state if the condition flips between renders.\n\nThe `try/catch` was dead defensive code: `useRecordContext` is just `React.useContext(RecordContext)` and **returns `null`** outside a `<RecordContextProvider>` — it never throws. So the guard is removed and the hook is now called unconditionally at the top level. The existing optional chaining (`record?.objectName`, `record?.recordId`) already handles the `null` case.\n\n```diff\n-  let record: any;\n-  try {\n-    // useRecordContext throws outside a provider in some builds; guard it.\n-    record = useRecordContext();\n-  } catch {\n-    record = undefined;\n-  }\n+  // useRecordContext returns null outside a <RecordContextProvider> … call it\n+  // unconditionally to keep hook order stable across renders.\n+  const record = useRecordContext() as any;\n```\n\n### 2. `EmbeddableForm.tsx:211` — react-compiler \"Cannot call impure function during render\"\n\n`useRef<number>(Date.now())` evaluates the impure `Date.now()` during render. The ref is seeded from `0` instead; the existing mount effect (`if (!submitted) mountedAtRef.current = Date.now()`) already overwrites it before any submit, so the anti-bot min-fill-time check is unchanged.\n\n> An earlier revision of this PR also removed a dead `e = formData;` assignment in `ObjectForm.tsx` (`no-useless-assignment`). That same fix landed independently on `main` in #1960, so it dropped out on rebase — the package is still error-free.\n\n## Verification (rebased on current `main`)\n\n- `npx eslint src/` → **0 errors** (style warnings remain, all pre-existing `no-explicit-any` etc.)\n- `npx vitest run` → **140 passed** (incl. `MasterDetailForm.test.tsx`)\n- `vite build` (the package's authoritative type-gate — plugin-form has no `type-check` script; dts generation resolves workspace deps to their built `.d.ts`) → **clean**\n\n> Note on `tsc --noEmit`: running raw `tsc` directly on the package surfaces unrelated `TS6059 rootDir` / `TS2322` noise because it resolves `@object-ui/types` to *source* rather than its built `.d.ts`. Verified those appear on a pristine tree (stash → re-run) and are not caused by this change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

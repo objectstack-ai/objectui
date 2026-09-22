@@ -1,0 +1,33 @@
+{
+  "number": 1710,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): gate speculative $select fields by the object's real schema",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T15:08:09Z",
+  "updated_at": "2026-06-13T17:19:35Z",
+  "closed_at": "2026-06-13T17:19:33Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T17:19:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1710",
+  "body": "## Problem\n\nA list view auto-includes view-binding fields in `$select` so alternate view modes (kanban groupBy, calendar/gantt/timeline dates, gallery image, timeline `status`/`priority`) render populated. These were added **unconditionally**, on the assumption — stated in a code comment — that *\"the projection ignores unknown names.\"*\n\nThat assumption is false against the cloud multi-tenant runtime: an unknown `$select` column returns an **empty result set**, so a single phantom field zeroes the whole list. An AI-built `product` view auto-requesting `status,name,due_date,image,priority,start_date,end_date` (none of which exist on `product`) then renders \"Nothing here yet\" even though the rows are in the DB.\n\nThis was diagnosed against a live env: `select=id,product_name,sku` → 6 rows, but the renderer's actual `select=...,status,name,due_date,image,priority,start_date,end_date` → 0 rows.\n\n## Fix\n\nGate the speculative additions through `addSpeculative()`, which only keeps a field that exists in `objectDef.fields` (already loaded before the data fetch). User-declared columns and expand roots are untouched — they're already known-valid.\n\n## Tests\n\n- New: a `product`-shaped object with timeline/calendar config drops the phantom `status/priority/*_date` from `$select` (fails without the fix).\n- New: a `task` object that *has* `status`/`priority` keeps them.\n- Full plugin-list suite: 125 pass.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

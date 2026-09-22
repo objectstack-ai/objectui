@@ -1,0 +1,32 @@
+{
+  "number": 1813,
+  "kind": "pull_request",
+  "title": "refactor(studio): unify tab + base filter editors on the runtime FilterBuilder",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T04:57:11Z",
+  "updated_at": "2026-06-20T05:00:35Z",
+  "closed_at": "2026-06-20T04:57:30Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T04:57:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1813",
+  "body": "## Why\n\nStudio's interface-page filter setup used two bespoke editors — a cramped per-tab rule list (field/operator/value rows + *Add rule*) and a `type:'repeater'` base `filterBy`. Neither matched the polished **FilterBuilder** that the list view's top-right toolbar already uses, and the per-tab rows were hard to use.\n\nThis unifies **both** the tab-preset filters and the page base filter onto the **same runtime FilterBuilder**, surfaced in a popover — one consistent, good filter UX everywhere.\n\n## What\n\n- New `FilterBuilderField` + `filter-builder` widget wraps `@object-ui/components`' `FilterBuilder` in a `Popover`. The trigger summarizes active conditions by field label (\"+ Add filter…\" when empty).\n- Per-tab presets (FilterModeWidget tabs editor) render `FilterBuilderField` inside `tab-N-filter`; the old `addRule`/`patchRule`/`removeRule` helpers and `TAB_OPERATORS` are removed.\n- Stored format stays spec `ViewFilterRule[]` (`{field, operator, value}`); the builder's camelCase operators are mapped at the boundary (`FB_TO_SPEC`/`SPEC_TO_FB`) so the runtime (`specOperatorToAst`) is unchanged and existing filters round-trip.\n- The base `filterBy` switches to this widget via the spec form — see companion framework PR (`page.form.ts` → `widget:'filter-builder'`).\n\n## Verification\n\nVerified in the studio (`:5181`) against `showcase_task_triage`:\n- Both the base filter and each tab open the **same** popout builder.\n- Existing conditions load correctly (`status equals in_progress`).\n- Edits apply live to the preview; clearing restores all records.\n- `tsc` clean; **274** metadata-admin tests pass (incl. updated `FilterModeWidget.test.tsx`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

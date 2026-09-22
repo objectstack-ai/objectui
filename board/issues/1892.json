@@ -1,0 +1,37 @@
+{
+  "number": 1892,
+  "kind": "pull_request",
+  "title": "feat(plugin-tree): add tree / tree-grid object view type (#1885)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "documentation",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T07:18:51Z",
+  "updated_at": "2026-06-22T07:44:11Z",
+  "closed_at": "2026-06-22T07:44:09Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T07:44:09Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1892",
+  "body": "## What\n\nAdds a **`tree` / tree-grid object view type** — renders a self-referencing object as an indented, expand/collapse tree-grid. The right view for arbitrary-depth hierarchies (business unit / org chart, category trees, BOMs, nested comments) that fixed-depth grouping can't express.\n\nCloses #1885. Pairs with framework PR (spec `tree` type + showcase example).\n\n## Changes\n\n- **`packages/plugin-tree`** (new): `ObjectTree` tree-grid renderer + `object-tree`/`tree` registration. Builds a nested forest from flat records via a single-parent pointer, auto-detects the parent field from the object's `tree`/self-reference field, depth-seeded expand/collapse, keeps orphan rows as roots. When a live object dataSource is present it fetches its own full records (the host's column-scoped data omits the parent pointer and would flatten the tree).\n- **`types`**: `ViewType` + zod enum gain `tree`; `ObjectTreeSchema` added to the ObjectQL component union (interface + zod).\n- **Dispatch**: `plugin-list/ListView` (the console path) and `plugin-view/ObjectView` both route `tree` → `object-tree`; `app-shell/ObjectView` passes the view's `tree` config through `options.tree`. Both `ViewSwitcher`s get a tree icon/label.\n- **`apps/console`**: lazy-register `object-tree`/`tree`, dep + vite alias + manualChunk.\n\n## Testing\n\n- 5 unit tests in `plugin-tree` (forest building, depth indentation, expand/collapse, `defaultExpandedDepth`, orphan handling) — all green.\n- Typecheck clean for `plugin-tree` + `types`.\n- **Browser e2e**: ran the showcase backend + this console and confirmed `showcase_business_unit` → \"Organization Chart\" renders a 3-level indented tree-grid with working expand/collapse (Acme → Product & Engineering → Platform / Frontend Guild → Design Systems; Go-To-Market → Sales → Enterprise Sales).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

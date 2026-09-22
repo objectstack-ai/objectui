@@ -1,0 +1,32 @@
+{
+  "number": 1721,
+  "kind": "pull_request",
+  "title": "feat(app-shell): view-ref widget — pick sourceView from a dropdown (ADR-0047)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T06:04:51Z",
+  "updated_at": "2026-06-14T06:12:41Z",
+  "closed_at": "2026-06-14T06:12:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T06:12:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1721",
+  "body": "Follow-up to the page-config-panel audit. The interface page's `sourceView` was a **free-text input** — an author could type a view name that doesn't exist. This adds a `view-ref` picker so they choose from the source object's real views.\n\n## What\n- **`view-ref` widget** (`widgets.tsx`) — a single-view dropdown modelled on the existing `field-ref` picker. Options come from `context.objectViews`; a value not in the catalog is still shown (stale/custom names survive); clearing to **None** omits the field, which the protocol treats as the object's default view.\n- **`WidgetContext.objectViews`** — new context slot; `ResourceEditPage` loads the source object's views (`client.list('view')` filtered by `objectName`/`object`) for the page's source (`interfaceConfig.source` / `object`), alongside the existing `objectFields` loader.\n- Registered `'view-ref'` in the `WIDGETS` map.\n\nPairs with [framework#1836](https://github.com/objectstack-ai/framework/pull/1836), which sets `widget: 'view-ref'` + `dependsOn: 'source'` on the page form's `sourceView` field. Order-independent: without the spec hint the widget is simply unused; without the widget the spec field degrades to a text input.\n\n## Verification\n- **4 unit tests** (`ViewRefWidget.test.tsx`): registry wiring, renders a combobox with views, degrades with no views, survives an out-of-catalog value. + existing widget tests green (10 total).\n- `tsc --noEmit` on `@object-ui/app-shell` → **0 errors**.\n- The widget is a structural clone of `field-ref`, which was verified live in the browser during the panel audit (renders a working object-field dropdown).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

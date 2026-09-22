@@ -1,0 +1,35 @@
+{
+  "number": 1804,
+  "kind": "pull_request",
+  "title": "refactor: remove view-level tabs; userFilters is the sole page filter (ADR-0053)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-19T10:19:37Z",
+  "updated_at": "2026-06-19T10:30:27Z",
+  "closed_at": "2026-06-19T10:30:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-19T10:30:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1804",
+  "body": "Part of **ADR-0053**. Retires mechanism #3 (the view-level `schema.tabs` / `TabBar`).\n\n## Why (validated live against Airtable)\nAirtable's Interface Designer separates **User filters** (None / Tabs / Dropdown — the end-user filter control; a tab is `{name, filter}`) from **Visualizations** (List / Timeline / Kanban — the view *form*). A tab **filters data, never switches the view form**. ObjectUI's `schema.tabs` carried a `view` switch, conflating the two → removed. `userFilters` (dropdown | tabs) is the single page-filter mechanism, matching Airtable.\n\n## Changes\n- types: drop `ListViewSchema.tabs`\n- plugin-list `ListView`: remove `activeTab` state, mount tab-filter effect, `handleTabChange`, the `TabBar`/`TabBarSelect` render row; simplify guard to `filterElements = userFilters`\n- plugin-view `ObjectView`: stop passing `tabs`\n- app-shell `ObjectView`: drop the `tabs: undefined` suppression\n- react spec-bridge: stop mapping `spec.tabs` (clean-build; a `check` rule flags it later)\n- `TabBar` kept (still used by plugin-view's view switcher)\n- tests: removed the `schema.tabs` suite; `userFilters` tabs tests untouched\n\n## Verification\ntype-check 58/58; affected tests 197 pass. Browser (showcase): one switcher row, legacy `view-tabs` row gone, 10 records load, no errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

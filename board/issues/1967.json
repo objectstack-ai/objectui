@@ -1,0 +1,32 @@
+{
+  "number": 1967,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): derive create defaults from the spec create seed (/meta/types)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T10:00:08Z",
+  "updated_at": "2026-06-24T10:03:07Z",
+  "closed_at": "2026-06-24T10:00:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T10:00:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1967",
+  "body": "## Why\n\nFinal piece of the **spec-derived create-shape contract** (framework #2270 added the seeds; #2276 exposed them on `/meta/types`). The metadata create flow hardcoded `createDefaults` per type in `anchors.ts`, which drifted from the spec's required fields with nothing tying them together — the root of the \"designer emits a minimal shape the spec rejects → create→save **422**\" family (dashboard `layout`, action `body`).\n\n## What\n\n`ResourceEditPage.doSave` now builds a new item's body from the server's authoritative **`createSeed`** (per-type on the `/meta/types` registry entry — the single source of truth in `@objectstack/spec`) instead of the local `createDefaults`:\n\n- Falls back to `createDefaults` when the server sends no seed (**older server**, or canvas-create types like `report`).\n- User draft values still win over the seed's placeholders; `createBuildBody` (dynamic identity, e.g. a view's qualified name) still takes precedence.\n- Extracted as the pure `buildCreateModeBody(config, draft, specCreateSeed)` helper.\n\nNet effect: the structural create defaults now come from the same place the spec validates against, so they **cannot diverge** going forward — the family is closed at the root, not just guarded.\n\n## Verification\n\n- `buildCreateModeBody` unit test — **5 pass** (seed preferred over createDefaults; fallback when absent; user draft wins; createBuildBody precedence; empty case).\n- Full `metadata-admin` suite — **414 pass**, no regression from the `doSave` refactor.\n\nPairs with framework #2270 / #2276.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

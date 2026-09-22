@@ -1,0 +1,32 @@
+{
+  "number": 1714,
+  "kind": "pull_request",
+  "title": "test(app-shell): page inspector hides data-view sections for list pages (ADR-0047)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T21:47:01Z",
+  "updated_at": "2026-06-13T21:50:45Z",
+  "closed_at": "2026-06-13T21:47:37Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T21:47:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1714",
+  "body": "## What\n\nAdds a regression test for the metadata-admin **page inspector** section visibility (ADR-0047): given the framework PR #1817 page-form shape, a `type: 'list'` page must hide **Data Context** + **Layout** (`visibleOn: \"data.type != 'list'\"`) and show the **Interface** section (`data.type == 'list'`); a `record` page does the inverse.\n\n`packages/app-shell/src/views/metadata-admin/SchemaForm.pageVisibility.test.tsx` — 2 cases (list page, record page).\n\n## Why\n\nADR-0047 follow-up. Investigation showed **objectui was already correct** — `SchemaForm`/`SectionedSchemaForm` honor section `visibleOn`, and the page draft carries `type`. The original \"Data Context still shows\" symptom was a **stale backend** serving the pre-#1817 form, not a renderer bug. This test pins the renderer side of the contract so a future regression is caught.\n\nRenderer-only verification — **no source change**. Complements the existing `SchemaForm.collapsible.test.tsx`.\n\n## Verification\n\n- Ran locally: `vitest run SchemaForm.pageVisibility.test.tsx SchemaForm.collapsible.test.tsx` → **5/5 pass**.\n- Browser-verified end-to-end against a backend containing framework #1817 (`showcase_task_workbench` list page hides Data Context + Layout, shows Interface; `showcase_project_detail` record page shows them).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1956,
+  "kind": "pull_request",
+  "title": "feat(studio): gate flow Screen-preview fields by visibleWhen (follow-up #1944)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T06:45:11Z",
+  "updated_at": "2026-06-24T06:48:50Z",
+  "closed_at": "2026-06-24T06:45:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T06:45:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1956",
+  "body": "Follow-up to #1944 (live preview for flow Screen nodes), implementing the `visibleWhen` field-visibility gap.\n\n## What\nScreen input fields can carry a `visibleWhen` condition (e.g. HotCRM `lead_conversion`'s `opportunityName`/`opportunityAmount` are `visibleWhen: \"{createOpportunity} == true\"`). At runtime the `screen` executor evaluates these server-side and only emits the visible fields in the `ScreenSpec`. The preview was showing **all** configured fields regardless — a fidelity gap. Now the preview gates fields the same way.\n\n## How\n- Reuses the simulator's own condition evaluator (`evalCondition` from `flow-sim-validate`) — the same one used for decision-edge routing — so the preview agrees with the simulator instead of inventing a second evaluator.\n- Real metadata mixes `{var}` and bare-var styles, so `{ident}` placeholders are normalised to bare identifiers before evaluation (`{createOpportunity} == true` → `createOpportunity == true`; `stage == \"review\"` and `discount > 0` already work).\n- **Fail-open**: a missing/unparseable condition, or one referencing a not-yet-set variable, keeps the field visible. So:\n  - **Debug simulator** (live run state) gates faithfully.\n  - **Inspector** (no run state) never hides a field on missing data; a small footnote reports how many fields are gated out.\n- No wiring changes — both homes already pass `variables` to `ScreenPreview`; it now drives `visibleWhen` too.\n\n## Verification (browser, HotCRM `lead_conversion` in the Debug simulator)\n- `createOpportunity = false` → only **Create Opportunity?** shows; `opportunityName`/`opportunityAmount` hidden, with **\"2 fields hidden by their 'visible when' conditions.\"**\n- `createOpportunity = true` → all three fields show, no note. Matches the flow's own `decision_opportunity` branch (`createOpportunity == true`).\n\n## Tests\n`ScreenPreview.test.tsx` grows to 19 cases: `isFieldVisibleWhen` (`{var}`/bare-var/fail-open), `buildScreenSpec`/`hiddenFieldCount` gating, and the component hiding a field + showing the hint vs. showing it when the condition is true. Type-check clean; lint 0 problems.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

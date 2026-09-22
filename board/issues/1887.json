@@ -1,0 +1,36 @@
+{
+  "number": 1887,
+  "kind": "pull_request",
+  "title": "feat(components): metadata-derived field locators on forms (ADR-0054 Phase 4)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T06:19:34Z",
+  "updated_at": "2026-06-22T06:27:28Z",
+  "closed_at": "2026-06-22T06:27:26Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T06:27:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1887",
+  "body": "## What & why\n\n**ADR-0054 \"UI testability contract\" — Phase 4 (locator coverage, C4).** Closes the renderer-side locator gap *at the source*: the form renderer now emits a metadata-derived `data-testid` on every field, so an automated (AI) driver can target a field by object + name instead of i18n-fragile labels or positional CSS/XPath.\n\n## Changes\n\n- **Form renderer** (`components/renderers/form/form.tsx`): each field's `FormItem` wrapper now carries `data-testid=\"field:{objectName}.{field}\"` and `data-field=\"{field}\"`, derived from the form's `objectName` + field name. Object prefix omitted (`field:{field}`) when a form has no owning object.\n- **`FormSchema`** gains an optional `objectName` (TS interface + zod).\n- **`FormItem`** now accepts `data-*` attributes.\n- **`objectName` threaded** into the form schema by every form variant — `ObjectForm` (flat + sectioned), `ModalForm`, `DrawerForm`, `SplitForm`, `WizardForm` — so all generated forms inherit testable fields with **zero per-app work**.\n- 2 new renderer unit tests (with / without `objectName`).\n- README: \"Field locators\" section.\n\n```js\n// e2e / AI driver:\nawait page.getByTestId('field:account.industry').locator('input').fill('SaaS');\n```\n\n## Verification (browser, agent-browser / CDP)\n\nWorktree console (`:5182`, my `packages/*/src` via HMR) → `app-showcase` backend (`:3010`):\n\n- The showcase **\"new task\" form** renders **17 field wrappers** with locators `field:showcase_task.title`, `.project`, `.assignee`, `.status`, `.priority`, … ✅\n- `field:showcase_task.title` has `data-field=\"title\"` and **resolves to a real `<input>`**. ✅\n\nUnit/type: form-renderer (34, incl. 2 new) + plugin-form (138) + components (4236) suites green; `tsc` build green.\n\n## ADR rollout\nPhases 1 (#1879), 2 (#1882), 3 (#1883) merged. This is Phase 4. Next: Phase 5 (ratchet — ESLint rules + conformance to lock in the gains).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

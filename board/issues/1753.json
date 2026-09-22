@@ -1,0 +1,37 @@
+{
+  "number": 1753,
+  "kind": "pull_request",
+  "title": "chore(deps): bump lucide-react from 1.17.0 to 1.18.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "plugin",
+    "plugin: charts",
+    "plugin: kanban"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T08:00:09Z",
+  "updated_at": "2026-06-15T08:22:46Z",
+  "closed_at": "2026-06-15T08:19:38Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-15T08:19:38Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1753",
+  "body": "Bumps [lucide-react](https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react) from 1.17.0 to 1.18.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/lucide-icons/lucide/releases\">lucide-react's releases</a>.</em></p>\n<blockquote>\n<h2>Version 1.18.0</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>chore(site): Remove survey from site by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4417\">lucide-icons/lucide#4417</a></li>\n<li>feat(icons): added <code>play-off</code> icon by <a href=\"https://github.com/Ahmed-Dghaies\"><code>@​Ahmed-Dghaies</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4412\">lucide-icons/lucide#4412</a></li>\n<li>fix(metadata): add missing use-cases prop on play-off.json by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4423\">lucide-icons/lucide#4423</a></li>\n<li>fix(docs): force hide #bb-banner, if html.has-bb-banner is missing by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4422\">lucide-icons/lucide#4422</a></li>\n<li>fix(docs): Remove <code>@next</code> from installation instructions for<code>@lucide/svelte</code> by <a href=\"https://github.com/alecglassford\"><code>@​alecglassford</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4432\">lucide-icons/lucide#4432</a></li>\n<li>feat(packages/angular): add support for Angular v22 and onwards by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4450\">lucide-icons/lucide#4450</a></li>\n<li>fix(ci): add check to skip release if latest tag was created today by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4085\">lucide-icons/lucide#4085</a></li>\n<li>feat(icons): added <code>webcam-off</code> icon by <a href=\"https://github.com/jordan-burnett\"><code>@​jordan-burnett</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4242\">lucide-icons/lucide#4242</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/alecglassford\"><code>@​alecglassford</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4432\">lucide-icons/lucide#4432</a></li>\n<li><a href=\"https://github.com/jordan-burnett\"><code>@​jordan-burnett</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4242\">lucide-icons/lucide#4242</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/lucide-icons/lucide/compare/1.17.0...1.18.0\">https://github.com/lucide-icons/lucide/compare/1.17.0...1.18.0</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a href=\"https://github.com/lucide-icons/lucide/commits/1.18.0/packages/lucide-react\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

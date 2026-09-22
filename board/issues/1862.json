@@ -1,0 +1,30 @@
+{
+  "number": 1862,
+  "kind": "pull_request",
+  "title": "feat(console-ai): richer, outcome-framed metadata-assistant starters",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T13:35:46Z",
+  "updated_at": "2026-06-21T13:42:50Z",
+  "closed_at": "2026-06-21T13:42:49Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T13:42:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1862",
+  "body": "## Why\n\nCompetitive review of Airtable's Omni AI builder: its empty-state offers many inspiring, **outcome-framed** idea prompts across domains. Our build-assistant empty-state had three terse starters.\n\n## Change\n\n- Reword the existing 3 metadata-assistant starters to lead with the **business outcome** (e.g. \"Build a sales CRM — customers, contacts, and a deal pipeline I can total by stage.\").\n- Add two more domains: **inventory** and **recruiting**.\n- Strings only; the `Suggestions` row already scrolls horizontally so no layout change. en bundle (`packages/i18n`) and the inline `defaultValue`s are kept in sync; `t()` accepts the two new keys (loosely typed).\n\n## Verification\n\nRan objectui's console dev server (`DEV_PROXY_TARGET=<rig>`) and confirmed the edited module is served with the new starters. (Rendering of metadata-assistant chips uses the `?agent=metadata_assistant` deep-link, which resolves on the bundled console.)\n\nPart of the post-Omni-review improvement series.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1847,
+  "kind": "pull_request",
+  "title": "test(live): showcase workspace smoke — sweep every nav surface",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T05:29:26Z",
+  "updated_at": "2026-06-21T05:37:02Z",
+  "closed_at": "2026-06-21T05:37:00Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T05:37:00Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1847",
+  "body": "Adds an automated smoke that does what I had to do by hand QA-ing the showcase: visit **every** navigation surface and assert it's healthy. It guards the *class* of bug found in that QA pass (empty charts, leaked dev placeholders, render crashes).\n\n### What it checks (per surface, all 29)\n- No uncaught page exception (blank-page / render crash).\n- No leaked `… no actions configured` dev placeholder (the quick-actions location-filter regression).\n- The surface rendered main content (not a blank shell).\n- **Dashboards**: at least one chart draws a **non-zero-size SVG** — directly guards the chart-height collapse (`auto-rows-min` → recharts `width(-1)`) that unit tests can't catch (jsdom does no layout).\n\n### Where it lives (deliberate)\nIn the **live suite** (`playwright.live.config.ts` / `e2e/live/`), which drives the real running stack — **not** the blocking `Build & E2E` gate (that serves a backend-free production bundle for blank-page smoke). So this can't flake main CI. Run it with:\n\n```\npnpm test:e2e:live e2e/live/showcase-smoke.spec.ts\n```\n\nagainst a running stack (backend on :3000 from `examples/app-showcase`, console dev on :5180). App route base overridable via `SHOWCASE_APP`.\n\n### Testing\nRan the full sweep against the live stack: **29/29 passed**. Confirmed the chart assertion fails against the pre-fix dashboard (collapsed SVG) — a valid guard.\n\n### Follow-up\nWiring this into a CI gate needs a two-server + browser harness (boot showcase backend + console frontend in CI); tracked separately.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

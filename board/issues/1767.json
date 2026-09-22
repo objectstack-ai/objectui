@@ -1,0 +1,30 @@
+{
+  "number": 1767,
+  "kind": "pull_request",
+  "title": "fix(build): cache composite tsc .tsbuildinfo as a turbo output",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T16:41:31Z",
+  "updated_at": "2026-06-15T16:48:14Z",
+  "closed_at": "2026-06-15T16:48:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T16:48:12Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1767",
+  "body": "## Problem\n\nFollow-up to #1760 / #1766. Composite-`tsc` packages (`composite: true` — e.g. `packages/app-shell`, `react`, `core`, `types`, `tenant`, `mobile`) write incremental build state to `<package>/tsconfig.tsbuildinfo` at the **package root**. The `build` task in `turbo.json` only declared `dist/**`, `.next/**`, `build/**` as `outputs`, so the incremental build-info was:\n\n- not part of the cache hash, and\n- not cached/restored in sync with `dist/`.\n\nA turbo cache hit restored `dist/` but left whatever stale `tsconfig.tsbuildinfo` happened to be on disk; a build run against a desynced tsbuildinfo can **under-emit** (tsc believing the project is up-to-date), producing a **partial `dist/`** that turbo then caches and replays — surfacing as `TS2307: Cannot find module '@object-ui/app-shell'` in consumers. (Observed while diagnosing #1760, when manually clearing `dist/` but not the package-root tsbuildinfo.)\n\n## Fix\n\nAdd `**/*.tsbuildinfo` to the `build` task `outputs` so the incremental state is cached and restored **atomically with `dist/`**.\n\n```diff\n-      \"outputs\": [\"dist/**\", \".next/**\", \"build/**\"],\n+      \"outputs\": [\"dist/**\", \".next/**\", \"build/**\", \"**/*.tsbuildinfo\"],\n```\n\n## Scope / safety\n\n- CI fresh checkouts were already safe — `*.tsbuildinfo` is gitignored, so it's always absent on checkout → tsc always does a full emit. This change closes the **local / warm-cache** desync where a cache hit could pair a restored `dist/` with a stale tsbuildinfo.\n- Outputs-only change; it cannot break the build itself — it only adds an additional cached artifact glob.\n\n## Verification\n\nThis is a one-line `turbo.json` `outputs` addition (valid JSON, valid output glob). The authoritative check is **CI's Bundle Analysis job** (`pnpm turbo run build --filter='./packages/*'`), which runs the real `turbo run build` and must stay green. (Local turbo was unavailable in my worktree due to an unrelated install/platform-binary flake; CI is the source of truth for turbo behavior here.)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

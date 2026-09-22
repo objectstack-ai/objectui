@@ -1,0 +1,37 @@
+{
+  "number": 1897,
+  "kind": "pull_request",
+  "title": "chore(deps): bump the react group across 1 directory with 2 updates",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "examples",
+    "package: components",
+    "package: react"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T08:10:42Z",
+  "updated_at": "2026-06-22T08:20:22Z",
+  "closed_at": "2026-06-22T08:17:08Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-22T08:17:08Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1897",
+  "body": "Bumps the react group with 2 updates in the / directory: [react-router-dom](https://github.com/remix-run/react-router/tree/HEAD/packages/react-router-dom) and [react-hook-form](https://github.com/react-hook-form/react-hook-form).\n\nUpdates `react-router-dom` from 7.17.0 to 7.18.0\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/remix-run/react-router/blob/react-router-dom@7.18.0/packages/react-router-dom/CHANGELOG.md\">react-router-dom's changelog</a>.</em></p>\n<blockquote>\n<h2>v7.18.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies:\n<ul>\n<li><a href=\"https://github.com/remix-run/react-router/releases/tag/react-router@7.18.0\"><code>react-router@7.18.0</code></a></li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/remix-run/react-router/commit/6fb1e79f8304eddd8b78759edea83cb32389ebf5\"><code>6fb1e79</code></a> Release v7.18.0 (<a href=\"https://github.com/remix-run/react-router/tree/HEAD/packages/react-router-dom/issues/15187\">#15187</a>)</li>\n<li>See full diff in <a href=\"https://github.com/remix-run/react-router/commits/react-router-dom@7.18.0/packages/react-router-dom\">compare view</a></li>\n</ul>\n</details>\n<br />\n\nUpdates `react-hook-form` from 7.79.0 to 7.80.0\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/react-hook-form/react-hook-form/releases\">react-hook-form's releases</a>.</em></p>\n<blockquote>\n<h2>Version 7.80.0</h2>\n<p>🧄 feat: disable useFieldArray fields (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13535\">#13535</a>)</p>\n<pre lang=\"tsx\"><code>const { fields } = useFieldArray({ disabled: true });\r\nfields[0].disabled; // contains disabled props\r\n</code></pre>\n<p>🛺 perf: make rhf more performant (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13524\">#13524</a>)\n🐞 fix(deepEqual): empty array and empty plain object should not be equal (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13533\">#13533</a>)</p>\n<p>thanks to <a href=\"https://github.com/JSap0914\"><code>@​JSap0914</code></a></p>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/react-hook-form/react-hook-form/blob/master/CHANGELOG.md\">react-hook-form's changelog</a>.</em></p>\n<blockquote>\n<h2>[7.80.0] - 2026-06-20</h2>\n<h3>Added</h3>\n<ul>\n<li><code>disabled</code> prop support for individual fields within <code>useFieldArray</code></li>\n</ul>\n<h3>Fixed</h3>\n<ul>\n<li><code>deepEqual</code> incorrectly treating empty array <code>[]</code> and empty plain object <code>{}</code> as equal</li>\n</ul>\n<h3>Performance</h3>\n<ul>\n<li>Improve <code>onChange</code>, <code>setValid</code>, dirty checking, <code>setValue</code>, and <code>setValues</code> performance</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/ebcf9c2fa7b747b5a3cd809ffc68011e7e80e4cd\"><code>ebcf9c2</code></a> 7.80.0</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/4755fd0a4c7731f904f5792776e7350fad82ee80\"><code>4755fd0</code></a> 🦌 upgrade dev deps (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13537\">#13537</a>)</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/3f389747d315ca71a6bea0f3bab082030f9f5002\"><code>3f38974</code></a> 🧄 feat: disable useFieldArray fields (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13535\">#13535</a>)</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/62be736f28de3ec8b0f9114961aa2c5ae412f16c\"><code>62be736</code></a> 🐞 fix(deepEqual): empty array and empty plain object should not be equal (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13\">#13</a>...</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/cee92e2b5e6049b2cfa29bdc95fb37d931e977a7\"><code>cee92e2</code></a> 🛺 perf: make rhf more performant  (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13524\">#13524</a>)</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/782313f56814a5042d5c74368357da5571d8c6c3\"><code>782313f</code></a> 🧪 tests: add tests for setValue within form.subscribe (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13531\">#13531</a>)</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/01930f01471626f33674a4d6f7c084b9cb9fa765\"><code>01930f0</code></a> 🍖 chore: bench mark on perf (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13530\">#13530</a>)</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/7bb18256a9011677022d51481a55c41eb56e0c05\"><code>7bb1825</code></a> 📖 update changelog v7.79.0</li>\n<li>See full diff in <a href=\"https://github.com/react-hook-form/react-hook-form/compare/v7.79.0...v7.80.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

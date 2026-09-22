@@ -1,0 +1,32 @@
+{
+  "number": 1784,
+  "kind": "pull_request",
+  "title": "fix(share): correct public share link URL + ShareDialog audiences",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T22:09:42Z",
+  "updated_at": "2026-06-17T05:47:09Z",
+  "closed_at": "2026-06-17T05:47:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-17T05:47:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1784",
+  "body": "Two fixes so the prebuilt share-conversation UI works against the cloud backend (framework objectstack-ai/framework#1986 + cloud per-env wiring):\n\n- **Public link URL**: `SharedRecordPage` is served under the console SPA basename (`/_console/s/:token`), but `ShareDialog` defaulted to `${origin}/s/:token` → recipient links 404'd. `AiChatPage` now passes `publicBaseUrl` derived from the injected `<base href>` (matching `App.tsx` `resolveBasename`).\n- **Audiences**: `ShareDialog` now offers only `link_only` + `signed_in` (the values that need no extra input and that `ai_conversations.publicSharing.allowedAudiences` permits), aligned to the framework `ShareLinkAudience` contract; dropped `workspace`/`email_allowlist` which the service rejects.\n\nVerified browser-E2E: dialog opens with no HTTP 404, creates a link, and the copied `/_console/s/<token>` link renders the conversation read-only with no login.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

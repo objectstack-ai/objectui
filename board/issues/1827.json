@@ -1,0 +1,34 @@
+{
+  "number": 1827,
+  "kind": "pull_request",
+  "title": "feat(dashboard): row/column/grand totals for dataset pivot cross-tab",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T16:28:41Z",
+  "updated_at": "2026-06-20T16:36:11Z",
+  "closed_at": "2026-06-20T16:36:09Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T16:36:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1827",
+  "body": "## Why\nFollowing #1825 (which turned dataset `pivot` widgets into a true cross-tab), the matrix had **no totals**. A pivot without subtotals is half a pivot.\n\n## What\nA pivot matrix now requests the marginal subtotal groupings `[rowDims, [colDim], []]` and renders:\n- a **row-totals** column (per measure),\n- a **column-totals** row (per measure),\n- the **grand total**.\n\nTotals are **server-computed** with each measure's true aggregate (ADR-0021) — no client re-aggregation, so an `avg`/`min`/`max` total is correct rather than a recombined approximation. An older server that returns no `totals` just renders the plain cross-tab (no totals UI). The \"Total\" label is i18n (`dashboard.total` → \"总计\" in zh).\n\n`data-objectstack.queryDataset` forwards the `totals` selection and passes the `totals` result through (the server already computes them — same path plugin-report's matrix uses).\n\n## Tests\n`DatasetWidget.test.tsx` (29 total): requests the right groupings for a matrix, does NOT request totals for a flat table, renders server row/column/grand totals, and degrades gracefully when totals are absent. Type-check green.\n\n## Verified live\nChart Gallery \"Tasks by Status × Priority\": headers `状态 | Low | Medium | High | Urgent | 总计`, per-row totals, a `总计` row with column totals `1·4·3·2`, grand total `10` (1+4+3+2 = 2×5 = 10).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

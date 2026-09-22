@@ -1,0 +1,32 @@
+{
+  "number": 1824,
+  "kind": "pull_request",
+  "title": "polish(nav): smooth sidebar hover/active color transitions (Linear motion)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T13:19:29Z",
+  "updated_at": "2026-06-20T13:22:56Z",
+  "closed_at": "2026-06-20T13:19:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T13:19:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1824",
+  "body": "## What\n\nThe sidebar nav buttons snapped their hover/active **background and text color** instantly, because those properties weren't in the transition list:\n\n- `SidebarMenuButton` only animated `transition-[width,height,padding]` (needed for the icon-collapse), so hover/active background changed abruptly.\n- `SidebarMenuSubButton` had **no** transition at all.\n\n## Fix\n\n- `SidebarMenuButton`: `transition-[width,height,padding]` → `transition-[width,height,padding,color,background-color]` (keeps the collapse animation, adds smooth color fade).\n- `SidebarMenuSubButton`: add `transition-colors`.\n\nNow nav hover and the active-item highlight fade in at the default **150ms** — the Linear-style motion the rest of the app already uses (table rows, metric tiles, kanban cards all `transition-colors`). This completes the motion pass.\n\n## Verification\n\n- Leaf nav button computes `transition-property: width, height, padding, color, background-color` at `0.15s` (checked via `getComputedStyle`). ✅\n- No console errors; CSS-only change, affects desktop + mobile uniformly. ✅\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

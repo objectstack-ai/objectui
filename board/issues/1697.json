@@ -1,0 +1,32 @@
+{
+  "number": 1697,
+  "kind": "pull_request",
+  "title": "feat(console): ADR-0048 — package-scoped doc route /apps/:packageId/docs/:name",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T13:21:19Z",
+  "updated_at": "2026-06-13T13:35:55Z",
+  "closed_at": "2026-06-13T13:35:53Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T13:35:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1697",
+  "body": "Completes ADR-0048 routing for docs: the doc viewer now lives under the package container, matching apps/pages/dashboards.\n\n## What\n- Mount the doc viewer at **`/apps/:packageId/docs/:name`** via the console's `extraRoutes` (DocPage renders inside the app shell). Legacy top-level `/docs/:name` kept as a fallback.\n- `DocsIndex` carries each doc's `_packageId` and links to `/apps/<packageId>/docs/<name>` (falls back to `/docs/<name>` when a doc has no package provenance).\n- `DocPage` resolution unchanged — doc names are namespace-prefixed by ADR-0046 build convention, so `getItem('doc', name)` is unambiguous.\n\n## Browser-verified (live app-showcase backend)\n- `/apps/com.example.showcase/docs/showcase_index` → renders the doc (markdown heading \"Showcase\") inside the showcase app container; no \"not found\".\n- `/docs` index → all doc links package-scoped (`/apps/com.example.showcase/docs/…`).\n- Console typecheck clean.\n\n## Follow-ups (separate)\n- **Framework**: enforce the doc-name namespace prefix at the spec layer (`doc.zod` is snake_case-only today; prefix is the load-bearing uniqueness convention).\n- Optionally have DocPage scope `getItem` by the route's package id (defense-in-depth) — needs client/REST package-param threading.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

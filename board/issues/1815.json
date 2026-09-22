@@ -1,0 +1,32 @@
+{
+  "number": 1815,
+  "kind": "pull_request",
+  "title": "fix(sdui): page:card shadowing, matrix header, image cell URLs, gantt initial scroll",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T08:57:23Z",
+  "updated_at": "2026-06-20T09:00:47Z",
+  "closed_at": "2026-06-20T08:57:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T08:57:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1815",
+  "body": "Four remaining renderer polish bugs found in the showcase QA pass. All browser-verified on `:5181`.\n\n## 1 — `page:card` rendered empty in page regions\nTitle/body missing, schema props leaked onto the DOM. Root cause: `@object-ui/layout`'s thin `PageCard` (a bare `<div {...props}>`) registered the **bare `page:card`** key **without `skipFallback`**, shadowing the record-aware `PageCardRenderer` in `@object-ui/components` (load-order dependent). Added `skipFallback: true` — the same fix the file already applies to `page-header`. Now renders title + body/children, no prop leak.\n\n## 2 — Matrix report row-header showed raw dimension name\nShowed `status` (the dimension name). The renderer only knows dimension names, not the dataset's display labels, so humanize for display: `status` → **Status**, `created_at` → **Created At**.\n\n## 3 — Image grid cell broke on string-URL fields\n`ImageCellRenderer` only read `value.url`/arrays, so a plain string URL (e.g. a `cover` CDN link) rendered `<img src=\"\">`. Normalized to accept `string | {url|src|href} | array`, with an `EmptyValue` fallback. Cover thumbnails load in grids again.\n\n## 4 — Gantt opened on an empty window\nNo initial scroll — it opened at the padded left edge with tasks weeks off-screen. Added a one-shot post-layout scroll to **today** (when in range), else the earliest task's start.\n\n## Verified\nReport header reads \"Status\"; All Views cover column loads 10/10 thumbnails; Team Schedule opens centered on today with bars in view; My Work `page:card`s render title+children.\n\n## Tests\nChanged-package suites pass (fields 4000, plugin-report 32, plugin-gantt 179). The standalone `layout` (32) and `GanttView.layout.test` (12) failures are a **pre-existing jsdom `localStorage.clear` gap** — identical with these changes stashed, so unaffected.\n\nCompanion framework PR re-instates the showcase `page:card`s on My Work.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

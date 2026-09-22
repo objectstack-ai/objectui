@@ -1,0 +1,33 @@
+{
+  "number": 1891,
+  "kind": "pull_request",
+  "title": "feat(console-ai): one-click answer chips for the plan card's questions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T06:46:17Z",
+  "updated_at": "2026-06-22T06:55:18Z",
+  "closed_at": "2026-06-22T06:55:15Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T06:55:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1891",
+  "body": "## Why\nThe plan card's structure-deciding questions were free text — the user had to type. Pairs with [cloud#416](https://github.com/objectstack-ai/cloud/pull/416), which makes `propose_blueprint` return `questionChoices` for those questions.\n\n## What\nWhen a question has derived `questionChoices`, the **Proposed plan** card renders them as one-click chips under the question. Clicking sends an answer message via the existing `onSendMessage` channel (`For \"<question>\", go with: <option>.`) and lets the agent continue (ask the next question or build).\n\n- `detectProposedPlan` lifts `questionChoices: [{text, options}]` defensively (drops malformed / <2-option / no-text; matched to a question by text).\n- `ChatbotEnhanced` renders the chips; questions with no choices stay plain text (type-to-answer). New `planAnswerMessage` prop.\n- Localized both surfaces (en + zh `planAnswerMessage`). **Non-breaking**: no choices → current behavior, so it's safe regardless of whether/when cloud#416 is deployed.\n\n## Verification\n4 new tests (detect lift + malformed-drop + absent; render chips + click sends answer; plain-question no-chip) — plugin-chatbot **126 green**; plugin-chatbot + app-shell + i18n **type-check clean** (forced).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1776,
+  "kind": "pull_request",
+  "title": "feat(console): book-driven documentation portal (ADR-0046 §6)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T07:57:45Z",
+  "updated_at": "2026-06-16T15:16:09Z",
+  "closed_at": "2026-06-16T15:16:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T15:16:07Z",
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1776",
+  "body": "## What\n\nMakes the documentation portal **book-driven** (ADR-0046 §6). A `book` is the *authored navigation spine* — ordered groups whose membership over docs is **derived** from each group's `include` rule (glob / `{ tag }`), with an optional explicit `pages` override. Per §6.4 there is **no \"flat vs book\" fork**: a package with no authored book is browsed as its *implicit per-package book*, so every doc always has a book.\n\n## URL scheme\n\nDoc **identity** stays single-coordinate (`<name>`, ADR §4 rejects `/docs/<book>/<name>` as identity); the portal **reading** URL carries a *derived* book segment:\n\n```\n/docs               book index (authored + implicit per-package)\n/docs/:slug         book landing — or a flat-doc permalink that 302s to\n                    its canonical /docs/<homeBook>/<name>\n/docs/:slug/:name   in-book reader (persistent book sidebar + breadcrumb)\n```\n\n`:slug` = book.slug (ADR §6 \"portal URL segment\"); an implicit book uses its packageId. A single `/docs/:slug` dispatcher resolves a segment to a book landing or redirects a flat doc to its canonical in-book URL. App-scoped mirrors this under `/apps/:appName/docs/...`.\n\n## Changes (all in `apps/console/src`)\n\n- **`pages/book-nav.ts`** — local port of `resolveBookTree` + portal helpers: `buildPortalBooks` (authored ahead of implicit per-package), `homeBook`, `bookSlug`, `pkgOf`/`pkgOfBook` (use `_packageId`, falling back to the name prefix when unstamped), `scopeDocsToBook`, `buildBookCards`. Synthetic *Uncategorized* is flagged and excluded from authored membership. No dependency on a published spec version or a `/tree` endpoint.\n- **`pages/DocsLayout.tsx` + `use-book-data.ts`** — the `/docs` layout route fetches book + doc **once** and shares it via context; pages read it with `useBookData`. Navigating within the section issues no further book/doc requests.\n- **`pages/DocsSlug.tsx`** — the `/docs/:slug` dispatcher. **`BookSidebar.tsx` / `BookPage.tsx`** — the resolved spine as nav + a book landing.\n- **`pages/DocsIndex.tsx`** — book index (authored books lead). **`pages/DocPage.tsx`** — in-book reader with the `:slug` book's sidebar. **`pages/AppDocsIndex.tsx`** — app-scoped, book-driven (single book → redirect to its reader).\n- Implicit book labels are humanized (`com.objectstack.setup` → `Setup`); slug/name keep the full id.\n- Routes nested under the layout (top-level `App.tsx` + app-scoped `AppContent.tsx`).\n\n## Verification\n\n- **Browser-verified end-to-end** against the framework showcase backend (which serves `book`): the `/docs` index (authored *Showcase Manual* + implicit *Setup*/*Studio*), the `/docs/manual` landing (Getting Started / Guides resolved from `pages` + `include`), the in-book reader (markdown + sidebar), the flat-doc → canonical redirect, and the app-scoped `/apps/:pkg/docs` redirect inside the app container. The shared-layout fetch was confirmed in the network panel (one book/doc fetch per section, not per page).\n- `book-nav` (17) + `BookSidebar` (5) + a `docs-portal` integration test (6, mounts the real pages under the real route table); existing doc tests unchanged — 47 in `pages`. `tsc --noEmit` exit 0; `eslint` 0 errors.\n\n## Deployment note & follow-up\n\n`book` + `doc` must be served by the backend for real data — published `@objectstack/spec@9.5.1` serves neither yet, so every surface degrades gracefully and lights up when a framework build with `book` is deployed.\n\n**Open decision (not in this PR):** anonymous `audience: public` reading (ADR §6.7). `/docs` stays behind `ProtectedRoute`; opening it to unauthenticated visitors is a security-gate change to make deliberately.\n\n## Relationship to the other book PRs\n\n- **#1775** — ADR-0046 `book` **admin/authoring** UI. **#1774** (merged) — ADR-0051 inline `metadata_viewer` doc fence. **This** — the **reader** portal.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

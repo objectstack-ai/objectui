@@ -1,0 +1,33 @@
+{
+  "number": 1875,
+  "kind": "pull_request",
+  "title": "feat(console-ai): reviewable \"Proposed plan\" card before build",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T02:29:28Z",
+  "updated_at": "2026-06-22T02:46:10Z",
+  "closed_at": "2026-06-22T02:46:08Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T02:46:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1875",
+  "body": "## Why\n`propose_blueprint` returns a plan (objects, assumptions, ≤2 structure-deciding questions) BEFORE anything is staged. Until now it surfaced only as a bare \"Propose blueprint — Completed\" step, so the confirm gate the backend's own note describes (*\"present this and call apply_blueprint after they approve or edit it\"*) had no UI. This adds the Airtable-Omni-style **see the plan → approve / adjust** affordance, on the `/ai/build` surface (#1868).\n\n## What\n- **mapMessages**: `detectProposedPlan` lifts the reviewable shape (objects + field counts, totals, assumptions, questions) from the `blueprint_proposed` envelope — defensive (drops malformed objects, derives counts from the blueprint when omitted, parses the JSON-string result the tool returns). Wired onto `ChatToolInvocation.proposedPlan`.\n- **ChatbotEnhanced**: renders a **Proposed plan** card — summary, object chips with field counts, a totals line, the agent's assumptions, and any structure-deciding questions highlighted as the confirm gate, plus an \"approve or adjust\" hint. Nothing is live yet. New `plan*` label props.\n- **Localized** headings: `AiChatPage` via `t()`; floating chatbot via its `locale` (en + zh 方案预览 / 搭建前请确认 / 假设).\n\n## Verification\n- 5 new unit tests (`detectProposedPlan`: lift, JSON-string path through the mapper, count-derivation + malformed-drop, extend-mode `targetApp`, non-proposal rejection) — mapMessages suite **37 green**.\n- `plugin-chatbot` + `app-shell` **type-check clean** (turbo).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

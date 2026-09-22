@@ -1,0 +1,32 @@
+{
+  "number": 1701,
+  "kind": "pull_request",
+  "title": "feat(console): DocPage resolves docs package-scoped (ADR-0048 — prefix optional)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T13:51:55Z",
+  "updated_at": "2026-06-14T01:41:51Z",
+  "closed_at": "2026-06-14T01:41:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T01:41:50Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1701",
+  "body": "Pairs with framework objectstack-ai/framework#1816. Makes the doc namespace prefix optional.\n\n## What\n`DocPage` passes the route's package (`/apps/:appName/docs/:name`, where `:appName` is the package id) to `meta.getItem('doc', name, { packageId })`. The client SDK already emits `?package=`; with the framework endpoint now honoring it, the single doc resolves **package-scoped** (prefer-local) while keeping its content. Legacy top-level `/docs/:name` (no `:appName`) stays context-free.\n\n## Result\nDoc names no longer need a namespace prefix for uniqueness — two packages can ship the same bare doc name, each resolving within its own package, exactly like page/dashboard/report.\n\n## Verified (browser, live backend)\n`/apps/com.example.showcase/docs/showcase_index` → `GET …/meta/doc/showcase_index?package=com.example.showcase → 200` → renders the doc. Console typecheck clean.\n\n> Requires framework#1816 to be deployed for the `?package=` scoping to take effect.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

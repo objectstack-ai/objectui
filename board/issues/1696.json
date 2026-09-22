@@ -1,0 +1,30 @@
+{
+  "number": 1696,
+  "kind": "pull_request",
+  "title": "feat(app-shell): ADR-0048 (A) — emit package-id app URLs from nav (emission layer)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T13:04:22Z",
+  "updated_at": "2026-06-13T13:11:01Z",
+  "closed_at": "2026-06-13T13:10:59Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T13:10:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1696",
+  "body": "Emission layer of ADR-0048 option-A routing (follows the merged resolution layer objectstack-ai/objectui#1693 + the platform-app split framework objectstack-ai/framework#1813).\n\n## What\nNav now **generates** `/apps/<packageId>` links instead of `/apps/<name>`:\n- app switching: `AppSwitcher` / `AppSidebar` / `CommandPalette` `onAppChange` → `appRouteSegment(app)`\n- sidebar base paths: `AppSidebar`, `UnifiedSidebar`\n- `AppSidebar` create-app / edit-app container segment\n- `AppHeader` hidden-app switch\n\nRoute-param propagation then carries the package id through every in-app link. `appRouteSegment` falls back to the app name when an app has no `_packageId` (runtime/DB apps), and `/apps/<name>` URLs still resolve (the resolution layer's name fallback), so this is backward compatible.\n\n## Browser-verified (live app-showcase backend with the split)\n- Landing on `/apps/com.objectstack.studio`: **45 in-app links emit `/apps/com.objectstack.studio/...`, 0 emit the name**; Studio renders with full sidebar + header.\n- `/apps/studio` (name) still resolves.\n- Typecheck clean; layout/chrome suites pass.\n\n## Follow-up\n- Docs route `/apps/:packageId/docs/:name` + doc filename-validation hardening (separate PR).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1857,
+  "kind": "pull_request",
+  "title": "refactor(fields): migrate CurrencyField to the shared currency resolver",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T10:44:56Z",
+  "updated_at": "2026-06-21T10:51:15Z",
+  "closed_at": "2026-06-21T10:51:13Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T10:51:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1857",
+  "body": "## Phase 2b migration — batch 1\n\nFollows the foundation #1856. `CurrencyField` (currency form input + readonly display) read **only** `field.currency`, so a field declaring its currency via `currencyConfig.defaultCurrency` — or relying on the tenant default — rendered symbol-less.\n\n- **Extract** `resolveFieldCurrency` from the ~2k-line `index.tsx` into a leaf `fields/src/currency.ts` (re-exported from index, no API change), so widget components can import it without an `index ↔ widget` circular import.\n- **`CurrencyField`** now resolves via `resolveFieldCurrency(field, useLocalization().currency)` — field currency → `currencyConfig` → tenant default → plain number.\n\n## Remaining (staged, each a small mechanical swap onto the helper)\n- Same-package-deps clean: dashboard `MetricWidget`/`ObjectDataTable` (has i18n+fields).\n- Need a dep added: `DetailView` (plugin-detail), `useColumnSummary` (plugin-grid, + its stale \"defaults to USD\" comment), `ObjectGantt`, `ObjectGrid`, `FieldFactory` (react), `elements:number` (components), `formatValue`/`PivotTable`.\n- Then collapse the two divergent `formatCurrency` (i18n `en` vs fields `en-US`) into one with a single locale.\n\n## Tests\n- `resolveFieldCurrency` (4) + `standard-widgets` (18) pass; `type-check` green. No behavior change with no provider or an explicit field currency (the common case).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

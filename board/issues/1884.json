@@ -1,0 +1,33 @@
+{
+  "number": 1884,
+  "kind": "pull_request",
+  "title": "feat(console-ai): make the \"Proposed plan\" card an actionable confirm gate",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T05:54:49Z",
+  "updated_at": "2026-06-22T06:06:37Z",
+  "closed_at": "2026-06-22T06:06:35Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T06:06:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1884",
+  "body": "## Why\nThe plan card (#1875/#1878) was **read-only** — to proceed the user had to *type* \"build it\". This adds the one-click confirm gate, matching Airtable Omni's **Build it**.\n\n## What\n- **「开始搭建」/ Build it** — sends an approval message via the existing `onSendMessage` channel (the same path suggestion chips use) → the agent proceeds to `apply_blueprint`. **Context-aware:** when the plan still has open questions, approval sends an *accept-defaults* message so a click never silently drops them.\n- **「调整方案」/ Adjust** — focuses the chat input so the user types changes in their own words.\n- Falls back to the existing static hint when `onSendMessage` isn't wired. Localized on both surfaces (AiChatPage `t()`, ConsoleFloatingChatbot `locale`; en + zh).\n\nPer-question canned quick-replies are intentionally **not** added: `propose_blueprint` returns free-text questions with no structured options, so *Build-it-with-defaults + type-to-answer* is the honest affordance. A structured `questions:[{text,options}]` from the backend would enable per-question chips later.\n\n## Verification\n3 new render tests (approve-with-defaults when questions exist; plain approve when none; hint-fallback when sending unwired) — **ChatbotEnhanced 40 green**; plugin-chatbot + app-shell **type-check clean** (forced, non-cached).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

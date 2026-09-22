@@ -1,0 +1,33 @@
+{
+  "number": 1908,
+  "kind": "pull_request",
+  "title": "ci: drop pnpm cache from dependabot auto-merge job",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T10:59:02Z",
+  "updated_at": "2026-06-22T11:03:47Z",
+  "closed_at": "2026-06-22T11:03:45Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T11:03:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1908",
+  "body": "## 问题\n\n每个 Dependabot PR 上，`Dependabot Auto-merge` 这个 check 都会变红（FAILURE），例如 #1837。但所有真正的 CI（Test / Build & E2E / Build Docs / Bundle Analysis / Changeset 等）其实都是 SUCCESS。\n\n## 根因\n\n[.github/workflows/dependabot-auto-merge.yml](.github/workflows/dependabot-auto-merge.yml) 的 `Setup Node.js` 步骤设置了 `cache: 'pnpm'`，但这个 job 从不执行 `pnpm install`，所以 pnpm store 目录根本不存在。于是 `actions/setup-node@v6` 的 post-job 缓存保存步骤（\"Post Setup Node.js\"）报错：\n\n```\n##[error]Path Validation Error: Path(s) specified in the action for caching do(es) not exist, hence no cache is being saved.\n```\n\n在 v6 里这个 post 步骤会被判为 `failure`，进而把整个 job 标红 —— 与 PR 升级的依赖本身无关。\n\n## 修复\n\n移除该 job 的 `cache: 'pnpm'`。这个 job 不安装依赖，本来就不需要缓存。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 1890,
+  "kind": "pull_request",
+  "title": "feat(app-shell): testability ratchet — ban synthetic-event triggers (ADR-0054 Phase 5)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T06:44:20Z",
+  "updated_at": "2026-06-22T06:53:08Z",
+  "closed_at": "2026-06-22T06:53:06Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T06:53:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1890",
+  "body": "ADR-0054 Phase 5 (ratchet). Conformance test in the gating `pnpm test` job fails on any new synthetic-event trigger (`dispatchEvent(new KeyboardEvent/MouseEvent/PointerEvent)`) across packages/apps src; local ESLint rule `object-ui/no-synthetic-event-trigger` flags it in-editor. Last two offenders (sidebar swipe-to-open in UnifiedSidebar/AppSidebar) converted to idempotent setOpenMobile(true) (C1). Docs: README ratchet section + ADR marked all 5 phases shipped. Verified: ratchet test 2 pass (zero triggers repo-wide), rule unit test 5 pass, app-shell suite 660 green, tsc green. Completes the ADR-0054 rollout (Phases 1 #1879, 2 #1882, 3 #1883, 4 #1887, 5 this).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

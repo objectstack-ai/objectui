@@ -1,0 +1,32 @@
+{
+  "number": 1889,
+  "kind": "pull_request",
+  "title": "fix(console-ai): register zh + en i18n for the \"Proposed plan\" card",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T06:22:19Z",
+  "updated_at": "2026-06-22T06:26:01Z",
+  "closed_at": "2026-06-22T06:23:49Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T06:23:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1889",
+  "body": "## Problem\nOn the `/ai/build` full-page surface (`AiChatPage`), the AI **\"Proposed plan\"** confirm-gate card renders its labels in English even when the UI locale is Chinese.\n\nRoot cause: the labels come from `t('console.ai.planTitle', { defaultValue: 'Proposed plan' })` etc., but the `console.ai.plan*` keys (and `nextSteps`) existed **nowhere in the translation bundles** (`packages/i18n/src/locales/*.ts`) — only as inline `defaultValue` fallbacks. So for zh users i18next found no key, fell back to the English `defaultValue`, and fired a dev missing-key warning per key. The floating chatbot (`ConsoleFloatingChatbot`) was unaffected because it hand-builds its own `locale` object that already carries the zh strings.\n\n## Fix\nAdd the 9 keys to the `en` (canonical / `TranslationKeys` source) and `zh` bundles under `console.ai`, mirroring the `ConsoleFloatingChatbot` locale object:\n\n`nextSteps`, `planTitle`, `planQuestions`, `planAssumptions`, `planApproveHint`, `planApprove`, `planAdjust`, `planApproveMessage`, `planApproveDefaultsMessage`.\n\n- `en` values are byte-identical to the existing `defaultValue`s → English rendering unchanged.\n- `zh` now displays 方案预览 / 假设 / 开始搭建 … instead of the English fallback; the missing-key warning for these keys is gone.\n- Other locales fall back to `en` (unchanged behaviour); the locale parity tests only check top-level + `common` keys, so no other bundle needs touching.\n\n## Tests\n- Added a regression test asserting the zh plan-card keys resolve (no English fallback), matching the existing `toolbarEnabledCount` pattern.\n- `pnpm --filter @object-ui/i18n test` → **157 passed**.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

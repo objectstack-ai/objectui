@@ -1,0 +1,30 @@
+{
+  "number": 1736,
+  "kind": "pull_request",
+  "title": "fix(app-shell): never render a foreign app for an unresolved /apps/:name (preview wrong-app fix)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T23:11:40Z",
+  "updated_at": "2026-06-14T23:15:22Z",
+  "closed_at": "2026-06-14T23:11:54Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T23:11:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1736",
+  "body": "## Problem\n\nAfter building + publishing a new app, navigating to `/apps/<newapp>` — notably the **in-chat Live Canvas preview iframe** (published/materialized mode) — rendered a **different, pre-existing app's content** during the brief window where the metadata registry hadn't caught up. The URL was correct but the rendered app/object was wrong, e.g. `/apps/asset_management/<ticket object>` showing the ticket app. Opening the URL after the registry settled worked fine. This directly undermines the \"build an app → see it\" magic moment.\n\n## Root cause\n\n`AppContent` resolved the active app as:\n\n```ts\nmatchAppBySegment(apps, appName) || launcherApps.find(isDefault) || launcherApps[0]\n```\n\nWhen the requested `appName` wasn't in the freshly-loaded `apps` yet (post-publish lag), it **fell back to a different app**, and the URL's `:objectName` then rendered against that foreign app. Draft-preview mode already guarded this (`PreviewDraftEmptyState`); **published mode did not**.\n\n## Fix\n\n- Only fall back to a default app when **no specific app** was requested (bare `/apps`, the default redirect) or for the built-in pseudo-routes (`create-app` / `system` / `metadata` / `setup`).\n- For a normal unmatched `appName`: never render a foreign app. **Re-check metadata once** (covers the post-publish lag, so a just-built app resolves on its own), then show an **\"App not available\"** state.\n\n## Verification (in-browser, objectos-ee + console dev)\n\n- `/apps/<nonexistent>` → \"App not available\" with Retry — **no foreign app** rendered (URL stays put). \n- `/apps/ticket_service_app` → renders the ticket app (no regression).\n- `/apps/setup` → keeps its default-app fallback (no regression; it's a pseudo-route, not a metadata app).\n\nAppContent is a large integration component with no existing unit test; verification is browser-based.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

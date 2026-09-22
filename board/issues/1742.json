@@ -1,0 +1,33 @@
+{
+  "number": 1742,
+  "kind": "pull_request",
+  "title": "feat(ai-chat): reconcile stream-transport failure instead of blind retry (ADR-0013 D2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T06:06:48Z",
+  "updated_at": "2026-06-15T06:14:52Z",
+  "closed_at": "2026-06-15T06:14:50Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T06:14:50Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1742",
+  "body": "ADR-0013 **D2** (objectui-only). The agent runtime persists the final assistant reply **before** it streams it (framework `service-ai` `ai-service.ts:779/895` persist → `789/905` yield). So a transport drop **after** the turn completed leaves a complete reply in the DB — but the chat UI shows \"Response failed\" and Retry **re-runs the whole turn** (re-plans, risks orphan drafts).\n\n**Change**: on a chat stream error, GET the conversation and check if the turn actually finished; if so, re-hydrate the thread from the server and **suppress the error banner**. Only a genuinely-incomplete turn still shows Retry. **Turns the most common \"it actually succeeded\" failure into a non-event.**\n\n### Files\n- `useChatConversation.ts` — export `fetchConversation` + `toUIMessages`\n- `useObjectChat.ts` — expose `setMessages` (API mode)\n- `reconcileTurn.ts` — pure `isReconcilableCompletedTurn()` + **6 unit tests (pass)**\n- `AiChatPage.tsx` — onError reconcile + suppress, reset on send, gate banner\n\n### Verification\n- `reconcileTurn.test.ts`: 6/6 pass (ends-on-assistant-text → reconcile; ends-on-tool-call/tool-result/whitespace/empty/user → fall through to banner).\n- No framework/schema change (server already persists-before-yield); objectui-only.\n- Full build/typecheck in CI.\n\nPairs with the (heavier, cross-repo) ADR-0013 **D1** turnId idempotency, which handles the *genuinely-failed* retry path; D2 here handles *\"it actually succeeded.\"*\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 1957,
+  "kind": "pull_request",
+  "title": "feat(react): wire page-local state (PageSchema.variables) end-to-end (ADR-0049)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T06:47:34Z",
+  "updated_at": "2026-06-24T06:55:23Z",
+  "closed_at": "2026-06-24T06:55:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T06:55:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1957",
+  "body": "## What\n\nCompletes **ADR-0049** — page-local state (`PageSchema.variables`) was half-wired and inert: the runtime mounted `PageVariablesProvider` + `usePageVariables`, but nothing read or wrote the variables, no shipped element wrote one, and page state was never injected into the `visible`/expression context. Authoring `variables` did nothing.\n\n## Changes\n\n- **`SchemaRenderer`** — inject page variables as `page.<var>` into the expression context so predicates resolve `page.selectedId` etc., re-evaluated **live** when a variable changes.\n- **`usePageVariables`** — expose `definitions`; add **`usePageVariableBinding(componentId)`**, which resolves the variable a component writes via `PageVariableSchema.source` (= the writer's component id).\n- **`element:record_picker`** (new) — fetches records via the adapter and writes the selection into its bound page variable. The element was referenced by the spec but had never been registered.\n- **`visibility` predicate fix** — the spec→node bridge preserved the spec-canonical `visibility` predicate on the node, but `SchemaRenderer` never gated on it (and leaked it as a DOM prop). It now gates show-when-truthy like `visibleOn` and is stripped from DOM props.\n\n## Verification\n\n- **11 new unit/integration tests** (`packages/components/src/__tests__/page-variables.test.tsx`): binding resolution, live `visible`/`visibility`/`{dialect,source}`-envelope gating, DOM-strip, `record_picker` adapter fetch + no-adapter fallback. ✅\n- **107 regression tests** (spec-bridge, basic-renderers, …) green. ✅\n- **Browser E2E** against a live framework backend: the showcase page renders gated-off; picking a project writes the variable and the detail panel appears live, no reload; no `visibility` DOM leak; no React controlled/uncontrolled warning.\n\nPaired with the framework PR (showcase page + spec docs + dogfood test).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

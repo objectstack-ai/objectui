@@ -1,0 +1,32 @@
+{
+  "number": 1931,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): friendlier + safer dataset measure authoring",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T01:01:49Z",
+  "updated_at": "2026-06-24T03:49:18Z",
+  "closed_at": "2026-06-24T03:49:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T03:49:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1931",
+  "body": "## Summary\n\nPolishes the `dataset` designer (`DatasetDefaultInspector`) so a business user can author measures without spec knowledge and without saving a broken dataset. Found while dogfooding online dataset design in Studio.\n\n| Improvement | Before | After |\n|---|---|---|\n| **Display-format picker** | Raw `format` / `currency` numeral text inputs (`$0,0.00`, `USD`) | Kind (Raw / Number / Currency / Percent) + Decimals + Currency selects **+ live sample** (`US$1,234.50`); parses an existing format back into the picker |\n| **Auto-name from field** | Name typed by hand | Picking a field on an unnamed dimension/measure defaults the name to the field's leaf (`account.region` → `region`) |\n| **Author-time validation** | A `relationship.field` whose join isn't in `include` only failed when the **preview query ran** (compile error / ambiguous join) | Inline warning + one-click **\"Add it\"** on the offending dimension/measure; derived measures with too few operands flagged too |\n\n### Why\nA semantic-layer author shouldn't need to know numeral syntax, and the \"relationship not declared in `include`\" error should surface at design time, not as a failed query. These are the gaps left after the inspector already gained derived-measure editing, the field catalog (relationship cascade), certified, and the binding banner.\n\n### Verification\n- `DatasetDefaultInspector.test.tsx`: **9 pass** (+2 new — relationship warning + \"Add it\"; format picker replaces the raw field).\n- metadata-admin **inspectors sweep: 97 pass**.\n- **Browser-verified** in showcase Studio (console rebuilt + vendored): the budget measure's stored `format: '0,0.00'` + `currency: 'USD'` parses to **Currency · Decimals 2 · USD ($)** with **Sample: US$1,234.50**; removing the `account` join surfaces **\"⚠ Relationship account isn't in Included relationships · Add it\"** on the `account.name` dimension.\n\n### Scope / follow-ups (not in this PR)\n- Routing dataset **create** to this designer (canvas-create, `CREATE_MODE_CANVAS_TYPES`) — overlaps the in-flight report-create work; should land with it.\n- Preview **mixed-scale** axis (a ratio measure plotted next to a currency measure is invisible) — needs a secondary Y axis in `plugin-charts`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

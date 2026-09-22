@@ -1,0 +1,33 @@
+{
+  "number": 1732,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): auto-generated forms must honor field `hidden: true`",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T14:31:53Z",
+  "updated_at": "2026-06-14T14:38:22Z",
+  "closed_at": "2026-06-14T14:38:20Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T14:38:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1732",
+  "body": "## Problem\nThe auto-generated CRUD form (no explicit form definition) rendered fields marked `hidden: true` in the object schema as editable inputs. Concretely, `sys_environment.metadata` — a `Field.textarea({ hidden: true })` holding internal JSON — showed up as a raw JSON textarea in the environment **edit** dialog. The list grid (`ObjectGrid`) and detail drawer (`RecordDetailDrawer`) already drop hidden fields; the auto-form was the only surface that didn't.\n\n## Root cause\nAll auto-form variants (`ModalForm`, `DrawerForm`, `ObjectForm`, and `RecordFormPage` via `ObjectForm`) route their generated field list through `applyAutoLayout` → `filterSystemFields`. That filter dropped system-named fields and `readonly` fields, but never checked `hidden`.\n\n## Fix\nAdd a `hidden` check next to the existing `readonly` check in `filterSystemFields` (one shared chokepoint, runs in **both** create and edit). One line, covers every auto-form variant.\n\n```ts\nconst objField = objectSchema?.fields?.[field.name];\nif (objField?.hidden === true) return false;   // ← added\nif (objField?.readonly === true) return false;\n```\n\n## Tests\n`packages/plugin-form/src/__tests__/autoLayout.test.ts`:\n- `filterSystemFields` drops hidden (+ readonly + system-name) fields, keeps editable ones; keeps fields when no schema metadata.\n- `applyAutoLayout(..., 'edit')` excludes a hidden field.\n\n`@object-ui/plugin-form` suite: **104 tests pass** (35 in autoLayout incl. the new cases).\n\n## Note\nThis is the root-cause fix for the JSON-box complaint addressed tactically in cloud#312 (which disabled the generic env edit in favour of a dedicated Rename action). Ships to cloud via `bump-objectui` once merged."
+}

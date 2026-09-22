@@ -1,0 +1,35 @@
+{
+  "number": 1841,
+  "kind": "pull_request",
+  "title": "refactor(dataset-render): share measure formatting + header labels; fix binary-file NUL; register report.total",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T04:51:50Z",
+  "updated_at": "2026-06-21T04:59:07Z",
+  "closed_at": "2026-06-21T04:59:05Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T04:59:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1841",
+  "body": "## What & why\n\nFollow-up cleanup to [#1830](https://github.com/objectstack-ai/objectui/pull/1830). The dashboard `DatasetWidget` and the report `DatasetReportRenderer` had drifted into **two copies** of the same dataset-result formatting logic — which is precisely why the currency/label/i18n bug had to be fixed in both. This hoists the shared logic, removes a latent tooling hazard, and makes the report's \"Total\" genuinely translatable.\n\n## Changes\n\n**`@object-ui/core`** — new `utils/dataset-format.ts`:\n- `formatMeasure(v, format?, currency?)` — currency via the field's declared `currency` (`Intl` symbol), never a misleading `$`.\n- `formatDimensionValue(v)`, `buildDatasetFieldHelpers(fields, object, fieldLabel?)` (field label → i18n `fieldLabel` → raw name), and the `DatasetResultField` type.\n- Pure (no React/i18n — `fieldLabel` is injected). Unit-tested (10 cases).\n\n**`@object-ui/i18n`**:\n- New `useSafeTranslate()` — per-call graceful `t(keyOrKeys, fallback)` with an ordered key-fallback chain. This is the inline pattern both renderers (and `PivotTable`) duplicated.\n- Register `report.total` in **all 10 locale bundles** (reusing each locale's existing `dashboard.total` value), so the report's \"Total\" is a real translation, not just an English fallback.\n\n**Renderers**:\n- `DatasetReportRenderer` and `DatasetWidget` now import the shared core/i18n helpers (**net −235 lines** of duplication). `PivotTable`'s two local graceful-translate helpers fold into `useSafeTranslate`.\n- **Fix 2 literal NUL bytes** in `DatasetReportRenderer` (the matrix bucket-key separator) that made the `.tsx` register as a **binary file** to grep/ripgrep/editors — now a normal space, matching the dashboard's pivot separator.\n\n**`@object-ui/data-objectstack`**:\n- Widen `queryDataset`'s declared `fields` type to include `label`/`format`/`currency` (already shipped at runtime) so consumers stop re-declaring + casting.\n\n## Behavior\n\nNo user-facing behavior change intended — this is a refactor. The one observable improvement: the report's \"Total\" now picks up the mounted locale (e.g. zh → 总计) instead of only the English fallback.\n\n## Tests\n- `plugin-report` → **40 passed** (incl. a new positive i18n test: zh provider → 总计)\n- `plugin-dashboard` → **4031 passed**\n- `i18n` → **150 passed**; `core` dataset-format → **10 passed**\n- `type-check` green across core / i18n / data-objectstack / plugin-report / plugin-dashboard\n\n> `main` CI may still show 7 unrelated plugin-list/ListView failures (separate task); unrelated to this change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

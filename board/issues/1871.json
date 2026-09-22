@@ -1,0 +1,33 @@
+{
+  "number": 1871,
+  "kind": "pull_request",
+  "title": "feat(console-ai): post-build \"What's next\" checklist",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T02:05:30Z",
+  "updated_at": "2026-06-22T02:14:18Z",
+  "closed_at": "2026-06-22T02:14:16Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T02:14:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1871",
+  "body": "Surface apply_blueprint `nextSteps` as a getting-started checklist under the build panel (parity with Airtable Omni). detectDraftResult lifts nextSteps into DraftReview; ChatbotEnhanced renders it (new nextStepsLabel prop); localized heading (en + zh 下一步). Unit-tested (mapMessages 32 green) + verified live on /ai/build. Lands on #1868's agent-scoped surface.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

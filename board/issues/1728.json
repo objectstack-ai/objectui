@@ -1,0 +1,32 @@
+{
+  "number": 1728,
+  "kind": "pull_request",
+  "title": "feat(header): context-aware Help & Documentation menu + app-scoped docs index",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T09:00:57Z",
+  "updated_at": "2026-06-14T09:21:25Z",
+  "closed_at": "2026-06-14T09:21:24Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T09:21:24Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1728",
+  "body": "## Why\n\nThe top-right **?** in the console header was a bare external link to `docs.objectstack.ai` — it duplicated the left sidebar's in-product `/docs` entry and ignored the ADR-0046 in-product docs hub entirely. This makes it earn its place by being **context-aware**.\n\n## What\n\n**Help menu (`AppHeader`)** — the \"?\" is now a dropdown:\n- **This app's docs** — shown *only* when the current app's package owns docs (matched by `_packageId`). A single-doc app deep-links straight to the viewer; a multi-doc app lands on the new app-scoped index.\n- **All documentation** → the in-product `/docs` portal.\n- **Online documentation** → `docs.objectstack.ai` (new tab).\n\nDocs are lazily fetched once on first menu open (names/labels only — no `content`), so the menu adds zero cost until used; a failed fetch soft-degrades to the static entries.\n\n**App-scoped docs index** — new route `/apps/:packageId/docs` (`AppDocsIndex`), the package-scoped sibling of `/docs`, listing just that app's docs. This is what \"This app's docs\" targets when an app ships more than one doc.\n\n**i18n** — `help.appDocs` / `help.allDocs` / `help.onlineDocs` added to `en` + `zh`; other locales fall back to `en`.\n\n## Verification (live: showcase backend + console)\n\n- Help menu opens in the Setup app with all three items and zh labels (本应用文档 / 全部文档 / 在线文档).\n- \"This app's docs\" deep-links to `/apps/com.objectstack.setup/docs/setup_overview` (single-doc app) and renders.\n- `/apps/com.objectstack.setup/docs` (`AppDocsIndex`) renders the Setup overview card.\n- \"This app's docs\" is correctly **hidden** in the Account app (package owns no docs — verified against `/meta/doc`).\n- `tsc --noEmit` on `@object-ui/console` is clean.\n\nPairs with framework#1845, which seeded the first-party Setup/Studio docs this surfaces.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

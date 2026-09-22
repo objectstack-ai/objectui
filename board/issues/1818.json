@@ -1,0 +1,30 @@
+{
+  "number": 1818,
+  "kind": "pull_request",
+  "title": "polish(record): cap detail content at a comfortable reading width",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T10:15:49Z",
+  "updated_at": "2026-06-20T10:19:13Z",
+  "closed_at": "2026-06-20T10:15:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T10:15:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1818",
+  "body": "Record pages are scan/read surfaces. On wide monitors the full-bleed detail column stretched field rows so values sat far from their labels, hurting scannability. Cap the `RecordDetailView` content column at `max-w-[1400px]` (centered).\n\n- Data surfaces (lists / dashboards / visualizations) are **untouched** — they stay full-width.\n- Only affects viewports where the content region exceeds 1400px (~1665px+), so common **1440/1280 layouts are unchanged**.\n\nVerified at **1920** (content centers, field rows tighten) and **1440** (no change). Matches the record-page convention in Salesforce Lightning / Linear / Notion.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

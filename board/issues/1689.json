@@ -1,0 +1,35 @@
+{
+  "number": 1689,
+  "kind": "pull_request",
+  "title": "feat(gantt): configurable tooltip + live parent-stretch (follow-up to #1672)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T05:54:32Z",
+  "updated_at": "2026-06-13T12:52:03Z",
+  "closed_at": "2026-06-13T12:52:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T12:52:01Z",
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1689",
+  "body": "Follow-up to #1672 — these four commits were pushed to the branch **after** #1672 was squash-merged, so they did not land in main. Re-applying them here on a fresh branch off `main`.\n\n## Commits\n- **fix(gantt):** progress % no longer occluded — replace 6 missing prebuilt-CSS utilities with inline styles (refreshed verification screenshots)\n- **feat(gantt):** configurable hover tooltip (悬浮详情) via `tooltipFields` on the gantt config — accepts `string | { field, label }`, formatted per field type (select option → label, lookup → record name, dates/numbers/currency/percent via `@object-ui/fields`); falls back to the default start → end · duration · progress line when unconfigured\n- **feat(gantt):** parent summary bar stretches **live during a child drag** (not just on drop), every ancestor re-rolls, pinned edge stays put\n- **docs(skill):** document the gantt view config in the `skills/objectui` page-builder guide\n\n## Verification\n- `tsc --noEmit` clean; **68 unit tests pass** (7 files)\n- Browser checks: `verify-tooltip-fields.mjs` 6/6, `verify-child-stretch.mjs` 4/4 — screenshots persisted under `packages/plugin-gantt/docs/verification/`\n\n⚠️ Do not auto-merge."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1856,
+  "kind": "pull_request",
+  "title": "feat(currency): client tenant-default currency context + shared field resolver",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T10:34:52Z",
+  "updated_at": "2026-06-21T10:41:49Z",
+  "closed_at": "2026-06-21T10:41:48Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T10:41:48Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1856",
+  "body": "## Phase 2b foundation — unify client currency rendering\n\nThe cross-repo currency audit found the client had **no access to a tenant/org default currency**, and ~20 renderers each resolved currency differently (some read only `field.currency`, others `defaultCurrency`, others `currencyConfig`; **3 different Intl locales**; hardcoded `$`/`¥`/`USD` fallbacks). Server-side resolution landed in framework [#2119](https://github.com/objectstack-ai/framework/pull/2119)/[#2121](https://github.com/objectstack-ai/framework/pull/2121) and is exposed at `/auth/me/localization` ([#2122](https://github.com/objectstack-ai/framework/pull/2122)) — this PR wires the **client half**.\n\n## Changes\n- **`@object-ui/i18n`**: pure `LocalizationProvider` + `useLocalization()` → tenant `{ currency, locale }`. Low-level so any field/measure renderer can read it without depending on app-shell or fetching itself. Safe outside a provider (returns `{}` → plain number).\n- **`@object-ui/fields`**: `resolveFieldCurrency(field, tenantDefault?)` — the single precedence (field `currency` → `currencyConfig.defaultCurrency` → legacy `defaultCurrency` → tenant default → `undefined`), ending the per-renderer drift.\n- **`CurrencyCellRenderer`** migrated onto it (first consumer): a currency field with no own currency now shows the **org default** instead of a bare number.\n- **Console**: `LocalizationFetchProvider` loads `/auth/me/localization` once and feeds the context — cosmetic, never blocks the app.\n\n## Staged follow-up (migration PR)\nThe long tail, now a trivial swap onto `resolveFieldCurrency` + `useLocalization`: `CurrencyField`, `DetailView`, `useColumnSummary` (+ its stale \"defaults to USD\" comment), `MetricWidget`, `ObjectDataTable`, `PivotTable`, `ObjectGantt`, `ObjectGrid`, `elements:number`, `FieldFactory` — plus collapsing the two divergent `formatCurrency` into one with a single locale.\n\n## Tests\n- `LocalizationContext` (2: in/out of provider), `resolveFieldCurrency` (4: full precedence).\n- `fields` **4094 passed**, `i18n` **152 passed** — migration preserves existing behavior (no provider → identical output).\n- `type-check` green across console / fields / i18n.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

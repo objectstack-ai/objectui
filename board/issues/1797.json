@@ -1,0 +1,33 @@
+{
+  "number": 1797,
+  "kind": "pull_request",
+  "title": "fix(gantt): full config to renderer, multi-value tooltips, bodyExtra persistence, zh/en labels",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-18T10:04:31Z",
+  "updated_at": "2026-06-18T13:20:52Z",
+  "closed_at": "2026-06-18T13:20:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-18T13:20:48Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1797",
+  "body": "Four platform gaps, each of which a downstream EHR app was working around with `node_modules` string-anchor patches. Fixing them at the source removes those patches.\n\n## 1. ObjectView — gantt adapter dropped extended fields\n`packages/app-shell/src/views/ObjectView.tsx` adapted `config.gantt` into renderer props via a **hardcoded 6-field whitelist** (`startDateField`, `endDateField`, `titleField`, `progressField`, `dependenciesField`, `colorField`). Everything else the renderer reads — `parentField`/`typeField`, `baseline*`, `groupByField`, `resourceView`/`assignee*`, `tooltipFields`, `quickFilters`, … — was silently dropped, so the chart flattened (no parent/child hierarchy, no summary bars).\n\n**Fix:** spread the full `viewDef.gantt` first, then apply the three required defaults last (so an omitted source value still falls back). Mirrors the `gallery` branch directly above, which already spreads.\n\n## 2. ObjectGantt — tooltip formatter couldn't render multi-value lookups\n`formatFieldValue` only handled single-object lookups (`{name}` → `.name`). A **multi-value** lookup populated to an array (`[{name},{name}]`) is also `typeof 'object'` but has no `.name/.label/.title/.id`, so it collapsed to `'—'`.\n\n**Fix:** add an `Array.isArray` branch that maps each element to its display value (scalars pass through) and joins them.\n\n## 3. useConsoleActionRuntime — `bodyExtra` ignored on dataSource updates\n`bodyExtra` was merged only on the absolute-HTTP branch. The generic `dataSource.update` path ignored it, so a **pure-confirmation action** (no params array — its mutation lives entirely in `bodyExtra`) produced an empty `fields` payload, the update was skipped, and nothing persisted.\n\n**Fix:** merge `bodyExtra` last into `fields` on that path too, matching the absolute-HTTP branch and the documented \"applied last; overrides user params\" semantics.\n\n## 4. i18n — missing gantt labels\nAdded the labels the 9.x renderer references but the bundles lacked, in both **`en`** (the canonical `TranslationKeys` source) and **`zh`**:\n`toolbar.thisWeek/thisMonth/exportPdf/saveLayout`, `viewMode.year`, `menu.addPredecessor/addSuccessor/removeDependency/noCandidates`, the `linkType.*` and `conflict.*` blocks, and `readOnly`/`readOnlyHint`. (The standalone `GANTT_DEFAULT_TRANSLATIONS` fallback already had English values; this brings the locale bundles into parity so non-English locales aren't stuck on the English fallback for these keys.)\n\n## Tests\n- `ObjectGantt.test.tsx` — multi-value lookup tooltip renders joined names (array of records **and** array of scalars). plugin-gantt suite: **25 passed**.\n- `useConsoleActionRuntime.test.tsx` — pure-confirmation action merges `bodyExtra` into the `dataSource.update` payload. app-shell handler suite: **13 passed**.\n- i18n + plugin-gantt combined: **228 passed**; `plugin-gantt` `tsc --noEmit` clean.\n\nChangeset included (`@object-ui/app-shell`, `@object-ui/plugin-gantt`, `@object-ui/i18n` — patch).\n\n> Note: `packages/app-shell` has ~26 pre-existing `tsc` errors (unrelated properties: `undo`, `silent`, `actionParamOptionLabel`, …) outside the lines changed here; this PR adds none."
+}

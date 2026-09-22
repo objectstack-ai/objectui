@@ -1,0 +1,30 @@
+{
+  "number": 1780,
+  "kind": "pull_request",
+  "title": "fix(console): localize action confirm dialog + surface inner action failure",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T10:21:16Z",
+  "updated_at": "2026-06-16T15:16:25Z",
+  "closed_at": "2026-06-16T15:16:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T15:16:22Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1780",
+  "body": "## Summary\n\nTwo related fixes to the record-header **action** UX, both surfaced by a real project (a Chinese-locale deployment running an `申请转商机` script action):\n\n### 1. Localize the action confirm dialog\n`ActionConfirmDialog` hardcoded English defaults — `Confirm Action` / `Cancel` / `Continue`. An action that only sets `confirmText` (the message) still rendered an **English title and buttons** even under a `zh` locale, because the spec's `ActionSchema` has no structured `confirm: { title, cancelText }` field to override them.\n\nFix: route the defaults through i18n with new `actionConfirm.*` keys.\n- `packages/app-shell/src/views/ActionConfirmDialog.tsx` — use `t('actionConfirm.title|confirm|cancel')`\n- `packages/i18n/src/locales/{en,zh}.ts` — add the `actionConfirm` namespace (other locales fall back to `en`, so no regression)\n\n### 2. Surface inner action failure instead of a false success toast\nThe action route wraps the handler return value as `{ success: true, data: <result> }`. When a script action **throws**, the runtime turns it into `data: { success: false, error: \"...threw: ...\" }` — so the response is:\n\n```json\n{ \"success\": true, \"data\": { \"success\": false, \"error\": \"...\" } }\n```\n\nThe outer `success` stays `true`. The client's `handleServerAction` only checked the **outer** success, so a failed action was treated as a success: it fired the green *\"Action completed successfully\"* toast and **swallowed the real error**.\n\nFix: `packages/app-shell/src/views/RecordDetailView.tsx` — also inspect `json.data?.success === false` and surface `json.data.error`.\n\n## Before / After\n- **Before:** clicking an action whose script throws → green success toast, error hidden.\n- **After:** red error toast with the real message (e.g. `线索信息不完整，提交转商机申请前请补全：营销人员`); confirm dialog renders title/buttons in the active locale.\n\n## Notes\n- No structured-`confirm` spec change needed; fix is purely in the console layer.\n- Verified the live `@objectstack/console@9.7.0` bundle behavior matches the patched source."
+}

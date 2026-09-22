@@ -1,0 +1,30 @@
+{
+  "number": 1715,
+  "kind": "pull_request",
+  "title": "feat(studio): scope editor post-save refresh by package (ADR-0048 #1824)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T22:07:46Z",
+  "updated_at": "2026-06-13T22:13:40Z",
+  "closed_at": "2026-06-13T22:13:38Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T22:13:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1715",
+  "body": "Frontend counterpart to [framework#1827](https://github.com/objectstack-ai/framework/pull/1827) (package-scoped customization overlays, closes framework #1824).\n\nThe Studio metadata editor's **post-save refresh** re-read its layered + draft state context-free. The initial load (and the save) already pass `?package=` (since #1711); this aligns the refresh so that — when two installed packages ship the same `type`/`name` and each has its own overlay — the editor re-reads **this** package's own row after saving, not another's.\n\nOne-line change: `client.layered/getDraft(type, name, { packageId: ownerPackageId })` on the refresh path.\n\nDepends on framework #1827 for the server to actually persist/resolve per-package overlays.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

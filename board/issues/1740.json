@@ -1,0 +1,30 @@
+{
+  "number": 1740,
+  "kind": "pull_request",
+  "title": "feat(app-shell): carry isPlatformAdmin into the CEL action context",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T03:32:53Z",
+  "updated_at": "2026-06-15T03:43:43Z",
+  "closed_at": "2026-06-15T03:43:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T03:43:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1740",
+  "body": "## What\nForward the `isPlatformAdmin` flag from the session user into the Console action-runtime `currentUser`, defaulting to `false`, and add it to `FALLBACK_USER`.\n\n## Why\nConsole action `visible` predicates evaluate against `ctx.user`, but the runtime user object only carried `id/name/avatar` — so a platform-admin gate like `ctx.user.isPlatformAdmin == true` could never be satisfied. This enables hiding platform-admin-only object actions (e.g. `sys_environment.change_plan`) from non-admins in the Console UI.\n\n## Change\n`packages/app-shell/src/hooks/useConsoleActionRuntime.tsx`:\n- `currentUser` now includes `isPlatformAdmin: (user as any)?.isPlatformAdmin ?? false` (`AuthUser` has an index signature, so TS is fine).\n- `FALLBACK_USER` gains `isPlatformAdmin: false` for consistency.\n\nServer-side authz is unchanged; this is purely a UX visibility signal. Pairs with the framework change that emits the flag and the cloud change that consumes it in the `change_plan` predicate.\n\n## Validation\n- `turbo type-check --filter=@object-ui/app-shell` green (deps built)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

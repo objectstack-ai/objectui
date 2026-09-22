@@ -1,0 +1,32 @@
+{
+  "number": 1711,
+  "kind": "pull_request",
+  "title": "feat(studio): package-scope the metadata editor read (ADR-0048)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T17:20:54Z",
+  "updated_at": "2026-06-13T17:26:59Z",
+  "closed_at": "2026-06-13T17:26:57Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T17:26:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1711",
+  "body": "## What\n\nCloses the last gap in the ADR-0048 per-route audit: the **Studio metadata editor** (`/apps/:appName/metadata/:type/:name`). Two installed packages may ship metadata with the same `type`/`name`; the editor now resolves the right one instead of first-match.\n\n## Changes\n\n- **MetadataClient** (`data-objectstack`): `layered()` and `getDraft()` accept `{ packageId }`; `get()` emits the `package` query param → server prefer-local (`?package=`).\n- **ResourceListPage**: each item's edit link carries its **owning** package (`?package=<row._packageId>`), so even the unscoped \"all\" list disambiguates; falls back to the workspace suffix for runtime/overlay-only rows.\n- **ResourceEditPage**: reads `?package=` and scopes the layered + draft read. The route's `:appName` is the **Studio** app, not the edited item's owner, so the scope must come from the URL.\n\n## Server dependency\n\nRequires [framework#1819](https://github.com/objectstack-ai/framework/pull/1819) (the `?layers=true` endpoint now threads `packageId` through `getMetaItemLayered`).\n\n## Verification\n\nLive, against a real same-name collision (showcase + studio both shipping `doc/showcase_index`):\n\n- `/apps/com.objectstack.studio/metadata/doc/showcase_index?package=com.example.showcase` → editor loads Label \"Showcase\", content \"# Showcase…\"\n- `…?package=com.objectstack.studio` → editor loads Label \"Studio Intro\", content \"# STUDIO VERSION\"\n\nTypecheck clean; data-objectstack 177 / app-shell 499 tests green. No console errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

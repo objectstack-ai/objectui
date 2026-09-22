@@ -1,0 +1,33 @@
+{
+  "number": 1795,
+  "kind": "pull_request",
+  "title": "fix(fields): show empty-state for optionless select instead of silent dropdown",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-18T05:34:42Z",
+  "updated_at": "2026-06-18T05:38:11Z",
+  "closed_at": "2026-06-18T05:34:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-18T05:34:58Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1795",
+  "body": "## What\n\nA `select` field whose object-schema metadata carries **no `options`** rendered a silently-empty Radix dropdown in the create/edit form — an unfillable control that read as a broken widget and hid the real cause. This was the failure mode behind the ObjectOS *\"create form renders no select options\"* report.\n\n`SelectField` now renders a legible **\"No options available\"** state (matching the inline form renderer's `case 'select'`) when `options` is empty and the field is editable, so the cause is visible without opening the popover. The readonly path is unchanged (it short-circuits before this branch).\n\n## Why this isn't the root cause (and where the root cause lives)\n\nThe form's option-propagation path is **correct end-to-end** — every field-building path (`ModalForm`/`ObjectForm`/`DrawerForm` flat + `sectionFields`) reads `objectSchema.fields[name].options` and feeds it to the widget. Verified against the live stack:\n\n- The real defect is **upstream**: the AI app-builder emitted `select` fields with **no `options` at publish time**. Objective proof from `book.genre` history: `options=NULL` at v1–v3 (create/publish), only added at v4. Handed off separately to the cloud repo.\n- The list/grid only *looked* correct because `SelectCellRenderer` falls back to `humanizeLabel(value)` + a hashed badge color — so a correct-looking list does **not** prove options reach the client (tell-tale: list showed `\"Self Help\"` while the real label is `\"Self-Help\"`).\n\nThis PR makes that failure **legible instead of silent**; it does not (and cannot) unblock record creation on its own — that's the builder fix.\n\n## Tests\n\nAdds a **portal-free** `ModalForm` regression test (packages/plugin-form/src/selectOptions.test.tsx) pinning both directions:\n\n- options present -> usable dropdown (no empty-state). Fails if a future change drops options on the way to the widget, catching propagation regressions without opening the flaky Radix popover under happy-dom.\n- options absent -> empty-state shown.\n\nNo existing tests affected (the change is additive, gated on `options.length === 0 && !readonly`; the one readonly optionless-select test short-circuits earlier).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 1766,
+  "kind": "pull_request",
+  "title": "fix(build): deterministic flat plugin .d.ts to stop flaky app-shell build (#1760)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T16:07:35Z",
+  "updated_at": "2026-06-15T16:14:15Z",
+  "closed_at": "2026-06-15T16:14:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T16:14:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1766",
+  "body": "## Problem\n\nCloses #1760. Under a full parallel `turbo run build`, `@object-ui/app-shell`'s composite `tsc` intermittently failed with `error TS2307: Cannot find module '@object-ui/plugin-*'`, flipping the **Bundle Analysis / Build** job red or flaky. Long-masked by the turbo cache, so any PR touching an app-shell dependency could trip it — eroding CI trust.\n\n## Root cause\n\nEvery dts-emitting package configured `vite-plugin-dts` with `compilerOptions.rootDir` at the **monorepo root** plus `@object-ui/*` `resolve.alias` entries pointing into sibling **`src`**. Consequences:\n\n1. **Deeply nested dist** — `dist/packages/<pkg>/src/*.d.ts`, with `dist/index.d.ts` re-exporting the deep `./packages/<pkg>/src/index.js` path.\n2. **Cross-package type imports rewritten to relative sibling-src paths** (e.g. `../../types/src`). Under the nested layout these pointed nowhere valid → consumers silently degraded those types to `any` (masking real type errors); flattened naively they resolve to raw `src` → consumers re-walk/recompile cross-package source.\n\nGenerating this nested, cross-`src`-walking `.d.ts` for ~15 plugins concurrently is unstable, so app-shell's composite `tsc` intermittently couldn't resolve a plugin's `.d.ts`. Building app-shell in isolation always succeeded — consistent with a concurrency race.\n\n## Fix\n\nApplied consistently to all dts-emitting packages (`vite.config.ts`):\n\n- `compilerOptions.rootDir` → each package's **own `src`** ⇒ flat emit (`dist/index.d.ts` + `dist/*.d.ts`, no nested `packages/<pkg>/src` tree).\n- `aliasesExclude: [/^@object-ui\\//]` ⇒ cross-package type imports stay **bare** (`@object-ui/types`) and resolve to each dependency's **own built `dist/*.d.ts`**, instead of being rewritten to relative sibling-`src` paths.\n\nPlus `packages/app-shell/src/views/ReportView.tsx`: annotate `viewerSchema` as `ReportViewerSchema` — a real type error that was previously masked because the broken relative-path resolution degraded `ReportViewer`'s prop type to `any`.\n\n**JS bundles are byte-identical** — rollup already externalizes bare imports via `rollupOptions.external`; the aliases only fed the bundler/tests, not the published JS.\n\n## Verification\n\nThis is a flaky build-system fix, so it needs repeated proof:\n\n- **Repro (before):** clean turbo cache + full `pnpm build` reproduced `app-shell` failing with `Cannot find module '@object-ui/plugin-report'`.\n- **After:** the exact Bundle Analysis command `pnpm turbo run build --filter='./packages/*'` is **green across 5 clean runs** (turbo cache + `*.tsbuildinfo` + `dist` cleared each pass): `37/37` tasks, `cannot-find=0`, `TSerr=0`.\n- Spot-checked emitted `.d.ts`: flat layout, **zero** relative `../../*/src` refs, all cross-package imports bare `@object-ui/*`. app-shell (a downstream consumer) type-checks against the plugin `.d.ts` and builds green.\n\n> Not declaring success on a single green — confirmed stability across repeated clean builds. Will wait for CI to be green and stable before merge.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 1906,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump @types/node from 25.9.4 to 26.0.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T08:18:16Z",
+  "updated_at": "2026-06-22T11:53:17Z",
+  "closed_at": "2026-06-22T11:53:15Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T11:53:15Z",
+  "comments": 16,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1906",
+  "body": "Bumps [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/HEAD/types/node) from 25.9.4 to 26.0.0.\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a href=\"https://github.com/DefinitelyTyped/DefinitelyTyped/commits/HEAD/types/node\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 1855,
+  "kind": "pull_request",
+  "title": "fix(registry): silence bare-name collision warnings; keep display owners",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T07:50:33Z",
+  "updated_at": "2026-06-21T07:57:28Z",
+  "closed_at": "2026-06-21T07:57:27Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T07:57:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1855",
+  "body": "## Problem\n\nThe dev console logged a batch of `bare-name fallback is being overwritten` warnings on every boot, for `textarea`, `select`, `email`, `password`, `slider` (overwritten by `field:*`), `list` (by `view:list`), and `markdown` (by `plugin-markdown:markdown`).\n\nThe warning fires (`packages/core/src/registry/Registry.ts:145`) when a namespaced registration claims a bare-name fallback already owned by a *different* component. Several form-field renderers in `@object-ui/fields` and the `view:list` alias in `@object-ui/plugin-list` were clobbering bare keys owned by the display/ui primitives.\n\n## Decision\n\nObject **forms** resolve field widgets via an explicit `field:<type>` lookup (`form.tsx` `renderFieldComponent` + `mapFieldTypeToFormType`), so the field renderers never need the bare fallback. List **views** render via `type: 'list-view'`, never the bare `list`. So the bare keys belong to the display/ui/view/plugin primitives — exactly the convention already applied to `text`/`html`/`image`/`grid`/`avatar`.\n\n| bare name | now resolves to |\n|---|---|\n| textarea, select, email, password, slider | `ui:*` (form-input primitives) |\n| markdown | `plugin-markdown:markdown` (display renderer) |\n| list | `ui:list` (bullet/numbered list) |\n\n## Changes\n\n- **`packages/fields/src/index.tsx`** — add the six names to `FIELD_TYPES_SKIP_FALLBACK` (the real registration path via `registerField()`); the deprecated `registerFields()` is kept consistent.\n- **`packages/plugin-list/src/index.tsx`** — `skipFallback: true` on the `view:list` alias.\n- **`packages/core/src/registry/__tests__/Registry.test.ts`** — table-driven test asserting each bare name resolves to its intended owner with no collision warning, plus a regression guard.\n\nAlso fixes a **latent bug**: a page schema `{ type: 'list', items: [...] }` (e.g. schema-catalog `basic-list.json`) previously resolved to the data-bound `ListView` (which needs `objectName`) instead of a bullet list.\n\n## Verification\n\n- Registry unit tests: 89/89 pass.\n- Browser (managed preview against live backend): dev console logs **zero** collision warnings after the fix (previously all 7 at boot).\n- Live registry singleton (full app booted, 518 types) confirms each bare name resolves to its intended owner and every `field:*` key forms depend on is intact.\n- Confirmed no impact on the framework `app-showcase`: `type: 'list'` pages there are ADR-0047 interface pages (`interfaceConfig.source` set → `InterfaceListPage` → `list-view`), and `type: 'select'` is a form field — both bypass the bare-name lookup. Docs (`data-display/list`, `plugin-markdown`) and skills already describe the now-correct behavior.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 1738,
+  "kind": "pull_request",
+  "title": "feat(gantt): 只读体验 + 移动端只读缩略",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T02:08:09Z",
+  "updated_at": "2026-06-15T02:23:40Z",
+  "closed_at": "2026-06-15T02:23:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T02:23:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1738",
+  "body": "## 概述\n\nGantt 增强计划第 4 组(最后一组):**只读体验 + 移动端只读缩略**。在 Phase 6.2 已有的裸 \\`readOnly\\` 门控之上,补齐可见的只读徽标、右键菜单收敛,以及移动端窄屏自动只读。\n\n## 改动\n\n### 只读体验(只读体验)\n- \\`readOnly\\` 下工具栏显示 🔒 **只读** 徽标。\n- 引入 \\`effectiveReadOnly = readOnly || (mobileReadOnly && isNarrow)\\`,把所有 8 个写回调(\\`onTaskUpdate\\` / \\`onTaskDelete\\` / \\`onDependencyCreate\\` / \\`onDependencyDelete\\` / \\`onTaskReorder\\` / \\`inlineEdit\\` / \\`autoSchedule\\` / \\`rescheduleOnConflict\\`)统一收敛到一处。\n- 右键菜单降级为「查看详情」;当没有任何可用项(无 \\`onTaskClick\\` 且全部写操作被门控)时,**不再弹出空菜单**。\n- 根节点带 \\`data-readonly\\` / \\`data-mobile-readonly\\` 供样式与测试使用。\n\n### 移动端只读缩略(移动端只读缩略)\n- 新增 \\`mobileReadOnly\\` 属性(\\`ObjectGantt\\` 默认开启,\\`schema.mobileReadOnly !== false\\`)。\n- 窄屏(≤ 640px)自动进入只读,给触屏用户一个干净、可滚动的缩略视图;更宽视口保持完全可编辑。\n\n## 测试\n- 新增 \\`GanttView.readonly.test.tsx\\`(12 例)+ \\`ObjectGantt.test.tsx\\` 接线测试(2 例)。\n- 全量单测通过,\\`tsc --noEmit\\` 干净。\n- 浏览器验证 \\`scripts/verify-readonly-mobile.mjs\\` **14/14** 通过,截图留痕 49–51:\n  - \\`49-readonly-desktop.png\\` — 只读桌面端(徽标 + 无手柄 + 无撤销/重做)\n  - \\`50-readonly-context-menu.png\\` — 只读右键「查看详情」(无删除/加依赖)\n  - \\`51-mobile-readonly.png\\` — 420px 移动端只读缩略\n\n## 文档\n- \\`docs/verification/README.md\\` 追加第 4 组验证小节。\n- \\`skills/objectui/guides/page-builder.md\\` 增补 \\`readOnly\\` / \\`mobileReadOnly\\` 说明。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

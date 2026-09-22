@@ -1,0 +1,33 @@
+{
+  "number": 1878,
+  "kind": "pull_request",
+  "title": "fix(console-ai): actually render the \"Proposed plan\" card on /ai/build",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T03:35:24Z",
+  "updated_at": "2026-06-22T03:43:42Z",
+  "closed_at": "2026-06-22T03:43:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T03:43:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1878",
+  "body": "## Problem\n#1875 added the propose_blueprint review card (detector + ChatbotEnhanced body + labels), but it **never rendered in the product**. Two wiring gaps the detector-level unit tests couldn't catch — surfaced by a live browser test on /ai/build:\n\n1. **Routing** — `ChatbotEnhanced.shouldRenderDetailedTool` only routed a tool to the *detailed* body (where the card lives) when it had `draftReview` items / was awaiting / failed. A `propose_blueprint` result carries `proposedPlan` but **no** `draftReview`, so it collapsed into the summary **chip** strip and the card block was never reached. → route on `proposedPlan` too.\n2. **Surface converter** — `AiChatPage` has its **own** history converter (`hydratedMessagesToChatMessages`, the /ai/build surface), separate from `mapMessages` (the floating chat). It wired `draftReview` but not `proposedPlan`, dropping the card on reload there. → lift `proposedPlan` alongside `draftReview`; export `detectProposedPlan` + `ProposedPlan` from the package index.\n\n## Verification\n- **Live** on the EE rig: a propose-only prompt on `/ai/build` now renders the **Proposed plan** card (object chips w/ field counts, totals line, assumptions, confirm-questions, approve hint).\n- **Tests**: ChatbotEnhanced renders the card for a `proposedPlan` tool (not a chip); AiChatPage hydration lifts `proposedPlan` from the merged tool output. plugin-chatbot **119** + app-shell hydration green; type-check clean.\n\nFollow-up to #1875.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1909,
+  "kind": "pull_request",
+  "title": "fix(components): resolve page:card/header/tabs titles via pickLocalized",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T12:49:13Z",
+  "updated_at": "2026-06-22T12:59:00Z",
+  "closed_at": "2026-06-22T12:58:58Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T12:58:58Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1909",
+  "body": "## Problem\n\n`page:*` container renderers resolved their author-facing labels through `labelText()`, which only understands the `{ default, value }` i18n shape. A server-driven page that titles its blocks with inline `{ en, zh }` objects — the convention `element:text` / `element:button` already resolve via `pickLocalized` — got a **blank** title in every locale, because `labelText({ en, zh })` returns `''` and `page:card` then skips the `CardHeader` entirely.\n\nThis is exactly what happened to the **Cloud Pricing page**: every plan card's name + price heading silently disappeared (both `en` and `zh`).\n\n## Fix\n\nRoute these label spots through `pickLocalized(value, language)` (language from `useObjectTranslation()`):\n\n- `page:card` title\n- `page:header` title + subtitle\n- `page:tabs` item labels\n- `page:accordion` item labels\n\n`translateLabel()` is still chained after `pickLocalized` for the tabs/accordion well-known-English-token map (Details → 详情, …), so a plain-English `\"Details\"` label keeps translating.\n\n`labelText` is retained for the object-schema label fallback (a different shape handled by `useObjectLabel`).\n\n## Tests\n\n- New `page-card-i18n-title.test.tsx`: an `{ en, zh }` title renders (regression guard — was blank) + plain-string title unchanged.\n- All 38 existing renderer tests still green (incl. `page-header-actions`, which renders `PageHeaderRenderer` with no `I18nProvider` — confirms `useObjectTranslation` is safe without a provider).\n- `pnpm type-check` clean.\n\n## Consumed by\n\ncloud pins objectui by SHA (`.objectui-sha`); the matching cloud PR bumps the pin and beautifies `pricing.page.ts` on top of this fix.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

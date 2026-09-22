@@ -1,0 +1,33 @@
+{
+  "number": 1874,
+  "kind": "pull_request",
+  "title": "chore(home): remove redundant \"Make this home yours\" empty-state card",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T02:10:58Z",
+  "updated_at": "2026-06-22T02:14:38Z",
+  "closed_at": "2026-06-22T02:11:07Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T02:11:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1874",
+  "body": "## What\n\nRemoves the **\"Make this home yours\"** onboarding card (`GettingStartedHint`) from the console home page.\n\n## Why\n\nThe card only ever rendered in the empty state (no starred **and** no recent apps), and it just restated guidance the page already gives:\n- the empty **Recently Accessed** panel already says *\"Items you open will show up here\"*\n- the **Your apps** strip is self-explanatory\n\nSo it was redundant noise on the first-run home. Removing it.\n\n## Changes\n\n- Delete the `GettingStartedHint` component and its conditional render block in `HomePage.tsx`\n- Remove the now-dead `starredApps` derived variable (`favorites` is still passed to the apps strip)\n- Drop the now-unused `Star` / `Clock` / `ArrowDown` lucide imports\n- Update the stale file-header comment\n\nThe `home.gettingStarted.*` i18n keys are left in place (harmless dead strings) to avoid touching all 11 locale files + regenerating typed `.d.ts` for a UI cleanup.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1869,
+  "kind": "pull_request",
+  "title": "feat(studio): lookup picker config in the object field designer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T16:17:48Z",
+  "updated_at": "2026-06-21T16:25:21Z",
+  "closed_at": "2026-06-21T16:25:20Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T16:25:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1869",
+  "body": "## Why\n\nA lookup / master_detail field's picker configuration (which field labels each candidate, which records are even selectable, dependent-lookup links) lived **only in the raw JSON / 源码 tab** — the object field inspector showed just the target object + relationship name. This is the last \"usable but not user-friendly\" gap from the inspector audit.\n\n## What\n\nA structured **\"Picker config\"** section in the field inspector, rendered for `lookup` / `master_detail` / `tree` types, with every field choice bound to the **referenced object's live schema**:\n\n- **Display field / Description field** → field pickers over the referenced object (`displayField`, `descriptionField`).\n- **Selectable records** → a structured **`lookupFilters`** editor: rows of `field` + `operator` (eq/ne/gt/lt/gte/lte/contains/in/notIn) + `value` (`in`/`notIn` take a comma-separated list). This is the form the runtime **`LookupField` actually honours** (it reads `lookupFilters`, not the legacy `referenceFilters` strings — confirmed in `packages/fields/src/widgets/LookupField.tsx`), so it's structured field/operator/value, **not** CEL — no condition-compiler needed.\n- **Depends on** → dependent-lookup links to other fields on the **same record** (`dependsOn`), picked from the host object's fields. This is the formal \"$source\"-style dependency.\n- **Picker page size** (`lookupPageSize`) + **Allow quick-create** (`allowCreate`).\n\nAll controls degrade to free-text / empty states when the target object is unset or its catalog can't load. The referenced object's field catalog is loaded via `useObjectFields(reference)` inside a child component, so the parent inspector's hook order is unaffected.\n\n> Note: spec has no `sortField` for lookups — the cheap field-name pickers are `displayField` + `descriptionField`.\n\n## Test plan\n- `ObjectFieldInspector.test.tsx`: new cases — picker config renders for a lookup field (display/description/selectable-records/depends-on/quick-create), is absent for non-lookup fields, adds a structured `lookupFilters` row via `onPatch`, and reads an existing structured filter. **16/16 pass.**\n- Local: app-shell `tsc --noEmit` ✅ (27/27 turbo tasks).\n- Browser-verified on the HotCRM showcase backend: opening `crm_opportunity` → the `Account` (crm_account) lookup field shows the full Picker config section; the empty filter state interpolates the reference (\"every crm_account record is selectable\"); field pickers bind to the referenced object's fields (same proven `useObjectFields` + combo as the dashboard/dataset pickers). No console errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

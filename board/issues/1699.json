@@ -1,0 +1,33 @@
+{
+  "number": 1699,
+  "kind": "pull_request",
+  "title": "feat(plugin-chatbot): elapsed-time liveness counter on running AI turns",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T13:30:31Z",
+  "updated_at": "2026-06-13T13:34:01Z",
+  "closed_at": "2026-06-13T13:31:04Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T13:31:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1699",
+  "body": "## Why\n\nAI app builds run **1–3 minutes** with long quiet gaps (LLM thinking, sample-data generation). During those gaps the only on-screen signal was a static spinner, so a slow turn looked identical to a dropped connection — users worried the network had died (\"ai 执行会很卡很慢… 让用户知道服务器还连接着，网络没断\").\n\n## What\n\nA Claude-Code-style `m:ss` elapsed counter beside both running spinners:\n\n- the generic **thinking** message (`AssistantThinkingMessage`)\n- the in-flight **build panel** header (`BuildProgressPanel`)\n\nThe tick only advances while React is responsive, so the live counter is itself a \"still connected, still working\" cue and sets the expectation that the wait is normal. It **freezes** at its final value when the turn ends, leaving the total build duration visible. Language-neutral (a bare `m:ss` + clock glyph — no new i18n string).\n\nSelf-contained: a small `useElapsedSeconds` hook + presentational `ElapsedTime`; no new deps (`Clock3` already imported), no API/route change, untouched routing.\n\n## Verification\n\n- `tsc --noEmit` clean, `vite build` clean\n- **69/69** unit tests pass, incl. 2 new ones that render the real component under fake timers and assert the counter ticks `0:00 → 0:03` on the thinking spinner and `0:02`-then-frozen on the build panel after `phase: 'done'`.\n\n## Follow-up (out of scope)\n\nFor true stall-vs-connected discrimination (server holds the SSE open but sends nothing), a server-side keep-alive heartbeat + \"last activity Xs ago\" indicator would be the next step. The elapsed counter covers the dropped-connection / \"is it alive\" reassurance, which is the reported pain.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

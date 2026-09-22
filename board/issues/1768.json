@@ -1,0 +1,33 @@
+{
+  "number": 1768,
+  "kind": "pull_request",
+  "title": "fix(chat): restore build panel + publish button on conversation reload",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T18:52:48Z",
+  "updated_at": "2026-06-16T02:49:50Z",
+  "closed_at": "2026-06-16T02:49:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T02:49:48Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1768",
+  "body": "## Problem\n\nIn the AI **magic flow**, the blueprint **build progress panel** (Open / Preview) and the draft **Publish button** disappeared whenever the user **refreshed the browser** mid- or post-build. Reported by the user; reproduced in the local full-stack browser E2E.\n\nTwo layers of data loss on hydration:\n\n1. **The tool result was dropped.** The server persists conversations in ModelMessage format, where a tool **CALL** (assistant message) and its **RESULT** (a separate `tool` row) are different messages. `toUIMessages` skipped non-user/assistant/system rows, so the `tool` row — carrying the apply_blueprint **draft envelope** (ADR-0033, `{status:'drafted', drafted:[…], packageId, …}`) that drives the publish/preview/review affordances — was never available after reload.\n2. **Build progress is transient.** The live `data-build-progress` stream parts that render the \"Built X\" panel are never persisted, so the panel vanished on reload too.\n\n## Fix (objectui only)\n\n- **`toUIMessages`** merges a `tool` row's result back onto the matching assistant tool-call part as `output` (+ terminal `output-available`/`output-error` state), so `detectDraftResult` can rebuild `draftReview` after a refresh.\n- **`uiMessageToChatMessage`** synthesizes a *completed* `buildProgress` summary from the persisted apply_blueprint draft envelope when no live progress part exists — re-derived on every map (incl. `useObjectChat`'s round-trip), so it can't be lost like a one-shot hydration value. Only whole-app builds (draft set includes an `app`) get a panel; incremental edits keep their draft card but no build tree (matches live behaviour).\n- **`hydratedMessagesToChatMessages`** reads the merged result → `draftReview` and the same synthesized `buildProgress`.\n- Export `detectDraftResult` + new `buildProgressFromDraftReview` (+ `DraftReview` type).\n\n## Verification\n\nBrowser-verified end-to-end on the full local stack (cloud + objectos runtime + real AI gateway): build → auto-publish → live preview → AI iterate (add field) → unpublished draft + **Publish (1)** button → **refresh-safe at every step**. The \"Built expense_tracker\" panel (progress bar + artifact tree + Open/Preview) and the Publish button now persist across reloads.\n\nUnit tests: **plugin-chatbot 86 passed**, **app-shell 546 passed** (incl. new cases for the tool-result merge and the reload synthesis).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

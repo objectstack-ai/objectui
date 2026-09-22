@@ -1,0 +1,32 @@
+{
+  "number": 1803,
+  "kind": "pull_request",
+  "title": "refactor(plugin-view): suppress duplicate named-view tabs in app-shell (ADR-0053)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-19T09:21:56Z",
+  "updated_at": "2026-06-19T09:26:55Z",
+  "closed_at": "2026-06-19T09:26:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-19T09:26:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1803",
+  "body": "Part of **ADR-0053**. Removes the latent duplicate of mechanism #2 (`renderNamedViewTabs`).\n\n## What\nThe app-shell `ObjectView` already renders the canonical `ViewTabBar` switcher, but it also mounts the plugin-view `ObjectView` which can render its **own** `renderNamedViewTabs` row from `schema.listViews` — a duplicate.\n\n- plugin-view `ObjectView`: new `hideNamedViewTabs?: boolean` prop; `renderNamedViewTabs` returns null when set.\n- app-shell `ObjectView`: passes `hideNamedViewTabs` to both `PluginObjectView` mount points (it owns the `ViewTabBar`).\n- **Standalone consumers** (`byo-backend-console`, `SystemObjectViewPage`) leave it unset → they keep `renderNamedViewTabs` as their only switcher. So the renderer is *suppressed in context*, not removed.\n\n## Verification\nBrowser: object list shows **one** switcher row (ViewTabBar), no duplicate `view-tabs` row, 10 records render, no console/vite errors. `type-check` passes (27/27 affected).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1796,
+  "kind": "pull_request",
+  "title": "fix(plugin-chatbot): expand the ADR-0038 verification chip into its findings",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-18T05:47:49Z",
+  "updated_at": "2026-06-18T05:58:41Z",
+  "closed_at": "2026-06-18T05:58:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-18T05:58:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1796",
+  "body": "## Problem\n\nWhen the graph lint flags a staged AI build, the build-health card shows an amber **\\\"N issues\\\"** chip — but it's a **dead end**. Clicking or hovering it reveals nothing, so the user learns *that* something is wrong but never *what*. They have to click through the generated app to discover the broken artifact.\n\nObserved 2026-06-18 during a magic-build E2E: a Book Library build's **\\\"1 issue\\\"** badge gave no hint that it was a nav entry pointing at a non-existent dashboard — the user only found out by opening the Overview page and hitting \\\"Dashboard Not Found\\\".\n\n## Root cause\n\nThe findings were already in the tool-result envelope. `detectDraftResult` lifted only the `verification: { errors, warnings }` **counts** and dropped the `issues[]` array that carries each finding's `message` and `fix`.\n\n## Fix\n\n- **mapMessages**: lift `issues[]` (defensively — `message` + `fix`, malformed entries dropped) onto `DraftReview` alongside the counts; the key is omitted entirely when empty so existing envelopes don't churn.\n- **ChatbotEnhanced**: render the findings under the chip as a compact list, **mirroring the existing L3 `PublishHealthLine` markup** (errors red / warnings amber, fix hint appended) — no new state, no new imports.\n\n## Verification\n\nDeterministic component + unit tests (no live stack needed for a pure-UI change):\n\n- `detectDraftResult` lifts issues (and drops malformed ones) and omits the key when empty.\n- `ChatbotEnhanced` renders **both** the chip count (`1 issue`) **and** the expanded detail block (`data-testid=\"draft-issues\"`) with the finding message *and* fix hint.\n\n**66/66 pass** across `mapMessages.test.ts` + `ChatbotEnhanced.test.tsx`.\n\nComplements the cloud-side BVL work (the lint that now flags `select_without_options`): the lint produces the findings; this makes them legible in the chat.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

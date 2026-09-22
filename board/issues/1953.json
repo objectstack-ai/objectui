@@ -1,0 +1,32 @@
+{
+  "number": 1953,
+  "kind": "pull_request",
+  "title": "feat(studio): live preview for flow Screen nodes (#1944)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T06:05:23Z",
+  "updated_at": "2026-06-24T06:08:46Z",
+  "closed_at": "2026-06-24T06:06:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T06:06:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1953",
+  "body": "Closes #1944.\n\n## What & why\nScreen-flow nodes let authors configure title / description / input `fields` / object-form (`objectName`), but there was no way to **see** the form an end user would get — you configured it blind, and the Debug simulator showed only `paused` when it reached a screen. This adds a live preview that renders the screen exactly as it runs, live-updating as the config changes.\n\n## Approach — reuse the runtime renderer (no reimplementation)\nThe runtime `FlowRunner`'s screen body (the flat input-field list + the object-form `ObjectForm` schema) is extracted into a shared **`ScreenView`**. Both the runtime (`FlowRunner`) and the new preview render through it, so the preview **cannot drift** from runtime — the exact design↔runtime divergence #1927 set out to kill. `FlowRunner`'s resume/submit behaviour, Dialog chrome and footer are unchanged.\n\nA new **`ScreenPreview`** builds a `ScreenSpec` from the node's authored `config` (`screen-spec.ts`, the same keys the engine's `screen` executor reads) and feeds it to `ScreenView`.\n\n## Two homes\n- **Flow node inspector** (`FlowNodeInspector`) — preview under the screen config, interpolating `{var}` against the flow's declared variable defaults. Updates live as you edit.\n- **Debug simulator** (`FlowSimulatorPanel`) — when paused at a screen, renders the actual end-user form (interpolating `{var}` against the **live simulated run state**) instead of a bare `paused`.\n\n## Acceptance criteria\n- [x] Reflects `title`, `description` (with `{var}` interpolation), `fields`, and object-form mode (`objectName` / `mode` / `defaults`).\n- [x] Updates live as the node config changes.\n- [x] Reuses the runtime screen/form renderer (`ScreenView` + `plugin-form` `ObjectForm`) — not a reimplementation.\n\n## Verification (browser, dev server proxied to a real backend)\nOn HotCRM's `quote_generation` (flat-fields screen) and an ad-hoc object-form node:\n- **Flat fields** — inspector renders Quote Name\\*, Valid For (Days)\\* (number), Discount %, disabled Submit — matching the config.\n- **Live update** — typing a Title/Description updated the preview in real time; `{quoteName}`/`{expirationDays}` stayed literal (no declared default).\n- **Interpolation** — in the Debug simulator, seeding `quoteName=Premium Plan`, `expirationDays=45` and running paused at the screen rendered the description as **\"Quote for Premium Plan — valid 45 days.\"**\n- **Object-form mode** — setting `objectName: crm_quote` switched the preview to the full runtime `ObjectForm` (live schema: account/contact/opportunity pickers, status & payment-term selects, compound address fields).\n- No console errors from the new components; the seeded showcase flow was left unmodified (changes were in-memory, discarded on reload).\n\n## Tests\n- `ScreenPreview.test.tsx` (8 cases): flat-field rendering, `{var}` interpolation (substituted vs. kept-literal), live-update on rerender, empty state, object-form `ObjectForm` schema (`objectName`/`mode`/`initialValues`), no-data-source fallback, and `buildScreenSpec` mapping.\n- Existing `FlowRunner.test.tsx` still green (the extraction is behaviour-preserving).\n- `pnpm turbo type-check` clean; lint 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

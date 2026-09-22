@@ -1,0 +1,33 @@
+{
+  "number": 1733,
+  "kind": "pull_request",
+  "title": "feat(components): wire element:button onClick to an action (navigate / invoke / redirect)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T14:52:49Z",
+  "updated_at": "2026-06-14T15:24:10Z",
+  "closed_at": "2026-06-14T15:24:07Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T15:24:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1733",
+  "body": "## Why\n`element:button` rendered **inert** — the renderer read only `label`/`variant`/`icon` and ignored any action/events. A metadata-defined button on a standalone Page (a pricing CTA, \"Upgrade\", \"Manage billing\") couldn't navigate or call a route. The page spec declared an `events` field but the renderer never honoured it. This blocks building interactive server-driven pages from built-in blocks.\n\n## What\n- `element:button` gains an optional `properties.action` — **any** `ActionDef` the `ActionRunner` understands: `navigation`/`url` (link to another page), `api`/`script` (POST a route, with param collection + redirect), `modal`, `flow`.\n- Executed via the shared `useAction()` (mirrors `action:button`'s param routing). `useAction()` falls back to a local runner when no `ActionProvider` is mounted, so adding the hook **never throws** in existing non-page contexts.\n- Buttons now render as `type=\"button\"` so they can't accidentally submit a surrounding form.\n- No `action` → unchanged inert render (**back-compat**).\n\n## Impact\nUnblocks pages composed entirely from built-in blocks (`page:card` + `element:text` + `element:button`) driving real actions — e.g. a cloud-defined pricing page whose CTA opens the existing self-serve upgrade checkout — **with no per-page React**.\n\n## Tests\n`packages/components/src/__tests__/element-button-action.test.tsx`: navigation action fires the navigation handler on click; no-action button is inert + crash-free; renders `type=button`. 35 existing renderer tests pass; dependency-ordered turbo build green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

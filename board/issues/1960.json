@@ -1,0 +1,33 @@
+{
+  "number": 1960,
+  "kind": "pull_request",
+  "title": "feat(studio): render inline master-detail subforms in flow Screen preview (follow-up #1944)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T07:25:43Z",
+  "updated_at": "2026-06-24T07:29:24Z",
+  "closed_at": "2026-06-24T07:26:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T07:26:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1960",
+  "body": "Follow-up to #1944 — implements the **object-form master-detail subforms** gap in the flow Screen-node preview.\n\n## What\nObject-form mode of the Screen preview rendered the parent fields but **not** the inline master-detail child grids the end user sees at runtime. Now it does — e.g. a screen with `objectName: showcase_invoice` previews the invoice form **and** its inline **Line Items** grid (with live Subtotal/Tax/Total).\n\n## How\n- `ScreenPreview` now feeds `ScreenView` the **same enriched object list the runtime `FlowRunner` receives** — `useMetadata().objects`, which derives `form.subforms` from `inlineEdit` master-detail relationships via `attachInlineSubforms`. (`useMetadata().objects` is exactly what `AppContent` passes down to `ObjectView` → `RecordDetailView` → `FlowRunner`, so the preview can't drift.) Read only in object-form mode, so plain field screens skip the all-objects fetch.\n- **Preview safety:** `MasterDetailForm` owns its own Save bar (it ignored `showSubmit`), which would have given the preview a *functional* persist button — unlike the flat-field preview (disabled Submit) and the simple object-form preview (no Save). So `MasterDetailForm` now honours a `showSubmit` flag (default shown; backward-compatible — runtime is unaffected), forwarded by `ObjectForm`. The preview passes `showSubmit: false`, hiding the Save bar.\n- Drive-by: removed a dead `e = formData` assignment in `ObjectForm` (surfaced by `no-useless-assignment` once the file's lint cache busted).\n\n## Verification (browser, HotCRM `quote_generation` screen node)\nSetting `objectName: showcase_invoice` switched the preview to the runtime `ObjectForm` rendering:\n- the invoice header fields (number, customer, status, dates, tax rate), **and**\n- the inline **Line Items** master-detail grid — columns #/Product/Description/Qty/Unit Price/Amount, an *Add line* button, and a live **Subtotal / Tax / Total** stack,\n- with **no Save button** (preview never persists). Seeded showcase data left unmodified (in-memory edit, discarded on reload).\n\n## Tests\n- `MasterDetailForm.test.tsx` (+2): action bar renders by default; hidden when `showSubmit: false`.\n- `ScreenPreview.test.tsx` (+1): object-form mode forwards the enriched def's `form.subforms` to `ObjectForm` as `schema.subforms`.\n- Both suites green; `pnpm turbo type-check` clean; changed files lint clean.\n\nNote: object-form steps are uncommon in the seeded data (one object, `showcase_invoice`, uses `inlineEdit`), so this is verified there; the wiring is identical to the runtime path for any object with inline subforms.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

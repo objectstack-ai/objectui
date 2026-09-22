@@ -1,0 +1,30 @@
+{
+  "number": 1718,
+  "kind": "pull_request",
+  "title": "chore(changeset): backfill changesets for post-9.3 changes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T02:16:16Z",
+  "updated_at": "2026-06-14T02:16:58Z",
+  "closed_at": "2026-06-14T02:16:56Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T02:16:56Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1718",
+  "body": "Backfills the changesets missed for package-touching PRs merged after the objectui SHA pinned at framework **9.3.0** (`e95cc25`).\n\nScanned every non-merge commit in `e95cc25..HEAD`; grouped the changeset-less ones into coherent units:\n\n| Package(s) | Bump | Change |\n|---|---|---|\n| `plugin-gantt` | minor | year scale / nav / saved layout / PDF export (#1706) |\n| `plugin-gantt` | minor | configurable tooltip + live parent-stretch (#1689) |\n| `plugin-chatbot` | minor | inline AI `data-chart` rendering (#1712) |\n| `plugin-chatbot` | minor | honest turn-liveness indicator (#1699/1700/1702) |\n| `app-shell` | minor | AI workspace UX — date grouping / split / shortcuts (#1703/1705/1707/1709) |\n| `app-shell` | patch | send current-page object to AI assistant (#1698) |\n| `app-shell`+`plugin-list`+`plugin-grid`+`data-objectstack` | minor | ADR-0047 interface pages (#1678/1680/1681/1684/1685/1691/1694/1695/1704) |\n| `plugin-list` | patch | gate speculative `$select` by real schema (#1710) |\n| `app-shell` | minor | ADR-0048 package-id app routing + prefer-local (#1688/1693/1696) |\n| `app-shell` + `core` | minor | zero-roundtrip `newTabUrl` fast path (#1675) |\n| `plugin-report` | minor | server-supplied dataset matrix totals (#1669) |\n\nTest-only commits and `chore: bump objectui` pins were skipped. `npx changeset status` resolves cleanly.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

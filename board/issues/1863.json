@@ -1,0 +1,32 @@
+{
+  "number": 1863,
+  "kind": "pull_request",
+  "title": "feat(fields): recently-used, quick-create, preview & combobox a11y for lookups",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T13:37:38Z",
+  "updated_at": "2026-06-21T13:51:46Z",
+  "closed_at": "2026-06-21T13:51:44Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T13:51:44Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1863",
+  "body": "Follow-up to #1860 — closes the remaining record-picker table-stakes vs. Salesforce / Power Apps-Dataverse / SAP Fiori / ServiceNow. All renderer-contained; browser-verified live against app-showcase (zh-CN).\n\n## Changes\n- **Recently used** (`recentLookups.ts`) — a per-object `localStorage` ring records the last few picked records. The quick-select popover shows a **最近使用 / Recently used** section on empty focus, then **全部结果 / All results**, as one de-duped list that also drives arrow-key navigation. No backend dependency (single swap-in seam for a future recent-items API).\n- **Inline quick-create** — host `onCreateNew` still wins; otherwise an opt-in `allowCreate` field flag enables optimistic create via `dataSource.create({ [displayField]: typedText })` → auto-select, with validation errors surfaced inline. Inert unless opted in (companion spec flag lands in framework).\n- **Preview tooltip** — each option carries a native-tooltip summary of its other derived columns (e.g. `Industry: Retail · Revenue: 8,000,000`) to disambiguate without opening the record.\n- **Combobox a11y** — the search input is a real `role=combobox` with `aria-controls` / `aria-expanded` / `aria-autocomplete=list` and `aria-activedescendant` tracking the active option (each option now has a stable id). The trigger advertises `aria-haspopup=listbox` + `aria-expanded` but stays a **native button** (no role override) so existing behaviour/queries are unchanged.\n- Mobile: the full picker already adapts (95vw + horizontal column scroll) — verified at 375px.\n\n## Verification\n- Unit: `recentLookups.test.ts` (6) + existing `complex-widgets` (27) + i18n parity (40) all green.\n- **Live** (zh-CN): picked Contoso → reopened the Account lookup → \"最近使用: Contoso (已选)\" then \"全部结果: Northwind / Fabrikam\", each with an industry secondary line and a derived-columns tooltip; confirmed input `role=combobox` + `aria-controls`==listbox id, `aria-activedescendant`, trigger `aria-haspopup=listbox`.\n\nNew `lookup.recentlyUsed` / `lookup.allResults` keys added to all 10 locale bundles."
+}

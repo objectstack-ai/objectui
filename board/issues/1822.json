@@ -1,0 +1,32 @@
+{
+  "number": 1822,
+  "kind": "pull_request",
+  "title": "fix(grid): activate mobile card view at the 768px app breakpoint",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T11:40:23Z",
+  "updated_at": "2026-06-20T11:44:14Z",
+  "closed_at": "2026-06-20T11:40:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T11:40:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1822",
+  "body": "## Problem\n\nOn phones and tablet-portrait, the list **Grid (table) view side-scrolls** — only the first ~3 columns fit; the rest are off-screen. ObjectGrid *already ships* a mobile card view (stacked cards, one field per line, badges with correct colors), but it only activated below **480px**.\n\nThat's narrower than the app's mobile breakpoint (**768px**, shared by `useIsMobile`, Tailwind `md:`, and the responsive page + grid layout shipped in #1816). So the **480–768px** band — most phones, tablet-portrait, and even phones whose reported `innerWidth` sits just over 480 (e.g. a 390px viewport reporting 500) — fell through to the cramped scrolling table.\n\n## Fix\n\nRaise the card-view threshold from 480 → **768**, matching every other responsive switch in the shell. One-line change plus clarifying comments. Desktop (≥768) is unchanged.\n\n## Verification (dev console, `showcase_active_projects`)\n\n| width | before | after |\n|---|---|---|\n| 500px | side-scrolling table | ✅ stacked cards |\n| 390px | side-scrolling table | ✅ stacked cards |\n| 1280px | table | ✅ table (unchanged) |\n\n- Cards show title + compact currency + status badge + label/value rows, correct badge colors (Planned/On Hold/Green/Red). ✅\n- Tapping a card navigates to the record — opens the iOS grouped-inset detail (#1820) in a full-screen overlay. **No horizontal scroll anywhere in the mobile flow.** ✅\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

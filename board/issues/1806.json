@@ -1,0 +1,30 @@
+{
+  "number": 1806,
+  "kind": "pull_request",
+  "title": "feat(app-shell): interface pages read page-owned columns/sort (revise ADR-0047)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-19T14:07:00Z",
+  "updated_at": "2026-06-19T14:10:37Z",
+  "closed_at": "2026-06-19T14:07:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-19T14:07:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1806",
+  "body": "## Summary\n\nRuntime half of the \"interface pages own their view metadata\" change (Airtable parity — no more \"inherit from a separate view\").\n\n`InterfaceListPage` now resolves data semantics with this precedence:\n\n```\npage's own config  →  legacy sourceView view (back-compat)  →  object default\n```\n\n- **columns**: `cfg.columns ?? resolvedView.columns ?? defaultColumnsFromObject(objectDef)`\n- **sort**: `cfg.sort ?? view.sort`\n- **filterBy** remains the page's always-on base filter on top.\n\nExisting pages that still carry a `sourceView` keep working unchanged via the fallback; new/edited pages define `columns`/`sort` directly.\n\nPairs with the framework spec PR (objectstack-ai/framework#2050): `InterfacePageConfig` gains `columns`/`sort`, `sourceView` deprecated, and the page editor replaces the **Source View** picker with a **Columns** picker.\n\n## Verification\n- `tsc --noEmit` clean for `@object-ui/app-shell`.\n- Browser (live showcase, :5181): the page editor shows **Source / Columns / Filter By** (no Source View); picking columns re-renders the preview live; **task-triage** and **task-workbench** render their own column sets — workbench shows **Estimate (h)**, which the object's default view omits, proving the page defines columns independently.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 1814,
+  "kind": "pull_request",
+  "title": "fix(sdui): grid alias collision, expression user-context, record:history self-fetch",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T08:09:00Z",
+  "updated_at": "2026-06-20T08:12:37Z",
+  "closed_at": "2026-06-20T08:09:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T08:09:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1814",
+  "body": "Four non-obvious renderer/registry gaps found while building composed SDUI pages (the framework `app-showcase` enterprise surfaces). All browser-verified on `:5181`.\n\n## 1 — `grid` shadowed by ObjectGrid\n`plugin-grid` registered `register('grid', ObjectGridRenderer, { namespace: 'view' })` **without `skipFallback`**, so `Registry.register`'s bare-name fallback clobbered the `@object-ui/components` **layout grid**. Result: `{ type: 'grid' }` 404'd with *\"object name required for data fetching\"*. Added `skipFallback: true` → the alias only claims `view:grid`, leaving bare `grid` as the layout container. **Verified:** My Work KPI row now renders in a `grid-cols-3` layout.\n\n## 2 — Registry collision guard\n`Registry.register` now `console.warn`s when a namespaced registration's bare-name fallback would overwrite a **different** component (the clobber in #1 was silent). +3 regression tests.\n\n## 3 — `visible` expressions had no user context\n`SchemaRenderer` built `new ExpressionEvaluator({ data })`, ignoring the ambient scope app-shell's `ExpressionProvider` already feeds (`user`, `app`, `features`). Now evaluates against `{ ...scope, current_user: scope.user, data }`, so component `visible`/`visibleOn` can gate on the signed-in user. `current_user` aliased to `user`. **Verified:** an `element` gated `visible: \"user.email == 'admin@objectos.ai'\"` shows for the admin; one gated to a different email stays hidden.\n\n## 4 — `record:history` always empty unless host-fed\nIt was stateless by design (\"the host fetches entries\"), so a hand-authored history tab showed *\"No history yet\"*. Added a **self-fetch fallback** from `sys_activity` field_change events via the record context (mirrors `record:related_list`). **Verified:** Account 360 History tab now lists *\"UPDATED · Industry: Finance → Technology\"* after edits.\n\n## Also\n`page:card` now accepts `children` (not just `body`) for consistency with grid/flex/section/tabs.\n\n> A separate `page:card`-in-region prop-leak (props serialized onto the DOM, title/body not rendering) remains and is **not** addressed here — flagged for follow-up.\n\n## Tests\nFull workspace suite (4021) + plugin-detail (120) + plugin-grid (66) pass. Registry tests: 27 (incl. 3 new for skipFallback/collision).\n\nA companion framework PR re-instates the showcase features these fixes unlock (grid KPIs, role-gated note, History tab).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

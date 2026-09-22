@@ -1,0 +1,32 @@
+{
+  "number": 1764,
+  "kind": "pull_request",
+  "title": "feat(form): modal forms can host a tabbed layout — modal+tabbed (framework#1890)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T14:38:18Z",
+  "updated_at": "2026-06-15T14:58:00Z",
+  "closed_at": "2026-06-15T14:57:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T14:57:58Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1764",
+  "body": "## What\n\nUnlocks **\"modal + tabbed\"** — the capability the form-variant work in #1890 / #1762 / ADR-0050 identified as blocked.\n\n`ModalForm` rendered sections as a flat vertical stack, so a modal create/edit form could **never** be tabbed: `formType` is one field and can't be both `modal` (the container) and `tabbed` (the layout). Per **ADR-0050** (additive-first), this adds the missing composition **without** touching the `FormView.type` enum (non-breaking).\n\n## Change\n\n- **`ModalForm`** — new `contentLayout?: 'simple' | 'tabbed'`. When `tabbed`, sections render as **Tabs inside the dialog** (reusing `@object-ui/components` Tabs); otherwise the existing vertical stack.\n- **`AppContent`** (console record New/Edit modal) — forwards the default form view's layout as `contentLayout` + `sections`, so a `type:'tabbed'` form view renders tabbed in the modal too — matching the full-page route fixed in #1762.\n\n## Verification\n\n**Browser-verified**: showcase Task → **New** (modal) now renders **Overview / Schedule / Details tabs** with working tab switching (Schedule tab shows Start/End/Due Date + Progress), instead of one flat stack.\n\n## Follow-ups (ADR-0050)\n\n- `DrawerForm` + the remaining modal entry points (`useActionModal`, `DashboardView`) should forward layout the same way (consistency).\n- `FormView.type` enum narrowing — drop `drawer`/`modal`/`split` (breaking, M2, needs sign-off per ADR-0050).\n\nRefs objectstack-ai/framework#1890\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

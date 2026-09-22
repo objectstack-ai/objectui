@@ -1,0 +1,33 @@
+{
+  "number": 1826,
+  "kind": "pull_request",
+  "title": "test(plugin-list): fix ViewSwitcher tests for inline segmented control",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T16:25:56Z",
+  "updated_at": "2026-06-20T16:32:25Z",
+  "closed_at": "2026-06-20T16:32:24Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T16:32:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1826",
+  "body": "## Problem\n\n`packages/plugin-list/src/__tests__/ListView.test.tsx` had **7 consistently failing tests** that held CI red across recent commits on `main` (c2596476, e1f5d646, 4cc3fd16):\n\n- should persist view preference to localStorage\n- should restrict ViewSwitcher to allowedVisualizations\n- should use spec {kanban,gallery,timeline,calendar,gantt} config over legacy options\n\n## Diagnosis\n\nThe tests — not the implementation — regressed. The list/grid view-switcher work ([#1821](https://github.com/objectstack-ai/objectui/pull/1821), [#1822](https://github.com/objectstack-ai/objectui/pull/1822)) changed `ViewSwitcherDropdown` so that the **2–4 visualization** case renders an inline iOS/Linear-style **segmented control** (options as `role=\"tab\"`, always visible, no trigger) instead of a click-to-open dropdown. The dropdown form is now reached only at 5+ visualizations.\n\nAll 7 tests configure exactly 2 visualizations, so they now render the segmented control. They still:\n1. Clicked a `view-switcher-dropdown` testid to \"open\" the menu — that element no longer exists for 2 views (`TestingLibraryElementError: Unable to find ... [data-testid=\"view-switcher-dropdown\"]`).\n2. Queried options by `role=\"button\"` — the segmented options expose `role=\"tab\"`.\n\nThe segmented control is the intended UX, so the fix is in the tests.\n\n## Fix\n\nMake the tests agnostic to which switcher form renders:\n\n- `openViewSwitcher()` — clicks the dropdown trigger only when present (no-op for the inline segmented control; still opens the dropdown at 5+ views).\n- `queryViewOption()` / `getViewOption()` — match an option by accessible name across both `tab` and `button` roles.\n\nNo production code changed.\n\n## Verification\n\n```\npnpm --filter @object-ui/plugin-list exec vitest run src/__tests__/ListView.test.tsx\n# Tests  115 passed (115)\n\npnpm --filter @object-ui/plugin-list exec vitest run\n# Test Files  4 passed (4) — Tests  127 passed (127)\n```\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

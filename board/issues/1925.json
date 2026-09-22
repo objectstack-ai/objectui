@@ -1,0 +1,32 @@
+{
+  "number": 1925,
+  "kind": "pull_request",
+  "title": "fix(dashboard): auto-flow layout-less widgets in the positioned grid",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-23T17:45:33Z",
+  "updated_at": "2026-06-23T17:53:19Z",
+  "closed_at": "2026-06-23T17:53:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-23T17:53:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1925",
+  "body": "## Problem\n\nFound by dogfooding the ObjectStack **Studio dashboard designer** in the browser.\n\n`DashboardRenderer` placed any widget **without** a `layout` at a single grid column in the positioned (explicit-columns) grid. A dashboard authored in the Studio designer — which adds widgets without a layout and relies on auto-flow — therefore crammed every widget into one row, with charts squeezed to a few px wide and effectively invisible.\n\n## Fix\n\nGive layout-less widgets a sensible default span in the positioned grid (KPIs quarter-width `w:3/h:2`, charts & tables half-width `w:6/h:4`), clamped to the column count — mirroring the editable `DashboardGridLayout`'s auto-placement. `hasExplicitColumns` is hoisted so `renderWidget` can read it.\n\n- The responsive flow layout (no explicit `columns`) is **unchanged** — it already sizes each widget as one cell.\n- Widgets **with** an explicit `layout` are unaffected (`widget.layout ?? fallbackSpan`).\n\n## Verification\n\n- `plugin-dashboard` suite: 4329 tests pass.\n- Browser-verified: a 10-widget layout-less dashboard (KPIs + donut/bar/horizontal-bar/area + pivot cross-tab + table) now renders as a clean 2-column grid with all charts full-size.\n\nPairs with framework PR objectstack-ai/framework#2247 (`fix(spec): make dashboard widget \\`layout\\` optional`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

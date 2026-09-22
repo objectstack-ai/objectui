@@ -1,0 +1,32 @@
+{
+  "number": 1952,
+  "kind": "pull_request",
+  "title": "fix(console): object-detail page uses valid `record` PageType (unbreak Bundle Analysis)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T05:57:17Z",
+  "updated_at": "2026-06-24T06:05:46Z",
+  "closed_at": "2026-06-24T06:05:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T06:05:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1952",
+  "body": "## Why\nobjectui main's **Bundle Analysis is red on every PR** — `apps/console/src/schemas/objectDetailPageSchema.ts:53` emits `pageType: 'record_detail'`, which was **dropped from `PageType`** (`record | home | app | utility`) in framework#2265 / #1949. The console build runs `tsc` and fails with TS2322.\n\n## Fix\nAn object **detail** page is a `record` page (also the `PageType` default) → `pageType: 'record'`. One line.\n\n## Note\nSpotted while shipping the dataset-designer work (#1931/#1939/#1951) — not caused by it; this is a pre-existing drift from the page-type narrowing. Unblocks the console publish build for all PRs.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1832,
+  "kind": "pull_request",
+  "title": "feat(studio): searchable icon picker for every icon field",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T17:35:33Z",
+  "updated_at": "2026-06-20T17:42:21Z",
+  "closed_at": "2026-06-20T17:42:19Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T17:42:19Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1832",
+  "body": "## Summary\n\nFrom an admin's perspective, picking an icon shouldn't require memorising Lucide names. The studio already ships a searchable `IconPickerWidget`, but it only activated when a spec form explicitly pinned `widget: 'icon'`, so most icon fields rendered as a free-text input.\n\n- **SchemaForm**: auto-detect icon fields by name convention — a string prop named `icon` or `*Icon` (no enum) now resolves to the `icon` widget, mirroring the existing field-reference convention. Every metadata type's icon field gets the searchable picker in the generic form, with zero per-form wiring.\n- **widgets**: export `IconPickerWidget` so curated inspectors can reuse it.\n- **ActionDefaultInspector**: render the Action icon with the picker instead of a text input.\n\n## Verification\nVerified live against the showcase app: the **App** icon (generic SchemaForm) and the **Action** icon (curated inspector) both now render the searchable picker; confirmed via DOM inspection that the dropdown opens with the full icon grid and is not clipped by the inspector's scroll container.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

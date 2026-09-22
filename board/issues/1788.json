@@ -1,0 +1,33 @@
+{
+  "number": 1788,
+  "kind": "pull_request",
+  "title": "fix(core): evaluate bare CEL predicates in evaluateCondition",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-17T03:22:11Z",
+  "updated_at": "2026-06-17T03:27:23Z",
+  "closed_at": "2026-06-17T03:27:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-17T03:27:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1788",
+  "body": "## Problem\n\n`ExpressionEvaluator.evaluateCondition` delegated to `evaluate`, which only\nprocesses `\\${...}` templates and returns any other string **verbatim**. A bare\npredicate like `record.status == \"converted\"` (the shape `objectstack build`\nemits for `disabled` / `visible` / `condition`) was therefore coerced to a\nnon-empty string → `Boolean(...)` → **always `true`**. Every bare-expression\npredicate routed through `evaluateCondition` was silently always-truthy.\n\nMost visible symptom: a param-collecting `api` action invoked from the **record\nheader** (CRM \"Reassign Lead\") was treated as permanently `disabled`, so\n`ActionRunner.execute` bailed *before* opening the param dialog. The `page:header`\nrenderer was unaffected because it evaluates via `evaluateExpression` directly —\nwhich is exactly why this only reproduced on the header path.\n\n## Fix\n\n- **`evaluateCondition`** now treats a non-`\\${}` condition as a single\n  expression (via `evaluateExpression`), keeps the `\\${...}` template path, and\n  preserves the `empty/undefined ⇒ visible/enabled` and `unparseable ⇒\n  visible/enabled` fallbacks.\n- **`ActionRunner`** evaluates the `disabled` gate (boolean / string / `{dialect,\n  source}` envelope) instead of treating any object as truthy.\n- **`plugin-grid` `RowActionMenu`** unifies the row-action predicate scope so\n  `record.*` and bare-field predicates resolve identically on every surface.\n\n## Verification\n\n- Full `@object-ui/core` + `@object-ui/react` suites green (3963 passed; the\n  previously-asserted `useCondition(undefined) ⇒ true` still holds).\n- Browser E2E on the CRM lead record page: header **Reassign Lead** → param\n  dialog opens → custom **\"Lead reassigned.\"** toast → **Undo** → **\"Change\n  undone.\"**\n\nPairs with framework PR extending the CRM demo action to `record_header`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1877,
+  "kind": "pull_request",
+  "title": "fix(console-ai): keep draft/plan cards across cache-fallback reload + remap server tool-call type",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T03:22:34Z",
+  "updated_at": "2026-06-22T03:26:08Z",
+  "closed_at": "2026-06-22T03:23:08Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T03:23:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1877",
+  "body": "## Problem\n\nTwo independent reload regressions on the AI chat surface, both in app-shell's [`useChatConversation.ts`](../blob/fix/chat-cache-affordances/packages/app-shell/src/hooks/useChatConversation.ts):\n\n1. **Cache-fallback strips the affordance cards.** `sanitizeChatMessagesForCache` rebuilt cached tool parts *without* the tool `output`. When the loader falls back to `readMessageCache` (server transiently returns no/partial messages, or offline), `mapMessages.detectDraftResult` / `detectProposedPlan` had nothing to parse → the draft **\"Review N changes / Publish\"** card, the **ADR-0038 verification chip**, and the #1875 **\"Proposed plan\"** card silently vanished. Only the bare tool header remained.\n\n2. **Server `tool-call` → \"Call\" title.** `toUIMessages` passed the server's ModelMessage assistant tool-call part `type:'tool-call'` through verbatim. In the `ConsoleFloatingChatbot` path (`hydratedHistory = uiMessagesToChatMessages`, which derives `toolName` from the part *type*) this humanized the tool step to **\"Call\"** instead of \"Apply blueprint\" / \"Propose blueprint\" after a clean server-backed reload.\n\n## Fix\n\n1. **Compact `output` (lean).** Sanitize now re-serializes the already-derived `draftReview` / `proposedPlan` into a **minimal, re-parseable `output` envelope** — dropping the heavy blueprint JSON (object `fields` / `failed` are materialized only to the length the detectors *count*). Stored as `output` — a first-class SDK tool-part field, **not** a custom part key — because the AI SDK preserves `output` through `useChat` init exactly as the server-backed `mergeToolResultsInto` path already relies on (custom keys risk being stripped). **No `mapMessages` change:** the existing detectors re-parse the compact envelope.\n\n2. **Remap in `toUIMessages`.** Assistant `type:'tool-call'` (with a `toolName`) → `tool-<toolName>`. The result-merge and detectors are unaffected (they key off `toolCallId` / `output`). `AiChatPage`'s own hydration mapper reads the `toolName` field directly and was already immune — the remap is harmless to it.\n\n## Verification\n\n- **4 new regression tests** in `useChatConversation.test.tsx`: a full live → cache → `localStorage` (JSON) → reload round-trip through `sanitizeChatMessagesForCache` + `uiMessageToChatMessage` asserting `draftReview` / `proposedPlan` (all fields) survive, a leanness check (no field defs in the cached plan), and the `tool-call` remap. Confirmed they **fail without the fix**.\n- **app-shell suite: 576 passed** · **plugin-chatbot suite: 118 passed**.\n- Type-check clean (after building deps) · lint: 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

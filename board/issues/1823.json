@@ -1,0 +1,32 @@
+{
+  "number": 1823,
+  "kind": "pull_request",
+  "title": "feat(nav): iOS-native polish for the mobile sidebar drawer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T12:47:00Z",
+  "updated_at": "2026-06-20T12:50:40Z",
+  "closed_at": "2026-06-20T12:47:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T12:47:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1823",
+  "body": "## What\n\nYou deliberately removed the mobile bottom-tab nav on 2026-05-20 ([`00363fd2e`](https://github.com/objectstack-ai/objectui/commit/00363fd2e)) in favor of drawer-only (Notion/Linear pattern). This PR **keeps that decision** and instead makes the **drawer itself** feel iOS-native on phones.\n\n## Changes (all gated behind `useIsMobile()` — desktop rail untouched)\n\n1. **Tap targets** — nav rows go from 32–36px to **≥44px** (iOS HIG minimum), with 15px text, 20px icons, and `rounded-xl` rows. Applied in the shared `NavigationRenderer` only when mobile.\n2. **Snappier open** — the mobile sidebar `Sheet` opens in **300ms ease-out** instead of the shared 500ms default. Scoped to the drawer's `SheetContent` className only, so other Sheets/dialogs keep their timing.\n3. **Mobile Home row** — `UnifiedSidebar`'s phone-only \"Home\" affordance matches: 44px, 15px text, 20px icon, `rounded-xl`.\n\n## Verification\n\n- **Mobile (390px):** drawer nav rows measure **44px** (was 32–36px); rounded-xl + larger text/icons render; no console errors. ✅\n- **Desktop (1280px):** sidebar rows stay **32px**; class-list inspection confirms **no** `min-h-[44px]` / `rounded-xl` leak — desktop is unchanged. ✅\n- `turbo run type-check` passes for `@object-ui/components`, `@object-ui/layout`, `@object-ui/app-shell` (28/28 tasks). ✅\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

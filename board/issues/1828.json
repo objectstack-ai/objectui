@@ -1,0 +1,33 @@
+{
+  "number": 1828,
+  "kind": "pull_request",
+  "title": "feat(dashboard): CSV export for dataset table & pivot widgets",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-20T16:44:29Z",
+  "updated_at": "2026-06-20T16:51:10Z",
+  "closed_at": "2026-06-20T16:51:08Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-20T16:51:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1828",
+  "body": "## Why\nRounding out the report-page work: tables and cross-tabs had no way to get the data out. Export is a standard report ask.\n\n## What\nDataset **table** and **pivot/cross-tab** widgets get a subtle export button (top-right) that downloads the underlying grouped rows as CSV:\n- **Display-label headers** (i18n-resolved — e.g. `状态,优先级,Tasks`).\n- Dimension values as their **display labels**; measures kept **numeric** (no thousands separators / currency glyphs) so the data round-trips into a spreadsheet.\n- **UTF-8 BOM** prepended so Excel opens non-ASCII labels (Chinese) correctly.\n- Omitted for metric/chart widgets.\n\n`toCsv` is a pure, unit-tested helper (RFC4180-style quoting: quote on comma/quote/newline, double embedded quotes). Label is i18n (`dashboard.exportCsv`, en + zh).\n\n## Tests\n`DatasetWidget.test.tsx` (33 total): `toCsv` quoting/escaping/null-handling; export button present on table & pivot, absent on metric; click produces a CSV blob with label headers + numeric measures. Type-check green.\n\n## Verified live\nChart Gallery: both \"Projects by Account\" and \"Tasks by Status × Priority\" show the export button; clicking the pivot's button yields `状态,优先级,Tasks` + rows like `Backlog,Low,1`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

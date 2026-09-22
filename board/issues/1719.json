@@ -1,0 +1,32 @@
+{
+  "number": 1719,
+  "kind": "pull_request",
+  "title": "fix(routing): sweep remaining app-entry links onto package-id segment (ADR-0048)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T02:20:13Z",
+  "updated_at": "2026-06-14T03:25:47Z",
+  "closed_at": "2026-06-14T03:25:45Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T03:25:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1719",
+  "body": "Follow-up to #1717 (home-page app links). Swept the console for app-entry links still building `/apps/<app.name>` instead of the canonical package-id segment.\n\n## Fixed\n- **AppManagementPage** (System → Apps) \"Open app\" button: `/apps/${app.name}` → `/apps/${app._packageId ?? app.name}`.\n- **AppContent** current-app sub-routes/redirects that used `activeApp.name` (which flipped a `/apps/<packageId>/…` URL to the name form):\n  - the `metadata/package` → `component/developer/packages` redirect (path matcher + target),\n  - the record-form `baseUrl`,\n  - now build against the URL's own `appName` route param.\n  - `requestedAppMissing` (preview-drafts) now resolves via `matchAppBySegment`, so a package-id URL isn't mistaken for a missing app.\n\n## Left deliberately\n- `ConsoleFloatingChatbot` \"open just-published app\" — its `published` payload is `{type, name}` with no `_packageId`, so name-form is the only option (and `matchAppBySegment` falls back to name).\n- All the `appName`-from-`useParams()` sub-route builders (RecordFormPage, ObjectView, marketplace pages, …) — they correctly reuse the current segment.\n\n## Verification\nBrowser (dev console against a live backend): System → Apps → **Open Showcase** → `/apps/com.example.showcase/showcase_project`, app renders. Typecheck clean for both packages.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

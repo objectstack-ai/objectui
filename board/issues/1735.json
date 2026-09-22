@@ -1,0 +1,30 @@
+{
+  "number": 1735,
+  "kind": "pull_request",
+  "title": "fix(i18n): home welcome/noApps keys missing → English leak on zh home",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T16:05:57Z",
+  "updated_at": "2026-06-14T16:12:03Z",
+  "closed_at": "2026-06-14T16:12:01Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T16:12:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1735",
+  "body": "## Problem\n`HomePage` renders `t('home.welcomeAdminDescription')` (the admin empty-state \"build with AI\" body) and `t('home.noAppsTitle')` / `t('home.noAppsDescription')` (non-admin state) — but **none of those keys existed in any locale**, so they fell back to the English `defaultValue`. On the Chinese product surface the env-home magic-moment rendered an **English body under a Chinese title** (the mixed-language issue from the customer-journey audit).\n\n## Fix\nAdd the three keys to `en` (source) + `zh` (translated). The remaining 8 locales keep falling back to the English `defaultValue` exactly as before — no regression; full coverage for those is a separate i18n pass (the parity test only enforces top-level sections).\n\n## Tests\n`@object-ui/i18n` build clean; suite **113 pass**.\n\nShips to cloud via `bump-objectui`.\n\n> Note: the form-field **helpText** leaks (create/change-plan action params) are a separate, deeper fix — the spec `TranslationData` type doesn't model action params yet (objectui `resolveActionParams` never i18n's helpText), so that needs a `@objectstack/spec` type + resolver change across repos. Flagged as a follow-up."
+}

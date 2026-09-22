@@ -1,0 +1,32 @@
+{
+  "number": 1935,
+  "kind": "pull_request",
+  "title": "feat(studio): preview record pages against a real sample record",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T03:18:34Z",
+  "updated_at": "2026-06-24T03:22:03Z",
+  "closed_at": "2026-06-24T03:20:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T03:20:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1935",
+  "body": "## What\n\nThe Studio page editor's **Preview** tab rendered a `type: 'record'` page's `record:*` blocks (details / highlights / path / alert / quick_actions) as the **\"bind a record to preview\"** placeholder. The metadata editor has no record route, so the author was designing blind — list and home/app page previews already showed live data, but record pages did not.\n\n## How\n\nThe preview now mirrors the runtime `RecordDetailView`:\n\n- Fetches a handful of real records of the bound `object` (`$top=50`), with **lookup / master_detail fields `$expand`ed** (via `buildExpandFields`) so they render display names (e.g. *Website Relaunch*) instead of raw foreign-key IDs.\n- **Auto-binds the first record** and wraps the canvas in `<RecordContextProvider>`.\n- Adds a **\"Preview record\" dropdown** so the author can switch records; `visible` CEL expressions and per-record field values re-render live.\n\nNo-op for non-record pages and for record objects with no rows (the existing placeholder still shows).\n\n## Verification\n\nAgainst the `app-showcase` backend, previewing `showcase_task_detail` (record page bound to `showcase_task`):\n\n- `record:path` / `record:highlights` / `record:details` / `record:quick_actions` populate with real field values.\n- The `project` lookup expands to its name rather than a raw id.\n- The `record:alert` banner (`visible: \"record.status == 'in_review'\"`) **hides** for `done`/`backlog` records and **appears** when the picked record is `in_review` — confirming CEL evaluates against the chosen record.\n- `pnpm vitest run PagePreview.test.tsx` → 3/3 pass; `tsc --noEmit` on `@object-ui/app-shell` → 0 errors.\n\nScoped to the record-page preview only (`PagePreview.tsx` + its test + a changeset).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

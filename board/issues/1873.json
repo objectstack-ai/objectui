@@ -1,0 +1,33 @@
+{
+  "number": 1873,
+  "kind": "pull_request",
+  "title": "fix(console-ai): graceful handling when the build agent isn't deployed (routing + home CTA)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T02:08:43Z",
+  "updated_at": "2026-06-22T02:47:35Z",
+  "closed_at": "2026-06-22T02:47:31Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T02:47:31Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1873",
+  "body": "## Symptom\nOn a backend **without** a given built-in agent, opening `/ai/build` bounced to the junk URL **`/ai/ask/build`** and there was no way to select build mode. Reproduced on `examples/app-showcase` (catalog: `ask` + `showcase_assistant` only — it doesn't load the cloud AI Studio plugin, so the build agent isn't registered).\n\n## Cause\nThe router treated any unresolved first segment as a **legacy conversation id**. So `/ai/build` (when `build`/`metadata_assistant` isn't in the catalog) was read as \"open a conversation called `build`\" → redirect to the default agent surface *carrying* that segment → `/ai/ask/build`.\n\n## Fix\nDistinguish **\"a known agent that's merely not deployed here\"** from **\"a real conversation id\"**:\n- New `isBuiltinAgentName()` — true for `build`/`metadata_assistant`/`ask`/`data_chat` regardless of the live catalog.\n- `AiChatPage`: a known built-in name that the catalog doesn't serve (`unavailableKnownAgent`) is excluded from the legacy-conversation-id path and the canonicalization effect redirects it cleanly to the default surface (`/ai/ask`). Only a *truly* unknown segment is still treated as a conversation id.\n\n## Verified live\n- **app-showcase (no build agent)**: `/ai/build` & `/ai/metadata_assistant` → `/ai/ask/…` (clean, no `/build` junk); launcher correctly lists only `Ask` + the custom `Delivery Assistant`.\n- **custom agent**: `/ai/showcase_assistant` → its own surface (generic routing).\n- **regression (backend WITH the build agent, :3100)**: `/ai/build` → `/ai/build/…` still resolves — the fix only changes the *unavailable* case.\n- Unit tests: 17 pass (+3 for `isBuiltinAgentName`).\n\n## Note on availability\nThe build agent is a **cloud / EE feature** (ships in `@objectstack/service-ai-studio`). On open-source deployments like app-showcase it's intentionally absent, so this PR makes the absence degrade gracefully rather than enabling build there. To actually use build mode, the backend must load the AI Studio plugin.\n\nFollow-up to [objectui#1868](https://github.com/objectstack-ai/objectui/pull/1868).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

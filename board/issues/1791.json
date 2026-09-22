@@ -1,0 +1,32 @@
+{
+  "number": 1791,
+  "kind": "pull_request",
+  "title": "fix(i18n): localize record activity feed timestamps and actor fallbacks",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-18T02:08:21Z",
+  "updated_at": "2026-06-18T22:37:19Z",
+  "closed_at": "2026-06-18T22:37:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-18T22:37:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1791",
+  "body": "## 背景\n派工单详情页「讨论 / 活动」在 zh-CN 下仍显示英文（见用户截图）：相对时间 `2d ago`、动态发起人 `System`。\n\n## 排查结论\n- 相对时间：`RecordActivityTimeline` 与 `ThreadedReplies` 的 `formatTimestamp()` 硬编码英文，而 zh-CN 翻译 key（`detail.justNow/minutesAgo/hoursAgo/daysAgo`）其实早已存在，只是从未被调用。\n- 发起人名：`RecordDetailView` 用硬编码的 `'System'` / `'Unknown'` 作为 fallback。\n\n## 改动\n- `formatTimestamp` 接收并使用 `t()`（两个组件）。\n- 新增翻译 key `detail.systemActor`（系统）、`detail.unknownUser`（未知用户），en + zh 双语补齐；feed 发起人 fallback 改走 `t()`。\n- 重命名遮蔽外层 `t` 的循环变量 `t` → `feedType`，否则翻译函数在该作用域不可达。\n\n## 不在本 PR 范围\n- 动态正文 `Created <object> \"DO-00030\"` 来自服务端 `sys_activity.summary`，需后端处理。\n- 「编辑视图」表单的英文标签来自上游 `@objectstack/spec` 的 JSON Schema（`SchemaForm` 对 schema 派生标签无翻译层），属上游 / 服务端 `/meta/types` 翻译机制范畴。\n\n## 验证\n- `tsc --noEmit`（plugin-detail）在装好依赖的主 checkout 下通过。\n- 浏览器端因需后端数据 + 登录态 + zh-CN 环境,未在本环境复现。"
+}

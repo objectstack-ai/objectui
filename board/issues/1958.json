@@ -1,0 +1,32 @@
+{
+  "number": 1958,
+  "kind": "pull_request",
+  "title": "feat(studio): surface flow validation errors inline on the canvas",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T07:14:06Z",
+  "updated_at": "2026-06-24T07:17:46Z",
+  "closed_at": "2026-06-24T07:14:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T07:14:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1958",
+  "body": "## What & why\n\nThird in the ADR-0044 revise-loop series (after [#1954](https://github.com/objectstack-ai/objectui/pull/1954) authoring and [#1955](https://github.com/objectstack-ai/objectui/pull/1955) debugger). The flow designer's structural validation — an **un-declared cycle**, missing entry node, duplicate ids, dangling edges — was only visible in the **Debug** panel, which the author has to open. Now it surfaces **inline on the canvas**.\n\n## Change\n\n- **Un-declared cycle painted red on the canvas.** The cycle's offending edges and nodes are highlighted (red stroke / red ring), using the *same* `validateFlowDraft` the simulator preflight runs (no second rule). The edge that closes the loop carries a tooltip pointing at the fix: *\"mark the edge that closes the loop as a back-edge\"*. A **declared** revise loop (ADR-0044 `type: 'back'`) is excluded from cycle detection and stays un-flagged.\n- **Inline error banner** on the canvas listing the structural-error messages — so even an off-screen cycle is discoverable.\n- The cycle `Diagnostic` now carries the closing **node path**, so `FlowPreview` can derive the exact edges/nodes to highlight. It runs validation continuously and passes `invalidNodeIds` / `invalidEdges` / `validationErrors` to `FlowCanvas`. Invalid edges/nodes also expose a `data-invalid` attribute (styling + tests).\n\n## Files\n\n- `simulator/flow-sim-types.ts` / `flow-sim-validate.ts` — `Diagnostic.cycle` (closing node path) set on the cycle error.\n- `previews/FlowCanvas.tsx` — red edge/marker/banner; `invalidNodeIds` / `invalidEdges` / `validationErrors` props; `data-invalid`.\n- `previews/flow-canvas-parts.tsx` — `NodeCard` red error ring (`invalid` prop).\n- `previews/FlowPreview.tsx` — continuous `validateFlowDraft`; derive + pass highlights (nodes/edges memoized for stable hook deps).\n\n## Verification\n\n- **Component test** (`FlowCanvas.test.tsx`): renders the real canvas with a cyclic flow → asserts the error banner shows the message and the cycle's edges + nodes carry `data-invalid`; a clean flow shows neither.\n- **Unit**: the cycle `Diagnostic` carries the closing node path (`a → … → a`).\n- Full metadata-admin suite **398 green**; `type-check` 0 errors; `eslint` 0 errors.\n\n> Browser drivers (chrome-devtools / preview server) were occupied by parallel sessions this run, so the canvas rendering is covered by the component test (it mounts the real `FlowCanvas`) rather than a live screenshot.\n\nPairs with the canvas-validation direction noted in framework#1770.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

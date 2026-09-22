@@ -1,0 +1,32 @@
+{
+  "number": 1846,
+  "kind": "pull_request",
+  "title": "feat(studio): manage datasource through the metadata-admin engine (drop bespoke page)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T05:22:31Z",
+  "updated_at": "2026-06-21T05:29:12Z",
+  "closed_at": "2026-06-21T05:29:11Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-21T05:29:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1846",
+  "body": "## What\ndatasource is a **metadata type**, so it should be administered by the generic **metadata-admin engine** like every other type — not the hand-written `DatasourceManagerPage`/`system/datasources` route.\n\n- **Register `datasource` as a metadata-admin resource** (`registerMetadataResource`) with a custom `ListPage` that ports the full manager: list / create / edit / delete / **test** / **sync objects**. It's a *side-effectful* type (secret encryption + connection pool + introspection), so create/edit/delete + test go through the framework `datasource-admin` REST (`/api/v1/datasources/*`), but it now lives **inside the engine**: engine route (`…/component/metadata/resource?type=datasource`), registry slot, shell. Sync creates objects via the engine's `useMetadataClient`.\n- **Delete** the standalone `DatasourceManagerPage` + `system/datasources` route; repoint the System hub card + add an admin-nav \"Datasources\" item to the engine route.\n- **Fix `MetadataRedirect`/`ObjectRedirect`**: they left a stray `system/` segment, so `system/metadata/:type` 404'd — this also repairs the existing **Object Manager** link.\n\n## Pairs with\nframework [#2091](https://github.com/objectstack-ai/framework/pull/2091) (Setup-app \"Datasources\" nav entry → this engine route).\n\n## Verification (live, browser)\nAgainst the showcase + setup apps:\n- ✅ Engine route renders the datasource manager (no bespoke page)\n- ✅ **Create** `eng_demo` (sqlite) via the form → listed\n- ✅ **Sync** → introspect `customers`/`orders` → **create objects** → real object metadata created (verified via `/api/v1/meta/object`)\n- ✅ Setup app left menu → **Datasources** → opens this engine view\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

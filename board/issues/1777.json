@@ -1,0 +1,33 @@
+{
+  "number": 1777,
+  "kind": "pull_request",
+  "title": "feat(chatbot): surface AI quota refusals as upgrade/top-up CTA (P1d)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T08:32:06Z",
+  "updated_at": "2026-06-16T10:09:52Z",
+  "closed_at": "2026-06-16T10:09:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T10:09:50Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1777",
+  "body": "## P1d — surface AI quota refusals as upgrade / top-up CTA\n\nFrontend half of the pricing rework. Pairs with cloud PR objectstack-ai/cloud#371 (P0+P1a+P1b, merged).\n\n### Why\nThe cloud token guardrail now refuses over-quota AI requests with a 429 + JSON body (three codes: free design quota, free data-Q&A trial, paid allowance). Without frontend handling the SSE chat transport surfaces these as a red \"Response failed\" — so a free user who hits the data-Q&A trial wall (cloud P1b) sees a broken-looking error instead of an upgrade path. This closes that loop.\n\n### Changes\n- **`parseAiQuotaError`** (tool-display.ts): the ai-sdk chat transport throws a plain Error whose `message` is the 429 body text (no status code preserved), so the only signal is the JSON body. Strips the retry/format prefixes `summarizeChatError` handles, locates the JSON, matches the three guardrail codes; null otherwise. + 5 unit tests.\n- **ErrorBanner** (ChatbotEnhanced.tsx): on a quota refusal, renders a friendly amber upgrade card with a CTA (\"Upgrade plan\", or \"Buy a credit pack\" when `topUp`; zh/en by locale) instead of the generic red error. Generic errors unchanged. New `onUpgrade` prop threaded through; FloatingChatbot forwards it automatically via `{...chatbotProps}`.\n- **`cloudPricingDeepLink`** (marketplaceApi.ts): deep-links to the cloud upgrade entry (envs list), mirroring `cloudInstallDeepLink`; centralized so it can be re-pointed as cloud billing UI evolves.\n- **AiChatPage + ConsoleFloatingChatbot**: wire `onUpgrade` -> open cloud.\n\n### Tests\n- 5 `parseAiQuotaError` unit tests pass.\n- type-check: changed lines are clean — verified by baseline diff (plugin-chatbot 54 / app-shell 616 error-TS lines are identical with and without this change; all pre-existing `@object-ui/*` workspace-not-built `.d.ts` gaps in a fresh worktree, unrelated).\n\n### Follow-up\n- Deep-link target (`cloud-control/sys_environment`) to be aligned with cloud's final pricing/billing route; `topUp` CTA points there too until cloud P1c (credit packs) lands a dedicated page.\n- Full browser E2E is the T8 follow-up (cloud).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

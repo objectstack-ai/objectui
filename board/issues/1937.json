@@ -1,0 +1,30 @@
+{
+  "number": 1937,
+  "kind": "pull_request",
+  "title": "fix(studio): localize lookup picker config + keep published org objects editable",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T03:35:51Z",
+  "updated_at": "2026-06-24T03:43:25Z",
+  "closed_at": "2026-06-24T03:43:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T03:43:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1937",
+  "body": "Found while dogfooding Studio's object designer as a business user.\n\n## 1. i18n — lookup \"Picker config\" sub-panel was hard-coded English\nIn an otherwise-Chinese designer, the lookup field's advanced *Picker config*\nblock (\"Picker config\", \"Display field\", \"Description field\", \"Search fields…\",\n\"Selectable records\", \"Add filter\", \"No filter — every … record is selectable.\",\n\"Depends on …\", \"Picker page size\", \"Allow quick-create\", …) rendered in English.\nRouted every literal through `t()`/`tFormat()` with new `designer.field.lookup.*`\nkeys (en + zh). **Browser-verified**: all strings now Chinese, zero English left.\n\n## 2. Published org objects read back as read-only\nAfter publishing a custom (org-authored) object, its active version surfaces in\nthe layered `code` slot — but tagged with the `sys_metadata` provenance sentinel,\nnot a real package. `ResourceEditPage` computed `isArtifactItem = layered?.code != null`,\ntreating it as a packaged artifact (which needs `allowOrgOverride`, a capability\nthe `object` type lacks) → the object the user just created locked itself\nread-only. Mirror the server's `isArtifactBacked()`, which excludes\n`_packageId === 'sys_metadata'`, so org items stay editable.\n\nComplements framework #2252 (which stops stamping runtime metadata into a loaded\ncode package). #2252 fixes the persisted `package_id`; this closes the matching\nfront-end gate so the object is actually editable end-to-end.\n\n## Verification\n- `@object-ui/app-shell` vitest (ObjectFieldInspector + _shared.select): 19/19 green.\n- i18n localization confirmed live in the browser (console dev server → showcase backend).\n- The editable fix mirrors the server's own artifact-provenance rule; validated\n  against layered metadata (org object `code._packageId = sys_metadata` vs a real\n  code object `= com.example.showcase`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

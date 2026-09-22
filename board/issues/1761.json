@@ -1,0 +1,36 @@
+{
+  "number": 1761,
+  "kind": "pull_request",
+  "title": "feat(chart): grouped series for multi-dimension dataset charts (#1759)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T13:10:46Z",
+  "updated_at": "2026-06-15T13:18:20Z",
+  "closed_at": "2026-06-15T13:18:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-15T13:18:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1761",
+  "body": "## What\n\nFollow-up to #1757 (closes #1759). A dataset-bound chart with **two dimensions** (e.g. `dimensions: ['status','priority']`) previously only honoured the first dimension: `xAxisKey = dimensions[0]`, `series = values`. The second dimension was **invisible** — the x-axis just repeated the first-dimension label once per second-dimension bucket, with no grouping/colour/legend. Data was correct; the second dimension wasn't visualised.\n\n## Change\n\n- **`@object-ui/core`** — new shared `buildChartSeries(rows, dimensions, values, fields)`:\n  - 2+ dimensions + single measure → **pivot** the second dimension into one series per distinct value (long→wide), `xAxisKey` = first dimension.\n  - otherwise → first dimension on x-axis, one series per measure (unchanged).\n- **`ObjectChart`** (plugin-charts) — dataset mode now derives `data`/`xAxisKey`/`series` via the helper.\n- **`DatasetWidget`** (plugin-dashboard) — chart branch uses the same helper, so dashboard widgets and chart views render multi-dimension charts **identically** (grouped/coloured bars + legend).\n\n## Verification\n\n- `buildChartSeries` unit tests (5) cover single-dim, multi-measure, two-dim pivot, field labels, nullish input — all green.\n- `@object-ui/core`, `plugin-charts`, `plugin-dashboard` build green.\n- (Base dataset-chart rendering was browser-verified in #1757; this PR changes only series derivation, consumed by the chart renderer's existing multi-series path.)\n\n> Note: the **Bundle Analysis** check may fail on the pre-existing app-shell build debt tracked in #1760 (turbo-cache-masked; unrelated to this PR's code).\n\nRefs objectstack-ai/framework#1890\n"
+}

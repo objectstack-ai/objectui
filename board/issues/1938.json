@@ -1,0 +1,33 @@
+{
+  "number": 1938,
+  "kind": "pull_request",
+  "title": "fix(metadata): create form reflects fields published after first build",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T04:05:12Z",
+  "updated_at": "2026-06-24T04:08:59Z",
+  "closed_at": "2026-06-24T04:05:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T04:05:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1938",
+  "body": "## Problem\nThe AI-built object **New** create form keeps showing the original field set after a field is added via the AI flow and published — it survives normal reloads and IndexedDB/localStorage clears.\n\n## Root cause\n`GET /api/v1/meta/object/:name` is served with `Cache-Control: public, max-age=3600`, so the browser HTTP-caches the object schema for up to an hour **without revalidating**. The create form (`ModalForm`) reads the schema via `ObjectStackAdapter.getObjectSchema` (a default `fetch`) → served the stale body. The **list** endpoint `/meta/object` is uncached, which is why list views refresh on publish but the create form doesn't. The server itself is fresh (new ETag after publish — confirmed via a cache-bypass fetch), so this is the HTTP cache, **not** registry staleness.\n\n## Fix\n- **data-objectstack** — `getObjectSchema` now reads via `fetchObjectSchemaFresh()` with `cache: 'no-cache'`, forcing an `If-None-Match` revalidation (fresh schema on change, cheap `304` when unchanged). + unit test.\n- **app-shell `MetadataProvider`** — the publish/install (`emitMetadataRefresh`) pulse also clears the shared adapter's metadata cache, so open forms refresh without a page reload.\n\n## Verification\nE2E in the local stack: built a Leave Request app, added + published Department then Position; the published app's create form showed all fields **with no hard reload**, while a default-cache probe still returned the stale schema (proving the fix bypasses it). Unit suites: data-objectstack 209/209, MetadataProvider 11/11.\n\n## Follow-up (framework, separate)\nThe principled root fix is server-side: change that endpoint's `Cache-Control` to `no-cache`/`must-revalidate` (and fix the malformed `public, max-age, max-age=3600`) so all consumers/CDNs revalidate. This PR fixes the console symptom.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

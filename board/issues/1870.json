@@ -1,0 +1,33 @@
+{
+  "number": 1870,
+  "kind": "pull_request",
+  "title": "feat(plugin-gantt): drag-to-link endpoints, resizable name column, handle ergonomics & view-switch anchoring",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T01:27:24Z",
+  "updated_at": "2026-06-22T10:50:56Z",
+  "closed_at": "2026-06-22T10:50:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T10:50:54Z",
+  "comments": 17,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1870",
+  "body": "## ObjectGantt — interaction & layout improvements\n\nA batch of `@object-ui/plugin-gantt` fixes and features. Each was verified in-browser and is covered by the unit suite (201 passing, type-check clean).\n\n### Dependencies (drag-to-link)\n- **Drag-to-link from either bar endpoint**, dhtmlx-style. Each leaf bar exposes a connector dot at *both* its start and finish. The link type is auto-derived from which endpoint you drag **from** and which half of the target bar you drop **onto**: `end→start = FS`, `end→end = FF`, `start→start = SS`, `start→end = SF`. A draft hint (`Task A (end) → Task B (end)`) names the endpoints during the drag.\n\n### Handle ergonomics (stop mis-operation)\n- **Connector dots float fully outside each bar end** (detached circles in an enlarged hit area), so grabbing one can never start a bar move or an edge-resize. They appear on row hover / while the bar is the link source.\n- **Progress handle is now an up-pointing triangle** hugging the bar's bottom edge at the progress %, with its hit area confined to the bottom half — clear of the move body and the centred end dots.\n\n### Layout\n- **Resizable task-list (name) column**: drag the divider between the name grid and the timeline to widen/narrow it (clamped 160px ↔ container−200px); double-click to reset to auto-size. The width persists in the saved layout.\n- **Independent vertical scroller** for the task-list pane, and a **visible custom timeline scrollbar** (the OS overlay scrollbar was effectively invisible/ungrabbable on macOS).\n\n### View switching\n- **Exact-day anchoring across granularity switches**: switching Day→Week→Month→Day (and any round-trip) returns to the same day instead of drifting. The viewport-centre date is anchored and snapped to the active bucket.\n- 'Today' is a text button matching 'This week' / 'This month'.\n\n### Config & i18n\n- Config-driven per-node lock + `defaultCollapsedDepth`.\n- Per-key i18n fallback so a partially-translated host dictionary no longer leaks raw keys (e.g. `gantt.linkType.fs`); added `gantt.linkEnd.*` keys.\n- Locate flash/alignment fixes; leaf bars show their task title.\n\n### Demo\n- Manufacturing 4-level scheduling fixture.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

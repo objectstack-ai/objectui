@@ -1,0 +1,30 @@
+{
+  "number": 1885,
+  "kind": "issue",
+  "title": "Add a tree / tree-grid object view type for self-referencing hierarchies (business unit, org chart)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T06:08:34Z",
+  "updated_at": "2026-06-22T07:44:10Z",
+  "closed_at": "2026-06-22T07:44:10Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1885",
+  "body": "## Problem\n\nHierarchical, self-referencing objects (business unit / org chart, category trees, menu trees, BOM, nested comments) have **no native view type** to render them with indentation + expand/collapse. Today they can only be shown flat in a Grid, reading the `parent` field manually — the hierarchy is invisible.\n\nThe data layer and a generic UI component already exist; what's missing is the object-view integration that ties them together.\n\n## What already exists (foundation)\n\n- **`tree` field type (self-reference)** — data layer supports `{ type: 'tree', reference: '<self>' }`, i.e. a single-parent pointer. Unambiguous, unlike Airtable's many-to-many links (which is *why* Airtable has no tree view; we don't have that blocker). See `packages/app-shell/src/views/metadata-admin/previews/field-types.ts:36`.\n- **Generic `TreeViewSchema` component** — expand/collapse tree renderer, but it consumes `TreeNode[]` and is **not bound to object record data** (more like a folder browser). `packages/components/src/renderers/data-display/tree-view.tsx`.\n\n## What's missing (the gap)\n\nThe 10 object view types (`list / grid / kanban / calendar / timeline / map / gallery / gantt / chart / detail`, see `packages/types/src/views.ts:28`) do **not** include `tree`. The view-type → component dispatch switch at `packages/plugin-view/src/ObjectView.tsx:685` has no `case 'tree'`, and there is no `plugin-tree` package.\n\n## Why not just use Grouping (à la Airtable)?\n\nGrouping handles **fixed-depth** hierarchies (dept → team → person). It cannot express an **arbitrary-depth self-referencing** tree (A's parent is B, B's parent is C, …unbounded). That is precisely the business-unit / org-chart case and the reason we need a real tree view, not grouping.\n\n| Scenario | Use |\n|---|---|\n| Fixed, known levels | Grid + Grouping (no new view needed) |\n| Self-referencing, unbounded depth (business unit, menu, BOM, nested comments) | **tree-grid** (this issue) |\n\n## Proposed scope\n\nStart with **tree-grid** (a tree table — columns, with the first column indented/expandable), since it subsumes a plain tree.\n\n1. Add `'tree'` to the `ViewType` union — `packages/types/src/views.ts`.\n2. New `plugin-tree` package (mirror `plugin-kanban` / `plugin-gantt` structure). Core work: transform flat records with a self-referencing `parent` field into a nested structure, feed into the existing `TreeViewSchema` / a tree-grid renderer.\n3. Register `case 'tree'` in the dispatch switch — `packages/plugin-view/src/ObjectView.tsx`.\n4. Add tree icon + label to `ViewSwitcher` (plugin-list).\n\n### Open questions\n- Config surface: which field is the parent pointer (auto-detect the `tree`/self-`reference` field, or explicit `tree.parentField`?), root filter, default expand depth, lazy-load vs. fetch-all.\n- Server-side: fetch the whole subtree at once vs. lazy children fetch per node (perf for large trees).\n- Drag-to-reparent — in scope for v1 or a follow-up?\n\n## Acceptance (v1)\n- A self-referencing object renders as an indented, expand/collapse tree-grid with columns.\n- Parent field auto-detected from the object's `tree` field; configurable override.\n- Reads via the generic data API (no bespoke endpoint).\n"
+}

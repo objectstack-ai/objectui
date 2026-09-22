@@ -1,0 +1,32 @@
+{
+  "number": 1954,
+  "kind": "pull_request",
+  "title": "feat(studio): author the approval revise loop in the flow designer (ADR-0044)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T06:17:21Z",
+  "updated_at": "2026-06-24T06:21:08Z",
+  "closed_at": "2026-06-24T06:17:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T06:17:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1954",
+  "body": "## What & why\n\nImplements the **Studio flow-designer authoring** for the ADR-0044 approval **send-back-for-revision loop** — closing the 4 authoring gaps from [framework#1770](https://github.com/objectstack-ai/framework/issues/1770). The engine / service / REST / inbox side is already merged in framework; only the visual authoring was missing, so the loop was reachable only by hand-editing flow JSON.\n\nThe loop shape (canonical `showcase_budget_approval`): an approval node's `revise` out-edge walks to a signal `wait` point where the submitter reworks the record; a declared `type: 'back'` edge re-enters the approval node (round N+1). DAG cycle validation runs on the graph **minus** declared back-edges; `maxRevisions` guards runaway loops.\n\n## The four gaps\n\n1. **Revise branch** — an approval node's out-edge offers `approve` / `reject` / `revise` via a new **Approval-branch picker** in the edge inspector (mirrors `APPROVAL_BRANCH_LABELS`). `maxRevisions` surfaces on the approval form — from the engine's published `configSchema` online, with a hardcoded fallback in `flow-node-config.ts` for offline / older backends.\n2. **Back-edge authoring** — a new **Connection-type** select marks an edge `back` (also `fault` / `conditional`). A back-edge renders distinctly as a **dashed amber return arc** (own `#flow-arrow-back` marker) and is **excluded from the layered auto-layout** — exactly as the engine excludes it from DAG validation — so the loop reads top-to-bottom instead of dragging its target below the wait point.\n3. **Client-side DAG validation** — the simulator preflight (`validateFlowDraft`) flags an **UNmarked cycle** as an error (graph minus declared back-edges must be a DAG, mirroring `registerFlow`); a declared revise loop passes; a self-loop is caught. Surfaces in the Debug panel and blocks Run.\n4. **One-click \"add revision loop\"** — an amber affordance on an approval node (only when it has no revise loop yet) drops the signal `wait` node + the `revise` edge + the declared `back` edge in one gesture, reproducing the canonical showcase shape.\n\n## Files\n\n- `previews/flow-canvas-layout.ts` — exclude `type:'back'` from layering; `backEdgePath` / `rightAnchor` / `backEdgeLabelAnchor` / `isBackEdge`.\n- `previews/FlowCanvas.tsx` — dashed amber back-edge rendering + marker; `addReviseLoop()` one-click mutation.\n- `previews/flow-canvas-parts.tsx` — the approval-node revise-loop affordance on `NodeCard`.\n- `inspectors/FlowEdgeInspector.tsx` — approval-branch picker + connection-type select (writes `edge.type`).\n- `inspectors/flow-node-config.ts` — `maxRevisions` on the approval group (fallback).\n- `previews/simulator/flow-sim-validate.ts` — `findCycle()` + DAG-modulo-back-edges rule; `flow-sim-types.ts` gains `SimEdge.type`.\n- `i18n.ts` — en + zh strings.\n\n## Verification\n\n- **Browser-verified** against a live engine + the `showcase_budget_approval` flow (Studio flow designer):\n  - The `revise` edge shows the Approval-branch picker = **退回修改 (Revise)**; the approval node shows **`maxRevisions = 2`** (from the engine configSchema).\n  - The `wait_revision -> manager_review` edge renders as a **dashed amber return arc**; inspector Type = **回边（退回修改环）** (back-edge), label `resubmit`.\n  - The one-click affordance on **Executive Review** added a `wait` node (Signal / `revision`) + `revise` + `back` edges.\n- **Unit tests** (33 new/updated; full metadata-admin suite 383 green): DAG/back-edge validation (unmarked cycle -> error, declared loop -> passes, self-loop -> caught, `findCycle`); back-edge geometry + layout exclusion; `maxRevisions` field presence.\n- `type-check` clean; `eslint` clean (0 errors).\n\nRefs framework#1770. Follows the flow-builder work in #1927 and #1930.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

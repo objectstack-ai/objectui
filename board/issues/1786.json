@@ -1,0 +1,33 @@
+{
+  "number": 1786,
+  "kind": "pull_request",
+  "title": "feat: action progress state + Undo affordance",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-16T23:18:47Z",
+  "updated_at": "2026-06-16T23:22:21Z",
+  "closed_at": "2026-06-16T23:19:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-16T23:19:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1786",
+  "body": "## What\n\nCompanion UI for the action progress + Undo work (framework PR `feat/action-conditional-progress-undo`).\n\n### Undo affordance\n- **core**: `ActionResult.undo` (an `UndoableOperation`) + `ActionDef.undoable`. On success the `ActionRunner` pushes the op onto the global `UndoManager` and the success toast carries an \"Undo\" affordance (`ToastHandler` gains an `undo` option).\n- **app-shell**: the console action runtime mounts `useGlobalUndo` (Ctrl+Z / Ctrl+Shift+Z) and renders the toast's Undo button. Its `apiHandler` resolves the record id from the list-row record and, for `undoable` actions, captures the changed fields' prior values so the update can be reverted via `dataSource.update`.\n\n### Progress state\n- **plugin-detail**: record-header quick-action buttons now show a spinner + disable while the action runs — a visible progress state for slow / flow actions (instant local actions resolve within a frame, so the spinner is brief).\n\n## Verification\nBrowser E2E (console + app-crm): a list-row **Reassign Lead** (undoable) updates `assigned_to`, the success toast shows **Undo**, and clicking it (or Ctrl+Z) restores the prior owner — confirmed against the DB. Runs clean through the console Vite dev build.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1876,
+  "kind": "pull_request",
+  "title": "docs(testability): ADR-0054 UI testability contract + audit",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T03:18:47Z",
+  "updated_at": "2026-06-22T03:19:49Z",
+  "closed_at": "2026-06-22T03:19:46Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T03:19:46Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1876",
+  "body": "## Why\n\nThe top-bar **\"Search… ⌘K\" button doesn't open the palette under automation**. Investigating it showed this is **a family of problems, not one button**: any UI that relies on a human-convenience shortcut (synthetic re-dispatched events, `toggle`-as-open, hover/keyboard-only entry, `useState`-only overlay state, hand-added locators, ad-hoc waits) is non-deterministic for **AI browser testing** — the direction the platform is heading.\n\n## What\n\nDocs only — the governance layer first, implementation phased after.\n\n- **`docs/audits/2026-06-ui-testability.md`** — grep-grounded audit of 7 anti-pattern classes with `file:line`. Baseline counts on `main`: **2** synthetic-keyboard triggers (the palette button), **5** toggle-as-open paths, **56** `meta/ctrlKey` handlers, **16** `onMouseEnter` entries, **726** `data-testid` vs **1222** `onClick` (~40% gap), **0** global settle signals.\n- **`docs/adr/0054-ui-testability-contract.md`** — a 7-invariant **UI testability contract** (idempotent/direct triggers, no sole keyboard/hover gate, URL-addressable state, renderer-emitted locators, machine-readable async state, trusted-input honesty, isolatable runs) + a phased rollout + a CI ratchet in the spirit of the spec liveness ledger.\n\n## Key insight\n\nThe platform **generates** UIs, so testability is a property of the **renderer/design-system**, not of per-app hand-written tests. Fix the shared overlay/field primitives once → every generated app inherits a testable surface. Since the author and tester are both increasingly AI, this contract is a prerequisite, not polish.\n\n## Phasing (follow-up PRs, each browser-verified)\n\n1. Reference fix: command palette → idempotent `openCommandPalette()` + `data-testid`, drop synthetic `⌘K` dispatch; `useRecordSearch` unit test.\n2. Overlay primitives default to idempotent `open()` + locators + `data-state`.\n3. Global in-flight/idle signal in app-shell's data layer.\n4. Metadata-derived `data-testid` across `fields` + `components/ui`.\n5. ESLint + `check`/conformance ratchet (no new untestable surface).\n\n## Test plan\n\nDocs only — no code paths changed.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

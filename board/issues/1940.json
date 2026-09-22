@@ -1,0 +1,32 @@
+{
+  "number": 1940,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): validation messages name the offending widget + field",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T04:12:52Z",
+  "updated_at": "2026-06-24T04:16:27Z",
+  "closed_at": "2026-06-24T04:13:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T04:13:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1940",
+  "body": "## Problem\n\nFound dogfooding the Studio dashboard designer. A nested validation issue (e.g. a Zod issue at `widgets.2.layout`) was rendered as just its **head** field label — \"**Widgets: Invalid input**\" — so an author couldn't tell *which* widget or *which* sub-field was at fault. `labelForIssuePath` dropped every path segment after the first.\n\n## Fix\n\nAdd `describeIssuePath` (pure, unit-tested): for a nested path it appends a readable trail, resolving each **array index to the item's stable identity** (`id` / `name` / `title`, including I18nLabel `{ key, defaultValue }` objects) from the draft:\n\n> Widgets → **priority_split** → layout\n\n- Single-segment paths are unchanged (`\"Widgets\"` stays `\"Widgets\"`).\n- `labelForIssuePath` now resolves the head label, then delegates the nested trail to the helper.\n- The inline field-error mapping is untouched — this only improves the displayed label.\n\n## Verification\n\n- `describeIssuePath` unit test — **5 passed** (single-segment, nested-by-id, index fallback, I18nLabel resolution, missing-array).\n- Wiring is type-trivial (`string, string, unknown`); objectui CI builds deps + typechecks + runs the suite.\n\nFound alongside objectstack-ai/framework#2247 / objectui#1925 (dashboard designer dogfooding).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

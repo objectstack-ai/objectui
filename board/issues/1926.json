@@ -1,0 +1,32 @@
+{
+  "number": 1926,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): Studio authoring UX — typeable identifiers + 5 dogfood fixes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-23T17:47:58Z",
+  "updated_at": "2026-06-23T17:56:06Z",
+  "closed_at": "2026-06-23T17:56:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-23T17:56:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1926",
+  "body": "## Summary\n\nSix fixes for the Studio metadata designer, found by dogfooding the console as a business user (building an object end-to-end, then exercising it at runtime). The platform's **runtime** data layer proved solid (CRUD + required/picklist/number/date validation all enforced server-side); every issue was in the **authoring UX**.\n\nEach fix was verified in the browser against a live backend via the dev console (`pnpm dev` → Vite on :5181, `/api` proxied to a real :3000 instance).\n\n| # | Problem | Fix |\n|---|---------|-----|\n| **F2** | Object **Name** / field **API-name** silently drop `_` while typing (`repair_ticket` → `repairticket`); non-Latin labels collapse to the literal `field`. Root cause: `InspectorTextField` is a controlled input that re-runs the strict `toFieldName` on every keystroke, and its trailing-`_` trim eats the underscore the instant it's typed. | Add prefix-stable `toFieldNameLoose` (keeps a trailing `_`, returns `''` not `field` on empty) for live-typing inputs; keep strict `toFieldName` for complete-string callers (group keys); switch label→name derivation to `slugify` (its documented \"empty for non-Latin → prompt\" contract). |\n| **F1** | A newly created package doesn't appear in the active-package switcher until a full page reload. | `useSelectorOptions` refetches on dropdown-open and on a global `objectui:packages-changed` event, which `PackagesPage` dispatches after a successful create. |\n| **F3** | A field's API-name never derives from its label (only the object Name does). | Optional `onBlur` on `InspectorTextField`; the field inspector derives the API-name from the label on blur — only while the name is still an auto-generated default (`text`, `text_2`, …), so manual names are never clobbered. |\n| **F4** | Adding a picklist / clicking \"Add value\" creates an empty option row that immediately fails spec validation with a developer-oriented \"System identifier must be at least 2 characters\". | `newField` seeds no options; `OptionsEditor` keeps blank rows in a local buffer and persists only rows whose value is non-empty. |\n| **F5** | The Source tab renders a permanent blank when Monaco's (CDN-loaded) core or web workers are unavailable — offline / air-gapped / CSP-restricted installs. | `JsonSourceEditor` detects that nothing painted (`.view-line`) and falls back to a plain, editable textarea showing the JSON source. |\n| **F6** | A user's own object, after publishing to a project package, shows \"This item is shipped by a code package and cannot be modified at runtime\" — misleading, with no stated edit path. | Reworded `artifactLockedBanner` (en + zh) to \"provided by an installed package … edit it in its source package and republish — or create a new {type} from scratch\" — accurate for both platform and project packages, and states the real edit path. (The read-only-after-publish behavior itself is intentional governance and is unchanged.) |\n\n## Verification\n\n- **Unit:** `object-fields-io.test.ts` — 32 pass, incl. a controlled-input typing simulation that reproduces the old `repairticket` regression and proves the fix yields `repair_ticket`.\n- **In-browser (live backend):** F1 (new package appears without reload), F2 (`work_order` typed keystroke-by-keystroke through the real onChange pipeline), F3 (`Asset Code` → `asset_code` on blur), F4 (no validation banner on empty rows), F5 (textarea fallback shows the draft JSON), F6 (accurate banner on a published object).\n- Changed files add **zero** new lint errors/warnings.\n\n## Notes\n\n- Console UI only; no schema/runtime changes.\n- F5 also improves the offline/air-gapped story (Monaco core is CDN-loaded by default with no fallback today).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

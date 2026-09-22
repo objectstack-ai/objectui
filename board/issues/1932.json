@@ -1,0 +1,34 @@
+{
+  "number": 1932,
+  "kind": "pull_request",
+  "title": "fix(studio): record-page preview binds a real record + charts use field option colors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T01:53:53Z",
+  "updated_at": "2026-06-24T03:14:20Z",
+  "closed_at": "2026-06-24T02:44:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T02:44:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1932",
+  "body": "Two fixes found dogfooding the Studio page designer (companion to framework page-schema fix #2254).\n\n**1. Record-page Preview binds a real record (`@object-ui/app-shell`)** — the Preview tab showed `record:*` blocks as the 'bind a record to preview' placeholder. Now fetches real records (lookups $expanded), auto-binds the first, adds a 'Preview record' dropdown, wraps the canvas in `<RecordContextProvider>`. visible CEL + per-record values re-render live.\n\n**2. Charts use field option colors (`@object-ui/plugin-charts`)** — an object-chart grouped by a select field (e.g. health) painted the generic palette (Red->teal, Green->blue). Now resolves the dimension's option colors (objectName+groupBy and dataset paths) into a per-category `categoryColors` map that wins over the palette. Pie/donut + bar cells render semantic colors. Adds a renderer test.\n\nVerified in browser (record picker switching; health donut/status bars green/red/amber); AdvancedChartImpl.colors.test.tsx + PagePreview.test.tsx pass; typecheck clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

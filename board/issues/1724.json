@@ -1,0 +1,32 @@
+{
+  "number": 1724,
+  "kind": "pull_request",
+  "title": "fix(app-shell): metadata editor — distinguish LOAD failure from field validation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-14T07:53:29Z",
+  "updated_at": "2026-06-14T08:00:00Z",
+  "closed_at": "2026-06-14T07:59:58Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-14T07:59:58Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1724",
+  "body": "## Problem\n\nThe metadata editor (`ResourceEditPage`) mis-reported a **load** failure as **field validation** errors. When the draft/record fetch failed (network / 500 / timeout), the form still rendered on empty defaults, so the client Zod validator fired *\"name/label/regions required\"* — making it look like the item was structurally broken rather than that loading failed.\n\n## Fix\n\n- **`loadFailed` state** — set in the load `catch` block, reset at the start of each load. Distinguishes \"the fetch itself failed\" from \"we loaded an item that fails validation\".\n- **Suppress validation diagnostics on load failure** — the diagnostics banner is now gated by a new pure helper `shouldRenderDiagnostics({ loadFailed, hasDiag, hasClientValidator })`, which returns `false` whenever the load failed, so the empty-default form's spurious required-field issues never surface.\n- **Explicit top error banner** — `\"Failed to load <type>/<name>: <message>\"` via a new `engine.edit.loadFailed` i18n key (en + zh-CN), rendered in the existing destructive-styled banner (distinct from the validation diagnostics block).\n\nThe happy path is unaffected: a genuinely-invalid item that **loaded successfully** still shows its validation diagnostics.\n\n## Tests\n\n- New `diagnostics-gate.test.ts` (5 cases) covering the gate: suppressed on load failure (with/without a client validator and server diagnostics), preserved for a loaded-but-invalid item, and no-op when there's no diagnostics source.\n- `pnpm turbo run type-check --filter=@object-ui/app-shell` — clean.\n- `vitest run src/views/metadata-admin` — 253 passed (35 files).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

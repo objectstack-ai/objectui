@@ -1,0 +1,35 @@
+{
+  "number": 1879,
+  "kind": "pull_request",
+  "title": "fix(app-shell): command palette idempotent open + locators (ADR-0054 Phase 1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T04:10:37Z",
+  "updated_at": "2026-06-22T04:17:32Z",
+  "closed_at": "2026-06-22T04:17:30Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T04:17:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1879",
+  "body": "## What & why\n\n**ADR-0054 \"UI testability contract\" — Phase 1 (the reference fix).** The top-bar \"Search… ⌘K\" button did **not** open the command palette under automation: it re-emitted a synthetic `⌘K` `KeyboardEvent` and relied on `CommandPalette`'s global listener being mounted and the browser not reserving `⌘K`. The open path was also a non-idempotent `toggle` and open state lived only in `useState` (not URL-addressable).\n\nThis makes the palette deterministic for AI browser testing by fixing the shared primitive — every generated app inherits it.\n\n## Changes (invariants C1 / C3 / C4)\n\n- **C1 — idempotent, direct triggers.** New `CommandPaletteProvider` / `useCommandPalette()` owns open state and a shared idempotent `openCommandPalette()` (`setOpen(true)`). The header search buttons call it directly; the synthetic `dispatchEvent(new KeyboardEvent(...))` is **deleted**. `⌘K` stays a keyboard accelerator (may toggle for close-on-repeat); the OPEN path used by buttons/links/programmatic callers is idempotent.\n- **C3 — URL-addressable state.** Open state is the `?palette=1` search param (`?cmdk=1` alias on read) → deep-linkable, restores on reload, works with back/forward.\n- **C4 — stable locators + ARIA.** Dialog: `data-testid=\"overlay:command-palette\"` + a visually-hidden Radix `DialogTitle` (accessible `role=\"dialog\"`/name). Trigger: `data-testid=\"action:command-palette:open\"` (`:open-mobile` for the compact header). `CommandDialog` gains `contentProps` (forward a locator onto the dialog element) and `title`/`description` (accessible-by-construction).\n- **Tests.** Added `useRecordSearch` unit tests for the `$search` query path (trimmed query, exact `{ $search, $top }` payload, re-fire on query change).\n- **Docs.** New \"Command palette\" section in the app-shell README.\n\n## Verification (browser, agent-browser / CDP-real keystrokes)\n\nWorktree console (`packages/*/src` via HMR) on `:5182` → framework `app-showcase` backend on `:3000`:\n\n- **(a) The original bug — fixed:** *clicking* the top-bar search trigger opens the palette under automation (overlay count 0→1, URL gains `?palette=1`).\n- **(b) Record search:** real keystrokes drive the controlled+debounced input → `$search` fan-out to the backend (`/api/v1/data/showcase_*?top=3&search=…`, all 200) → \"Records\" group renders real hits.\n- **(c) Deep-link:** `?palette=1` (and legacy `?cmdk=1`) open the palette on fresh page load.\n- Also verified: `⌘K` toggles, Escape closes + clears the URL param, no Radix dialog a11y errors.\n\nUnit/type: `@object-ui/{i18n,components,react,app-shell}` test suites green; `tsc` build green for touched packages.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

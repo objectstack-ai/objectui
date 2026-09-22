@@ -1,0 +1,30 @@
+{
+  "number": 1881,
+  "kind": "pull_request",
+  "title": "fix(marketplace): add missing sample-data i18n keys; surface reseed errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-22T05:08:05Z",
+  "updated_at": "2026-06-22T05:35:45Z",
+  "closed_at": "2026-06-22T05:35:42Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-22T05:35:42Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1881",
+  "body": "## Problem\n\nThe marketplace package-detail \"more options\" dropdown rendered **raw i18n keys** — `marketplace.detail.addSampleData`, `…purgeSampleData`, `…reseedLocalSuccess` (success banner), etc.\n\nRoot cause: those keys were never added to any locale bundle. This `t()` returns the **key string itself** on a miss (which is truthy), so the codebase's `t('…') || 'English fallback'` pattern never fires — the menu showed `marketplace.detail.addSamp…` instead of \"Add sample data\". Only `uninstallFromRuntime` (which existed in the bundles) rendered correctly.\n\n| | before | after |\n|---|---|---|\n| dropdown | `marketplace.detail.addSamp…` | \"Add sample data\" |\n| banner | `marketplace.detail.reseedLocalSuccess` | \"Re-seeded sample data: …\" |\n\n## Fix\n\n- Add the **10 missing `marketplace.detail.*` keys to all 10 locales** (en/zh/ja/ko/ar/de/es/fr/pt/ru), with native translations: `addSampleData`, `reseedAgain`, `purgeSampleData`, `purgeConfirm`, `purgeSuccess`, `purgeNoData`, `reseedQueued`, `reseedLocalSuccess`, `updateAvailable`, `reseedPartialErrors`.\n- **Surface partial reseed failures**: when the server reports rows landed but some errored, show the failure count rather than a plain green success. Hard failures (the framework side now returns `422` on zero rows) already surface through the existing `catch`.\n\n## Verification\n\n- `@object-ui/i18n` and `@object-ui/app-shell` `type-check` both pass (0 errors); all 10 locales parse; key counts consistent across locales.\n- Reproduced the raw-key dropdown live on the running console before the fix.\n\nPairs with framework PR objectstack-ai/framework#2172 (server stops reporting fake success).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

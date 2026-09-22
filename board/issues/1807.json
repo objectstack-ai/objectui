@@ -1,0 +1,30 @@
+{
+  "number": 1807,
+  "kind": "pull_request",
+  "title": "feat(app-shell): interface-page editor polish — popover disclosure, buttons=actions, toolbar persistence",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-19T14:58:59Z",
+  "updated_at": "2026-06-19T15:02:25Z",
+  "closed_at": "2026-06-19T15:00:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-19T15:00:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1807",
+  "body": "## Summary\n\nThree Airtable-parity polish items for the interface-page editor (objectui runtime side; pairs with the framework spec PR):\n\n### 1. Progressive-disclosure popovers\n`SchemaForm`'s `CompositeField` honors `fieldSpec.disclosure === 'popover'`: a composite renders as a one-line **summary + ⚙ gear** that opens its sub-fields in a Popover, instead of an always-expanded inline box. Applied to `appearance` / `userActions` / `addRecord` — the panel reads clean like Airtable's.\n\n### 2. Buttons ARE object actions\n- New **`action-multi`** widget + `WidgetContext.objectActions`; `ResourceEditPage` prefetches the source object's actions so the **Buttons** picker only offers actions the object actually defines (no free-text IDs) — correct-by-construction.\n- `InterfaceListPage` resolves `interfaceConfig.buttons` against the object's ActionSchema and renders them via the shared **`action:bar`** in the page header (execution included).\n\n### 3. Toolbar edits persist to page metadata (design mode)\n- `InterfaceListPage` gains `onConfigChange`; ListView's `onSortChange` / `onColumnStateChange` forward as `{ sort }` / `{ columns: order }`.\n- `PagePreview` wires it to `onPatch({ interfaceConfig })` **only when editing**, so sorting / reordering columns in the Studio designer writes straight to the page draft. Runtime is untouched.\n\n## Verification (Studio, live showcase)\n- Composites collapse to **summary + ⚙**; the popover shows their controls (Show Description, Allowed Visualizations, toolbar toggles).\n- **Buttons** field lists the task object's real actions (Mark Done / Reassign… / Quick View / …); **task-workbench** renders **Reassign… / Mark Done** in its header.\n- Sorting via the preview toolbar **creates a draft**; a clean editor open creates **none** (no spurious on-load drafts).\n- `tsc --noEmit` clean for `@object-ui/app-shell`.\n\nPairs with objectstack-ai/framework (spec: `disclosure` on FormFieldSchema, `buttons` on InterfacePageConfig + action-multi in the page form).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

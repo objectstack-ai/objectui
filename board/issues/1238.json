@@ -1,0 +1,36 @@
+{
+  "number": 1238,
+  "kind": "pull_request",
+  "title": "Create independent server app for Vercel deployment",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [
+    "Claude",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-14T14:03:47Z",
+  "updated_at": "2026-04-14T14:07:24Z",
+  "closed_at": "2026-04-14T14:07:24Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-14T14:07:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1238",
+  "body": "Separates backend API server from console frontend following the `objectstack-ai/framework/apps/server` pattern. Enables standalone Vercel deployment of ObjectStack server with Console UI served as static files.\n\n## Architecture\n\n```\napps/server/\n├── api/[[...route]].js       # Vercel serverless entry point\n├── server/index.ts            # Kernel boot + Hono adapter\n├── scripts/\n│   ├── build-vercel.sh        # Builds console + bundles API\n│   └── bundle-api.mjs         # ESBuild config (inlines all deps)\n└── objectstack.config.ts      # Plugin configuration\n```\n\n## Implementation\n\n**Server Runtime:**\n- Boots ObjectStack kernel with Hono adapter via `@objectstack/hono`\n- Initializes once on cold start, reuses for warm requests\n- Uses `getRequestListener()` for Vercel compatibility\n\n**Plugin Loading Order:**\n```typescript\nMemoryI18nPlugin          // i18n service (before AppPlugin needs it)\n→ ObjectQLPlugin          // Query engine\n→ DriverPlugin            // InMemoryDriver\n→ AppPlugins              // CRM, Todo, Kitchen Sink\n→ SetupPlugin             // setupNav service (before AuthPlugin)\n→ AuthPlugin              // Authentication\n→ ConsolePlugin           // Frontend SPA\n```\n\n**Build Process:**\n1. Console built with `VITE_RUNTIME_MODE=server` (connects to API, not MSW)\n2. `server/index.ts` bundled to `api/_handler.js` (all deps inlined)\n3. Console dist copied to `public/` for static serving\n\n**Deployment:**\n- `/api/*` → Serverless function (ObjectStack API)\n- `/*` → Static files (Console UI from CDN)\n- Environment: `AUTH_SECRET` (required, 32+ chars)\n\n## Files\n\n- `package.json` - ObjectStack dependencies + build scripts\n- `vercel.json` - Deployment config with build env vars\n- `README.md` / `DEPLOYMENT.md` - Usage and deployment guides\n- `.env.example` / `.gitignore` / `.vercelignore`\n- `tsconfig.json` - Node.js types, no rootDir constraint\n\n## Usage\n\n```bash\ncd apps/server\nvercel env add AUTH_SECRET production\nvercel --prod\n```\n\nEndpoints:\n- Console: `https://your-app.vercel.app/`\n- API: `https://your-app.vercel.app/api/v1/discovery`"
+}

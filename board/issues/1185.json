@@ -1,0 +1,35 @@
+{
+  "number": 1185,
+  "kind": "issue",
+  "title": "[Architecture] Unified Metadata Management Entry & Dynamic Routing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-04-07T01:37:15Z",
+  "updated_at": "2026-04-07T03:07:26Z",
+  "closed_at": "2026-04-07T03:07:26Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1185",
+  "body": "## Problem Statement\nCurrently, we have developed object and field management, but more metadata types (e.g. dashboard, page, report, workflow, etc.) need CRUD management. The codebase implements dedicated entry points and routes (e.g., `/system/objects`, `/system/apps`) for each, but this pattern does not scale as metadata types grow.\n\n## Why Unification Is Needed\n- All metadata types (`object`, `dashboard`, `page`, `report`, etc.) use the same backend contract (`client.meta.getItems(type)`, `client.meta.saveItem(type, name, data)`).\n- Only `object` and `app` currently have full admin UIs. The rest are unmanageable except by backend ops or direct API calls.\n- The `SystemHubPage` UI is currently **hardcoded**: new system types require code duplication for routes, hub cards, and manager pages.\n- As metadata expands (future: `workflow`, `tab`, `custom_action`, `validation_rule`, ...), lack of a unified entry leads to a maintenance bottleneck and inconsistent admin experience.\n\n## Proposal: Unified Metadata Manager\nImplement a single, extensible **Metadata Manager** page and route structure:\n\n- Route pattern:\n  - `/system/metadata/:metadataType` (list)\n  - `/system/metadata/:metadataType/:itemName` (detail)\n- Use a **MetadataType registry** (config) to generate:\n  - List page with schema-driven grid\n  - Detail page (generic modal, or custom React component for complex types)\n  - Card(s) on the SystemHub auto-generated from registry\n- Existing managers (`ObjectManagerPage`, etc.) can register as custom detail views for their type\n- All CRUD and data fetching via generalized `MetadataService` methods\n- Support soft-delete, optimistic update, and rollback for all types\n- No breaking changes: legacy routes forward to unified routes\n\n## Example Config\n```ts\nexport const METADATA_TYPES = [\n  {\n    type: 'object', label: 'Objects', icon: 'database',\n    detailComponent: ObjectDetailView, // custom\n  },\n  {\n    type: 'dashboard', label: 'Dashboards', icon: 'layout-dashboard',\n    columns: [...], formFields: [...], // generic\n  },\n  // etc...\n]\n```\n\n## Benefits\n- **Single source of truth:** new types = 1 line config\n- **Reduced boilerplate:** all pages, routes, hub cards use registry\n- **Easier to onboard contributors** (fewer files to touch for new types)\n- **Future proof:** ready for workflow/automation/tab/layout additions\n- **Fully testable:** Plug the manager into existing test harnesses\n\n## References\n- See `apps/console/src/pages/system/ObjectManagerPage.tsx` (pattern)\n- See `apps/console/src/context/MetadataProvider.tsx` (fetch method)\n- See `apps/console/src/services/MetadataService.ts` (API contract)\n- See `ROADMAP.md` metadata platform section\n\n---\n\n- [ ] Registry config for supported types\n- [ ] Generic MetadataManagerPage for any type\n- [ ] SystemHubPage auto-generate from registry\n- [ ] Migrate legacy routes\n- [ ] Documentation update (architecture/console/README.md)\n\n> This will unlock full SDUI native metadata management. Please discuss/critique the registry structure before implementation."
+}

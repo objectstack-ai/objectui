@@ -1,0 +1,33 @@
+{
+  "number": 1216,
+  "kind": "pull_request",
+  "title": "fix: console UI design sweep — accessibility, spacing, and component consistency",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-13T11:17:45Z",
+  "updated_at": "2026-04-13T11:23:01Z",
+  "closed_at": "2026-04-13T11:17:59Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-13T11:17:59Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1216",
+  "body": "Systematic scan and optimization of every major console interface for WCAG 2.1 AA compliance, design token usage, spacing consistency, and Shadcn component alignment.\n\n### Accessibility\n\n- Added `role=\"link\"`, `tabIndex={0}`, `onKeyDown` (Enter/Space) to all clickable `Card` components — previously mouse-only\n- Added `aria-label`, `aria-pressed` to AppCard favorite toggle; `focus-visible:opacity-100` so keyboard users can discover it\n- Added `role=\"status\"` + `aria-live=\"polite\"` to all loading/saving spinners (SystemHubPage, MetadataManagerPage, MetadataDetailPage)\n- Added `role=\"toolbar\"` + `aria-label` to DashboardView widget toolbar buttons with `focus-visible:ring-2`\n- Added sr-only `<label>` to search inputs in MetadataManagerPage, AppManagementPage, SearchResultsPage\n- Added `aria-label` to all 5 action buttons per row in AppManagementPage\n- Added `role=\"img\"`, `aria-label`, `<title>` to AuthPageLayout SVG logo\n- Added `aria-label` to MetadataGrid `<table>`, title tooltips on truncated cells\n- Added `aria-required` to MetadataFormDialog native `<select>` with proper focus ring styling\n\n### Design tokens & Shadcn alignment\n\n- Replaced hardcoded `bg-blue-50 text-blue-700` badge in AppCard with `<Badge variant=\"secondary\">`\n- Replaced raw `<input type=\"checkbox\">` in AppManagementPage with Shadcn `<Checkbox>` (2 instances)\n\n### Spacing & layout\n\n- Standardized HomePage padding to `px-4 sm:px-6` (was fixed `px-6`)\n- Unified RecentApps/StarredApps grid to `xl:grid-cols-4` (StarredApps was `lg:grid-cols-4`, RecentApps was `lg:grid-cols-3`)\n- Standardized MetadataManagerPage card grid from `gap-3` → `gap-4`\n- DashboardView content area: `p-0 sm:p-6` → `p-2 sm:p-4 md:p-6` (graduated scale)\n\n### Code quality\n\n- Extracted `capitalizeFirst()` to `utils.ts` — replaces duplicated inline logic and CSS `capitalize` (not i18n-safe)\n\n```ts\n// Before (in both RecentApps.tsx and StarredApps.tsx)\n<p className=\"text-xs text-muted-foreground capitalize\">{item.type}</p>\n\n// After\nimport { capitalizeFirst } from '../../utils';\n<p className=\"text-xs text-muted-foreground\">{capitalizeFirst(item.type)}</p>\n```\n\nAll 893 existing tests pass. No test modifications."
+}

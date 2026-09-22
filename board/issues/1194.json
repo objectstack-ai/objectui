@@ -1,0 +1,35 @@
+{
+  "number": 1194,
+  "kind": "issue",
+  "title": "制定自定义页面开发标准：优先采用 ObjectUI 标准组件，减少自定义组件",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "package: components"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-04-07T08:11:13Z",
+  "updated_at": "2026-05-25T09:43:32Z",
+  "closed_at": "2026-05-25T09:43:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1194",
+  "body": "## 背景\n在合并 ObjectManagerPage 进 Metadata 通用体系的过程中，发现 objectui 的标准组件（如 MetadataManagerPage、MetadataDetailPage 及各类 Schema 驱动 widget）已经可以满足绝大多数元数据管理场景。大量自定义组件会导致以下长期问题：\n- 增加平台维护难度，导致重复劳动\n- 影响性能、稳定性和测试覆盖率\n- 违背长远可维护架构目标\n\n## 目标\n在开发元数据平台自定义页面（如对象管理、字段管理、报表、仪表盘、流程等）时：\n- **必须优先使用 objectui 的标准组件/容器/Schema ��染协议**\n- 仅允许在标准组件难以覆盖的极端场景下添加自定义 widget，并强制补充文档和专属单元测试\n- 推动所有对象管理等核心页面全部 Schema 化，最大程度复用标准的列表、表单、详情、设计器等能力\n- 鼓励对现有标准组件提出能力扩展 PR，而不是局部\"自定义 hack\"\n\n## 实施建议\n- 修改《组件开发和页面定制规范》文档，明确规定自定义组件原则和审批流程\n- 对已有代码库进行排查，整理待合并和可 Schema 化整合的组件/页面列表\n- 对标准组件能力不足的场景，优先补全标准库而非一味自定义\n- 跟踪合并 object 类型的变更效果，持续聚合 objectui 平台上的元数据资产\n\n## 持续交付要求\n- 所有新开发页面，需经代码评审对 Schema/标准组件覆盖率进行专门打分\n- 变更需完善单元测试和文档说明，更新 CHANGELOG.md 或 ROADMAP.md\n\n---\n如有自定义需求建议，可先发起讨论 issue，避免重复\"造轮子\"。"
+}

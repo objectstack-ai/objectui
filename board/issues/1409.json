@@ -1,0 +1,32 @@
+{
+  "number": 1409,
+  "kind": "pull_request",
+  "title": "feat(home): vibrant gradient hero, stat pills & section icon chip",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-29T08:37:58Z",
+  "updated_at": "2026-05-29T08:41:27Z",
+  "closed_at": "2026-05-29T08:38:13Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-05-29T08:38:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1409",
+  "body": "## Summary\nPolishes the console **Home** page (`/home`, the app launcher) to feel more design-forward and alive, matching the brand vibrancy direction.\n\n### Home page enhancements (`packages/app-shell/src/console/home/HomePage.tsx`)\n- **Gradient hero name** — the user's display name now renders with an indigo→violet→fuchsia gradient (dark-mode aware), giving the greeting a striking focal point.\n- **At-a-glance stat pills** — a row under the tagline surfaces workspace scale: Applications (always), Recently Accessed and Starred (only when > 0), each with a tinted icon.\n- **Section icon chip** — an indigo icon chip sits beside the \"All Applications\" header for stronger visual hierarchy.\n\nAll new copy uses `t(key, { defaultValue })`, so **no i18n catalog files were touched** — existing locales fall back gracefully and translators can add keys later.\n\n### Drive-by fix (`apps/console/src/pages/auth/LoginPage.tsx`)\n- Capture the submitted email in a `useRef` instead of `useState`. The previous `setLastEmail` on every keystroke re-rendered the whole login subtree (recomputing translated labels and re-rendering `<LoginForm>` per character). The ref keeps the verify-email redirect working without the per-keystroke churn.\n\n## Testing\n- Browser-verified the Home page in both light and dark mode — no console errors.\n- Stat pills correctly hide when recent/starred counts are zero."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 1219,
+  "kind": "pull_request",
+  "title": "fix: replace pnpm/action-setup@v6 with corepack in all CI workflows",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-13T13:11:28Z",
+  "updated_at": "2026-04-13T13:15:43Z",
+  "closed_at": "2026-04-13T13:11:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-13T13:11:41Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1219",
+  "body": "CI workflows fail with `ERR_PNPM_BROKEN_LOCKFILE` due to `pnpm/action-setup@v6`'s npm-based self-installer misparsingthe lockfile. Applied the same fix used in [framework#1122](https://github.com/objectstack-ai/framework/pull/1122).\n\n### Changes\n\n**Replaced `pnpm/action-setup@v6` → `corepack enable` across all 9 workflows:**\n\n```yaml\n# Before\n- name: Setup pnpm\n  uses: pnpm/action-setup@v6\n  with:\n    version: 10.31.0\n\n# After\n- name: Enable Corepack\n  run: corepack enable\n\n- name: Verify pnpm version\n  run: pnpm --version\n```\n\n**Updated workflows:**\n- `ci.yml` (4 jobs: test, build, e2e, docs)\n- `lint.yml`\n- `release.yml`\n- `changeset-release.yml`\n- `performance-budget.yml`\n- `shadcn-check.yml`\n- `storybook-deploy.yml`\n- `storybook-tests.yml`\n- `dependabot-auto-merge.yml`\n\nCorepack reads the `packageManager` field from `package.json` (`pnpm@10.31.0`) with SHA-512 verification, ensuring identical binaries between local dev and CI environments."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1254,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fumadocs-ui from 16.7.14 to 16.8.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-20T08:29:25Z",
+  "updated_at": "2026-04-22T09:29:05Z",
+  "closed_at": "2026-04-22T09:25:55Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-04-22T09:25:55Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1254",
+  "body": "[//]: # (dependabot-start)\n⚠️  **Dependabot is rebasing this PR** ⚠️ \n\nRebasing might not happen immediately, so don't worry if this takes some time.\n\nNote: if you make any changes to this PR yourself, they will take precedence over the rebase.\n\n---\n\n[//]: # (dependabot-end)\n\nBumps [fumadocs-ui](https://github.com/fuma-nama/fumadocs) from 16.7.14 to 16.8.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/fuma-nama/fumadocs/releases\">fumadocs-ui's releases</a>.</em></p>\n<blockquote>\n<h2>fumadocs-ui@16.7.16</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>f2c6e59: Reduce iterations for calculating TOC track</li>\n<li>9cf33e9: Improve inline code output</li>\n<li>9cf33e9: Support async hooks in Shiki transformers</li>\n<li>Updated dependencies [9cf33e9]</li>\n<li>Updated dependencies [9cf33e9]\n<ul>\n<li>fumadocs-core@16.7.16</li>\n</ul>\n</li>\n</ul>\n<h2>fumadocs-ui@16.7.15</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>c731a92: Implement selective re-render for TOC</li>\n<li>ccad791: Expose <code>next-themes</code></li>\n<li>Updated dependencies [e1567e2]</li>\n<li>Updated dependencies [9a200c8]</li>\n<li>Updated dependencies [c731a92]</li>\n<li>Updated dependencies [a4189ce]\n<ul>\n<li>fumadocs-core@16.7.15</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a href=\"https://github.com/fuma-nama/fumadocs/commits\">compare view</a></li>\n</ul>\n</details>\n<details>\n<summary>Attestation changes</summary>\n<p>This version has no provenance attestation, while the previous version (16.7.14) was attested. Review the <a href=\"https://www.npmjs.com/package/fumadocs-ui?activeTab=versions\">package versions</a> before updating.</p>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=fumadocs-ui&package-manager=npm_and_yarn&previous-version=16.7.14&new-version=16.8.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 1132,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump happy-dom from 20.8.4 to 20.8.8",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-27T00:44:06Z",
+  "updated_at": "2026-03-27T00:47:32Z",
+  "closed_at": "2026-03-27T00:44:21Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-27T00:44:21Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1132",
+  "body": "Bumps [happy-dom](https://github.com/capricorn86/happy-dom) from 20.8.4 to 20.8.8.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/capricorn86/happy-dom/releases\">happy-dom's releases</a>.</em></p>\n<blockquote>\n<h2>v20.8.8</h2>\n<h3>:construction_worker_man: Patch fixes</h3>\n<ul>\n<li>Fixes issue where export names can be interpolated as executable code in ESM - By <strong><a href=\"https://github.com/capricorn86\"><code>@​capricorn86</code></a></strong> in task <a href=\"https://redirect.github.com/capricorn86/happy-dom/issues/2113\">#2113</a>\n<ul>\n<li>A security advisory (<a href=\"https://github.com/capricorn86/happy-dom/security/advisories/GHSA-6q6h-j7hj-3r64\">GHSA-6q6h-j7hj-3r64</a>) has been reported that shows a security vulnerability where it may be possible to escape the VM context and get access to process level functionality in unsafe environments using CommonJS. Big thanks to <a href=\"https://github.com/tndud042713\"><code>@​tndud042713</code></a> for reporting this!</li>\n</ul>\n</li>\n</ul>\n<h2>v20.8.7</h2>\n<h3>:construction_worker_man: Patch fixes</h3>\n<ul>\n<li>Replace implementing Node.js <code>Console</code> with common <code>IConsole</code> interface to support latest version of Bun - By <strong><a href=\"https://github.com/YevheniiKotyrlo\"><code>@​YevheniiKotyrlo</code></a></strong> in task <a href=\"https://redirect.github.com/capricorn86/happy-dom/issues/1845\">#1845</a></li>\n</ul>\n<h2>v20.8.6</h2>\n<h3>:construction_worker_man: Patch fixes</h3>\n<ul>\n<li><code>Request.formData()</code> should honor &quot;Content-Type&quot; header - By <strong><a href=\"https://github.com/brianhelba\"><code>@​brianhelba</code></a></strong> in task <a href=\"https://redirect.github.com/capricorn86/happy-dom/issues/2106\">#2106</a></li>\n</ul>\n<h2>v20.8.5</h2>\n<h3>:construction_worker_man: Patch fixes</h3>\n<ul>\n<li>Fixes error thrown when modifying DOM structure in <code>connectedCallback()</code> - By <strong><a href=\"https://github.com/capricorn86\"><code>@​capricorn86</code></a></strong> in task <a href=\"https://redirect.github.com/capricorn86/happy-dom/issues/2110\">#2110</a></li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/capricorn86/happy-dom/commit/5437fdf8f13adb9590f9f52616d9f69c3ee8db3c\"><code>5437fdf</code></a> fix: <a href=\"https://redirect.github.com/capricorn86/happy-dom/issues/2113\">#2113</a> Fixes issue where export names can be interpolated as executable...</li>\n<li><a href=\"https://github.com/capricorn86/happy-dom/commit/7e97acbc0de9e9e8515b828bb1bb60f6c65eae44\"><code>7e97acb</code></a> fix: <a href=\"https://redirect.github.com/capricorn86/happy-dom/issues/1845\">#1845</a> Replace implementing Node js Console with common IConsole interf...</li>\n<li><a href=\"https://github.com/capricorn86/happy-dom/commit/3373929819a55988218a32c06816c5754828f59d\"><code>3373929</code></a> fix: <a href=\"https://redirect.github.com/capricorn86/happy-dom/issues/2106\">#2106</a> <code>Request.formData()</code> should honor <code>Content-Type</code> header (<a href=\"https://redirect.github.com/capricorn86/happy-dom/issues/2107\">#2107</a>)</li>\n<li><a href=\"https://github.com/capricorn86/happy-dom/commit/55c17ba6d2883ce54010b041be165db8f6c5c974\"><code>55c17ba</code></a> fix: <a href=\"https://redirect.github.com/capricorn86/happy-dom/issues/2110\">#2110</a> Fixes error thrown when modifying DOM structure in connectedCall...</li>\n<li>See full diff in <a href=\"https://github.com/capricorn86/happy-dom/compare/v20.8.4...v20.8.8\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=happy-dom&package-manager=npm_and_yarn&previous-version=20.8.4&new-version=20.8.8)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1226,
+  "kind": "pull_request",
+  "title": "CI: Run Storybook tests only on `main` pushes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-14T03:04:59Z",
+  "updated_at": "2026-04-14T03:26:16Z",
+  "closed_at": "2026-04-14T03:26:16Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-14T03:26:16Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1226",
+  "body": "`storybook-tests.yml` was running a heavy Storybook pipeline on both pushes and PRs (`main`/`develop`), creating avoidable PR CI overhead. This change narrows it to post-merge validation on `main` only and removes dead PR-only logic.\n\n- **Workflow trigger scope reduction**\n  - Updated `.github/workflows/storybook-tests.yml` to run only on:\n    - `push` to `main`\n    - existing path filters (`packages/**`, `.storybook/**`, `pnpm-lock.yaml`)\n  - Removed the `pull_request` trigger entirely.\n  - Removed `develop` from push branches.\n\n- **Removed unreachable PR-only step**\n  - Deleted the visual regression step gated by `if: github.event_name == 'pull_request'`, since this workflow no longer runs on PR events.\n\n- **Workflow cleanup**\n  - Simplified concurrency grouping to `storybook-tests-${{ github.ref }}` (PR context no longer applies).\n\n- **Changelog**\n  - Added an `Unreleased` changelog entry documenting the Storybook CI scope reduction.\n\n```yaml\non:\n  push:\n    branches: [main]\n    paths:\n      - 'packages/**'\n      - '.storybook/**'\n      - 'pnpm-lock.yaml'\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> ## Problem\n> \n> The `storybook-tests.yml` workflow currently runs on both `push` and `pull_request` events for `main` and `develop` branches. This is one of the heaviest CI jobs because it:\n> \n> 1. Builds **all** packages (`pnpm build`)\n> 2. Builds **Storybook** (`pnpm storybook:build`)\n> 3. Installs **Playwright** browsers\n> 4. Runs **Storybook interaction tests** (`pnpm storybook:ci`)\n> 5. On PRs, also runs **visual regression tests** with snapshots\n> \n> This causes significant CI overhead on every PR, slowing down the feedback loop for contributors.\n> \n> ## Solution\n> \n> Simplify the CI by restricting `storybook-tests.yml` to only run on pushes to `main` (post-merge gate). This is safe because:\n> \n> - Storybook tests are **integration/visual tests**, not unit tests — they catch regressions after merge\n> - The core `ci.yml` workflow already runs unit tests, build verification, and E2E tests on PRs\n> - Storybook Deploy (`storybook-deploy.yml`) already only runs on `main`\n> - The visual regression snapshot tests only run on PRs anyway, so if we move the entire workflow to main-only, we should remove the PR-specific visual regression step\n> \n> ## Changes Required\n> \n> Edit `.github/workflows/storybook-tests.yml`:\n> \n> 1. **Remove** the `pull_request` trigger entirely\n> 2. **Remove** the `develop` branch from the `push` trigger — only keep `main`\n> 3. **Remove** the visual regression test step (lines 84-89) since it was conditional on `github.event_name == 'pull_request'` which will never be true anymore\n> \n> The resulting trigger section should be:\n> \n> ```yaml\n> on:\n>   push:\n>     branches: [main]\n>     paths:\n>       - 'packages/**'\n>       - '.storybook/**'\n>       - 'pnpm-lock.yaml'\n> ```\n> \n> And remove this step entirely:\n> ```yaml\n>       - name: Run visual regression tests\n>         if: github.event_name == 'pull_request'\n>         run: |\n>           concurrently -k -s first \\\n>             \"pnpm storybook --no-open\" \\\n>             \"wait-on tcp:6006 && pnpm storybook:test:snapshot\"\n> ```\n> \n> 4. **Update CHANGELOG.md** with this CI optimization change.\n> \n> \n> The following is the prior conversation context from the user's chat exploration (may be truncated):\n> \n> User:  简化 ci ，比如 Storybook Tests 改到main分支才运行\n> \n> Assistant: \n> \n> I need to understand the current CI setup before making changes. Let me look at the existing workflow files.\n> \n> Assistant: Now I have a complete picture of all the workflows. Let me analyze and create the PR to simplify the CI.\n> \n> Here's a summary of the current workflow landscape and the optimization plan:\n> \n> **Current Workflows:**\n> \n> | Workflow | Triggers | Analysis |\n> |---|---|---|\n> | `ci.yml` | push/PR on `main, develop` | Core CI — test, build, e2e, docs. **Should keep on PRs.** |\n> | `storybook-tests.yml` | push/PR on `main, develop` (path-filtered) | **Heavy** — builds all packages + storybook + Playwright. **Move to main-only.** |\n> | `storybook-deploy.yml` | push on `main` only | Already main-only ✅ |\n> | `lint.yml` | `workflow_dispatch` only | Already manual ✅ |\n> | `performance-budget.yml` | push/PR on `main, develop` (path-filtered) | Bundle analysis. **Could move to main-only or keep PR with path filter.** |\n> | `check-links.yml` | `workflow_dispatch` only | Already manual ✅ |\n> | `shadcn-check.yml` | weekly schedule + manual | Already optimized ✅ |\n> \n> **Proposed changes:**\n> \n> 1. **`storybook-tests.yml`** — Remove `pull_request` trigger entirely; only run on `push` to `main`. This is the biggest win since it does a full build + Storybook build + Playwright.\n> 2. **`performance-budget.yml`** — Keep PR comments (useful for bundle review), but this could optionally also be main-only. I'll keep it on PRs since the path filter already limits it and PR comments are valuable.\n> \n> Let me create the PR:\n> \n> Assistant: I've kicked off the coding agent to create a PR that simplifies the CI by restricting `storybook-tests.yml` to only run on pushes to `main`. We're now waiting for your confirmation to proceed with the tool execution.\n> \n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n*This pull request was created from Copilot chat.*\n>"
+}

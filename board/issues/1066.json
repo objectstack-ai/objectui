@@ -1,0 +1,35 @@
+{
+  "number": 1066,
+  "kind": "issue",
+  "title": "i18n REST API/前端 mock 行为不一致问题评估",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-11T03:15:16Z",
+  "updated_at": "2026-03-31T06:52:57Z",
+  "closed_at": "2026-03-31T06:52:57Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1066",
+  "body": "### 背景\nObjectUI 项目存在如下 i18n 相关核心问题：\n\n1. pnpm dev（后台服务端模式）下 i18n 接口直报 404/501，原因是 i18n 服务未注册。\n2. pnpm msw:dev（前端 MSW mock）模式下接口总是可用，因为 MSW 手写了 handler，并绕开内核机制。\n3. REST/Server 端与 MSW/前端 mock 数据加载路径完全不同，导致同一个前端组件实际收到不同数据结构。\n4. i18n 翻译数据来源不统一，服务端依赖本地文件，mock 环境依赖 example locales 导入。\n5. 应该使用 objectstack 提供的服务端 i18n 而不是本地加载。\n\n### 建议\n- server/dev/mock 三种环境下统一 i18n 服务注册与数据加载策略。\n"
+}

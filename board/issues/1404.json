@@ -1,0 +1,33 @@
+{
+  "number": 1404,
+  "kind": "pull_request",
+  "title": "Remove demo links from official website",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-28T10:15:37Z",
+  "updated_at": "2026-05-28T10:16:07Z",
+  "closed_at": "2026-05-28T10:16:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-05-28T10:16:07Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1404",
+  "body": "Remove all references to `demo.objectui.org` from the official site.\n\n- **Homepage hero**: Removed \"View Demo\" button from the CTA section\n- **Navigation**: Removed \"Demo\" link from the site header nav"
+}

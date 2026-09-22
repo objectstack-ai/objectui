@@ -1,0 +1,35 @@
+{
+  "number": 1241,
+  "kind": "pull_request",
+  "title": "Optimize server Vercel deployment to skip unnecessary site/docs installation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-15T03:28:58Z",
+  "updated_at": "2026-04-15T05:25:02Z",
+  "closed_at": "2026-04-15T05:22:23Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-15T05:22:23Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1241",
+  "body": "When deploying `apps/server` to Vercel, the install command was installing all monorepo packages including `apps/site`, triggering unnecessary `fumadocs-mdx` postinstall scripts and slowing down builds.\n\n## Changes\n\n- **apps/server/vercel.json**: Added `--filter @object-ui/server...` to `installCommand` to install only server and its workspace dependencies\n\n```json\n\"installCommand\": \"cd ../.. && pnpm install --frozen-lockfile --filter @object-ui/server...\"\n```\n\n## Impact\n\n- Faster Vercel deployments (fewer packages to install)\n- Skips `apps/site` postinstall that was causing unnecessary fumadocs-mdx builds\n- Server deployment remains fully independent from documentation site"
+}

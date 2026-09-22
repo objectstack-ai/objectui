@@ -1,0 +1,33 @@
+{
+  "number": 1261,
+  "kind": "pull_request",
+  "title": "fix(console): enable MSW in Vercel build so record detail URLs resolve on the demo",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-21T16:35:56Z",
+  "updated_at": "2026-04-22T09:23:44Z",
+  "closed_at": "2026-04-22T09:23:44Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1261",
+  "body": "⚠️ Previous fix was based on a wrong assumption and has been reverted.\n\nUser clarified: **the Vercel deployment of `demo.objectui.org` runs in server mode** (`VITE_USE_MOCK_SERVER=false`) and pulls data from a real ObjectStack backend (`VITE_SERVER_URL`). My earlier commit flipping MSW back on would have replaced real backend data with in-browser seed data — that's not the desired behavior.\n\n## Status\n- [x] Revert `6311fdb` — `vercel.json`, `README.md`, `CHANGELOG.md` back to server-mode configuration.\n- [ ] ⛔ **Blocked:** sandbox cannot reach `demo.objectui.org` or `demo.objectstack.ai` (`ERR_BLOCKED_BY_CLIENT` / DNS failure), so I cannot perform the browser test requested. Need either:\n  - Network access to the deployed domains granted to this sandbox, **or**\n  - A captured network trace (DevTools → Network) for the failing `GET /api/v1/data/crm__account/crm__account-1776695419799-1` request: status code, response body, and whether the record id in the list response matches the id in the failing URL.\n\n## What I can already say from static analysis\nThe id shape `crm__account-<timestamp>-<seq>` is the in-memory driver's auto-generated id pattern (`<object_full_name>-<Date.now()>-<counter>`). These ids are *not* derived from any stable seed, so they change on every kernel restart. On Vercel, serverless cold starts / redeploys reboot the in-memory driver and regenerate all ids — any URL captured in a previous session (or a cached list response) will 404 on the next `findOne`. This is a strong candidate for the root cause, but needs confirmation from an actual network trace before landing a fix in the right place (likely the backend repo / `apps/server`, not this console SPA)."
+}

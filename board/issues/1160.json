@@ -1,0 +1,35 @@
+{
+  "number": 1160,
+  "kind": "issue",
+  "title": "【Bug】前端聚合分析 API 调用 measures 参数格式错误，导致后端 t.split 报错",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-04-01T01:44:56Z",
+  "updated_at": "2026-04-01T02:03:27Z",
+  "closed_at": "2026-04-01T02:03:27Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1160",
+  "body": "### 问题描述\n当前 ObjectUI 前端调用 /api/v1/analytics/query 时，聚合参数 measures 传递的是对象数组（如：`[{ field: 'amount', function: 'sum' }]`），而后端 memory-analytics 服务期望为字符串数组（如：`['amount_sum']` 或 `'count'`）。目前格式不对，会导致后端 resolveMeasure 方法执行 `t.split('.')` 时 TypeError（\"t.split is not a function\"）。\n\n### 影响范围\n- 所有仪表盘、报表、对象视图等涉及分组/聚合数值分析的前端功能\n- MSW/mock/本地开发环境下也会出现\n\n### 复现方法\n1. 本地或 vercel 运行 ObjectUI 并打开任意含统计图表/仪表盘的页面\n2. 查询接口 /api/v1/analytics/query 返回 500，后端日志报错 `t.split is not a function`\n\n### 分析\n- objectstack-ai/objectui 的 data-objectstack/src/index.ts 中 aggregate() 方法构造 payload 时：\n  ```ts\n  measures: [{ field: params.field, function: params.function }],\n  ```\n  应修改为后端 cube 的 measure key（如 amount_sum、count 等）。\n\n- buildCubesFromConfig 生成的 measure 命名规范为 `${field}_${function}`，计数为 count。\n\n### 修复建议\n- 在 aggregate() 里构造 measures 时，转换为字符串格式：\n  - 计数：'count'\n  - 其它聚合：`${field}_${function}`\n\n- 例：\n  ```ts\n  const measureName = params.function === 'count' ? 'count' : `${params.field}_${params.function}`;\n  payload.measures = [measureName];\n  ```\n\n- dimensions 也应适配为字符串（如 groupBy 字段非 \"_all\" 时 `${resource}.${groupBy}`）。\n\n### 受影响文件\n- packages/data-objectstack/src/index.ts\n\n### 参考后端实现\n- https://github.com/objectstack-ai/spec/blob/main/packages/plugins/driver-memory/src/memory-analytics.ts#L363\n\n### 附件\n- 典型报错：\n  ```json\n  {\n    \"name\": \"TypeError\",\n    \"message\": \"t.split is not a function\",\n    \"stack\": \"TypeError: t.split is not a function\\n    at tX.resolveMeasure ... \"\n  }\n  ```"
+}

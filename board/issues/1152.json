@@ -1,0 +1,33 @@
+{
+  "number": 1152,
+  "kind": "pull_request",
+  "title": "Fix dashboard to not display hardcoded data on server errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-31T03:45:52Z",
+  "updated_at": "2026-03-31T05:48:09Z",
+  "closed_at": "2026-03-31T05:48:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-31T05:48:09Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1152",
+  "body": "When the analytics API (`/api/v1/analytics/query`) returns errors (e.g. \"Cube name is required\"), dashboard widgets previously continued displaying hardcoded static values, masking real data failures. This PR implements proper three-state rendering (Loading → Error → Data/Fallback) across all dashboard widget types.\n\n## Changes Made\n\n### ObjectChart (`@object-ui/plugin-charts`)\n- Added `error` state tracking via `useState`. When `dataSource.aggregate()` or `dataSource.find()` fails, the chart now renders a prominent error alert with a red `AlertCircle` icon and the error message, instead of silently swallowing errors.\n- Added `data-testid` attributes for loading, error, and no-datasource states.\n- Added `lucide-react` as a dependency for the `AlertCircle` icon.\n\n### MetricWidget / MetricCard (`@object-ui/plugin-dashboard`)\n- Added `loading` and `error` props to both components. When `loading` is true, a spinner is shown. When `error` is set, a destructive-colored error message is displayed instead of the metric value. The label/title remains visible in all states.\n\n### ObjectMetricWidget (new component, `@object-ui/plugin-dashboard`)\n- New data-bound metric widget that fetches live values from the server via `dataSource.aggregate()` or `dataSource.find()`.\n- Shows explicit loading/error states when data fetching is in progress or fails.\n- Falls back to a static `fallbackValue` only when no `dataSource` is available (demo/storybook mode).\n- Resets `fetchedValue` and `error` state when `dataSource` becomes unavailable or changes, preventing stale server data from masking fallback values.\n- Registered as `object-metric` in the ComponentRegistry.\n\n### DashboardRenderer (`@object-ui/plugin-dashboard`)\n- Metric widgets with `widget.object` binding are now routed to `ObjectMetricWidget` (`object-metric` type) for async data loading with proper error/loading states, instead of always rendering static hardcoded values.\n- Static-only metric widgets (no `object` binding) continue to work as before.\n- Metric aggregation `groupBy` defaults to `_all` (single bucket) instead of `name`, so shorthand aggregate configs return correct single-value results for metric widgets.\n\n### CRM Dashboard Example\n- Documented that `options.value` fields in metric widgets are demo/fallback values that only display when no `dataSource` is connected.\n\n### CHANGELOG\n- Updated `CHANGELOG.md` with all dashboard error state improvements.\n\n## Testing\n\n- ✅ 210 tests passing across 15 test files in `@object-ui/plugin-dashboard`\n- ✅ 14 new tests covering ObjectMetricWidget (error states, loading, fallback, aggregate), MetricCard (loading/error props), DashboardRenderer (object-metric routing, static metric passthrough, error state with failing dataSource)\n- ✅ CodeQL security scan passes with 0 alerts\n- ✅ No regressions in existing tests"
+}

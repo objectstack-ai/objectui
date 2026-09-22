@@ -1,0 +1,37 @@
+{
+  "number": 1326,
+  "kind": "pull_request",
+  "title": "chore(deps): bump lucide-react from 1.14.0 to 1.16.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "plugin",
+    "plugin: charts",
+    "plugin: kanban"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-18T12:33:30Z",
+  "updated_at": "2026-05-18T12:41:43Z",
+  "closed_at": "2026-05-18T12:38:51Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-05-18T12:38:51Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1326",
+  "body": "Bumps [lucide-react](https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react) from 1.14.0 to 1.16.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/lucide-icons/lucide/releases\">lucide-react's releases</a>.</em></p>\n<blockquote>\n<h2>Version 1.16.0</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>feat(icons): added <code>blender</code> icon by <a href=\"https://github.com/rrod497\"><code>@​rrod497</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/3884\">lucide-icons/lucide#3884</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/lucide-icons/lucide/compare/1.15.0...1.16.0\">https://github.com/lucide-icons/lucide/compare/1.15.0...1.16.0</a></p>\n<h2>Version 1.15.0</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>fix: remove 'less' from brand stopwords by <a href=\"https://github.com/jguddas\"><code>@​jguddas</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4331\">lucide-icons/lucide#4331</a></li>\n<li>fix(<code>@​lucide/vue</code>): Clone slots before passing to icon by <a href=\"https://github.com/axtho\"><code>@​axtho</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4339\">lucide-icons/lucide#4339</a></li>\n<li>fix(icons): changed <code>text-cursor</code> icon by <a href=\"https://github.com/jamiemlaw\"><code>@​jamiemlaw</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4340\">lucide-icons/lucide#4340</a></li>\n<li>fix(icons): changed <code>landmark</code> icon by <a href=\"https://github.com/jamiemlaw\"><code>@​jamiemlaw</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4334\">lucide-icons/lucide#4334</a></li>\n<li>chore(deps-dev): bump nitropack from 2.13.1 to 2.13.4 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4352\">lucide-icons/lucide#4352</a></li>\n<li>chore(deps-dev): bump simple-git from 3.33.0 to 3.36.0 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4349\">lucide-icons/lucide#4349</a></li>\n<li>fix(icons): changed <code>candy-cane</code> icon by <a href=\"https://github.com/jguddas\"><code>@​jguddas</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4148\">lucide-icons/lucide#4148</a></li>\n<li>fix(icons): changed <code>volleyball</code> icon by <a href=\"https://github.com/jamiemlaw\"><code>@​jamiemlaw</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4338\">lucide-icons/lucide#4338</a></li>\n<li>fix(icons): changed <code>chart-no-axes-combined</code> icon by <a href=\"https://github.com/jguddas\"><code>@​jguddas</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/3567\">lucide-icons/lucide#3567</a></li>\n<li>feat(icon): added broccoli icon by <a href=\"https://github.com/swastik7805\"><code>@​swastik7805</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4263\">lucide-icons/lucide#4263</a></li>\n<li>chore(site): Updates to site and updated carbon ads by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4359\">lucide-icons/lucide#4359</a></li>\n<li>feat(icons): added sticky note variants by <a href=\"https://github.com/Barakudum\"><code>@​Barakudum</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4348\">lucide-icons/lucide#4348</a></li>\n<li>chore(deps-dev): bump astro from 6.1.6 to 6.1.10 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4361\">lucide-icons/lucide#4361</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/axtho\"><code>@​axtho</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4339\">lucide-icons/lucide#4339</a></li>\n<li><a href=\"https://github.com/Barakudum\"><code>@​Barakudum</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4348\">lucide-icons/lucide#4348</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/lucide-icons/lucide/compare/1.14.0...1.15.0\">https://github.com/lucide-icons/lucide/compare/1.14.0...1.15.0</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/lucide-icons/lucide/commit/07c885e6c1f9952965ba388b7fd2bb7c4d416a67\"><code>07c885e</code></a> fix(docs): fix zephyr-cloud URL in readmes</li>\n<li>See full diff in <a href=\"https://github.com/lucide-icons/lucide/commits/1.16.0/packages/lucide-react\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

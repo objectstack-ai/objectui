@@ -1,0 +1,35 @@
+{
+  "number": 1135,
+  "kind": "issue",
+  "title": "实现企业级Object Manager与Field Designer可视化设计器",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-03-30T02:28:26Z",
+  "updated_at": "2026-03-31T01:24:00Z",
+  "closed_at": "2026-03-31T01:24:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1135",
+  "body": "设计并实现用于企业级元数据平台的高扩展性对象模型及字段可视化设计工具。该任务为当前的首要目标，原任务 https://github.com/objectstack-ai/objectui/issues/1134 作为长期方向与整理需求的入口。\n\n---\n\n## 任务范围\n\n### 1. Object Manager（对象管理界面）\n- 支持增删查改元对象定义（含自定义对象与系统对象）。\n- 支持对象的基本属性、业务元数据（名称、描述、icon、复数名、分组、排序等）的可视化配置。\n- 支持对象间关系的展示与维护。\n- 便于扩展和未来新增对象特性。\n\n### 2. Field Designer（字段配置向导）\n- 支持该平台全部字段类型的增删查改与高级属性（如唯一性约束、默认值、选项集/字典、只读、隐藏、校验规则、外部ID、历史追踪等）。\n- 字段分组、排序、布局管理。\n- 兼容全部系统保留字段和自定义字段扩展。\n- 支持为后续布局设计、业务规则配套。\n\n### 3. 核心原则\n- 架构支持长期演进，明确分层，便于后续扩展对象与字段能力。\n- 完善测试：开发并维护关键单元/集成测试，保障平台升级稳定性。\n- 所有变更需同步 ROADMAP.md 或 CHANGELOG.md。\n- 各开发进度与实际成果应持续同步到 #1134。"
+}

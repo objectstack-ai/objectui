@@ -1,0 +1,33 @@
+{
+  "number": 1383,
+  "kind": "pull_request",
+  "title": "chore(deps): bump shiki from 4.0.2 to 4.1.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-25T11:28:54Z",
+  "updated_at": "2026-05-25T11:32:27Z",
+  "closed_at": "2026-05-25T11:29:14Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-05-25T11:29:13Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1383",
+  "body": "Bumps [shiki](https://github.com/shikijs/shiki/tree/HEAD/packages/shiki) from 4.0.2 to 4.1.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/shikijs/shiki/releases\">shiki's releases</a>.</em></p>\n<blockquote>\n<h2>v4.1.0</h2>\n<h3>   🐞 Bug Fixes</h3>\n<ul>\n<li><strong>twoslash</strong>: Forward <code>tsModule</code> to <code>createTwoslasher</code>  -  by <a href=\"https://github.com/arthurfiorette\"><code>@​arthurfiorette</code></a> in <a href=\"https://redirect.github.com/shikijs/shiki/issues/1271\">shikijs/shiki#1271</a> <a href=\"https://github.com/shikijs/shiki/commit/be89afcf\"><!-- raw HTML omitted -->(be89a)<!-- raw HTML omitted --></a></li>\n</ul>\n<h5>    <a href=\"https://github.com/shikijs/shiki/compare/v4.0.2...v4.1.0\">View changes on GitHub</a></h5>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/shikijs/shiki/commit/c809af96f1907877c5cebfeee98ac5d55193140b\"><code>c809af9</code></a> chore: release v4.1.0</li>\n<li><a href=\"https://github.com/shikijs/shiki/commit/95371cb1b3c00ced5b437a11f603939002f9ecae\"><code>95371cb</code></a> chore: lint</li>\n<li>See full diff in <a href=\"https://github.com/shikijs/shiki/commits/v4.1.0/packages/shiki\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=shiki&package-manager=npm_and_yarn&previous-version=4.0.2&new-version=4.1.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

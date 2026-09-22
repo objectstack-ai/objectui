@@ -1,0 +1,32 @@
+{
+  "number": 1252,
+  "kind": "pull_request",
+  "title": "chore(deps): bump react-i18next from 17.0.2 to 17.0.4 in the react group",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-20T08:26:40Z",
+  "updated_at": "2026-04-22T09:27:07Z",
+  "closed_at": "2026-04-22T09:27:06Z",
+  "closed_by": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1252",
+  "body": "Bumps the react group with 1 update: [react-i18next](https://github.com/i18next/react-i18next).\n\nUpdates `react-i18next` from 17.0.2 to 17.0.4\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/i18next/react-i18next/blob/master/CHANGELOG.md\">react-i18next's changelog</a>.</em></p>\n<blockquote>\n<h2>17.0.4</h2>\n<ul>\n<li>fix: avoid <code>React does not recognize the 'i18nIsDynamicList' prop on a DOM element</code> warning <a href=\"https://redirect.github.com/i18next/react-i18next/issues/1915\">1915</a></li>\n</ul>\n<h2>17.0.3</h2>\n<ul>\n<li>fix: avoid invalid prop on <code>React.Fragment</code> inside <code>&lt;Trans /&gt;</code> <a href=\"https://redirect.github.com/i18next/react-i18next/issues/1914\">1914</a></li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/i18next/react-i18next/commit/a398b7692bab6737dfaf9f8e75f874388b332ba4\"><code>a398b76</code></a> 17.0.4</li>\n<li><a href=\"https://github.com/i18next/react-i18next/commit/c96f7bc219994731c5606edb1c1f4dd6c04ea98b\"><code>c96f7bc</code></a> fix: avoid `React does not recognize the i18nIsDynamicList prop on a DOM elem...</li>\n<li><a href=\"https://github.com/i18next/react-i18next/commit/fe111f751842c1ab2566d9ecfa5d41f796f77ae7\"><code>fe111f7</code></a> 17.0.3</li>\n<li><a href=\"https://github.com/i18next/react-i18next/commit/e7419b86966c1b0580f60022edfca99fe1998c16\"><code>e7419b8</code></a> fix: avoid invalid prop on <code>React.Fragment</code> inside <code>\\&lt;Trans /&gt;</code> <a href=\"https://redirect.github.com/i18next/react-i18next/issues/1914\">#1914</a></li>\n<li>See full diff in <a href=\"https://github.com/i18next/react-i18next/compare/v17.0.2...v17.0.4\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=react-i18next&package-manager=npm_and_yarn&previous-version=17.0.2&new-version=17.0.4)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore <dependency name> major version` will close this group update PR and stop Dependabot creating any more for the specific dependency's major version (unless you unignore this specific dependency's major version or upgrade to it yourself)\n- `@dependabot ignore <dependency name> minor version` will close this group update PR and stop Dependabot creating any more for the specific dependency's minor version (unless you unignore this specific dependency's minor version or upgrade to it yourself)\n- `@dependabot ignore <dependency name>` will close this group update PR and stop Dependabot creating any more for the specific dependency (unless you unignore this specific dependency or upgrade to it yourself)\n- `@dependabot unignore <dependency name>` will remove all of the ignore conditions of the specified dependency\n- `@dependabot unignore <dependency name> <ignore condition>` will remove the ignore condition of the specified dependency and ignore conditions\n\n\n</details>"
+}

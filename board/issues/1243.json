@@ -1,0 +1,33 @@
+{
+  "number": 1243,
+  "kind": "pull_request",
+  "title": "fix(console): disable MSW in Vercel production build so requests reach the real backend",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-17T04:41:34Z",
+  "updated_at": "2026-04-17T04:41:58Z",
+  "closed_at": "2026-04-17T04:41:57Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-17T04:41:57Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1243",
+  "body": "`demo.objectui.org/apps/crm_enterprise/lead` rendered *\"object lead not found\"* because the Vercel build silently bundled MSW into production — every `/api/v1/*` call was intercepted in-browser and answered from the mock dataset, which has neither `crm_enterprise` nor `lead`. The console never actually reached `demo.objectstack.ai`.\n\n### Root cause\n\n`apps/console/vercel.json`'s `buildCommand` invoked `vite build` directly, bypassing the `package.json` `build` script that sets `VITE_USE_MOCK_SERVER=false`. `main.tsx` treats any value other than the literal string `'false'` as truthy and calls `startMockServer()`, so the service worker registered and intercepted all backend traffic. `ObjectView.tsx` then fell through to its `objectNotFound` empty state because the MSW seed (built from `examples/crm` + `todo` + `kitchen-sink`) doesn't contain that app/object.\n\n### Changes\n\n- **`apps/console/vercel.json`** — inline `VITE_USE_MOCK_SERVER=false` into `buildCommand` so production builds skip MSW and honor `VITE_SERVER_URL`.\n- **`apps/console/README.md`** — new *Vercel Deployment* section documenting the required `VITE_SERVER_URL` env var and cross-origin prerequisites (CORS allow-list for the SPA origin, `SameSite=None; Secure` auth cookies).\n- **`CHANGELOG.md`** — entry under *Unreleased → Fixed*.\n\n```json\n// apps/console/vercel.json\n\"buildCommand\": \"pnpm msw:init && NODE_OPTIONS=--max-old-space-size=4096 VITE_USE_MOCK_SERVER=false VITE_BASE_PATH=/ vite build\"\n```\n\n### Deployment follow-up (out of repo)\n\nAfter merge, set `VITE_SERVER_URL=https://demo.objectstack.ai` in the Vercel project and redeploy. The backend must (a) allow CORS from `https://demo.objectui.org` with credentials, (b) issue `SameSite=None; Secure` session cookies, and (c) actually register the `crm_enterprise` app and `lead` object — otherwise the *object not found* state will correctly reflect backend metadata."
+}

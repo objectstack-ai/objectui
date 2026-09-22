@@ -1,0 +1,37 @@
+{
+  "number": 1237,
+  "kind": "pull_request",
+  "title": "Add @object-ui/app-shell and @object-ui/providers for third-party integration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "examples"
+  ],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-14T12:24:57Z",
+  "updated_at": "2026-04-14T13:05:42Z",
+  "closed_at": "2026-04-14T12:58:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-14T12:58:19Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1237",
+  "body": "Enables third-party systems to use ObjectUI rendering without inheriting the full console infrastructure. Reduces bundle size from 500KB+ to ~50KB for core rendering and removes coupling to ObjectStack backend.\n\n## New Packages\n\n**@object-ui/app-shell** (~50KB)\n- `AppShell` - Layout container with sidebar/header/footer slots\n- `ObjectRenderer`, `DashboardRenderer`, `PageRenderer`, `FormRenderer` - Schema-driven view components\n- Framework-agnostic `DataSource` interface (works with any backend API)\n\n**@object-ui/providers** (~10KB)\n- `DataSourceProvider` - Generic data source context (not ObjectStack-specific)\n- `MetadataProvider` - Schema/metadata management\n- `ThemeProvider` - Theme system with dark mode support\n\n## Integration Example\n\nBuild a custom console in ~100 lines:\n\n```tsx\nimport { AppShell, ObjectRenderer } from '@object-ui/app-shell';\nimport { ThemeProvider, DataSourceProvider } from '@object-ui/providers';\n\nfunction MyConsole() {\n  return (\n    <ThemeProvider>\n      <DataSourceProvider dataSource={myAPI}>\n        <AppShell sidebar={<MySidebar />}>\n          <Routes>\n            <Route path=\"/:object\" element={<ObjectRenderer objectName={params.object} />} />\n          </Routes>\n        </AppShell>\n      </DataSourceProvider>\n    </ThemeProvider>\n  );\n}\n```\n\n## Proof-of-Concept\n\n**examples/minimal-console** demonstrates:\n- Custom routing (React Router, Next.js, etc.)\n- Custom authentication\n- Mock REST API (not ObjectStack)\n- Full ObjectUI rendering capability\n\n## Architecture\n\n```\n@object-ui/app-shell\n    ↓\n@object-ui/react (SchemaRenderer)\n    ↓\n@object-ui/components + plugins\n```\n\nConsole-specific features (admin pages, app management, ObjectStack auth) remain in `apps/console` for existing users. New packages are purely additive with zero breaking changes.\n\nSee `docs/ARCHITECTURE.md` for migration strategy and integration patterns."
+}

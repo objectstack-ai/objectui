@@ -1,0 +1,33 @@
+{
+  "number": 1299,
+  "kind": "pull_request",
+  "title": "fix(console): stop MetadataDetailPage re-fetch loop that flaked CI",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-08T07:38:11Z",
+  "updated_at": "2026-05-08T07:52:57Z",
+  "closed_at": "2026-05-08T07:51:26Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-05-08T07:51:26Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1299",
+  "body": "- [x] Investigate CI failure on run 25541629421 (job 74968605319)\n- [x] Identify root cause: `useMetadataService()` / `useMetadata()` mocks returned fresh object literals every render → `MetadataDetailPage`'s `fetchItem` `useCallback` reference changed every render → data-fetch `useEffect` re-fired in an infinite `setLoading(true)` → re-render → re-fetch loop. Locally the resolved promise won the race; in CI under load the page was sometimes still in `loading=true` when assertions ran. Same loop also produced the `act(...)` warnings.\n- [x] Stabilize the test mocks (`apps/console/dev/__tests__/MetadataDetailPage.test.tsx`) by hoisting `mockMetadataService` and `mockMetadataContext` to module-level singletons.\n- [x] Harden the source (`apps/console/src/legacy/MetadataDetailPage.tsx`) so the same loop can no longer be triggered by an unstable hook caller in any host: read `metadataService` and `config.label` through `useRef`s, drop them from `fetchItem` / `handleSave` `useCallback` deps.\n- [x] Verify locally: 5 consecutive runs of the affected test file → 11/11 pass each time, no act warnings.\n- [x] Run full repo test suite (`pnpm test`) → 393 passed | 1 skipped (394) test files, 6358 passed | 29 skipped (6387) tests, 0 failures.\n- [x] Update `CHANGELOG.md` under `Unreleased > Fixed`.\n- [x] Run `parallel_validation` (Code Review + CodeQL) — CodeQL skipped as trivial.\n- [x] Merge latest `origin/main` (c2b8ef3c — `[4.0.2]` release + changeset) and resolve the `CHANGELOG.md` conflict by keeping our new `Unreleased > Fixed` entry on top of the promoted `[4.0.2]` section.\n- [x] Re-verify the previously failing test still passes after the merge (11/11)."
+}

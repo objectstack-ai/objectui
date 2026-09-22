@@ -1,0 +1,33 @@
+{
+  "number": 1196,
+  "kind": "pull_request",
+  "title": "Merge ObjectManagerPage into MetadataManagerPage via listComponent extension point",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-07T08:34:17Z",
+  "updated_at": "2026-04-07T09:35:39Z",
+  "closed_at": "2026-04-07T09:30:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-07T09:30:58Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1196",
+  "body": "`ObjectManagerPage` duplicated most of `MetadataManagerPage`/`MetadataDetailPage` logic. This removes it entirely and routes all object management through the generic metadata pipeline.\n\n### New extension point: `listComponent`\n\nAdded `listComponent` to `MetadataTypeConfig` — when set, `MetadataManagerPage` delegates the entire list body to the custom component while still rendering the page shell (header, back button, title).\n\n```typescript\nexport interface MetadataTypeConfig {\n  // ...existing fields...\n  listComponent?: React.ComponentType<MetadataListComponentProps>;\n}\n\nexport interface MetadataListComponentProps {\n  config: MetadataTypeConfig;\n  basePath: string;\n  metadataType: string;\n  isAdmin: boolean;\n}\n```\n\n### Object type registry config\n\n```typescript\n{\n  type: 'object',\n  label: 'Object',\n  pluralLabel: 'Object Manager',\n  // customRoute removed — now uses standard /system/metadata/object\n  pageSchemaFactory: (itemName, item) => buildObjectDetailPageSchema(itemName, item),\n  listComponent: ObjectManagerListAdapter,\n}\n```\n\n### What changed\n\n- **`ObjectManagerListAdapter`** — new component wrapping `ObjectManager` from `@object-ui/plugin-designer`, wired to MetadataService CRUD with optimistic update + rollback\n- **`MetadataManagerPage`** — renders `listComponent` when configured, before the default card/grid branch\n- **Routes** — `/system/objects` → `<Navigate>` redirect to `/system/metadata/object`; detail routes use `ObjectRedirect` helper to preserve `:objectName` param\n- **Entry points** — sidebar, QuickActions, SystemHubPage hub cards all point to `/system/metadata/object`\n- **Deleted** — `ObjectManagerPage.tsx`, its test file\n- **Tests** — migrated to `ObjectManagerMetadataPipeline.test.tsx` covering list (via MetadataManagerPage) and detail (via MetadataDetailPage) paths; updated registry and detail page test assertions"
+}

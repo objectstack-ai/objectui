@@ -1,0 +1,38 @@
+{
+  "number": 1205,
+  "kind": "pull_request",
+  "title": "[WIP] Update shadcn controls to latest version",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-13T03:28:47Z",
+  "updated_at": "2026-04-13T07:48:27Z",
+  "closed_at": "2026-04-13T07:42:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-13T07:42:30Z",
+  "comments": 20,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1205",
+  "body": "Cloud agent has begun work on **/shadcn 控件升级到最新版** and will update this pull request as work progresses.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> /shadcn 控件升级到最新版\n> \n> The user has attached the following file paths as relevant context:\n>  - .github/copilot-instructions.md\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\nCreated from [VS Code](https://code.visualstudio.com/docs/copilot/copilot-coding-agent)."
+}

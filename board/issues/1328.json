@@ -1,0 +1,33 @@
+{
+  "number": 1328,
+  "kind": "pull_request",
+  "title": "chore(deps): bump date-fns from 4.1.0 to 4.2.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-18T12:35:54Z",
+  "updated_at": "2026-05-18T12:39:18Z",
+  "closed_at": "2026-05-18T12:36:15Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-05-18T12:36:15Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1328",
+  "body": "Bumps [date-fns](https://github.com/date-fns/date-fns) from 4.1.0 to 4.2.1.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/date-fns/date-fns/releases\">date-fns's releases</a>.</em></p>\n<blockquote>\n<h2>v4.2.1</h2>\n<h3>Fixed</h3>\n<ul>\n<li>Fixed type definitions missing in v4.2.0 due to TypeScript misconfiguration.</li>\n</ul>\n<h2>v4.2.0</h2>\n<p>This is a minor release in all senses, it only includes documentation updates (first of many) that points to the new <a href=\"https://date-fns.org/you-dont-need-date-fns\">You Don't Need date-fns*</a> page.</p>\n<p>* Not really</p>\n<h3>Changed</h3>\n<ul>\n<li>Added Temporal API references to the JSDoc annotations of <code>add</code>, <code>addBusinessDays</code>, and <code>addDays</code>.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/date-fns/date-fns/blob/main/CHANGELOG.md\">date-fns's changelog</a>.</em></p>\n<blockquote>\n<h2>v4.2.1 - 2026-05-19</h2>\n<h3>Fixed</h3>\n<ul>\n<li>Fixed type definitions missing in v4.2.0 due to TypeScript misconfiguration.</li>\n</ul>\n<h2>v4.2.0 - 2026-05-18</h2>\n<p>This is a minor release in all senses, it only includes documentation updates (first of many) that points to the new <a href=\"https://date-fns.org/you-dont-need-date-fns\">You Don't Need date-fns*</a> page.</p>\n<p>* Not really</p>\n<h3>Changed</h3>\n<ul>\n<li>Added Temporal API references to the JSDoc annotations of <code>add</code>, <code>addBusinessDays</code>, and <code>addDays</code>.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/87635a887d79d5b112666750780e08c33d243b4f\"><code>87635a8</code></a> Fix missing type definitions, promote to v4.2.1 (closed <a href=\"https://redirect.github.com/date-fns/date-fns/issues/4190\">#4190</a>)</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/3d4ca4bbd142e1b9a967cd599e55cb143eab11a3\"><code>3d4ca4b</code></a> Update browserslist</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/562c48555f92fa3da2cbad00b564a0abefe4530e\"><code>562c485</code></a> Promote to v4.2.0</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/3709c0231c8a74fe5544a5c3d789bdf7aae8b14e\"><code>3709c02</code></a> Make steps into the Temporal-first future</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/07592b9d72731bb9406f95883ec231ac988660b6\"><code>07592b9</code></a> Upgrade Node.js types, upgrade TypeScript</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/09ece22eaea4ffab1a8fa396beeeb6a451dcfbf4\"><code>09ece22</code></a> Upgrade Vitest</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/c37c22e6db06353a2ea816e22d872732c8b1e841\"><code>c37c22e</code></a> Set up Oxfmt as the default formatter</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/d40bb80cac2171ba9e87f1fbe5e4f0c88eaae2e8\"><code>d40bb80</code></a> Upgrade mise setup</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/dd66398305c2b015fba3c1b3d31ccff42ee8d4cf\"><code>dd66398</code></a> Fix tz tests workflow</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/ef962f81e67866a3ccedba28799ea27cc68f3493\"><code>ef962f8</code></a> Adjust smoke tests</li>\n<li>Additional commits viewable in <a href=\"https://github.com/date-fns/date-fns/compare/v4.1.0...v4.2.1\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=date-fns&package-manager=npm_and_yarn&previous-version=4.1.0&new-version=4.2.1)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

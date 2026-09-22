@@ -1,0 +1,35 @@
+{
+  "number": 883,
+  "kind": "issue",
+  "title": "字段类型显示问题全面排查与修复",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-27T04:44:58Z",
+  "updated_at": "2026-03-31T06:51:46Z",
+  "closed_at": "2026-03-31T06:51:46Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/883",
+  "body": "### 问题描述\n\n在列表、详情、报表等各类视图中，部分字段类型的数据显示存在异常，典型表现如 lookup/关联型字段仅显示 ID 而未显示名称；select 字段未正确映射 label；部分类型在值为 null/空时显示不一致。详见反馈截图：\n\n<img alt=\"Order字段显示异常\" width=\"2732\" src=\"https://github.com/user-attachments/assets/14d8ecdf-4f92-4509-85cf-cb70cfd5290d\" />\n\n### 排查目标\n1. **全面梳理所有支持的字段类型**，包括但不限于：\n   - text, textarea\n   - number, currency, percent\n   - date, datetime, time\n   - lookup, master_detail\n   - select, status\n   - boolean\n   - user, owner\n   - file, image\n   - object, vector, grid、formula\n   - 其它���定义/派生类��\n2. **验证每种字段类型在主流显示位置的表现**（如 ObjectGrid、Detail、AgGrid、ReportViewer 等），包括：\n   - 空值/无值/null 时显示\n   - 关联型字段是否未映射 ID\n   - select/lookup/options 能否正确显示 label\n   - 数值型/百分比/货币格式是否合理\n   - user/owner 等是否能显示头像/姓名等\n   - 其它自定义渲染逻辑是否有缺陷\n3. **梳理现有 cell renderer 的 fallback 逻辑与 options 解析（如 lookup）**，全面修复所有已知和潜在的字段展示 bug。\n\n### 预期修复方向\n- 优化 Lookup/Select 等字段渲染器，确保即便 value 为原始 ID 也能通过 options 查找 label。\n- 明确各字段类型的空值展示策略，风格统一。\n- 核查注册表与 fallback，确保所有类型优先匹配专用 renderer。\n- 检查和完善数据处理层，增补 API 返回的数据格式及必要的 populate/expand。\n- 为每个主流字段类型补充分支 UT，测试各种显示场景。\n\n### 备注\n- 建议修复同时补充 snapshot/单元测试。\n- **修复完成后必须运行相应 test，并且检查其它潜在相关问题，任务完成后更新 roadmap。**\n\n---\n如需细分子任务，可按字段类型或显示视图再做拆分。"
+}

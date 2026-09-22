@@ -1,0 +1,33 @@
+{
+  "number": 1134,
+  "kind": "issue",
+  "title": "面向长期的对象及字段设计扩展：对标全球主流低代码平台",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-30T02:25:05Z",
+  "updated_at": "2026-05-25T09:43:38Z",
+  "closed_at": "2026-05-25T09:43:38Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1134",
+  "body": "为支撑ObjectUI成为企业级领先的元数据平台，需对对象和字段定义能力持续升级，与Salesforce、Airtable、Notion、Dataverse等主流平台对齐，实现更强大的对象建模与界面灵活性。该Issue汇总架构和功能需求，后续可分解为子任务。\n\n---\n\n## 主要开发需求\n\n### 1. 对象与字段类型体系扩展\n- 引入Status（分组）、Button、Barcode、Duration、Progress等新字段类型，并支持进一步扩展。\n- Lookup字段支持\"多对象\"多态引用。\n- 支持Global OptionSet/选项集，实现跨对象可复用字典。\n- 完善系统内置字段（创建/编辑时间、创建/更新人、是否删除、归属人���）。\n\n### 2. 对象Schema增强\n- 增加RecordType/记录类型体系，支持同对象内多布局和字段可用集。\n- 支持对象级校验规则和自定义业务公式。\n- 支持对象布局（布局配置/字段分组/列宽/折叠等），便于可视化配置页面结构。\n- 支持对象图标、颜色、复数名等元属性，用于多视图灵活UI渲染。\n- 支持唯一性约束的复合索引。\n\n### 3. 设计器UI与元数据管理工具\n- 设计并实现Object Manager（对象管理界面）、Field Designer（字段配置向导）、Layout Designer（拖拽式页面布局）、Relationship Diagram（对象ER图）等可视化工具。\n- 对象、字段与布局的元数据管理需以配置驱动、热插拔，便于扩展和维护。\n- 扩展字段渲染组件支持上述全部新类型、属性。\n\n---\n\n## 技术要求\n- 坚决摒弃临时补丁和快捷修复方案，所有设计需支持长期演进。\n- 所有变更需完善单元/集成测试，保证升级不破坏现有能力。\n- 重大Schema演进需同步ROADMAP.md。\n- 各子任务推进过程中需及时更新Progress并联动相关Issue。\n\n---\n\n参考资料见评论区。\n\n---\n\n> 本issue由Copilot根据行业最佳实践和当前代码体系（/packages/types/field-types.ts）自动归纳整理。"
+}

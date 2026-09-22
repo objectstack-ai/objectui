@@ -1,0 +1,33 @@
+{
+  "number": 1129,
+  "kind": "pull_request",
+  "title": "fix: correct aria-label assertion in ObjectView chatter panel test",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-26T05:27:56Z",
+  "updated_at": "2026-03-26T06:12:17Z",
+  "closed_at": "2026-03-26T06:10:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-26T06:10:47Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1129",
+  "body": "CI test failure in `ObjectView.test.tsx` — the RecordChatterPanel drawer test queried for a non-existent aria-label.\n\n- **Root cause**: Test used `getByLabelText('Show discussion')` but `RecordChatterPanel` renders `aria-label={t('detail.showDiscussion', { count: items.length })}` which resolves to `'Show Discussion (0)'` via default translations (capital D, includes count).\n\n```diff\n- const showBtn = screen.getByLabelText('Show discussion');\n+ const showBtn = screen.getByLabelText('Show Discussion (0)');\n```\n\n- **Storybook failures**: All 6 are `page.goto: Timeout 60000ms exceeded` — CI infrastructure timeouts, not code issues.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix all ci build and test errors\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

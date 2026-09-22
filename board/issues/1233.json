@@ -1,0 +1,35 @@
+{
+  "number": 1233,
+  "kind": "pull_request",
+  "title": "[WIP] Refactor objectui skills into single tree structure",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [
+    "Claude",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-14T07:54:25Z",
+  "updated_at": "2026-04-14T08:13:27Z",
+  "closed_at": "2026-04-14T08:13:27Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-14T08:13:27Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1233",
+  "body": "Thanks for asking me to work on this. I will get started on it and keep this PR's description up to date as I form a plan and make progress.\n\n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>【架构优化】将 objectui 多 Copilot skill 合并为单 skill 树状体系（对标 shadcn）</issue_title>\n> <issue_description>\n> 目前 objectui 框架维护了数量众多的 Copilot skills（如 `skills/objectui-auth-permissions`、`objectui-sdui-page-builder` 等），每个 skill 独立分布，内容有交叉、部分碎片化，导致：\n> - agent 选择与适配率降低（容易选错或遗漏跨 skill 规则）\n> - 维护与索引成本高\n> - skill 结构与 shadcn/ui 等一流组件库（单 skill 树状结构）不对齐\n> \n> 参考 shadcn/ui 的做法（单 skill 树状组织），需将现有 objectui skills 架构重构为“1 个 entry skill + guides/rules 子层”体系，并合并冗余、规范 cross-skill 索引，全局统一 agent 调用入口，提高可维护性与 AI agent 生态兼容性。\n> \n> ---\n> \n> #### 拟议方案\n> \n> 1. **拆分收敛**：将 `skills/objectui-*` 目录全部合并为 `skills/objectui/` 一个主 skill，内部结构参考 shadcn（见下方目录树）。\n> 2. **SKILL.md 总入口**：所有核心原则、架构、package 边界、JSON 协议等汇入此文件，并索引 guides、rules 下子文件。\n> 3. **rules/ 子目录**：将全局性的规则（如 JSON Protocol，Styling，No-Touch-Zones 等）独立成 markdown 文件。\n> 4. **guides/ 子目录**：将所有领域 skill（如 page-builder、plugin-development、schema-expressions、testing 等）分别作为 guides 下子文件。\n> 5. **保留 evals/**：将所有原 evals 合并进新的 `skills/objectui/evals/`。\n> 6. **agents/ 适配**：多 agent 配置与适配文件统一迁移至新 agents/ 目录。\n> 7. **skills-lock.json 精简**：只保留 `objectui` 及核心外部 skill（如 shadcn）。\n> 8. **引用重定向**：所有内部/外部对原平行 skills 的引用统一调整。\n> 9. **确保内容完整性与交叉引用**：合并前通过索引整理所有 cross-skill 关键规则、最佳实践。\n> 10. **同步文档与测试**：变更完成后，全部通过测试，并且更新 ROADMAP/CHANGELOG 记录。\n> \n> ##### 目标目录结构参考\n> \n> ```\n> skills/objectui/\n> ├── SKILL.md\n> ├── rules/\n> │   ├── protocol.md\n> │   ├── styling.md\n> │   ├── composition.md\n> │   └── no-touch-zones.md\n> ├── guides/\n> │   ├── page-builder.md\n> │   ├── plugin-development.md\n> │   ├── schema-expressions.md\n> │   ├── data-integration.md\n> │   ├── project-setup.md\n> │   ├── testing.md\n> │   ├── i18n.md\n> │   ├── mobile.md\n> │   ├── auth-permissions.md\n> │   └── console-development.md\n> ├── agents/\n> ├── evals/\n> ```\n> \n> ---\n> \n> #### 流程要求\n> \n> - 迁移需为整体性合并，不能用软链权宜拼接\n> - 合并后需全量跑测试、验证内容和文档一致性\n> - 变更收录至 ROADMAP.md，调整过程持续透明化\n> \n> ---\n> \n> #### 相关对照\n> \n> - **shadcn（参考）**：[shadcn SKILL.md](https://github.com/shadcn-ui/ui/blob/main/skills/shadcn/SKILL.md) 单 skill 树状结构\n> - **objectui（当前）**：`skills/objectui-*` 多 skill 平行，内容交叉，entry 不统一\n> \n> ---\n> \n> #### 期望输出\n> \n> - 目录调整及冗余内容合并\n> - 内外部引用重定向</issue_description>\n> \n> ## Comments on the Issue (you are @claude[agent] in this section)\n> \n> <comments>\n> </comments>\n"
+}

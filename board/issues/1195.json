@@ -1,0 +1,36 @@
+{
+  "number": 1195,
+  "kind": "issue",
+  "title": "合并 ObjectManagerPage，采用通用 Metadata 管道（listComponent + pageSchemaFactory）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-04-07T08:34:03Z",
+  "updated_at": "2026-04-07T09:31:00Z",
+  "closed_at": "2026-04-07T09:31:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1195",
+  "body": "## 背景\n目前 ObjectManagerPage 仍然以独立页面存在，其列表（对象列表/搜索/CRUD）和详情（对象属性、关系、键、字段设计器等）逻辑大部分与 MetadataManagerPage/MetadataDetailPage 重复，长期维护成本高。\n\n## 目标\n- 移除 ObjectManagerPage 独立页面，所有对象类型的列表和详情全部纳入 MetadataManagerPage/MetadataDetailPage 通用管道。\n- 通过在 MetadataTypeConfig 对应 object 类型的配置里：\n  - 配置 `listComponent`，用于列表 UI 的特殊适配（如用 ObjectManagerListAdapter），复用标准 object-grid、modal-form 等标准能力；\n  - 配置 `pageSchemaFactory`，用于详情 UI 的 schema 渲染（如用 buildObjectDetailPageSchema）。\n\n## 方案建议\n1. 删除 apps/console/src/pages/system/ObjectManagerPage.tsx，相关路由统一切到 MetadataManagerPage/DetailPage。\n2. 在 metadataTypeRegistry 里完善 object 类型，让其 listComponent 和 pageSchemaFactory 都走特殊注入而非全局自定义页面。\n3. 侧边栏、QuickAction、SystemHubPage 等所有入口全部统一指向新路由（如 /system/metadata/object）。\n4. 对应所有单元测试迁移到元数据通用体系下。\n5. 更新 CHANGELOG.md 和 ROADMAP.md。\n\n## 收益\n- 彻底消除冗余代码，减少重复维护和测试压力\n- 所有对象管理能力完全 schema 化、标准组件化，提升平台可维护性和长期演化能力\n- 对象管理特殊 UI 可通过扩展点配置注入，无需再落地独立页面"
+}

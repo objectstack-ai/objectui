@@ -1,0 +1,34 @@
+{
+  "number": 1147,
+  "kind": "pull_request",
+  "title": "chore(deps): bump ag-grid-community from 35.1.0 to 35.2.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-30T08:21:55Z",
+  "updated_at": "2026-03-30T08:25:25Z",
+  "closed_at": "2026-03-30T08:22:12Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-30T08:22:12Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1147",
+  "body": "Bumps [ag-grid-community](https://github.com/ag-grid/ag-grid) from 35.1.0 to 35.2.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/ag-grid/ag-grid/releases\">ag-grid-community's releases</a>.</em></p>\n<blockquote>\n<h2>v35.2.0</h2>\n<p><a href=\"https://www.ag-grid.com/changelog/?fixVersion=35.2.0\">https://www.ag-grid.com/changelog/?fixVersion=35.2.0</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/dbe8ab3ef270fe7c4888b2c6f479cf18627878e5\"><code>dbe8ab3</code></a> Release 35.2.0 Prep</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/085f0057344f3665fb88cb63b8460301df5f6e94\"><code>085f005</code></a> Take account of ai blocks</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/72256199d29bc7e15d1b7760312345da83413141\"><code>7225619</code></a> Release 35.2.0 Prep</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/09be48dfd72879c6dfb45261698c9dd8275fd961\"><code>09be48d</code></a> [RTI-3260] Fix(columns): staged state equivalent to current still shows apply...</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/05a5047763d1b281dbfd94826e649e49bc6938b1\"><code>05a5047</code></a> RTI-3282-more-docs-fixes-for-group-edit (<a href=\"https://redirect.github.com/ag-grid/ag-grid/issues/13396\">#13396</a>)</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/201676511a6715f8daa2c8e9929dbc22b46cfaa3\"><code>2016765</code></a> [RTI-3309] Fix(docs): restructure ctp deferred updates example and align csrm...</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/8e87b78d1326aed7969b4cf0e375f13c5e4ae20e\"><code>8e87b78</code></a> RTI-3258 Fix Doc tests for animations (<a href=\"https://redirect.github.com/ag-grid/ag-grid/issues/13368\">#13368</a>)</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/6ae1ccec96b6d2cb55f9e32c1e38b20d64a9de60\"><code>6ae1cce</code></a> Release 35.2.0 Prep</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/a05a6527588606f3de15b1e6cbc9c348492765b7\"><code>a05a652</code></a> RTI-3257-more-fixes-to-group-row-editable (<a href=\"https://redirect.github.com/ag-grid/ag-grid/issues/13393\">#13393</a>)</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/5a80b92c1d26e1e252d9fe6dc24894f234eb8405\"><code>5a80b92</code></a> Release 35.2.0 Prep</li>\n<li>Additional commits viewable in <a href=\"https://github.com/ag-grid/ag-grid/compare/release-35.1.0...release-35.2.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=ag-grid-community&package-manager=npm_and_yarn&previous-version=35.1.0&new-version=35.2.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

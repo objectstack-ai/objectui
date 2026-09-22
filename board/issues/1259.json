@@ -1,0 +1,36 @@
+{
+  "number": 1259,
+  "kind": "pull_request",
+  "title": "[WIP] Update console layout to match Supabase style",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-21T05:30:49Z",
+  "updated_at": "2026-04-21T09:55:33Z",
+  "closed_at": "2026-04-21T09:47:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-21T09:47:52Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1259",
+  "body": "Thanks for asking me to work on this. I will get started on it and keep this PR's description up to date as I form a plan and make progress.\n\n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Console 改造：Supabase 式「顶部栏 + 左侧栏 + 右侧内容区」布局</issue_title>\n> <issue_description>\n> ## Context\n> \n> 当前 Console 的整体外壳 (`AppShell`) 结构是「左侧栏 ‖ (顶部 header + 主内容)」——顶部 header 位于 `SidebarInset` 内部，只占内容区那一列的宽度，侧栏从屏幕顶端一直延伸到底。\n> \n> 用户希望改成 Supabase Dashboard 的视觉布局：**顶部栏横跨整个页面宽度**，**下方再分成左侧栏 + 右侧内容区**。但本项目没有 Supabase 的 Project/Branch/Connect 概念，顶栏只摆 **App Switcher + 面包屑 + 全局操作**（搜索 / 主题 / 语言 / 通知 / 头像）：\n> \n> <img width=\"1832\" height=\"1073\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/c26a558c-37a9-4815-bd7d-d6e9653f7029\" />\n> \n> ```\n> ┌────────────────────────── Top Bar (full width) ────────────────────────┐\n> │  Logo │ App Switcher │ Breadcrumbs …  │  Search  Theme  Locale  User  │\n> ├──────────────┬─────────────────────────────────────────────────────────┤\n> │              │                                                         │\n> │   Sidebar    │                    Main Content                         │\n> │  (功能导航)  │                                                         │\n> └──────────────┴─────────────────────────────────────────────────────────┘\n> ```\n> \n> 匹配到的层级是：顶栏负责「App 级 + 全局」，左栏负责「当前 App 内的功能模块」，右栏是工作区。\n> \n> ## 现状定位\n> \n> - 外壳组件：`packages/layout/src/AppShell.tsx`\n>   - 当前结构（第 134–148 行）：\n>     ```tsx\n>     <SidebarProvider>\n>       {sidebar}                         {/* 从顶端到底部 */}\n>       <SidebarInset>\n>         <header>…navbar…</header>       {/* 仅在右侧一列内 */}\n>         <main>{children}</main>\n>       </SidebarInset>\n>     </SidebarProvider>\n>     ```\n>   - 这是 shadcn 原生的「sidebar 优先」排版。\n> \n> - 业务入口：`apps/console/src/components/ConsoleLayout.tsx`\n>   - 传入 `sidebar={<UnifiedSidebar/>}`、`navbar={<AppHeader/>}`，不需要修改使用方。\n> \n> - 支撑组件（保留复用）：\n>   - `UnifiedSidebar` — `apps/console/src/components/UnifiedSidebar.tsx`\n>   - `AppHeader` — `apps/console/src/components/AppHeader.tsx`（面包屑 + 全局操作，天然适合放顶栏）\n>   - shadcn 原语：`SidebarProvider / Sidebar / SidebarInset / SidebarTrigger` 来自 `packages/components/src/ui/sidebar.tsx`\n>   - `useAppShellBranding` — `packages/layout/src/AppShell.tsx`，保留原样\n> \n> - 首页 `HomeLayout` 不走 `AppShell`，本次改动不影响它。\n> \n> ## 推荐方案\n> \n> 只改造 `packages/layout/src/AppShell.tsx` 一个文件，把外壳从「横向主轴」切成「纵向主轴 + 嵌套横向」：外层包一个 flex-col，先渲染全宽 `<header>`，header 之下再渲染 `SidebarProvider`（`sidebar + SidebarInset`）。\n> \n> ### 新结构\n> \n> ```tsx\n> <div className=\"flex min-h-svh flex-col\">\n>   {/* 1. 全宽顶部栏 —— 跨过 sidebar 与主内容 */}\n>   <header className=\"sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2\n>                      border-b bg-background px-2 sm:px-4\">\n>     {/* SidebarTrigger 必须放到 SidebarProvider 内部，所以这里只放\n>         项目级/全局元素；折叠按钮移到下方 sidebar header 或主内容栏 */}\n>     {navbar}\n>   </header>\n> \n>   {/* 2. 下半部分：左侧栏 + 主内容 */}\n>   <div className=\"flex flex-1 min-h-0\">\n>     <SidebarProvider defaultOpen={defaultOpen}>\n>       {sidebar}\n>       <SidebarInset>\n>         {/* 薄的子工具栏，只放 SidebarTrigger（md+）；移动端顶栏自带 */}\n>         <div className=\"flex h-10 items-center border-b px-2 md:px-3\">\n>           <SidebarTrigger className=\"-ml-1\" />\n>         </div>\n>         <main className={cn(\"flex-1 min-w-0 overflow-auto p-3 sm:p-4 md:p-6\",\n>                             className)}>\n>           {children}\n>         </main>\n>       </SidebarInset>\n>     </SidebarProvider>\n>   </div>\n> </div>\n> ```\n> \n> 关键点：\n> - `SidebarProvider` 必须仍然**包住** `Sidebar` 和 `SidebarInset`（`useSidebar` 上下文要求），因此整个下半部分作为它的子树。\n> - 顶部 `<header>` 放在 provider 之外——所以它里面**不能**再用 `SidebarTrigger`；把折叠按钮下移到 `SidebarInset` 内的细工具条，以保持功能不丢失。若希望折叠按钮也在顶栏，可把 `SidebarProvider` 提升到最外层（仍然先渲染 header，再渲染 `flex` row），这是一个可选细节——推荐从前者起步，视觉最贴近 Supabase。\n> - `min-h-0` 保证下半部分在纵向 flex 中能正确滚动。\n> - `sticky top-0 z-30` 让顶部栏在滚动时常驻（匹配 Supabase 体验）。\n> \n> ### App Switcher 的位置\n> \n> 当前 App Switcher 在 `UnifiedSidebar` 的 Header 中（`apps/console/src/components/UnifiedSidebar.tsx:207,320`，通过 `onAppChange` prop 切换）。为了对齐 Supabase「顶栏左侧是项目切换器」的视觉层级，建议把 App Switcher **抽成独立组件** `AppSwitcher.tsx` 并放到顶栏左侧：\n> \n> 1. 新建 `apps/console/src/components/AppSwitcher.tsx`：沿用现有 UnifiedSidebar 里 DropdownMenu + 应用列表的 JSX，接受 `activeAppName / onAppChange` props。\n> 2. `AppHeader.tsx` 在左端渲染 `<AppSwitcher>`，其后接面包屑；右侧保留 Search / Theme / Locale / ConnectionStatus / Avatar。\n> 3. `UnifiedSidebar` 的 header 去掉 App Switcher，改为仅展示 App Logo + 名称（或完全移除，仅保留功能导航），避免双份切换入口。\n> 4. `ConsoleLayout.tsx` 把 `onAppChange` 继续往两侧透传（AppHeader + UnifiedSidebar）。\n> \n> ### 不需要改的地方\n> \n> - `ConsoleLayout.tsx` 对 `AppShell` 的调用方式（`sidebar={…} navbar={…}`）保持不变。\n> - 业务路由、`ConsoleLayoutInner` / `useResponsiveSidebar` 保持不变。\n> - `HomeLayout`（不走 `AppShell`）不受影响。\n> \n> ### 需要复查并微调的点\n> \n> 1. `AppHeader.tsx` 顶部是否已自带 `SidebarTrigger`；若是，删除它，避免与 `SidebarInset` 内的新触发器重复，或直接保留顶栏内的触发器并移除下方那条子工具栏。\n> 2. `packages/layout/src/__tests__/` 下 `AppShell` 的快照/结构测试需要更新。\n> 3. `apps/console/src/hooks/useResponsiveSidebar` 依赖 `useSidebar()`：它现在运行在 `ConsoleLayoutInner` 内，而 `ConsoleLayoutInner` 是 `AppShell` 的 `children`——仍在 `SidebarProvider` 子树中，可继续工作。\n> \n> ## 关键文件\n> \n> - 修改：`packages/layout/src/AppShell.tsx`（外壳改为「全宽顶栏 + 下方 sidebar/inset」）\n> - 修改：`apps/console/src/components/AppHeader.tsx`（左端加 AppSwitcher；移除冗余 `SidebarTrigger`）\n> - 修改：`apps/console/src/components/UnifiedSidebar.tsx`（移除 header 内的 App Switcher 下拉）\n> - 修改：`apps/console/src/components/ConsoleLayout.tsx`（把 `onAppChange` 传给 `AppHeader`）\n> - 新建：`apps/console/src/components/AppSwitcher.tsx`（复用现有下拉 JSX）\n> - 可能更新测试：`packages/layout/src/__tests__/AppShell.test.tsx`、`apps/console/src/__tests__/*`（若有快照/布局断言）\n> \n> ## 验证\n> \n> 1. 构建 / 类型：`pnpm -w turbo run build --filter=@object-ui/layout --filter=@objectstack/console` 通过。\n> 2. 本地启动 Console：`pnpm --filter @objectstack/console dev`\n>    - 登录后进入 `/apps/<appName>/*`，肉眼确认：\n>      - 顶部栏横跨整屏，边界压在左栏之上；\n>      - 左栏从顶栏下方开始，可折叠（`Cmd/Ctrl+B`）；\n>      - 右侧内容区滚动独立，顶栏常驻；\n>      - 移动端 (<md) 顶栏仍在、侧栏变抽屉。\n> 3. 视觉对照：与 `supabase.com/dashboard/project/...` 并排对比，层级应一致。\n> 4. 单测：`pnpm -w test --filter=@object-ui/layout`。\n> 5. 回归：`/home`（使用 `HomeLayout`，不走 `AppShell`）应保持原样，确认无副作用。\n> </issue_description>\n> \n> ## Comments on the Issue (you are @claude[agent] in this section)\n> \n> <comments>\n> </comments>\n"
+}

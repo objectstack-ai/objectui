@@ -1,0 +1,35 @@
+{
+  "number": 1155,
+  "kind": "issue",
+  "title": "Feature: Airtable-style Floating Chatbot (FAB Widget)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-03-31T07:31:50Z",
+  "updated_at": "2026-03-31T08:02:35Z",
+  "closed_at": "2026-03-31T08:02:35Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1155",
+  "body": "## Summary\nImplement a floating chatbot widget (FAB style), inspired by Airtable, for ObjectUI. This feature will enable users to access the chatbot from any page via a floating button (FAB), which expands into a chat panel overlay when clicked. \n\n## Background\n- The current chatbot in `@object-ui/plugin-chatbot` is only available as an inline, embedded component.\n- Modern enterprise UIs like Airtable offer a floating, context-aware chatbot that does not occupy dashboard or main content areas, improving UX and discoverability. ([See reference screenshot below])\n\n<img alt=\"Airtable style floating chatbot reference\" width=\"4064\" src=\"https://github.com/user-attachments/assets/4129f92c-ecd6-43a7-a34c-15523670e334\" />\n\n## Requirements\n- Floating action button (FAB) fixed to bottom-right (configurable position)\n- FAB opens a panel with the full chatbot UI (`ChatbotEnhanced`)\n- Panel supports drag, collapse, close, and fullscreen\n- Configurable: default open/closed, position (bottom-right/left), width/height, trigger icon\n- Panel header supports conversation title, history, fullscreen toggle, close button\n- Integrates with ObjectUI's context (current object/view/data) for prompt injection\n- Demo mode and AI streaming modes must both work\n- Schema-driven: enable via `displayMode: 'floating'` in schema\n- Fully compatible with component registry (`type: 'chatbot'`)\n- Portal rendering (avoid DOM/Z-index conflicts)\n\n## Implementation\n- Extend `ChatbotSchema` with floating config fields\n- Add `FloatingChatbotProvider` context for global state and external control\n- New components: `FloatingChatbot`, `FloatingChatbotPanel`, `FloatingChatbotTrigger`, provider/hook\n- Console shell integration for metadata-aware prompts\n- Storybook stories, Vitest tests, full docs\n\n## Acceptance Criteria\n- [ ] User can toggle chatbot from any page via FAB\n- [ ] Panel is accessible, responsive, and theme-compliant\n- [ ] All existing chatbot features preserved\n- [ ] Easy to configure via schema\n- [ ] Tests and documentation updated\n\n---\nSee detailed architectural proposal in engineering notes and reference screenshot above."
+}

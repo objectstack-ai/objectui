@@ -1,0 +1,33 @@
+{
+  "number": 1244,
+  "kind": "pull_request",
+  "title": "docs: prepare all 39 packages and website for official v3.3.0 release",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-17T11:37:37Z",
+  "updated_at": "2026-04-17T11:38:04Z",
+  "closed_at": "2026-04-17T11:38:03Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-17T11:38:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1244",
+  "body": "Repo is shipping v3.3.0 as its first official release, but package metadata, READMEs, docs site, and root-level files are in an inconsistent pre-release state (4 empty `description`s, missing `keywords`/`repository`/`homepage`/`bugs`/`publishConfig`/`files` on most packages, duplicate `[Unreleased]` CHANGELOG sections, `ROADMAP.md` header reading `v0.5.x`, stale refs to deleted files, and a half-Chinese `QUICK_REFERENCE.md` violating the English-only rule).\n\n### Package metadata (all 39 packages)\n- Filled missing `description` for `layout`, `plugin-ai`, `plugin-report`, `plugin-workflow`.\n- Merged common + per-package `keywords`.\n- Normalized `license: MIT`, `author`, `repository` (`git+` URL + `directory`), `bugs`, `homepage`, `publishConfig: { access: public }`, `files: [dist, README.md, CHANGELOG.md, LICENSE]`.\n- Created missing per-package `LICENSE` and `CHANGELOG.md` files.\n- `private: true` `vscode-extension` skips `publishConfig`/`files`.\n- `homepage` points to the real docs section (`plugins/`, `layout/`, `utilities/`, …) rather than a blanket `/docs/packages/<name>`.\n\n### README standardization (all 39 READMEs)\nIdempotent marker `<!-- release-metadata:v3.3.0 -->` followed by `## Compatibility` / `## Links` / `## License` appended before the existing final License heading; existing hand-written content preserved. Stale `spec v2.0.1` reference in `packages/types/README.md` bumped to `v3.3.0`.\n\n### Website docs (`content/docs/`)\n- New `guide/release-notes.md` with highlights and compatibility matrix.\n- Plugin page stubs for the five packages that had none: `plugin-ai`, `plugin-designer`, `plugin-list`, `plugin-report`, `plugin-workflow`.\n- `guide/meta.json` and `plugins/meta.json` re-synced with the filesystem (dropped non-existent `console-rendering`, added `plugin-development`, `building-crud-app`, `release-notes`, all 21 plugin pages).\n- Stale `spec v3.0.0` → `v3.3.0` in `architecture-overview.md`.\n\n### Root-level\n- `CHANGELOG.md` — collapsed two duplicate `[Unreleased]` blocks into `## [3.3.0] - 2026-04-17` with release-highlights intro; empty `[Unreleased]` stub re-added at top; Keep-a-Changelog note hoisted to the intro.\n- `ROADMAP.md` — header bumped (`v0.5.x` → `v3.3.0`, `35` → `39` packages, last-updated `2026-04-17`).\n- Root `README.md` — \"What's New\" rewritten for v3.3.0; removed links to 5 deleted files (`MIGRATION_GUIDE.md`, `PHASE3_IMPLEMENTATION.md`, `ARCHITECTURE_EVALUATION.md`, `OBJECTSTACK_SPEC_ALIGNMENT.md`, `CONSOLE_PLUGIN_DOCS_INDEX.md`).\n- `QUICK_REFERENCE.md` — replaced; old content referenced several deleted files and mixed Chinese throughout (Rule #-1 violation). New version is a plain English cheat-sheet covering commands, layout, package tiers, and current compatibility.\n\n### Out of scope\nNo version bumps (changesets concern), no feature/test/build changes, `packages/components/src/ui/**` untouched."
+}

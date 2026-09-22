@@ -1,0 +1,41 @@
+{
+  "number": 1239,
+  "kind": "pull_request",
+  "title": "Fix TypeScript entry point errors across all packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components",
+    "package: react",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [
+    "Claude",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-15T01:56:31Z",
+  "updated_at": "2026-04-15T02:14:31Z",
+  "closed_at": "2026-04-15T02:14:31Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1239",
+  "body": "## Summary\n\nFixed TypeScript entry point errors by adding missing project references and required compiler options across 32 packages in the monorepo.\n\n## Changes Made\n\n### 1. Fixed @object-ui/react configuration\n- Added missing `lib: [\"ES2020\", \"DOM\"]` to tsconfig.json\n- Added missing `@object-ui/i18n` project reference\n\n### 2. Fixed @object-ui/app-shell configuration  \n- Added missing `@object-ui/fields` and `@object-ui/layout` project references\n\n### 3. Fixed @object-ui/fields and @object-ui/layout configuration\n- Added `composite: true`, `declaration: true`, `noEmit: false`\n- Added `lib: [\"ES2020\", \"DOM\"]`\n- Fixed `rootDir` to be `\"src\"`\n- Standardized `exclude` patterns\n\n### 4. Added missing project references to 30 packages\nFixed all packages to include TypeScript project references matching their package.json dependencies:\n- Core packages: auth, cli, collaboration, components, mobile, permissions, tenant, vscode-extension\n- Plugin packages: All 22 plugin packages (aggrid, ai, calendar, charts, chatbot, dashboard, designer, detail, editor, form, gantt, grid, kanban, list, map, markdown, report, timeline, view, workflow)\n\n## Technical Details\n\nTypeScript's project references feature requires:\n1. Each package must list its workspace dependencies in the `references` array\n2. Referenced packages must have `composite: true` and `declaration: true`\n3. React packages need `lib: [\"ES2020\", \"DOM\"]` for proper DOM type support\n\nWithout these configurations, TypeScript cannot resolve cross-package imports, causing \"Cannot find module\" errors during builds.\n\n## Testing\n\n- ✅ Verified @object-ui/react builds successfully\n- ✅ Verified @object-ui/app-shell builds successfully  \n- ✅ All packages now have matching references for their dependencies\n\n## Impact\n\nThis fixes the entry point errors and ensures:\n- Proper TypeScript incremental compilation across the monorepo\n- Correct build ordering based on project dependencies\n- Better IDE support for cross-package navigation\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+}

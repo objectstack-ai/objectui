@@ -1,0 +1,33 @@
+{
+  "number": 1171,
+  "kind": "issue",
+  "title": "首页未集成用户菜单，应用内无\"返回首页\"导航，需补齐导航体验",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-01T09:52:26Z",
+  "updated_at": "2026-04-01T10:46:08Z",
+  "closed_at": "2026-04-01T10:46:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1171",
+  "body": "\n\n统一首页（Dashboard/HomePage）当前存在以下关键体验短板：\n\n1. **首页缺失用户菜单**：用户在首页（`/home`）无法直接访问个人资料(Profile)、退出登录(Sign Out)、账户设置等用户操作。实际代码中（`HomePage.tsx` header）只有设置(Settings)按钮。\n2. **应用内无法返回首页**：进入任何应用（`/apps/:appName/*`）后，AppSidebar/AppHeader 内无任何\"返回首页\"或\"Home\"入口，用户一旦进入应用，仅能通过手动修改URL回到首页。\n3. **首页缺少统一导航框架**：HomePage 并未复用 ConsoleLayout 或提供统一导航壳，体验与主流程割裂，不利于未来扩展（如通知、全局指南、统一主题等）。\n\n# 影响\n\n- 用户体验断裂，基本导航/退出链路缺失。\n- 不符合 Airtable/Notion 等一流产品的导航规范。\n- 阻碍后续功能成长（如：权限管理、个人设置、全局导航等）。\n\n# 复现路径\n\n1. 登录后进入 `/home`，发现无用户菜单（头像、个人中心、登出）。\n2. 从首页进入任何应用，Sidebar/AppHeader 都没有返回首页的功能，必须修改URL地址栏才能回到首页。\n\n# 预期行为\n\n- 首页应集成完整的用户菜单，包括头像、Profile、Settings、Sign Out（保持与应用内 Sidebar/Footer 一致）。\n- 无论身处应用还是系统管理后台，用户应始终能够便捷返回首页（如在 Sidebar App 切换器下方加\"🏠 Home\"，或顶部导航增加 Home 按钮）。\n- 首页建议使用统一轻量导航壳，便于未来扩展。\n\n# 修复建议\n\n1. **P0 — HomePage header 右侧补全 UserMenu**\n   - 复用 `@object-ui/auth` 中已有的 `UserMenu` 组件\n   - 下拉菜单包含 Profile / Settings / Sign Out\n   - 涉及文件：`apps/console/src/pages/home/HomePage.tsx` L105-114\n\n2. **P0 — AppSidebar 补充\"返回首页(Home)\"入口**\n   - 在应用切换下拉菜单中增加 \"🏠 Home\" 菜单项，链接到 `/home`\n   - 涉及文件：`apps/console/src/components/AppSidebar.tsx` L320 附近\n\n3. **P1 — 为首页封装轻量 HomeLayout**\n   - 当前 `/home` 路由直接裸渲染 `<HomePage />`，没有 Layout Shell\n   - 建议新增 `HomeLayout.tsx`，提供顶部导航栏 + 用户菜单，保证导航一致性\n   - 涉及文件：`apps/console/src/App.tsx` L508-516\n\n# 优先级\n\n**P0**：返回首页入口、用户菜单/登出能力必须具备，属于主流程阻断。\n\n# 相关 Issue / 背景\n\n- #1167 统一首页 Dashboard 需求\n- 行业规范参考：Airtable、PowerApps、Salesforce 导航模式"
+}

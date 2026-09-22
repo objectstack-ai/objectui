@@ -1,0 +1,34 @@
+{
+  "number": 1330,
+  "kind": "pull_request",
+  "title": "chore(deps): bump ag-grid-community from 35.2.1 to 35.3.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-18T12:37:31Z",
+  "updated_at": "2026-05-18T12:40:50Z",
+  "closed_at": "2026-05-18T12:37:55Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-05-18T12:37:55Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1330",
+  "body": "Bumps [ag-grid-community](https://github.com/ag-grid/ag-grid) from 35.2.1 to 35.3.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/ag-grid/ag-grid/releases\">ag-grid-community's releases</a>.</em></p>\n<blockquote>\n<h2>v35.3.0</h2>\n<p><a href=\"https://www.ag-grid.com/changelog/?fixVersion=35.3.0\">https://www.ag-grid.com/changelog/?fixVersion=35.3.0</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/edb08dbfc24607ebe379d182db6aec2824089fcf\"><code>edb08db</code></a> Release 35.3.0 Prep</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/857b88009c554374d044813677edfe040854bad1\"><code>857b880</code></a> AG-3390 - Update enterprise licenses (<a href=\"https://redirect.github.com/ag-grid/ag-grid/issues/13739\">#13739</a>)</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/063198331513d03f953fa7bdc6834ed148f03ada\"><code>0631983</code></a> Release 35.3.0 Prep</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/7afb5729a99fc4ab03b7f5107529695586159779\"><code>7afb572</code></a> RTI-3345 Docs review Getting Started (<a href=\"https://redirect.github.com/ag-grid/ag-grid/issues/13735\">#13735</a>)</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/2fb5a330401397b03a9b23f90157b1e55d3b7894\"><code>2fb5a33</code></a> RTI-3347 Columns Docs Review (<a href=\"https://redirect.github.com/ag-grid/ag-grid/issues/13737\">#13737</a>)</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/33c62d7e6b5cf90e065ef479d5c440eaa56f9d37\"><code>33c62d7</code></a> [RTI-3346] Fix broken links to renamed SSRM grouping section (<a href=\"https://redirect.github.com/ag-grid/ag-grid/issues/13741\">#13741</a>)</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/531ec41f55819529fba26bea58d08a7f9ce0be1a\"><code>531ec41</code></a> RTI-3326 Improve Doc Examples (<a href=\"https://redirect.github.com/ag-grid/ag-grid/issues/13731\">#13731</a>)</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/533cfac25415e84afb1013a2a440c31e711223b4\"><code>533cfac</code></a> Docs review: grid-size and ag-grid-design-system (<a href=\"https://redirect.github.com/ag-grid/ag-grid/issues/13738\">#13738</a>)</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/4df05d90c0253a77db553e8ed089ccfe4a1cbe46\"><code>4df05d9</code></a> Fix SSRM documentation inaccuracies found during technical review (<a href=\"https://redirect.github.com/ag-grid/ag-grid/issues/13736\">#13736</a>)</li>\n<li><a href=\"https://github.com/ag-grid/ag-grid/commit/3c8fd181481dcf5ef5ddcc1c79c4abafc8536f29\"><code>3c8fd18</code></a> Release 35.3.0 Prep</li>\n<li>Additional commits viewable in <a href=\"https://github.com/ag-grid/ag-grid/compare/release-35.2.1...release-35.3.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=ag-grid-community&package-manager=npm_and_yarn&previous-version=35.2.1&new-version=35.3.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

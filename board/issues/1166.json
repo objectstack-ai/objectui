@@ -1,0 +1,33 @@
+{
+  "number": 1166,
+  "kind": "pull_request",
+  "title": "[WIP] Render Console Chatbot only when AI service is available",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Claude",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-01T08:59:57Z",
+  "updated_at": "2026-04-01T09:19:22Z",
+  "closed_at": "2026-04-01T09:19:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1166",
+  "body": "Thanks for asking me to work on this. I will get started on it and keep this PR's description up to date as I form a plan and make progress.\n\n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Console Chatbot 仅在检测到 AI 服务可用时渲染：基于 discovery.services.ai 动态控制</issue_title>\n> <issue_description>## 背景\n> 随着 [objectstack-ai/spec#1029](https://github.com/objectstack-ai/spec/issues/1029) 推进，服务端 discovery 响应（/.well-known/objectstack 或 /api/v1/discovery）已标准暴露 `services.ai.enabled` 和 `services.ai.route`。前端可以基于该状态智能显示/隐藏 AI Chatbot 按钮（FAB），避免因服务端未安装 AI 插件导致无用界面。\n> \n> ---\n> \n> ## 实现方案\n> - 使用 `useDiscovery()` 获取最新 discovery 信息。\n> - 仅当 `discovery.services.ai.enabled === true` 且 `status === 'available'` 时，渲染 <FloatingChatbot api=... />。\n> - 动态拼接 `api` 地址：`discovery.services.ai.route + '/chat'`。\n> - 未检测到 AI 服务（或 disabled/unavailable/route 丢失时），不渲染 chatbot FAB，也不挂载 useObjectChat（无多余弹窗/代码）。\n> - 支持 MSW/mock 模式，local 模式下可选择不显示 chatbot。\n> \n> ---\n> \n> ## 技术要点\n> - 无需 hardcode API 路径，完全由 discovery 返回结构驱动。\n> - 兼容未来服务端 route 调整（如 /ai → /ai/v1）。\n> - 降低误判/死逻辑风险，UI 能自动感知后端能力变化。\n> - 除 FAB 按钮外不影响其它功能。\n> \n> ---\n> \n> ## 改动建议\n> - apps/console/src/components/ConsoleLayout.tsx\n>     - 用 useDiscovery() 检测 AI\n>     - 条件渲染 <FloatingChatbot />，传递 api 参数\n> - （可选）完善 DiscoveryInfo typings 补充 ai 定义\n> - 更新相关单元&集成测试，确保未安装 AI 插件时无 FAB\n> \n> ---\n> \n> ## 验证方式\n> - 关闭 service-ai 插件 → chatbot 消失\n> - 启用 service-ai 并保证协议标准 → chatbot 自动显示且 SSO 到真正的 AI 聊天</issue_description>\n> \n> ## Comments on the Issue (you are @claude[agent] in this section)\n> \n> <comments>\n> </comments>\n"
+}

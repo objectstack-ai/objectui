@@ -1,0 +1,33 @@
+{
+  "number": 1253,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fumadocs-mdx from 14.2.14 to 14.3.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-20T08:27:50Z",
+  "updated_at": "2026-04-22T09:28:24Z",
+  "closed_at": "2026-04-22T09:28:14Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-04-22T09:28:14Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1253",
+  "body": "[//]: # (dependabot-start)\n⚠️  **Dependabot is rebasing this PR** ⚠️ \n\nRebasing might not happen immediately, so don't worry if this takes some time.\n\nNote: if you make any changes to this PR yourself, they will take precedence over the rebase.\n\n---\n\n[//]: # (dependabot-end)\n\nBumps [fumadocs-mdx](https://github.com/fuma-nama/fumadocs) from 14.2.14 to 14.3.1.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/fuma-nama/fumadocs/releases\">fumadocs-mdx's releases</a>.</em></p>\n<blockquote>\n<h2>fumadocs-mdx@14.3.0</h2>\n<h3>Minor Changes</h3>\n<ul>\n<li>\n<p>fa9f678: <strong>Make Next.js config ESM only</strong></p>\n<p>Newer Next.js supported <code>.mts</code> extension for Next.js config files, see <a href=\"https://nextjs.org/docs/app/api-reference/config/typescript#using-nodejs-native-typescript-resolver-for-nextconfigts\">Next.js docs</a> for more info.</p>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/00c01b6d6db8c90a8de6cb6041f47dca09f39413\"><code>00c01b6</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/1041\">#1041</a> from fuma-nama/changeset-release/dev</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/b571b21d65b213e2016fc9002d89e7e80848f724\"><code>b571b21</code></a> Version Packages</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/e7443d7d4c0f59fc41335d886bd36868b33731dc\"><code>e7443d7</code></a> UI: Fix development errors</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/a6a7b7045fa4c2e723be3b9cd09da5c295772480\"><code>a6a7b70</code></a> Merge branch 'main' into dev</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/00209d075c95ba8053b01b86b857ad096b0ee4bf\"><code>00209d0</code></a> docs: update information</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/07e343ec4ea09e4b95facfdfa43059f21b9a953e\"><code>07e343e</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/1028\">#1028</a> from fuma-nama/changeset-release/dev</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/d21abf0c8f64e923bf9d32b075dbb25673d76cce\"><code>d21abf0</code></a> Version Packages</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/acffcfd9d310410200622138c212ecab415ad585\"><code>acffcfd</code></a> fix Orama type problems</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/a11804b8ae80603763d85a510485a4dbf74b4de8\"><code>a11804b</code></a> UI: expose more providers from <code>fumadocs-ui/provider</code></li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/46d9208d233cfc446758f10aab0ac1ca39f05079\"><code>46d9208</code></a> CFA: Add option for ESLint</li>\n<li>Additional commits viewable in <a href=\"https://github.com/fuma-nama/fumadocs/compare/fumadocs-mdx@14.2.14...fumadocs-ui@14.3.1\">compare view</a></li>\n</ul>\n</details>\n<details>\n<summary>Attestation changes</summary>\n<p>This version has no provenance attestation, while the previous version (14.2.14) was attested. Review the <a href=\"https://www.npmjs.com/package/fumadocs-mdx?activeTab=versions\">package versions</a> before updating.</p>\n</details>\n<br />\n"
+}

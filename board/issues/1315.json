@@ -1,0 +1,35 @@
+{
+  "number": 1315,
+  "kind": "pull_request",
+  "title": "chore(deps): bump tailwind-merge from 3.5.0 to 3.6.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-11T10:20:55Z",
+  "updated_at": "2026-05-12T07:29:30Z",
+  "closed_at": "2026-05-12T07:29:08Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-05-12T07:29:08Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1315",
+  "body": "Bumps [tailwind-merge](https://github.com/dcastil/tailwind-merge) from 3.5.0 to 3.6.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/dcastil/tailwind-merge/releases\">tailwind-merge's releases</a>.</em></p>\n<blockquote>\n<h2>v3.6.0</h2>\n<h3>New Features</h3>\n<ul>\n<li>Add support for Tailwind CSS v4.3 by <a href=\"https://github.com/dcastil\"><code>@​dcastil</code></a> in <a href=\"https://redirect.github.com/dcastil/tailwind-merge/pull/677\">dcastil/tailwind-merge#677</a>\n<ul>\n<li>Add <code>postfixLookupClassGroups</code> option to config to support Tailwind utilities where a slash is part of the full class name, like named container queries</li>\n</ul>\n</li>\n<li>Add support for readonly array values by <a href=\"https://github.com/unional\"><code>@​unional</code></a> in <a href=\"https://redirect.github.com/dcastil/tailwind-merge/pull/652\">dcastil/tailwind-merge#652</a></li>\n</ul>\n<h3>Documentation</h3>\n<ul>\n<li>Fix broken links in README by <a href=\"https://github.com/maurer2\"><code>@​maurer2</code></a> in <a href=\"https://redirect.github.com/dcastil/tailwind-merge/pull/662\">dcastil/tailwind-merge#662</a></li>\n</ul>\n<h3>Other</h3>\n<ul>\n<li>Harden internal CI pipeline security by omitting git checkout by <a href=\"https://github.com/dcastil\"><code>@​dcastil</code></a>, suggested by <a href=\"https://github.com/kyletaylored\"><code>@​kyletaylored</code></a> in <a href=\"https://github.com/dcastil/tailwind-merge/commit/6b2499c10cf52bed42426d30b4219e90374b30d6\">https://github.com/dcastil/tailwind-merge/commit/6b2499c10cf52bed42426d30b4219e90374b30d6</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/dcastil/tailwind-merge/compare/v3.5.0...v3.6.0\">https://github.com/dcastil/tailwind-merge/compare/v3.5.0...v3.6.0</a></p>\n<p>Thanks to <a href=\"https://github.com/brandonmcconnell\"><code>@​brandonmcconnell</code></a>, <a href=\"https://github.com/manavm1990\"><code>@​manavm1990</code></a>, <a href=\"https://github.com/langy\"><code>@​langy</code></a>, <a href=\"https://github.com/roboflow\"><code>@​roboflow</code></a>, <a href=\"https://github.com/syntaxfm\"><code>@​syntaxfm</code></a>, <a href=\"https://github.com/getsentry\"><code>@​getsentry</code></a>, <a href=\"https://github.com/codecov\"><code>@​codecov</code></a>, a private sponsor, <a href=\"https://github.com/block\"><code>@​block</code></a>, <a href=\"https://github.com/openclaw\"><code>@​openclaw</code></a>, <a href=\"https://github.com/sourcegraph\"><code>@​sourcegraph</code></a>, <a href=\"https://github.com/mike-healy\"><code>@​mike-healy</code></a> and more via <a href=\"https://github.com/thnxdev\"><code>@​thnxdev</code></a> for sponsoring tailwind-merge! ❤️</p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/d54f7e5713c653d0171971405344f7c6e44d418f\"><code>d54f7e5</code></a> v3.6.0</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/638871a67a0a124ac9275eda77cd08b03f2f045e\"><code>638871a</code></a> Update README to add info about Tailwind CSS v4.3 support</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/39fc7b5e915493e5eb3ddb1ca615f5b2eeff2540\"><code>39fc7b5</code></a> Revert &quot;v3.6.0&quot;</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/bd8390f6ca387f93c9e989fb3fb09924fb843445\"><code>bd8390f</code></a> v3.6.0</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/802877c6e31f9fb64c627e5e760729a16cd0a69b\"><code>802877c</code></a> add v3.6.0 changelog</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/a35fedac7d1fc8756223da94290a83a32068d2ae\"><code>a35feda</code></a> Merge pull request <a href=\"https://redirect.github.com/dcastil/tailwind-merge/issues/665\">#665</a> from dcastil/renovate/rollup-plugin-babel-7.x</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/940389cf89ed0da277ff5c01b98fd619687926e9\"><code>940389c</code></a> Merge pull request <a href=\"https://redirect.github.com/dcastil/tailwind-merge/issues/667\">#667</a> from dcastil/renovate/release-drafter-release-drafter...</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/005af6df08cfbe2adac7ca6cb5a7be02b9261fbd\"><code>005af6d</code></a> pin to specific version</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/5816ced627ebcaefd497ad8e4202baf750dd545c\"><code>5816ced</code></a> implement breaking changes</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/17041e17c5b9c96fcb0f4758c718799cb3af14a6\"><code>17041e1</code></a> Merge pull request <a href=\"https://redirect.github.com/dcastil/tailwind-merge/issues/676\">#676</a> from dcastil/dependabot/npm_and_yarn/babel/plugin-tra...</li>\n<li>Additional commits viewable in <a href=\"https://github.com/dcastil/tailwind-merge/compare/v3.5.0...v3.6.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

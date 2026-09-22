@@ -1,0 +1,36 @@
+{
+  "number": 1225,
+  "kind": "pull_request",
+  "title": "fix: align NavigationItem and NavigationArea label types with @objectstack/spec v4",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: types"
+  ],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-14T02:48:35Z",
+  "updated_at": "2026-04-14T03:04:39Z",
+  "closed_at": "2026-04-14T03:04:39Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-14T03:04:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1225",
+  "body": "## Problem\n\n@objectstack/spec v4 changed the protocol to require `label` fields as plain strings, but ObjectUI type definitions still allowed the legacy i18n object format `{key, defaultValue, params}`, causing validation warnings during development.\n\n## Changes\n\n**Type Definition Updates**\n- `NavigationItem.label`: `string | {key, defaultValue, params}` → `string`\n- `NavigationArea.label`: `string | {key, defaultValue, params}` → `string`\n\n**Backward Compatibility Preserved**\n- Runtime utilities (`resolveI18nLabel()`, `resolveLabel()`) still handle both formats for data coming from external sources or legacy configurations\n- Only type definitions enforce the new protocol\n\n## Note\n\nValidation warnings from `@objectstack/plugin-auth` persist due to upstream runtime transformations in the ObjectStack framework itself - the plugin's TypeScript source uses plain strings but runtime code transforms them to i18n objects. This is an upstream issue outside ObjectUI's scope.\n\n```typescript\n// Before (legacy format still in type definition)\nexport interface NavigationItem {\n  label: string | { key: string; defaultValue?: string; params?: Record<string, any> };\n}\n\n// After (spec v4 compliant)\nexport interface NavigationItem {\n  label: string; // Plain string only per @objectstack/spec v4\n}\n```"
+}

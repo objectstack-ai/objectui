@@ -1,0 +1,33 @@
+{
+  "number": 1310,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fumadocs-mdx from 14.3.2 to 15.0.5",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-11T10:16:10Z",
+  "updated_at": "2026-05-15T12:44:09Z",
+  "closed_at": "2026-05-15T12:41:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-05-15T12:41:57Z",
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1310",
+  "body": "Bumps [fumadocs-mdx](https://github.com/fuma-nama/fumadocs) from 14.3.2 to 15.0.5.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/fuma-nama/fumadocs/releases\">fumadocs-mdx's releases</a>.</em></p>\n<blockquote>\n<h2>fumadocs-mdx@15.0.5</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>1fb6a61: Support custom base directory for content sources</li>\n</ul>\n<h2>fumadocs-mdx@15.0.4</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>819b6ec: Support Rolldown integration</li>\n</ul>\n<h2>fumadocs-mdx@15.0.3</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>2569154: Pre-generate Vite config to prevent CJS compat issues</li>\n<li>Updated dependencies [062beab]</li>\n<li>Updated dependencies [505cfe0]\n<ul>\n<li>fumadocs-core@16.8.10</li>\n</ul>\n</li>\n</ul>\n<h2>fumadocs-mdx@15.0.2</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>298ac97: fix compatibility issues with Vite RSC</li>\n<li>b212481: remove vitefu from inline deps</li>\n</ul>\n<h2>fumadocs-mdx@15.0.0</h2>\n<h3>Major Changes</h3>\n<ul>\n<li>\n<p>3de9dfe: <strong>Require ESM for <code>next.config</code></strong></p>\n<p>Modern Node.js now supports <code>next.config.mts</code> format, compatibility layer is no longer needed.</p>\n</li>\n<li>\n<p>3de9dfe: Raise minimum <code>fumadocs-core</code> version to <code>16.7.0</code></p>\n</li>\n</ul>\n<h3>Patch Changes</h3>\n<ul>\n<li>5745fcf: Support better Node.js loader registry\n<ul>\n<li>fumadocs-core@16.8.8</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/b9c90acba95ec6e9939263111647c50d6c8edef6\"><code>b9c90ac</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3284\">#3284</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/1fb6a6168cf966aaf14116017fa5b61676b9ebab\"><code>1fb6a61</code></a> Chore: Support custom base directory for content sources</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/99f1066de511270e8c8d3db409f09b868f89364b\"><code>99f1066</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3280\">#3280</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/d4c78e4aefdd5b54d853ace1b38eaab4ad4858d8\"><code>d4c78e4</code></a> OpenAPI: render deprecated badge for deprecated operations (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3281\">#3281</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/0287f49f65b01c6fc383b162d8ac55ab6ca92b36\"><code>0287f49</code></a> UI: improve default OG image</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/1dc86c7dc9a771cc514a288e90d0c369bae52382\"><code>1dc86c7</code></a> Core: loosen the range for waku</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/b3052ac079ead8c629e7382c56db643fe2ac0285\"><code>b3052ac</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3279\">#3279</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/61f3a27eb5cb8330a51f7e72ea0c005fb6a218f8\"><code>61f3a27</code></a> UI: encode storage keys</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/1c9494986d262281492ef1fa6c9d67576f9cd659\"><code>1c94949</code></a> Preview: Rate limit config for AI</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/8a4e1d1eda2746f353987b11a7242be58b314449\"><code>8a4e1d1</code></a> Previiew: Support file-sytem checks</li>\n<li>Additional commits viewable in <a href=\"https://github.com/fuma-nama/fumadocs/compare/fumadocs-mdx@14.3.2...fumadocs-mdx@15.0.5\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

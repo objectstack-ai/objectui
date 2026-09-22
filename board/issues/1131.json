@@ -1,0 +1,33 @@
+{
+  "number": 1131,
+  "kind": "pull_request",
+  "title": "fix(i18n): complete Chinese language pack and eliminate hardcoded English in platform UI",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-26T06:33:40Z",
+  "updated_at": "2026-03-26T14:08:02Z",
+  "closed_at": "2026-03-26T14:01:37Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-26T14:01:37Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1131",
+  "body": "`zh.ts` had untranslated keys (e.g. `toolbarEnabledCount` still English), and platform UI components had hardcoded English strings for dialog titles, select placeholders, and button text — breaking the Chinese UI experience.\n\n### Locale packs (all 10 locales)\n\n- **Fix `toolbarEnabledCount`** — was `'{{count}} of {{total}} enabled'` in all 9 non-English locales\n- **Add 7 new keys**: `common.selectOption`, `common.select`, `form.createTitle`, `form.editTitle`, `form.createDescription`, `form.editDescription`, `form.saveRecord`\n\n### Replace hardcoded English in components\n\n- **`App.tsx`** — modal dialog title/description/submit/cancel now use `t()` with interpolation:\n  ```tsx\n  title: t('form.createTitle', { object: currentObjectDef?.label })\n  // zh: \"新建联系人\"  en: \"Create Contact\"\n  ```\n- **`SelectField`**, **`LookupField`**, **`FieldFactory`**, **form renderer** — `\"Select an option\"` / `\"Select...\"` / `\"Search...\"` replaced with `t('common.selectOption')` etc.\n\n### Shared safe translation infrastructure\n\n- **`createSafeTranslation(defaults, testKey)`** factory added to `@object-ui/i18n` — creates hooks that fall back to English defaults when no `I18nProvider` wraps the component (tests, Storybook, standalone usage). Follows existing `createSafeTranslationHook` pattern from `plugin-detail`.\n- **`useFieldTranslation`** in `@object-ui/fields` built on top of it.\n\n### Tests\n\n- 3 new tests covering new keys in en/zh (interpolation, `toolbarEnabledCount` fix)\n- Existing suites green: 75 i18n, 541 react, 427 fields (1 pre-existing `scrollIntoView` failure in happy-dom)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>【i18n】完善中文语言包（zh.ts）遗漏与平台/元数据国际化分层问题</issue_title>\n> <issue_description>### 背景\n> ObjectUI 已具备完善的 i18n 架构，包含十种语言的 key-value 资源、useObjectLabel/fieldLabel 自动解析、动态 API 词条加载等。但根据实际使用发现，**中文界面下平台层还有硬编码英文**（如弹窗标题、按钮、占位符等），且`zh.ts` 语言包有少量缺失、部分 key 未翻译。\n> \n> ---\n> \n> ## 发现的问题\n> \n> ### 1. 平台 UI 层漏翻/硬编码（需纳入 zh.ts）\n> - 弹窗标题、描述、submit/cancel按钮，仍在 App.tsx 等文件用英文字符串模板直接拼接（如\"Create Contact\"、\"Save Record\"、\"Add a new ... to your database.\"、\"Cancel\"等）。\n> - 部分组件（如SelectField、LookupField）默认 placeholder 写死英文\"Select an option\"、\"Select...\"等。\n> - 表单/表格等部分按钮或说明文字 fallback 英文。\n> \n> ### 2. zh.ts 文件具体问题\n> - 个别常用 key \"toolbarEnabledCount\" (`{{count}} of {{total}} enabled`) 未翻译，存在英文。\n> - 未包含 select 组件常用占位/option提示，如\"Select an option\"、\"Select...\"等。\n> - 元数据 placeholder/option label 如 `email@example.com`, `(555) 123-4567` 来源业务 schema，目前尚不支持 schema 多语言，建议后续升级元数据格式。\n> \n> \n> ## 优化建议\n> \n> ### A. 平台 UI 文案100%国际化\n> - 全量梳理 platform UI 层硬编码英文，全部纳入 i18n key，通过 `t()` 或 `useObjectLabel` 自动解析。\n> - 提供 select/lookup/表单/弹窗等底层组件默认文案的多语言 key。\n> - 新增 `common.selectOption: '请选择'`、`common.select: '选择...'` 等。\n> \n> ### B. 修正/补充 zh.ts 翻译\n> - 补齐所有 fallback、常用 key、查漏补缺。\n> - 技术方案建议所有 fallback default 字符串都走 i18n，不出现英文 fallback。\n> \n> ### C. 长远元数据国际化改进\n> - 元数据层（业务字段/placeholder）建议添加多语言属性（如 placeholder.zh、label.en 等），schema 设计时支持多语言。\n> - 若用低代码 schema、自动生成翻译包。\n> \n> ---\n> \n> ## 任务拆解（建议分阶段）\n> 1. 梳理、替换全部平台英文硬编码，全部走 i18n（平台层100%覆盖）\n> 2. zh.ts 文件补齐所有 key & 修正所有 fallback\n> 3. Schema 设计升级任务（元数据多语言支持，方案设计可拆子 issue 跟踪）\n> 4. CI 国际化覆盖率检测脚本\n> \n> ---\n> \n> 如需子任务可继续分解��\n> \n> 参考场景见截图和代码实际引用逻辑。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1130\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

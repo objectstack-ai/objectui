@@ -1,0 +1,39 @@
+{
+  "number": 1235,
+  "kind": "pull_request",
+  "title": "Fix TypeScript build errors across all packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "dependencies",
+    "package: components",
+    "plugin",
+    "plugin: kanban"
+  ],
+  "assignees": [
+    "Claude",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-14T08:45:25Z",
+  "updated_at": "2026-04-14T08:48:52Z",
+  "closed_at": "2026-04-14T08:45:45Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-14T08:45:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1235",
+  "body": "Resolved TypeScript compilation failures preventing CI builds from passing. Errors spanned missing type declarations, incompatible third-party library types, and monorepo package reference issues.\n\n## Changes\n\n**Type Declarations**\n- Added `global.d.ts` files for CSS module imports and `process.env` in components, plugin-dashboard, plugin-map, plugin-report, plugin-view\n- Fixed missing type declarations causing TS2591 and TS2307 errors\n\n**Package Build Configuration**\n- Fixed `data-objectstack` package compilation by removing conflicting `rootDir` from tsconfig\n- Added TypeScript project references to `types` and `core` packages\n- Created `tsup.config.ts` to properly externalize workspace dependencies during DTS generation\n\n**Type Compatibility Fixes**\n- Updated `chart.tsx` formatter signature from `(value: any)` to `(value: any, name?: any, item?: any, index?: number, payload?: any)` to match actual usage (TS2554)\n- Fixed `ListView.tsx` arithmetic type errors by explicitly typing `orderA` and `orderB` as `number` (TS2362, TS2363)\n- Added type annotations to filter callbacks (TS7006)\n- Fixed `useObjectChat.ts` compatibility with `@ai-sdk/react` v3 API using type assertion\n\n**Code Cleanup**\n- Renamed unused rest parameter in `ObjectKanban.tsx` from `props` to `_props` (TS6133)\n\n## Build Status\nAll 42 packages build successfully with no TypeScript errors."
+}

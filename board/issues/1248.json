@@ -1,0 +1,36 @@
+{
+  "number": 1248,
+  "kind": "pull_request",
+  "title": "feat: unify console layout with horizontal top navigation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation"
+  ],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-20T05:16:06Z",
+  "updated_at": "2026-04-21T05:31:16Z",
+  "closed_at": "2026-04-21T05:31:16Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1248",
+  "body": "Replaces the left sidebar + top header layout in app pages (`/apps/:appName/*`) with a horizontal top navigation bar, matching the existing home page pattern.\n\n## Changes\n\n- **New `AppTopNav` component**: Horizontal navigation with app switcher, primary nav items, search, activity feed, help, theme/locale toggles, and user menu. Supports dropdown groups and mobile-responsive layout.\n\n- **Simplified `ConsoleLayout`**: Removed `AppShell`, `UnifiedSidebar`, and `AppHeader` dependencies. Now renders a simple flex container with `AppTopNav` at top and content below. Branding (colors, favicon, title) moved to `useEffect` hooks.\n\n- **Consistent UX**: Both `/home` and `/apps/:appName/*` now use top navigation, creating a unified modern layout with more horizontal screen space.\n\n## Layout Comparison\n\n**Before:**\n```tsx\n<AppShell sidebar={<UnifiedSidebar />} navbar={<AppHeader />}>\n  {children}\n</AppShell>\n```\n\n**After:**\n```tsx\n<div className=\"flex min-h-svh w-full flex-col\">\n  <AppTopNav activeApp={activeApp} onAppChange={onAppChange} />\n  <main className=\"flex-1\">{children}</main>\n</div>\n```\n\nNavigation items render horizontally with visibility/permission checks preserved. Groups become dropdown menus. Mobile view collapses nav into a dropdown menu."
+}

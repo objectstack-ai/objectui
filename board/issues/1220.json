@@ -1,0 +1,42 @@
+{
+  "number": 1220,
+  "kind": "pull_request",
+  "title": "chore: upgrade @objectstack/* packages from 4.0.2 to 4.0.3",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-13T13:53:54Z",
+  "updated_at": "2026-04-13T13:58:01Z",
+  "closed_at": "2026-04-13T13:54:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-13T13:54:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1220",
+  "body": "Upgrades all `@objectstack/*` dependencies to version 4.0.3 across the monorepo.\n\n## Changes\n\n**Package upgrades:**\n- Root package.json: 11 @objectstack packages (cli, core, driver-memory, objectql, plugin-auth, plugin-hono-server, plugin-msw, plugin-setup, runtime, spec, studio)\n- apps/console: 8 @objectstack packages\n- packages/core, react, types, plugin-gantt, plugin-map, plugin-timeline: @objectstack/spec\n- packages/data-objectstack: @objectstack/client\n\n**Lockfile:**\n- Updated pnpm-lock.yaml with new dependency resolutions\n\n## Verification\n\nBuild passes (27/33 packages). The single failure in `example-sdui-page-starter` is a pre-existing TypeScript issue unrelated to this upgrade.\n\nTests pass: 64 test files, 893 tests."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1236,
+  "kind": "pull_request",
+  "title": "fix(e2e): authenticate before testing sidebar visibility",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-14T09:43:32Z",
+  "updated_at": "2026-04-14T09:43:45Z",
+  "closed_at": "2026-04-14T09:43:45Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-14T09:43:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1236",
+  "body": "Sidebar E2E tests fail because MSW mock environment has `AuthPlugin` registered → discovery returns `auth.enabled: true` → `AuthGuard` redirects to `/login` → no sidebar in DOM.\n\n### Changes\n\n- **`e2e/helpers/auth.ts`** — New `registerAndLogin(page)` helper that signs up a test user via the register form UI and waits for redirect to `/home`\n- **`e2e/sidebar-text-visibility.spec.ts`** — Both tests call `registerAndLogin()` before asserting sidebar state. Removed the redundant `page.goto()` after auth (full page reload re-initializes MSW handlers, wiping the in-memory session)\n- **`CHANGELOG.md`** — Documented fix\n\n```ts\n// Before: navigates to / → redirected to /login → no sidebar\nawait page.goto(`${CONSOLE_BASE}/`);\nawait expect(sidebar).toBeVisible(); // ❌ element not found\n\n// After: register via UI → already on /home with active session\nawait registerAndLogin(page);\nawait expect(sidebar).toBeVisible({ timeout: SIDEBAR_VISIBLE_TIMEOUT }); // ✅\n```\n\nKey subtlety: MSW auth state lives in module-scope variables (`currentSession` in `authHandlers.ts`), so any `page.goto()` that triggers a full reload re-runs `startMockServer()` and resets session to `null`."
+}

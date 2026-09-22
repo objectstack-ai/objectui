@@ -1,0 +1,36 @@
+{
+  "number": 968,
+  "kind": "issue",
+  "title": "提升详情页/相关表与对象字段国际化支持（参考Salesforce相关列表模式）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-03-02T08:18:10Z",
+  "updated_at": "2026-03-31T06:52:50Z",
+  "closed_at": "2026-03-31T06:52:50Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/968",
+  "body": "【背景与问题梳理】\n\n当前ObjectUI的详情页（record detail page）存在如下待优化关键点：\n\n1. **无相关表（Related List）自动展示**\n    - 详情页未像Salesforce一样，自动根据对象模型在详情页底部或相关选项卡内展示所有\"子表\"数据（如订单→订单明细、联系人→相关订单等）。\n    - 现有`RelatedList`组件与schema协议已支持，但console端未动态生成`related`列表，也无批量发现主从关系和字段配置逻辑。\n2. **缺失相关表增删改查与\"View All\"等操作**\n    - 相关表section缺乏\"新建\"、\"批量操作\"，\"查看更多\"等按钮与功能。\n    - 当前无法对相关记录进行直接编辑或删除。\n3. **页面布��与用户体验改进**\n    - Salesforce采用\"详细信息/相关/活动\"Tab，减少页面拥挤，并提升查找效率。\n    - 目前仅平铺详情与活动，缺乏可收起的分组、tab分区、数据高亮、批量导航等增强功能。\n4. **对象与字段多语言国际化未生效**\n    - 目前即使已配置多语言（如中/英），但对象、字段label和Tab名称未根据用户locale自动切换。\n    - 详情字段、相关表列标题、按钮等key UI元素国际化不统一。\n5. **空值与日期等UI一致性优化**\n    - 空值显示\"-\"不够优雅，建议用占位符或淡化。\n    - 日期始终用中文显示，需根据locale适配标准格式。\n6. **表头高亮区未开发**\n    - Salesforce有\"高亮显示区\"，可快速展示关键字段。\n\n\n【分项开发清单 & 建议方案】\n\n---\n### 1. 详情页相关表（Related List）自动发现与渲染\n- [ ] 在RecordDetailView中扫描对象模型，自动根据\"引用\"字段（master_detail/lookup/reference_to等）生成schema.related参数列表。\n- [ ] 默认按标准对象惯例（如订单页面自动出现\"订单明细\"、\"发票\"、\"发货\"等子列表）。\n- [ ] 支持columns/relationshipField/title等自动推断，允许手动覆盖。\n\n### 2. 相关表子区块增强（参考Salesforce Dynamic Related List）\n- [ ] 相关表列表顶部支持\"新建\"、\"批量操作\"、\"View All\"等按钮。\n- [ ] 行内\"编辑\"、\"���除\"快捷操作。\n- [ ] 支持分页、排序、条件过滤、批量选择。\n- [ ] 支持Tab模式（详情/相关/活动）切换，相关表可收起分组显示。\n\n### 3. 页面布局增强\n- [ ] 引入Tab布局（详情/相关/活动），提升信息层级与可用性。\n- [ ] 支持section可收起，分组字段配置。\n- [ ] 顶部高亮区View，显示核心主字段。\n\n### 4. 对象、字段及相关表国际化\n- [ ] schema label、section title、tab名、字段名、按钮等UI文本统一适配locale。\n- [ ] DataSource和对象模型支持多语言，自动切换展示label。\n\n### 5. 空值与日期处理\n- [ ] 统一空值展示（如Placeholder或淡化色），屏蔽掉无意义的\"-\"。\n- [ ] 日期显示根据用户语言区域自动格式化。\n\n\n【附：参考资料】\n- Salesforce官方相关表设计：https://help.salesforce.com/s/articleView?id=platform.customizing_related_lists.htm\n- Dynamic Related List实践：https://www.salesforceben.com/ultimate-guide-to-salesforce-dynamic-related-lists/\n\n---\n请以此为工作拆解主线任务，并由此协调PR分解、进度追踪、ROADMAP及自动化测试，涉及跨repo子系统（如DataSource、国际化对象方案）请同步拆解 cross-repo issue。\n\n---\n<img alt=\"联系人详情页截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/9566bc3d-f5a7-4286-a8b5-c7b69ba304a0\" />\n<img alt=\"订单详情页截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/426d1018-f332-4b24-b695-e9e9fa874177\" />"
+}

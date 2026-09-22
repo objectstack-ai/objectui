@@ -1,0 +1,30 @@
+{
+  "number": 948,
+  "kind": "issue",
+  "title": "切换object优先的元数据国际化结构、前端自动分组映射及翻译工作台改造",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-01T15:58:03Z",
+  "updated_at": "2026-03-31T06:52:25Z",
+  "closed_at": "2026-03-31T06:52:25Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/948",
+  "body": "## 背景\n当前 category-first 翻译 key（objects/fields/fieldOptions/等）导致翻译/结构维护不便、冗余数据多。规范（参考 Salesforce）升级后，前端需切换为object-first结构，同时完善所有运行时自动 key 构建、分组、翻译缺失检测及未来的翻译工作台体验。\n\n### 1. 前端运行时结构与hook升级\n- 所有元数据label/description/option的翻译读取逻辑，切换为以`o.{object}`为根节点递归聚合、嵌套\n- 自动根据对象/字段/action/params递归映射key，支持_new结构\n- 删除 dashboard.columns 与 reports.columns 相关所有翻译调用，直接引用字段名的翻译\n- 现有action参数、param字段支持action内聚分组label\n- helper hook/useMetadataI18n及useTranslationWorkbench批量扫描均兼容新结构\n\n### 2. (可选/Phase2) 翻译工作台及CLI对接\n- 工具/页面将按对象聚合渲染&检测，辅助一键补齐批量copy/导入/AI翻译\n\n#### 3. 框架级UI文案单独抽离\n- \"Cancel\"/\"Continue\"/\"...is required\"等内置提示同步转入独立UI翻译包\n\n## 验收标准\n- 所有页面对象/字段/选项/分区/按钮/弹窗成功跟随新规范group渲染\n- 不存在孤立、歧义、冗余��译key\n- 多语言文案切换与CLI检测一致\n- 运行时/Bench/CLI共用一套规范\n- ROADMAP/例子/文档同步"
+}

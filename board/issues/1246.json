@@ -1,0 +1,37 @@
+{
+  "number": 1246,
+  "kind": "pull_request",
+  "title": "feat(console): use top navigation on /home instead of left sidebar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-19T07:17:31Z",
+  "updated_at": "2026-04-19T08:12:22Z",
+  "closed_at": "2026-04-19T08:09:47Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-19T08:09:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1246",
+  "body": "The home page shared the same `AppShell` + `UnifiedSidebar` chrome as in-app views (e.g. Enterprise CRM), making the workspace landing page visually indistinguishable from an individual application. Switching `/home` to a top-nav-only shell draws a clear boundary between the workspace and apps.\n\n### Changes\n\n- **New `HomeTopNav`** (`apps/console/src/pages/home/HomeTopNav.tsx`): horizontal bar with workspace switcher, Home link, ⌘K search, activity feed, help, theme, locale, and user-profile dropdown. Reuses `WorkspaceSwitcher`, `ModeToggle`, `LocaleSwitcher`, and `ActivityFeed`.\n- **`HomeLayout` refactor**: drops `AppShell` / `UnifiedSidebar`; renders `HomeTopNav` + `<main>` and keeps `setContext('home')` on mount.\n- **`UnifiedSidebar` unchanged**: still the sole navigation surface for `/apps/:appName/*`. The `context === 'home'` branch of the sidebar is now effectively dead for the main route but left in place for safety with no behavioral change.\n- **Tests**: `HomeLayout.test.tsx` asserts the new top-nav is present and neither `app-shell` nor `unified-sidebar` are rendered. `e2e/sidebar-text-visibility.spec.ts` now clicks the first app card after login (client-side nav to preserve the MSW mock session) before exercising sidebar expand/collapse.\n- **CHANGELOG**: entry under `[Unreleased]`.\n\n### Layout shape\n\n```\n/home                          /apps/:appName/*\n┌───────────────────────────┐  ┌──────┬────────────────────┐\n│ HomeTopNav                │  │      │ AppHeader          │\n├───────────────────────────┤  │ Uni- ├────────────────────┤\n│                           │  │ fied │                    │\n│  HomePage (cards, etc.)   │  │ Side │  App content       │\n│                           │  │ bar  │                    │\n└───────────────────────────┘  └──────┴────────────────────┘\n```"
+}

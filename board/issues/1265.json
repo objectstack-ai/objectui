@@ -1,0 +1,35 @@
+{
+  "number": 1265,
+  "kind": "pull_request",
+  "title": "Fix vitest.config.mts for Vitest 4 compatibility",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration"
+  ],
+  "assignees": [
+    "Claude",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-23T13:53:50Z",
+  "updated_at": "2026-04-23T16:13:29Z",
+  "closed_at": "2026-04-23T16:13:29Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-23T16:13:29Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1265",
+  "body": "The vitest configuration was using deprecated `poolOptions.threads` structure incompatible with Vitest 4, causing configuration warnings and potential test execution issues.\n\n## Changes\n\n- Migrated `isolate` and `singleThread` options from nested `poolOptions.threads` to top-level `test` configuration\n- Aligns with Vitest 4 migration guide requirement that all pool options are now top-level\n\n**Before:**\n```typescript\npool: 'threads',\npoolOptions: {\n  threads: {\n    isolate: false,\n    singleThread: false,\n  },\n},\n```\n\n**After:**\n```typescript\npool: 'threads',\nisolate: false,\nsingleThread: false,\n```\n\nThis eliminates the deprecation warning and ensures proper test isolation behavior across the monorepo's test suite."
+}

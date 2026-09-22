@@ -1,0 +1,34 @@
+{
+  "number": 1178,
+  "kind": "pull_request",
+  "title": "chore(deps): bump hono from 4.12.9 to 4.12.10",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "examples"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-02T15:34:59Z",
+  "updated_at": "2026-04-02T15:38:30Z",
+  "closed_at": "2026-04-02T15:35:21Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-04-02T15:35:21Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1178",
+  "body": "Bumps [hono](https://github.com/honojs/hono) from 4.12.9 to 4.12.10.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/honojs/hono/releases\">hono's releases</a>.</em></p>\n<blockquote>\n<h2>v4.12.10</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>test(router): fix <code>Simple capturing group</code> test by <a href=\"https://github.com/yusukebe\"><code>@​yusukebe</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4838\">honojs/hono#4838</a></li>\n<li>docs: fix impaired -&gt; inspired typo in benchmark READMEs by <a href=\"https://github.com/Abhi3975\"><code>@​Abhi3975</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4843\">honojs/hono#4843</a></li>\n<li>fix(jsx/dom): apply select value after children are rendered by <a href=\"https://github.com/usualoma\"><code>@​usualoma</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4847\">honojs/hono#4847</a></li>\n<li>fix(compress): convert strong ETag to weak ETag when compressing by <a href=\"https://github.com/usualoma\"><code>@​usualoma</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4848\">honojs/hono#4848</a></li>\n<li>docs(ip-restriction): add clear JSDoc examples and param types by <a href=\"https://github.com/VISHNU7KASIREDDY\"><code>@​VISHNU7KASIREDDY</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4851\">honojs/hono#4851</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/Abhi3975\"><code>@​Abhi3975</code></a> made their first contribution in <a href=\"https://redirect.github.com/honojs/hono/pull/4843\">honojs/hono#4843</a></li>\n<li><a href=\"https://github.com/VISHNU7KASIREDDY\"><code>@​VISHNU7KASIREDDY</code></a> made their first contribution in <a href=\"https://redirect.github.com/honojs/hono/pull/4851\">honojs/hono#4851</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/honojs/hono/compare/v4.12.9...v4.12.10\">https://github.com/honojs/hono/compare/v4.12.9...v4.12.10</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/honojs/hono/commit/9f374a55b25c5c644c293bd4ed6ffce016eb3b44\"><code>9f374a5</code></a> 4.12.10</li>\n<li><a href=\"https://github.com/honojs/hono/commit/a8c56a6620597084e97792f7de3ffbd257c004cc\"><code>a8c56a6</code></a> docs(ip-restriction): add clear JSDoc examples and param types (<a href=\"https://redirect.github.com/honojs/hono/issues/4851\">#4851</a>)</li>\n<li><a href=\"https://github.com/honojs/hono/commit/0bce36bf368ca4c1749285aeed537cba36b551bf\"><code>0bce36b</code></a> fix(compress): convert strong ETag to weak ETag when compressing (<a href=\"https://redirect.github.com/honojs/hono/issues/4848\">#4848</a>)</li>\n<li><a href=\"https://github.com/honojs/hono/commit/75b4308496d64aed39e96fc105db233bde3d29b3\"><code>75b4308</code></a> fix(jsx/dom): apply select value after children are rendered (<a href=\"https://redirect.github.com/honojs/hono/issues/4847\">#4847</a>)</li>\n<li><a href=\"https://github.com/honojs/hono/commit/f47b559684aa361f41276e53bf058082ff3f58bd\"><code>f47b559</code></a> docs: fix impaired -&gt; inspired typo in benchmark READMEs (<a href=\"https://redirect.github.com/honojs/hono/issues/4843\">#4843</a>)</li>\n<li><a href=\"https://github.com/honojs/hono/commit/018277e24db336bc0586a9fb9455b2054af4cc13\"><code>018277e</code></a> test(router): fix <code>Simple capturing group</code> test (<a href=\"https://redirect.github.com/honojs/hono/issues/4838\">#4838</a>)</li>\n<li>See full diff in <a href=\"https://github.com/honojs/hono/compare/v4.12.9...v4.12.10\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=hono&package-manager=npm_and_yarn&previous-version=4.12.9&new-version=4.12.10)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1139,
+  "kind": "pull_request",
+  "title": "refactor: migrate system settings pages to ObjectView metadata-driven rendering",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-30T04:04:07Z",
+  "updated_at": "2026-03-30T05:53:22Z",
+  "closed_at": "2026-03-30T05:48:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-30T05:48:28Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1139",
+  "body": "System settings pages (Users, Orgs, Roles, Permissions, Audit Log) used hand-written HTML tables with manual fetch/CRUD logic, duplicating ~500 lines of nearly identical code across 5 files. Replaced with the platform's `ObjectView` from `@object-ui/plugin-view`, driven by existing `systemObjects.ts` metadata.\n\n### Changes\n\n- **New `SystemObjectViewPage` component** — shared wrapper that builds an `ObjectViewSchema` from `systemObjects.ts` definitions and renders `ObjectView` with the adapter dataSource\n- **All 5 management pages** now delegate to `SystemObjectViewPage` (~25 lines each, down from ~140)\n  - CRUD gated by `isAdmin` via `operations` config\n  - Audit log uses `readOnly` mode\n  - Search, sort, filter, pagination come free from ObjectView\n- **Tests updated** — mock `@object-ui/plugin-view` and assert schema props (objectName, operations, columns) rather than testing hand-rolled table rendering\n\n```tsx\n// Before: 144 lines of useState, useCallback, fetch, hand-written <table>\n// After:\nexport function UserManagementPage() {\n  const { user } = useAuth();\n  return (\n    <SystemObjectViewPage\n      objectName=\"sys_user\"\n      title=\"User Management\"\n      description=\"Manage system users and their roles\"\n      icon={Users}\n      isAdmin={user?.role === 'admin'}\n    />\n  );\n}\n```\n\n22 system page tests pass, 750 total console tests pass. CHANGELOG.md and ROADMAP.md updated.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1292,
+  "kind": "pull_request",
+  "title": "Add missing test mocks for ObjectView component dependencies",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-07T06:22:04Z",
+  "updated_at": "2026-05-07T06:22:25Z",
+  "closed_at": "2026-05-07T06:22:25Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-05-07T06:22:25Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1292",
+  "body": "CI tests were failing because `apps/console/dev/__tests__/ObjectView.test.tsx` lacked mocks for dependencies that `ObjectView` requires to render. Without these mocks, the component failed to initialize, causing tests to error when querying DOM elements.\n\n## Changes\n\nAdded mocks for:\n- **Core hooks**: `@object-ui/permissions`, `@object-ui/i18n`, `@object-ui/collaboration`, `@object-ui/react`\n- **UI notifications**: `sonner` toast API\n- **Plugin components**: `@object-ui/plugin-detail`, `@object-ui/plugin-view`, `@object-ui/plugin-charts`\n- **Action system**: `@object-ui/app-shell` `useObjectActions` hook\n\nExample of added mock structure:\n\n```typescript\nvi.mock('@object-ui/permissions', () => ({\n    usePermissions: () => ({ can: () => true }),\n}));\n\nvi.mock('@object-ui/app-shell', async (importOriginal) => {\n    const actual = await importOriginal<any>();\n    return {\n        ...actual,\n        useObjectActions: () => ({\n            execute: vi.fn(),\n            create: vi.fn(),\n            deleteRecord: vi.fn(),\n            loading: false,\n            error: null,\n        }),\n    };\n});\n```\n\nThis resolves 18 test failures where elements like `view-tab-menu-config-all` were not found due to incomplete component rendering."
+}

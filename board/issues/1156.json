@@ -1,0 +1,33 @@
+{
+  "number": 1156,
+  "kind": "pull_request",
+  "title": "feat(plugin-chatbot): Airtable-style floating chatbot FAB widget with console integration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-31T07:32:11Z",
+  "updated_at": "2026-03-31T08:08:26Z",
+  "closed_at": "2026-03-31T08:02:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-31T08:02:33Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1156",
+  "body": "Adds a floating action button (FAB) chatbot widget that renders as a fixed-position trigger button opening a chat panel overlay via React portal — enabling chatbot access from any page without occupying layout space. Integrated into the console application so the FAB is available on every authenticated page with metadata-aware context.\n\n### Types (`@object-ui/types`)\n- Extended `ChatbotSchema` with `displayMode: 'inline' | 'floating'` and `floatingConfig: FloatingChatbotConfig`\n- New `FloatingChatbotConfig` interface: `position`, `defaultOpen`, `panelWidth`, `panelHeight`, `title`, `triggerIcon`, `triggerSize`\n\n### Components (`@object-ui/plugin-chatbot`)\n- **`FloatingChatbotProvider`** — React context managing `isOpen`/`isFullscreen` state; exposes `useFloatingChatbot()` hook for programmatic control\n- **`FloatingChatbotTrigger`** — Fixed-position circular FAB with configurable corner and size\n- **`FloatingChatbotPanel`** — Overlay panel with header (title, fullscreen toggle, close), `role=\"dialog\"`, configurable dimensions\n- **`FloatingChatbot`** — Orchestrator rendering via `ReactDOM.createPortal` to `#floating-chatbot-portal` to avoid z-index conflicts; wraps `ChatbotEnhanced`\n- Registered as `chatbot-floating` in `ComponentRegistry`\n\n### Console Integration (`@object-ui/console`)\n- Added `ConsoleFloatingChatbot` to `ConsoleLayout.tsx` inside `AppShell`, making the FAB available on every authenticated page\n- Wired with `useObjectChat` for metadata-aware auto-responses — injects current app name and object list into chatbot context\n- Demo auto-response mode by default; switchable to API streaming when an `api` endpoint is configured\n\n### Usage\n\nSchema-driven:\n```ts\nconst schema: ChatbotSchema = {\n  type: 'chatbot',\n  displayMode: 'floating',\n  floatingConfig: {\n    position: 'bottom-right',\n    defaultOpen: false,\n    panelWidth: 400,\n    panelHeight: 520,\n    title: 'Assistant',\n  },\n  messages: [],\n  autoResponse: true,\n};\n```\n\nComposable:\n```tsx\n<FloatingChatbotProvider defaultOpen={false}>\n  <FloatingChatbotTrigger position=\"bottom-right\" />\n  <FloatingChatbotPanel title=\"Assistant\" width={400} height={520}>\n    <ChatbotEnhanced {...chatProps} />\n  </FloatingChatbotPanel>\n</FloatingChatbotProvider>\n```\n\n### Tests\n- 21 new tests (7 provider state/hook, 14 trigger+panel interaction/a11y)\n- All 66 plugin-chatbot tests pass\n\n### Other\n- Added `react/jsx-runtime` to vite externals for SSR compatibility"
+}

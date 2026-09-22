@@ -1,0 +1,34 @@
+{
+  "number": 1125,
+  "kind": "pull_request",
+  "title": "chore(deps): bump hono from 4.12.8 to 4.12.9",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "examples"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-25T04:50:14Z",
+  "updated_at": "2026-03-25T04:53:48Z",
+  "closed_at": "2026-03-25T04:50:28Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-25T04:50:28Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1125",
+  "body": "Bumps [hono](https://github.com/honojs/hono) from 4.12.8 to 4.12.9.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/honojs/hono/releases\">hono's releases</a>.</em></p>\n<blockquote>\n<h2>v4.12.9</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>fix(request): remove <code>parseBody</code> from bodyCache to prevent TypeError by <a href=\"https://github.com/yusukebe\"><code>@​yusukebe</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4807\">honojs/hono#4807</a></li>\n<li>feat(client): add <code>PickResponseByStatusCode</code> type by <a href=\"https://github.com/yusukebe\"><code>@​yusukebe</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4791\">honojs/hono#4791</a></li>\n<li>fix(ssg): pass SSG_CONTEXT to forGetInfoURLRequest by <a href=\"https://github.com/yuintei\"><code>@​yuintei</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4810\">honojs/hono#4810</a></li>\n<li>fix(service-worker): make <code>fire()</code> fallback behavior consistent with <code>handle()</code> by <a href=\"https://github.com/yusukebe\"><code>@​yusukebe</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4821\">honojs/hono#4821</a></li>\n<li>fix(cors): reflect request origin when credentials is true with wildcard by <a href=\"https://github.com/ctonneslan\"><code>@​ctonneslan</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4813\">honojs/hono#4813</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/yuintei\"><code>@​yuintei</code></a> made their first contribution in <a href=\"https://redirect.github.com/honojs/hono/pull/4810\">honojs/hono#4810</a></li>\n<li><a href=\"https://github.com/ctonneslan\"><code>@​ctonneslan</code></a> made their first contribution in <a href=\"https://redirect.github.com/honojs/hono/pull/4813\">honojs/hono#4813</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/honojs/hono/compare/v4.12.8...v4.12.9\">https://github.com/honojs/hono/compare/v4.12.8...v4.12.9</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/honojs/hono/commit/e1ae0eb0f5a2dc1001895523016db02141972695\"><code>e1ae0eb</code></a> 4.12.9</li>\n<li><a href=\"https://github.com/honojs/hono/commit/66fe9feec2bf0dc7bb2b8bcdcb5a380d527e8ae2\"><code>66fe9fe</code></a> fix(cors): reflect request origin when credentials is true with wildcard (<a href=\"https://redirect.github.com/honojs/hono/issues/4813\">#4813</a>)</li>\n<li><a href=\"https://github.com/honojs/hono/commit/50e26118cb7a802469f566e4e5a6b8a18cb95e07\"><code>50e2611</code></a> fix(service-worker): make <code>fire()</code> fallback behavior consistent with `handle(...</li>\n<li><a href=\"https://github.com/honojs/hono/commit/be85106d45e74ec5720fd5fc848970daaf1978c8\"><code>be85106</code></a> fix(ssg): pass SSG_CONTEXT to forGetInfoURLRequest (<a href=\"https://redirect.github.com/honojs/hono/issues/4810\">#4810</a>)</li>\n<li><a href=\"https://github.com/honojs/hono/commit/d1722e3e56a9cf0fdac24982c9a55195e093a3f7\"><code>d1722e3</code></a> feat(client): add <code>PickResponseByStatusCode</code> type (<a href=\"https://redirect.github.com/honojs/hono/issues/4791\">#4791</a>)</li>\n<li><a href=\"https://github.com/honojs/hono/commit/8bd9dddce20eefe94da7ef9602afc603a8df0f91\"><code>8bd9ddd</code></a> fix(request): remove <code>parseBody</code> from bodyCache to prevent TypeError (<a href=\"https://redirect.github.com/honojs/hono/issues/4807\">#4807</a>)</li>\n<li>See full diff in <a href=\"https://github.com/honojs/hono/compare/v4.12.8...v4.12.9\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=hono&package-manager=npm_and_yarn&previous-version=4.12.8&new-version=4.12.9)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

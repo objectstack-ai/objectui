@@ -1,0 +1,33 @@
+{
+  "number": 1247,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): collapse duplicate record-header overflow menus into one",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-19T10:33:48Z",
+  "updated_at": "2026-04-19T11:55:14Z",
+  "closed_at": "2026-04-19T11:55:14Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-19T11:55:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1247",
+  "body": "Record detail header rendered **two** `⋯` buttons whenever an object defined more `record_header` actions than `action:bar`'s `maxVisible` (e.g. `todo_task` with 4 header actions). Caused by two independent overflow owners:\n\n1. `action:bar` emits a `⋯` for business-action overflow past `maxVisible` (3).\n2. `DetailView` hardcoded a separate `<DropdownMenu>` for Duplicate / Export / View History / Delete (plus mobile Share / Edit / Inline Edit fallbacks).\n\nNeither knew about the other.\n\n### Changes\n\n- **`@object-ui/components` · `action:bar`** — adds `systemActions?: ActionSchema[]`. Entries are always routed into the overflow menu (never inline) and share a single `⋯` trigger with any business-overflow, separator auto-inserted between groups. Schema-only keys (`actions`, `systemActions`, `location`, `maxVisible`, …) are now stripped before spreading onto the DOM to silence React \"unknown attribute\" warnings.\n- **`@object-ui/components` · `action:menu`** — short-circuits to `action.onClick` when present, bypassing `ActionEngine`. Intended for chrome-level callbacks that depend on React state / DOM APIs (clipboard, `navigator.share`, inline-edit toggle) and are not part of the server-driven action protocol.\n- **`@object-ui/types` · `ActionSchema`** — optional `onClick?: () => void | Promise<void>` UI-local escape hatch (documented as non-serializable).\n- **`@object-ui/plugin-detail` · `DetailView`** — removed the hardcoded `<DropdownMenu>`; Duplicate / Export / View History / Delete and mobile-only Share / Edit / Inline Edit are built as `ActionSchema[]` and merged into the record-header `action:bar` via the new `systemActions` field. If callers already supply an `action:bar` for `record_header`, system actions are injected into it; otherwise a bar carrying only system actions is appended.\n\n### Invariant\n\nA record-header `action:bar` renders **at most one** overflow menu, regardless of how many business actions the object metadata contributes. System actions never appear inline.\n\n### Illustration\n\n```ts\n// todo_task: 4 record_header actions + 4 DetailView system actions\n{\n  type: 'action:bar',\n  location: 'record_header',\n  actions: [complete, start, clone, defer],      // maxVisible=3 → 1 overflow\n  systemActions: [duplicate, export, history, delete], // always overflow\n}\n// Renders: [Complete] [Start] [Clone] [⋯]   ← single menu, 5 items + separator\n```\n\n### Tests\n\nFour new `action:bar` tests assert the merged-overflow contract: single `⋯` even when business overflow + `systemActions` coexist, system actions never inline, overflow rendered when only `systemActions` are present."
+}

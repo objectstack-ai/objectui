@@ -1,0 +1,33 @@
+{
+  "number": 1172,
+  "kind": "pull_request",
+  "title": "feat: add user menu to home page, return-to-home nav in app sidebar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-01T09:52:36Z",
+  "updated_at": "2026-04-01T10:53:24Z",
+  "closed_at": "2026-04-01T10:46:06Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-01T10:46:06Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1172",
+  "body": "Home page (`/home`) had no user menu (profile, sign out) and apps had no way to navigate back to home without editing the URL.\n\n### HomeLayout shell (`HomeLayout.tsx` — new)\n- Sticky top nav bar wrapping `<HomePage />` with Home branding, Settings, and user menu dropdown (avatar → Profile / Settings / Sign Out)\n- Wired into `/home` route via lazy-loaded wrapper in `App.tsx`\n\n### Return-to-Home in AppSidebar\n- Added \"Home\" entry with `Home` icon in the app switcher dropdown, navigating to `/home`\n\n```tsx\n// AppSidebar.tsx — app switcher dropdown, after app list\n<DropdownMenuItem onClick={() => navigate('/home')} data-testid=\"home-link-btn\">\n  <Home className=\"size-4\" />\n  <div className=\"font-medium text-muted-foreground\">Home</div>\n</DropdownMenuItem>\n```\n\n### HomePage simplification\n- Removed duplicate header/nav since `HomeLayout` now owns it\n- Removed unused `resolveI18nLabel` import (pre-existing TS warning)\n\n### Tests\n- 9 new unit tests for `HomeLayout` (rendering, navigation, avatar fallback)\n- All 11 existing `AppSidebar` tests pass unchanged"
+}

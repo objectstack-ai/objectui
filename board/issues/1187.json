@@ -1,0 +1,35 @@
+{
+  "number": 1187,
+  "kind": "issue",
+  "title": "完善统一元数据管理页的基础功能与任务清单",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-04-07T03:35:48Z",
+  "updated_at": "2026-04-07T05:02:08Z",
+  "closed_at": "2026-04-07T05:02:08Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1187",
+  "body": "当前 MetadataManagerPage 仅实现了列表展示和删除功能，仍然明显缺失以下元数据全局管理的核心能力。为保证平台长期可维护性与可扩展性，需迭代以下任务。\n\n## 任务清单\n\n### P0 - 基础功能\n- [ ] 支持「新建」元数据（Create）：在 Header 区域添加\"新建\"按钮，可弹出表单创建对应类型元数据\n- [ ] 支持「编辑」元数据（Edit）：每条目右侧添加编辑按钮，弹窗表单进行编辑\n- [ ] 设计通用 MetadataFormDialog 组件，表单字段由 registry 的 `formFields` 配置驱动\n- [ ] MetadataService.saveMetadataItem 用于新增/更新，集成保存后 toast、loading 状态与回调刷新\n\n### P1 - 详情页能力\n- [ ] 新增 `/system/metadata/:metadataType/:itemName` 路由，进入独立详情页\n- [ ] 支持 MetadataDetailPage，展示详细信息，并可复用编辑弹窗进行信息修改\n- [ ] 支持 registry 配置 detailComponent，自定义复杂类型详情渲染方式\n\n### P1 - Registry 扩展\n- [ ] 在 metadataTypeRegistry.ts 每个类型配置 `formFields` 字段，标准化创建、编辑表单结构\n\n### P2 - 可拓展能力和操作自定义\n- [ ] Registry 增加 actions 字段，支持自定义页面级和行级按钮（如跳转、导出等）\n- [ ]（可选）将卡片列表切换为 ObjectGrid，复用排序、列宽调整与批量操作等能力\n- [ ] 权限集成，根据当前用户角色隐藏/禁用 create/edit/delete\n\n### 长远考虑\n- [ ] 与主流 ObjectView/数据管理页面体验对齐，保持交互一致性\n- [ ] 文档补充 registry 配置说明、开发规范\n\n---\n如有疑问可参考 object/objectManagerPage、plugin-designer/ObjectManager 以及 ROADMAP.md 对应内容。\n\n负责：@xuyushun441-sys\n"
+}

@@ -1,0 +1,38 @@
+{
+  "number": 1221,
+  "kind": "pull_request",
+  "title": "fix: enable mock server for E2E tests to fix sidebar rendering failures",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "ci/cd",
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-13T14:30:57Z",
+  "updated_at": "2026-04-13T14:35:33Z",
+  "closed_at": "2026-04-13T14:31:15Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-13T14:31:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1221",
+  "body": "E2E tests failing in CI (run #24347234190) because the console app was built with `VITE_USE_MOCK_SERVER=false` but no backend API was available during tests. The app failed to initialize without API access, causing sidebar elements to never render.\n\n## Changes\n\n- **Added `build:e2e` script** to `apps/console/package.json` that builds with `VITE_USE_MOCK_SERVER=true`, enabling MSW to mock all API calls\n- **Updated CI workflow** to use `build:e2e` instead of default `build` for the console app in the E2E test pipeline\n\nThe E2E tests now run against a fully functional app with mocked API responses, eliminating the backend dependency during testing."
+}

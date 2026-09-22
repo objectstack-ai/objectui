@@ -1,0 +1,32 @@
+{
+  "number": 1408,
+  "kind": "pull_request",
+  "title": "feat(studio): rich landing/overview page for the Studio app root",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-29T08:29:18Z",
+  "updated_at": "2026-05-29T08:32:56Z",
+  "closed_at": "2026-05-29T08:30:10Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-05-29T08:30:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1408",
+  "body": "## Summary\n\nReplaces the **blank Studio landing page** (`/apps/:appName/` root) with a rich, data-driven overview. Previously the app root resolved to an empty `<Navigate to=\"\">` target and rendered a blank content area — the first thing users saw was nothing.\n\nThe new `StudioHomePage` is built entirely on existing hooks (`useMetadataTypes`, `useGlobalDiagnostics`, `useRecentItems`), so it stays correct regardless of which packages are installed.\n\n### What it adds\n- **Hero band** — time-of-day greeting, headline, and glass KPI pills (types / writable / packages) over a gradient + dot-grid backdrop.\n- **KPI cards** — types, runtime-writable, packages, and a **health card** that deep-links to diagnostics (amber when issues exist, emerald \"all healthy\" otherwise).\n- **Quick actions** — one-click \"New …\" chips for writable types (object, view, page, dashboard, report, flow, action, agent).\n- **Explore grid** — one card per metadata domain, each listing its top types as count-badged chips that link straight into the list page.\n- **Recently viewed** — pulls from the shared `RecentItemsProvider` with per-type icons and relative timestamps.\n- Full **en-US / zh-CN** i18n via the `engine.home.*` keys.\n\n### Routing change\n`AppContent` index route now honours a configured landing target when one exists, and falls back to `StudioHomePage` when `resolveLandingRoute` returns empty (the metadata-admin \"Studio\" app has domain-based nav with no single landing). Data apps with a real landing route are unaffected.\n\n## How it looks\nHero + KPIs + quick actions render with gradient accents and hover lift; verified live at `localhost:5180/apps/studio/` in both light layout and at desktop width.\n\n## Reviewer notes\n- This branch was cut from local `main`, which had **4 unpushed commits** at the time. An auto-commit hook interleaved this session's landing-page work with concurrent studio metadata work (client-side validators, 15 new spec-7.1 metadata types, SetupPage tweaks, locale additions). Those changes share files (notably `i18n.ts`) and could not be cleanly split out, so they ride along in this PR. Please review the non-landing-page commits (`feat(studio): wire 10 more client-side metadata validators`, `feat(studio): handle 15 new metadata types exposed by spec 7.1`) with that context.\n\n## Test plan\n- [x] Root `/apps/studio/` renders the overview (was blank)\n- [x] No console errors on load\n- [ ] Verify quick-action \"New …\" links land on the create form\n- [ ] Verify domain chips navigate to the correct type list\n- [ ] Verify dark mode\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1159,
+  "kind": "pull_request",
+  "title": "chore: upgrade @objectstack/* from ^3.3.1 to ^4.0.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-31T11:57:31Z",
+  "updated_at": "2026-04-01T01:21:00Z",
+  "closed_at": "2026-04-01T01:18:55Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-01T01:18:55Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1159",
+  "body": "Bumps all `@objectstack/*` dependencies to their latest release (4.0.1) across the entire monorepo.\n\n## Package changes\n- `^3.3.1` → `^4.0.1` for all `@objectstack/*` packages in: root `package.json`, `apps/console`, `packages/types`, `packages/core`, `packages/react`, `packages/data-objectstack`, `packages/plugin-{timeline,gantt,map}`, and all `examples/*`\n\n## Breaking change in `@objectstack/client` 4.x\nThe server discovery fallback URL changed:\n\n```\n3.x: GET /api/v1          (health check doubles as discovery)\n4.x: GET /api/v1/discovery (dedicated endpoint)\n```\n\nThree MSW test files that manually mock the ObjectStack API were missing a handler for the new endpoint, causing the client's `connect()` call to throw before any test logic ran. Added the missing handler alongside the existing `/api/v1` mock in:\n\n- `packages/plugin-kanban/src/ObjectKanban.msw.test.tsx`\n- `packages/plugin-calendar/src/ObjectCalendar.msw.test.tsx`\n- `packages/plugin-timeline/src/ObjectTimeline.msw.test.tsx`\n\n```ts\n// Before\nhttp.get(`${BASE_URL}/api/v1`, () =>\n  HttpResponse.json({ status: 'ok', version: '1.0.0' })\n),\n\n// After – add the 4.x discovery endpoint\nhttp.get(`${BASE_URL}/api/v1`, () =>\n  HttpResponse.json({ status: 'ok', version: '1.0.0' })\n),\nhttp.get(`${BASE_URL}/api/v1/discovery`, () =>\n  HttpResponse.json({ status: 'ok', version: '1.0.0' })\n),\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> @objectstack/* 升级到最新版\n\n\n</details>\n\n"
+}

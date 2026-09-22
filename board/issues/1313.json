@@ -1,0 +1,32 @@
+{
+  "number": 1313,
+  "kind": "pull_request",
+  "title": "chore(deps): bump express-rate-limit from 8.4.1 to 8.5.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-11T10:19:16Z",
+  "updated_at": "2026-05-15T11:02:27Z",
+  "closed_at": "2026-05-15T11:02:18Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-05-15T11:02:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1313",
+  "body": "Bumps [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) from 8.4.1 to 8.5.1.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/express-rate-limit/express-rate-limit/releases\">express-rate-limit's releases</a>.</em></p>\n<blockquote>\n<h2>v8.5.1</h2>\n<p>You can view the changelog <a href=\"https://express-rate-limit.mintlify.app/reference/changelog\">here</a>.</p>\n<h2>v8.5.0</h2>\n<p>You can view the changelog <a href=\"https://express-rate-limit.mintlify.app/reference/changelog\">here</a>.</p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/50cc3f6345f603ac2fe4eb646edd7338b9a31fbb\"><code>50cc3f6</code></a> 8.5.1</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/92c8e3efd87b9b9f89092b1f9c8c17ac134c1293\"><code>92c8e3e</code></a> chore: bump ip-address library to latest (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/626\">#626</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/807e383875e93be940493464ea397381fc93942b\"><code>807e383</code></a> 8.5.0</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/b84413793127a1c392738ef26d10ec7a899d9d2d\"><code>b844137</code></a> v8.5.0 changelog</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/ceaffabad1ee435549434b6b933097a938b27abe\"><code>ceaffab</code></a> feat: async store init (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/621\">#621</a>)</li>\n<li>See full diff in <a href=\"https://github.com/express-rate-limit/express-rate-limit/compare/v8.4.1...v8.5.1\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=express-rate-limit&package-manager=npm_and_yarn&previous-version=8.4.1&new-version=8.5.1)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

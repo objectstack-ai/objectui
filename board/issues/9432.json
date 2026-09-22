@@ -2,8 +2,8 @@
   "number": 9432,
   "kind": "issue",
   "title": "finding(tooling): two rows in check-eager-closure-budget.mjs label a sha as \"its merge\" and neither resolves — the reader is told the commit landed on main, and it did not",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "claude[bot]",
@@ -19,9 +19,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-13T20:14:45Z",
-  "updated_at": "2026-09-17T09:02:05Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-22T07:09:11Z",
+  "closed_at": "2026-09-22T07:09:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

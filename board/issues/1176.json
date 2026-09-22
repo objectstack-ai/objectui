@@ -1,0 +1,33 @@
+{
+  "number": 1176,
+  "kind": "pull_request",
+  "title": "Add MetadataService for object/field CRUD persistence and fix grid action buttons",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-02T07:26:14Z",
+  "updated_at": "2026-04-02T08:32:25Z",
+  "closed_at": "2026-04-02T08:32:24Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-02T08:32:24Z",
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1176",
+  "body": "All object and field mutations in ObjectManagerPage only updated local React state — changes were lost on refresh and toast messages falsely indicated success. Additionally, the ObjectManager and FieldDesigner grids rendered as read-only because the underlying `ObjectGrid` requires `schema.operations` to show action buttons.\n\n### New: `MetadataService` (`apps/console/src/services/MetadataService.ts`)\n\n- Wraps `client.meta.saveItem('object', name, data)` for object/field upserts with cache invalidation\n- `saveObject()`, `deleteObject()` (soft-delete via `enabled: false`), `saveFields()` (merges into parent object)\n- Static `diffObjects()` / `diffFields()` — detects create/update/delete from array diffs\n\n### New: `useMetadataService` hook\n\n- Memoised service instance from `useAdapter()` context\n\n### Refactored: `ObjectManagerPage`\n\n- `handleObjectsChange` / `handleFieldsChange` now follow optimistic update → API persist → `refresh()` → rollback on failure\n- Saving indicators via `Loader2` spinner\n- Toast messages reflect actual operation (\"Object X created/updated/deleted\") with error details on failure\n\n```tsx\n// Before: local-only, misleading toast\nconst handleObjectsChange = useCallback((updated: ObjectDefinition[]) => {\n  setLocalObjects(updated);\n  toast.success('Object definitions updated'); // lies\n}, []);\n\n// After: optimistic update → API → refresh → rollback\nconst handleObjectsChange = useCallback(async (updated: ObjectDefinition[]) => {\n  const previous = prevObjectsRef.current;\n  setLocalObjects(updated); // optimistic\n  try {\n    const diff = MetadataService.diffObjects(previous, updated);\n    if (diff?.type === 'delete') await metadataService.deleteObject(diff.object.name);\n    else if (diff) await metadataService.saveObject(diff.object);\n    await refresh();\n    toast.success(`Object \"${diff.object.label || diff.object.name}\" ${diff.type}d`);\n  } catch (err) {\n    setLocalObjects(previous); // rollback\n    toast.error(err?.message || 'Failed to save');\n  }\n}, [metadataService, refresh]);\n```\n\n### Fixed: Read-only grid in ObjectManager & FieldDesigner (`@object-ui/plugin-designer`)\n\nThe `ObjectGrid` component requires `schema.operations` to render action buttons (add/edit/delete). Without this property, the grid renders as read-only regardless of callback props like `onEdit`/`onDelete`/`onAddRecord`. This was masked in unit tests because the mock `ObjectGrid` renders buttons based on callback props alone.\n\n- Added `operations: readOnly ? undefined : { create: true, update: true, delete: true }` to grid schemas in both `ObjectManager.tsx` and `FieldDesigner.tsx`\n\n### Fixed: Duplicate action column with dead buttons in ObjectGrid (`@object-ui/plugin-grid`)\n\nWhen `schema.operations` was set, `ObjectGrid` rendered **two** action columns:\n\n1. **RowActionMenu column** — a ⋮ dropdown with Edit/Delete, properly wired to `onEdit`/`onDelete` callback props ✅\n2. **DataTable's built-in `rowActions` column** — inline Edit/Delete buttons calling `schema.onRowEdit`/`schema.onRowDelete`, which ObjectGrid never sets ❌\n\nUsers clicking the prominent inline DataTable buttons saw no response. Fixed by changing `rowActions: hasActions` to `rowActions: !!(schema.editable && hasActions)` — DataTable's built-in action column is now only enabled for inline-editable grids. The RowActionMenu column properly handles all CRUD actions.\n\n### Refactored: FieldDesigner modal dialog for add/edit (`@object-ui/plugin-designer`)\n\nReplaced the inline `FieldEditor` panel (rendered below the grid) with a proper `ModalForm` dialog, matching the `ObjectManager` pattern. Add Field and Edit Field now open a modal with all field properties (name, label, type, group, description, toggles for required/unique/readonly/hidden/indexed/externalId/trackHistory, default value, placeholder, referenceTo, formula). This provides a consistent, professional UX across both object and field management.\n\n<img src=\"https://github.com/user-attachments/assets/42c52c8b-218d-4f05-9ac0-1649e7250295\">\n\n<img src=\"https://github.com/user-attachments/assets/6716aed0-e309-481a-be81-7bc3047bfc5d\">\n\n### Tests\n\n- 16 new `MetadataService` unit tests (save, delete, field merge, diff detection)\n- 2 new `ObjectManagerPage` API integration tests\n- 19 FieldDesigner tests updated for modal-based create/edit/cancel flows\n- Full console suite passes (59 files, 788 tests)\n- All 282 plugin-grid tests pass\n- All 241 plugin-designer tests pass"
+}

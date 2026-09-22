@@ -1,0 +1,33 @@
+{
+  "number": 1126,
+  "kind": "issue",
+  "title": "Global: Standardize List Refresh After Mutation (addRecord/create/update/delete) Across All ObjectUI Scenarios",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-25T06:23:46Z",
+  "updated_at": "2026-03-25T12:48:01Z",
+  "closed_at": "2026-03-25T12:48:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1126",
+  "body": "\nAfter thorough code analysis of the entire ObjectUI codebase, I identified this as a **platform-level architectural design deficiency**, not just a single bug. Here's the complete assessment:\n\n### 5 Root Causes Identified\n\n| # | Root Cause | Affected Packages | Severity |\n|---|---|---|---|\n| 1 | **No unified event-driven refresh model** — `DataSource.create/update/delete` completes silently; no active views are notified | `@object-ui/types`, all consumers | 🔴 Critical |\n| 2 | **ListView lacks imperative `refresh()` API** — `onAddRecord` is fire-and-forget, parent cannot signal re-fetch | `plugin-list` | 🔴 Critical |\n| 3 | **refreshKey not propagated** — `ObjectView.handleFormSuccess` increments its own `refreshKey`, but `renderListView` renders a `ListView` with an independent `refreshKey` | `plugin-view` ↔ `plugin-list` | 🔴 Critical |\n| 4 | **Schema-level `refreshAfter` not universally honored** — only works in `RecordDetailView` actions, not in addRecord, bulk ops, lookup quick-create, etc. | `plugin-view`, `plugin-detail`, `plugin-list` | 🟡 High |\n| 5 | **Duplicated manual fetchData/setRefreshKey boilerplate** — User, Org, Role, Permission pages each hand-roll their own refresh logic | `apps/console` | 🟡 Medium |\n\n### 3-Phase Solution Proposed\n\n| Phase | Scope | Key Deliverables |\n|---|---|---|\n| **P0 — Immediate Fix** | Pass `refreshKey` through `renderListView` → `ListView` + add `refreshTrigger` prop | Fixes the reported bug |\n| **P1 — Imperative API** | `ListView` exposes `ref.refresh()` via `forwardRef` + `useImperativeHandle`; abstract `useListRefresh` hook | Any parent can trigger refresh |\n| **P2 — Event Bus** | `DataSource.onMutation()` subscription; all views auto-refresh on relevant object mutations | Salesforce/Retool/Airtable parity |\n\n### Industry References\n\nThe issue includes design comparisons with:\n- **Salesforce Lightning** — `refreshApex` / `force:refreshView` event bus\n- **Retool** — `query.trigger()` invalidation\n- **Appsmith** — `onSuccess → listQuery.run()` action chaining  \n- **Airtable** — Optimistic insert + server-confirm sync"
+}

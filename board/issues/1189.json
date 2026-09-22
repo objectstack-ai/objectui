@@ -1,0 +1,35 @@
+{
+  "number": 1189,
+  "kind": "issue",
+  "title": "完善对象管理功能（对标 Power Apps 模式）：页面结构、通用组件与详情能力升级",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-07T05:18:41Z",
+  "updated_at": "2026-04-07T06:10:19Z",
+  "closed_at": "2026-04-07T06:10:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1189",
+  "body": "## 背景\n目前 ObjectManagerPage 和 MetadataManagerPage 存在分离。结合 Power Apps 的最佳实践，建议：\n- 列表页可以采用统一的专业表格（Grid）组件\n- 详情页必须保持高专用性，并逐步增强（如数据体验、关系/表单/视图设计等）\n\n## 开发细节清单\n\n### 1. 通用 Grid 组件与列表页面结构升级\n- [ ] **提取/封装 ObjectGrid 组件**，使其可被不同元数据类型列表页复用（如 MetadataManagerPage、ObjectManagerPage）。\n- [ ] 新增/升级 MetadataManagerPage 支持通过 `listMode: 'grid'` 切换到专业 Grid 展示。\n- [ ] `metadataTypeRegistry` 增加列表显示模式配置（可选 'card'/'grid'/'table'）。\n- [ ] 保持 ObjectManagerPage 专用路由（`/system/objects`）不变。\n\n### 2. Object 详情页功能对标 Power Apps\n- [ ] **丰富 ObjectDetailView 区块**：\n    - 对象属性卡片（已有）\n    - 字段（FieldDesigner，已有）\n    - 关系管理区块（可编辑、一对多/多对一、badge 样式）\n    - 键管理区块（支持查看/添加唯一键、主键）\n    - 子版块区块卡片：数据体验（如窗体、视图、仪表板）— 可预留 UI 箱体，暂不实现内容\n- [ ] 支持 inline 数据预览 Grid（对标 Power Apps 下方的数据样例 grid）\n- [ ] 优化字段编辑的交互（如批量增删、拖拽排序、系统字段不可编辑提示）\n- [ ] 路由兼容 `/system/objects/:objectName` 直达详情\n\n### 3. 通用详情与表单区块拆分\n- [ ] MetadataDetailPage 按类型支持详情区块动态注入，Object 类型总是跳转专用 ObjectDetailView\n- [ ] MetadataFormDialog 支持更丰富的字段类型（number、boolean、select），配置来源于 registry\n\n### 4. 技术债与重复 util 优化\n- [ ] 统一 icon 解析工具（resolveIconType），避免 ICON_MAP 重复\n- [ ] 提取 toObjectDefinition/toFieldDefinition 到 util/metadataConverters.ts，供所有页面共用\n- [ ] MetadataProvider 内的类型/数据结构支持 Registry 配置动态扩展\n\n### 5. 文档与测试\n- [ ] Storybook 增加不同列表模式（card/grid）与详情区块的示例页\n- [ ] 补充测试用例：核心渲染逻辑、关系/键/inline grid 组件单测\n- [ ] 路由兼容性回归测试\n\n## 参考\n- [Power Apps 表列表与详情截图见 issue 图片]\n\n<img width=\"1926\" height=\"1162\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/7dd1e103-e56b-4826-afea-041b5e3fd20a\" />\n<img width=\"1926\" height=\"1162\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/a3c25a45-04f3-4bb3-9c85-6ca631abb3cb\" />\n\n- Salesforce Setup Object Manager 核心页面设计原则\n\n"
+}

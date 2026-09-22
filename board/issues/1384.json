@@ -1,0 +1,33 @@
+{
+  "number": 1384,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fumadocs-core from 16.8.11 to 16.9.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-25T11:29:59Z",
+  "updated_at": "2026-05-25T11:41:04Z",
+  "closed_at": "2026-05-25T11:37:57Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-05-25T11:37:57Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1384",
+  "body": "Bumps [fumadocs-core](https://github.com/fuma-nama/fumadocs) from 16.8.11 to 16.9.1.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/fuma-nama/fumadocs/releases\">fumadocs-core's releases</a>.</em></p>\n<blockquote>\n<h2>fumadocs-core@16.9.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>e77b9b3: Introduce <code>pagesIndex</code> property to explicitly define the index page for folder</li>\n<li>334c8fd: [i18n] support different orders of <code>preset()</code> calls</li>\n</ul>\n<h2>fumadocs-core@16.8.12</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>768b676: Standardize <code>structuredData</code> in page data</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/4aa30828a14af31d5dc31fcccf0419159badaf39\"><code>4aa3082</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3301\">#3301</a> from fuma-nama/changeset-release/dev</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/e77b9b3dea6e6071b72ab558382b046d7f78e10b\"><code>e77b9b3</code></a> feat(core): Introduce <code>pagesIndex</code> property to explicitly define the index pa...</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/dca5b4992926dcde9f204490a28799bb9b6f8a8c\"><code>dca5b49</code></a> fix(mdx): fix compatibility with <code>?raw</code> query string</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/334c8fd19014eeae36cafb38ce8794818ce95083\"><code>334c8fd</code></a> feat(core): support different orders of <code>preset()</code> calls</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/bbf936c0203869affd855293f1a44850c8b90620\"><code>bbf936c</code></a> docs: introduce i18n support for story</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/07a06b41a7b00c31b909adca8011217dbecdae5a\"><code>07a06b4</code></a> chore: use Waku for stackblitz example</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/97c9ad305e8a61576b25b724e56272f7b85bee73\"><code>97c9ad3</code></a> Version Packages</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/da4d897c8d9357d574eebdc1fa9ac92e382ad9a0\"><code>da4d897</code></a> fix CI</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/5a5e5c8a504f3673ee5174c347f8cf2226ce6d13\"><code>5a5e5c8</code></a> add separate example for demo</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/e4710be8663c7f1695a30efbf6f42e8a2cbf7fec\"><code>e4710be</code></a> Docs: introduce new i18n API</li>\n<li>Additional commits viewable in <a href=\"https://github.com/fuma-nama/fumadocs/compare/fumadocs-core@16.8.11...fumadocs-core@16.9.1\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

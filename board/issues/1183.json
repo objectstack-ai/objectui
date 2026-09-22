@@ -1,0 +1,45 @@
+{
+  "number": 1183,
+  "kind": "pull_request",
+  "title": "fix(ts6): resolve empty DTS output and console build failures across monorepo",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "examples",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-06T08:09:58Z",
+  "updated_at": "2026-04-08T08:24:56Z",
+  "closed_at": "2026-04-08T08:24:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-08T08:24:47Z",
+  "comments": 16,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1183",
+  "body": "TypeScript 6's stricter rootDir inference caused `vite-plugin-dts` to emit `export {}` for every package whose tsconfig extends the root — which maps workspace packages to their source dirs via `paths`. TS6 inferred rootDir must encompass all cross-package source files, conflicting with `include: ['src']`, producing TS6059 → empty declarations → TS2305 in the console build.\n\n## DTS rootDir fix (23 packages)\n\nAll `vite.config.ts` files with a `dts()` call now pass an explicit absolute rootDir:\n\n```ts\ndts({\n  insertTypesEntry: true,\n  compilerOptions: { rootDir: resolve(__dirname, '../..') }, // workspace root\n  include: ['src'],\n})\n```\n\nAffected packages: `components`, `fields`, `layout`, `plugin-aggrid`, `plugin-ai`, `plugin-calendar`, `plugin-charts`, `plugin-chatbot`, `plugin-dashboard`, `plugin-designer`, `plugin-detail`, `plugin-editor`, `plugin-form`, `plugin-gantt`, `plugin-grid`, `plugin-kanban`, `plugin-list`, `plugin-map`, `plugin-markdown`, `plugin-report`, `plugin-timeline`, `plugin-view`, `plugin-workflow`.\n\n> Note: relative `'../../'` works for non-`composite` packages but triggers an internal TS6 assertion (`Paths must either both be absolute or both be relative`) when `composite: true` is set — hence the `resolve(__dirname, '../..')` absolute form.\n\n## `apps/console` plugin build (TS2591 / TS2882)\n\n- `plugin.ts`: changed `'url'` / `'path'` → `'node:url'` / `'node:path'` — TS6 `nodenext` module resolution requires the `node:` prefix for built-in modules\n- `tsconfig.plugin.json`: added `\"types\": [\"node\"]` so Node.js globals are available to `tsc -p tsconfig.plugin.json`\n\n## `examples/msw-todo` (TS2882)\n\n- Added `src/vite-env.d.ts` (`/// <reference types=\"vite/client\" />`) — provides the CSS module declarations that TS6 now requires for side-effect CSS imports\n- Added `allowArbitraryExtensions: true` to `tsconfig.json`"
+}

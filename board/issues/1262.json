@@ -1,0 +1,37 @@
+{
+  "number": 1262,
+  "kind": "pull_request",
+  "title": "feat: extract core providers and hooks to @object-ui/app-shell",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [
+    "Claude",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-21T17:09:38Z",
+  "updated_at": "2026-04-22T09:23:02Z",
+  "closed_at": "2026-04-22T09:23:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-22T09:23:02Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1262",
+  "body": "Extracts reusable console infrastructure from `apps/console` into `@object-ui/app-shell`, enabling third-party projects to build custom consoles with ~200 lines instead of 34k lines.\n\n## Extracted Components\n\n**Providers** (data layer infrastructure):\n- `AdapterProvider` + `useAdapter` - ObjectStack adapter connection management\n- `MetadataProvider` + `useMetadata` - Lazy-loading metadata cache (apps, objects, dashboards, reports, pages)\n- `ExpressionProvider` + `useExpressionContext` - Expression evaluation context for dynamic visibility/disabled conditions\n\n**Hooks** (application logic):\n- `useObjectActions` - CRUD operation handlers (create, delete, navigate, refresh)\n- `useRecentItems` - Recently visited items tracking with localStorage persistence\n\n## Package Structure\n\n```\n@object-ui/app-shell/\n├── components/       # UI renderers (existing)\n├── providers/        # Core providers (new)\n│   ├── AdapterProvider.tsx\n│   ├── MetadataProvider.tsx\n│   └── ExpressionProvider.tsx\n└── hooks/           # Common hooks (new)\n    ├── useObjectActions.ts\n    └── useRecentItems.ts\n```\n\n## Usage Example\n\nThird-party projects can now compose a custom console:\n\n```typescript\nimport { \n  AdapterProvider, \n  MetadataProvider, \n  ExpressionProvider,\n  useRecentItems,\n  useObjectActions \n} from '@object-ui/app-shell';\n\nfunction CustomConsole() {\n  return (\n    <AdapterProvider>\n      <MetadataProvider>\n        <ExpressionProvider user={user} app={app}>\n          <YourCustomLayout />\n        </ExpressionProvider>\n      </MetadataProvider>\n    </AdapterProvider>\n  );\n}\n```\n\n## Changes\n\n- **Added** providers and hooks directories to `@object-ui/app-shell`\n- **Updated** `package.json` dependencies: added `@object-ui/auth`, `@object-ui/data-objectstack`, `sonner`, `react-router-dom` (peer)\n- **Updated** TypeScript project references to include new workspace dependencies\n- **Migrated** all console imports from local paths to `@object-ui/app-shell` package (20+ files)\n- **Fixed** import paths to use `@object-ui/data-objectstack` instead of local `dataSource` module\n\n## Breaking Changes\n\nNone. Console continues to work identically, now importing from `@object-ui/app-shell` instead of local context/hooks directories."
+}

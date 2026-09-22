@@ -1,0 +1,33 @@
+{
+  "number": 1198,
+  "kind": "issue",
+  "title": "[UI/UX] 重构全局侧边栏：实现 Airtable 风格的上下文动态导航",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Claude",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-09T07:45:22Z",
+  "updated_at": "2026-04-09T09:11:00Z",
+  "closed_at": "2026-04-09T09:11:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1198",
+  "body": "\n\n#### 🚨 现状与痛点 (The Problem)\n目前系统的导航布局存在明显的割裂感：\n1. **上下文丢失：** 首页（Home）采用全屏 Hub 模式无侧边栏，而进入具体应用（如 CRM）后出现左侧边栏。用户在切换时视觉跳跃感强，缺乏稳定的全局导航锚点。\n2. **核心操作区不一致：** `User Profile` 和 `Settings` 在 Home 页位于右上角，而在 App 内位于侧边栏左下角，破坏了用户的肌肉记忆。\n\n#### 💡 解决方案 (Proposed Solution)\n参考 Airtable 现有的导航架构，将应用重构为 **统一常驻侧边栏 (Unified Contextual Sidebar)** 模式。\n侧边栏的物理容器在整个应用生命周期中保持常驻，但其内部承载的导航菜单根据当前路由（Home vs App）进行动态切换。\n\n#### 🛠️ 核心设计规范 (Design Specs)\n\n**1. 侧边栏上下文切换逻辑**\n*   **全局 Home 态：** \n    *   顶部：显示当前 Workspace 名称或 Logo。\n    *   菜单栏：显示全局导航，如 `Home`, `All Apps`, `Recent`, `My Tasks`。\n*   **具体 App 态（例如进入 CRM）：**\n    *   顶部：提供一个明确的返回入口，如 `< Back to Home` 或点击顶部 Workspace 名字下拉切换。\n    *   菜单栏：平滑切换为该 App 的元数据菜单（如 Dashboard, Sales, Reports）。\n\n**2. 全局锁定区域 (Pinned Bottom Area)**\n*   无论处于 Home 还是 App 态，侧边栏的最下方区域**永远锁定**：\n    *   `Global Settings` (设置)\n    *   `Help & Documentation` (帮助文档)\n    *   `User Profile / Avatar` (用户头像及账户菜单)\n*   *注：需移除原 Home 页右上角的个人头像和设置按钮。*\n\n**3. 顶部 Header 净化**\n*   由于侧边栏已承担页面级上下文，剥离 Home 页顶部的冗余标题和面包屑。\n*   顶部 Header 区域统一留给全局搜索框（Command Palette）以及页面级的核心 Call-to-Action 按钮（如新建对象）。\n\n#### ✅ 任务拆解 (Task Breakdown)\n- [ ] **Layout 架构重构:** 将 `Sidebar` 组件提升至全局 `RootLayout` 级别，确保在页面切换时侧边栏容器不卸载（避免闪烁）。\n- [ ] **状态管理:** 实现一个 Layout Context 或 Store，根据当前路由（Route）判断应用处于 `Home` 还是 `App` 上下文，并传入对应的 Menu 数据。\n- [ ] **迁移右侧组件:** 将原 Home 页面右上角的 `User Profile` 和 `Settings` 迁移至全局 `Sidebar` 的底部。\n- [ ] **Home 页 UI 适配:** 移除 Home 页面原有的顶部 Navbar 元素，主内容区向左对齐适配新的全局侧边栏宽度。\n- [ ] **交互动效优化:** 确保从 Home 进入 App 时，侧边栏菜单项的切换有平滑的过渡动画（Fade / Slide）。\n- [ ] 需要考虑避免影响登录页面\n\n#### 🔗 参考 (References)\n*   交互体验参考：**Airtable** Workspace 及 Base 内的导航切换逻辑。\n*   视觉风格：保持现有的极简 / Linear 风格，选中状态继续沿用淡灰底色高亮。\n\n#### 现状\n<img width=\"1926\" height=\"1162\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/4015b9f2-97d5-4e18-968a-eaa7676f7f7c\" />\n<img width=\"1926\" height=\"1162\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/0601e27b-ec9a-4657-a377-b0ccd3fb9bbc\" />"
+}

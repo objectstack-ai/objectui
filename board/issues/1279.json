@@ -1,0 +1,33 @@
+{
+  "number": 1279,
+  "kind": "pull_request",
+  "title": "fix(fields): await async data load in renderGrid slot test + fix Vercel build",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-04T00:16:51Z",
+  "updated_at": "2026-05-04T00:28:43Z",
+  "closed_at": "2026-05-04T00:28:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-05-04T00:28:43Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1279",
+  "body": "`RecordPickerDialog` renderGrid slot test was flaky because it asserted on all `renderGrid` calls including the initial render (empty state before async fetch resolves).\n\n- Changed `toHaveBeenCalledWith` → `toHaveBeenLastCalledWith` inside `waitFor` to assert on the post-fetch render\n- Split function-type prop checks into separate assertions on the last call args to avoid `Any<Function>` matcher issues\n- Removed non-existent `pnpm msw:init` step from `apps/console/vercel.json` buildCommand that caused Vercel deployment failures (exit code 254). Since the deploy uses `VITE_USE_MOCK_SERVER=false` (server mode), MSW initialization is unnecessary.\n\n```ts\n// Before: fails because first call has records: [], totalCount: 0\nexpect(renderGrid).toHaveBeenCalledWith(\n  expect.objectContaining({ records: expect.arrayContaining([...]) })\n);\n\n// After: waits for data-loaded render\nawait waitFor(() => {\n  expect(renderGrid).toHaveBeenLastCalledWith(\n    expect.objectContaining({ records: expect.arrayContaining([...]), loading: false })\n  );\n});\n```"
+}

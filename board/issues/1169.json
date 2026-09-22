@@ -1,0 +1,33 @@
+{
+  "number": 1169,
+  "kind": "pull_request",
+  "title": "Implement unified Home Dashboard for multi-app workspace overview",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-01T09:19:53Z",
+  "updated_at": "2026-04-01T09:37:31Z",
+  "closed_at": "2026-04-01T09:29:38Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-01T09:29:38Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1169",
+  "body": "Replaces direct-to-app redirect behavior with a centralized workspace landing page displaying all applications, quick actions, and recent activity. Follows Airtable/Notion UX patterns.\n\n## Implementation\n\n**Route & Navigation**\n- Added `/home` route with lazy-loaded `HomePage` component\n- Updated `RootRedirect` to navigate to `/home` instead of first available app\n- Integrated with existing `AuthGuard`, `MetadataProvider`, and `ConnectedShell`\n\n**Home Dashboard Components**\n- `HomePage` — Main landing page with responsive grid layouts\n- `QuickActions` — Cards for Create App, Manage Objects, System Settings\n- `AppCard` — App display with icon, description, branding colors, favorite toggle\n- `RecentApps` — Last 6 accessed items via `useRecentItems` hook\n- `StarredApps` — User favorites via `useFavorites` hook\n- Empty state with \"Create First App\" and \"System Settings\" CTAs\n\n**Shared Utilities**\n- Extracted `getIcon()` from `CommandPalette` to `utils/getIcon.ts` for Lucide icon resolution\n\n## Structure\n\n```tsx\n// Root path now redirects to home\n<Route path=\"/\" element={\n  <ConnectedShell>\n    <RootRedirect /> {/* Navigate to=\"/home\" */}\n  </ConnectedShell>\n} />\n\n// Home dashboard route\n<Route path=\"/home\" element={\n  <AuthGuard fallback={<Navigate to=\"/login\" />}>\n    <ConnectedShell>\n      <HomePage />\n    </ConnectedShell>\n  </AuthGuard>\n} />\n```\n\n## User Flow Changes\n\n**Before:** Login → auto-redirect to first/default app → no workspace overview  \n**After:** Login → `/home` workspace dashboard → user selects app"
+}

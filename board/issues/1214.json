@@ -1,0 +1,37 @@
+{
+  "number": 1214,
+  "kind": "pull_request",
+  "title": "chore(deps): bump lucide-react from 1.7.0 to 1.8.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "plugin",
+    "plugin: charts",
+    "plugin: kanban"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-13T08:33:17Z",
+  "updated_at": "2026-04-13T08:41:22Z",
+  "closed_at": "2026-04-13T08:38:14Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-04-13T08:38:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1214",
+  "body": "[//]: # (dependabot-start)\n⚠️  **Dependabot is rebasing this PR** ⚠️ \n\nRebasing might not happen immediately, so don't worry if this takes some time.\n\nNote: if you make any changes to this PR yourself, they will take precedence over the rebase.\n\n---\n\n[//]: # (dependabot-end)\n\nBumps [lucide-react](https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react) from 1.7.0 to 1.8.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/lucide-icons/lucide/releases\">lucide-react's releases</a>.</em></p>\n<blockquote>\n<h2>Version 1.8.0</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>docs(packages/angular): add packageDirname for <code>@​lucide/angular</code> by <a href=\"https://github.com/rhutchison\"><code>@​rhutchison</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4211\">lucide-icons/lucide#4211</a></li>\n<li>chore(icons): Username change knarlix to RajnishKMehta by <a href=\"https://github.com/RajnishKMehta\"><code>@​RajnishKMehta</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4208\">lucide-icons/lucide#4208</a></li>\n<li>ci(<code>@​lucide/angular</code>): Fix publishing problem by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4213\">lucide-icons/lucide#4213</a></li>\n<li>docs: fix broken links in pull_request_template.md (got 404 page) by <a href=\"https://github.com/whoisBugsbunny\"><code>@​whoisBugsbunny</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4224\">lucide-icons/lucide#4224</a></li>\n<li>fix(lucide-static): add viewBox to sprite symbol elements by <a href=\"https://github.com/TomaTV\"><code>@​TomaTV</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4223\">lucide-icons/lucide#4223</a></li>\n<li>docs: Fix link to icon design principles in statement by <a href=\"https://github.com/whoisBugsbunny\"><code>@​whoisBugsbunny</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4225\">lucide-icons/lucide#4225</a></li>\n<li>feat(docs): add Zephyr Cloud to Hero Backers tier by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4226\">lucide-icons/lucide#4226</a></li>\n<li>fix(icons): fixes gap issues in radio-off.svg by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4227\">lucide-icons/lucide#4227</a></li>\n<li>fix(icons): renamed <code>text-select</code> to <code>square-dashed-text</code> by <a href=\"https://github.com/jguddas\"><code>@​jguddas</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/3943\">lucide-icons/lucide#3943</a></li>\n<li>fix(docs): improve mobile layout of v1 banner by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4254\">lucide-icons/lucide#4254</a></li>\n<li>fix(<code>@​lucide/svelte</code>): aria-hidden=&quot;true&quot; was never set by <a href=\"https://github.com/blt-r\"><code>@​blt-r</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4234\">lucide-icons/lucide#4234</a></li>\n<li>fix(icons): remove ui/ux tag from heart-minus, add delete instead by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4266\">lucide-icons/lucide#4266</a></li>\n<li>chore(deps-dev): bump vite from 7.3.1 to 7.3.2 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4276\">lucide-icons/lucide#4276</a></li>\n<li>chore(deps): bump lodash-es from 4.17.23 to 4.18.1 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4251\">lucide-icons/lucide#4251</a></li>\n<li>chore(deps): bump vite from 5.4.21 to 6.4.2 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4286\">lucide-icons/lucide#4286</a></li>\n<li>feat(docs): use <code>initOnMounted: true</code> for <code>useSessionStorage</code> in <code>CarbonAdOverlay</code> by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4275\">lucide-icons/lucide#4275</a></li>\n<li>feat(icons): added <code>bookmark-off</code> icon by <a href=\"https://github.com/ZeenatLawal\"><code>@​ZeenatLawal</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4283\">lucide-icons/lucide#4283</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/rhutchison\"><code>@​rhutchison</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4211\">lucide-icons/lucide#4211</a></li>\n<li><a href=\"https://github.com/whoisBugsbunny\"><code>@​whoisBugsbunny</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4224\">lucide-icons/lucide#4224</a></li>\n<li><a href=\"https://github.com/TomaTV\"><code>@​TomaTV</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4223\">lucide-icons/lucide#4223</a></li>\n<li><a href=\"https://github.com/blt-r\"><code>@​blt-r</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4234\">lucide-icons/lucide#4234</a></li>\n<li><a href=\"https://github.com/ZeenatLawal\"><code>@​ZeenatLawal</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4283\">lucide-icons/lucide#4283</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/lucide-icons/lucide/compare/1.7.0...1.8.0\">https://github.com/lucide-icons/lucide/compare/1.7.0...1.8.0</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/lucide-icons/lucide/commit/7623e23f787fe78e5075a613fd22da2cecbb9b1b\"><code>7623e23</code></a> feat(docs): add Zephyr Cloud to Hero Backers tier &amp; rework updateSponsors scr...</li>\n<li>See full diff in <a href=\"https://github.com/lucide-icons/lucide/commits/1.8.0/packages/lucide-react\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

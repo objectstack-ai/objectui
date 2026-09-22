@@ -1,0 +1,33 @@
+{
+  "number": 1298,
+  "kind": "pull_request",
+  "title": "chore: add patch changeset for 4.0.2 release",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-08T07:23:53Z",
+  "updated_at": "2026-05-08T07:24:30Z",
+  "closed_at": "2026-05-08T07:24:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-05-08T07:24:30Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1298",
+  "body": "Adds the changeset file to trigger a `4.0.1 → 4.0.2` patch bump across all 39 packages in the `fixed` group, and promotes the accumulated `[Unreleased]` CHANGELOG entries to `[4.0.2]`.\n\n## Changes\n\n- **`.changeset/patch-release-4-0-2.md`** — marks every package in the `fixed` group as `patch`; `changeset version` will rewrite all `package.json` versions atomically\n- **`CHANGELOG.md`** — `[Unreleased]` promoted to `[4.0.2] - 2026-05-08`; fresh empty `[Unreleased]` placeholder left above it\n\n## Covered in this patch\n\n- `editMode: 'page'` record forms + `navigate_create` / `navigate_edit` actions (`@object-ui/app-shell`, `@object-ui/types`)\n- `ComponentRegistry` singleton leak in `plugin-list` / `plugin-detail` dist builds (all `@object-ui/*` deps externalised)\n- `CreateViewDialog` `existingSet` memo churn fix\n- CI: jsdom hex color tolerance in `ReportViewer` test; i18n mock shape fix in `ObjectView` test\n\n## To release\n\n```bash\npnpm changeset:version   # consumes changeset, bumps package.json files\npnpm build\npnpm changeset:publish   # publishes to npm\n```"
+}

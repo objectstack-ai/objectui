@@ -1,0 +1,36 @@
+{
+  "number": 1240,
+  "kind": "pull_request",
+  "title": "Fix fumadocs-mdx postinstall esbuild entry point error",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [
+    "Claude",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-15T02:21:07Z",
+  "updated_at": "2026-04-15T03:08:10Z",
+  "closed_at": "2026-04-15T03:05:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-15T03:05:54Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1240",
+  "body": "The `apps/site` postinstall script failed with esbuild error: `\"The entry point 'source.config.ts' cannot be marked as external\"`.\n\n## Changes\n\n- Upgraded `fumadocs-mdx` from `14.2.13` to `14.2.14` in `apps/site/package.json`\n\nVersion 14.2.14 (released 2026-04-14) includes bundling fixes that resolve the external entry point issue present in 14.2.13."
+}

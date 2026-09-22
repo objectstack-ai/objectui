@@ -1,0 +1,33 @@
+{
+  "number": 706,
+  "kind": "issue",
+  "title": "UI 实现：Airtable 风格的 Comments & Activity Timeline 渲染组件",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-21T12:43:45Z",
+  "updated_at": "2026-03-31T06:51:57Z",
+  "closed_at": "2026-03-31T06:51:57Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/706",
+  "body": "\n\n### 背景\n\n`@objectstack/spec` 协议层已在 [objectstack-ai/spec#731](https://github.com/objectstack-ai/spec/issues/731) 中**完成了所有 Feed/Comment/Chatter 协议的定义**，包括：\n\n- ✅ `FeedItemSchema` / `MentionSchema` / `ReactionSchema` / `FieldChangeEntrySchema` 数据模型 (`src/data/feed.zod.ts`)\n- ✅ `RecordSubscriptionSchema` 通知订阅协议 (`src/data/subscription.zod.ts`)\n- ✅ `RecordActivityProps` 增强版（unifiedTimeline, filterMode, commentInput, mentions, reactions, threading, subscriptionToggle）\n- ✅ `RecordChatterProps` 完整定义（替代原来的 EmptyProps）— position/width/collapsible/feed\n- ✅ `IFeedService` 服务契约 + Client SDK `feed.*` 命名空间\n- ✅ Feed CRUD / Reactions / Subscribe API 端点约定\n- ✅ 完整测试覆盖（feed.test.ts, subscription.test.ts, client.feed.test.ts, protocol-feed.test.ts）\n\n**当前 ObjectUI 缺失的是这些协议的 React 渲染实现。**\n\n### 目标\n\n实现 Airtable/Salesforce 风格的 Activity Feed 侧边面板 UI 组件，消费 `@objectstack/spec` 中已定义的 Feed/Chatter 协议。\n\n### 参考截图\n\n对标 Airtable 的右侧 Activity 面板（评论 + 字段变更历史 + @Mentions + 通知订阅铃铛）\n\n### 开发任务\n\n#### P0 — 核心组件\n\n- [ ] **`RecordActivityTimeline` 组件** — 统一时间线渲染器\n  - 根据 `FeedItemType` 渲染不同样式的 feed item（comment / field_change / task / event / system 等）\n  - 支持 `unifiedTimeline` 模式：评论与字段变更混排（Airtable 风格）\n  - 支持 `filterMode` 切换：all / comments_only / changes_only / tasks_only 下拉过滤\n  - 支持分页加载（`limit` + cursor/hasMore）\n  - Actor 头像 + 名称 + 来源 + 时间戳显示\n\n- [ ] **`RecordChatterPanel` 组件** — 侧边/行内/抽屉面板\n  - 消费 `RecordChatterProps` 协议（position: sidebar/inline/drawer, width, collapsible, defaultCollapsed）\n  - 内嵌 `RecordActivityTimeline` 作为 `feed` 子配置\n  - 可折叠/展开\n\n- [ ] **`CommentInput` 组件** — 评论输入框\n  - 底部 \"Leave a comment\" 富文本输入\n  - 调用 `client.feed.create()` 提交评论\n  - 支持 Markdown 基本格式\n\n- [ ] **`FieldChangeItem` 组件** — 字段变更历史条目\n  - 渲染 `FieldChangeEntrySchema`：字段名 → 旧值 → 新值\n  - 支持 `oldDisplayValue` / `newDisplayValue` 人类可读展示\n\n#### P1 — @Mention & 通知\n\n- [ ] **`MentionAutocomplete` 组件** — @提及自动完成\n  - 在 CommentInput 中输入 `@` 时弹出用户/团队搜索下拉\n  - 生成 `MentionSchema` 数据（type, id, name, offset, length）\n  - 渲染已插入的 mention 为高亮链接\n\n- [ ] **`SubscriptionToggle` 组件** — 铃铛订阅开关\n  - 消费 `RecordSubscriptionSchema`\n  - 调用 `client.feed.subscribe()` / `client.feed.unsubscribe()`\n  - 铃铛图标 + active/inactive 状态\n\n#### P2 — Reactions & Threading\n\n- [ ] **`ReactionPicker` 组件** — Emoji 反应选择器\n  - 显示已有 reactions（emoji + count）\n  - 点击添加/移除 reaction\n  - 调用 `client.feed.addReaction()` / `client.feed.removeReaction()`\n\n- [ ] **`ThreadedReplies` 组件** — 评论回复线程\n  - 根据 `parentId` / `replyCount` 展示回复折叠\n  - 点击展开子评论\n\n#### P3 — 增强\n\n- [ ] **Comment 编辑/删除** — 已有评论的 edit/delete 操作\n- [ ] **文件附件** — 评论中附加文件\n- [ ] **富文本渲染** — Markdown body 渲染为 HTML\n\n### 技术方案\n\n- 组件放置位置建议：`packages/plugin-detail/` 或新建 `packages/plugin-feed/`\n- 使用 Shadcn UI + Tailwind CSS 实现\n- 通过 `@objectstack/client-react` hooks 调用 Feed API\n- 消费 `@objectstack/spec` 中的 Zod Schema 进行类型推导\n\n### 协议参考\n\n| 协议文件 | 位置 | 说明 |\n|:---|:---|:---|\n| `FeedItemSchema` | `@objectstack/spec` → `src/data/feed.zod.ts` | Feed 数据模型 |\n| `RecordSubscriptionSchema` | `@objectstack/spec` → `src/data/subscription.zod.ts` | 通知订阅 |\n| `RecordActivityProps` | `@objectstack/spec` → `src/ui/component.zod.ts` L94-119 | Activity 组件配置 |\n| `RecordChatterProps` | `@objectstack/spec` → `src/ui/component.zod.ts` L121-134 | Chatter 面板配置 |\n| `IFeedService` | `@objectstack/spec` → contracts | 服务契约接口 |\n| Client SDK | `@objectstack/client` → `feed.*` | API 调用层 |\n\n### 关联\n\n- 上游协议 Issue: [objectstack-ai/spec#731](https://github.com/objectstack-ai/spec/issues/731)（✅ 协议已完成）\n- 示例集成位置: `examples/crm/` — Lead Detail 页面已声明 `record:activity` 组件\n\n### 建议开发流程\n\n1. 每个组件完成后运行测试（`pnpm test`）\n2. 完成后更新 roadmap\n3. 建议分 PR 提交：P0 核心组件 → P1 Mention & 订阅 → P2 Reactions"
+}

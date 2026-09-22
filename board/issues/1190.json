@@ -1,0 +1,37 @@
+{
+  "number": 1190,
+  "kind": "pull_request",
+  "title": "feat: Object Management upgrade — grid list mode, Power Apps detail view, form types & tech debt cleanup",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-07T05:19:33Z",
+  "updated_at": "2026-04-07T06:10:18Z",
+  "closed_at": "2026-04-07T06:10:17Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-07T06:10:17Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1190",
+  "body": "Upgrades ObjectManagerPage and MetadataManagerPage toward Power Apps parity: professional grid listing, richer detail sections, expanded form field types, and consolidated shared utilities.\n\n### Grid list mode for MetadataManagerPage\n\n- `MetadataTypeConfig` gains `listMode: 'card' | 'grid' | 'table'` — defaults to `'card'` (existing behavior).\n- Grid mode renders a proper `<table>` with column headers and inline action buttons. `report` type uses grid by default.\n- Extracted reusable `MetadataGrid` component (`components/MetadataGrid.tsx`) for cross-page reuse, with configurable columns, action buttons, row click handlers, and delete confirmation state.\n\n```ts\n// metadataTypeRegistry.ts\n{\n  type: 'report',\n  listMode: 'grid',\n  columns: [\n    { key: 'name', label: 'Name' },\n    { key: 'label', label: 'Label' },\n    { key: 'description', label: 'Description' },\n  ],\n}\n```\n\n### Object detail view (Power Apps alignment)\n\nObjectDetailView now has dedicated sections beyond properties + fields:\n\n- **Relationships** — type badges, foreign key display, empty state\n- **Keys** — auto-extracted primary keys, unique fields, external IDs from field metadata\n- **Data Experience** — placeholder cards for Forms, Views, Dashboards (UI shell only)\n- **Inline Data Preview** — placeholder section for sample data grid (Power Apps parity)\n- **System field hints** — visual indicator warning that system fields (id, createdAt, updatedAt) are read-only and cannot be edited\n\n### MetadataDetailPage redirect for custom types\n\nMetadataDetailPage now uses a declarative `<Navigate>` redirect for metadata types with `hasCustomPage: true`. For example, navigating to `/system/metadata/object/account` automatically redirects to `/system/objects/account`.\n\n### MetadataFormDialog field types\n\n`MetadataFormFieldDef.type` extended with `'number'` (HTML number input) and `'boolean'` (Shadcn Switch toggle). Values remain `Record<string, string>` — booleans stored as `'true'`/`'false'`.\n\n### MetadataProvider dynamic type access\n\nAdded `getItemsByType(type)` method to `MetadataContextValue`, allowing pages to access cached metadata items for any known type without hardcoding property names.\n\n### Tech debt cleanup\n\n- **Unified icon resolver**: Replaced 3 duplicated `ICON_MAP` + `resolveIcon()` (MetadataManagerPage, MetadataDetailPage, SystemHubPage) with shared `getIcon()` from `utils/getIcon.ts`.\n- **Shared metadata converters**: Extracted `toObjectDefinition()` / `toFieldDefinition()` from ObjectManagerPage to `utils/metadataConverters.ts` for cross-page reuse.\n\n### Tests\n\n107 tests across 6 files — added coverage for grid mode rendering, relationship/key/data-experience sections, number/boolean form fields, metadata converter edge cases, MetadataDetailPage redirect, inline data preview, system field hints, and route compatibility regression tests."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1138,
+  "kind": "issue",
+  "title": "系统设置各子页面改造建议：统一采用标准 ObjectView 表格和表单驱动",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-30T04:03:54Z",
+  "updated_at": "2026-03-30T05:48:30Z",
+  "closed_at": "2026-03-30T05:48:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1138",
+  "body": "## 背景\n当前系统设置相关页面（如用户、组织、角色、权限、审计日志等管理页）普遍采用手写 Table 和表单组件实现 CRUD，未充分复用平台自带的 `data-table`/`object-view` 等元数据驱动能力，导致：\n- 各管理页 UI/交互/可维护性不统一；\n- 缺乏自动排序、搜索、分页、导出、列配置等能力；\n- 新增/调整字段需手工维护多处代码。\n\n## 改造建议\n1. **高优先级：** 用户、组织、角色、权限、审计日志等管理页全部改为基于 `ObjectView` 元数据驱动渲染，或至少用统一的 `data-table` 方案。\n    - 每个对象的元数据（见 apps/console/src/pages/system/systemObjects.ts）应直接驱动表格和表单 UI。\n    - 推荐写法：\n      ```tsx\n      <ObjectView schema={{ type: 'object-view', objectName: 'sys_user', ... }} dataSource={useAdapter()} />\n      ```\n    - 完全弃用手写 <table>、原生表单、命令式增删改查逻辑，统一交互入口。\n2. **中优先级：** AppManagementPage 若卡片列表信息量较大，建议增加分页、排序，可结合自定义列卡片与 data-table 能力。\n3. **低优先级：** ProfilePage（个人资料页）可保持单表单实现，但长期推荐迁移为 object-form schema 驱动。\n\n## 长期收益\n- 系统设置与业务对象采用同一渲染体系，提升平台一体化体验\n- 维护成本明显降低，统一 BUG 修复和功能增强\n- 多语言、导出、批量、权限等能力自动集成\n- 新增/调整字段仅需维护 systemObjects 元数据\n\n-----\n本 Issue 着眼于长期平台统一与低代码架构演进，**不建议短期局部修修补补。**\n\n### 任务拆解建议（可分子 Issue）：\n- 各系统对象管理页替换为 ObjectView\n- systemObjects 元数据结构优化\n- 相关 CRUD 单元测试重构\n- 更新相关开发文档/说明\n\n---\n参考[包文档](https://github.com/objectstack-ai/objectui/blob/main/content/docs/components/complex/data-table.mdx) 和 [systemObjects.ts](https://github.com/objectstack-ai/objectui/blob/main/apps/console/src/pages/system/systemObjects.ts)"
+}

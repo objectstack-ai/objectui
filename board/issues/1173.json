@@ -1,0 +1,33 @@
+{
+  "number": 1173,
+  "kind": "pull_request",
+  "title": "feat: gate console chatbot FAB on discovery.services.ai availability",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-02T03:21:07Z",
+  "updated_at": "2026-04-02T03:45:18Z",
+  "closed_at": "2026-04-02T03:42:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-02T03:42:56Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1173",
+  "body": "The console floating chatbot rendered unconditionally, even when the server has no AI plugin installed. Per [objectstack-ai/spec#1029](https://github.com/objectstack-ai/spec/issues/1029), the discovery endpoint now exposes `services.ai.enabled` and `services.ai.route`.\n\n### Changes\n\n- **`DiscoveryInfo` interface** — added `ai` to `services` with `enabled`, `status`, `route` fields\n- **`useDiscovery()` hook** — added `isAiEnabled` derived property, `true` only when `ai.enabled === true && ai.status === 'available'`, defaults `false`\n- **`ConsoleLayout`** — chatbot FAB now conditionally renders on `isAiEnabled`\n- **Tests** — 5 new cases covering all `isAiEnabled` edge cases (enabled+available, enabled+unavailable, disabled, no status, no discovery)\n\n### Usage\n\n```tsx\nconst { isAiEnabled, discovery } = useDiscovery();\n\n// Render AI-dependent UI only when service is live\n{isAiEnabled && <FloatingChatbot />}\n\n// Access route for API calls\nconst aiRoute = discovery?.services?.ai?.route; // e.g. '/api/v1/ai'\n```"
+}

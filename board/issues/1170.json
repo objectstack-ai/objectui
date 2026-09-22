@@ -1,0 +1,33 @@
+{
+  "number": 1170,
+  "kind": "pull_request",
+  "title": "fix: resolve CI build and test errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-01T09:50:16Z",
+  "updated_at": "2026-04-01T10:50:31Z",
+  "closed_at": "2026-04-01T10:46:21Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-01T10:46:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1170",
+  "body": "Four TS build errors and one test failure on main after #1169 merge.\n\n### Build errors\n\n- **`i18n-translations.test.ts`**: `appConfig` (undefined) → `appConfigs[0]` — the import is the array, two test cases referenced a nonexistent singular variable\n- **`HomePage.tsx`**: Remove unused import `resolveI18nLabel`\n- **`QuickActions.tsx`**: Remove unused imports `Upload`, `FileText`\n\n### Test failure: ReportView\n\n`sales_performance_q1` report was defined only in the aggregated `sharedConfig.reports` but never in any individual app config. The mock kernel loads metadata per-config via `AppPlugin`, so the report was invisible to tests.\n\nExtracted the custom report into a standalone `customReportsConfig` export and added it to both mock server and browser kernel initialization:\n\n```ts\n// objectstack.shared.ts\nexport const customReportsConfig = {\n  reports: [{ name: 'sales_performance_q1', label: 'Q1 Sales Performance', ... }],\n  manifest: { id: 'reports', name: 'reports' },\n};\n\n// server.ts / browser.ts\nappConfigs: [...appConfigs, setupAppConfig, customReportsConfig],\n```\n\n`sharedConfig.reports` now references `customReportsConfig.reports` instead of duplicating the definition."
+}

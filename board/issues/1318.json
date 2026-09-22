@@ -1,0 +1,32 @@
+{
+  "number": 1318,
+  "kind": "pull_request",
+  "title": "chore(deps): bump kysely from 0.28.16 to 0.28.17",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-15T12:40:40Z",
+  "updated_at": "2026-05-15T12:43:47Z",
+  "closed_at": "2026-05-15T12:40:59Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-05-15T12:40:59Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1318",
+  "body": "Bumps [kysely](https://github.com/kysely-org/kysely) from 0.28.16 to 0.28.17.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/kysely-org/kysely/releases\">kysely's releases</a>.</em></p>\n<blockquote>\n<h2>0.28.17</h2>\n<p>Hey 👋</p>\n<p>A small batch of bug fixes. Please report any issues. 🤞😰🤞</p>\n<p><a href=\"https://github.com/kysely-org/kysely/releases/tag/v0.29.0-rc.0\">0.29</a> is right around the corner. Try the latest RC version!</p>\n<h2>🚀 Features</h2>\n<h2>🐞 Bugfixes</h2>\n<ul>\n<li>fix: further harden JSON path <code>.key(...)</code> and <code>.at(...)</code> against SQL injections and exfiltrations. by <a href=\"https://github.com/igalklebanov\"><code>@​igalklebanov</code></a> in <a href=\"https://redirect.github.com/kysely-org/kysely/pull/1804\">kysely-org/kysely#1804</a></li>\n</ul>\n<h2>📖 Documentation</h2>\n<ul>\n<li>docs(returning): remove outdated SQLite alias workaround by <a href=\"https://github.com/aymenhmaidiwastaken\"><code>@​aymenhmaidiwastaken</code></a> in <a href=\"https://redirect.github.com/kysely-org/kysely/pull/1793\">kysely-org/kysely#1793</a></li>\n</ul>\n<h2>📦 CICD &amp; Tooling</h2>\n<h2>⚠️ Breaking Changes</h2>\n<h2>🐤 New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/aymenhmaidiwastaken\"><code>@​aymenhmaidiwastaken</code></a> made their first contribution in <a href=\"https://redirect.github.com/kysely-org/kysely/pull/1793\">kysely-org/kysely#1793</a></li>\n</ul>\n<h2>What's Changed</h2>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/kysely-org/kysely/compare/v0.28.16...v0.28.17\">https://github.com/kysely-org/kysely/compare/v0.28.16...v0.28.17</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/kysely-org/kysely/commit/d13d90b724bfdee3eb40ef5144d9d063701af973\"><code>d13d90b</code></a> 0.28.17</li>\n<li><a href=\"https://github.com/kysely-org/kysely/commit/dbb5405854b76905d99247ed4748ec70e63504d0\"><code>dbb5405</code></a> feat: further harden JSON path <code>.key(...)</code> and <code>.at(...)</code> against SQL injecti...</li>\n<li><a href=\"https://github.com/kysely-org/kysely/commit/73192e4963afbe794c046137596c96eb166992e7\"><code>73192e4</code></a> docs(returning): remove outdated SQLite alias workaround (<a href=\"https://redirect.github.com/kysely-org/kysely/issues/1793\">#1793</a>)</li>\n<li>See full diff in <a href=\"https://github.com/kysely-org/kysely/compare/v0.28.16...v0.28.17\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=kysely&package-manager=npm_and_yarn&previous-version=0.28.16&new-version=0.28.17)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

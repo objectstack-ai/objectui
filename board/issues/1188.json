@@ -1,0 +1,33 @@
+{
+  "number": 1188,
+  "kind": "pull_request",
+  "title": "feat: metadata CRUD, form dialog, detail page, registry extensions, actions & permissions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-07T03:36:14Z",
+  "updated_at": "2026-04-07T05:02:07Z",
+  "closed_at": "2026-04-07T05:02:07Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-07T05:02:07Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1188",
+  "body": "MetadataManagerPage only supported list + delete. This adds full CRUD, a detail page, custom actions, role-based permissions, and the registry extensions needed to drive them.\n\n### Registry extensions (`metadataTypeRegistry.ts`)\n- New `MetadataFormFieldDef` type and `formFields` property on `MetadataTypeConfig` — standardizes create/edit form structure per type\n- New `detailComponent` property for custom detail renderers\n- New `MetadataActionDef` type and `actions` property for custom page-level and row-level action buttons (with `scope: 'page' | 'row'`, `variant`, `icon`, `handler`)\n- `DEFAULT_FORM_FIELDS` constant (name, label, description) as fallback\n- `formFields` populated for dashboard, page, report entries\n\n### MetadataFormDialog (`components/MetadataFormDialog.tsx`)\n- Generic create/edit dialog driven by registry `formFields`\n- Supports text, textarea, select field types\n- Required validation, `disabledOnEdit` for immutable keys (e.g. `name`), loading state during submission\n\n```tsx\n<MetadataFormDialog\n  open={formOpen}\n  onOpenChange={setFormOpen}\n  mode=\"edit\"\n  typeLabel={config.label}\n  formFields={config.formFields}\n  initialValues={item}\n  onSubmit={handleSave}\n/>\n```\n\n### MetadataManagerPage enhancements\n- **Create**: \"New {Type}\" button in header opens create dialog\n- **Edit**: Per-item edit button opens pre-filled edit dialog\n- **Navigate**: Card click navigates to detail page\n- **Custom actions**: Page-level actions rendered in header; row-level actions rendered per item card\n- **Permissions**: Create/edit/delete buttons hidden for non-admin users via `useAuth()` role check\n- All mutations via `MetadataService.saveMetadataItem()` with toast feedback, loading state, list refresh\n\n### MetadataDetailPage (`pages/system/MetadataDetailPage.tsx`)\n- Route: `/system/metadata/:metadataType/:itemName` (added to all 3 route blocks)\n- Displays item fields from registry config, edit via MetadataFormDialog\n- Supports custom renderers via `detailComponent` in registry\n- **Permissions**: Edit button hidden for non-admin users via `useAuth()` role check\n\n### Permission integration\n- Both MetadataManagerPage and MetadataDetailPage use `useAuth()` from `@object-ui/auth` to check `user.role === 'admin'`\n- Create, edit, and delete buttons are hidden for non-admin users\n- Matches the pattern used by UserManagementPage, RoleManagementPage, and other system pages\n\n### Tests\n- 38 new tests across 4 files (MetadataFormDialog: 15, MetadataDetailPage: 8, MetadataManagerPage: 8 new, metadataTypeRegistry: 7 new)\n- All 62 metadata-related tests pass"
+}

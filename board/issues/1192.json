@@ -1,0 +1,33 @@
+{
+  "number": 1192,
+  "kind": "issue",
+  "title": "[重构] 对象管理详情页迁移到 Spec UI 协议自定义页面（PageSchema驱动）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-04-07T06:26:03Z",
+  "updated_at": "2026-04-07T07:46:51Z",
+  "closed_at": "2026-04-07T07:46:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1192",
+  "body": "**背景**\n现有对象管理（ObjectManager）详情页未遵循元数据驱动、Spec UI协议的自定义页面方式，依然是手写路由和React组件。长期来看必须切换为 PageSchema 驱动，统一维护、优化平台扩展能力。\n\n---\n\n## 需开发的任务清单\n\n1. **分析现有实现和路由影响**\n   - 梳理 /system/objects/:objectName 路由实现、数据依赖、相关上下文。\n   - 梳理元数据详情页（如 MetadataDetailPage, MetadataManagerPage）与 page 元数据定义的关系。\n   - 明确切换到 Spec PageSchema 驱动后所有 Console 使用场景（系统对象、业务对象、不同权限下等）的需求。\n\n2. **制定元数据驱动的对象详情页标准结构**\n   - 参考 `PageSchema`、`PageComponentSchema`、`record:details`、`record:related_list` 等 Spec 协议设计基础对象详情页页面。\n   - 明确各 Section/Tab/区块的表达（如基础信息、字段、关系、数据体验、预览等），编写配置建议和元数据标准结构草案。\n\n3. **将对象详情页迁移到 Spec UI 协议（PageSchema）驱动**\n   - 优先保证系统内置对象、业务对象详情页的 PageSchema 定义和渲染一致。\n   - 用 SchemaRenderer 渲染详情页，支持基于 PageSchema 的所有区块。\n   - 规范如何为新对象类型配置专属的自定义详情页（如需有差异）。\n\n4. **路由和 MetadataType 路由/组件解耦重构**\n   - 移除 hasCustomPage + redirect hack，所有详情页统一用 PageSchema 定义和渲染。\n   - MetadataDetailPage 根据 metadataType 自动加载与渲染 page schema。\n   - 保证元数据（如字段、关系等）层的变更和定制都仅靠元数据 Schema 驱动。\n\n5. **测试、兼容性和可回退机制**\n   - 为关键路由和元数据配置覆盖测试和回退逻辑。\n   - 框架和平台上添加兼容性检测点，出现 schema 不合法或渲染异常时应有良好兜底提示。\n"
+}

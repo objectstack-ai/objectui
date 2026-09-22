@@ -1,0 +1,33 @@
+{
+  "number": 1257,
+  "kind": "pull_request",
+  "title": "refactor(console): lazy-load metadata in MetadataProvider",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-20T13:56:22Z",
+  "updated_at": "2026-04-20T14:31:55Z",
+  "closed_at": "2026-04-20T14:31:55Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-20T14:31:55Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1257",
+  "body": "## Fix \"Object Not Found\" / \"Rendered more hooks\" regression on app entry\n\n### Repro (verified in browser via Playwright)\n1. Sign up / log in.\n2. Navigate to `/console/apps/<app>/<object>` (e.g. `/apps/crm_enterprise/contact`).\n3. Before the fix: app crashes with `ErrorBoundary` → _\"Something went wrong / Rendered more hooks than during the previous render.\"_\n\n### Root cause\nThe Phase 1 lazy-loading refactor made `useMetadata().objects` return `[]` on first read while the lazy fetch was in flight, then re-render with the populated array. `ObjectView.tsx` does `const objectDef = objects.find(...)` then early-returns `<Empty/>` when undefined — **with `useMemo` / `useCallback` / `useEffect` hooks after that early return that reference `objectDef`**. When `objects` transitioned from `[]` to populated, the hook count grew mid-lifecycle → React error #310.\n\n### Fix (minimal, sustainable)\n`AppContent` now awaits `ensureType('object' | 'dashboard' | 'report' | 'page')` before rendering the routes under `/apps/:appName/*`. Legacy components that assume \"metadata is fully loaded by render time\" continue to work unchanged. `/home`, `/login`, `/register` do not go through `AppContent`, so the Phase 1 benefit (boot fetches only the `app` list) is preserved.\n\n`ensureType` is defensively defaulted when destructured so the 18+ existing test files that provide partial `useMetadata()` mocks keep compiling without touching any of them.\n\n### Plan\n- [x] Verify the failure in-browser (captured \"Rendered more hooks\" via Playwright, `ObjectView.tsx:301` early-return followed by `useMemo` at `:320`, etc.).\n- [x] Preload the `object` / `dashboard` / `report` / `page` buckets in `AppContent`.\n- [x] Re-run the browser flow — `/apps/crm_enterprise/contact`, `/apps/crm_enterprise/account` render cleanly, no ErrorBoundary.\n- [x] Run the console test suite: **65 files / 891 passed / 1 skipped** (same baseline as before the fix).\n- [x] Update `CHANGELOG.md` under `Unreleased → Fixed`.\n\nLayer 3 (per-component migration to `useMetadataItem`) remains the proper long-term architectural fix and is tracked as follow-up work; this PR is the minimal correctness fix that keeps Phase 1's bootstrap benefit intact while unblocking every `/apps/:appName/*` route."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 1151,
+  "kind": "issue",
+  "title": "Dashboard 页面无服务端数据时仍显示硬编码数据，导致诊断与体验问题",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-31T03:45:41Z",
+  "updated_at": "2026-03-31T05:48:09Z",
+  "closed_at": "2026-03-31T05:48:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1151",
+  "body": "# 问题综述\n\n在 [objectui demo CRM Dashboard](https://demo.objectui.org/apps/crm_app/dashboard/crm_dashboard) 页面，虽然接口 `/api/v1/analytics/query` 返回 `Cube name is required` 等报错，页面依然可以正常显示所有图表和指标。\n\n**实际现象**：\n- Dashboard 的 KPI/metric 小部件（如总收入、活跃商机等）即使接口报错，依然始终显示静态硬编码的数值。\n- 其他图表、数据透视等小部件若获取不到数据，也不会显示明显的失败状态。\n- 这种设计掩盖了真实的数据异常/后端不可用，影响问题定位与用户信任。\n\n**接口返回**：\n```json\n{\n    \"name\": \"Error\",\n    \"message\": \"Cube name is required\",\n    ...\n    \"stack\": \"Error: Cube name is required ...\"\n}\n```\n\n# 技术原因分析\n\n1. **静态数据兜底**：\n   - 例如 [`examples/crm/src/dashboards/crm.dashboard.ts`](https://github.com/objectstack-ai/objectui/blob/main/examples/crm/src/dashboards/crm.dashboard.ts) 的 KPI widget/options.value 字段均为硬编码演示数据，未设计接口失败处理。\n2. **Widget 渲染逻辑**：\n   - `packages/plugin-dashboard/src/DashboardRenderer.tsx` 及相关 MetricWidget 组件，会优先展示静态 value，而不会降级为异常提示。\n   - `ObjectChart`、`ObjectDataTable` 等组件虽有 loading/error/fallback，但未区分\"无数据\"与\"接口调用报错\"。\n3. **aggregate/analytics API 错误处理**：\n   - 低代码数据抽象层如 `ObjectStackAdapter.aggregate()`、前端的 provider: 'object' 方案，遇到 API 400/500/参数缺失时，会降级为空数据/本地聚合，页面不报错也无告警。\n\n# 平台长期合理改进建议\n\n为保证平台健壮性与透明性，建议如下：\n\n1. **Dashboard 各类 Widget 必须区分并处理接口失败、无数据、以及本地静态数据三种状态**：\n    - 当 analytics/query API 失败时（如缺少 cubeName/后端 500），页面要有统一样式的\"数据异常\"显示（如红色提示或卡片内错误 Toast），引导用户/开发者排查。\n2. **Widget 配置支持正式/演示/降级多模式**：\n    - 静态 value 只用于 DEMO mode 或缺省场景，正式环境应严格依赖服务端数据。\n    - 设计统一的 fallback 策略，通过环境变量/配置区分正式线上与演示模式渲染。\n3. **低代码平台核心适配器、数据源、分析 API 清晰暴露后端错误并向 UI 传递**：\n    - ObjectStackAdapter、ObjectChart、ObjectDataTable、MetricWidget、PivotTable 等组件遇到 analytics/query 错误时，要抛出平台定义的错误状态，透传到页面。\n    - 组件库要给出 default error UI/slot，供二次定制。\n4. **设计开箱即用的统一监控与异常上报机制**：\n    - Dashboard 页面所有数据异常需自动采集（如 Sentry/自研），可用于持续监控服务健康和用户体验。\n4. **补全测试覆盖**：\n    - 针对 analytics/query 出错、无 cubeName、静态数据降级等场景，补充 e2e/UI 测试。\n\n# 影响与价值\n\n- 提升用户/开发定位线上问题的效率，让平台更透明可靠。\n- 为平台 SaaS 化/多租户落地提供标准化的数据异常容错能力。\n- 支持多环境（开发/演示/生产）场景自动降级和告警需求。\n\n---\n\n## 综上，建议：Dashboard 与分析相关组件必须完成\"无数据\"\"API失败\"\"演示数据\"三态分离和错误显式暴露的能力改造。"
+}

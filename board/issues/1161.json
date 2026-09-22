@@ -1,0 +1,33 @@
+{
+  "number": 1161,
+  "kind": "pull_request",
+  "title": "fix: send measures as string array in aggregate() to match backend analytics API",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-01T01:45:07Z",
+  "updated_at": "2026-04-01T02:07:32Z",
+  "closed_at": "2026-04-01T02:03:26Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-01T02:03:25Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1161",
+  "body": "`ObjectStackAdapter.aggregate()` sends `measures` as `[{ field, function }]` but `MemoryAnalyticsService.resolveMeasure()` calls `.split('.')` on each element, expecting strings. This causes `TypeError: t.split is not a function` on every analytics query.\n\n### Changes\n\n- **Measure format** — Convert to backend's `${field}_${function}` convention (e.g. `'amount_sum'`), with `'count'` as special case\n- **Dimensions** — Send `[]` when `groupBy === '_all'` instead of `['_all']` for single-bucket aggregation\n- **Response mapping** — Rename measure keys in response (`amount_sum` → `amount`) to match `aggregateClientSide()` output format that consumers expect\n\n```ts\n// Before\nmeasures: [{ field: params.field, function: params.function }],\ndimensions: [params.groupBy],\n\n// After\nconst measureName = params.function === 'count'\n  ? 'count'\n  : `${params.field}_${params.function}`;\n\nmeasures: [measureName],\ndimensions: params.groupBy && params.groupBy !== '_all' ? [params.groupBy] : [],\n```\n\n### Tests\n\n10 new tests in `aggregate.test.ts` covering payload format, response key mapping, all response envelope variants, and client-side fallback."
+}

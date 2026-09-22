@@ -1,0 +1,37 @@
+{
+  "number": 1164,
+  "kind": "issue",
+  "title": "Charts groupBy字段应通过metadata自动 value→label（包含select, lookup等），X轴显示应自适应/完整",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement",
+    "plugin: charts"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-04-01T02:51:52Z",
+  "updated_at": "2026-04-01T04:21:33Z",
+  "closed_at": "2026-04-01T04:21:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1164",
+  "body": "### 问题现象\nCRM Dashboard 等页面图表的 X 轴标签存在如下问题：\n- select 字段（如 stage, status）：只显示 value 部分且被错误截断，例如 \"closed_won\" 仅显示 \"clo\"\n- lookup 字段（如 account）：显示 ID（如 2, 3）而不是对应记录名称（如 \"Acme Corp\"）\n- dropdown（select/下拉型）字段、lookup/master-detail、以及普通 value-based fields 都存在 value→label 问题\n\n此外，AdvancedChartImpl.tsx 里对 X 轴标签硬编码了 value.slice(0, 3)，导致大量信息丢失和歧义。\n\n### 可持续解决方案建议\n1. **数据层完成 value→label 转换**：\n   - select/picklist/dropdown 字段：通过字段 metadata (`options`) 直接本地映射 value→label。\n   - lookup/master_detail 字段：通过 dataSource.find 获取全部需要 groupBy 的 id 对应的 name，一次批量拉取，避免 N+1 查询。\n   - 其他类型 fallback 用 humanizeLabel()\n   - 本逻辑可通过 ObjectChart 组件 fetchData 阶段实现，渲染层不再做截断/拼接。\n2. **渲染时完整展示标签**，桌面端长标签加 angle=-35 自动折行或省略；移动端长于 7/8 字符省略+…。\n3. **去除 AdvancedChartImpl.tsx 所有 value.slice(0, 3) 截断逻辑。\n4. **该逻辑未来也适用到 Pivot Table, ObjectGrid, Kanban, AgGrid 等所有按 metadata 驱动的聚合视图。**\n\n### 实现建议代码结构\n- 在 ObjectChart.tsx 增加 resolveGroupByLabels(), 用于数据预处理\n- fetchData 之后自动调用该方法\n- 优先本地 options[]，lookup 用批量 find\n- 高度依赖 getObjectSchema 的 metadata (fields)\n- Chart 渲染层 tickFormatter 仅处理字符溢出/换行显示，不再负责标签转换\n\n### 相关源数据/字段定义（例）\n- opportunity.stage/status/type/lead_source/order.status/payment_method 都是 select 字段\n- opportunity.account/order.account, order.customer 等是 lookup 字段，其 metadata 包含 reference_to\n\n---\n本 Issue 覆盖所有 charts、dashboard、pivot table 的 X 轴标签 value→label 问题。\n"
+}

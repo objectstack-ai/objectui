@@ -1,0 +1,33 @@
+{
+  "number": 1175,
+  "kind": "issue",
+  "title": "对象管理和字段管理界面优化",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-02T07:25:49Z",
+  "updated_at": "2026-04-02T08:32:26Z",
+  "closed_at": "2026-04-02T08:32:26Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1175",
+  "body": "\n该项目是一个企业级低代码元数据平台，核心组件分布在以下包中：\n\n| 组件 | 包路径 | 功能 |\n|------|--------|------|\n| **ObjectManager** | `packages/plugin-designer/src/ObjectManager.tsx` | 对象定义的 CRUD 管理 |\n| **FieldDesigner** | `packages/plugin-designer/src/FieldDesigner.tsx` | 字段的创建、编辑、删除 |\n| **ObjectManagerPage** | `apps/console/src/pages/system/ObjectManagerPage.tsx` | 系统管理页面（整合两者） |\n| **ModalForm** | `packages/plugin-form/src/ModalForm.tsx` | 弹窗表单（用于对象创建/编辑） |\n| **ObjectForm** | `packages/plugin-form/src/ObjectForm.tsx` | 对象数据表单 |\n\n### 三、🔴 关键问题：修改仅保存到本地状态\n\n这是最核心的问题。经过代码追踪，**所有对象和字段的修改仅更新了组件的 local state，没有持久化到后端 API**：\n\n#### 问题 1：ObjectManagerPage 的 `handleObjectsChange` 仅更新本地状态\n\n```tsx name=apps/console/src/pages/system/ObjectManagerPage.tsx url=https://github.com/objectstack-ai/objectui/blob/5103725a1eaa99f22d75817afe4bdbcae0dc076a/apps/console/src/pages/system/ObjectManagerPage.tsx#L305-L308\nconst handleObjectsChange = useCallback((updated: ObjectDefinition[]) => {\n    setLocalObjects(updated);  // ← 仅更新 local state\n    toast.success('Object definitions updated');  // ← 显示成功但实际未持久化\n}, []);\n```\n\n#### 问题 2：ObjectDetailView 的 `handleFieldsChange` 同样仅更新本地状态\n\n```tsx name=apps/console/src/pages/system/ObjectManagerPage.tsx url=https://github.com/objectstack-ai/objectui/blob/5103725a1eaa99f22d75817afe4bdbcae0dc076a/apps/console/src/pages/system/ObjectManagerPage.tsx#L153-L156\nconst handleFieldsChange = useCallback((updated: DesignerFieldDefinition[]) => {\n    setLocalFields(updated);  // ← 仅更新 local state\n    toast.success('Field configuration updated');  // ← 显示成功但实际未持久化\n}, []);\n```\n\n#### 问题 3：缺少后端 API 集成层\n\n`data-objectstack` 包（`ObjectStackAdapter`）提供了完整的 CRUD 方法（`create`、`update`、`delete`），但**元数据管理接口（对象定义和字段定义的 CRUD）尚未与后端连通**。当前的数据流是：\n\n```\nMetadataProvider → 从 discovery/metadata API 读取 → 只读展示\nObjectManager/FieldDesigner → 本地修改 → toast 提示 → 刷新页面后丢失\n```\n\n---\n\n### 四、🔧 需要修复的问题清单\n\n| # | 问题 | 严重程度 | 位置 |\n|---|------|----------|------|\n| 1 | 对象创建/修改不持久化到后端 | 🔴 Critical | `ObjectManagerPage.handleObjectsChange` |\n| 2 | 字段添加/修改不持久化到后端 | 🔴 Critical | `ObjectDetailView.handleFieldsChange` |\n| 3 | 缺少元数据管理 API 服务层 | 🔴 Critical | `data-objectstack` 或新服务 |\n| 4 | toast 提示误导用户认为已保存 | 🟡 Major | 同上两处 |\n| 5 | 页面刷新后所有修改丢失 | 🔴 Critical | 架构设计层 |\n| 6 | ObjectManager 的 `onObjectsChange` 没有 error handling | 🟡 Major | `ObjectManager.tsx` |\n\n---\n\n### 五、修复方案\n\n需要创建一个**完整的元数据管理服务层**，将 `ObjectManagerPage` 从纯本地状态驱动转为 API 驱动的持久化操作。\n\n\n1. **新建 `MetadataService`**：封装对象和字段的 CRUD API 调用\n2. **重构 `ObjectManagerPage`**：`handleObjectsChange` 和 `handleFieldsChange` 调用真实 API\n3. **添加加载/错误状态**：在 API 操作期间显示加载指示器和错误处理\n4. **乐观更新模式**：先更新 UI，API 失败时回滚\n5. **更新测试用例**：覆盖 API 集成场景"
+}

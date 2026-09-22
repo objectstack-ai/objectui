@@ -1,0 +1,34 @@
+{
+  "number": 1270,
+  "kind": "pull_request",
+  "title": "chore(deps): bump react-hook-form from 7.73.1 to 7.74.0 in the react group",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components",
+    "package: react"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-27T08:29:30Z",
+  "updated_at": "2026-04-27T08:32:59Z",
+  "closed_at": "2026-04-27T08:29:49Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-04-27T08:29:49Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1270",
+  "body": "Bumps the react group with 1 update: [react-hook-form](https://github.com/react-hook-form/react-hook-form).\n\nUpdates `react-hook-form` from 7.73.1 to 7.74.0\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/react-hook-form/react-hook-form/releases\">react-hook-form's releases</a>.</em></p>\n<blockquote>\n<h2>Version 7.74.0</h2>\n<p>🪇 feat: setValues (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13201\">#13201</a>)</p>\n<pre lang=\"tsx\"><code>setValues((data) =&gt; {\r\n  return {\r\n    ...data,\r\n    name: 'test'\r\n  }\r\n})\r\n<p>setValues(formValues);<br />\n</code></pre></p>\n<p>🐞 fix: preserve previous field value when useController name changes (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13395\">#13395</a>)\n🐞 fix: handle null parent when unregistering nested field (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13396\">#13396</a>)\n🐞 fix: treat NaN as empty when valueAsNumber is true in validateField (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13388\">#13388</a>)\n🪢 fix build to exclude test files (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13387\">#13387</a>)</p>\n<p>thanks to <a href=\"https://github.com/Yihao-G\"><code>@​Yihao-G</code></a> &amp; <a href=\"https://github.com/mixelburg\"><code>@​mixelburg</code></a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/8a816ede4921ace497cbe335008cd151ecdcd888\"><code>8a816ed</code></a> 7.74.0</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/ef641fec04bb1d88a99d4617f68e0b76ef8b85bd\"><code>ef641fe</code></a> 🐞 fix: preserve previous field value when useController name changes (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13395\">#13395</a>)</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/a08a8e80f97912867c0b81f9c361f4c56381df52\"><code>a08a8e8</code></a> 🐞 fix: handle null parent when unregistering nested field (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13396\">#13396</a>)</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/2374a64c1e9e645043f0444f37654b048d0ec7d7\"><code>2374a64</code></a> 📖 thanks KANAME for the support over the years</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/6737b9963273f62e2932fe636c172f76d5a83a7c\"><code>6737b99</code></a> 🌡️ test: cover valueAsNumber NaN required validation in validateField (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13391\">#13391</a>)</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/29cdd0870119d5c5dd163906f539e0713e1f325f\"><code>29cdd08</code></a> 🐞 fix: treat NaN as empty when valueAsNumber is true in validateField (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13388\">#13388</a>)</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/44df01d539d8a77b390d0b7bfa2ff7454e48da79\"><code>44df01d</code></a> Revert &quot;Revert &quot;🪢 fix build to exclude test files (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13387\">#13387</a>)&quot;&quot;</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/bf525c13523710756dacc7898cf202cfe030a4a0\"><code>bf525c1</code></a> Revert &quot;Revert &quot;🪇 feat: setValues (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13201\">#13201</a>)&quot;&quot;</li>\n<li>See full diff in <a href=\"https://github.com/react-hook-form/react-hook-form/compare/v7.73.1...v7.74.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=react-hook-form&package-manager=npm_and_yarn&previous-version=7.73.1&new-version=7.74.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore <dependency name> major version` will close this group update PR and stop Dependabot creating any more for the specific dependency's major version (unless you unignore this specific dependency's major version or upgrade to it yourself)\n- `@dependabot ignore <dependency name> minor version` will close this group update PR and stop Dependabot creating any more for the specific dependency's minor version (unless you unignore this specific dependency's minor version or upgrade to it yourself)\n- `@dependabot ignore <dependency name>` will close this group update PR and stop Dependabot creating any more for the specific dependency (unless you unignore this specific dependency or upgrade to it yourself)\n- `@dependabot unignore <dependency name>` will remove all of the ignore conditions of the specified dependency\n- `@dependabot unignore <dependency name> <ignore condition>` will remove the ignore condition of the specified dependency and ignore conditions\n\n\n</details>"
+}

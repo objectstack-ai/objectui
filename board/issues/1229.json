@@ -1,0 +1,35 @@
+{
+  "number": 1229,
+  "kind": "issue",
+  "title": "在 demo/本地开发环境中加入 Auth/Security/Audit/AI 等必要��件以还原 Setup App 菜单",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [
+    "Claude",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-04-14T06:17:45Z",
+  "updated_at": "2026-04-14T06:37:29Z",
+  "closed_at": "2026-04-14T06:37:29Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1229",
+  "body": "## 问题\n当前 demo.objectui.org 的 Setup App 菜单为空，且存在重复的 Setup App，原因分析详见 [framework 项目运行有菜单而 demo 没有的分析]。主要原因包括：\n1. objectui 项目 demo mock 启动时未加载 AuthPlugin、SecurityPlugin、AuditPlugin、AIServicePlugin 等插件，这些插件会主动通过 setupNav.contribute() 注册菜单项。\n2. setup app 被重复注册（参考 #xxx），但这不是菜单缺失的直接原因。\n\n## 解决方案\n- 在 mock/demo 的 kernel 启动逻辑中（如 createKernel.ts 或 shared.ts/browser.ts），初始化时同步加载如下插件：\n  - @objectstack/plugin-auth\n  - @objectstack/plugin-security\n  - @objectstack/plugin-audit\n  - @objectstack/service-ai\n- 加载顺序要确保 SetupPlugin 保持在前（这样其他插件才能 contribute 菜单）。\n- 可以提供 fallback mock secret/config，保证插件在 demo/dev 环境可正��初始化。\n- 移除 setupAppConfig 的重复注册，只由 SetupPlugin 注册 setup app。\n\n## 参考\n- framework/packages/cli/src/commands/serve.ts\n- framework/packages/plugins/plugin-auth\n- framework/packages/plugins/plugin-security\n- framework/packages/plugins/plugin-audit\n- framework/packages/services/service-ai\n\n## 目标\n- 让 demo 下的 Setup App 自动获得与 framework 本地开发一致的角色、用户、安全、AI 菜单。\n- 统一两端体验，便于测试和验证平台能力。"
+}

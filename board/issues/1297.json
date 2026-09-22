@@ -1,0 +1,33 @@
+{
+  "number": 1297,
+  "kind": "pull_request",
+  "title": "fix(plugin-report): tolerate jsdom hex colors in conditional-formatting test",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-08T06:51:35Z",
+  "updated_at": "2026-05-08T06:52:13Z",
+  "closed_at": "2026-05-08T06:52:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-05-08T06:52:12Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1297",
+  "body": "[CI run #25539753515](https://github.com/objectstack-ai/objectui/actions/runs/25539753515/job/74962941457) failed on a single assertion in `ReportViewer.test.tsx`:\n\n```\nAssertionError: expected '#bbf7d0' to be 'rgb(187, 247, 208)'\n```\n\nRecent jsdom releases preserve the raw hex value in `HTMLElement.style.backgroundColor` instead of normalizing it to `rgb(...)`, so a strict equality check is environment-fragile.\n\n### Changes\n\n- **`packages/plugin-report/src/__tests__/ReportViewer.test.tsx`** — relax the conditional-formatting assertion to accept either representation:\n\n  ```ts\n  expect(wonCell?.style.backgroundColor).toMatch(\n    /^(rgb\\(187,\\s*247,\\s*208\\)|#bbf7d0)$/i,\n  );\n  ```\n\n- **`CHANGELOG.md`** — record under `[Unreleased] › Fixed`.\n\nNo production code touched; the negative branch (`expect(lostCell?.style.backgroundColor).toBe('')`) is unaffected since both jsdom versions agree on the empty string."
+}

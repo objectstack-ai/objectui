@@ -1,0 +1,35 @@
+{
+  "number": 1278,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump postcss from 8.5.12 to 8.5.13",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "examples",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-02T15:51:27Z",
+  "updated_at": "2026-05-02T15:55:07Z",
+  "closed_at": "2026-05-02T15:51:46Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-05-02T15:51:46Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1278",
+  "body": "Bumps [postcss](https://github.com/postcss/postcss) from 8.5.12 to 8.5.13.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/releases\">postcss's releases</a>.</em></p>\n<blockquote>\n<h2>8.5.13</h2>\n<ul>\n<li>Fixed <code>postcss-scss</code> commend regression.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/blob/main/CHANGELOG.md\">postcss's changelog</a>.</em></p>\n<blockquote>\n<h2>8.5.13</h2>\n<ul>\n<li>Fixed <code>postcss-scss</code> commend regression.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/postcss/postcss/commit/af58cf1b7af02e9b9fcb138a4a2d7ef3450158b1\"><code>af58cf1</code></a> Release 8.5.13 version</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/f227dbd0e9443e5f33e18e633b8b4d2b55aac5ee\"><code>f227dbd</code></a> Temporary ignore pnpm 11 config</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/d3abd40d723cf3559e5ddb5fc738b7cb64e92bb0\"><code>d3abd40</code></a> Update dependencies</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/dd06c3e11362087bc18f9c20cee30fd82bda3de9\"><code>dd06c3e</code></a> Revert stringifier changes because of the conflict with postcss-scss</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/ae889c815fb88d785401a88f1a7dfc8cb11915fb\"><code>ae889c8</code></a> Try to fix CI</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/e0093e49bcf00347383a13e40bb1f67bc823ca15\"><code>e0093e4</code></a> Move to pnpm 11</li>\n<li>See full diff in <a href=\"https://github.com/postcss/postcss/compare/8.5.12...8.5.13\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=postcss&package-manager=npm_and_yarn&previous-version=8.5.12&new-version=8.5.13)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

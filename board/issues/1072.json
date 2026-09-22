@@ -1,0 +1,33 @@
+{
+  "number": 1072,
+  "kind": "issue",
+  "title": "【长期架构级优化】LookupField/Reference 字段下拉弹窗的企业级 Record Picker 方案升级",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-16T01:36:54Z",
+  "updated_at": "2026-03-31T06:53:06Z",
+  "closed_at": "2026-03-31T06:53:06Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1072",
+  "body": "\n\n### 目标\n将 LookupField（关联选择控件）的弹窗/下拉体验全面升级为企业管理软件标准（参考 Salesforce、SAP Fiori、Oracle Fusion 等），实现高信息密度、强可定制、支持搜索+筛选+多列+分页+批量选择的通用 Record Picker。\n\n### 🔥 当前存在的核心问题\n\n从截图中可以看到，当前 Order 的 Lookup 弹窗仅展示了 `ORD-2024-001` 这样的单字段信息：\n\n![image1](image1)\n\n**9 大问题清单：**\n\n| # | 问题 | 严重度 |\n|---|------|--------|\n| 1 | **列表项信息密度极其不足**：仅展示 label，缺少客户名称、金额、状态等辅助信息，用户无法区分订单 | P1 |\n| 2 | **缺少筛选/高级搜索能力**：只能简单文本搜索，无法按状态、客户、日期等字段筛选 | P1 |\n| 3 | **只支持简单列表模式**：不能像主列表页那样多列对齐、支持货币/枚举/日期等格式化 | P2 |\n| 4 | **无分页与大数据友好性**：仅取前 50 条（`LOOKUP_PAGE_SIZE = 50`），无滚动/翻页 | P2 |\n| 5 | **通用性弱/难以定制**：只能通过 `display_field`/`description_field` 静态指定，无 schema 级配置 | P2 |\n| 6 | **复用性低**：ObjectView/ObjectGrid 已有完整表格/搜索/筛选能力，但 LookupField 自实现简陋弹窗 | P2 |\n| 7 | **用户体验不符主流习惯**：未实现 Typeahead 下拉 + \"Show All Results\" 弹窗二级交互模式 | P2 |\n| 8 | **未对齐业界标准**：Salesforce/SAP 的 Record Picker = 主列表页功能子集 + selection | P3 |\n| 9 | **无障碍/响应式/移动端体验有限** | P3 |\n\n### ✨ 拟解决方案总览（长期架构路线）\n\n#### 1. LookupField 结构升级为两级交互\n- **一级（Popover）：** 内联 typeahead，快速检索前若干条，footer 有「Show All Results」按钮\n- **二级（Dialog）：** 打开完整 Record Picker 弹窗，内嵌 ObjectGrid，拥有表格列、排序、分页、��选、Badge/格式化等全功能\n- 同时解决弹窗嵌套 ModalForm 场景的用户体验\n\n#### 2. Record Picker Dialog 企业级能力\n- 自动展示多列，默认根据被引用对象的 objectSchema 智能推断主字段+关键业务字段\n- 支持 schema 配置列/过滤（`lookup_columns` / `lookup_filters` / `lookup_layout`，对标 Salesforce Search Layout）\n- 支持单/多选、批量选择、可定制操作区（如「创建新记录」）\n- 所有表格功能与 ObjectGrid 保持一致\n\n#### 3. 配置协议升级\n- 字段级（`lookup_columns`、`lookup_filters`、`lookup_base_filter`）\n- Object 级（`lookup_layout`）集中定义全局 Pick 列配置\n- 智能 fallback（无配置时自动从 objectSchema 选主/常用字段）\n\n#### 4. 与 ObjectView/ObjectGrid/FilterUI 完全解耦复用\n\n#### 5. 可国际化、移动端友好、无障碍\n\n### 📝 详细需求清单\n\n**1. LookupField 级联交互升级**\n- [ ] 一级 Popover 下拉支持最近、快速匹配、footer「Show All Results」按钮\n- [ ] 二级 RecordPickerDialog 实现，弹窗内嵌 ObjectGrid（selection: single/multi）\n- [ ] Dialog 支持 schema 配置 columns、filters、排序、分页\n- [ ] 支持弹窗可定制宽度，移动端全屏\n- [ ] 修复 ModalForm、Drawer 内弹窗嵌套问题\n\n**2. 信息密度多字段渲染**\n- [ ] RecordPickerDialog 行支持多字段展示，兼容 badge、currency、日期等格式化\n- [ ] 支持 schema template（`display_template`/`subtitle_template`）自定义每条展示\n- [ ] 智能 auto-resolve objectSchema 字段作为默认展示（可零配置）\n\n**3. 高级筛选与表格功能**\n- [ ] 支持 FilterUI 作为弹窗 filter bar、多字段组合筛选\n- [ ] 支持 ObjectGrid 标准的列排序、分页、列宽调整、空态适配\n- [ ] RecordPickerDialog 支持 loading / error / empty 状态自适应\n\n**4. Schema/协议层面增强**\n- [ ] `lookup_columns`、`lookup_filters` 字段级协议、object 级 `lookup_layout`\n- [ ] 可 schema/admin/低代码配置，无需代码变更即可调整 picker 行为\n\n**5. 通用性增强**\n- [ ] 同一控件支持不同 lookup/主对象在弹窗内体验一致\n\n**6. 无障碍和国际化优化**\n- [ ] 完善 Keyboard/ARIA/屏读\n- [ ] 弹窗、popover、listitem 完全移动端支持\n\n### 📈 参考资料\n- [Salesforce Lightning Lookup](https://www.lightningdesignsystem.com/components/lookups/)\n- [SAP Fiori Value Help Dialog](https://experience.sap.com/fiori-design-web/value-help-dialog/)\n- [Oracle Redwood Select Dialog](https://www.oracle.com/webfolder/ux/redwood/components/forms/select-dialog/)\n\n"
+}

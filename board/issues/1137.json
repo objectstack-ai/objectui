@@ -1,0 +1,33 @@
+{
+  "number": 1137,
+  "kind": "issue",
+  "title": "实现全局右侧 AI 元数据助手面板（Sheet）及评估",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-03-30T02:59:22Z",
+  "updated_at": "2026-03-31T07:29:31Z",
+  "closed_at": "2026-03-31T07:29:31Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1137",
+  "body": "### 背景\n为提升元数据建模智能化水平，需率先开发入口②：在 Console 主界面提供全局右侧 AI Panel（Sheet），支持自然语言驱动对象、字段、视图等的创建与编辑，直接落库并自动刷新 UI。此任务聚焦：可用性、低耦合扩展性、性能、与现有 DataSource/缓存管道的集成完整性评估。\n\n---\n\n## 主要开发内容\n\n1. **全局 AI Panel（Sheet）组件封装**\n   - 新建 `AIPanel.tsx`，挂载在 ConsoleLayout/App.tsx 顶层，支持全局调用 & ⌘K 控制。\n   - 内含 ChatbotEnhanced 组件，实现多轮对话，Markdown/代码/文件支持，提示词定制。\n   - 支持手动与 ⌘K/菜单等唤起，随时调用。\n\n2. **自然语言到元数据的生成与持久化集成**\n   - 实现 `callAI` 调用，LLM 输出标准 ObjectSchemaMetadata/FieldMetadata 结构。\n   - AI 结果通过 DataSource.create/update 直写后端（sys_object/field），与用户手动一致。\n   - 变更后自动调用 metadataCache.refresh，保障 UI/导航/表单等全局同步。\n\n3. **界面与交互**\n   - Sheet 采用宽度自适应、移动端适配，支持占屏交互。\n   - 支持滚动、多轮对话、消息流状态、附加操作（如清空、退出）。\n   - Assistant 回复说明生成结果（如新建对象、字段、异常等）。\n\n4. **评估与测试**\n   - 全流程覆盖自动化测试：AI 生成→数据持久化→导航/元数据面板同步→对象/字段页面实时反映。\n   - 评估性能瓶颈、异常链路、兼容性（含网络中断、权限错误、Schema 无效等）。\n   - 验证与 Field Designer、Object Manager 页面之间的关系与未来集成扩展性。\n\n5. **技术要求**\n   - 最小侵入式集成：不得更改 NavigatorRenderer/object-view 现有架构，所有副作用管理在 Panel 内完成。\n   - 关键变更需补全单元/集成测试。\n\n\n---\n\n## 目标成果\n- 用户可随时对话式创建/调整对象与字段，无需刷新全局 UI 即可同步看到结果；\n- 保持架构纯净，便于后续扩展多入口、多模型、权限下放等能力。\n\n---\n\n> 参考业界最佳实践（Salesforce Einstein、Airtable AI 等），本方案兼顾长期演进与当前系统实际落地。\n\n子任务推进过程中，需持续打点进展、撰写/补充分解 issue，并与 #1135 保持联动。"
+}

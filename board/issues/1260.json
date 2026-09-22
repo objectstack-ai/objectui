@@ -1,0 +1,33 @@
+{
+  "number": 1260,
+  "kind": "pull_request",
+  "title": "fix(console): respect Vite BASE_URL on workspace switch redirect",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-21T12:38:30Z",
+  "updated_at": "2026-04-21T12:39:01Z",
+  "closed_at": "2026-04-21T12:39:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-04-21T12:39:01Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1260",
+  "body": "`WorkspaceSwitcher.onWorkspaceChange` in `HomeTopNav` hardcoded the post-switch redirect to `${origin}/console/home`. That works behind `HonoServerPlugin` (mounted at `/console/`), but on Vercel — where `vercel.json` builds with `VITE_BASE_PATH=/` and the SPA is served at root — switching workspaces lands on a 404.\n\n### Changes\n- **`apps/console/src/pages/home/HomeTopNav.tsx`**: derive the redirect target from `import.meta.env.BASE_URL` (the value passed to Vite's `base`), so it resolves to `/console/home` for the bundled server and `/home` on standalone deployments.\n- **`.changeset/fix-console-workspace-redirect.md`**: patch-level changeset for `@object-ui/console`.\n\n```ts\nconst base = import.meta.env.BASE_URL || '/';\nconst normalizedBase = base.endsWith('/') ? base : `${base}/`;\nwindow.location.href = `${window.location.origin}${normalizedBase}home`;\n```\n\nNo other call sites hardcode `/console/` in the console app (verified via grep)."
+}

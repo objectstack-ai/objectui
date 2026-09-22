@@ -1,0 +1,33 @@
+{
+  "number": 1153,
+  "kind": "pull_request",
+  "title": "Refactor Chatbot plugin for AI SDUI integration with service-ai and vercel/ai SDK",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-31T03:54:40Z",
+  "updated_at": "2026-03-31T05:56:27Z",
+  "closed_at": "2026-03-31T05:56:27Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-31T05:56:27Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1153",
+  "body": "Refactors the chatbot plugin (`@object-ui/plugin-chatbot`) to support full AI SDUI integration with `service-ai` backend and `vercel/ai` SDK (`@ai-sdk/react`). The plugin now supports two operating modes — **API mode** (SSE streaming via service-ai) and **Local mode** (legacy auto-response for demos) — auto-detected based on the `api` schema field.\n\n## Changes Made\n\n### Dependencies\n- Added `ai` (^6.0.141) and `@ai-sdk/react` (^3.0.143) as dependencies in plugin-chatbot\n\n### Types (`@object-ui/types`)\n- Extended `ChatMessage` with `streaming`, `toolInvocations` fields and `tool` role\n- Added `ChatToolInvocation` interface for tool-calling flows (`toolCallId`, `toolName`, `args`, `result`, `state`)\n- Extended `ChatbotSchema` with `api`, `conversationId`, `systemPrompt`, `model`, `streamingEnabled`, `headers`, `body`, `maxToolRoundtrips`, `onError`\n- Updated corresponding Zod validation schemas\n\n### `useObjectChat` Hook (new)\n- Composable hook that always calls `useChat` from `@ai-sdk/react` (static ESM import) to satisfy Rules of Hooks, with mode locked on first render via `useRef`\n- In API mode, delegates to `useChat` for SSE streaming; in local mode, `useChat` is initialized with a placeholder endpoint and its results are ignored\n- Exposes `messages`, `isLoading`, `error`, `sendMessage`, `stop`, `reload`, `clear`, `isApiMode`, `input`, `setInput`, `handleInputChange`\n- `onSend` callback consistently includes the newly sent user message in both API and local modes\n- Auto-response timer includes `useEffect` cleanup on unmount and `clear()` cancels pending timers via `stop()`\n- Exported from package index for custom integrations\n\n### Renderer Refactor (`renderer.tsx`)\n- Both `chatbot` and `chatbot-enhanced` registrations now use `useObjectChat` instead of inline `useState`/auto-response logic\n- New schema fields (`api`, `conversationId`, `systemPrompt`, `model`, etc.) are wired through to the hook\n\n### ChatbotEnhanced Component\n- Added `onStop`, `onReload`, `isLoading`, `error` props\n- Added streaming controls UI: Stop button (during streaming), Retry button (on error), error alert display\n- Extracted `isInputDisabled`/`isSendDisabled` computed variables for consistent disabled state handling\n\n### Tests (20 hook tests passing)\n- 20 `useObjectChat` hook tests: initialization, message sending, auto-response, stop, clear (including timer cancellation), input management, edge cases\n- 10 streaming/error feature tests: stop button, reload/retry, error display, loading state, streaming indicators\n- 15 existing `ChatbotEnhanced` tests remain unchanged\n\n### Storybook Stories\n- Added 3 new AI SDUI stories: `AIStreamingMode`, `AIWithSystemPrompt`, `AIWithToolCalls`\n\n### Documentation\n- Updated `plugin-chatbot.mdx`: schema API (14 new fields), properties table, operating modes section, tool role documentation (accurately describing current rendering behavior for `tool` role messages), TypeScript support, ChatMessage shape aligned with actual types\n- Updated `README.md`: AI streaming mode usage, `useObjectChat` hook example, mode comparison table\n- Updated `CHANGELOG.md` and `ROADMAP.md`\n\n## Security\n- CodeQL: 0 alerts\n- Dependencies checked against GitHub Advisory DB: no vulnerabilities"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1165,
+  "kind": "pull_request",
+  "title": "feat(plugin-charts): resolve groupBy values to labels via field metadata, remove X-axis truncation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-01T02:52:03Z",
+  "updated_at": "2026-04-01T04:21:31Z",
+  "closed_at": "2026-04-01T04:21:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-01T04:21:30Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1165",
+  "body": "Chart X-axis labels showed raw field values (`closed_won`, lookup IDs like `2`) and were hard-truncated to 3 characters via `value.slice(0, 3)`, making them unreadable.\n\n### Data layer (`ObjectChart.tsx`)\n\n- Added `resolveGroupByLabels()` — after data fetch, resolves groupBy field values to display labels using object schema metadata:\n  - **select/picklist**: value→label via `field.options` (handles both `{value, label}` objects and plain strings)\n  - **lookup/master_detail**: batch `dataSource.find()` on `reference_to` object, maps id→name using metadata-driven `id_field` and `reference_field`/`display_field` (with sensible fallbacks)\n  - **fallback**: `humanizeLabel()` (snake_case → Title Case)\n- Calls `dataSource.getObjectSchema()` in `fetchData`, gracefully no-ops if unavailable\n- Lookup queries derive the ID field from `fieldDef.id_field` (fallback to `id`) and the display label from `fieldDef.reference_field` / `fieldDef.display_field` (fallback chain: configured field → `name` → `label` → `title` → id), consistent with LookupField widget behavior\n\n```ts\n// Before: { stage: 'closed_won', amount: 500 }\n// After:  { stage: 'Closed Won', amount: 500 }\n\n// Before: { account: '2', amount: 300 }\n// After:  { account: 'Globex Inc', amount: 300 }\n```\n\n### Rendering layer (`AdvancedChartImpl.tsx`)\n\n- **Removed** `value.slice(0, 3)` from both XAxis tickFormatters (combo + default charts)\n- Mobile: truncate at 8 chars + `…`; Desktop: full label with `angle: -35` rotation when labels > 5 chars\n- Memoized `hasLongLabels` via `useMemo` to avoid O(n) check per render\n- Removed `console.log` from render path to avoid noisy output in consuming apps\n\n### Tests\n\n- 19 new tests covering select mapping, string options, lookup resolution (including `display_field` and `id_field` metadata), error fallback, edge cases\n- Existing 16 aggregation tests unaffected"
+}

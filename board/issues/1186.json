@@ -1,0 +1,33 @@
+{
+  "number": 1186,
+  "kind": "pull_request",
+  "title": "Unified metadata management entry & dynamic routing",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-07T01:37:58Z",
+  "updated_at": "2026-04-07T03:07:25Z",
+  "closed_at": "2026-04-07T03:07:25Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-07T03:07:25Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1186",
+  "body": "Metadata admin UIs were hardcoded per-type — only `object` and `app` had management pages. Adding new types (dashboard, page, report, workflow, etc.) required duplicating routes, hub cards, and page components.\n\n### Registry-driven architecture\n\n- **`config/metadataTypeRegistry.ts`** — Single config array defining all metadata types. New type = one entry:\n\n```ts\nexport const METADATA_TYPES: MetadataTypeConfig[] = [\n  // Custom pages — link to existing routes\n  { type: 'object', label: 'Object', pluralLabel: 'Object Manager',\n    icon: 'database', hasCustomPage: true, customRoute: '/system/objects' },\n  // Generic — auto-managed by MetadataManagerPage\n  { type: 'dashboard', label: 'Dashboard', pluralLabel: 'Dashboards',\n    icon: 'layout-dashboard', description: 'Manage dashboard layouts and widgets',\n    columns: [{ key: 'name', label: 'Name' }, { key: 'label', label: 'Label' }] },\n  // ...\n];\n```\n\n- **`MetadataManagerPage`** — Generic page at `/system/metadata/:metadataType` that resolves config from registry, fetches via `MetadataService.getItems(type)`, renders searchable card grid with soft-delete\n\n- **`SystemHubPage`** — Now auto-generates metadata type cards from registry instead of a hardcoded array. Dashboards, Pages, Reports cards appear without any additional code\n\n- **`MetadataService`** — Added generic `getItems(category)`, `saveMetadataItem(category, name, data)`, `deleteMetadataItem(category, name)` alongside existing object/field-specific methods\n\n### Routing\n\nDynamic `/system/metadata/:metadataType` route added to all three route contexts (top-level `SystemRoutes`, app-scoped minimal, app-scoped full). All legacy routes (`/system/objects`, `/system/apps`, etc.) unchanged.\n\n### Tests\n\n37 new tests across 4 files: registry validation, MetadataManagerPage (render, search, delete, unknown type), MetadataService generic methods, SystemHubPage registry integration. Full suite: 822 pass."
+}

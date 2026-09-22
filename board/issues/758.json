@@ -1,0 +1,30 @@
+{
+  "number": 758,
+  "kind": "issue",
+  "title": "[P0] ListView RowColor — 行着色在全视图类型中生效",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:22:24Z",
+  "updated_at": "2026-03-31T06:51:51Z",
+  "closed_at": "2026-03-31T06:51:51Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/758",
+  "body": "## 背景\nParent Issue: #736\n\n`useRowColor` hook 已实现（`packages/plugin-grid/src/useRowColor.ts`），Color Popover 字段选择器已实现。但行着色仅在 Grid 视图生效，Kanban 卡片、Gallery 卡片、Calendar 事件等无着色支持。\n\n## 目标\n- RowColor 配置驱动 **所有视图类型** 的着色渲染\n- Grid 行背景色、Kanban 卡片边框色、Gallery 卡片边框色、Calendar 事件背景色\n\n## 技术要点\n- `packages/plugin-grid/src/useRowColor.ts` — 已有 `colorToClass()` + `useRowColor()` hook\n- `packages/plugin-grid/src/ObjectGrid.tsx` L348 — 已调用 `getRowClassName = useRowColor(schema.rowColor)`\n- 需在 Kanban/Gallery/Calendar/Timeline 中接入同一 hook\n\n## 改动范围\n- `packages/plugin-kanban/src/ObjectKanban.tsx` — 卡片级着色\n- `packages/plugin-gallery/src/ObjectGallery.tsx` — 卡片级着色\n- `packages/plugin-calendar/src/ObjectCalendar.tsx` — 事件着色\n- `packages/plugin-timeline/src/ObjectTimeline.tsx` — 条目着色\n- `packages/plugin-list/src/ListView.tsx` — 确保 `rowColorConfig` 传递到所有子视图\n\n## 验收标准\n- [ ] Grid 行背景色正常（已有）\n- [ ] Kanban 卡片按字段值着色\n- [ ] Gallery 卡片按字段值着色\n- [ ] Calendar 事件按字段值着色\n- [ ] Timeline 条目按字段值着色\n- [ ] 着色配色对比度满足 WCAG AA\n- [ ] 所有新增代码有对应单元测试\n- [ ] `pnpm test` 全部通过\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 1202,
+  "kind": "pull_request",
+  "title": "Fix CI build and test errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Claude",
+    "id": 242468646,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "Claude",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-09T09:36:55Z",
+  "updated_at": "2026-04-10T03:18:25Z",
+  "closed_at": "2026-04-10T03:17:12Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-10T03:17:12Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1202",
+  "body": "- [x] Fix TypeScript error: object.relationships possibly undefined (objectDetailWidgets.tsx:164)\n- [x] Fix test failures by registering mock components at module level\n- [x] Remove unused imports in UnifiedSidebar.tsx (Button, Plus, Grid3x3)\n- [ ] Verify Build Core job passes\n- [ ] Verify Test job passes"
+}

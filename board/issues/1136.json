@@ -1,0 +1,33 @@
+{
+  "number": 1136,
+  "kind": "pull_request",
+  "title": "feat: implement Object Manager &amp; Field Designer visual designers with console integration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-30T02:28:39Z",
+  "updated_at": "2026-03-31T01:23:59Z",
+  "closed_at": "2026-03-31T01:23:59Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-31T01:23:59Z",
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1136",
+  "body": "Enterprise-grade visual designers for managing object definitions and configuring fields — the core metadata platform tooling described in #1135. Fully integrated into the console application at `/system/objects`.\n\n### New Components\n\n- **`ObjectManager`** — CRUD on meta-object definitions using standard `ObjectGrid` for the list view and `ModalForm` for create/edit operations. Features include property editing (name, label, plural label, description, icon, group, sort order, enabled), relationship display, search/filter, system object protection, confirm dialogs for destructive actions, and read-only mode.\n- **`FieldDesigner`** — Field configuration wizard using standard `ObjectGrid` for the list view with a specialized `FieldEditor` panel for advanced type-specific properties. Supports 27 field types with uniqueness, defaults, picklist options, read-only, hidden, validation rules, external ID, history tracking, indexed. Type-specific editors for lookup references, formula expressions, and select options. Field type filtering, search, system field protection, and read-only mode.\n\n### Console Integration\n\n- **`ObjectManagerPage`** — System admin page with URL-based routing:\n  - `/system/objects` — Object list view powered by ObjectManager with ObjectGrid\n  - `/system/objects/:objectName` — Object detail page showing an object properties card (API name, label, plural label, group, status, field count, relationships) with FieldDesigner embedded below as the field management section\n  - Clicking an object name in the list navigates to the detail URL; back button returns to the list\n  - Converts metadata objects/fields from the API into typed designer props\n- **`App.tsx`** — Added lazy-loaded `ObjectManagerPage` routes for both `/system/objects` and `/system/objects/:objectName` in fallback (no-app) and app-scoped system route sections\n- **`SystemHubPage`** — Added \"Object Manager\" card with Database icon and live object count badge\n- **`AppSidebar`** — Added \"Object Manager\" link in the system fallback navigation\n\n### Standard Component Reuse\n\nBoth ObjectManager and FieldDesigner are built on top of standard ObjectUI components rather than custom-built list/form rendering:\n- **`ObjectGrid`** (`@object-ui/plugin-grid`) — Used for list views in both components, with `ValueDataSource` for in-memory data management\n- **`ModalForm`** (`@object-ui/plugin-form`) — Used for object create/edit operations in ObjectManager (using `customFields` mode, no DataSource required)\n- **`FieldEditor`** panel — Specialized editor retained for FieldDesigner only, since advanced field-type-specific editing (options editor, validation rules, conditional lookup/formula/select configuration) cannot be replaced by standard form fields\n\n### Types (`@object-ui/types`)\n\n`ObjectDefinition`, `ObjectDefinitionRelationship`, `ObjectManagerSchema`, `DesignerFieldType` (27 types), `DesignerFieldOption`, `DesignerValidationRule`, `DesignerFieldDefinition`, `FieldDesignerSchema`\n\n### i18n\n\n50 new keys per locale across all 10 locales (`objectManager` + `fieldDesigner` sections under `appDesigner`), with fallback translations in `useDesignerTranslation`.\n\n### Test Infrastructure Fix\n\n- Created missing `vitest.setup.ts` for plugin-designer (ResizeObserver polyfill + jest-dom)\n- Added `@object-ui/i18n` alias to `vite.config.ts` — **unblocks 9 pre-existing broken test suites**\n- Result: 13/13 suites passing, 242 tests (was 4/13 passing, 45 tests)\n\n### Tests\n\n- `ObjectManager.test.tsx` — 18 tests (rendering, CRUD via ObjectGrid+ModalForm, search, system object protection, read-only)\n- `FieldDesigner.test.tsx` — 18 tests (rendering, CRUD via ObjectGrid+FieldEditor, type filter, inline editor, select options, read-only)\n- `ObjectManagerPage.test.tsx` — 11 tests (list view rendering, detail view via URL routing, object properties card, field management section, back navigation, relationships display, ObjectGrid primary-field-link navigation)\n\n```tsx\nimport { ObjectManager, FieldDesigner } from '@object-ui/plugin-designer';\n\n<ObjectManager\n  objects={objects}\n  onObjectsChange={setObjects}\n  onSelectObject={(obj) => setSelectedObject(obj)}\n  showSystemObjects={true}\n/>\n\n<FieldDesigner\n  objectName=\"accounts\"\n  fields={fields}\n  onFieldsChange={setFields}\n/>\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n⚡ Quickly spin up Copilot coding agent tasks from anywhere on your macOS or Windows machine with [Raycast](https://gh.io/cca-raycast-docs).\n"
+}

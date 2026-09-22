@@ -1,0 +1,36 @@
+{
+  "number": 1130,
+  "kind": "issue",
+  "title": "【i18n】完善中文语言包（zh.ts）遗漏与平台/元数据国际化分层问题",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-26T06:33:31Z",
+  "updated_at": "2026-03-26T14:01:39Z",
+  "closed_at": "2026-03-26T14:01:39Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1130",
+  "body": "### 背景\nObjectUI 已具备完善的 i18n 架构，包含十种语言的 key-value 资源、useObjectLabel/fieldLabel 自动解析、动态 API 词条加载等。但根据实际使用发现，**中文界面下平台层还有硬编码英文**（如弹窗标题、按钮、占位符等），且`zh.ts` 语言包有少量缺失、部分 key 未翻译。\n\n---\n\n## 发现的问题\n\n### 1. 平台 UI 层漏翻/硬编码（需纳入 zh.ts）\n- 弹窗标题、描述、submit/cancel按钮，仍在 App.tsx 等文件用英文字符串模板直接拼接（如\"Create Contact\"、\"Save Record\"、\"Add a new ... to your database.\"、\"Cancel\"等）。\n- 部分组件（如SelectField、LookupField）默认 placeholder 写死英文\"Select an option\"、\"Select...\"等。\n- 表单/表格等部分按钮或说明文字 fallback 英文。\n\n### 2. zh.ts 文件具体问题\n- 个别常用 key \"toolbarEnabledCount\" (`{{count}} of {{total}} enabled`) 未翻译，存在英文。\n- 未包含 select 组件常用占位/option提示，如\"Select an option\"、\"Select...\"等。\n- 元数据 placeholder/option label 如 `email@example.com`, `(555) 123-4567` 来源业务 schema，目前尚不支持 schema 多语言，建议后续升级元数据格式。\n\n\n## 优化建议\n\n### A. 平台 UI 文案100%国际化\n- 全量梳理 platform UI 层硬编码英文，全部纳入 i18n key，通过 `t()` 或 `useObjectLabel` 自动解析。\n- 提供 select/lookup/表单/弹窗等底层组件默认文案的多语言 key。\n- 新增 `common.selectOption: '请选择'`、`common.select: '选择...'` 等。\n\n### B. 修正/补充 zh.ts 翻译\n- 补齐所有 fallback、常用 key、查漏补缺。\n- 技术方案建议所有 fallback default 字符串都走 i18n，不出现英文 fallback。\n\n### C. 长远元数据国际化改进\n- 元数据层（业务字段/placeholder）建议添加多语言属性（如 placeholder.zh、label.en 等），schema 设计时支持多语言。\n- 若用低代码 schema、自动生成翻译包。\n\n---\n\n## 任务拆解（建议分阶段）\n1. 梳理、替换全部平台英文硬编码，全部走 i18n（平台层100%覆盖）\n2. zh.ts 文件补齐所有 key & 修正所有 fallback\n3. Schema 设计升级任务（元数据多语言支持，方案设计可拆子 issue 跟踪）\n4. CI 国际化覆盖率检测脚本\n\n---\n\n如需子任务可继续分解��\n\n参考场景见截图和代码实际引用逻辑。"
+}

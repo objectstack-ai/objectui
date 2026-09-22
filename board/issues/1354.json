@@ -1,0 +1,35 @@
+{
+  "number": 1354,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump postcss from 8.5.14 to 8.5.15",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "examples",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-22T06:42:01Z",
+  "updated_at": "2026-05-22T06:45:19Z",
+  "closed_at": "2026-05-22T06:42:19Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-05-22T06:42:19Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1354",
+  "body": "Bumps [postcss](https://github.com/postcss/postcss) from 8.5.14 to 8.5.15.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/releases\">postcss's releases</a>.</em></p>\n<blockquote>\n<h2>8.5.15</h2>\n<ul>\n<li>Fixed declaration parsing performance (by <a href=\"https://github.com/homanp\"><code>@​homanp</code></a>).</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/blob/main/CHANGELOG.md\">postcss's changelog</a>.</em></p>\n<blockquote>\n<h2>8.5.15</h2>\n<ul>\n<li>Fixed declaration parsing performance (by <a href=\"https://github.com/homanp\"><code>@​homanp</code></a>).</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/postcss/postcss/commit/eae46db765d752cf8f40c4fa2b0b85030079c43d\"><code>eae46db</code></a> Release 8.5.15 version</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/79508ffa59e42c02056aca61b88bc393c8b516c4\"><code>79508ff</code></a> Update CI actions</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/b128e2131288a411c6e28071d0929542c49e74eb\"><code>b128e21</code></a> Speed up declaration parsing by avoiding creating new array on each token</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/9825dca02c33cf610e2a842be767468b67fbecf9\"><code>9825dca</code></a> Fix code format</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/55789c865281e2be194fa5b4e41dd046be3a2307\"><code>55789c8</code></a> Update dependencies</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/84fbbe9009cb3cc3bbb4cc3a9b65d468f4844d95\"><code>84fbbe9</code></a> Install older pnpm action for old Node.js</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/9f860bd78ec1dbc4f0ae72d693f03f956baa38cb\"><code>9f860bd</code></a> Revert pnpm action for old Node.js</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/08771986d47359545f502e009763e223b66bfcf6\"><code>0877198</code></a> Update CI actions</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/b2d1a335cea818f8b27e5cfb90147648afe3e582\"><code>b2d1a33</code></a> Fix linter warnings</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/0700dac92283bc259977dff2743ca74a00f58267\"><code>0700dac</code></a> Merge pull request <a href=\"https://redirect.github.com/postcss/postcss/issues/2088\">#2088</a> from rootvector2/add-oss-fuzz-harness</li>\n<li>Additional commits viewable in <a href=\"https://github.com/postcss/postcss/compare/8.5.14...8.5.15\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=postcss&package-manager=npm_and_yarn&previous-version=8.5.14&new-version=8.5.15)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

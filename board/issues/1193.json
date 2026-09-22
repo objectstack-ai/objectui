@@ -1,0 +1,33 @@
+{
+  "number": 1193,
+  "kind": "pull_request",
+  "title": "refactor: migrate object detail page to PageSchema-driven rendering",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-07T06:26:24Z",
+  "updated_at": "2026-04-07T07:46:50Z",
+  "closed_at": "2026-04-07T07:46:50Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-04-07T07:46:50Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1193",
+  "body": "Object Manager detail page was hardcoded React components with a `hasCustomPage` + `<Navigate>` redirect hack in `MetadataDetailPage`. This migrates it to the Spec UI PageSchema protocol so all detail pages are metadata-driven and rendered via `SchemaRenderer`.\n\n### Architecture\n\nSix self-contained widget components registered in `ComponentRegistry`, each resolving data from React context (`useMetadata`, `useMetadataService`) — no prop drilling:\n\n- `object-properties`, `object-relationships`, `object-keys`, `object-data-experience`, `object-data-preview`, `object-field-designer`\n\nA `PageSchema` factory composes them:\n\n```typescript\nbuildObjectDetailPageSchema('account', item)\n// → { type: 'page', pageType: 'record_detail', body: [\n//     { type: 'object-properties', objectName: 'account' },\n//     { type: 'object-field-designer', objectName: 'account' },\n//     ...\n//   ]}\n```\n\n### MetadataTypeConfig changes\n\n- **Removed**: `hasCustomPage` boolean flag\n- **Added**: `pageSchemaFactory: (itemName, item) => PageSchema` — when defined, `MetadataDetailPage` renders via `SchemaRenderer` instead of the default card layout or redirecting\n- **Kept**: `customRoute` for hub card linking (decoupled from detail rendering)\n\n### MetadataDetailPage rendering modes (priority order)\n\n1. `pageSchemaFactory` → SchemaRenderer with body nodes\n2. `detailComponent` → custom React component\n3. Default card layout\n\n### Error handling\n\n`SchemaErrorBoundary` wraps schema rendering in both `MetadataDetailPage` and `ObjectManagerPage` with user-friendly fallback UI on render failures.\n\n### Routes\n\nBoth `/system/objects/:objectName` and `/system/metadata/object/:objectName` render the same PageSchema-driven detail view. No redirects."
+}

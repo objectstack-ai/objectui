@@ -1,0 +1,33 @@
+{
+  "number": 1191,
+  "kind": "pull_request",
+  "title": "fix: align protocol bridges and CRM example with @objectstack/spec v4 string labels",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-04-07T06:01:29Z",
+  "updated_at": "2026-04-07T06:02:28Z",
+  "closed_at": "2026-04-07T06:02:28Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-04-07T06:02:28Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1191",
+  "body": "`@objectstack/spec` v4 changed `I18nLabel` from `{ key: string; defaultValue: string }` to plain `string`. This broke builds and tests across core protocols, console app, and the CRM example.\n\n### Core protocol bridges (`@object-ui/core`)\n\nRemoved translation object resolution from `DndProtocol`, `KeyboardProtocol`, and `NotificationProtocol` — fields like `ariaLabel`, `label`, `title`, `message` are now passed through directly as strings.\n\n```ts\n// Before\nconst ariaLabel = typeof item.ariaLabel === 'string'\n  ? item.ariaLabel\n  : item.ariaLabel?.defaultValue;\n\n// After\n'aria-label': item.ariaLabel ?? item.label,\n```\n\n### CRM example\n\nConverted all 19+ i18n label objects in `crm.app.ts` and `crm.dashboard.ts` to their `defaultValue` strings.\n\n```ts\n// Before\nlabel: { key: 'crm.navigation.dashboard', defaultValue: 'Dashboard' }\n// After\nlabel: 'Dashboard'\n```\n\n### Console app\n\n- `MetadataService.ts`: Cast `DesignerFieldDefinition.defaultValue` (`unknown`) to `string | undefined` for the API payload type\n- Removed unused imports (`toast`, `MetadataFormFieldDef`, `MetadataActionDef`) causing `TS6133`\n\n### Tests\n\nUpdated protocol test cases and CRM test helper to use plain strings instead of translation objects."
+}

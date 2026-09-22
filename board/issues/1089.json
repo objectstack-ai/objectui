@@ -1,0 +1,36 @@
+{
+  "number": 1089,
+  "kind": "issue",
+  "title": "【CRM 示例补充】完善 Lookup 字段 enterprise 元数据配置，以展示 RecordPicker 企业级特性",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-03-18T11:01:12Z",
+  "updated_at": "2026-03-31T06:53:36Z",
+  "closed_at": "2026-03-31T06:53:36Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1089",
+  "body": "### 问题背景\nIssue #1087 的所有企业级能力（lookup_filters、cell 格式化、filter bar、ObjectGrid 复用等）已在底层 RecordPickerDialog & LookupField 实现并合并。但在 Console/CRM 示例页面 lookup 字段的弹窗中，看不到任何区别。\n\n### 根因分析\n- CRM 示例对象所有 lookup 字段未配置 `lookup_columns`、`lookup_filters` 等企业级属性，导致 RecordPickerDialog 只显示默认一列，缺乏类型信息，不触发 cellRenderer，也没有基础业务筛选、过滤条。\n- 目前 examples/crm 下无任何含 lookup_filters/lookup_columns 配置的元数据。\n- 如未配置 type, 相关 currency/date/select/boolean 格式化均不会被触发；未加 filters, 弹窗未体现企业级筛选能力。\n\n### 需要做的\n1. 补充 CRM 示例中所有 lookup 字段：\n   - 配置 `lookup_columns`（带 type、label），保证弹窗多列且激活对应的 cell 渲染器\n   - 配置 `lookup_filters`，如 contacts/status、account/type 等\n   - 视情况配置 `lookup_page_size`、description_field\n\n2. 如发现 `@objectstack/spec` 的 Field.lookup 工厂/defineStack Zod parse strip 掉自定义属性，要修复以透传（参考 listViews 处理方式）\n\n3. 编写/完善相关 UI 测试，确保企业级能力（多列、筛选、格式化、多类型可见性）可在 Console/CRM 演示端到端落地。\n\n### 验收标准\n- 任一 CRM 示例的 lookup 弹窗，能看到多列（含类型icon/色块/日期/数字/Badge 等），过滤条多类型可编辑，能预览 filter bar+lookup_filters 联合筛选效果\n- 测试用例覆盖查询参数注入、cell 类型渲染、企业级表格功能\n- CHANGELOG.md / ROADMAP.md 更新\n\n"
+}

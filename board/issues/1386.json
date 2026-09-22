@@ -1,0 +1,33 @@
+{
+  "number": 1386,
+  "kind": "pull_request",
+  "title": "chore(deps): bump motion from 12.38.0 to 12.40.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-25T11:33:23Z",
+  "updated_at": "2026-05-25T11:36:49Z",
+  "closed_at": "2026-05-25T11:33:47Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-05-25T11:33:47Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1386",
+  "body": "Bumps [motion](https://github.com/motiondivision/motion) from 12.38.0 to 12.40.0.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/motiondivision/motion/blob/main/CHANGELOG.md\">motion's changelog</a>.</em></p>\n<blockquote>\n<h2>[12.40.0] 2026-05-21</h2>\n<h3>Added</h3>\n<ul>\n<li><code>path</code> option to <code>transition</code>.</li>\n<li><code>arc()</code> for motion along an arc.</li>\n</ul>\n<h2>[12.39.0] 2026-05-18</h2>\n<h3>Added</h3>\n<ul>\n<li>Support for <code>repeatType</code> and <code>repeatDelay</code> in animation sequences.</li>\n</ul>\n<h3>Fixed</h3>\n<ul>\n<li>Variants: Re-run keyframe animations when switching between variant labels even when they share identical keyframe arrays.</li>\n<li>Drag: Preserve in-flight motion value animations across React 19 reorder unmount/remount so <code>dragSnapToOrigin</code> no longer leaves the drag transform stranded after a layout swap.</li>\n<li><code>LazyMotion</code>: Share React contexts between the <code>framer-motion</code> and <code>framer-motion/m</code> (and therefore <code>motion/react</code> and <code>motion/react-m</code>) CJS bundles so that <code>&lt;m.div&gt;</code> from the <code>/m</code> subpath picks up features loaded by <code>&lt;LazyMotion&gt;</code> from the main entry point.</li>\n<li><code>useScroll</code>: Support hydrating <code>target</code> and <code>container</code> refs from anywhere in the tree.</li>\n<li>Drag: Gesture no longer starts from incorrect start point when rendered inside <code>&lt;AnimatePresence initial={false} /&gt;</code>.</li>\n<li>Drag: <code>dragConstraints</code>, when set as viewport-relative ref, no longer break on scroll.§</li>\n<li>Updated <code>visualElement</code> hydration order.</li>\n<li><code>useAnimate</code>: Now respects <code>skipAnimations</code>.</li>\n<li><code>AnimatePresence</code>: Fix object-form <code>initial</code> values not applied on re-entry after exit completes.</li>\n<li><code>scroll</code>: Fixed callback progress when tracking an element.</li>\n<li><code>useScroll</code>: Fix hardware acceleration when tracking an element.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/motiondivision/motion/commit/38ebb9480e5b25a51e09e2ec866c101d01d82c60\"><code>38ebb94</code></a> v12.40.0</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/b1f766c7221cfdbf868e2f66675d6d2e2ff8f50e\"><code>b1f766c</code></a> Latest</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/bca554401519e8ef45db1dcc8c52580998251c73\"><code>bca5544</code></a> Merge pull request <a href=\"https://redirect.github.com/motiondivision/motion/issues/3699\">#3699</a> from motiondivision/lochie/arcs-injectable</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/f1a96cfaff8de87712539bf250205134c8e121d9\"><code>f1a96cf</code></a> arc(): rename amp/rotate, expose MotionPath, fix explicit cw/ccw</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/b4aaba0d161cce6db7b2070ec3fd141e1dbcda95\"><code>b4aaba0</code></a> pathRotation: non-destructive orientToPath rotation channel</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/8604ef3d9048127d61a8bbd94698e56368e70926\"><code>8604ef3</code></a> Make arcs injectable via <code>transition.path = arc()</code></li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/f90fe294c559c3bd7b13e762b0b2aefe837dc000\"><code>f90fe29</code></a> add <code>orientToPath</code></li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/9ebe999fe93e6431ce026a998cb2aeabe690d03b\"><code>9ebe999</code></a> fix: test</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/bc2107e8963b35c0f264810d8dcb8b7b96ac7cb5\"><code>bc2107e</code></a> Revert &quot;no should&quot;</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/6eeb92dc2228419a1d2ba33bec5df36c3357683a\"><code>6eeb92d</code></a> no should</li>\n<li>Additional commits viewable in <a href=\"https://github.com/motiondivision/motion/compare/v12.38.0...v12.40.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=motion&package-manager=npm_and_yarn&previous-version=12.38.0&new-version=12.40.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

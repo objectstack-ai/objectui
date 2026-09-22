@@ -1,0 +1,33 @@
+{
+  "number": 1154,
+  "kind": "pull_request",
+  "title": "fix: resolve CI build errors in types, console, and fields packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-31T06:02:49Z",
+  "updated_at": "2026-03-31T06:41:39Z",
+  "closed_at": "2026-03-31T06:37:04Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-31T06:37:04Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1154",
+  "body": "Three independent build failures on main: a type incompatibility in `ChatbotSchema`, a missing type assertion in `ObjectManagerPage`, and a bundled `react/jsx-runtime` breaking Next.js SSR.\n\n- **`@object-ui/types`** — `ChatbotSchema.body: Record<string, unknown>` conflicts with `BaseSchema.body: SchemaNode | SchemaNode[]`. Renamed to `requestBody` since it represents HTTP request params, not child schema nodes.\n\n- **`apps/console`** — `ObjectManagerPage.toFieldDefinition()` assigns `field.type` (string) to `DesignerFieldType` (literal union). Added type assertion and missing import:\n  ```ts\n  type: (field.type || 'text') as DesignerFieldType,\n  ```\n\n- **`@object-ui/fields`** — `react/jsx-runtime` was not externalized in vite config, causing it to be bundled into the CJS output. Next.js Turbopack SSR rejects the resulting dynamic `require()` during static prerendering of `/docs/components/overlay/tooltip`. Added `react/jsx-runtime` to externals, matching the pattern in plugin-list/plugin-detail."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1157,
+  "kind": "pull_request",
+  "title": "fix(ci): add missing plugin-chatbot dep to console, add i18n to site transpilePackages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-31T08:35:06Z",
+  "updated_at": "2026-03-31T09:27:16Z",
+  "closed_at": "2026-03-31T09:23:27Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-31T09:23:27Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1157",
+  "body": "Two CI build failures on main after the floating chatbot merge.\n\n### Build Core — `@object-ui/console`\n`ConsoleLayout.tsx` imports from `@object-ui/plugin-chatbot` but the package was never added to `devDependencies`.\n\n- Added `@object-ui/plugin-chatbot: workspace:*` to `apps/console/package.json`\n\n### Build Docs — `@object-ui/site` SSR prerender\nTooltip page fails with `Error: dynamic usage of require is not supported` during Next.js SSR. Cause: `@object-ui/react` re-exports from `@object-ui/i18n` → `react-i18next` → `use-sync-external-store/shim` (CJS `require()`). The i18n package was missing from `transpilePackages`, so Turbopack hit the CJS path.\n\n- Added `@object-ui/i18n` to `transpilePackages` in `apps/site/next.config.mjs`"
+}

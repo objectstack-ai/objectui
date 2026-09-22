@@ -1,0 +1,33 @@
+{
+  "number": 1389,
+  "kind": "pull_request",
+  "title": "chore(deps): bump date-fns from 4.2.1 to 4.3.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-25T11:37:14Z",
+  "updated_at": "2026-05-25T11:40:28Z",
+  "closed_at": "2026-05-25T11:37:34Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-05-25T11:37:34Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1389",
+  "body": "Bumps [date-fns](https://github.com/date-fns/date-fns) from 4.2.1 to 4.3.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/date-fns/date-fns/releases\">date-fns's releases</a>.</em></p>\n<blockquote>\n<h2>v4.3.0</h2>\n<p>Kudos to <a href=\"https://github.com/ImRodry\"><code>@​ImRodry</code></a> and <a href=\"https://github.com/puneetdixit200\"><code>@​puneetdixit200</code></a> for their contributions.</p>\n<h3>Fixed</h3>\n<ul>\n<li>\n<p>Fixed missing modularized optimization fallback (<a href=\"https://x.com/kossnocorp/status/1731181274579325260\">for Next.js and others</a>). See <a href=\"https://x.com/kossnocorp/status/1731181274579325260\">#4193</a>.</p>\n</li>\n<li>\n<p>Fixed <code>pt</code> locale first day of week to be Sunday. See <a href=\"https://redirect.github.com/date-fns/date-fns/pull/4195\">#4195</a> by <a href=\"https://github.com/ImRodry\"><code>@​ImRodry</code></a>.</p>\n</li>\n<li>\n<p>Fixed <code>zh-CN</code>, <code>zh-HK</code>, and <code>zh-TW</code> locale month parsing for October, November, and December. See <a href=\"https://redirect.github.com/date-fns/date-fns/pull/4194\">#4194</a> by <a href=\"https://github.com/puneetdixit200\"><code>@​puneetdixit200</code></a>.</p>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/f95bcf18b53e6832b2c575c24c98654a24f52699\"><code>f95bcf1</code></a> (docs): Add missing <code>tsx</code> dependency</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/baaca1117e9ec317bb4d188e9cd254df15ce1c8e\"><code>baaca11</code></a> Add <code>//pkgs/core:release/docs</code> task</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/8aa0373ece55184e7817d4a3bbeee65eab3f267c\"><code>8aa0373</code></a> Update docs website secrets location in scripts</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/c7ad6eb0a0b712a4b4f6ad00a98b6b35a513fffb\"><code>c7ad6eb</code></a> Promote to v4.3.0</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/da8c5489f62446356f4c7eabbc9e166b04b76e2e\"><code>da8c548</code></a> Add change log entry for Chinese locale fix (<a href=\"https://redirect.github.com/date-fns/date-fns/issues/4194\">#4194</a>)</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/f8d8fa8cb900dba82ce0285db0177a9f1bfa7254\"><code>f8d8fa8</code></a> Split Chinese locale tests (<a href=\"https://redirect.github.com/date-fns/date-fns/issues/4194\">#4194</a>)</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/b9c5865edb7610c59e6b3694ed1e1691f4807688\"><code>b9c5865</code></a> Fix Chinese locale month parsing (<a href=\"https://redirect.github.com/date-fns/date-fns/issues/4194\">#4194</a>)</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/39d1e14200cead9e4be5df88695b5e82082875ed\"><code>39d1e14</code></a> Add <code>pt</code> fix change log entry (<a href=\"https://redirect.github.com/date-fns/date-fns/issues/4195\">#4195</a>)</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/f3f19632bd3feb5b77daff8bc1614d5f29e4e499\"><code>f3f1963</code></a> Fix pt locale first day of week to be Sunday (<a href=\"https://redirect.github.com/date-fns/date-fns/issues/4195\">#4195</a>)</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/cd6ebdade912d652afe3fd1bb1bd83219f0bb8b6\"><code>cd6ebda</code></a> Add basic <code>AGENTS.md</code></li>\n<li>Additional commits viewable in <a href=\"https://github.com/date-fns/date-fns/compare/v4.2.1...v4.3.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=date-fns&package-manager=npm_and_yarn&previous-version=4.2.1&new-version=4.3.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

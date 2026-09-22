@@ -1,0 +1,33 @@
+{
+  "number": 1296,
+  "kind": "pull_request",
+  "title": "feat(app-shell): page-mode record create/edit routes (`editMode: 'page'`)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-08T01:42:12Z",
+  "updated_at": "2026-05-08T06:01:17Z",
+  "closed_at": "2026-05-08T06:01:17Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-05-08T06:01:17Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1296",
+  "body": "### CI fixes (this session, on top of editMode page work)\n\n- [x] Identify CI failures\n- [x] `@object-ui/types` — re-export `CreateExportJobRequest`, `ExportJobProgressInfo`, `ExportJobStatus`, `ExportJobFormat`, `CreateExportJobResult` from the package barrel (referenced by `@object-ui/components/src/hooks/use-export-job.ts`)\n- [x] `@object-ui/app-shell` — `ConsoleFloatingChatbot` `preferred && agents.find(...)` was inferred as `'' | AgentDescriptor` and broke `tsc` on `.name`; switch to ternary so `match` is `AgentDescriptor | undefined`\n- [x] `@object-ui/plugin-report` — `ReportViewer` test compared `backgroundColor` to a hex string but jsdom normalizes to `rgb(...)`; assert against normalized form\n- [x] Re-run `turbo run build --filter='./packages/*'` (39/39 ✅) and `turbo run test --concurrency=4` (70/70 ✅)\n- [x] Address code-review style nits (Tailwind class order, drop `as string[]` cast, trim trailing blank line)\n\n### Original PR\n\nPage-mode record create/edit routes (`editMode: 'page'`) — already merged into the branch."
+}

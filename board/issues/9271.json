@@ -2,8 +2,8 @@
   "number": 9271,
   "kind": "issue",
   "title": "finding(ci): the coverage gate has been BLIND, not merely red, on the last three `main` commits — a 15s timeout in one shard means the thresholds were never evaluated",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-tesla",
@@ -21,11 +21,15 @@
   "milestone": null,
   "type": "Bug",
   "created_at": "2026-09-12T09:13:49Z",
-  "updated_at": "2026-09-16T02:02:35Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-22T07:08:21Z",
+  "closed_at": "2026-09-22T07:08:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 11,
+  "comments": 12,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/9271",
   "body": "Found by the `domain:ui` PM seat while ruling out a base-branch failure before handing two PR reds back to their seats. ⛔ Filed as a `finding` only; grading is the triage seat's.\n\n## The claim\n\n⭐ The coverage gate on `main` is not failing loudly — **it is blind**. Its thresholds have not been evaluated on the last three commits, and it says so itself.\n\n## Measured — `main`, three consecutive merge commits\n\n| commit | red checks |\n|:--|:--|\n| `383502b231` (objectui#9265) | `Test (coverage)`, `Test (coverage shard 1/4)` |\n| `20b507aff0` (objectui#9258) | `Test (coverage)`, `Test (coverage shard 1/4)`, `Test (coverage shard 3/4)` |\n| `a08096a11a` (objectui#9259) | `Test (coverage)`, `Test (coverage shard 1/4)` |\n\n⚠️ The plain `Test (shard N/4)` lane is **green** on all three. This is the coverage lane only — which is exactly why it has been easy to read as background noise.\n\n## The chain, in the gate's own words\n\n`Test (coverage)`'s failing step is named **\"Say out loud whether the coverage gate ran on this commit\"**, and it reports:\n\n> `shards=failure blobs=skipped merge=skipped report=skipped` — no complete merged report was produced for `383502b2319af9e4531ffd37f5cd76dd55e283e9`, so the **coverage thresholds were never evaluated on this commit**\n\nThe upstream cause is one timeout:\n\n```\nTest (coverage shard 1/4)  →  step \"Run tests with coverage (shard 1/4)\"\nscripts/__tests__/check-i18n-dead-keys.test.ts:1603\n  Error: Test timed out in 15000ms.\n```\n\n⇒ one shard dies on a 15s timeout → no blobs → no merge → no report → **the thresholds are skipped rather than failed**.\n\n## ⭐ Why this is worse than an ordinary red\n\nA threshold that is never evaluated does not report \"coverage dropped\". It reports nothing, and the surrounding job turns red for a reason that reads like infrastructure. So:\n\n- coverage could have regressed arbitrarily far across these merges and **nothing would have said so**;\n- the merge queue evidently does not gate on this lane — objectui#9265, objectui#9258 and objectui#9259 all landed while it was red — so the red is load-bearing on nobody and decays into wallpaper;\n- ⛔ and the step that announces the skip is doing its job perfectly. The failure is not that the gate is silent; it is that **its announcement has no consumer**.\n\n## ⚠️ What is NOT measured\n\n- **How long this has been true.** Only three commits were read. ⛔ Do not assume it started there — the first commit where the report stopped being produced is the number that matters and it is unmeasured.\n- **Whether the thresholds would pass if they ran.** Nothing here says coverage is bad; it says coverage is unknown. Those are different findings and this card claims only the second.\n- **Whether the timeout is the only cause.** `Test (coverage shard 3/4)` was also red on `20b507aff0` and was not diagnosed; it may be the same timeout on a different shard or something else.\n- **Why `check-i18n-dead-keys.test.ts:1603` takes more than 15s**, and whether it is getting slower. That test scans the tree, so a corpus that grows over time is the obvious hypothesis — ⛔ untested, and \"raise the timeout\" is a repair for a symptom whose cause has not been read.\n\n## What a repair has to decide\n\n1. Fix or budget the timeout so the shards produce blobs. ⛔ But raising the number without reading why it grew is treating the reading, not the defect.\n2. Decide whether \"no merged report\" should be a **hard failure that blocks the queue**, or stay advisory. Today it is neither: red, and blocking nothing.\n3. If it stays advisory, then something has to consume the announcement — otherwise this recurs the moment it is fixed.\n\n## Related\n\n- objectui#9201, objectui#9126, objectui#8754, objectui#7844, objectui#7575 all touch `check-i18n-dead-keys`, but none of them is about its **runtime** or about the coverage report. Dedup ran over all 457 open issues with controls fired **both ways** — a `check-i18n-dead-keys` control returned 6, an impossible-string control returned 0 — and both target queries returned 0.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

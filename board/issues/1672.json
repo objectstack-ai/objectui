@@ -1,0 +1,34 @@
+{
+  "number": 1672,
+  "kind": "pull_request",
+  "title": "feat(gantt): feature parity Phases 1-5 — links, time scales, hierarchy, interactions, virtualization",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T11:59:34Z",
+  "updated_at": "2026-06-13T02:48:38Z",
+  "closed_at": "2026-06-13T02:48:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T02:48:37Z",
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1672",
+  "body": "Implements Phases 1–5 of the Gantt feature-parity roadmap ([`packages/plugin-gantt/ROADMAP.md`](https://github.com/objectstack-ai/objectui/blob/feat/gantt-dependency-links/packages/plugin-gantt/ROADMAP.md)). Feature set referenced against svar-widgets/react-gantt (GPLv3 — feature reference only, all code written from scratch under MIT).\n\n## Progress\n\n- [x] **Phase 1 — Dependency links** (0d9cba15e): SVG overlay with orthogonal arrows, all 4 link types (`fs`/`ss`/`ff`/`sf`), live tracking during drag/resize, hover highlight, `normalizeDependencies` export\n- [x] **Phase 2 — Real time scales** (ff776f16c): day/week/month/quarter, two-row header, weekend tint, zoom, jump-to-today\n- [x] **Phase 3 — Hierarchy** (45a2a41ea): collapsible tree, bracket summary bars, milestone diamonds, treeitem a11y\n- [x] **Phase 4 — Interaction polish** (9796aa24d): progress drag handle, tooltip, context menu, keyboard nav, inline edit, drag-to-create links, row reorder\n- [x] **Phase 5 — Scale** (5971ee039): virtualized rows *and* columns, fullscreen toggle, custom timeline markers\n- [x] **Self-testing** (80d3bdd81, d47a78846): 60 unit tests + automated browser verification with persisted screenshots\n- [ ] Phase 6 — not in scope for this PR\n\n## Self-test results (real Chromium, screenshots committed)\n\n`scripts/verify-browser.mjs` drives the new `demo/` app and persists screenshots to [`docs/verification/`](https://github.com/objectstack-ai/objectui/tree/feat/gantt-dependency-links/packages/plugin-gantt/docs/verification) — **18/18 checks passed**:\n\n- **Links**: 10 arrows covering all 4 types; hover highlights exactly the hovered bar's links; real-mouse drag from a link dot creates a new dependency (rubber band asserted mid-drag)\n- **Hierarchy**: 13 rows / 3 summary brackets / 2 milestones; collapsing *Build* hides its 4 children and their links; expand restores\n- **Performance (5,000 tasks)**: initial render **27 ms**, only **26 rows + 26 columns** in the DOM (spacer-based windowing), mid-list scroll window shift **40.5 ms**\n\n| | |\n|---|---|\n| ![overview](https://raw.githubusercontent.com/objectstack-ai/objectui/feat/gantt-dependency-links/packages/plugin-gantt/docs/verification/01-project-overview.png) | ![week mode](https://raw.githubusercontent.com/objectstack-ai/objectui/feat/gantt-dependency-links/packages/plugin-gantt/docs/verification/02-week-mode-all-links.png) |\n| ![drag to link](https://raw.githubusercontent.com/objectstack-ai/objectui/feat/gantt-dependency-links/packages/plugin-gantt/docs/verification/05-link-create-drag.png) | ![5000 tasks](https://raw.githubusercontent.com/objectstack-ai/objectui/feat/gantt-dependency-links/packages/plugin-gantt/docs/verification/07-perf-5000-top.png) |\n\nBrowser testing also caught (and this PR fixes) utilities missing from the prebuilt `@object-ui/components/style.css` — summary brackets, the Today marker, weekend tint, row hover/selection and the drag ring were invisible in consuming apps and now use inline theme-var colors.\n\n## Validation\n\n- `pnpm vitest run` (plugin-gantt): 60 tests passing; monorepo-wide: 3,600 tests / 220 files green\n- `pnpm type-check`: full turbo run green (58 tasks)\n- Browser: 18/18 automated checks, screenshots in `docs/verification/`\n\n> Do not merge — per request, this PR stays open for review.\n"
+}

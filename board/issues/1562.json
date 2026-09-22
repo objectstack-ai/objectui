@@ -1,0 +1,32 @@
+{
+  "number": 1562,
+  "kind": "pull_request",
+  "title": "test(e2e): repoint master-detail live specs at invoice+lines and form-mode tasks",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T06:47:13Z",
+  "updated_at": "2026-06-07T06:53:13Z",
+  "closed_at": "2026-06-07T06:53:10Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T06:53:10Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1562",
+  "body": "## Why\n\nThe showcase reworked its master-detail demos (framework PR objectstack-ai/framework#1637): **New Project** no longer force-renders an inline Tasks subtable, and a real **Invoice + Invoice Line** (\"header + line items\") demo was added where inline entry belongs. This repoints the live e2e to match.\n\n## What\n\n- **`form-view-subforms.spec.ts`** → `showcase_invoice`. New Invoice renders the relationship-derived **\"Line Items\"** grid (`invoice_line.invoice` declares `inlineEdit: 'grid'`) and submits an atomic `/api/v1/batch` with the `showcase_invoice_line` child referencing the invoice via `{$ref:0}`.\n- **`row-expand.spec.ts`** → `showcase_invoice`. A grid row expands into the child's full inline form (parent `Invoice` FK excluded); Apply writes the values back into the grid row.\n- **`master-detail.spec.ts`** (New Project + Tasks workspace page) → `showcase_task` is a rich child, so with `inlineEdit` removed the smart default resolves to the per-row **`form`** factor. The test drives \"Add task\" → full inline form → Apply, then asserts the atomic batch carries the task child with `project: {$ref:0}` — adding live coverage for the form-mode add path.\n\n## Verification\n\nAll 10 live specs pass against the running backend (:3000) + console (:5180): `10 passed`.\n\n> Depends on framework#1637. The live backend already serves the new objects.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

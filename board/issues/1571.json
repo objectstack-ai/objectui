@@ -1,0 +1,32 @@
+{
+  "number": 1571,
+  "kind": "pull_request",
+  "title": "feat(app-shell): extend runtime persistence seam to record 'page' (#1541)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T09:53:36Z",
+  "updated_at": "2026-06-07T09:58:31Z",
+  "closed_at": "2026-06-07T09:58:29Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T09:58:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1571",
+  "body": "## Why\n\nFirst step of #1541 (record-page runtime persistence, ADR-0034). The draft→publish seam (`runtime-metadata-persistence.ts`) only handled `view`/`report`/`dashboard`; record pages had no persistence path. This adds the foundation the edit loop builds on.\n\n## What\n\n- `RuntimeArtifactType` += `'page'` — a record `PageSchema` now stages/publishes through the same `metadataClient` draft model (the client is type-generic; `/meta/page/:name` already exists, no backend change).\n- Pure helper **`recordPageName(objectName, existing?)`** — prefers an already-assigned record page's name, else mints `<object>_record` (so first-edit of the synthesized default has a stable key to draft/version against).\n- Pure helper **`recordPageEnvelope(objectName, schema, name?)`** — stamps the `name` / `object` / `pageType:'record'` / `kind:'full'` identity fields `usePageAssignment` matches on, so a published page overrides the synthesized default on the next render.\n\n## Verification\n\n- Unit: 15 seam tests (page persist/read-draft/publish round-trip; helper naming + envelope identity fields).\n\nNext: PR2 wires the RecordDetailView edit entry → persist draft + `RuntimeDraftBar` + draft overlay; PR3 the live e2e round-trip + docs.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 1623,
+  "kind": "pull_request",
+  "title": "chore!: remove @object-ui/plugin-workflow (9.0)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "documentation",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T13:56:08Z",
+  "updated_at": "2026-06-10T14:03:41Z",
+  "closed_at": "2026-06-10T14:03:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T14:03:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1623",
+  "body": "## Summary\nRemoves the dead `@object-ui/plugin-workflow` package for the planned **9.0** major.\n\n**Why it's safe to remove** (verified by repo-wide sweep):\n- `apps/console` (the bundle framework ships) and `packages/runner` never depended on it\n- zero imports anywhere outside the package itself; no app/example schema uses its registered component types (`workflow-designer`, `flow-designer`, `automation-builder`, `approval-process`, `automation-run-history`)\n- its designers author BPMN-style / standalone-workflow shapes the automation engine does not execute (ADR-0020, ADR-0031)\n\n**Replacements already ship:** flow authoring → app-shell metadata-admin `FlowCanvas` (engine-registry-driven palette); run history → `FlowRunsPanel` (#1622); approval UI → framework `plugin-approvals`.\n\n## Changes\n- delete `packages/plugin-workflow/`\n- delete `@object-ui/types` `workflow.ts` + its 29 type re-exports (zero external consumers — app-shell's `FlowNode`/`FlowEdge` are local types); explanatory comment left in `types/src/index.ts`\n- drop docs page + `plugins/meta.json` entry, root vitest alias, changeset fixed-group entry; lockfile refreshed\n- **major** changeset on `@object-ui/types` with migration notes\n\n## Release follow-up\n`npm deprecate @object-ui/plugin-workflow@\"<9\" \"Removed in 9.0 — use the Studio flow designer (@object-ui/app-shell FlowCanvas)\"`\n\n## Test plan\n- [x] full `pnpm vitest run`: 219 files / 3562 tests green\n- [x] `@object-ui/types` + `@object-ui/app-shell` type-check, `@object-ui/types` build\n- [x] `pnpm build:console` green; site `.source` regenerates with zero references\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

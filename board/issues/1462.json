@@ -1,0 +1,32 @@
+{
+  "number": 1462,
+  "kind": "pull_request",
+  "title": "feat(console): standalone top-level API Console route",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T04:23:26Z",
+  "updated_at": "2026-06-03T13:57:42Z",
+  "closed_at": "2026-06-03T13:57:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1462",
+  "body": "## What\n\nMoves the **API Console** out of the `/apps/:appName/*` inner shell to a **top-level, full-screen route** at **`/developer/api-console`**, so it can be opened, bookmarked, and shared directly — no longer requires picking an app or organization first.\n\nBefore: only reachable at `/apps/{appName}/developer/api-console`, wrapped in the full ConsoleLayout shell, gated behind app + org selection.\nAfter: a clean standalone URL, rendered bare (no sidebar), still behind login.\n\n## Why\n\nThe console only depends on the adapter context (provided by `ConnectedShell`) and a signed-in user — not on an active app or org. So it can live as a first-class top-level route and render full-screen on its own.\n\n## ⚠️ Path choice (reviewer note)\n\nThe route is `/developer/api-console`, **not** `/api-console`. The dev server and the production reverse-proxy forward every `/api*` path to the backend, so a literal `/api-console` returns **502** instead of serving the SPA (verified locally: `curl /api-console → 502`, `curl /developer/api-console → 200`). `/developer/api-console` avoids the prefix collision and happens to match the path the metadata **Tool preview** (\"Open in API Console\") already links to — that deep link now resolves for the first time.\n\n## Changes\n\n- **`App.tsx`** — add lazy-loaded `/developer/api-console` route under `ProtectedRoute` with `requireOrganization={false}` (login still required). Wrapped in a `h-screen flex-col` host because the page root is `flex flex-1 min-h-0` and needs a height-bearing flex parent normally supplied by the inner shell's content area.\n- **`AppContent.tsx`** — remove the old nested `developer/api-console` route + its now-unused lazy import.\n- **`DeveloperHubPage.tsx`** — point the \"API Console\" hub card at the new path.\n\n## Notes\n\n- The metadata-driven app-sidebar entry `developer:api-console` (`registerDeveloperComponents.tsx`, renders at `/apps/<app>/component/developer/api-console`) is a separate embedding mechanism and is intentionally left untouched — still works.\n\n## Verification\n\n- `tsc --noEmit` passes for `apps/console`.\n- `curl`: `/developer/api-console` → 200 (SPA), old `/api-console` → 502 (confirms the proxy collision).\n- Browser smoke (no local backend): the SPA boots with no console errors; visiting `/developer/api-console` while unauthenticated correctly redirects to `/login` — confirming the route is wired and the auth gate works. The page body render needs a logged-in session, which requires the :3000 backend not running in this environment.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

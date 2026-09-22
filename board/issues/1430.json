@@ -1,0 +1,30 @@
+{
+  "number": 1430,
+  "kind": "pull_request",
+  "title": "feat(app-shell): polish the Studio flow-designer canvas visuals",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T10:45:34Z",
+  "updated_at": "2026-06-01T12:08:12Z",
+  "closed_at": "2026-06-01T12:08:09Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T12:08:09Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1430",
+  "body": "## What\n\nA purely **presentational** refinement of the Studio metadata-admin flow designer (`FlowCanvas` + `flow-canvas-parts`). No behavioral, data, or API changes; theme-aware (light/dark); still dependency-free (no react-flow).\n\n### Node cards\n- Replaced the flat 3px left-accent stripe with a **tinted, color-coded icon chip** as the card's primary category cue.\n- Bolder label, refined uppercase type caption, summary moved into a subtle mono chip.\n- Layered hover elevation (`-translate-y-0.5` + soft shadow), crisper selected / `active` / `visited` run-state rings.\n- Added per-category `chip` tone tokens (soft bg + inset ring) alongside the existing icon/accent/label tones.\n\n### Canvas surface\n- The dot grid now tracks **pan and zoom** (moves with the diagram instead of floating behind a static texture), plus a subtle inset vignette for depth.\n\n### Edges\n- Rounded line caps, slightly stronger default stroke, and pill-shaped (rounded-full, frosted) branch/condition labels.\n\n### Toolbar + add-node palette\n- Frosted, rounded controls with a primary hover affordance; the palette gains an \"Add node\" header and matching tinted icon chips per row.\n\n## Verification\n\nVerified in-browser (Studio → flow `showcase_budget_approval` → designer) in **both light and dark** themes: node cards, edges, toolbar, and the add-node palette all render correctly with the refined styling. `tsc --noEmit` clean on `@object-ui/app-shell`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

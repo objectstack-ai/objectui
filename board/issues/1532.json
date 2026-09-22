@@ -1,0 +1,32 @@
+{
+  "number": 1532,
+  "kind": "pull_request",
+  "title": "feat(metadata): relationship inlineEdit auto-renders master-detail",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T12:57:46Z",
+  "updated_at": "2026-06-06T13:01:27Z",
+  "closed_at": "2026-06-06T12:58:02Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T12:58:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1532",
+  "body": "## Summary\n\nThe capstone of config-driven master-detail: declare the inline-editing intent **once on the relationship** (in the data model) and **every** standard form derives it — no form view config, no bespoke page.\n\n`attachInlineSubforms` (in `MetadataProvider`) scans objects for `master_detail`/`lookup` fields with `inlineEdit: true` and merges the resulting child collections into each parent object's form view as `subforms`. Because every form host already reads the object's `form.subforms` (#1528/#1529/#1530), the modal, drawer, full-page, and ObjectView forms all auto-render the atomic master-detail — for free.\n\n- Children **without** `inlineEdit` are not inlined (associations like comments/attachments stay out).\n- An explicit `form.subforms` entry **overrides** the derived one (view can still tune columns/order).\n\n## Why this shape\n\nThe relationship (`master_detail`) already encodes the structure + ownership in the data model. The inline-edit intent belongs there too — defined once where the schema is modelled (e.g. by an AI), with forms following — rather than re-declared per form view. This makes master-detail truly zero-config for the common case.\n\n## Testing\n\n- +4 unit tests for `attachInlineSubforms` (inline merge, no-inline-without-flag, explicit override wins, no-op when none). **app-shell 310 pass.**\n- **Live e2e (green):** with the view's `subforms` removed and `showcase_task.project` declaring `inlineEdit`, \"New Project\" still renders the Tasks subtable and submits one atomic `/api/v1/batch` (parent + child `{$ref:0}`).\n\nPairs with `@objectstack/spec` `field.inlineEdit`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

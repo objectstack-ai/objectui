@@ -1,0 +1,30 @@
+{
+  "number": 1663,
+  "kind": "pull_request",
+  "title": "fix(app-shell): org-package Install routes by deployment shape",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T06:47:12Z",
+  "updated_at": "2026-06-12T06:50:52Z",
+  "closed_at": "2026-06-12T06:47:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T06:47:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1663",
+  "body": "自托管绑定 E2E 抓到的真 bug:「Your organization」的 Install 一律调控制面 `/cloud-connection/install` —— 自托管运行时(无服务键)401,且语义错误(自托管期望态在本地)。\n\n修法:`runtime-config features.installLocal` 分流 —— install-local 运行时走 `/marketplace/install-local`(经绑定的 oscc_ 凭据取 org manifest,装进自己内核;E2E 已验 200);云托管环境保持原路径。\n\n418/418 app-shell 测试过。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1563,
+  "kind": "pull_request",
+  "title": "feat(home): close the AI magic-moment loop — surface drafts + one-click publish + Studio reachable",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T07:12:15Z",
+  "updated_at": "2026-06-07T07:25:11Z",
+  "closed_at": "2026-06-07T07:22:01Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T07:22:01Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1563",
+  "body": "Fixes the visibility half of the broken AI magic-moment loop + a chicken-and-egg that strands new users.\n\n- **Pending-drafts banner** (HomePage, via `listDrafts()`): 'You have N unpublished changes → Review & publish'. After AI drafts a whole system, the user is no longer stranded on an empty-looking home.\n- **Guard fix** (AppContent): exempt `/metadata` from the 'no apps configured' guard. A fresh env (AI drafted → 0 published apps) could not reach the Studio designer AT ALL to publish its first drafts — the guard blocked every `/apps/*` route. Now it renders shell-less like `/create-app` and `/system`.\n\n⚠️ **Not auto-merging** — there's a known **part 2** (product call): Studio is project-package-scoped and the AI binds drafts to a default package it doesn't list, so the final one-click 'publish my AI drafts' isn't wired yet. The banner CTA reaches the Studio but it currently shows 'no project packages' for AI-default-package drafts. See discussion before merge.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

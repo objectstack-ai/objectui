@@ -1,0 +1,33 @@
+{
+  "number": 1628,
+  "kind": "pull_request",
+  "title": "ci(bundle-analysis): make PR comment step resilient to transient API 401s",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T16:17:40Z",
+  "updated_at": "2026-06-10T16:17:54Z",
+  "closed_at": "2026-06-10T16:17:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T16:17:51Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1628",
+  "body": "## Summary\n\nBoth attempts of [run 27288401243](https://github.com/objectstack-ai/objectui/actions/runs/27288401243) (PR #1627) failed at the final \"Comment PR with results\" step with **401 Requires authentication**, even though the performance budget check itself passed.\n\nInvestigation showed this was a transient GitHub-side token rejection, not a workflow misconfiguration:\n- the step received a non-empty `github-token` and the request carried an `authorization: bearer` header, yet GitHub's auth layer rejected it (401, not a 403 permission error)\n- checkout authenticated with the same token minutes earlier in the same job\n- the identical workflow commented successfully on PR #1626 just 38 minutes before\n\nThe workflow's real defects were that it turned this blip into a job failure:\n1. `createComment` was un-awaited with no error handling → unhandled rejection fails the step\n2. github-script retries were off, and its default retry-exempt list includes 401/403\n\n## Changes\n\n- enable `retries: 3` with `retry-exempt-status-codes: 400,404,422` so transient 401/403/5xx are retried\n- `await` the `createComment` call in try/catch; on persistent failure, log a warning and write the report to the job summary instead so the data isn't lost\n- `continue-on-error: true` as a backstop so the comment step can never fail the job (the budget check remains a separate, still-fatal step)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

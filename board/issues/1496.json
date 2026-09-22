@@ -1,0 +1,34 @@
+{
+  "number": 1496,
+  "kind": "pull_request",
+  "title": "refactor: unify runtime view editor onto studio's spec-driven inspector",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T05:28:50Z",
+  "updated_at": "2026-06-06T06:31:39Z",
+  "closed_at": "2026-06-06T06:31:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T06:31:36Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1496",
+  "body": "## 背景\n\n元数据设计器已统一迁移到 studio。最初讨论的方向是\"作废/删除运行时右上角的列表/看板编辑按钮\",但调研后发现:\n\n- 运行时右上角已**没有**独立的\"列表/看板设计器\"入口(旧的 Design Tools 下拉早已移除);剩下的「Edit view config」是**终端用户的视图配置**入口,写入 `sys_view` 运行时记录,**不应删除**。\n- 真正的问题是:运行时视图编辑用的是一套**独立的旧引擎**(`buildViewConfigSchema` + `ConfigPanelRenderer`,2075 行),与 studio 的 spec 驱动 inspector **重复**,且有 bug、难维护、与 studio 不一致。\n\n经维护者确认,方向调整为:**把运行时视图编辑统一到 studio 的 spec 驱动引擎**,功能对齐以 spec 表单为准、允许精简。\n\n## 改动\n\n- **新增** `view-config-adapter.ts`:在运行时扁平 `NamedListView` ↔ studio `ViewItem` draft 两种形状间双向转换,**不改动 `sys_view` 持久化路径**。\n- **重写** `ViewConfigPanel.tsx`:右栏内容从旧引擎换成复用 studio 的 `ViewVariantInspector`(per-view-type 配置字段直接来自 `@objectstack/spec`)。字段目录走 `objectDef.fields`(`objectFieldsOverride`),**零网络依赖**。\n- **可选、向后兼容**地给 `ViewVariantInspector` / `FieldsListEditor` / `useObjectFields` 增加 `objectFieldsOverride`(studio 不传时行为不变)。\n- **退役**旧引擎:删除 `plugin-view` 的 `buildViewConfigSchema`/`view-config-schema.tsx` 及其测试与导出。\n- **保留** `ConfigPanelRenderer`(dashboard/report 仍在用)。\n- 文档:AGENTS.md 增加中文交流约定;补 changeset。\n\n## 功能精简点(以 spec 表单为准)\n\n- 去掉旧面板的 \"Show advanced settings\" 两档切换、undo/redo;按 view-type `visibleOn` 自动展现字段。\n- 旧 schema 中 spec 表单未表达的小众项(导出选项、`addRecordViaForm` 等)暂不提供编辑入口;**已存数据在往返中原样保留**,不丢失。\n\n## 附带修复(合并最新 main 后的全量 tsc 暴露的潜伏错误)\n\n合并 origin/main(含 #1500)后,缓存失效触发全量 `tsc`,暴露两处此前被构建缓存掩盖的既有类型错误,已最小修复以解除构建阻塞:\n- `PageBlockCanvas`:删除未使用的 `baseIdOf` 解构(TS6133)\n- `useActionModal`:收窄 ModalForm `mode` 到字面量联合(TS2322)\n\n## 验证\n\n- 全量 `app-shell` build 通过;`app-shell/views` + `metadata-admin` + `plugin-view` 共 203 测试全过。\n- CI 全绿:Test / Bundle Analysis / Build & E2E / Build Docs / Changeset 等均 success。\n\nhttps://claude.ai/code/session_01SZW3fVCCbijEibXtEH3ZGL"
+}

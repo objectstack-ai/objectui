@@ -1,0 +1,33 @@
+{
+  "number": 1687,
+  "kind": "pull_request",
+  "title": "fix(ADR-0046): enable Tailwind typography so Markdown docs render styled",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T05:34:28Z",
+  "updated_at": "2026-06-13T05:41:56Z",
+  "closed_at": "2026-06-13T05:41:54Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T05:41:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1687",
+  "body": "## Problem\n\nThe `/docs/<name>` doc viewer rendered **unstyled** — its `# Heading` showed at body-text size with no list markers or spacing, looking broken (\"title not displaying\").\n\n## Root cause\n\n`plugin-markdown`'s `MarkdownImpl` wraps Markdown in `prose prose-sm prose-h1:text-3xl prose-h2:text-2xl …`. Those `prose-*` utilities only exist if `@tailwindcss/typography` is registered — and the console (Tailwind v4) **never registered it** (it wasn't a dependency anywhere in the repo). So every `prose` class was a no-op and Markdown got zero typography.\n\n## Fix\n\n- `apps/console/src/index.css`: `@plugin '@tailwindcss/typography';`\n- add `@tailwindcss/typography` devDependency.\n\nScoped to `.prose` containers — no effect on non-Markdown UI. Also fixes Markdown widgets embedded in dashboards/pages, which had the same dead-`prose` problem.\n\n## Verification (live, browser)\n\nLogged into the console against a docs-serving backend and opened `/docs/showcase_index`:\n\n| | before | after |\n|---|---|---|\n| h1 font-size | body (~16px) | **30px / 600** |\n| `.prose` active | no | yes |\n| paragraphs / inline code / links | flat | styled hierarchy |\n\nScreenshot confirms the doc now renders as proper documentation (large bold title, spaced paragraphs, chip-styled inline code, themed links). No console errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

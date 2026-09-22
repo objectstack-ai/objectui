@@ -1,0 +1,36 @@
+{
+  "number": 1579,
+  "kind": "pull_request",
+  "title": "feat(forms): B2 conditional rules in grids (row-scoped) + requiredWhen submit enforcement",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T14:12:34Z",
+  "updated_at": "2026-06-07T14:18:16Z",
+  "closed_at": "2026-06-07T14:18:14Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T14:18:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1579",
+  "body": "## What\n\nFollow-ups to B2 (field conditional rules), the low-cost \"wrap-up\" set:\n\n### A1 — rules in inline line-item grids (row-scoped)\nA grid column's `readonlyWhen` / `requiredWhen` CEL rule is now honored **per row**: `deriveMasterDetail` carries the props onto the `GridColumn`, and `GridField` evaluates them against each row via `resolveFieldRuleState`. A `readonlyWhen`-TRUE cell locks; a `requiredWhen`-TRUE empty cell flags inline-invalid.\n\nRules are **row-scoped** (`record.*`) today — e.g. `description.requiredWhen = \"record.quantity >= 100\"`. The core helpers gained an optional `scope` (and `GridField` a `contextRecord` prop) so a future **header-driven** lock can bind `parent.*` (e.g. \"paid invoice → lock lines\"). That wiring is **deferred**: feeding the live header record into the grid requires isolating the grid's re-renders from the master-detail header form, whose `form.reset` is sensitive to mid-submit re-renders (a regression I hit and backed out — see ADR-0036).\n\n### A2 — `requiredWhen` submit-time enforcement\n`requiredWhen` already drove react-hook-form's `required` rule, so saving while the predicate is TRUE and the value is empty **blocks submit with a field error**. Added a reactive cleanup so a *stale* required error clears when the predicate flips FALSE (RHF keeps an error until the field itself revalidates), and all errors clear when a field is hidden by `visibleWhen`.\n\n## Tests\n- core: `scope`/`parent` unit test (18 total).\n- plugin-form: `deriveColumns` rule-copy test (25 total); suite 98/98.\n- live e2e: `grid-conditional-rules` (row-scoped required flag) + `required-when-submit` (blocked + error, relaxes when FALSE). **Full live suite 13/13.**\n- ADR-0036 amended (grids, submit enforcement, deferred parent scope).\n\nShowcase rule lives in a framework PR.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

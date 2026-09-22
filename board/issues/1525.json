@@ -1,0 +1,33 @@
+{
+  "number": 1525,
+  "kind": "pull_request",
+  "title": "fix(form): stop form.reset() wiping user input on identity churn (real \"Create does nothing\" root cause)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T11:20:32Z",
+  "updated_at": "2026-06-06T11:24:11Z",
+  "closed_at": "2026-06-06T11:20:41Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T11:20:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1525",
+  "body": "## The bug\n\nClicking **Create** on the master-detail form persisted nothing (verified live: `created=0`), even though the inputs were visibly filled. This is the real root of the \"点了没反应 / click Create, nothing happens\" report — deeper than the earlier `requestSubmit` work (#1521), which only made the submit *fire*.\n\n## Root cause\n\nThe form renderer reset react-hook-form on every `defaultValues` **object-identity** change:\n\n```ts\nuseEffect(() => { form.reset(defaultValues); }, [defaultValues]);\n```\n\nCallers build a fresh `defaultValues` object each render. So a re-render between the submit click and the deferred `requestSubmit` (e.g. `MasterDetailForm`'s `setSaving(true)`) fired this effect → `form.reset()` → **wiped the user's input**. RHF then validated blank required fields → `onInvalid` → the batch was never sent.\n\nLive trace that pinned it:\n- `[MD_SAVE]` fires with the form full → `setSaving(true)` re-render → by the deferred submit, `nameVal=\"\"` (form wiped) → RHF errors `name/account/status: required` → no POST.\n\n## The fix\n\nReset only when `defaultValues` actually **changes by value** (JSON-compared), ignoring identity churn. A genuine change (edit-mode record finishing loading) still resets.\n\n## Verification\n\n- **components** unit suite: **3382 pass** (no regressions).\n- **Live e2e** (real browser + backend): after the fix the submit now fires `POST /api/v1/batch` with the **populated** parent payload (`name`/`account`/`status`) and a child op `{$ref:0}` — previously it validated an empty form and never posted. The master-detail live spec is rewritten to assert this real behaviour (the prior form-reset assertion was a false positive — it passed *because* the form had been wiped).\n\n> Note: asserting the persisted row in the live harness needs a browser write-session; the harness injects a bearer token the data API accepts for reads but not the transactional `/batch` write (real logged-in users are unaffected — they created records fine). So the spec asserts the outgoing request payload.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

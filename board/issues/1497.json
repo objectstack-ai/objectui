@@ -1,0 +1,32 @@
+{
+  "number": 1497,
+  "kind": "pull_request",
+  "title": "feat(studio): edit slotted record pages in the page editor (closes #1495)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T05:39:32Z",
+  "updated_at": "2026-06-06T05:42:45Z",
+  "closed_at": "2026-06-06T05:39:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T05:39:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1497",
+  "body": "Closes #1495. Adds a 'slots' shape to PageBlockCanvas so a kind:'slotted' record page surfaces its 7 canonical slots (header/actions/alerts/highlights/details/tabs/discussion) as editable regions. Overridden slots show their blocks (configurable via the inspector + object/field pickers); inherited slots show an 'add a block to override' placeholder. Selection ids slot:<name>:<idx> handled by PageBlockInspector; edits write to draft.slots, omitting empty slots (keep inheriting the synth default).\n\nVerified e2e on showcase_project_detail: 7 slots surfaced; record:highlights selectable; Fields picker lists showcase_project fields; account→owner edit round-trips. 3 unit tests + 143 metadata-admin tests pass.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

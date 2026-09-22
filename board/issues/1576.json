@@ -1,0 +1,33 @@
+{
+  "number": 1576,
+  "kind": "pull_request",
+  "title": "feat(plugin-dashboard): render dataset-bound widgets (ADR-0021 B-P1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T11:24:14Z",
+  "updated_at": "2026-06-07T11:27:44Z",
+  "closed_at": "2026-06-07T11:24:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T11:24:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1576",
+  "body": "DatasetWidget renders a widget bound to a semantic-layer dataset (dimensions/measures by name) via queryDataset — KPI value for metric widgets, bar chart otherwise. DashboardRenderer branches to it when widget.dataset is set. Additive: inline widgets unchanged. Tests: DatasetWidget (6). Verified live: KPI=710000 + Revenue-by-Stage chart render in Studio.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1540,
+  "kind": "pull_request",
+  "title": "feat(console): Integrations & APIs page — surface every app as a REST API (ADR-0036 Phase 1b)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T16:02:27Z",
+  "updated_at": "2026-06-06T16:06:03Z",
+  "closed_at": "2026-06-06T16:02:34Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T16:02:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1540",
+  "body": "ADR-0036 Phase 1b。Developer Hub 新增「Integrations & APIs」页:呈现 ObjectStack 的差异化——每个已发布对象本就是 REST API。展示 env Base URL、每个业务对象的自动 CRUD 端点(取自 /api/v1/meta/object)、跳转现有 API Console、cURL 样例。纯呈现现有端点,无运行时改动。\n\n诚实标注认证:控制台内 API Console 现在就能用(登录态);外部/agent 用的自助 API Key 随 ADR-0036 Phase 1a(better-auth apiKey)落地,页面里说明而非放死按钮。"
+}

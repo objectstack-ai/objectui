@@ -1,0 +1,32 @@
+{
+  "number": 1653,
+  "kind": "pull_request",
+  "title": "feat(console): approvals thread UI — reassign, remind, request-info, reply, SLA chips, step progress",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T17:06:49Z",
+  "updated_at": "2026-06-11T17:33:00Z",
+  "closed_at": "2026-06-11T17:06:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T17:06:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1653",
+  "body": "## Summary\n\nCompanion to objectstack-ai/framework#1740 — the collaboration layer of mainstream approval centers (ServiceNow / SAP Fiori My Inbox / DingTalk-Feishu), all verified end-to-end in the showcase browser session.\n\n- **转签 Reassign**: dialog with a user datalist (free text accepts emails / `role:<name>`); on success the row leaves \"My Pending\" and the timeline logs `admin@… → ada@…`.\n- **催办 Send reminder**: submitter nudge; the 4h server cool-down surfaces as a humanized toast, not an error code.\n- **退回补充 Request info**: third decision button — request stays pending, submitter notified; amber timeline entry with the ask.\n- **Thread replies**: inline reply box under the activity timeline (submitter + approvers); comments render as quiet slate entries.\n- **SLA chips**: list rows + drawer show \"SLA 32h left\" / red \"SLA overdue 3h\" from `sla_due_at`.\n- **Step progress**: compact stepper (✓ done / ● current / ○ upcoming) from `flow_steps` between summary card and timeline.\n- 22 new `approvalsInbox.*` keys across all ten locales (parity test green).\n\n## Test plan\n\n- `@object-ui/i18n` 100/100 ✅ · console suite 3558 passed ✅ · `tsc --noEmit` clean ✅\n- Browser e2e: reassign via dialog (badge 3→2, waiting-on chips update, timeline entry), remind throttle toast, request-info → comment thread visible with authored text, stepper ① Manager Review ● → ② Executive Review, SLA chips in both list and drawer ✅\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

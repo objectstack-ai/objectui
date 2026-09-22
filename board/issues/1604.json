@@ -1,0 +1,38 @@
+{
+  "number": 1604,
+  "kind": "pull_request",
+  "title": "chore(deps): upgrade @objectstack/spec from ^7.8.0 to ^8.0.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-08T11:36:04Z",
+  "updated_at": "2026-06-08T11:39:43Z",
+  "closed_at": "2026-06-08T11:36:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-08T11:36:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1604",
+  "body": "## Summary\n\n- Upgrade `@objectstack/spec` from `^7.8.0` to `^8.0.1` across all 10 packages\n- Updated `pnpm-lock.yaml` accordingly\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

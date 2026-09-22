@@ -1,0 +1,32 @@
+{
+  "number": 1533,
+  "kind": "pull_request",
+  "title": "feat(adr-0034): runtime draft/publish UI chrome + view-create seam (#1515, #1517)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T14:10:17Z",
+  "updated_at": "2026-06-06T14:33:47Z",
+  "closed_at": "2026-06-06T14:33:45Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T14:33:45Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1533",
+  "body": "Part of **ADR-0034** (`docs/adr/0034-unified-runtime-metadata-persistence.md`). Implements **#1515** (draft/publish UI chrome) and **#1517** (view-create path → seam). Flag-gated by `VITE_RUNTIME_EDIT_VIA_META` — **default OFF = zero behaviour change**.\n\n## #1515 — draft/publish chrome\nNew `RuntimeDraftBar` (mirrors studio's `ResourceEditPage` affordances), wired into all three runtime panels:\n- **\"Unpublished changes\"** indicator, **Publish**, **Discard draft**, **resume-on-open**.\n- Entirely gated by `isViaMeta()` → renders `null` when the flag is off (no DOM, no layout shift).\n- Hosts thread the metadata client + artifact name + dirty state. Publish is gated on unsaved edits (\"save first\"), matching studio.\n- Seam gains `readRuntimeDraft` / `discardRuntimeDraft` / `unwrapDraftBody`.\n\n## #1517 — view-create through the seam\n- `handleViewCreate`'s write routed through new `createRuntimeMetadata`: flag-OFF reproduces `createView` / legacy `sys_view` **byte-for-byte**; flag-ON creates a per-item draft. UI-layer concerns (default columns, kanban/gallery, auto-activate) stay in `ObjectView`.\n\n## Also\n- Remove the runtime **\"Duplicate view\"** feature (deferred to per-user personalisation, #1520) and fix the now-misleading \"duplicate to customize\" system-view copy (en/zh + hardcoded fallbacks).\n\n## Verification\nVerified against a **real backend** (app-showcase), the round trip that CI/sandbox can't exercise:\n- ✅ flag-ON: Save → per-item draft → indicator shows → **Publish promotes the overlay + records a version** (history `op=publish`) → resume-on-open restores the draft.\n- ✅ flag-OFF: zero chrome renders; \"Duplicate view\" gone from the menu.\n- Fixed one bug found during browser verification: a throwing `onResume` was hiding the chrome — resume is now best-effort and isolated (regression test added).\n\n## Checks\n- `pnpm turbo build --filter=@object-ui/app-shell` + `@object-ui/i18n` green\n- `vitest packages/app-shell/src/views` → **208 passing** (29 new: seam + chrome)\n- lint: 0 new errors in changed files\n\n## Out of scope (pre-existing, found during verification — follow-up)\n1. `useMetadataClient` uses `baseUrl: ''` → `/meta` writes 404 in split-origin dev (SPA :5180 / backend :3000); affects studio editing too. Same-origin prod is fine.\n2. `handleViewConfigSave` skips persistence when `draft.id` is empty (package views resolve an empty inspector `draft.name`) — pre-existing #1514 wiring, flag-on/off identical.\n\n> ⚠️ Per ADR-0034 / #1518: do **not** flip the default or migrate `sys_*` until the flag-on path is signed off in a real environment.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

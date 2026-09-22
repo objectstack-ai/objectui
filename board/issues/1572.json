@@ -1,0 +1,30 @@
+{
+  "number": 1572,
+  "kind": "pull_request",
+  "title": "feat(studio): page create form binds object + page type + kind (#1541)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T10:44:19Z",
+  "updated_at": "2026-06-07T10:49:39Z",
+  "closed_at": "2026-06-07T10:49:37Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T10:49:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1572",
+  "body": "## Why\n\nVerified in the browser: the Studio \"New page\" form was **identity-only** (Label / Name / Icon / Description), so you couldn't create a `pageType: 'record'` page or bind it to an object — even though the page **edit** form and the **protocol schema** fully support `type` / `object` / `kind` / `regions`. Root cause is objectui-side, not the protocol: the `page` resource anchor's `createFields` omitted those fields (whereas `view` includes `object` + `kind`).\n\n## What\n\nMirror the `view` resource's create config for `page` (`anchors.ts`):\n- `createFields` += `object`, `type`, `kind`.\n- `createSchema` exposing **Page type** (`record`/`app`/`home`/`dashboard`/`utility`, default `record`), **Object** (the bound object for a record page), **Kind** (`full`/`slotted`, default `full`).\n- `createDefaults` seeds `type: 'record', kind: 'full'`.\n\nSo a record page can now be created + bound to an object in Studio; the block layout is composed in the editor's PagePreview canvas (which already works).\n\n## Verification\n\n- Unit: 183 metadata-admin tests pass.\n- Browser: the New-page form now renders **Object / Page type / Kind** (was identity-only).\n\nFirst of the B1 (#1541) Studio-path steps. Next: seed a record page's regions from `buildDefaultPageSchema` (start from the default, not blank); then the live round-trip e2e + docs.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

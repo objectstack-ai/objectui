@@ -1,0 +1,32 @@
+{
+  "number": 1447,
+  "kind": "pull_request",
+  "title": "feat(studio): bulk multi-select of fields in the object designer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T22:33:05Z",
+  "updated_at": "2026-06-01T22:36:34Z",
+  "closed_at": "2026-06-01T22:33:16Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T22:33:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1447",
+  "body": "## Summary\nThird and final item of the deferred Tier-2 trio — **bulk multi-select** of fields on the object-designer canvas.\n\n- **Ctrl/⌘-click** toggles a field into the selection; **Shift-click** selects a contiguous range; a **plain click** clears the set and single-selects (drives the normal inspector).\n- A **sticky bulk-action bar** appears while ≥1 field is selected: *N selected · Move to section ▾ · Delete · Clear*. \"Move to section\" is only offered when sections exist; it lists Ungrouped + each declared section.\n- Selected rows show a check indicator + ring. The selection is **canvas-local** (no host coupling), self-prunes when fields disappear, and clears the inspector if the host-selected field was deleted.\n- Read-only canvases never enter multi-select. All strings localized (en-US / zh-CN).\n\n## Tests\n+7 RTL cases: ctrl-click count, bulk delete, shift-range, plain-click clears + single-selects, read-only inert, move-to-section gating + group assignment. `metadata-admin` suite green (**109**); `tsc` + lint clean.\n\n## Trio complete\nThis closes the deferred Tier-2 trio (adapted to the model):\n- bulk multi-select — this PR\n- conditional-required + help text + min length — #1446\n- (field-level conditional *visibility* intentionally left to the view layer; not in `FieldSchema`)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

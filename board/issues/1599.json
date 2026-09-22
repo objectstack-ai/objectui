@@ -1,0 +1,33 @@
+{
+  "number": 1599,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/formula from 7.9.0 to 8.0.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: core"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-08T08:17:18Z",
+  "updated_at": "2026-06-11T12:35:20Z",
+  "closed_at": "2026-06-11T12:35:18Z",
+  "closed_by": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1599",
+  "body": "Bumps [@objectstack/formula](https://github.com/objectstack-ai/framework/tree/HEAD/packages/formula) from 7.9.0 to 8.0.1.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/framework/releases\">@​objectstack/formula's releases</a>.</em></p>\n<blockquote>\n<h2><code>@​objectstack/formula</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/framework/blob/main/packages/formula/CHANGELOG.md\">@​objectstack/formula's changelog</a>.</em></p>\n<blockquote>\n<h2>8.0.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</li>\n</ul>\n<h2>8.0.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [a46c017]</li>\n<li>Updated dependencies [b990b89]</li>\n<li>Updated dependencies [99111ec]</li>\n<li>Updated dependencies [d5a8161]</li>\n<li>Updated dependencies [5cf1f1b]</li>\n<li>Updated dependencies [9ef89d4]</li>\n<li>Updated dependencies [3306d2f]</li>\n<li>Updated dependencies [bc44195]</li>\n<li>Updated dependencies [9e2e229]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.0</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/7240aa5eb9d593733965726eae365bd16abf84ef\"><code>7240aa5</code></a> chore: version packages (<a href=\"https://github.com/objectstack-ai/framework/tree/HEAD/packages/formula/issues/1661\">#1661</a>)</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/890d112f0c0f0439cb01340f602b3b574dc78149\"><code>890d112</code></a> chore: version packages (<a href=\"https://github.com/objectstack-ai/framework/tree/HEAD/packages/formula/issues/1652\">#1652</a>)</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/594002de7b98510a5e6e53adfee9334037632c8c\"><code>594002d</code></a> fix(seed): complete Dataset-&gt;Seed rename + load published seed rows (locally ...</li>\n<li>See full diff in <a href=\"https://github.com/objectstack-ai/framework/commits/@objectstack/formula@8.0.1/packages/formula\">compare view</a></li>\n</ul>\n</details>\n<br />"
+}

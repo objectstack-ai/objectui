@@ -1,0 +1,33 @@
+{
+  "number": 1480,
+  "kind": "pull_request",
+  "title": "perf(detail): make reference rail opt-in, drop eager related-list fan-out",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-04T12:09:07Z",
+  "updated_at": "2026-06-04T12:36:21Z",
+  "closed_at": "2026-06-04T12:36:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-04T12:36:19Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1480",
+  "body": "## 背景 / Problem\n\n记录详情页右侧会**自动生成相关列表面板**（reference rail），只要记录有 ≥2 个反向关联就出现。同时详情页还在打开时**预加载每一个**关联子对象的记录——实测一个有 8 个相关列表的记录，打开瞬间并发约 50 个请求、TTFB 约 9s。这个面板对常见布局并无必要，且明显拖慢首屏。\n\nThe detail page auto-emitted a right-side reference rail whenever a record had ≥2 reverse references, and separately preloaded every related child on open (~50 concurrent queries / ~9s TTFB on a record with 8 related lists).\n\n## 改动 / Changes\n\n- **`buildDefaultPageSchema`**: 相关列表面板改为**按需开启**——需 `showReferenceRail === true`（每对象通过 `detail.showReferenceRail` 开启）；`hideReferenceRail` 仍可强制隐藏。默认情况下相关列表保留在 “Related” 标签页。\n- **`RecordDetailView`**: schema 渲染路径下跳过预加载 (`if (effectivePage) return;`)。默认路径的 `record:related_list` 会自己懒加载，只有旧版 `DetailView` 兜底路径才需要预加载的 `childRelatedData`。\n- 更新 synth 测试以匹配新默认值，新增 “默认不出现面板” 用例。\n\n## 影响 / Impact\n\n这是**框架级默认行为变更**：所有对象详情页默认不再显示该面板。需要的对象可设 `detail.showReferenceRail = true` 重新开启。\n\nThis flips a framework-wide default — all object detail pages lose the rail unless they opt in via `detail.showReferenceRail = true`.\n\n## 验证 / Verification\n\n- ✅ `plugin-detail` 单元测试 118 个全部通过\n- ✅ `plugin-detail` 与 `app-shell` 类型检查通过\n- ⚠️ 浏览器验证因登录拦截未完成（preview 为独立会话）\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

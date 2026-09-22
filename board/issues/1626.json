@@ -1,0 +1,30 @@
+{
+  "number": 1626,
+  "kind": "pull_request",
+  "title": "fix(app-shell): close FlowRunner on terminal resume failure",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T15:15:47Z",
+  "updated_at": "2026-06-10T15:19:44Z",
+  "closed_at": "2026-06-10T15:17:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T15:17:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1626",
+  "body": "## Summary\nFound by browser E2E against the framework showcase app: when a screen-flow resume ends in a **terminal** flow failure (`{ success:true, data:{ success:false, error } }`), the FlowRunner dialog stayed open with stale state. The engine consumes the suspension before running downstream nodes (resume-once semantics), so a second Submit re-posted the dead runId and surfaced `No suspended run 'run_…'`.\n\n- Terminal `AutomationResult` failure (`data.success === false` / `status === 'failed'`) → error toast + **close the runner** (the run can never be resumed again)\n- Transport-level failure (network / 5xx envelope) → unchanged: keep the dialog open for retry\n- Multi-screen `paused` and successful-completion paths unchanged\n\n## Test plan\n- [x] New `FlowRunner.test.tsx` covering all four resume outcomes (terminal failure closes; transport failure stays open & re-submittable; next-screen pause renders; success calls onComplete) — 4/4 green\n- [x] Browser re-verification against the live showcase backend: failure toast shows and the dialog now closes instead of allowing a dead resubmit\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1673,
+  "kind": "pull_request",
+  "title": "feat(cloud-connection): one-click bind UX — zero-input panel + device-context approval page",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T12:17:40Z",
+  "updated_at": "2026-06-12T12:21:19Z",
+  "closed_at": "2026-06-12T12:17:45Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T12:17:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1673",
+  "body": "## Summary\n\nUI half of [cloud ADR runtime-identity-binding](https://github.com/objectstack-ai/cloud/blob/main/docs/design/runtime-identity-binding.md) §2.3 — pairs with [framework#1783](https://github.com/objectstack-ai/framework/pull/1783) + [framework#1784](https://github.com/objectstack-ai/framework/pull/1784) + [cloud#264](https://github.com/objectstack-ai/cloud/pull/264). The binding flow becomes GitHub-grade: one click, no UUIDs.\n\n**CloudConnectionPanel** (`cloud-connection:panel`):\n- Environment-id input **removed** — the registration row is created cloud-side at approval; nothing is pasted into this page anymore\n- Connect **auto-opens the approval page in a popup** (still inside the click's transient activation); the big user-code display demotes to the popup-blocked fallback\n- Bound view shows the registered **runtime name + runtime id** (device-model identity)\n\n**DeviceAuthPage** (`/auth/device`):\n- Shows the requesting device's context — `runtime_name` / `runtime_version` appended to the verification URL by the runtime's bind/start\n- Adds the **\"only approve if you started this connection yourself\"** warning — the informed-consent line for RFC 8628's known phishing surface\n\n**i18n**: 2 new `auth.device.*` keys added to all 10 locales.\n\n## Tests\n- app-shell 435/435, i18n 100/100, app-shell type-check clean, console app builds clean\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1510,
+  "kind": "pull_request",
+  "title": "feat(chat): Publish & Open — land on the published app after publish",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T08:40:25Z",
+  "updated_at": "2026-06-06T08:43:15Z",
+  "closed_at": "2026-06-06T08:40:47Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T08:40:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1510",
+  "body": "P0 开发体验优化(见 cloud docs/strategy/dev-experience-optimization.md):用户点发布后,**直接落地到刚建好的 App**,而不是停在空主页只给 toast。publish-drafts 响应含 published 'app' 时导航到 /apps/<app>。加法式+安全:bare object(无 app)行为不变(仅 toast),不会回退已验证的 create_object 发布流程。type-clean。app 导航路径待 staging 确认。"
+}

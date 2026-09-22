@@ -1,0 +1,32 @@
+{
+  "number": 1675,
+  "kind": "pull_request",
+  "title": "feat(app-shell): zero-roundtrip newTabUrl fast path for opensInNewTab actions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: core"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T13:22:11Z",
+  "updated_at": "2026-06-12T13:29:04Z",
+  "closed_at": "2026-06-12T13:29:02Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T13:29:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1675",
+  "body": "## Summary\n- `ActionDef` gains `newTabUrl`: a direct new-tab URL template (`{recordId}` placeholder)\n- Both server-action paths (list rows via `useConsoleActionRuntime`, record header via `RecordDetailView`) get a fast path: when an `opensInNewTab` action also declares `newTabUrl`, the pre-opened popup is navigated **straight to that URL on click — no action POST**\n- The spinner page stays painted until the endpoint commits its redirect; URL is resolved absolute (about:blank gives bare-relative hrefs no reliable base); popup-blocked fallback keeps the existing toast pattern\n\n## Motivation\nThe cloud console's environment **Open** button paid a full POST round trip before the popup started navigating, even though `GET /sso-open` re-runs every auth/authz check itself (defense in depth). Spec contract: framework#1787; first consumer: cloud `sys_environment.sso_as_owner`. Actions without `newTabUrl` keep the existing POST → `redirectUrl` flow — fully backward compatible.\n\n## Test plan\n- `pnpm --filter @object-ui/core build` ✓\n- `pnpm --filter @object-ui/app-shell build` ✓ (after rebuilding stale workspace dists: plugin-chatbot, data-objectstack, providers, react — pre-existing breakage unrelated to this change)\n- Staging contract check: cookie-authed direct `GET /sso-open` with no prior POST 302s into the env console ✓\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

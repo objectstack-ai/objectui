@@ -1,0 +1,30 @@
+{
+  "number": 1502,
+  "kind": "pull_request",
+  "title": "feat(chat): Publish CTA on /ai chat page too",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T06:56:23Z",
+  "updated_at": "2026-06-06T13:17:50Z",
+  "closed_at": "2026-06-06T13:17:48Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T13:17:48Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1502",
+  "body": "跟进 #1501:全页 `/ai` 聊天(AiChatPage)也接上一键发布 CTA——之前只接了浮动聊天,而 /ai 也是用户用 AI 建模的地方,同样存在草稿无法发布的死胡同。两个聊天面现在都闭环。type-clean。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

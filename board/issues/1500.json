@@ -1,0 +1,32 @@
+{
+  "number": 1500,
+  "kind": "pull_request",
+  "title": "feat(studio): edit nested sub-blocks inside container blocks (closes #1499)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T06:11:26Z",
+  "updated_at": "2026-06-06T06:14:34Z",
+  "closed_at": "2026-06-06T06:11:33Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T06:11:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1500",
+  "body": "Closes #1499 — the last gap in the page editor. Blocks NESTED inside a container (a page:tabs/page:accordion tab's children, a page:card/page:section body) are now surfaced as indented, selectable sub-blocks: select → configure (inspector + object/field pickers) → edit → remove → add — in both full and slotted pages.\n\nFoundation: the block-path helpers now support object-key hops (so …components[0].properties.items[0].children[0] is addressable), built on a generic immutable getByPath/setByPath. Slot ids gain an optional nested sub-path (slot:tabs:0.properties.items[0].children[0]). The canvas renders each container's child groups with per-group Add block.\n\nVerified e2e on app-showcase showcase_project_detail (a slotted page — the hardest case): the tabs slot's page:tabs surfaces its nested children (record:details / record:line_items); selecting record:details configures it via the inspector with field pickers resolving showcase_project fields; a section-label edit round-trips through the nested slot path; adding a nested block works. 149 metadata-admin tests pass (incl. nested-path unit tests).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

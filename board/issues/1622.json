@@ -1,0 +1,32 @@
+{
+  "number": 1622,
+  "kind": "pull_request",
+  "title": "fix(app-shell): align flow designer with engine vocabulary + runs panel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T13:54:42Z",
+  "updated_at": "2026-06-10T13:58:40Z",
+  "closed_at": "2026-06-10T13:56:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T13:56:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1622",
+  "body": "## Summary\n- **Palette / type-picker fix (runtime bug):** the hardcoded palette offered BPMN `parallel_gateway` / `join_gateway` — node types the automation engine has **no executor** for (ADR-0031 keeps them as import/export interop only), so flows authored with them registered fine and then failed at runtime with `NO_EXECUTOR`. Replaced with the structured `parallel` + `try_catch` constructs the engine actually executes. Legacy gateway nodes still render for imported flows; `boundary_event` also dropped from the type picker (same no-executor issue), its inspector group retained for legacy display.\n- **Run history in Studio:** new `FlowRunsPanel` fetches `GET /api/v1/automation/{name}/runs` and shows run status / duration / expandable per-node step logs as a third FlowPreview side-panel mode (Variables / Debug / **Runs**). Degrades quietly (offline / plugin absent / older backend) like the palette fetch.\n- **Simulator honesty:** structured containers (`parallel`, `try_catch` — nested body regions) pass through as unsupported instead of faking semantics.\n\n## Test plan\n- [x] `pnpm vitest run` previews + simulator suites green (incl. 5 new `fetchFlowRuns` parse/degrade tests)\n- [x] `@object-ui/app-shell` `tsc --noEmit` clean\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1684,
+  "kind": "pull_request",
+  "title": "fix: interface page renders empty grid when source view is hollow",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T02:55:06Z",
+  "updated_at": "2026-06-13T03:01:17Z",
+  "closed_at": "2026-06-13T03:01:15Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T03:01:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1684",
+  "body": "## The bug\n\nThe user opened the backend-served `/_console/` (not the Vite dev server) and found the **Task Workbench interface page rendering an empty grid — only the `#` row-number column**, no data columns. I reproduced it on latest `main`: it is **not** a stale bundle, it is a real bug.\n\n## Root cause\n\nThe referenced default view is served **hollow** by some backends — `{ provider, object }`, no columns (columns live only in named views like `tabular`). Two latent bugs, both because an empty `columns: []` reads **truthy** in JS:\n\n1. `resolveSourceView` picked the column-less view (`v?.columns` true for `[]`), and the hydration hollow-check `!resolvedView.columns` computed `false` → the per-view overlay fetch that backfills columns never fired.\n2. `InterfaceListPage` had **no default-column fallback** — unlike `ObjectView` (data mode), which derives columns from `compactLayout` / business fields when a view carries none.\n\nSo interface mode passed `fields: []` to the grid → bare `#` column.\n\n## Fix\n\n- Shared `hasColumns()` (non-empty array) drives view resolution **and** hollow detection, so a `columns: []` view triggers hydration.\n- Schema build falls back to `defaultColumnsFromObject()` (compactLayout, else first business fields, system/audit excluded) — mirrors ObjectView.\n\nGrid now renders full columns + colored badges; filters / URL persistence unaffected.\n\n## Why earlier verification missed it\n\nMy ADR-0047 browser checks ran against a backend that *inlined* view columns into the object metadata, so columns rendered by luck. The backend that serves hollow default views exposed the missing fallback. Now locked by a regression e2e (`grid renders data columns even when the source view is hollow`).\n\n## Testing\n\n- `e2e/live/user-filters.spec.ts`: 5 passed (1 lookup case skips when showcase lacks the project filter)\n- Browser-verified on the workbench: 7 columns + data render, `?uf_priority=urgent` still filters to 2 rows\n- `@object-ui/app-shell` build clean\n\nNote: the framework's `/_console/` is a **pinned prebuilt** SPA vendored from this repo — it picks up this fix when re-vendored.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

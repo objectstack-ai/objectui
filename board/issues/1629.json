@@ -1,0 +1,30 @@
+{
+  "number": 1629,
+  "kind": "pull_request",
+  "title": "feat(marketplace): Installed view reads the control-plane list when cloud-bound (ADR-0007 ①)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T16:20:36Z",
+  "updated_at": "2026-06-10T16:21:00Z",
+  "closed_at": "2026-06-10T16:20:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T16:20:57Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1629",
+  "body": "ADR-0007 migration **step ①** (objectui half).\n\nThe Console \"Installed\" page read only the runtime's local `install-local` cache, so a **cloud-managed** environment showed nothing even though packages were installed via the control plane (CLI `os package publish --env --install`, marketplace, REST).\n\n- `listInstalledPackages()` calls the env runtime's same-origin `GET /api/v1/cloud-connection/installed` proxy (control-plane truth).\n- The page prefers that list when cloud-connected; falls back to the local cache when self-hosted/unbound.\n- For control-plane entries the local-only Uninstall + `.objectstack/...` cache note are hidden (don't apply); cloud uninstall is a later step.\n\nPairs with cloud [#188](https://github.com/objectstack-ai/cloud/pull/188) (the proxy route). `tsc` clean for the marketplace files.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

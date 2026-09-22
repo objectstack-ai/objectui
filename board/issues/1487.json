@@ -1,0 +1,36 @@
+{
+  "number": 1487,
+  "kind": "pull_request",
+  "title": "feat: master-detail subform + lightweight list primitives (SDUI)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-05T23:45:58Z",
+  "updated_at": "2026-06-05T23:54:47Z",
+  "closed_at": "2026-06-05T23:51:20Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-05T23:51:20Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1487",
+  "body": "## Summary\nTurns ObjectUI into a true SDUI runtime for two common enterprise needs, plus the dev harnesses that verified them.\n\n### Master-detail subform (parent + line items) — ADR-0001\n- `LineItemsField` (editable child grid): add/delete rows, per-cell widgets (text/number/currency/date/select), line-number column, right-aligned numerics, running total.\n- `MasterDetailForm` (`object-master-detail-form`): enter a parent + its line items together; client-orchestrated transaction (create parent → set FK → bulk-create children → roll up total → best-effort cleanup). **Enterprise-convention layout**: header on top → line grid → single Save bar at the bottom (Salesforce/SAP/NetSuite/Odoo style).\n- `LineItemsPanel` (`record:line_items`): child grid bound to an existing parent for detail/view + inline edit.\n- `masterDetailTx`: pure, tested orchestration helpers (diff/sum/applyDetail; tolerant of varied adapter `bulk()` shapes).\n\n### Lightweight list primitives (SDUI opt #1 — simple data shouldn't need a full data-grid)\n- `element:definition-list` (compact key/value), `element:repeater` (chrome-free data-bound list).\n\n## Verification\n- Unit tests: 74 passing across plugin-form/fields/components.\n- Browser-verified end-to-end against the app-showcase backend: created a Project + Tasks together via the showcase \"New Project + Tasks\" page (children persisted with the `master_detail` FK); lightweight lists rendered against live `showcase_category`.\n\n## Notes\n- Dev-only routes `/dev/master-detail` and `/dev/lists` are included for verification (removable).\n- Pairs with framework PR (objectql cascade-delete + autonumber fixes) — required for full master-detail lifecycle.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

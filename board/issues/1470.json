@@ -1,0 +1,30 @@
+{
+  "number": 1470,
+  "kind": "pull_request",
+  "title": "feat(studio): \"Publish app\" button — publish all package drafts (ADR-0033)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-03T03:08:53Z",
+  "updated_at": "2026-06-03T03:35:41Z",
+  "closed_at": "2026-06-03T03:35:35Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-03T03:35:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1470",
+  "body": "## Context\n\nCompanion to framework #1553 (`POST /api/v1/packages/:id/publish-drafts`). After an AI builds an app, its metadata is drafted and bound to the app package. The package detail already lists pending drafts (objectstack-ai/objectui#1469) with per-item review/publish links; this adds a one-click \"publish the whole app\".\n\n## Change\n\n- In the package detail's **Pending changes** section, a primary **Publish app (N)** button calls `POST /api/v1/packages/:id/publish-drafts`, then refreshes the pending list (which empties on success). On partial failure it surfaces `Published X; Y failed.`\n- Complements the existing per-item review links — review item-by-item, or publish everything at once.\n\n## Verification\n\n- Backend live-verified (framework #1553): an AI-built `app.asset_management` (4 drafts) published in one call → all promoted to active, drafts cleared.\n- `@object-ui/app-shell` typecheck clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

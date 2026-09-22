@@ -1,0 +1,30 @@
+{
+  "number": 1413,
+  "kind": "pull_request",
+  "title": "feat(studio): scannable per-type color-coding across designer previews",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-29T14:15:13Z",
+  "updated_at": "2026-05-29T14:52:26Z",
+  "closed_at": "2026-05-29T14:52:25Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-05-29T14:52:25Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1413",
+  "body": "## What\n\nExtends the scannable per-type color tinting introduced for field types (#1412) across four more metadata designers in Studio, so type/kind variety reads at a glance instead of a wall of muted gray. All tones are dark-aware (the app defaults to dark mode).\n\n### AppNavCanvas (App designer)\nEach nav entry's inferred **kind** gets a matching icon + badge tone: object=blue, page=violet, dashboard=teal, report=amber, link=indigo, group=slate, item=zinc.\n\n### FlowPreview (Flow designer)\nEach step's **node type** tints the icon, type label, and numbered step chip: start=emerald, end=rose, decision/branch/gateway=amber, wait/timer=blue, boundary_event/signal=violet, subflow/flow=indigo, task=slate.\n\n### WorkflowPreview (Workflow Rule designer)\nEach action row's icon sits in a tone-matched chip keyed by **action type**: field_update=blue, email_alert=violet, http_call/webhook=indigo, task_creation=emerald, push_notification=amber, custom_script=teal, connector_action=rose, default=slate.\n\n### AgentPreview (AI Agent designer)\nCapability chips were uniform gray; **skills** and **tools** now carry distinct leading icons + tones (skills=violet/Sparkles, tools=blue/Wrench) so the two classes are instantly distinguishable.\n\n## Notes\n- Tone maps use full Tailwind class strings (JIT-safe) with light + dark variants.\n- **Pure visual** — no behavior, data, or API change.\n- Verified in-browser (dark mode): `crm_app` nav, `lead_qualification_conversion` flow, `crm_stale_opportunity_alert` workflow, `metadata_assistant`/`data_chat` agents. (Agent *tools* chips share the verified skills code path; no seed agent declares direct tools to screenshot.)"
+}

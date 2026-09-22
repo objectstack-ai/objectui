@@ -1,0 +1,30 @@
+{
+  "number": 1561,
+  "kind": "pull_request",
+  "title": "fix(actions): make 'Open' (opensInNewTab) feel instant, not stuck",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T06:08:41Z",
+  "updated_at": "2026-06-07T06:11:28Z",
+  "closed_at": "2026-06-07T06:09:29Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T06:09:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1561",
+  "body": "Fixes the #1 control-plane UX complaint: clicking **Open** on an env pre-opened a blank tab, then awaited a slow SSO-handoff mint with no feedback → looked frozen → users re-clicked (more blank tabs/requests); when the popup was blocked it silently hijacked the current tab after the wait.\n\nObjectView + RecordDetailView:\n- **Paint a '正在为你打开环境…' spinner into the pre-opened tab immediately** — never looks blank/frozen during the mint.\n- **Re-entrancy guard** — ignore repeat clicks while the same action+record is in flight (no duplicate tabs/requests).\n- **Blocked-popup fallback** — show a 'popup blocked → 打开环境' toast with a one-click (fresh-gesture) open instead of silently navigating the current tab.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

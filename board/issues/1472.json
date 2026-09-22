@@ -1,0 +1,30 @@
+{
+  "number": 1472,
+  "kind": "pull_request",
+  "title": "feat(packages): \"Discard changes\" + \"Delete app\" buttons (AI-build review loop)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-03T11:32:07Z",
+  "updated_at": "2026-06-03T14:05:28Z",
+  "closed_at": "2026-06-03T14:05:25Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-03T14:05:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1472",
+  "body": "Adds the two package-lifecycle buttons to the package detail sheet, mirroring the existing **Publish app**, so the AI-build review loop has a UI.\n\nPairs with framework PR objectstack-ai/framework#1569 (the `discard-drafts` / `delete-package` backend).\n\n## Buttons\n\n- **Discard changes (N)** — beside \"Publish app\" in the *Pending changes* block. `POST /packages/:id/discard-drafts`: drops every pending draft, reverting the app to its last published baseline. Non-destructive (published metadata + data untouched); refreshes the pending list after.\n- **Delete app** — in the *Actions* row (destructive styling). `DELETE /packages/:id`: removes the whole package (active + draft metadata) and drops each object's table. Confirms first; closes the sheet on success, keeps it open + shows the error on failure.\n\n## The loop this completes\n\n```\nAI builds app → Publish app (preview with real data)\n                ├─ keep it\n                ├─ Discard changes → back to last published\n                └─ Delete app → gone, tables dropped, no residue\n```\n\n## Notes\n- Both reuse the existing `run()` helper / busy-state / message pattern; `Delete app` uses a `window.confirm` guard.\n- Backend endpoints ship in framework#1569 — until that merges+deploys, the buttons surface the backend error (e.g. 501) via the existing message banner.\n- `@object-ui/app-shell` typechecks clean (0 errors after building workspace deps).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1486,
+  "kind": "pull_request",
+  "title": "fix(marketplace): send Bearer token on cloud-connection install/probe",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-05T12:36:12Z",
+  "updated_at": "2026-06-05T14:25:24Z",
+  "closed_at": "2026-06-05T14:25:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-05T14:25:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1486",
+  "body": "## Symptom\n\nAfter SSO into a tenant environment, opening a marketplace package or clicking Install fails:\n\n```json\n{\"success\":false,\"error\":{\"code\":\"unauthenticated\",\"message\":\"Sign in to this environment.\"}}\n```\n\n…even though the user is signed in (valid, non-expired session in the env DB).\n\n## Root cause\n\nobjectui authenticates with a **Bearer token** (better-auth; token in localStorage, normally injected on every `/api/` call by `createAuthenticatedFetch` / `createBearerFetch`). The in-environment marketplace calls in `marketplaceApi.ts` use **raw `fetch()` with `credentials: 'include'` and no `Authorization` header**, so they bypass that wrapper and rely on the session **cookie** alone.\n\nOn a tenant runtime the env session cookie is not reliably presented after platform SSO, so the server route's `resolveEnvSession` (`apps/objectos/cloud-runtime-plugins.ts`) finds no session → 401.\n\n**Verified**: the same server route returns `200` when the session is supplied as `Authorization: Bearer <token>` — so the server already accepts the Bearer; the client just wasn't sending it.\n\n## Fix\n\nInject the Bearer token (from `@object-ui/auth` `TokenStorage`) on the two same-origin cloud-connection calls — `/install` and `/installation` — via a small `withEnvAuth()` helper. `credentials: 'include'` is kept so the cookie still rides along when present.\n\n## Test plan\n\n- [ ] CI typecheck/build\n- [ ] After deploy: SSO into a tenant env → marketplace package page loads installed-state (no 401), Install succeeds\n- [x] Verified server-side that `/api/v1/cloud-connection/installation` returns 200 with `Authorization: Bearer <session-token>`\n\n## Deploy note\n\nReaching prod requires: merge → bump `cloud/.objectui-sha` to this commit → rebuild + deploy the objectos image.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

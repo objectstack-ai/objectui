@@ -1,0 +1,33 @@
+{
+  "number": 1648,
+  "kind": "pull_request",
+  "title": "fix(chatbot): terminalize tool states on historical turns — no more permanent 'Running'",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T15:07:34Z",
+  "updated_at": "2026-06-11T15:11:35Z",
+  "closed_at": "2026-06-11T15:07:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T15:07:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1648",
+  "body": "User-reported on staging: a reloaded build conversation showed **every tool stuck on \"Running\"** — Propose blueprint, Create object, Add field, Verify build, all 16+ of them — making a finished (if messy) build look completely hung.\n\n## Root cause\nThe server doesn't always snapshot the *terminal* tool state, so persisted parts keep their mid-stream `input-available`/`input-streaming` state. `mapMessages` only promoted those to Completed **when an output was also present** — but many persisted parts have no output snapshot either, so they showed the live \"Running\" spinner forever.\n\n## Fix\nA tool whose turn has **ended** cannot still be running, output or not. Only the **live streaming tail** (`opts.streaming` — the trailing assistant message during an in-flight stream) may legitimately keep a tool spinning; every other message is history. `extractToolInvocations` now takes `liveTail` and terminalizes a dangling `input-*` to `output-available` whenever it's *not* the live tail (or an output is present).\n\n## Tests\nThe prior \"keeps input-available with no output (live stream)\" test was actually asserting the bug — it never passed the streaming flag. Updated to a genuine live-tail case, plus new historical-message and multi-message (only-the-tail-spins) cases. plugin-chatbot 67/67, build green.\n\nNote: this fixes the *display*. The underlying server-side terminal-state persistence gap remains (tracked separately); this makes the client honest regardless.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1564,
+  "kind": "pull_request",
+  "title": "feat(grid): spreadsheet-style line-item editor (computed cells, ghost row, keyboard nav)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T07:42:01Z",
+  "updated_at": "2026-06-07T07:48:05Z",
+  "closed_at": "2026-06-07T07:48:03Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T07:48:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1564",
+  "body": "## Why\n\nEven the invoice line grid felt poor: Amount was a manual field, the running total stayed `0`, columns were mis-sized, you had to click \"Add line\" repeatedly, and a redundant per-row \"expand\" sat on every thin line. This rebuilds `GridField`'s editable grid mode into a real enterprise line-item editor — the **QuickBooks / Stripe / NetSuite** pattern — generalised so **every** inline grid benefits, not just invoices.\n\n## What\n\n- **Computed read-only columns.** A child field carrying an arithmetic `expression` (e.g. `amount = quantity × unit_price`) renders read-only, recomputes **live** as its inputs change, and writes the result back into the row so it persists and the running total reflects it. A tiny **safe** arithmetic evaluator (no `eval`/`Function`) over `+ - * / %`, parens and `record.<field>` refs powers it.\n- **Trailing \"ghost\" row** — start-with-one + auto-append. Typing in the ghost materialises a real row (index-stable keys, so focus/caret survive); you keep entering lines without clicking \"Add\".\n- **Borderless click-to-focus cells** + **role-based column widths** (description flexes; qty/price/amount stay narrow) — reads as a table, not a wall of boxes.\n- **Keyboard nav** — Enter / ArrowUp / ArrowDown move between rows in the same column; Tab falls through into the ghost row.\n- **Gated per-row expand** — shown in form mode (it *is* the editor) and in grid mode only when the grid omits fields. No redundant expand on a thin invoice line.\n- `deriveColumns` surfaces a field `expression` as a computed column; the running-total column now prefers the computed/last-currency column over the first numeric. Blank/ghost rows are filtered from the persisted batch (`isBlankRow`) so an untouched line never saves as an empty child.\n\n## Verification\n\n- Unit: 56 passing across `GridField`, `deriveMasterDetail`, `masterDetailTx` (computed mapping, ghost auto-append, keyboard nav, blank-row filtering).\n- Live e2e (9 passing): New Invoice grid computes amount live (2 × 50 → 100), persists it, rolls up the total, and skips the blank ghost line.\n- Browser-verified the redesigned grid (computed Amount, ghost row, correct Total, no redundant expand).\n\nDropped `row-expand.spec` — its \"grid-mode expand on a thin line\" scenario is intentionally gone; per-row form editing stays covered by the form-mode `master-detail` spec.\n\n> Depends on framework#1638 (the invoice line `amount` expression). The live backend already serves it.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

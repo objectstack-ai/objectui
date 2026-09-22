@@ -1,0 +1,38 @@
+{
+  "number": 1651,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/spec to ^9.1.0 (matrix columns + drilldown)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T16:00:52Z",
+  "updated_at": "2026-06-11T16:22:02Z",
+  "closed_at": "2026-06-11T16:06:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T16:06:42Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1651",
+  "body": "9.1.0 ships the ADR-0021 D2 report fields from [framework#1732](https://github.com/objectstack-ai/framework/pull/1732) — the bundled `ReportSchema` / `reportForm` now carry `columns` (matrix across dimensions) and `drilldown` natively (verified: the installed reportForm's Dataset binding section declares `dataset, values, rows, columns, drilldown`). Recursive update (`pnpm -r`) so every workspace importer resolves 9.1.0.\n\n## Test plan\n- [x] `pnpm vitest run` — 3558 passed, 0 failed\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1619,
+  "kind": "pull_request",
+  "title": "feat(dashboard): measure label + format + consistent metric card (dataset widgets)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T11:45:31Z",
+  "updated_at": "2026-06-10T11:52:51Z",
+  "closed_at": "2026-06-10T11:52:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T11:52:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1619",
+  "body": "Three fixes for dataset-bound dashboard widgets, from the Chart Gallery review:\n\n1. **Measure labels** — KPI value + chart legend use the measure's display `label` (carried on the analytics result `fields`) instead of the raw measure name: **`Tasks`** not `task_count`. The chart series is remapped to the label so the legend reads it too.\n2. **Number formatting** — KPI value formatted via the measure `format` hint: `$0,0` → **`$616,000`**, `0.0` → `47.0`. A no-format measure renders verbatim (unchanged).\n3. **Consistent metric card** — a dataset-bound `metric` widget now takes the shared Card wrapper (title + border) like kpi/gauge. Previously `isSelfContained` rendered it as **bare untitled text**, inconsistent with its neighbours.\n\n> Requires framework [#1683](https://github.com/objectstack-ai/framework/pull/1683) (`AnalyticsResult.fields[].label`/`format`). After both merge, framework bumps `.objectui-sha`.\n\n## Verification\n\nBrowser-tested on the showcase Chart Gallery: KPIs read `Total Tasks → Tasks`, `Budget vs Spend → $616,000 / Total Spent`, and \"Total Tasks\" now has a card like its neighbours. Chart legends show `Tasks` / `Estimated Hours` (0 raw names). New test for label+format rendering; plugin-dashboard suite green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1433,
+  "kind": "pull_request",
+  "title": "fix(app-shell): new flows start with a trigger; edge \"+\" no longer hides branch labels",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T12:22:46Z",
+  "updated_at": "2026-06-03T14:22:31Z",
+  "closed_at": "2026-06-03T14:22:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-03T14:22:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1433",
+  "body": "## What\n\nTwo more dogfooding fixes for the Studio flow designer (follow-ups to #1430 / #1432):\n\n1. **Empty flow → Start node.** An empty editable flow's \"Add node\" inserted a generic `task` node. It now seeds a **`start`** (trigger) node — the canonical entry point every flow needs — so the canvas opens on the trigger and the author builds forward.\n2. **Edge insert \"+\" no longer collides with the branch label.** The \"insert node\" `+` button and the branch/condition label pill were both centered on the edge midpoint, so on a labeled edge (`approve`, `if budget > …`) the `+` sat on top of the label. The `+` now slides to the **right** of the label when one is present; unlabeled edges keep the centered `+`.\n\n## Verification\n\nIn-browser (Studio → `showcase_budget_approval` → designer): labeled edges (\"approve\", \"if budget > 500000\") now show the label with a clear, separate insert handle to its right; unlabeled edges keep a centered `+`. `tsc --noEmit` clean on `@object-ui/app-shell`. (The empty-flow start-node path is a 1-line type change, verified by inspection — reaching the empty state needs the runtime create-flow path, which is unrelated-broken in this dev env.)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

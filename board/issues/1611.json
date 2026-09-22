@@ -1,0 +1,30 @@
+{
+  "number": 1611,
+  "kind": "pull_request",
+  "title": "fix(app-shell): i18n managed-by empty states",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-09T09:31:48Z",
+  "updated_at": "2026-06-11T16:25:32Z",
+  "closed_at": "2026-06-11T16:25:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T16:25:29Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1611",
+  "body": "## 问题\n\n`/_console/apps/setup/sys_organization`(以及其他受管对象列表:身份、审计日志、系统生成记录)在空状态下显示**硬编码英文**,无论界面语言:\n\n> No identity records\n> Identity rows are managed by the authentication provider. Use the dedicated identity workflows (Invite User, Reset Password, …) to create new entries.\n\n根因:`packages/app-shell/src/utils/managedByEmptyState.ts` 的 `resolveManagedByEmptyState` 对 `system` / `append-only` / `better-auth` 三种 `managedBy` 桶返回写死的英文 title/message。注意这与通用 ListView 空状态(`list.firstRunTitle` / `list.noMatches`,已在 #1555 国际化)是不同的代码路径——受管对象会用这个自定义空状态覆盖通用文案。\n\n## 改动\n\n- `resolveManagedByEmptyState(managedBy, t)` 新增 `t` 参数,改为解析 `list.managedBy.{system,appendOnly,betterAuth}.{title,message}`,英文保留为 `defaultValue` 兜底(缺 key 的语言行为不变)。\n- `ObjectView.tsx` 在调用处传入其 `t`。\n- `packages/i18n/src/locales/en.ts`、`zh.ts` 新增对应 key(其余语言走 fallback 链 = 英文,与现状一致)。\n\n## 验证\n\n在 framework showcase 控制台(zh 语言)本地重建 `@object-ui/console` dist 并实地访问组织列表页,空状态已渲染中文:\n\n> 暂无身份记录\n> 身份记录由认证提供方管理。请使用专门的身份流程(邀请用户、重置密码……)来创建新条目。\n\n英文文案已完全消失。`@object-ui/console` 构建 32/32 通过;`@object-ui/i18n` `tsc` 干净;改动行未引入新的类型错误(app-shell 既有 tsc 噪音与本次无关)。\n\n附 changeset(`@object-ui/app-shell` / `@object-ui/i18n` patch)。"
+}

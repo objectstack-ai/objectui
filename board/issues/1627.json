@@ -1,0 +1,33 @@
+{
+  "number": 1627,
+  "kind": "pull_request",
+  "title": "fix(app-shell): resolve recordId from grid selection for list_toolbar flow/script actions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T15:53:01Z",
+  "updated_at": "2026-06-10T16:04:55Z",
+  "closed_at": "2026-06-10T16:04:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T16:04:52Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1627",
+  "body": "## Problem\n\nA `type: 'flow'` (or script/modal) action placed in **`list_toolbar`** never receives a `recordId`: the handler only resolves it from `params.recordId` or `_rowRecord`, and `_rowRecord` is only attached by `list_item` (row-menu) invocations. Selecting a row via checkbox and clicking the toolbar button triggered the flow without a recordId, so record-bound nodes failed with:\n\n> Update requires an ID or options.multi=true\n\nReproduced with the showcase `showcase_bulk_reassign` action targeting flow `showcase_reassign_wizard` (framework repo, `examples/app-showcase`): trigger paused at the screen node as normal, resume failed at node `apply`.\n\n## Fix\n\n- **ObjectGrid** publishes its checkbox selection into the shared `ActionRunner` context (`updateContext({ selectedRecords })`), clearing it on unmount. The toolbar action bar renders outside the grid but inside the same `<ActionProvider>`, so the runner context is the natural channel — no prop plumbing.\n- **`flowHandler` / `serverActionHandler`** accept the runner context as their second argument (registered handlers are already invoked as `handler(action, context)` by `ActionRunner.execute`). When neither `params.recordId` nor `_rowRecord` resolves an id:\n  - exactly **one** selected row → its id is sent as `recordId` (`serverActionHandler` honors the action's `recordIdField`);\n  - **multiple** rows → blocked with `success: false` and a clear error (surfaced once as a toast by the runner's post-execution hook), since screen flows take a single `recordId` input variable;\n  - **zero** rows → unchanged (flows that need no record still trigger).\n\n## Tests\n\n7 new regression tests in `useConsoleActionRuntime.test.tsx`: single-selection fallback (flow + script), custom `recordIdField`, multi-select blocking with no API call (flow + script), `_rowRecord` precedence over selection, and an end-to-end test through `ConsoleActionRuntimeProvider` mirroring the real grid→toolbar wiring.\n\n- app-shell suite: 401/401 passing\n- plugin-grid suite: 53/53 passing\n\n## Manual verification (framework `examples/app-showcase`)\n\nRan `objectstack dev --fresh` + local console dev server:\n\n- ✅ Select one task → toolbar **Reassign…** → screen form opens → submit → resume succeeds, `assignee` written to the record (verified via data API)\n- ✅ Select two tasks → toolbar **Reassign…** → blocked with a single toast, no trigger request, no FlowRunner\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

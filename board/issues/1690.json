@@ -1,0 +1,32 @@
+{
+  "number": 1690,
+  "kind": "pull_request",
+  "title": "feat(ADR-0046): lightweight chrome (DocShell) for the docs routes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T06:11:27Z",
+  "updated_at": "2026-06-13T06:20:38Z",
+  "closed_at": "2026-06-13T06:20:36Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T06:20:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1690",
+  "body": "## Why\n\nThe `/docs` portal and `/docs/<name>` viewer are app-independent top-level routes, so they rendered as **bare full-bleed pages** — no header, no breadcrumb, no way back. After the typography fix (#1687) the *content* looks right, but the page still felt unfinished/floating.\n\n## Change\n\nA minimal, shared **`DocShell`** sticky header used by both pages:\n- a \"📖 Documentation\" home link → `/docs`\n- a breadcrumb of the current doc (label) on the viewer\n\nNo app sidebar — that keeps ADR-0046's stated \"no navigation taxonomy in v1\" intent. This is just orientation + a way out. The portal's redundant in-body `Documentation` title is dropped in favour of the header.\n\n## Verification (live, browser)\n\nRan the console against a docs-serving backend and exercised both routes:\n\n- **Portal `/docs`**: sticky header + `SHOWCASE` group listing `Documentation Guide` / `Showcase` with machine names.\n- **Doc `/docs/showcase_index`**: header breadcrumb `Documentation / Showcase`, then the typography-styled body (h1 30px, spaced paragraphs, chip inline-code, themed links).\n- **Back-link**: clicking \"Documentation\" in a doc header returns to the portal (which shows the groups).\n- No console errors.\n\nScreenshots of both states captured during verification.\n\n## Stack\n\nBuilds on #1687 (typography). Together: docs now render styled **and** have basic chrome.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

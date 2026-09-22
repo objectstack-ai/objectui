@@ -1,0 +1,32 @@
+{
+  "number": 1446,
+  "kind": "pull_request",
+  "title": "feat(studio): field-level conditional-required, help text & min length",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T22:22:42Z",
+  "updated_at": "2026-06-01T22:26:02Z",
+  "closed_at": "2026-06-01T22:22:53Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T22:22:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1446",
+  "body": "## Summary\nFirst half of the deferred Tier-2 trio — the **field-level conditional & validation** props, adapted to what the object `FieldSchema` actually persists.\n\nAdded to the object field inspector (all confirmed on `@objectstack/spec` `FieldSchema`):\n- **conditionalRequired** (CEL) — the field becomes required when the predicate is true. Shown for every field type (Advanced section), with a help line.\n- **inlineHelpText** — end-user help shown below the field on a form.\n- **minLength** — paired with the existing max length for text-like types.\n\n## Model note (why not \"conditional visibility\")\n`FieldSchema` has **no field-level conditional *visibility*** — `hidden` is a plain boolean, and conditional display is a view/form concern (`visibleOn` lives on view fields, not object fields). So per the design discussion, this PR delivers the supported `conditionalRequired` instead, and field-level visibility is intentionally left to the view designer. (`inlineHelpText` turned out to exist after all — earlier missed because it's on the spec package, not `designer.ts`.)\n\n## Tests\n+5 RTL cases (help text / minLength / conditionalRequired commit, conditional-required shown for non-text types, read-only disables). Inspector suite at **12**; `tsc` clean; 0 lint errors.\n\n## Next\nPR B (separate): **bulk multi-select** of fields with bulk delete / move-to-group — the third trio item.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 1645,
+  "kind": "pull_request",
+  "title": "feat(report): dataset-native report editor + retire the legacy report surface (ADR-0021)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T14:15:44Z",
+  "updated_at": "2026-06-11T14:21:59Z",
+  "closed_at": "2026-06-11T14:21:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T14:21:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1645",
+  "body": "## Summary\n\nCompletes the ADR-0021 single-form migration for the report surface. A 9.0 report is **dataset-bound** — it binds a semantic-layer `dataset` and selects its `values` (measures) grouped by `rows` (dimensions). This PR lands the dataset-native editing surface and retires the pre-9.0 query-form surface the cutover left unreachable.\n\nUpstream prerequisite already merged: [framework#1730](https://github.com/objectstack-ai/framework/pull/1730) aligned the spec's `reportForm` with the 9.0 schema. Until that ships in a bundled spec release, `getReportForm()` here applies the same alignment locally (schema-subset pruning + `runtimeFilter` surfacing) — it degrades to a no-op once the bundle catches up.\n\n### app-shell — dataset-native editor (Studio + runtime share it)\n- **ReportDefaultInspector**: curated dataset binding — dataset picker plus values/rows reorderable lists fed by the bound dataset's measures/dimensions (new `useDatasetCatalog` / `useDatasetSemantics`, override-friendly and network-free for hosts/tests). The `objectName`+`columns` layer is gone.\n- **report-schema**: `getReportForm()` prunes form fields the 9.0 schema strips at parse time (`objectName`/`columns`/`groupingsDown`/`groupingsAcross`/`filter`) and surfaces `runtimeFilter`.\n- **ReportPreview**: non-dataset drafts get an actionable \"bind a dataset\" empty state instead of the retired legacy renderer; `ReportColumnInspector` removed + unregistered.\n\n### plugin-report — legacy surface retired (major)\n- Removed: `SpecReportGrid`, `MatrixRenderer`, `JoinedReportRenderer`, drill helpers, `ReportBuilder`, `ReportConfigPanel`, `ColumnsEditor`, `GroupingsBuilder`, `JoinedBlocksEditor`, `FieldPickerDialog`, `ChartConfig`, `specFilterAdapter`, `ScheduleConfig`, `buildChartData` — all only reachable from the removed query form.\n- `ReportRenderer` dispatch: dataset-bound → `DatasetReportRenderer`; stored pre-9.0 spec JSON → `specReportToPresentation` → `ReportViewer` (the bridge finally has a consumer); presentation schemas → `LegacyReportRenderer`.\n- `ReportView` passes its fetched rows so the pre-9.0 bridge renders data.\n- `useReportData` stays exported (its `mergeFilters` is shared by the dataset renderer; the hook itself is documented as migration-window API).\n\nChangeset: major on `@object-ui/plugin-report`, minor on `@object-ui/app-shell`.\n\n## Test plan\n- [x] `pnpm vitest run` — 3548 passed, 24 skipped, 0 failed\n- [x] `pnpm build` — 41/41; `pnpm type-check` — 58/58\n- [x] `pnpm --filter @object-ui/console exec vite build` (CI's E2E build step)\n- [x] Touched files lint with 0 errors\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1518,
+  "kind": "issue",
+  "title": "ADR-0034: 在真实环境验证 flag-on 并翻默认值",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T09:33:46Z",
+  "updated_at": "2026-06-06T14:55:54Z",
+  "closed_at": "2026-06-06T14:55:54Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1518",
+  "body": "Part of **ADR-0034**(总览 #1516)。这是**验证/上线**任务,需要有后端的真实环境(CI/沙箱无后端,无法 e2e)。\n\n## ✅ 已开发(待验证的内容)\n- seam + 三个运行时编辑器接线已合并(#1513 report/dashboard;#1514 view 更新)。\n- flag `VITE_RUNTIME_EDIT_VIA_META` 默认 **关** = 现有 `sys_*` 行为零变化(已单测/构建验证)。\n- flag **开** → `metadataClient.save(type,name,body,{mode:'draft'})` + `publish`。**此路径尚未经任何真实后端验证。**\n\n## 🔍 待验证(本任务核心)\n在真实环境 `VITE_RUNTIME_EDIT_VIA_META=true`,逐项验证:\n1. **保存=草稿**:运行时编辑 report/dashboard/view → 保存 → 后端生成 per-item 草稿(`PUT /meta/:type/:name?mode=draft`);**其他用户读到的仍是已发布值**(草稿不外泄)。\n2. **发布**:对该 item 发布(暂用 studio 现有发布 UI,运行时发布按钮见 #1515)→ 生效 + `sys_metadata_history` 记新版本。\n3. **续编/读回**:`GET /meta/:type/:name?state=draft` 能读回草稿;`MetadataProvider.readType(...)` 读到已发布有效值。\n4. **回退**:flag=false → 完全回到 `sys_*` 行为。\n5. **权限**:仅管理员可写/发布(与 #1508 门控一致);非管理员被后端拒绝。\n6. **多租户**:写入/草稿正确归属 org/env 覆盖层,不串租户。\n7. **即时性体验**:编辑者面板预览即时反映;用户侧需发布后才变。\n\n## 🛠 后续开发(验证通过后)\n- 把 flag 从纯构建期 env 改为**可配置**(或服务端能力位),并在合适时**翻默认值**为开。\n- 触发 #1515(草稿/发布 UI)、#1517(视图创建接线)、#MIGRATE(数据迁移)。\n\n## 验收\n- 上述 1–7 全部通过并记录结论;给出\"是否可翻默认\"的结论。\n- 任一不通过 → 在本 issue 记录问题,回退 flag,反馈到对应代码 issue。"
+}

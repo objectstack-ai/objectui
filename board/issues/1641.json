@@ -1,0 +1,40 @@
+{
+  "number": 1641,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/spec to ^9.0.0 — dataset-bound report migration (ADR-0021)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T12:27:11Z",
+  "updated_at": "2026-06-11T12:33:08Z",
+  "closed_at": "2026-06-11T12:33:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T12:33:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1641",
+  "body": "## Summary\n\nUpgrades `@objectstack/spec` from `^8.0.1` to `^9.0.0` across the workspace and migrates the analytics surface to the ADR-0021 **single-form, dataset-bound** report shape.\n\nSince 9.0 a report references its dataset's semantic layer — `rows` (dimension names) and `values` (measure names) are plain `string[]`; the inline `objectName` + `columns` + `groupingsDown` query form no longer validates.\n\n### @object-ui/types (report bridge)\n- `specReportToPresentation` maps `values`/`rows` through and leaves label / aggregation / sort / granularity to the dataset-aware renderer (lossy by construction)\n- `isSpecReport` heuristic updated for the dataset-bound shape\n- dropped the now-dead `aggregateToLegacy` helper\n\n### Tests\n- drill / SpecReportGrid / useReportData suites: fixtures rebuilt as plain legacy-shaped literals — these suites cover the stored pre-9.0 JSON **passthrough paths**, which remain in the renderer\n- ReportRenderer dispatcher: typeless dataset-bound reports route to `DatasetReportRenderer`; typeless non-dataset schemas fall back to `LegacyReportRenderer`\n- app-shell `report-schema`: asserts the spec-derived `dataset`/`rows`/`values` properties\n\n### Explicitly out of scope\nRetiring the legacy report surface (SpecReportGrid / MatrixRenderer / JoinedReportRenderer and the Studio report-authoring UI that depends on ColumnsEditor / GroupingsBuilder) cascades into live product features and needs a dataset-native editor first — that's a separate epic.\n\n## Test plan\n- [x] `pnpm vitest run` — 3598 passed, 24 skipped, 0 failed\n- [x] `pnpm build` — 41/41 tasks\n- [x] `pnpm --filter @object-ui/console exec vite build` (CI's E2E build step)\n- [x] Changed files lint clean\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

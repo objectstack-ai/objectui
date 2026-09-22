@@ -1,0 +1,33 @@
+{
+  "number": 1488,
+  "kind": "pull_request",
+  "title": "feat: action modal transport with placement (SDUI #2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T00:30:16Z",
+  "updated_at": "2026-06-06T00:33:36Z",
+  "closed_at": "2026-06-06T00:30:59Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T00:30:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1488",
+  "body": "## Summary\nAdds a unified action modal transport so `type:'modal'` actions open client-side in the right container, rendering arbitrary SchemaNode content.\n\n- `useActionModal` (app-shell): one `onModal` handler → Dialog (`center`/`fullscreen`), Sheet (`side`), or Drawer (`bottom`), sized sm|default|lg|xl. `content` is any SchemaNode rendered via `SchemaRenderer`; string targets / `{objectName,mode}` still open a `ModalForm`.\n- Wired `onModal` into `RecordDetailView` and removed `modal` from the handler registry (registered handlers shadow the built-in `executeModal`), so modal actions stop being routed to a server POST.\n\n## Verification\n- Unit tests for the schema normalization (6).\n- Browser-verified all four placements rendering live content at `/dev/modal` (center/side/bottom/fullscreen).\n\nFollow-up: optional refactor of DashboardView's open-coded modal handler onto this hook.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

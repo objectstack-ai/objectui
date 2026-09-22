@@ -1,0 +1,33 @@
+{
+  "number": 1668,
+  "kind": "pull_request",
+  "title": "fix(app-shell): NavigationSyncEffect baseline race — readiness gate, sys_ filter, ADR-0010 lock filter",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T08:15:53Z",
+  "updated_at": "2026-06-12T09:18:09Z",
+  "closed_at": "2026-06-12T09:18:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T09:18:06Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1668",
+  "body": "## Problem\n\n`page`/`dashboard` metadata types load lazily (`ensureType`), so `NavigationSyncEffect` could seed its diff baseline from a partial list — and `invalidate()` empties the cache mid-session (e.g. the New-record flow reloads meta). When the full list landed, platform pages (`sys_organization_detail`, `sys_user_detail`) diffed as \"user added\": the effect PUT them into every app's navigation — 403 on the write-protected `setup` app (red \"Failed to update navigation\" toasts ×2) while writable apps' navigation got polluted with sys_ entries (the lying green \"Navigation updated\" toast — that write actually succeeded, into the wrong app).\n\nThe same misread applies beyond the load race: a **mid-session package install** adds its pages between two ready snapshots, which a name-set diff reads exactly like user CRUD — and third-party plugin pages are not `sys_`-prefixed.\n\n## Fix (three layers)\n\n1. **Readiness gate** — `MetadataContextValue` grows optional `getTypeStatus(type)`; the app-shell provider exposes its cache entry status. The effect only seeds its baseline and diffs while both `page` and `dashboard` are `status === 'ready'` — the initial partial load and the invalidate dip never enter the diff. Contexts without `getTypeStatus` (hand-rolled test values) are treated as always-ready.\n2. **Platform/package artifacts excluded** — items carrying the ADR-0010 provenance stamps (`_packageId` / `_provenance: 'package'`) never participate in the diff; the `sys_` namespace prefix is kept only as a fallback for registration paths that don't stamp provenance yet (the metadata-service path registers without package coords — framework-side gap, flagged separately). Packages ship their own navigation; auto-sync must stay out.\n3. **ADR-0010 lock filter** — apps whose `_lock`/`protection.lock` is `full`/`no-overlay` are skipped by the effect and the `*AllApps` sync methods; a PUT there can only 403.\n\nSuccess toasts were already only fired after a successful save (the SDK throws on non-2xx) — the green toast in the report was a *successful* write of a sys_ page into a writable app, which layer 2 now prevents.\n\nPreserves the ADR-0037 preview-mode guard from #1659 (baseline reset under `usePreviewDrafts`).\n\n## Verification\n\n- 12 unit tests (`useNavigationSync.test.tsx`): readiness gate, invalidate dip, sys_ filter both directions, package-provenance filter (mid-session install, non-sys_ names), lock filter, no-getTypeStatus back-compat, helper edge cases. Full app-shell suite green.\n- **Browser A/B on the full local stack** (cloud + objectos, prod-like, seeded): on the unfixed bundle, Setup → Role → New reproduced `PUT /api/v1/meta/app/setup → 403`; on the fixed bundle the same flow issues **zero** `PUT /meta/app/*` and shows zero toasts, with the meta reload confirmed and the live page list containing exactly `sys_organization_detail`/`sys_user_detail`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

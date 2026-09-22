@@ -1,0 +1,32 @@
+{
+  "number": 1656,
+  "kind": "pull_request",
+  "title": "feat(console): render SLA escalation on the approvals timeline",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T02:45:02Z",
+  "updated_at": "2026-06-12T02:48:32Z",
+  "closed_at": "2026-06-12T02:45:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T02:45:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1656",
+  "body": "Companion to objectstack-ai/framework#1749 (ADR-0042 SLA auto-escalation).\n\n- Timeline renders `escalate` as a red entry (\"SLA 升级\") with the configured action in the comment.\n- Reserved actor `system:sla` displays as localized \"System (SLA)\" / \"系统（SLA）\" — machine decisions stay visually distinct from human ones.\n- 2 new `approvalsInbox.*` keys × 10 locales (parity test green).\n\nVerified live against the showcase boot catch-up sweep: an overdue request shows `提交 → SLA 升级 · 系统（SLA）(\"auto_approve\") → 通过 · 系统（SLA）`, step progress flips Manager Review to done, and pending rows show red \"SLA 已超期 4h\" chips.\n\nTests: i18n 100/100 ✅ · console 3518 passed ✅ · tsc clean ✅\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

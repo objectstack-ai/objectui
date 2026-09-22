@@ -1,0 +1,35 @@
+{
+  "number": 1587,
+  "kind": "pull_request",
+  "title": "feat: refine AI chat experience",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-08T07:38:01Z",
+  "updated_at": "2026-06-08T07:41:35Z",
+  "closed_at": "2026-06-08T07:38:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-08T07:38:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1587",
+  "body": "## Summary\n- refine the full-page AI chat layout with a cleaner ChatGPT-style content rail and lightweight toolbar\n- summarize agent tool activity for end users while keeping debug mode for raw reasoning and tool details\n- preserve chat display state across refreshes and improve conversation title fallbacks in the sidebar\n- add i18n labels, docs, and a changeset for the chatbot/app-shell/types updates\n\n## Verification\n- pnpm --filter @object-ui/plugin-chatbot test -- ChatbotEnhanced\n- pnpm --filter @object-ui/plugin-chatbot type-check\n- pnpm --filter @object-ui/app-shell test -- useConversationList ConversationsSidebar\n- pnpm --filter @object-ui/app-shell type-check\n- git diff --check\n- Browser verified /ai conversation layout, tool summary display, and sidebar title fallback on localhost:5180\n\nNote: left unstaged unrelated ObjectView.tsx trailing-newline change out of this PR."
+}

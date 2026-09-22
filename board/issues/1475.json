@@ -1,0 +1,33 @@
+{
+  "number": 1475,
+  "kind": "pull_request",
+  "title": "Fix Studio metadata admin translations",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-04T05:05:55Z",
+  "updated_at": "2026-06-04T06:12:11Z",
+  "closed_at": "2026-06-04T06:12:04Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-04T06:12:04Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1475",
+  "body": "## Summary\\n- Localize Studio metadata-admin form controls, validation messages, widgets, embedded editors, and JSON editor fallbacks\\n- Localize Packages page, create dialog, detail sheet, package scope selector, and missing topbar/sidebar keys\\n- Keep machine identifiers and protocol values visible as identifiers while localizing user-facing labels\\n\\n## Verification\\n- pnpm --filter @object-ui/i18n build\\n- pnpm --filter @object-ui/app-shell... build\\n- Browser verified Flow creation form, Packages page/detail, and no fresh missing-translation warnings"
+}

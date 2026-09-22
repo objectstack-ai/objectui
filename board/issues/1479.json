@@ -1,0 +1,32 @@
+{
+  "number": 1479,
+  "kind": "pull_request",
+  "title": "feat(auth): standalone shell-less /set-password page for SSO recovery (#1544)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-04T10:56:47Z",
+  "updated_at": "2026-06-04T11:29:29Z",
+  "closed_at": "2026-06-04T11:29:29Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-04T11:29:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1479",
+  "body": "## Why\nAfter SSO-as-owner entry on a per-environment runtime, a user with no local `credential` account is sent to \"set a recovery password\". That affordance lived **inside the full-shell profile page** (`/system/profile?recovery_needed=true` — banner + auto-scroll to the password card). An auth surface should be **standalone and shell-less**, like `login` / `reset-password`. This makes it so.\n\n## Changes\n- **New `SetPasswordPage`** at `/set-password` — wrapped in `AuthLayout`, rendered **outside** `ProtectedRoute` (the cloud `sso-exchange` already set the session cookie). Reads `?next=`, calls `useAuth().setInitialPassword()`, and redirects to a **sanitised same-origin** `next` on success. Shows an expired-session fallback with a sign-in link.\n- **`ProfilePage`** — drop the recovery banner, scroll-to-card effect, and `useRecoveryNeededFlag` hook (+ now-unused `AlertTitle` / `ShieldAlert` imports). Its `PasswordCard` still offers \"set local password\" for any credential-less user.\n\n## Pairs with framework\nobjectstack-ai/framework#1577 — the cloud `auth-proxy` `sso-exchange` now redirects to `/_console/set-password?next=…` (instead of the profile page), and adds the missing `set-initial-password` endpoint on per-environment runtimes (the original 404).\n\n## Verification\n- `tsc --noEmit` clean (apps/console)\n- No remaining refs to `recovery_needed` / `profile-recovery-banner`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

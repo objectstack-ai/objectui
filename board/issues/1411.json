@@ -1,0 +1,32 @@
+{
+  "number": 1411,
+  "kind": "pull_request",
+  "title": "feat(auth): branded, refined-centered auth shell",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-29T09:00:13Z",
+  "updated_at": "2026-05-29T09:11:14Z",
+  "closed_at": "2026-05-29T09:09:13Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-05-29T09:09:13Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1411",
+  "body": "## Summary\nBeautifies the **login-related pages**. All unauthenticated Console surfaces (login / register / forgot-password / reset-password / verify-email / setup / oauth-consent / device / accept-invitation) share `apps/console/src/pages/auth/AuthLayout.tsx`, so polishing the shell lifts every one of them at once.\n\n### Changes (`AuthLayout.tsx` — Console-local only)\n- **Brand identity, server-driven** — a restrained brand mark (layered \"stack\" glyph on the indigo→violet gradient + product wordmark) now sits above the form card. The product name comes from `getProductName()` (`@object-ui/app-shell` runtime-config `branding.productName`, default **`ObjectOS`**, overridable via `RuntimeConfigPlugin` / server branding) — **never a hard-coded vendor name**, so downstream operators rebrand the auth surface without code changes. Previously the only thing above the card was a dev-ish `LOCALHOST:5180` host pill.\n- **Refined canvas** — replaced the flat `bg-muted` background with a near-neutral surface + a faint, edge-fading **dot-grid** and a single **soft brand glow** behind the card. Calm and content-first (consistent with the home page direction), not a marketing color wash.\n- **Less dev noise** — the host pill is suppressed on local/loopback hosts (`localhost` / `127.0.0.1` / `.local`), where it conveyed no tenant meaning. It still appears for real tenant subdomains so SSO users can confirm which workspace they're entering.\n\n### Deliberately left alone\nThe auth **form primitives** (submit button, inputs, focus rings) live in the shared, theme-driven `@object-ui/auth` package and render via the `--primary` token. They are untouched, so downstream white-label theming is unaffected — the button keeps the app's own primary color.\n\n## Naming note\n`ObjectStack` = the developer-tool vendor; `ObjectOS` = the released runtime product. The wordmark shows the **product** name (`ObjectOS` by default), per the existing server-driven branding mechanism — not the vendor name.\n\n## Testing\n- Browser-verified **login** and **register** in light and dark mode — wordmark renders `ObjectOS`, subtle depth behind the card, no console errors."
+}

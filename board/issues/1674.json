@@ -1,0 +1,32 @@
+{
+  "number": 1674,
+  "kind": "pull_request",
+  "title": "fix(console): DeviceAuthPage keeps device context through the login redirect",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T13:06:27Z",
+  "updated_at": "2026-06-12T13:10:20Z",
+  "closed_at": "2026-06-12T13:06:41Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T13:06:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1674",
+  "body": "Found in the runtime-identity-binding E2E: the signed-out branch of `DeviceAuthPage` rebuilt the login redirect from `user_code` alone, dropping the `runtime_name`/`runtime_version` params [objectui#1673](https://github.com/objectstack-ai/objectui/pull/1673) added — so a signed-out approver (the common first-bind case) never saw the device context card. Preserve the full query string through the round-trip.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

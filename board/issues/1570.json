@@ -1,0 +1,33 @@
+{
+  "number": 1570,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): dataset designer + live preview (ADR-0021)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T09:44:42Z",
+  "updated_at": "2026-06-07T09:48:04Z",
+  "closed_at": "2026-06-07T09:45:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T09:45:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1570",
+  "body": "Adds the objectui Studio surface for the analytics `dataset` semantic layer (ADR-0021):\n\n- **data-objectstack** `queryDataset(dataset, selection)` → POST `/api/v1/analytics/dataset/query` (inline draft or saved name), bearer-token forwarded for tenant/RLS scoping; no silent client-side fallback.\n- **DatasetPreview** (preview registry): live cross-object preview — auto-runs the draft, renders a results table + bar chart (plugin-charts), surfaces compile/RLS errors.\n- **DatasetDefaultInspector** (default-inspector registry): structured designer for object / include / dimensions / measures with a closed aggregate dropdown.\n\nTests: data-objectstack queryDataset (4), DatasetPreview (4), DatasetDefaultInspector (6). No regressions in inspectors/previews suites (149).\n\nPairs with framework PR (analytics dataset endpoint); `.objectui-sha` there pins this commit.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

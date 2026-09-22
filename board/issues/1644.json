@@ -1,0 +1,30 @@
+{
+  "number": 1644,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Live Canvas iframe carries the SPA basename (draft preview 404 on /_console)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T14:04:33Z",
+  "updated_at": "2026-06-11T14:10:10Z",
+  "closed_at": "2026-06-11T14:10:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T14:10:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1644",
+  "body": "Staging acceptance of [#1639](https://github.com/objectstack-ai/objectui/pull/1639) caught this: the canvas pane opened correctly when the agent drafted an app, but rendered `{\"error\":\"Not found\"}` — the iframe's ABSOLUTE `src` (`/apps/:name?preview=draft`) bypasses the router basename, so on the standard `/_console` mount it hit the server raw. In-chat `navigate()` calls were unaffected (router-relative).\n\nFix: prefix the iframe src with the SPA mount (`/_console` detected from `location.pathname`, `''` on bare mounts). app-shell suite 404/404, build green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

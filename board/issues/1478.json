@@ -1,0 +1,30 @@
+{
+  "number": 1478,
+  "kind": "pull_request",
+  "title": "fix(marketplace): detect installed state via same-origin proxy on tenant runtimes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-04T07:10:16Z",
+  "updated_at": "2026-06-04T07:13:53Z",
+  "closed_at": "2026-06-04T07:10:32Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-04T07:10:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1478",
+  "body": "## Problem\n\nOn a tenant runtime (e.g. `crm.objectos.app`) the marketplace SPA browses a **separate** cloud control plane. `getCloudInstallationInfo()` read `sys_package_installation` directly from the cloud origin — a cross-origin, cross-site-cookie request the browser blocks (the same reason install was moved to the same-origin `/api/v1/cloud-connection/install` proxy). The probe returned null, so the primary CTA never flipped to **Installed**: an already-installed app kept showing \"安装到云端 / Install to cloud\" and re-inviting installs (which then appeared to \"hang\" because re-install upserts silently and the button never changes).\n\n## Fix\n\n- Route the installed-state probe through the cloud-owned runtime plugin's new same-origin `GET /api/v1/cloud-connection/installation?package_id=` endpoint (resolves env by hostname, queries the control plane server-to-server). Falls back to the existing same-origin path when the runtime *is* the cloud.\n- Hide the cloud reseed/purge dropdown on tenant runtimes — those actions still POST cross-origin (follow-up: proxy them too) — so fixing detection doesn't surface buttons that can't work yet.\n\n## Pairs with\n\ncloud PR adding `GET /api/v1/cloud-connection/installation`. Ship needs `.objectui-sha` bump to this PR's merge SHA.\n\n## Tests\n\n`app-shell` suite green (243 passed); typecheck clean. No marketplace-specific tests exist for these paths.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

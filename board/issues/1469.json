@@ -1,0 +1,33 @@
+{
+  "number": 1469,
+  "kind": "pull_request",
+  "title": "feat(studio): surface pending drafts on the package detail (ADR-0033)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-03T02:39:37Z",
+  "updated_at": "2026-06-03T03:07:25Z",
+  "closed_at": "2026-06-03T03:07:23Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-03T03:07:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1469",
+  "body": "## Context\n\nAfter an AI builds an app, its objects/views land as **drafts** bound to the app package, but Studio's active-only browsers hid them — so a just-built package looked empty and there was no obvious path to review/publish. (Companion to framework PR objectstack-ai/framework#1552, which adds the `GET /api/v1/meta/_drafts` backend.)\n\n## Change\n\n- `MetadataClient.listDrafts({ packageId?, type? })` → calls `GET /api/v1/meta/_drafts`, returning pending draft headers (with `packageId`). Tolerant of both the bare-array and `{data:{drafts}}` envelope shapes.\n- The package detail sheet (`PackagesPage`) now renders a **Pending changes** section: a count badge + each drafted item linking to the existing per-item review/diff (`?review=1`), so the user can publish each. A just-built app package is no longer shown as empty.\n\n## Verification\n\n- **Browser e2e** (showcase, console rebuilt from this branch): an AI-built `app.customer_support` package detail shows **PENDING CHANGES (5)** listing customer/ticket/agent_note/ticket_list/app; clicking `customer` opens the review/diff (confirming `_packageId: app.customer_support`) with the Publish action.\n- **Unit:** `listDrafts` request URL (packageId + type) and envelope tolerance. data-objectstack metadata-client suite green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

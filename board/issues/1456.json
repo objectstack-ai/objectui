@@ -1,0 +1,32 @@
+{
+  "number": 1456,
+  "kind": "pull_request",
+  "title": "feat(studio): AI-draft review/diff mode in the object designer (v1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T00:33:36Z",
+  "updated_at": "2026-06-02T00:37:15Z",
+  "closed_at": "2026-06-02T00:33:47Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-02T00:33:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1456",
+  "body": "## Summary\nThe headline feature for the **\"AI writes the object, human confirms\"** workflow: a read-only **review/diff mode** that compares the current (AI-authored) draft against the **last published version**.\n\n- A **\"Review changes\"** toggle appears in the canvas toolbar whenever the draft differs from the published baseline (`layered.effective`). Hidden in create mode and when nothing changed; auto-exits once the draft matches the baseline again.\n- In review mode:\n  - Each field row gets an **Added** / **Changed** badge and a colored left accent. Changed rows tooltip the exact def keys that differ (e.g. *Changed: label, required*).\n  - Fields **removed** vs the baseline render as dimmed, struck-through **ghost rows** so nothing silently disappears.\n  - The toolbar summarizes **\"N added · M changed · K removed — vs last published\"**.\n\nPer the design discussion: **baseline = last published** (`layered.effective`), **v1 = read-only diff** (no accept/reject yet), **surface = inline on the canvas**.\n\n## Plumbing\n- New optional `baseline` on `MetadataPreviewProps`, passed from `ResourceEditPage` (`layered.effective`, non-create) and forwarded through `ObjectPreview`.\n- Diff is a pure, shape-agnostic `diffFields(baseline, current)` in `object-fields-io` → `{ byName, removed, counts }`.\n\n## Tests\n+6 `diffFields` cases (added/changed/removed/unchanged, changed-keys, removed entries, empty baseline, shape-agnostic, order-insensitive) and +5 canvas review cases (toggle gating ×3, badges + ghost, exit). `metadata-admin` suite green (**120**); `tsc` clean; no new lint errors.\n\n## Next (not in this PR)\n- v2: **accept/reject per field** (revert a changed/added field to baseline).\n- A contextual **\"generate fields with AI\"** entry point in the empty state/toolbar.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1441,
+  "kind": "pull_request",
+  "title": "feat(studio): object designer field groups, create-mode canvas, and i18n",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T21:20:07Z",
+  "updated_at": "2026-06-01T21:23:43Z",
+  "closed_at": "2026-06-01T21:20:52Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T21:20:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1441",
+  "body": "## Summary\nOptimizes the metadata **object designer** toward mainstream low-code conventions and the \"AI authors, human confirms + lightly edits\" workflow.\n\n- **Field-group (section) management** in the form-designer canvas: create / rename / reorder / delete sections, drag fields between them, collapse-all/expand-all, per-section add, and a review summary (field · required · section counts). Persists as object-level `fieldGroups: [{key,label}]` + `Field.group` (the canvas already read these; this adds the authoring UI).\n- **Create-mode canvas**: the designer canvas now lights up during object *create*, so fields can be designed before the first save. Object basics stay editable via the no-selection inspector. Scoped to `object` via `CREATE_MODE_CANVAS_TYPES`.\n- **i18n (en-US / zh-CN)**: the canvas + field inspector now localize through the metadata-admin bundle; field-type and category labels reuse the existing `labelZh` / `CATEGORY_LABEL_ZH`.\n\n## Fixes\n- **InspectorSelectField crash** on an empty-string option — Radix forbids `Select.Item value=\"\"`. Bridged with an internal sentinel so the `\"\" ⇄ none` contract holds for all callers. Surfaced by the new Group selector.\n- **Raw `fields` JSON on deselect**: canvas-owned keys (`fields`, `fieldGroups`) are now hidden from the inspector's `SchemaForm` fallback.\n\n## Tests\n- New: `object-fields-io` group helpers, `ObjectFormCanvas` grouping interactions, `InspectorSelectField` empty-option regression — **33 tests**.\n- Full `metadata-admin` suite green (**79**); `tsc` clean; 0 new lint errors.\n\n## Verified live (zh-CN)\nCreate object → add fields → add/rename/delete sections → assign field to section via the Group dropdown (previously crashing) → collapse-all. Underlying model confirmed: `fieldGroups:[{key:\"section_1\",label:\"Contact Info\"}]` + `currency.group:\"section_1\"` (stable key after rename).\n\n## Follow-ups (not in this PR)\n- Dedicated `ObjectDefaultInspector` for curated + localized object basics on the no-selection panel (mirrors `ViewDefaultInspector`).\n- AI-draft review/diff mode and a contextual \"generate fields\" entry point.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

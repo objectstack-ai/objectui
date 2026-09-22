@@ -1,0 +1,32 @@
+{
+  "number": 1683,
+  "kind": "pull_request",
+  "title": "fix(auth): getSession self-heals a stale bearer shadowing a valid cookie session",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T01:36:58Z",
+  "updated_at": "2026-06-13T01:40:46Z",
+  "closed_at": "2026-06-13T01:37:01Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T01:37:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1683",
+  "body": "## Root cause (staging repro: open environment → bounced to cloud login)\n\nobjectui injects the localStorage `auth-session-token` as a Bearer on **every** auth call. The cloud→env SSO landing (`sso-exchange`) only sets a **cookie** on the env origin — it cannot touch that origin's localStorage. So a leftover/expired token from an earlier login **shadows the fresh cookie session**: get-session resolves the dead bearer, returns no session, and the console bounces a genuinely signed-in user back to the login page — forever, since nothing ever cleared the stale token (user-diagnosed: deleting `auth-session-token` fixes it).\n\n## Fix\n\nOn a bearer get-session miss, retry once **cookie-only**:\n- live cookie session → adopt it; its token **replaces** the stale one (self-heal)\n- affirmative double-miss (200 + no session on both) → drop the dead token\n- transport errors → keep the token and return null instead of **throwing** (better-fetch rethrows network errors — pre-existing crash on network blips)\n\n## Tests\n+3; auth 71/71 green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

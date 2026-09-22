@@ -1,0 +1,32 @@
+{
+  "number": 1693,
+  "kind": "pull_request",
+  "title": "feat(app-shell): ADR-0048 (A) — package-id app routing (resolution layer)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T07:51:19Z",
+  "updated_at": "2026-06-13T12:47:54Z",
+  "closed_at": "2026-06-13T12:47:52Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T12:47:52Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1693",
+  "body": "Resolution layer of ADR-0048 option-A routing, on top of the merged platform-app split (framework objectstack-ai/framework#1813, which made each app its own package so package-id routing is unambiguous).\n\n## What\n- `appRoute` helpers: `appRouteSegment(app)` (canonical link segment = package id, name fallback) + `matchAppBySegment(apps, seg)` (resolve a route segment to its app, prefer `_packageId`, fall back to `name`).\n- Route the active-app lookup through `matchAppBySegment` in **every** nav surface: `AppContent`, `AppSidebar`, `UnifiedSidebar`, `AppSwitcher`, `AppHeader`, `SearchResultsPage`, `UnpublishedAppBar`, `useNavigationSync`.\n\nSo `/apps/<packageId>` resolves the app **with sidebar + header intact**, while `/apps/<appName>` keeps working (the name fallback doubles as a per-tenant alias). **Additive / non-breaking — no emitted URL changes.**\n\n## Verified\n- **Browser** (live app-showcase backend with the split): `/apps/com.objectstack.studio` → Studio renders with full sidebar + header; `/apps/studio` (name) → still renders. setup/account confirmed too.\n- Unit: `appRoute.test.ts` (7). app-shell typecheck clean.\n\n## Follow-ups (separate, deliberate)\n- **Emission → package id**: make nav components *emit* `/apps/<packageId>` (currently still emit `/apps/<name>`). Changes visible URLs; verbose-but-transparent per ADR §3.6.\n- **Docs route** `/apps/:packageId/docs/:name` (structural move of DocPage).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

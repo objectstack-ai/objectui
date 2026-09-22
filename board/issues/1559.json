@@ -1,0 +1,30 @@
+{
+  "number": 1559,
+  "kind": "pull_request",
+  "title": "feat(home): dismissible 'set recovery password' reminder",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T05:05:44Z",
+  "updated_at": "2026-06-07T05:09:16Z",
+  "closed_at": "2026-06-07T05:05:49Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T05:05:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1559",
+  "body": "Companion to deferring the forced set-password gate. New SSO users go straight to the magic moment; this gentle, dismissible banner on the env home (shown when `hasLocalPassword() === false`) nudges them to set a recovery password — links to /set-password, remembers dismissal in localStorage. Preserves instance self-sufficiency without friction. Browser-verified (shows, dismisses, persists). zh + en.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

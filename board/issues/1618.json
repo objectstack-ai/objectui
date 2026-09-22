@@ -1,0 +1,33 @@
+{
+  "number": 1618,
+  "kind": "pull_request",
+  "title": "fix(chatbot): stop dumping raw tool JSON on the consumer Build-with-AI panel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T10:39:13Z",
+  "updated_at": "2026-06-10T10:43:10Z",
+  "closed_at": "2026-06-10T10:39:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T10:39:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1618",
+  "body": "## Problem\n\nOn the consumer **Build with AI** surface, the chat dumped the **raw tool-call JSON** for every drafting tool — the full `apply_blueprint` blueprint as `PARAMETERS`, and `{ \"status\": \"drafted\", … \"note\": \"NOT LIVE…\" }` as `RESULT`. For someone building an app from one sentence, that's developer noise sitting next to the friendly summary.\n\nRoot cause: a drafting tool (`create_object` / `apply_blueprint`) returns a `draftReview`, and that alone forced `showPayload` true — so the raw JSON rendered even in `summary` (consumer) mode, not just `debug`.\n\n## Fix\n\nGate the raw `PARAMETERS`/`RESULT` JSON on `processVisibility === 'debug'` (or a HITL approval that genuinely needs the operator to see the exact payload). The friendly card, the `BuildProgressPanel` streaming tree, and the **Publish/Review** affordance still render in `summary` — only the JSON is withheld. Developers flip **Agent Process Visibility → debug** to see it. Errors still surface in any mode.\n\nOne-line behavioural change in `ChatbotEnhanced.tsx`; the `draftReview` affordance is rendered independently and is unaffected.\n\n## Test\n\n- New test: a drafting tool in `summary` mode renders the card + Review affordance but **not** the raw `Parameters`/`Result` JSON; in `debug` the JSON is revealed.\n- `plugin-chatbot` suite green (53 tests) + `type-check` clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

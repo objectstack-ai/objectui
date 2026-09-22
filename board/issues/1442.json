@@ -1,0 +1,32 @@
+{
+  "number": 1442,
+  "kind": "pull_request",
+  "title": "fix(list): localize row-action labels + honor visible CEL per row",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T21:30:36Z",
+  "updated_at": "2026-06-01T21:59:24Z",
+  "closed_at": "2026-06-01T21:59:24Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T21:59:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1442",
+  "body": "List/grid row action menus (`list_item` location) had two gaps vs the record_header path:\n\n1. **Labels not localized** — the row kebab rendered raw English `action.label`; `record_header` and `list_toolbar` localize via `actionLabel()` but `rowActionDefs` did not. `ObjectView` now builds `rowActionDefs` through the same `actionLabel/actionConfirm/actionSuccess` pass.\n2. **`visible` CEL ignored** — state-machine actions showed regardless of row state (e.g. both Suspend and Resume on an active row). `RowActionMenu` now evaluates each action's `visible` predicate against the row via a small `RowActionMenuItem` child (`useCondition`/`toPredicateInput`), mirroring `ActionMenuItem`.\n\nFull `turbo run build` (42/42) passes including `@object-ui/console`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

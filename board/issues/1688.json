@@ -1,0 +1,32 @@
+{
+  "number": 1688,
+  "kind": "pull_request",
+  "title": "feat(app-shell): ADR-0048 Phase 2 — prefer-local metadata resolution",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T05:39:29Z",
+  "updated_at": "2026-06-13T07:42:35Z",
+  "closed_at": "2026-06-13T07:42:33Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T07:42:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1688",
+  "body": "Frontend prefer-local resolution for [ADR-0048](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0048-cross-package-metadata-collision.md). Pairs with framework PR objectstack-ai/framework#1810 (namespace install gate + package-scoped `getItem`, ADR pivoted to **option A** = package id as canonical route key).\n\n## What\nTwo installed packages may ship the same bare name (a `page` named `home`). The frontend mirrored the backend's first-match-wins bug: `pages.find(p => p.name === pageName)` over the merged list returns whichever package loaded first.\n\nAdds `preferLocal(list, name, ownerPackageId)` — prefers the item whose **`_packageId`** matches the active app's package, falling back to the first name match when the owner is unknown (runtime/DB apps with no `_packageId`). Wired at the bare-name resolution sites: `PageView`, `DashboardView`, `ReportView` (rendered defs) and `AppHeader` (breadcrumb labels). The active app comes from `useExpressionContext().app` / `currentApp`.\n\nThis scopes by `_packageId` — i.e. it is already aligned with **option A** (package id is the identity/scope key), independent of what the URL segment looks like.\n\n## Scope\nThis PR is the **prefer-local half** — it disambiguates page/dashboard/report *within* the active app. The complementary **route-key migration** (`/apps/:appName` → package id, and selecting the active app by `_packageId` instead of `name`) is a larger ~20-site navigation change requiring live verification, tracked as ADR-0048 \"Phase 2 frontend (remaining)\" and handled separately.\n\n## Tests\n- `utils/__tests__/preferLocal.test.ts` (6): prefer-by-owner, fallbacks, missing inputs, single-item.\n- app-shell views/utils/layout suites green (308). Typecheck clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

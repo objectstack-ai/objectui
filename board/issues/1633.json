@@ -1,0 +1,30 @@
+{
+  "number": 1633,
+  "kind": "pull_request",
+  "title": "feat(app-shell): render the map node in the flow designer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T04:49:27Z",
+  "updated_at": "2026-06-11T04:58:38Z",
+  "closed_at": "2026-06-11T04:58:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T04:58:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1633",
+  "body": "## Summary\nThe framework's new `map` node (sequential batch approval, ADR-0037 A2 — framework #1709) rendered in the Studio flow designer with the generic fallback icon. The server-driven palette already picked it up (label + description from the engine action descriptor), but the static icon/tone/category map in `flow-canvas-parts.tsx` had no `map` case, and the inspector had no config group.\n\n- `flow-canvas-parts`: `map` → `ListChecks` icon, loop/sky tone, Logic category (consistent with loop / parallel / try_catch).\n- `flow-node-config`: a `map` inspector group (collection / per-item flow / item variable / item object / output variable) + `map` in the type picker, so the property panel renders a form instead of falling back to JSON.\n\n## Test plan\n- [x] Browser-verified against `showcase_release_signoff`: the map node renders with the `list-checks` icon + sky tone (`lucide-list-checks text-sky-600`), appears under Logic in the add-node palette with the engine description, and the Runs panel shows the sequential re-entries (`signoffs MAP` ×3 in one completed run).\n- [x] `pnpm vitest run` metadata-admin previews: 96 green. (The two pre-existing app-shell type-check errors are in unrelated AI/chatbot files, not these.)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

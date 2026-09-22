@@ -1,0 +1,37 @@
+{
+  "number": 1590,
+  "kind": "pull_request",
+  "title": "chore(deps): bump the react group across 1 directory with 2 updates",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "examples",
+    "package: components",
+    "package: react"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-08T08:09:21Z",
+  "updated_at": "2026-06-08T08:21:48Z",
+  "closed_at": "2026-06-08T08:18:29Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-08T08:18:29Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1590",
+  "body": "Bumps the react group with 2 updates in the / directory: [react-router-dom](https://github.com/remix-run/react-router/tree/HEAD/packages/react-router-dom) and [react-hook-form](https://github.com/react-hook-form/react-hook-form).\n\nUpdates `react-router-dom` from 7.16.0 to 7.17.0\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/remix-run/react-router/blob/main/packages/react-router-dom/CHANGELOG.md\">react-router-dom's changelog</a>.</em></p>\n<blockquote>\n<h2>v7.17.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies:\n<ul>\n<li><a href=\"https://github.com/remix-run/react-router/releases/tag/react-router@7.17.0\"><code>react-router@7.17.0</code></a></li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/remix-run/react-router/commit/195a0d03c1417127ccee73853058c8521beb4fce\"><code>195a0d0</code></a> Release v7.17.0 (<a href=\"https://github.com/remix-run/react-router/tree/HEAD/packages/react-router-dom/issues/15145\">#15145</a>)</li>\n<li>See full diff in <a href=\"https://github.com/remix-run/react-router/commits/react-router-dom@7.17.0/packages/react-router-dom\">compare view</a></li>\n</ul>\n</details>\n<br />\n\nUpdates `react-hook-form` from 7.77.0 to 7.78.0\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/react-hook-form/react-hook-form/releases\">react-hook-form's releases</a>.</em></p>\n<blockquote>\n<h2>Version 7.78.0</h2>\n<p>🦷 update type dirtyFields typing for field arrays with undefined entries (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13492\">#13492</a>)\n🐞 fix: recover Controller fields after reset without rerender (RN issue <a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13455\">#13455</a>) (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13497\">#13497</a>)\n🐞 fix useFormState().isDirty race with async resolver in onChange mode (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13495\">#13495</a>)\n🐞 fix: use reactive values prop over defaultValues when shouldUnregister is true (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13485\">#13485</a>)\n🐞 fix deepEqual for empty non-plain objects (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13493\">#13493</a>)</p>\n<p>thanks to <a href=\"https://github.com/cyphercodes\"><code>@​cyphercodes</code></a></p>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/react-hook-form/react-hook-form/blob/master/CHANGELOG.md\">react-hook-form's changelog</a>.</em></p>\n<blockquote>\n<h1>Changelog</h1>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/23ab3a7b9f3c46af17d62bdedd0f9101684ebfa7\"><code>23ab3a7</code></a> 7.78.0</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/29fbd7dd35f0ee443c24dd442d7c87a48fd34918\"><code>29fbd7d</code></a> 🪭 close <a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13506\">#13506</a> add regression test for useFormState</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/b0005091e3c160af1cf505d8a8de5e0202f9794b\"><code>b000509</code></a> 📝 test: fix &quot;allow to&quot; grammar in test descriptions (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13504\">#13504</a>)</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/76187c308a3266cd58401bb895a514149abec586\"><code>76187c3</code></a> 🧪 add unit test for regression render submit with useWatch <a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13035\">#13035</a></li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/16c35fbe83b4d24391fda375ac193c8aa0b47912\"><code>16c35fb</code></a> 🫡 add regression coverage for dynamic Controller names with keepDirtyValues/k...</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/0bd39fa25cc20f69fc8fdb10241102016aaf20c0\"><code>0bd39fa</code></a> 🐞 fix: recover Controller fields after reset without rerender (RN issue <a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/1345\">#1345</a>...</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/6a501e04c533831d0e98a7315447fc995e509559\"><code>6a501e0</code></a> 🦷 update type dirtyFields typing for field arrays with undefined entries (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13\">#13</a>...</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/d681dc57a84fa037a4bfda5b4094bebc8f71cfed\"><code>d681dc5</code></a> 🐞 fix <code>useFormState().isDirty</code> race with async resolver in <code>onChange</code> mode (#...</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/a9b8a6fb919c7ec9e0ea671b64712e1c39fc9f15\"><code>a9b8a6f</code></a> 🐞 fix: use reactive values prop over defaultValues when shouldUnregister is t...</li>\n<li><a href=\"https://github.com/react-hook-form/react-hook-form/commit/686da3f73d59ed94c7e112f82023aed9786fe0df\"><code>686da3f</code></a> 🐞 fix deepEqual for empty non-plain objects (<a href=\"https://redirect.github.com/react-hook-form/react-hook-form/issues/13493\">#13493</a>)</li>\n<li>Additional commits viewable in <a href=\"https://github.com/react-hook-form/react-hook-form/compare/v7.77.0...v7.78.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

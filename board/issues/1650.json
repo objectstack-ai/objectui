@@ -1,0 +1,30 @@
+{
+  "number": 1650,
+  "kind": "pull_request",
+  "title": "feat(app-shell): ADR-0040 — the agent picker leaves consumer UX",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T15:48:14Z",
+  "updated_at": "2026-06-11T15:54:20Z",
+  "closed_at": "2026-06-11T15:54:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T15:54:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1650",
+  "body": "objectui half of [ADR-0040](https://github.com/objectstack-ai/framework/pull/1734) (pairs with [framework#1735](https://github.com/objectstack-ai/framework/pull/1735), merged):\n\n- `/ai` header: the agent roster no longer renders for end users — they see the resolved assistant's label. The dropdown appears only when an explicit `?agent=` pin is present (builder/developer deep links; Studio's `metadata_assistant` pin unchanged).\n- Selection still happens — by **scenario** (`app.defaultAgent` → platform default), not by the user.\n\napp-shell 409/409, build green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

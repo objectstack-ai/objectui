@@ -1,0 +1,32 @@
+{
+  "number": 1566,
+  "kind": "pull_request",
+  "title": "feat(grid): inline validation, duplicate row, drag-to-reorder",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T08:16:08Z",
+  "updated_at": "2026-06-07T08:26:49Z",
+  "closed_at": "2026-06-07T08:26:48Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T08:26:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1566",
+  "body": "## Why\n\nP1 polish for the line-item grid — the per-cell feedback and row affordances enterprise editors (NetSuite, Dynamics, QuickBooks) all have.\n\n## What\n\n- **Inline per-cell validation** — a required, non-computed cell that's empty on a real (non-ghost) row flags red in place (`aria-invalid` + inset ring + `title`), so users see what's missing without submitting. The trailing ghost row is never flagged.\n- **Duplicate row** — a hover Copy action clones a line (id stripped, so the copy persists as a new record) directly below the original.\n- **Drag-to-reorder** — a hover grip handle reorders rows via native HTML5 drag-and-drop (no new dependency). Set `sort_field` on the grid config to persist order (`row[sortField] = index` stamped on every change); without it, reorder is order-of-entry.\n\n## Verification\n\n- Unit: 22 `GridField` tests (incl. duplicate strips id + inserts below; required-empty cell flags on the data row but not the ghost).\n- Live e2e: 9 passing (no regression from the row-render changes).\n- Browser-verified on New Invoice: empty required Product + Qty cells flag red; duplicate + drag handle appear on row hover.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

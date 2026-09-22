@@ -1,0 +1,33 @@
+{
+  "number": 1677,
+  "kind": "pull_request",
+  "title": "feat(console): ADR-0046 P2 — /docs/:name package-documentation route",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T15:10:15Z",
+  "updated_at": "2026-06-12T15:21:15Z",
+  "closed_at": "2026-06-12T15:21:13Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T15:21:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1677",
+  "body": "## Summary\n\nADR-0046 P2 (framework side merged as [framework#1789](https://github.com/objectstack-ai/framework/pull/1789)): one authenticated console route renders any installed `doc` metadata item — flat Markdown docs compiled from a package's `src/docs/*.md`.\n\n- **`/docs/:name` route** (App.tsx, inside `ProtectedRoute`): fetches the item via the standard metadata API (`meta.getItem('doc', name)`), renders the sanitized body through `@object-ui/plugin-markdown` (react-markdown + remark-gfm + rehype-sanitize).\n- **Cross-reference rewriting** (`doc-links.ts`): `[x](./other_doc.md#anchor)` → `/docs/other_doc#anchor` before rendering; fenced code blocks and inline code spans stay literal; rewritten links navigate via react-router (no full reload).\n- **Soft degrade**: unknown names render a \"Documentation not found\" notice per the ADR — a removed cross-package doc must never become a hard failure.\n\n## Test plan\n- [x] `doc-links.test.ts` — 7 cases (rewrite, anchors, external/non-doc links untouched, code blocks/spans untouched, path-shaped targets skipped)\n- [x] Workspace `pnpm build` green (console build includes `tsc`)\n- [x] E2E against a live backend (framework app-todo example with two cross-referencing docs): doc renders at `/docs/todo_index`, link rewritten to `/docs/todo_user_guide` and SPA-navigates, `/docs/todo_nonexistent` shows the not-found notice, list API stays content-free while item API returns the full body\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

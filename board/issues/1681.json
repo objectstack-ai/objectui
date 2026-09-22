@@ -1,0 +1,33 @@
+{
+  "number": 1681,
+  "kind": "pull_request",
+  "title": "feat: ADR-0047 — persist user-filter selections in the URL",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T00:39:18Z",
+  "updated_at": "2026-06-13T01:02:57Z",
+  "closed_at": "2026-06-13T01:02:55Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T01:02:55Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1681",
+  "body": "## Summary\n\nFilter selections were session-memory only — a reload dropped them. They now mirror into `uf_<field>` search params (active tab preset as `uf__tab`) and restore on load, making filtered lists reload-safe and shareable (Airtable Interfaces parity).\n\n- `UserFilters`: `initialSelections` restores dropdown values with typed coercion (URL strings → number/boolean option values) and the active tab; `onSelectionsChange` reports raw selections.\n- `ListView`: forwards both; the metadata view-tab path (TabBar) restores the active tab and scopes the first fetch with its filter.\n- `ObjectView` / `InterfaceListPage`: parse `uf_*` once at mount, write back with `replace` (no history spam). The `filter[...]` URL memo no longer invalidates on `uf_*` writes (avoids schema rebuild + refetch per click).\n\n## Testing\n\n- plugin-list 135/135 (5 new UserFilters persistence tests: restore, typed coercion, selections callback, tab restore, tab switch report)\n- Browser-verified on app-showcase: `?uf_priority=urgent` (workbench dropdown) and `?uf__tab=urgent` (data-mode tab) both survive reload with correct badge/tab state and filtered rows\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

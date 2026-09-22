@@ -1,0 +1,39 @@
+{
+  "number": 1464,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/spec & client to ^7.6.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T07:20:45Z",
+  "updated_at": "2026-06-02T07:24:10Z",
+  "closed_at": "2026-06-02T07:20:56Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-02T07:20:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1464",
+  "body": "## Summary\nUpgrade all `@objectstack/*` dependencies to the latest **7.6.0** across the monorepo.\n\n- `@objectstack/spec`: `^7.2.1` / `^7.3.0` → `^7.6.0`\n- `@objectstack/client`: `^7.2.1` → `^7.6.0`\n\nTouches 11 `package.json` files (root, `apps/console`, `apps/site`, and 8 `packages/*`) plus `pnpm-lock.yaml`.\n\n## Verification\n- `pnpm install` clean; lockfile resolves all to `7.6.0`.\n- `type-check` passes for every consumer: types, core, app-shell, data-objectstack, react, console, plugin-gantt, plugin-map, plugin-timeline. No breaking changes.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

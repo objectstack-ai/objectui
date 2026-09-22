@@ -1,0 +1,30 @@
+{
+  "number": 1412,
+  "kind": "pull_request",
+  "title": "feat(studio): polish metadata designers — consolidate lock banner, color-code field types",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-29T13:56:48Z",
+  "updated_at": "2026-05-29T14:07:07Z",
+  "closed_at": "2026-05-29T14:06:59Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-05-29T14:06:58Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1412",
+  "body": "## Studio metadata-designer polish (round 1)\n\nA restrained, visual-only pass over the Studio (metadata-admin) designers, picking up the shared-chrome + per-canvas direction. No behavior/logic changes.\n\n### Shared chrome — benefits every designer\n- **Consolidated the locked / read-only banner stack.** Locked code-package items (e.g. the `object/sys_user` designer) previously stacked *two* near-identical amber banners (~140px), pushing the canvas below the fold. They're now a single banner: the lock notice carries the \"新建\" CTA inline, and the redundant read-only banner is suppressed when the item is already shown as locked (the non-locked read-only cases are unchanged). Also lightened the amber tone (`/70` bg + softer border) so it informs without dominating.\n\n### Per-canvas — Object form designer + field-type picker\n- **Color-coded field types by category.** Added `CATEGORY_TONE` to the field-type catalog (`field-types.ts`) — a subtle per-category tint (text=slate, number=blue, date=violet, logic=amber, selection=teal, relation=indigo, media=pink, calculated=emerald, advanced=zinc). Applied to the field-card **icon** + **type badge** and the **type-picker** icons, so the form is scannable at a glance instead of a wall of neutral-grey rows. Colour is used purely as a category signal (no loud fills), consistent with the console's content-first language. Class strings are written out in full so Tailwind's JIT emits every variant.\n\n### Verification\n- Verified in-browser at `/apps/setup/metadata/object/sys_user` in **light + dark**: single consolidated banner, canvas starts ~80px higher, type badges/icons tinted correctly in both themes.\n- No new compile or runtime errors. (Pre-existing, unrelated: backend `analytics/query` 500s referencing a missing `amount_sum` column, and a `<button>`-in-`<button>` hydration warning from `FieldStub` rendering an interactive preview inside the card button — flagged separately.)\n\n### Follow-up (flagged separately)\n- `FieldStub` renders a Switch (`<button>`) inside the field-card `<button>` → hydration/a11y error. Pre-existing; needs a structural fix (card → `div role=button`), out of scope for this visual pass.\n"
+}

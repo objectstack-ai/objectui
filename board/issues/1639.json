@@ -1,0 +1,34 @@
+{
+  "number": 1639,
+  "kind": "pull_request",
+  "title": "feat: ADR-0037 Live Canvas Phases 1+2 — draft preview mode + split-view canvas",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T10:28:25Z",
+  "updated_at": "2026-06-11T10:31:31Z",
+  "closed_at": "2026-06-11T10:28:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T10:28:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1639",
+  "body": "Implements [ADR-0037](https://github.com/objectstack-ai/framework/pull/1694) Phases 1+2: the magic moment stops being a progress bar and becomes **the app itself, taking shape on screen while you talk** — rendered from the ADR-0033 draft overlay, so what you see is exactly what Publish will make real.\n\n## Phase 1 — static draft preview\n- `MetadataClient.previewDrafts` → `list()`/`get()` append `?preview=draft` (both dispatcher endpoints already honor it); `withPreviewDrafts()` derives a preview client **preserving environment scope** (regression-tested).\n- `PreviewModeContext` keyed off the URL; mounted in `ConnectedShell` ABOVE `MetadataProvider` so the whole renderer tree flips with one flag. `force` prop reserved for embedded canvas subtrees.\n- `MetadataProvider`: preview reads go through the overlay endpoints (SDK meta API doesn't carry the flag); the published and draft worlds never mix — full cache clear on mode flip, draft apps never written to the published session cache.\n- `DraftPreviewBar`: unmistakable amber watermark with one-click **Exit** and one-click **Publish** — publish logic extracted from the Home banner into shared `usePublishAllDrafts` (probed package path + by-ref fallback + health toasts), so both surfaces stay in lockstep.\n- Chat entry: **Preview** button on the finished build tree and on draft chips whose items include an `app`.\n\n## Phase 2 — event-driven live canvas\n- `ChatbotEnhanced.onDraftArtifacts`: deduped cumulative signal of every draft artifact (streaming `buildProgress` items + `drafted` envelopes) — fires only when the set grows.\n- `LiveCanvas` split view in `AiChatPage`: chat left (~42%), the drafted app right, rendered via an **iframe onto `/apps/:name?preview=draft`** — the existing renderers in preview mode through a route a user could open by hand. No second renderer, no canvas-only store, canvas never edits in place (ADR-0037 boundary rules). Pane opens automatically when a build drafts an `app`; invalidations coalesce (800 ms) into an in-place frame reload, so the app grows artifact-by-artifact during `apply_blueprint`.\n\n## Tests\n- 5 new `MetadataClient` preview cases (flag on list/get, package-filter combination, `state=draft` precedence, default-off, env-scope preservation through `withPreviewDrafts`)\n- Suites green: data-objectstack 164/164, plugin-chatbot 65/65, app-shell 404/404; workspace build green\n\n## Known follow-ups (Phase 2.5 / 3 per ADR)\n- assistantBus canvas-invalidate → MetadataProvider for the floating-chat-while-previewing case (same-document refresh without reload)\n- Phase 3 draft **data** preview (framework: seed-overlay dataset queries) — unpublished objects currently render with empty tables (structure-WYSIWYG, by design)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

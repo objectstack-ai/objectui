@@ -1,0 +1,32 @@
+{
+  "number": 1455,
+  "kind": "pull_request",
+  "title": "chore(deps): bump i18next from 26.2.0 to 26.3.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T00:32:52Z",
+  "updated_at": "2026-06-02T07:44:29Z",
+  "closed_at": "2026-06-02T07:41:16Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-02T07:41:16Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1455",
+  "body": "Bumps [i18next](https://github.com/i18next/i18next) from 26.2.0 to 26.3.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/i18next/i18next/releases\">i18next's releases</a>.</em></p>\n<blockquote>\n<h2>v26.3.0</h2>\n<ul>\n<li>feat(types): introduce <code>ResourceNamespaceMap</code> — a separate mergeable augmentation surface for namespace resource types, designed for monorepos where multiple packages each want to contribute their own namespaces. Previously, every package had to coordinate on a single <code>CustomTypeOptions.resources</code> declaration (or fall back to typing dependency namespaces as <code>any</code>) because <code>resources</code> is a single property of an interface and TypeScript reports TS2717 when two declarations of the same property disagree. The new interface merges naturally across <code>declare module 'i18next'</code> blocks, so each package can ship its own <code>i18next.d.ts</code> independently. Per-property merge handles same-namespace contributions from multiple packages, and same-key/different-literal conflicts are silently dropped to avoid poisoning <code>t()</code> overload resolution. Fully backwards-compatible — existing <code>CustomTypeOptions.resources</code> augmentations continue to work, and both surfaces can coexist. Scalar options (<code>defaultNS</code>, <code>returnNull</code>, <code>enableSelector</code>, etc.) still belong on <code>CustomTypeOptions</code>. Thanks <a href=\"https://github.com/sh3xu\"><code>@​sh3xu</code></a> (<a href=\"https://redirect.github.com/i18next/i18next/pull/2434\">#2434</a>). Fixes <a href=\"https://redirect.github.com/i18next/i18next/issues/2409\">#2409</a>.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/i18next/i18next/blob/master/CHANGELOG.md\">i18next's changelog</a>.</em></p>\n<blockquote>\n<h2>26.3.0</h2>\n<ul>\n<li>feat(types): introduce <code>ResourceNamespaceMap</code> — a separate mergeable augmentation surface for namespace resource types, designed for monorepos where multiple packages each want to contribute their own namespaces. Previously, every package had to coordinate on a single <code>CustomTypeOptions.resources</code> declaration (or fall back to typing dependency namespaces as <code>any</code>) because <code>resources</code> is a single property of an interface and TypeScript reports TS2717 when two declarations of the same property disagree. The new interface merges naturally across <code>declare module 'i18next'</code> blocks, so each package can ship its own <code>i18next.d.ts</code> independently. Per-property merge handles same-namespace contributions from multiple packages, and same-key/different-literal conflicts are silently dropped to avoid poisoning <code>t()</code> overload resolution. Fully backwards-compatible — existing <code>CustomTypeOptions.resources</code> augmentations continue to work, and both surfaces can coexist. Scalar options (<code>defaultNS</code>, <code>returnNull</code>, <code>enableSelector</code>, etc.) still belong on <code>CustomTypeOptions</code>. Thanks <a href=\"https://github.com/sh3xu\"><code>@​sh3xu</code></a> (<a href=\"https://redirect.github.com/i18next/i18next/pull/2434\">#2434</a>). Fixes <a href=\"https://redirect.github.com/i18next/i18next/issues/2409\">#2409</a>.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/i18next/i18next/commit/bdf651c07d4d3a37d616a2c0ec5e954a527fc513\"><code>bdf651c</code></a> 26.3.0</li>\n<li><a href=\"https://github.com/i18next/i18next/commit/988a3620671dc2ce26591e37b80f2e779935cbf5\"><code>988a362</code></a> changelog: 26.3.0 entry for <a href=\"https://redirect.github.com/i18next/i18next/issues/2434\">#2434</a></li>\n<li><a href=\"https://github.com/i18next/i18next/commit/159506c93d90627cff8707660bf82afe36e4f701\"><code>159506c</code></a> feat(types): introduce ResourceNamespaceMap for monorepo namespace augmentati...</li>\n<li><a href=\"https://github.com/i18next/i18next/commit/df68b1f32470bde7fe891086241bfc2df229be7b\"><code>df68b1f</code></a> ci: restore JSR publishing via GitHub Actions OIDC</li>\n<li>See full diff in <a href=\"https://github.com/i18next/i18next/compare/v26.2.0...v26.3.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

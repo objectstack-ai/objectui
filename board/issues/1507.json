@@ -1,0 +1,32 @@
+{
+  "number": 1507,
+  "kind": "pull_request",
+  "title": "docs(adr): ADR-0034 unify runtime metadata persistence",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T07:53:55Z",
+  "updated_at": "2026-06-06T09:02:06Z",
+  "closed_at": "2026-06-06T09:02:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1507",
+  "body": "## 背景\n\n回答\"为什么运行时编辑保存到 `sys_view`/`sys_report`/`sys_dashboard` 三张专用表、而非统一元数据系统\",并给出经多轮讨论收敛的推荐架构。\n\n## 核实到的现状(已写进 ADR)\n\n**今天没有任何运行时编辑器做 per-user 个性化——全是共享编辑:**\n- 视图编辑:**已 isAdmin 门控**,写共享 `sys_view`\n- 报表/仪表盘编辑:**无门控**(任何用户保存即改所有人的),写共享 `sys_report`/`sys_dashboard`\n- 页面:仅渲染,studio 编辑\n\n即:这些\"编辑\"按钮本质是**管理员对共享定义的快速编辑入口**,不是个性化功能。\n\n## 决策(v1-first)\n\n- **存储统一**:view/report/dashboard 升为一等元数据类型,统一走 `/meta`,退役 `sys_*` 异形表。\n- **v1(本期,基本前端、无需新后端)**:运行时编辑按钮 = **管理员快速编辑** → 写**现有 `/meta` org/env 覆盖层**(即时生效);给报表/仪表盘**补 admin 门控**;删 `toSysViewPayload` 等转换;`sys_*` 数据迁移到覆盖层(双读过渡)。\n- **v2(后端配合、按需)**:**仅视图**加 `user` 覆盖层做 per-user 个性化;报表/仪表盘走\"归属+可见性\"(默认共享);页面仅共享。\n\n含**两种\"个人化\"的关键区分**(视图=覆盖增量 / 报表+仪表盘=归属可见性)、各制品目标模型对照(附主流平台先例)、分阶段向后兼容 rollout、备选方案、当前 `sys_*` 调用点清单。\n\n## 性质\n\n**纯文档(Status: Proposed),零运行时/包改动。** 供你和后端评审决策——接受后再按 rollout 落地。\n\nhttps://claude.ai/code/session_01SZW3fVCCbijEibXtEH3ZGL"
+}

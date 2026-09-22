@@ -1,0 +1,32 @@
+{
+  "number": 1437,
+  "kind": "pull_request",
+  "title": "feat(fields): render markdown/html/richtext read cells as formatted content",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T13:26:56Z",
+  "updated_at": "2026-06-01T13:30:39Z",
+  "closed_at": "2026-06-01T13:27:11Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T13:27:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1437",
+  "body": "## Problem\n`markdown` / `richtext` / `html` fields rendered their **raw markup string** in grids and detail views (they fell through to the text cell renderer).\n\n## Fix\n- `MarkdownCellRenderer` (markdown, richtext): GitHub Flavored Markdown via a **lazy-loaded** `react-markdown` module (`MarkdownContent`), sanitized with `rehype-sanitize`.\n- `HtmlCellRenderer` (html): sanitized `dangerouslySetInnerHTML` — strips `<script>/<style>/<iframe>` blocks, inline `on*` handlers, and `javascript:` URLs.\n- Adds `react-markdown` / `remark-gfm` / `rehype-sanitize` to `@object-ui/fields` (react-markdown is lazy-loaded so it stays out of the initial chunk).\n\n## Verification\nCreated a Field Zoo record with markdown/html/richtext content; detail view now renders headings, lists, links, code blocks, and bold/italic. Injected `<script>alert(1)</script>` is stripped (no XSS).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

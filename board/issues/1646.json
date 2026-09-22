@@ -1,0 +1,38 @@
+{
+  "number": 1646,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/spec to ^9.0.1 (dataset-shaped reportForm)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T14:52:30Z",
+  "updated_at": "2026-06-11T15:07:04Z",
+  "closed_at": "2026-06-11T15:07:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T15:07:01Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1646",
+  "body": "9.0.1 ships the `reportForm` fix from [framework#1730](https://github.com/objectstack-ai/framework/pull/1730) — the bundled authoring form now declares `dataset` / `values` / `rows` / `runtimeFilter` natively (verified by dumping `reportForm.sections` from the installed package), so the local alignment pass in `report-schema.ts` degrades to a no-op as designed.\n\n## Test plan\n- [x] `pnpm vitest run` — 3548 passed, 24 skipped, 0 failed\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1443,
+  "kind": "pull_request",
+  "title": "feat(studio): curated ObjectDefaultInspector for the no-selection panel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T21:34:28Z",
+  "updated_at": "2026-06-01T21:37:53Z",
+  "closed_at": "2026-06-01T21:34:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T21:34:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1443",
+  "body": "## Summary\nFollow-up to #1441. Gives the object designer a dedicated **no-selection \"home\" inspector** so deselecting a field no longer falls back to the generic whole-draft `SchemaForm`.\n\nPreviously that fallback (a) exposed a raw `fields` JSON editor the canvas already owns, and (b) only rendered whatever properties the server's `/meta/types` schema declared — often just `name`.\n\n`ObjectDefaultInspector` (mirrors the existing `ViewDefaultInspector`) renders curated, **localized** object basics — Name / Label / Plural label / Icon / Description — editing the draft directly via `onPatch`, independent of server-schema completeness. In create mode `name` is editable and auto-derives a snake_case slug from the label until the author edits it; in edit mode `name` is locked (immutable PK).\n\n## Tests\n7 RTL cases: renders basics without leaking `fields` JSON, commits patches, name editability (create vs edit), label→name derivation, zh-CN labels, read-only. Full `metadata-admin` suite green (**86**); `tsc` clean; 0 lint errors.\n\n## Note\nLive browser re-confirmation of this panel was blocked by a framework-side auth issue in the local dev backend (`/api/v1/auth/get-session` 404 → the console SPA can't restore a session), unrelated to this change. The i18n wiring and the \"no fields JSON on deselect\" behavior were verified live earlier in the same designer; this component is otherwise fully covered by unit tests.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

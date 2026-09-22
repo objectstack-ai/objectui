@@ -1,0 +1,33 @@
+{
+  "number": 1615,
+  "kind": "pull_request",
+  "title": "feat(chatbot): live build tree for streaming app builds",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T05:45:17Z",
+  "updated_at": "2026-06-10T06:44:49Z",
+  "closed_at": "2026-06-10T06:44:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T06:44:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1615",
+  "body": "Lift the stream's data-build-progress part into ChatMessage.buildProgress and render a growing build tree (objects to views to dashboard to app to sample data with a progress bar) as apply_blueprint streams them, replacing the blank thinking spinner. Pairs with framework + cloud. plugin-chatbot 52 tests; verified live.\n\nGenerated with Claude Code"
+}

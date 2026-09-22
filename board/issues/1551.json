@@ -1,0 +1,33 @@
+{
+  "number": 1551,
+  "kind": "pull_request",
+  "title": "feat(master-detail): polish entry grid + related-list cells (UX)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T22:20:02Z",
+  "updated_at": "2026-06-06T22:23:26Z",
+  "closed_at": "2026-06-06T22:20:11Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T22:20:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1551",
+  "body": "## Summary\nEnd-user UX/aesthetic polish across the master-detail surfaces (design / entry / view), found by driving the showcase in a real browser.\n\n## Changes\n1. **Inline grid column budget** (`deriveColumns`) — auto-derived inline columns are curated to a focused set (default **6**) instead of dumping every editable child field (which crushed inputs + forced horizontal scroll in the New Project modal). Always keeps the primary (name/title) + every required column; fills the rest by type usefulness; preserves schema order. Explicit `columns`/`inlineColumns` bypass curation; `maxColumns: 0` opts out.\n2. **Running-total alignment** (`GridField`) — the total now sits under the column it sums (e.g. Estimate), not the last column.\n3. **Related-list cells** (`RelatedList`) — explicit related-list columns now resolve type-aware cell renderers (select → labeled **badge**, lookup → name, currency/date → formatted) instead of raw values; `status` reads \"Planned\", never raw `planned`. Root cause: related object schema was only fetched for auto-derived columns; now fetched whenever available.\n\n## Verification\n- In-browser via HMR; live e2e **9/9**; unit: plugin-form **86**, fields **3425**, plugin-detail **118**.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

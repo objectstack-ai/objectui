@@ -1,0 +1,33 @@
+{
+  "number": 1617,
+  "kind": "pull_request",
+  "title": "test(components): refresh Accordion snapshots for Radix 1.2.x aria-controls",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T10:36:54Z",
+  "updated_at": "2026-06-10T10:42:09Z",
+  "closed_at": "2026-06-10T10:42:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T10:42:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1617",
+  "body": "## Problem\n\nThe `snapshot-critical` **Accordion** snapshots are stale and fail on **every** objectui PR (they block CI on unrelated branches).\n\n## Cause — a Radix a11y improvement, not a regression\n\n`@radix-ui/react-accordion@^1.2.13` no longer emits `aria-controls` on a trigger whose content panel is **unmounted** (a collapsed item). Older Radix pointed `aria-controls` at a **non-existent** id — a dangling ARIA reference. The new behaviour is correct: `aria-controls` is present only when the panel exists (verified — expanded triggers keep theirs; only collapsed ones drop it).\n\n## Fix\n\nRegenerated the two stale snapshots. The diff is **purely** the removal of 4 dangling `aria-controls` attributes on collapsed triggers — no component change, no behaviour change.\n\nUnblocks [#1616](https://github.com/objectstack-ai/objectui/pull/1616) (and any other PR currently red on this).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

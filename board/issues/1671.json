@@ -1,0 +1,32 @@
+{
+  "number": 1671,
+  "kind": "pull_request",
+  "title": "docs(agents): multi-agent service discipline (own temp services only)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T11:25:36Z",
+  "updated_at": "2026-06-12T11:27:07Z",
+  "closed_at": "2026-06-12T11:27:05Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T11:27:05Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1671",
+  "body": "AGENTS.md §9 新增「服务纪律」小节:本仓库与 ../framework 多 agent 并行开发——\n\n- 测试时自己启动临时服务(自选空闲端口),绝不停/杀别人的服务;端口被占先 lsof 看清归属,换端口而不是 kill。\n- 开发完成必须关闭自己启动的服务,只按记下的 PID 清理,不按端口/进程名一锅端。\n\n同时把 Housekeeping 里「任务结束停后台服务」的旧表述对齐为只停自己起的服务。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1666,
+  "kind": "pull_request",
+  "title": "feat(app-shell): marketplace:installed-list SDUI widget",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T07:13:13Z",
+  "updated_at": "2026-06-12T07:16:57Z",
+  "closed_at": "2026-06-12T07:13:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T07:13:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1666",
+  "body": "cloud ADR-0009 P2a:Installed Apps 主体(双数据源列表/刷新/卸载)抽为注册 widget;React 路由页瘦身复用同一组件(迁移窗口双入口、单实现)。页面壳随 `@objectstack/cloud-connection` install-local 插件以元数据下发(framework 配套 PR)。418/418。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

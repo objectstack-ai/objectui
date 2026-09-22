@@ -1,0 +1,32 @@
+{
+  "number": 1417,
+  "kind": "pull_request",
+  "title": "fix(studio): expose canonical ViewItem shape in view editor; remove variant tabs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-30T09:35:37Z",
+  "updated_at": "2026-05-30T10:35:33Z",
+  "closed_at": "2026-05-30T10:35:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-05-30T10:35:33Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1417",
+  "body": "## Summary\n\nThe Studio view editor now reads and writes the **canonical ViewItem shape** — `{ name, object, viewKind, label, config }` — instead of the deprecated aggregated container. `object` and `label` are bound at the **top level**, so they resolve consistently across **both list and form views** (form views previously showed an empty Object field and a \"config\" title because the inspector only read from `config`).\n\nThis also **removes the multi-variant tabs** concept: each ViewItem is a single view with a single config (ADR-0017, \"Object has-many View\").\n\n## Changes\n\n- **anchors.ts** — `createBuildBody` emits a canonical ViewItem; match resolver uses `['object', 'config.data.object']`.\n- **ViewVariantInspector.tsx** — `object`/`label` read from the top-level draft with body mirroring; new `setObject`/`setLabel` writers; Label field added; `type`/`object`/`label` pruned from the spec form.\n- **ViewInspector.tsx / ViewPreview.tsx** — ViewItem-centric resolution via the new `view-variant-model`.\n- **view-variant-model.ts** (new) — ViewItem-only variant-binding resolver (`resolveVariantBindings`, `primaryVariantBinding`, `bindingForStoreKey`, `isFormFamilyKey`).\n- **ViewVariantTabs.tsx** — removed.\n\n## Companion framework change\n\nRequires the framework change on branch `fix/expose-canonical-view-shape`: `ObjectStackProtocolImplementation.getMetaItems` filters aggregated view containers via `isAggregatedViewContainer`, so only canonical ViewItems surface through `GET /meta/view`.\n\n## Verification\n\nAll five view types (Gantt, Kanban, Grid, Calendar, Form) verified in-browser with correct, type-specific, editable property panels. `/meta/view` dropped from 36 items (9 aggregated containers) to 28 canonical ViewItems."
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1414,
+  "kind": "pull_request",
+  "title": "feat(studio): dark-aware Validation/Approval tones + color-coded page blocks",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-29T15:08:59Z",
+  "updated_at": "2026-05-29T15:12:40Z",
+  "closed_at": "2026-05-29T15:09:21Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-05-29T15:09:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1414",
+  "body": "## What\n\nExtends the scannable per-type color language (from #1412/#1413) to the last two designer gaps.\n\n### Validation / Approval previews — dark-aware tones\nSeverity & status callouts (error/warning/info, escalation, approved/rejected) only had light-mode classes, so they washed out in the app's default dark theme. Added `dark:` variants throughout so every tone reads correctly in both themes.\n\n### Page designer — color-coded blocks\n- `block-types.ts`: new `BLOCK_CATEGORY_TONE` map + `resolveBlockTone()` helper, keyed by block category (layout / record / navigation / element / ai / misc), with full light + dark Tailwind class strings.\n- `PageBlockCanvas.tsx`: tint the block-card **icon** and **type badge**, plus the **add-block picker** icons, by category — instead of the previous uniform `text-muted-foreground` gray.\n\nThis makes page composition scannable at a glance: layout = slate, record = blue, navigation = indigo, element = teal, ai = violet.\n\n## Verification\n- `tsc --noEmit` clean on `@object-ui/app-shell`.\n- Verified in-browser (Studio › 页面 › sys_organization_detail) in dark theme: add-block picker shows all six categories with distinct tints; placed `ai:chat_window` (violet) and `record:details` (blue) blocks render tinted icon + badge. Throwaway draft discarded — seeded page untouched."
+}

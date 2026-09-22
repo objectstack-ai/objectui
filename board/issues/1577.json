@@ -1,0 +1,32 @@
+{
+  "number": 1577,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): client validation never stricter than the live server (spec-skew root-cure)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T12:19:43Z",
+  "updated_at": "2026-06-07T12:22:44Z",
+  "closed_at": "2026-06-07T12:19:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T12:19:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1577",
+  "body": "The Studio editor validated with the BUNDLED spec Zod, which can lag the server, causing false \"required\" errors after a server-side relaxation (e.g. report dual-form). Fix: pass the live server schema into validateMetadataDraft and suppress missing-required issues for fields the server marks optional (only when absent; present-but-invalid still surfaces). Generic — any future relaxation respected, no per-change shim. Tests: clientValidation.skew (4). Verified live: dataset-bound report editor no longer shows the false banner.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

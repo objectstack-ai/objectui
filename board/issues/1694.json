@@ -1,0 +1,32 @@
+{
+  "number": 1694,
+  "kind": "pull_request",
+  "title": "feat(studio): filter-mode selector for interface-page user filters",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T07:57:33Z",
+  "updated_at": "2026-06-13T10:38:40Z",
+  "closed_at": "2026-06-13T10:38:39Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T10:38:39Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1694",
+  "body": "## What\n\nAirtable-parity authoring control for `interfaceConfig.userFilters` in the Studio page editor: a **None / Tabs / Dropdown / Toggle** segmented selector (the `filter-mode` widget), matching Airtable's User-filters Elements control.\n\n- **None is a first-class UI state that maps to ABSENCE** of `userFilters` (`onChange(undefined)`) — the protocol stores \"no filter bar\" as omission, not a literal `element: 'none'` ([ADR-0047 §3.4a](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0047-object-ui-run-modes.md)). Storage stays clean; authors get the explicit affordance.\n- **Dropdown / Toggle** modes edit exposed fields inline: per-field `showCount` toggle, remove, and an **add-field picker sourced from the bound object** (Airtable's \"Dropdowns: <fields>\").\n- `ResourceEditPage` now feeds `widgetContext.objectFields` from the draft's source object (`interfaceConfig.source` / `object`), so field-picker widgets in the page editor list the real fields instead of being empty.\n\nPairs with framework PR (page.form.ts references `widget: 'filter-mode'` + the ADR §3.4a note). Independently mergeable — an unknown widget name degrades to the prior composite rendering.\n\n## Verification\n\n- Browser-verified on the showcase Task Workbench page editor: segmented selector reflects the saved `element` (Dropdown active); **None removes `userFilters` from the saved draft** (confirmed via `?state=draft`); Dropdown reveals the field list + add-picker listing showcase_task's real fields.\n- `FilterModeWidget.test.tsx`: 5 cases (None-active-when-absent, None→undefined, Dropdown→element set, field list + add-picker, tabs hint). All pass.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

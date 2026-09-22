@@ -1,0 +1,34 @@
+{
+  "number": 1425,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): align state_machine validation rule with ADR-0020; retire workflow designer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-31T14:57:57Z",
+  "updated_at": "2026-05-31T15:01:16Z",
+  "closed_at": "2026-05-31T14:58:14Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-05-31T14:58:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1425",
+  "body": "## Summary\n\nBrings the frontend metadata designer in sync with backend **ADR-0020** (merged in framework #1413), which retired `workflow` as a metadata type and converged record state machines onto a single `state_machine` **validation rule** with a flat shape: `{ field, transitions: Record<string, string[]> }` (no `stateField`, no `Array<{from,to,condition}>`, no guards).\n\n## 🔴 BREAK fixes — `state_machine` rule now uses the new shape\n\n| File | Fix |\n|---|---|\n| `packages/types/src/data-protocol.ts` | `StateMachineValidation`: `stateField`→`field`, `Array<{from,to}>`→`Record<string,string[]>` |\n| `packages/core/.../object-validation-engine.ts` | Rewrote `validateStateMachine` to the Record shape with server-matching semantics (insert→allow, unchanged field→allow, undeclared from-state→lenient allow, `to ∉ transitions[from]`→reject). The old `for…of` over a Record **threw at runtime** |\n| `packages/app-shell/.../previews/ValidationPreview.tsx` | Renders the `{from: [to,…]}` map (was reading the old array shape and silently showing \"No transitions declared\") |\n| `packages/core/.../object-validation-engine.test.ts` | Rewrote engine state_machine cases to the new shape; replaced the removed conditional-transition case with insert / no-op / lenient-from cases |\n\n## 🟡 STALE cleanup — orphaned `workflow` metadata-type designer\n\nThe server no longer serves the `workflow` type, so these were dead registrations:\n- removed `WorkflowPreview` + `WorkflowActionInspector` and their registrations\n- dropped the `workflow` clientValidation loader, anchors entry, and i18n labels\n\n## Out of scope (intentionally untouched)\n- `@object-ui/plugin-workflow` — a standalone BPMN/process-designer component, unrelated to the backend metadata type\n- the workflow RPC service surface\n\n## Verification\n- `@object-ui/core` validation tests: **21/21 pass**\n- `metadata-admin` suite: **46/46 pass**\n- `tsc --noEmit` clean on `@object-ui/types`, `@object-ui/core`, `@object-ui/app-shell`"
+}

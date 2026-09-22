@@ -1,0 +1,33 @@
+{
+  "number": 1591,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @radix-ui/react-context-menu from 2.2.16 to 2.3.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-08T08:10:18Z",
+  "updated_at": "2026-06-08T08:19:41Z",
+  "closed_at": "2026-06-08T08:16:47Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-08T08:16:47Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1591",
+  "body": "Bumps [@radix-ui/react-context-menu](https://github.com/radix-ui/primitives/tree/HEAD/packages/react/context-menu) from 2.2.16 to 2.3.0.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/radix-ui/primitives/blob/main/packages/react/context-menu/CHANGELOG.md\">@​radix-ui/react-context-menu's changelog</a>.</em></p>\n<blockquote>\n<h2>2.3.0</h2>\n<ul>\n<li>Added support for a controlled <code>open</code> prop on <code>ContextMenu.Root</code>. This is intended for reading the open state and closing the menu programmatically, though we discourage opening the menu programmatically since opening the menu depends on user interaction to position the menu.</li>\n<li>Fixed bug in context menu where submenus stayed expanded after re-opening on long-press touch events</li>\n<li>Added repository.directory to all package.json files</li>\n<li>Updated dependencies: <code>@radix-ui/react-menu@2.1.17</code>, <code>@radix-ui/primitive@1.1.4</code>, <code>@radix-ui/react-context@1.1.4</code>, <code>@radix-ui/react-primitive@2.1.5</code>, <code>@radix-ui/react-use-controllable-state@1.2.3</code></li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a href=\"https://github.com/radix-ui/primitives/commits/HEAD/packages/react/context-menu\">compare view</a></li>\n</ul>\n</details>\n<details>\n<summary>Maintainer changes</summary>\n<p>This version was pushed to npm by <a href=\"https://www.npmjs.com/~GitHub%20Actions\">GitHub Actions</a>, a new releaser for <code>@​radix-ui/react-context-menu</code> since your current version.</p>\n</details>\n<br />\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1471,
+  "kind": "pull_request",
+  "title": "docs(agents): consolidate architecture into AGENTS.md + merge discipline + shared read-only allowlist",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-03T05:32:34Z",
+  "updated_at": "2026-06-03T06:08:52Z",
+  "closed_at": "2026-06-03T06:08:45Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-03T06:08:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1471",
+  "body": "## Why\n\nMirrors the hygiene just applied to the `framework` repo ([framework#1555](https://github.com/objectstack-ai/framework/pull/1555)), adapted to this repo's situation.\n\nThis repo had **two divergent instruction files**: a small `AGENTS.md` (operational rules + multi-agent discipline) and a large `.github/copilot-instructions.md` (the 10KB \"Lead Architect\" doc — tech stack, monorepo topology, JSON protocol, the Commandments, renderer patterns). They didn't reference each other.\n\n**The problem:** Claude Code reads `AGENTS.md` / `CLAUDE.md`, **not** `.github/copilot-instructions.md`. So all of the architecture guidance was invisible to Claude Code agents working in this repo — they only saw the 2.8KB operational file.\n\n## What\n\n- **Fold `.github/copilot-instructions.md` into `AGENTS.md` and delete it.** Architecture content preserved: tech-stack constraints (cva/cn, no inline styles), monorepo topology table, JSON `UIComponent` protocol, the Commandments (incl. the No-Touch zone `packages/components/src/ui/**`), registry/renderer patterns, MSW/client/upstream-first debug strategy, AI workflow. GitHub Copilot reads `AGENTS.md` natively, so **one file now serves every agent**.\n- **Multi-agent discipline:** prefer one git worktree per task; add the **merge-only-after-CI-green / never `gh pr merge --auto`** rule.\n- **`.claude/settings.json` (new, committed/shared):** read-only browser/preview observation tools (snapshot / screenshot / list / network / console) derived from recent transcript usage, so parallel agents prompt less. Excludes mutating / arbitrary-exec calls (`preview_eval`, `navigate`, `click`, `fill`, `evaluate_script`, `agent-browser open/eval`) and anything Claude Code already auto-allows. `.claude/settings.local.json` (per-machine) untouched.\n\n## Notes\n- Docs/config only — no changeset required.\n- Verified no workflow/config references the deleted file (the only mention is a historical breadcrumb inside `AGENTS.md`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

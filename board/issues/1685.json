@@ -1,0 +1,32 @@
+{
+  "number": 1685,
+  "kind": "pull_request",
+  "title": "fix(ui): tidy interface-page studio affordance (icon button + config-aware canvas)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T03:25:41Z",
+  "updated_at": "2026-06-13T03:32:24Z",
+  "closed_at": "2026-06-13T03:32:22Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T03:32:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1685",
+  "body": "Two UX papercuts on ADR-0047 interface pages, both reported from the console (\"'Edit in studio' 名字太长，而且点进去也设计不了\"):\n\n1. **Button too long / not localized** — the page's `Edit in studio` affordance was a text+icon pill, and the label fell back to English in a Chinese UI. Now an **icon-only pencil** (28×28) with the label preserved as `title` + `aria-label`.\n\n2. **\"Can't design anything\"** — clicking it lands on the page designer, whose canvas showed `No regions yet / Add region`. Interface pages are **config-driven** (`regions: []`; the list is generated from `interfaceConfig`), so inviting the author to add regions is misleading. The canvas now detects interface pages and shows *\"Interface page — configured in Properties\"* pointing at the **Properties → Interface** section (added in framework#1801), with no Add-region CTA.\n\n## Testing\n\n- `PageBlockCanvas.test.tsx` (new): 3 cases — interfaceConfig page, bare `type:list` page, and a region-composed page that keeps the original empty state. All pass.\n- `@object-ui/app-shell` build clean.\n- Browser-verified on the showcase Task Workbench: icon button renders top-right; clicking it shows the new canvas hint beside the populated Properties → Interface panel.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

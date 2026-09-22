@@ -1,0 +1,32 @@
+{
+  "number": 1676,
+  "kind": "pull_request",
+  "title": "fix(console): claim the device code before approve/deny",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T13:36:50Z",
+  "updated_at": "2026-06-12T13:40:40Z",
+  "closed_at": "2026-06-12T13:36:55Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T13:36:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1676",
+  "body": "Found in the runtime-identity-binding E2E (pre-existing — not introduced by #1673): better-auth's device-authorization plugin requires the verifying session to **claim** the code via `GET /device?user_code=…` before it accepts approve/deny; both returned 400 `not been claimed by a verifying session`, so the Approve button silently failed. Claim (idempotent) right before acting.\n\nVerified live against a local control plane: claim=200 → approve=200 → runtime bound.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1609,
+  "kind": "issue",
+  "title": "console: System Settings pages render blank — no system/settings route or manifest-driven settings UI",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-09T08:29:56Z",
+  "updated_at": "2026-06-12T10:35:31Z",
+  "closed_at": "2026-06-12T10:35:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1609",
+  "body": "## Summary\n\nThe Setup (\"System Settings\") app contributes navigation items pointing at client-side routes like `/apps/setup/system/settings`, `/apps/setup/system/settings/branding`, `/apps/setup/system/settings/auth`, etc. **The console SPA has no route for these paths, so every settings page renders blank.**\n\nThis is a missing-feature in the console, not a translation or backend bug:\n- ✅ Backend works — `GET /api/settings` returns the manifest list (200), and `GET /api/settings/:namespace` returns each namespace's manifest.\n- ✅ Menu labels translate correctly (fixed in framework PR objectstack-ai/framework#1670).\n- ❌ Console has no UI to render the manifests.\n\n## Reproduction\n\n1. Run a dev stack with the Setup app + `service-settings`.\n2. Navigate to `/_console/apps/setup/system/settings` (or `.../settings/branding`, `.../settings/auth`, `.../settings/storage`, …).\n3. The page `<main>` is empty; no `/api/settings` request fires.\n\nBy contrast, `/_console/apps/setup/system` (the system hub, `SystemHubPage`) renders fine.\n\n## Root cause\n\nIn `apps/console/src/AppContent.tsx`, `systemRoutes` defines:\n\n```\nsystem            → SystemHubPage\nsystem/apps       → AppManagementPage\nsystem/profile    → ProfilePage\nsystem/objects    → ObjectRedirect\nsystem/metadata/:metadataType            → MetadataManagerPage\nsystem/metadata/:metadataType/:itemName  → MetadataDetailPage\n```\n\nThere is **no `system/settings` or `system/settings/:namespace` route**, and no manifest-driven settings form component anywhere in the repo (the only \"SettingsPage\" is `packages/app-shell/src/console/organizations/manage/SettingsPage.tsx`, which is *organization* settings — unrelated to platform settings).\n\n## Proposed work\n\n1. Add routes under `systemRoutes`:\n   - `system/settings` → a settings hub listing all manifests from `GET /api/settings`.\n   - `system/settings/:namespace` → a manifest-driven form for a single namespace.\n2. Build a manifest-driven settings form component that:\n   - fetches `GET /api/settings/:namespace`,\n   - renders fields from the manifest (respecting types, groups, ordering),\n   - saves via `PUT /api/settings/:namespace`,\n   - invokes actions via `POST /api/settings/:namespace/:actionId`.\n3. Use the already-translated manifest labels/groups/keys returned by the API.\n\n## Backend reference\n\n`service-settings` registers REST routes at basePath `/api/settings` (note: **no** `/v1`):\n- `GET  /api/settings` → manifests\n- `GET  /api/settings/:namespace` → namespace manifest + values\n- `PUT  /api/settings/:namespace` → save values\n- `POST /api/settings/:namespace/:actionId` → run a manifest action\n\n## Related\n\n- Framework i18n fix (menu labels + backend manifest translation): objectstack-ai/framework#1670 — that PR is complete; this issue tracks the separate console UI gap.\n"
+}

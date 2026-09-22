@@ -1,0 +1,33 @@
+{
+  "number": 1422,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): approval as a flow node, not a standalone designer (ADR-0019)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-31T12:01:36Z",
+  "updated_at": "2026-05-31T12:05:15Z",
+  "closed_at": "2026-05-31T12:02:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-05-31T12:02:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1422",
+  "body": "Aligns the Studio flow designer and the runtime record-approval UI to the ADR-0019 model, where an **approval is a Flow node** (`type: 'approval'`) rather than a standalone \"approval process\" metadata type. This is the objectui (frontend) follow-up to framework PRs #1407–#1410.\n\n## Designer\n- Add `approval` to the flow node-type options + add-node palette (teal `UserCheck` icon/tone, canvas summary).\n- Hardcode the Approval node config inspector — `approvers` / `behavior` / `lockRecord` / `approvalStatusField` / gated `escalation` — mirroring `ApprovalNodeConfigSchema`. The published `@objectstack/spec` predates ADR-0019 P4, so the schema can't be imported yet; the config is declared inline as a forward-compat shim.\n- Retire the standalone approval-process pieces: delete `ApprovalStepInspector` and `ApprovalPreview`, drop their inspector/preview/anchor registrations and the `engine.inspector.approvalStep.*` i18n keys.\n\n## Validation\n- `clientValidation`: route `workflow` to `StateMachineSchema`; make the `flow` validator **forward-compatible** so the published spec's closed `FlowNode.type` enum no longer false-flags `approval` / `connector_action`. Only the `.type` enum mismatch is suppressed for those node types — every other field still validates.\n\n## Runtime UI\n- Rewrite `useRecordApprovals` to the node model: drop submit/recall (those endpoints are gone); read `/approvals/requests` and let a pending approver approve/reject. `RecordDetailView` surfaces approve/reject actions only when the current user is a pending approver.\n\n## Verification\n- Verified live in the Studio dev server: approval node adds to the canvas, the inspector renders, the validation banner clears.\n- `tsc --noEmit` clean; 75 tests pass. No new eslint errors (the one `no-empty` error is pre-existing, unrelated to these hunks).\n\n## Note on the published spec\nMerging the framework branch to `main` does **not** republish `@objectstack/spec` to npm, so the forward-compat shim (inline approval config + validation filter) remains necessary until a spec at or beyond the ADR-0019 cut is published. Once that lands, the inline config can be replaced with the imported `ApprovalNodeConfigSchema` and the validation filter removed."
+}

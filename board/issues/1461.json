@@ -1,0 +1,32 @@
+{
+  "number": 1461,
+  "kind": "pull_request",
+  "title": "feat(gallery): polished cover tiles + graceful broken-image fallback",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T01:39:32Z",
+  "updated_at": "2026-06-02T05:31:33Z",
+  "closed_at": "2026-06-02T05:31:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-02T05:31:33Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1461",
+  "body": "Card covers in ObjectGallery had two rough edges:\n- **contain covers stretched edge-to-edge** → giant glyphs dwarfing card content. Now centred at a capped size (≤50% / max 96px) on the soft-tinted backdrop → polished 'app tiles'.\n- **broken/404 cover URL → broken `<img>`** (alt text on a blank box). Now `onError` falls back to the letter-avatar placeholder, same as the no-image case.\n\nExtracted a small `GalleryCover` child to hold the per-card error state. Full `turbo run build` 42/42 green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

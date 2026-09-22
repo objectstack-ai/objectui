@@ -1,0 +1,33 @@
+{
+  "number": 1482,
+  "kind": "pull_request",
+  "title": "ci: speed up e2e console build",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-04T13:51:57Z",
+  "updated_at": "2026-06-04T13:56:57Z",
+  "closed_at": "2026-06-04T13:56:51Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-04T13:56:51Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1482",
+  "body": "## Summary\n- build only the console SPA artifact in the CI Build & E2E job\n- remove the package-wide turbo build and cache from that job\n- keep package build and package-size coverage in the Bundle Analysis workflow\n\n## Validation\n- `CI=1 VITE_BASE_PATH=/console/ pnpm --filter @object-ui/console exec vite build` completed locally in 3.8s\n- old `pnpm turbo run build --filter='./packages/*' --dry=json` schedules 38 package build tasks\n- `git diff --check` passed"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 1625,
+  "kind": "pull_request",
+  "title": "feat(chatbot): surface seed-apply results, fix stale Running badge, Open-app on build done",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T15:02:26Z",
+  "updated_at": "2026-06-10T15:05:13Z",
+  "closed_at": "2026-06-10T15:02:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T15:02:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1625",
+  "body": "Three magic-moment polish items, companion to [framework#1686](https://github.com/objectstack-ai/framework/pull/1686):\n\n## 1. Surface `seedApplied` (companion to framework#1686)\nThe framework now materializes published `seed` rows on **every** publish path and reports under `seedApplied` — never thrown, so the UI must check it. This PR surfaces a seed-load failure as a **warning toast** in all three publish surfaces (floating chat, AI chat page, home pending-drafts banner), so \"Published!\" can never again hide silently empty tables (the staging \"No rows\" incident). The banner also publishes structure before seeds, and `MetadataClient.publishDraft()` now returns the server result (envelope-tolerant).\n\n## 2. Stale \"Running\" badge on reloaded conversations\nA conversation persisted mid-stream can carry `input-available` next to a present output (the terminal state was never snapshotted) — reloading then showed a finished build as **Running** forever. `mapMessages` now promotes such parts to `output-available` (output present = the call finished). Live streams without output keep their state.\n\n## 3. \"Open app\" on the finished build tree\nA finished build that created an `app` now renders an **Open app →** action on the `BuildProgressPanel` (new optional `onOpenBuiltApp` prop), wired in both hosts to navigate straight into the just-built app.\n\n## Test\nplugin-chatbot **57**, data-objectstack **14**, app-shell **390** — all green; typechecks clean on all three packages.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 1481,
+  "kind": "pull_request",
+  "title": "fix(console): resolve QA runtime warnings",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-04T13:02:43Z",
+  "updated_at": "2026-06-04T13:37:22Z",
+  "closed_at": "2026-06-04T13:37:20Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-04T13:37:20Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1481",
+  "body": "## Summary\n- fix console home app cards so the card action and favorite control are separate accessible controls\n- keep navigation overlay hooks stable and add fallback descriptions for Radix dialog/sheet content\n- sanitize renderer-only form props before they reach DOM inputs and add missing i18n keys across built-in locales\n\n## Verification\n- pnpm build\n- pnpm --filter @object-ui/plugin-form test\n- pnpm --filter @object-ui/i18n test\n- pnpm --filter @object-ui/app-shell test\n- browser smoke on :5181 for home, showcase list, record drawer, create form, and app card/favorite interactions"
+}

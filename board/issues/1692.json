@@ -1,0 +1,32 @@
+{
+  "number": 1692,
+  "kind": "pull_request",
+  "title": "fix(ADR-0046): docs portal shows summaries, not machine ids",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T06:30:06Z",
+  "updated_at": "2026-06-13T06:37:38Z",
+  "closed_at": "2026-06-13T06:37:36Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T06:37:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1692",
+  "body": "## Why\n\nThe docs portal listed each doc as **title + its raw machine name** (`showcase_index`) on the right. That id is a URL/link key for authors — noise for the business readers docs are written for.\n\n## Change\n\n- **Drop the machine id** from the reader-facing list.\n- **Render the doc `description`** (ADR-0046, new field) as a one-line summary under the title. Graceful fallback when a doc has no description.\n- `DocListItem` carries `description`; the portal fetch maps it through.\n\n## Verification (live, browser)\n\nPortal against a description-serving backend (companion framework PR objectstack-ai/framework#1811):\n\n- `SHOWCASE` group → **Documentation Guide** + \"The authoring rules every package doc must follow — …\" and **Showcase** + \"Overview of the showcase package and the docs-as-metadata feature it demonstrates.\"\n- No machine ids in the list. Bold title + gray summary, two-line clamp.\n\nScreenshot captured.\n\n## Stack\n\nPairs with framework#1811 (`description` field + `/meta/doc` list carries it).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

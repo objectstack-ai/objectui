@@ -1,0 +1,32 @@
+{
+  "number": 1569,
+  "kind": "pull_request",
+  "title": "docs(adr-0001): document the spreadsheet-style line-item editor",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T09:23:13Z",
+  "updated_at": "2026-06-07T09:34:16Z",
+  "closed_at": "2026-06-07T09:34:14Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T09:34:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1569",
+  "body": "## What\n\nAmends ADR-0001 (master-detail subform) with the line-item grid evolution shipped in #1554/#1560/#1564/#1565/#1566/#1567/#1568, so the design rationale lives next to the decision:\n\n- Computed read-only columns (stored field + `expression`; why NOT a `formula` field — keeps the parent `summary` rollup working).\n- Trailing ghost row + blank-row filtering.\n- Item-typeahead auto-fill (`LookupField.onSelectRecord` + `compact`; `lookupAutofillPatch`).\n- Keyboard nav, role-based widths, inline validation, duplicate, drag-to-reorder (`sort_field`).\n- Gated per-row expand.\n- Document totals stack (`taxRateField`, read via form-host event delegation).\n- De-framed layout.\n\nDocs-only. Pairs with the framework skills update (objectstack-ui / objectstack-data).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1435,
+  "kind": "pull_request",
+  "title": "fix(fields): render location/geolocation cells as coordinates, not [Object]",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T12:48:35Z",
+  "updated_at": "2026-06-01T12:52:13Z",
+  "closed_at": "2026-06-01T12:48:50Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T12:48:50Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1435",
+  "body": "## Problem\nA `location` / `geolocation` field rendered as **`[Object]`** in grids and detail views (it fell through to the text cell renderer). Surfaced by the `example-showcase` Account list once its `hq` location field was populated.\n\n## Fix\nAdd `LocationCellRenderer` and route `location`/`geolocation` to it. It formats:\n- `{ lat, lng }` / `{ latitude, longitude }`\n- `\"lat,lng\"` strings\n- `[lat, lng]` arrays\n\n…as `\"47.6062, -122.3321\"` with a pin icon, falling back to compact JSON for anything unrecognized.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1691,
+  "kind": "pull_request",
+  "title": "fix(studio): Preview tab renders interface pages via InterfaceListPage",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T06:15:56Z",
+  "updated_at": "2026-06-13T06:21:53Z",
+  "closed_at": "2026-06-13T06:21:52Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T06:21:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1691",
+  "body": "## The bug (real — code-level root cause)\n\nThe metadata page editor's **Preview tab** rendered every page through the generic `SchemaRenderer`. For ADR-0047 **interface pages** (config-driven, `regions: []`, list generated from `interfaceConfig`), that produced only a bare list shell — **no source binding, no user-filter chips, no data**. So an author's `interfaceConfig` (source view, userFilters, visualizations) was *not reflected in the preview*, even though the actual runtime page renders it correctly.\n\nRoot cause: `PagePreview` lacked the `interfaceConfig?.source → InterfaceListPage` branch that the runtime [`PageView`](../blob/main/packages/app-shell/src/views/PageView.tsx) already has.\n\n## Fix\n\n`PagePreview` now mirrors `PageView`: when the draft is an interface page and **not** in design mode, it renders `InterfaceListPage` with the live draft — exactly what end-users see. Design mode keeps the canvas (the \"configured in Properties\" hint). The new branch sits **after all hooks** (Rules of Hooks — an earlier placement crashed with \"rendered more hooks than during the previous render\").\n\n## Verification\n\n- **Browser (before/after)** on the showcase Task Workbench Preview tab:\n  - before: empty list shell, no filter chips, no data\n  - after: 状态/优先级 filter dropdowns + bound data table (10 records), **matching the runtime page**\n- **Unit test** `PagePreview.test.tsx` (3 cases): interface page → InterfaceListPage; design mode → canvas; region-composed page → SchemaRenderer.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

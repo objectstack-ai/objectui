@@ -1,0 +1,30 @@
+{
+  "number": 1581,
+  "kind": "issue",
+  "title": "B2 follow-up: parent-scoped conditional rules in inline grids (\"paid invoice → lock lines\")",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T14:52:15Z",
+  "updated_at": "2026-06-08T13:51:02Z",
+  "closed_at": "2026-06-08T13:51:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1581",
+  "body": "## Context\n\nB2 field conditional rules (`visibleWhen`/`readonlyWhen`/`requiredWhen`) ship for standard form fields (PR #1578) and **row-scoped** in inline grids (PR #1579). The **parent-scoped** case — a line-item cell that reacts to the *header* record (e.g. lock all lines once `parent.status == 'paid'`) — is deferred.\n\n## Why it's deferred (root cause)\n\nThe grid and the header `ObjectForm` both live inside `MasterDetailForm`. To re-gate grid cells when a header field (status) changes, the grid must re-render. But the watcher that scrapes the live header record into state re-renders `MasterDetailForm` → re-renders `ObjectForm` → fires its `form.reset`, **wiping the user's input** mid-edit/submit (the historical \"Create, nothing happens\" regression). Verified: broadening the watcher reproduced the wipe; backing it out restored green.\n\n## Plan\n\n- Extract the line-items section of `packages/plugin-form/src/MasterDetailForm.tsx` into a **child component** that owns the `parentRecord` state + the form-host watcher.\n- A header change then re-renders **only the grid subtree**, never the reset-sensitive header form.\n- Dedupe the scraped record (only setState on real value changes) to avoid mid-submit churn.\n\n## Already in place (plumbing)\n\n- `@object-ui/core`: `evalFieldPredicate(pred, record, fallback, previous?, scope?)` and `resolveFieldRuleState(..., scope?)` accept an extra `scope` (binds `parent.*`) — unit-tested.\n- `@object-ui/fields`: `GridField` accepts a `contextRecord` prop (bound as `parent`); `deriveMasterDetail` already carries `readonlyWhen`/`requiredWhen` onto columns.\n\nSo this is wiring + render-isolation, not a redesign.\n\n## Acceptance\n\n- Showcase `invoice_line` re-adds `readonlyWhen: \"parent.status == 'paid'\"` on quantity/unit_price/product (framework example).\n- Live e2e: New Invoice → set Status = Paid → line cells lock; back to Draft → unlock.\n- Full live e2e suite stays green (no `form.reset` wipe regression on `form-view-subforms` / `master-detail`).\n\nSee `docs/adr/0036-field-conditional-rules.md` (the \"Inline grids\" + deferred-parent note)."
+}

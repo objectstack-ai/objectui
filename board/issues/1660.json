@@ -1,0 +1,33 @@
+{
+  "number": 1660,
+  "kind": "pull_request",
+  "title": "fix(deps): force shell-quote >=1.8.4 to resolve critical CVE-2026-9277",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T05:54:25Z",
+  "updated_at": "2026-06-12T06:51:28Z",
+  "closed_at": "2026-06-12T06:51:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T06:51:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1660",
+  "body": "## Summary\n\nResolves [Dependabot alert #128](https://github.com/objectstack-ai/objectui/security/dependabot/128) — **critical** shell command injection in `shell-quote` (CVE-2026-9277 / GHSA-w7jw-789q-3m8p): `quote()` does not escape line terminators in object-token `.op` values, so a literal `\\n` passes through and the shell executes what follows as a second command. Patched in `shell-quote@1.8.4`.\n\n## Analysis\n\n- **Transitive dev dependency only**: root `devDependencies` → `concurrently@9.2.1` → `shell-quote@1.8.3`. No workspace package depends on it directly, and nothing in the repo invokes `concurrently` at runtime — exposure is limited to the dev toolchain.\n- `concurrently@9.2.1` (latest 9.x) pins `shell-quote` to exactly `1.8.3`, so no in-range update can pick up the patch.\n- `concurrently@10.x` does ship `shell-quote@1.8.4`, but requires Node >= 22 while this repo's engines declare Node >= 20 — upgrading it would silently raise the contributor/CI floor.\n\n## Fix\n\nAdd a pnpm override (alongside the existing `qs`/`tmp`/`uuid` security overrides in `package.json`):\n\n```json\n\"shell-quote@<1.8.4\": \"^1.8.4\"\n```\n\nLockfile re-resolves `shell-quote` 1.8.3 → 1.8.4; no other resolution changes (10-line lockfile diff).\n\n## Verification\n\n- `pnpm why -r shell-quote` → single version `1.8.4`, via `concurrently@9.2.1`\n- Full test suite (`pnpm test`): **214 files / 3521 tests passed**, 1 file + 24 tests skipped, 0 failures\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1428,
+  "kind": "pull_request",
+  "title": "feat(app-shell): FlowRunner — render & resume interactive screen-flows",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T06:47:37Z",
+  "updated_at": "2026-06-01T07:02:10Z",
+  "closed_at": "2026-06-01T07:01:54Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T07:01:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1428",
+  "body": "## What\nCompletes the UI half of the screen-flow runtime. A `type: 'flow'` action whose run **pauses at a `screen` node** now opens a **`FlowRunner`** modal that renders the screen's fields, POSTs the values to the framework resume endpoint (`POST /api/v1/automation/{flow}/runs/{runId}/resume`), and advances to the next screen or **closes + refreshes** on completion. Previously such flows launched server-side but the screen was never rendered — the input was never collected (the showcase Reassign Wizard's `apply` step failed).\n\n- New **`FlowRunner`** component — renders `screen.fields` (text / textarea / number / boolean / select), runs the submit→resume loop, surfaces flow errors.\n- **`ObjectView`** + **`RecordDetailView`** flow handlers detect the paused-screen launch response (`{ status:'paused', runId, screen }`) and open the runner. For `list_item` actions the row's id (`_rowRecord.id`) now flows in as the flow's `recordId`.\n\n## Verification (in-browser)\nShowcase task grid → row \"更多操作\" → **\"Reassign…\"** → FlowRunner renders the **\"New Assignee\"** field → submit `casey@example.com` → run resumes → `update_record` → **task \"Audit current IA\" reassigned ada→casey**, dialog closes. app-shell typecheck clean.\n\nPairs with the framework screen-flow runtime (objectstack-ai/framework#1452: `@objectstack/service-automation` + `@objectstack/runtime`)."
+}

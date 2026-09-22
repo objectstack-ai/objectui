@@ -1,0 +1,30 @@
+{
+  "number": 1647,
+  "kind": "pull_request",
+  "title": "fix(app-shell): New chat — URL mirror bounced on in-SPA ?new=1 navigation (stale-closure race)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T14:55:01Z",
+  "updated_at": "2026-06-11T15:01:08Z",
+  "closed_at": "2026-06-11T15:01:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T15:01:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1647",
+  "body": "User-reproduced on staging: clicking **New** in the chat sidebar bounced straight back to the previous conversation (`/_console/ai/conv_…`). [#1638](https://github.com/objectstack-ai/objectui/pull/1638)'s fix held for full page loads (state starts empty) but not the button's in-SPA navigation: at the `/ai?new=1` commit, the URL-mirroring effect still holds the **stale** `conversationId` in its render closure — the hook's `setConversationId(undefined)` hasn't re-rendered yet — so it rewrote `/ai/:oldId` and stripped the flag before the fresh conversation existed.\n\n**Fix:** snapshot the id visible at the moment the flag appears (a render-phase ref write — set before any effect of that commit runs) and refuse to mirror that exact id while `?new=1` is up. The fresh id differs → mirrors normally → navigation strips the flag → snapshot resets. Covers repeat-New and direct-URL cases.\n\napp-shell suite 409/409, build green. Will verify on staging with the user's exact repro after the pin bump.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

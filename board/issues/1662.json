@@ -1,0 +1,30 @@
+{
+  "number": 1662,
+  "kind": "pull_request",
+  "title": "feat(app-shell): cloud-connection:panel SDUI widget",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T06:23:15Z",
+  "updated_at": "2026-06-12T06:26:45Z",
+  "closed_at": "2026-06-12T06:23:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T06:23:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1662",
+  "body": "cloud ADR-0009(控制台表面 SDUI-first,渐进混合)首个 widget 原语:\n\n- `ComponentRegistry.register('cloud-connection:panel', …)` —— RFC 8628 设备码绑定状态机(status → connect(未绑时 env-id 输入)→ user-code 大字展示 + 审批链接 → 轮询 → bound 视图 / disconnect)\n- 页面壳/导航/文案**不在本 PR**:随 `@objectstack/cloud-connection` 插件以元数据下发(framework#1766)——装了插件就有页面\n- 凭据安全:runtime token 永不进浏览器(服务端持久化并从响应剥离)\n- app-shell 构建绿 + 415/415 测试\n\n配套:cloud#253(凭据签发/受理)、framework#1766(凭据通道 + page/nav 元数据)。E2E 浏览器全链路随 cloud pin bump 后统一验证。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

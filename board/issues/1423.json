@@ -1,0 +1,32 @@
+{
+  "number": 1423,
+  "kind": "pull_request",
+  "title": "feat(flow-designer): server-driven node config form + reference-field pickers",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-31T13:29:00Z",
+  "updated_at": "2026-05-31T13:32:34Z",
+  "closed_at": "2026-05-31T13:29:11Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-05-31T13:29:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1423",
+  "body": "## Summary\nRenders the flow node property form and the add-node palette from what the running automation engine publishes (`GET /api/v1/automation/actions`), instead of a hardcoded client form — so the Studio designer stays in lock-step with the backend (ADR-0018/0019). Companion to the framework PR that publishes the config schema + `xRef` annotations.\n\n- **useFlowNodePalette**: merge the engine's published node descriptors with the hardcoded base palette; `NodePalette` accepts `items` and scrolls when long.\n- **json-schema-to-fields**: adapt a published config JSON Schema into the inspector's `FlowConfigField` model (select / boolean / number / `objectList` / one-level nested), and map a string's `xRef` annotation to a typed `reference` field.\n- **FlowReferenceField**: an editable combobox (native `<datalist>`) for reference values — `object`, `object-field` (resolved from the flow's `$trigger` object or a sibling config key), `flow`, `role`, and in-flow `node`. Always accepts free text and degrades to plain text on an empty catalog, so authors are never trapped.\n- **flow-node-config**: add the `reference` kind + `ReferenceKind`/`FlowReferenceSpec`; convert `objectName` (start + CRUD), `subflow.flowName`, and boundary `attachedToNodeId` to references. `FlowNodeInspector` threads `{ draft, node }` context to the fields.\n\n## Test plan\n- `json-schema-to-fields.test.ts`: 10 passed. `useFlowNodePalette.test.ts`: 6 passed.\n- `tsc --noEmit` on @object-ui/app-shell: clean.\n- Verified live in the running designer (`crm_discount_approval`): the approval node's **Approval Status Field** renders as a field-picker combobox listing the trigger object's fields (\"Fields of crm_opportunity.\"); the start node's **Object** renders as an object-catalog combobox. Both still accept free text."
+}

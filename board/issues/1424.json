@@ -1,0 +1,32 @@
+{
+  "number": 1424,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): polymorphic reference pickers + edge property panel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-31T14:16:54Z",
+  "updated_at": "2026-05-31T14:20:31Z",
+  "closed_at": "2026-05-31T14:18:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-05-31T14:18:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1424",
+  "body": "## Summary\n\nTwo flow-designer enhancements in `metadata-admin`, both building on the server-driven node config form ([#1423](https://github.com/objectstack-ai/objectui/pull/1423)).\n\n### 1. Polymorphic reference pickers (Tier-2)\n- The `reference` field kind now resolves its concrete picker **at render time** from a sibling field/column value (`xRef.kindFrom` + `map`), in addition to a static `xRef.kind`. Reference kinds extended to `object / object-field / flow / role / node / user / team / queue / department / connector / email-template`.\n- `ReferenceCombobox` is factored out of `FlowReferenceField` and reused **per-row inside the `objectList` repeater**, so an approver's `value` cell follows its row's `type` (user/role/team/department picker, or an object-field picker for `field`). Empty catalogs degrade to free text via a native `<datalist>` — authors are never trapped.\n- The adapter (`json-schema-to-fields`) maps both static and polymorphic `xRef` onto reference fields/columns, validating each kind so an unknown kind degrades to plain text.\n\n### 2. Edge property panel\n- Connection **edges are now selectable** on the canvas: a transparent wide hit-path over each edge (and its branch-label pill) emits an `{ kind: 'edge' }` selection; the selected edge highlights in primary.\n- A new `FlowEdgeInspector` edits the edge's routing semantics — **branch label**, **condition (CEL)**, and the **default (\"else\") branch** toggle (which clears + disables label/condition) — with source/target shown read-only.\n- The single `flow` inspector becomes a thin `FlowInspector` router that forwards node vs. edge selections to the right scoped editor.\n- Stable `edgeKey(edge, i)` (`id`, else `source->target#index`) keys selection, traversal highlighting, and inspector lookup off one helper.\n- i18n keys added for `en` + `zh`.\n\n## Test plan\n- `tsc --noEmit` clean for `@object-ui/app-shell`.\n- Adapter unit tests `json-schema-to-fields.test.ts` — 12/12 (adds static-kind, polymorphic, and all-unknown-map cases).\n- Verified live in the dev designer (`opportunity_won_notification`): clicking an edge opens the panel; editing the branch label round-trips to the draft and renders the pill; the default-branch toggle disables/clears label+condition and shows the `else` pill; selected edge highlights.\n\n> Note: the backend `xRef` annotations that drive the approver `value` / `escalateTo` pickers ship in a companion framework PR (`approval.zod.ts`). The polymorphic frontend degrades gracefully without them."
+}

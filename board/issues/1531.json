@@ -1,0 +1,33 @@
+{
+  "number": 1531,
+  "kind": "pull_request",
+  "title": "test(form): CI unit tests for ModalForm/DrawerForm subform hosting",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T12:40:52Z",
+  "updated_at": "2026-06-06T12:44:17Z",
+  "closed_at": "2026-06-06T12:40:55Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T12:40:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1531",
+  "body": "Locks the master-detail entry-point wiring into CI. The ModalForm/DrawerForm subform-hosting behavior (#1529/#1530) was previously covered only by opt-in live e2e (not run in CI). Adds unit tests:\n\n- `ModalForm` with `subforms` renders `MasterDetailForm` inside the dialog (`md-form-submit` + child section visible, plain `modal-form-footer` suppressed).\n- `DrawerForm` with `subforms` renders `MasterDetailForm` inside the drawer.\n- `ModalForm` without `subforms` renders a normal form (footer present, no `md-form-submit`).\n\n**80 plugin-form tests pass.** Test-only; no behavior change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

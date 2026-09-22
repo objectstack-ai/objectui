@@ -1,0 +1,33 @@
+{
+  "number": 1554,
+  "kind": "pull_request",
+  "title": "feat(master-detail): per-row expand → full inline form (hybrid grid + form)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T03:19:05Z",
+  "updated_at": "2026-06-07T03:22:58Z",
+  "closed_at": "2026-06-07T03:20:12Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T03:20:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1554",
+  "body": "## Summary\nImplements the mainstream master-detail hybrid (Airtable expand-record, Odoo open-form, Salesforce/Dynamics): a quick inline grid for common columns **+ a per-row \"expand\" into the child's COMPLETE form** for the rich/long fields the grid can't host.\n\n## Changes\n- **GridField**: each row gets an expand (⤢) action when `onRowExpand` is provided; expand + delete share one trailing actions column. The fields package only emits the intent (stays layer-clean).\n- **deriveMasterDetail**: new `deriveFormFields()` — the child's full business-field list for the row form (keeps `textarea`/`file`/`image`/etc. the grid omits; drops system/audit/computed + the parent FK). Surfaced on `deriveDetail`.\n- **MasterDetailForm**: expand opens an **inline editor panel** rendering the child's complete `ObjectForm` (`initialData` = the row; `submitHandler` returns values → no backend write; the atomic batch still persists on parent Save). Apply writes back into the in-memory row.\n\n## Why inline, not a drawer\nThis form is often inside the create-record modal. A nested portaled drawer (Radix Sheet) inherits the host modal's `react-remove-scroll` **pointer-events + aria-hidden lock** — verified in-browser that the drawer's buttons were *unclickable* and the panel *aria-hidden*. Rendering inline keeps it interactive **and** accessible in both modal and full-page contexts.\n\n## Verification\n- Live in-browser end-to-end: expand → fill Title/Status in the full form → Apply → values written back to the grid row (Title \"Deep task A\", Status \"To Do\").\n- e2e `row-expand.spec.ts`; full live suite **10/10**.\n- Unit: `deriveFormFields` (plugin-form **89**), GridField (fields **3434**); fields typecheck clean.\n\nStep 1 of the hybrid plan. Step 2 (relationship-level `inlineEdit: 'grid' | 'form'` + smart default + ADR/skills) to follow.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

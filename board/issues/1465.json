@@ -1,0 +1,32 @@
+{
+  "number": 1465,
+  "kind": "pull_request",
+  "title": "fix(grid/app-shell): inline primary row actions + popup-safe opensInNewTab",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T10:45:21Z",
+  "updated_at": "2026-06-02T13:16:51Z",
+  "closed_at": "2026-06-02T13:16:48Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-02T13:16:48Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1465",
+  "body": "The environment list's **\"Open\"** action (`sso_as_owner`) had two issues: the button was buried in the row **\"⋮\" overflow** (should be a primary CTA), and clicking it got **blocked by Chrome's popup blocker**.\n\n- **RowActionMenu**: render `variant: 'primary'` row actions as **inline buttons** (the row's main CTA) instead of folding every action into the \"⋮\". Hook-safe per item so the `visible` CEL predicate is still honored; the overflow menu only renders when it still has items.\n- **ObjectView.serverActionHandler**: honor `opensInNewTab` on the **list** path too (was only on `record_header` / RecordDetailView). Pre-open `about:blank` synchronously before the await so the user-gesture context survives → drive that tab to the returned `redirectUrl` (popup-safe), falling back to the current tab if blocked. Also derive `recordId` from the row's `_rowRecord` for `script` row actions (ActionRunner doesn't inject it for the script handler), so list_item script actions resolve their target record.\n\nVerified: `@object-ui/app-shell` `tsc` clean + `@object-ui/plugin-grid` builds.\n\nPairs with cloud adding `'list_item'` to the `sso_as_owner` action's locations.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

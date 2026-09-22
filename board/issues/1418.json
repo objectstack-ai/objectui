@@ -1,0 +1,33 @@
+{
+  "number": 1418,
+  "kind": "pull_request",
+  "title": "fix(i18n): relabel metadata UI on language switch without refresh (#1319)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-30T10:38:18Z",
+  "updated_at": "2026-05-30T10:41:58Z",
+  "closed_at": "2026-05-30T10:39:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-05-30T10:39:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1418",
+  "body": "## What\n\nRenderer half of objectstack-ai/framework#1319. Switching the UI language (zh-CN ↔ English) left the app **half-translated** — static strings flipped instantly, but server-resolved metadata labels (object/field/view labels, list headers, action-dialog text) stayed in the old language until a hard refresh.\n\nRoot cause: renderers fetch those labels into state keyed by **object name** and never refetch on a language change, and the adapter's metadata cache is locale-blind.\n\n## Changes\n\n- **`@object-ui/auth`** — `createAuthenticatedFetch` folds the active `<html lang>` into `Accept-Language` on `/api/` calls (never clobbering an explicit header), so a switch carries the new locale on every subsequent request.\n- **`@object-ui/app-shell`** — `ConnectedShellInner` drops the adapter's locale-blind metadata cache in the **render phase** (before children refetch) and remounts the metadata subtree via `key={language}`, so every renderer refetches in the new locale. The adapter and its live connection sit above the key and are preserved — an **in-app relabel, not a reconnect** (auth/session/URL persist).\n- **`@object-ui/i18n`** — dev-mode missing-key warnings: `createI18n` gains `warnMissingKeys` (default on outside production) wiring a deduped i18next `missingKeyHandler`. `useObjectLabel`'s convention-key probes are flagged (`I18N_PROBE_FLAG`) so their intentional misses — which fall back to server metadata — stay silent.\n\n## Why two moves in app-shell\n\nChild effects flush before parent effects, so an effect-based cache clear would race the remounted children's fetch effects and serve a stale entry. Clearing in render guarantees it precedes the refetch.\n\n## Testing\n\n- `packages/auth` — new `createAuthenticatedFetch.test.tsx` (7 tests): token/tenant/`Accept-Language` on API calls, empty-lang and non-API skips, never clobbers an explicit header.\n- `packages/i18n` — `i18n.test.ts` +5: warn-once, dedupe, no-warn-on-resolved, silent for flagged probes, disabled-mode.\n- i18n + auth + app-shell: **214 tests pass (17 files)**; i18n / auth / app-shell / plugin-list type-check clean.\n\n## Notes for reviewers\n\n- Branched off `origin/main`; single commit, #1319 only. The unrelated view-inspector/studio work stays on `fix/view-inspector-config-shape`.\n- objectui consumes `@objectstack/client` from the **registry**, so this fix is decoupled from the unpublished framework `setLocale` and lives at the fetch-wrapper level.\n- Pairs with the framework PR: objectstack-ai/framework#1391.\n- Changeset included (`i18n`/`auth` minor, `app-shell` patch)."
+}

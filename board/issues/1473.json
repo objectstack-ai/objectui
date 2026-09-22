@@ -1,0 +1,30 @@
+{
+  "number": 1473,
+  "kind": "pull_request",
+  "title": "fix(app-shell): top-bar avatar menu — Profile link to account:profile_card",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-03T13:47:23Z",
+  "updated_at": "2026-06-03T14:25:11Z",
+  "closed_at": "2026-06-03T14:25:11Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-03T14:25:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1473",
+  "body": "## Problem\nThe console top-right avatar menu's account entry was dead: it surfaced the hidden `account` app via a generic `navigate('/apps/account')`, but the bare app path doesn't reliably resolve to the app's first (component-type) nav item — so clicking it dead-ended.\n\n## Fix\nAdd an explicit **Profile** item that navigates straight to the component route:\n```\n/apps/account/component/account/profile_card\n```\n(resolved by the `component/:ns/:name/*` route → `ComponentNavView`; matches the Account app's first nav item `account:profile_card`). Entering at the component route still mounts the Account app shell, so **Inbox / Security / Developer** stay reachable from its sidebar.\n\nThe `account` app is filtered out of the generic hidden-apps loop so there's no duplicate dead \"Account\" entry.\n\nReported on crm.objectos.app: top-right menu broken → should be a Profile link.\n\n## Validation\n`pnpm --filter @object-ui/app-shell type-check` → 0 errors (after building deps).\n\n## Deploy note\nTo reach staging (crm.objectos.app): merge → bump cloud `.objectui-sha` → cloud deploy.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

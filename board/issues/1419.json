@@ -1,0 +1,32 @@
+{
+  "number": 1419,
+  "kind": "pull_request",
+  "title": "fix(view-editor): render form-family views as forms in Studio preview",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-30T11:44:54Z",
+  "updated_at": "2026-05-30T11:48:23Z",
+  "closed_at": "2026-05-30T11:48:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-05-30T11:48:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1419",
+  "body": "## What\n\nIn the Studio metadata view editor, form-family view drafts (`viewKind: 'form'`) now render as an actual record form in the preview pane, instead of falling back to a bare grid.\n\n## Why\n\nForm-family drafts were always routed through the `object-view` list renderer. `ObjectView.generateViewSchema` only handles list-family layouts (grid/kanban/calendar/…) and returns `null` for form types, so the preview hit the `ObjectGrid` fallback — a form view showed up as an empty grid.\n\n## Changes\n\n- **`packages/app-shell/.../previews/ViewPreview.tsx`** — fork the render path on `viewKind`:\n  - list-family → `object-view` (unchanged);\n  - form-family → build an `object-form` schema.\n  - Overlay form types (`drawer` / `modal`) are coerced to `simple` for the inline preview (the pane shows the section/field layout, not the open-trigger chrome).\n  - Map the ViewItem section field shape `{ field, readonly }` onto the `object-form` shape `{ name, readOnly }` — otherwise every section comes up empty (ObjectForm selects fields by `name`).\n- **`packages/plugin-form/src/index.tsx`** — `ObjectFormRenderer` now resolves `dataSource` from `SchemaRendererContext` (mirroring `ObjectViewRenderer`). A standalone `object-form` rendered straight through `SchemaRenderer` previously had no dataSource, so it couldn't fetch the object schema or auto-generate fields.\n\nNo dependency cycle introduced: `plugin-form` already depends on `@object-ui/react`, which does not depend on `plugin-form` (`plugin-view` is the working precedent).\n\n## Verification\n\nVerified live in the Studio view editor:\n- **simple** form (`crm_lead.default`): Lead Information / Qualification sections render with real field widgets (Lead Name*, 邮箱, Phone, 公司, Title, 来源, 状态*).\n- **drawer** form (`ai_pending_actions.detail`): renders inline (drawer→simple) with the Proposal section fields populated.\n- Fiber scan confirms `hasDataSource: true` on the mounted ObjectForm.\n- List-family types (grid/kanban/calendar/gallery/timeline/gantt/map) and the view creation flow re-tested — unchanged and working."
+}

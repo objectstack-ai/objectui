@@ -1,0 +1,30 @@
+{
+  "number": 1635,
+  "kind": "pull_request",
+  "title": "chore(changeset): changelog entry for chart ResponsiveContainer fix (#1634)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T07:32:55Z",
+  "updated_at": "2026-06-11T07:37:45Z",
+  "closed_at": "2026-06-11T07:37:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T07:37:43Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1635",
+  "body": "Follow-up to #1634, which fixed dashboard charts rendering blank on first paint (Recharts `ResponsiveContainer` measuring `width(-1)` inside a width-collapsing `flex … justify-center` box) but was merged **without a changeset**.\n\nThis adds a `patch` changeset so the fix gets a changelog entry in the next release.\n\nNote: `@object-ui/plugin-charts` and `@object-ui/components` are both in the changesets **fixed** version group, so the fix already ships with the next release regardless — this is purely for changelog accuracy.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

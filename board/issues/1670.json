@@ -1,0 +1,32 @@
+{
+  "number": 1670,
+  "kind": "pull_request",
+  "title": "docs(agents): merge-on-green PR flow rule",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T11:16:33Z",
+  "updated_at": "2026-06-12T11:17:37Z",
+  "closed_at": "2026-06-12T11:17:35Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T11:17:35Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1670",
+  "body": "## Summary\n维护者要求(2026-06-12)将此工作流写入 AGENTS.md(项目级 agent 记忆的单一来源):\n\n- 修改完成后**只提交任务改动的文件**(逐路径 `git add`,不 `git add -A`);\n- 开 PR,测试/CI 全绿后**自行 squash merge**,无需等维护者确认 —— 测试通过即合并门槛。\n\n加在 §9「多 agent 协作纪律」的 CI 全绿条款之后,与现有串行合并纪律一致。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

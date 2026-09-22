@@ -1,0 +1,33 @@
+{
+  "number": 1654,
+  "kind": "pull_request",
+  "title": "chore(plugin-report): remove dead useReportData aggregation pipeline",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T01:47:51Z",
+  "updated_at": "2026-06-12T01:53:15Z",
+  "closed_at": "2026-06-12T01:53:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T01:53:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1654",
+  "body": "## Summary\n\nADR-0021 moved report aggregation into the semantic layer (`queryDataset`), so the pre-9.0 **client-side** aggregation pipeline is dead code. Scan ([task 3](https://github.com/objectstack-ai/objectui/pull/1645)) confirmed **zero consumers** of these exports across objectui *and* all five product repos (cloud / mobile / templates / hotcrm / objectos):\n\nRemoved:\n- the `useReportData` hook (840-line file) + its test\n- helpers `buildAggregateQuery`, `groupAndAggregate`, `pivotRows`, `aggregateRows`, `collectFields`, `columnKey`, `bucketDate`, `groupingValue`\n- types `ReportRow`, `PivotMatrix`, `PivotHeader`, `UseReportDataResult`, `UseReportDataOptions`\n\nKept: `mergeFilters` — the only symbol still used (by `DatasetReportRenderer` as its scope-filter combinator) — moved to its own `./mergeFilters` module and still exported from the package root. The renderer's import is repointed; the barrel drops the dead exports.\n\nThis closes the ADR-0021 report migration: dataset-bound rendering, native editor, matrix cross-tab + drill, and now removal of the transitional client-aggregation path.\n\n## Test plan\n- [x] `pnpm vitest run` — 3518 passed, 24 skipped, 0 failed (−40 from the removed hook's tests)\n- [x] `pnpm type-check` — 58/58\n- [x] `pnpm build` — 41/41\n- [x] Changed files lint 0 errors\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1538,
+  "kind": "pull_request",
+  "title": "docs(plugin-view): Duplicate-view = intentional opt-in; fix stale tooltip",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T15:43:45Z",
+  "updated_at": "2026-06-06T15:47:01Z",
+  "closed_at": "2026-06-06T15:44:27Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T15:44:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1538",
+  "body": "Follow-up cleanup after the ADR-0034 work, covering two loose ends.\n\n## 3. plugin-view \"Duplicate view\" — keep as intentional opt-in (not dead code)\nAfter the console removed its view-duplication wiring (#1533, deferred to per-user personalisation #1520), the `Duplicate` UI in `ViewTabBar` / `ManageViewsDialog` / `ViewSwitcher` had no consumer.\n\n**Decision: keep it.** `plugin-view` is a generic, reusable view-switcher; Duplicate is a deliberate affordance (produces a *fresh override*, even for read-only views — already documented on `readonly`). Deleting a library's opt-in capability because the one app stopped wiring it would couple the library to a product decision. No consumer/test uses it today, but that's true of many optional library props.\n\n- Documented `onDuplicateView` / `onDuplicate` as intentional **opt-in** (with a pointer to #1520) so they aren't mistaken for dead code.\n- Fixed the one genuinely-misleading string: the `view.readonlyTooltip` hardcoded fallback no longer says \"duplicate to customize\" → now \"System view — defined in code, read-only.\" (matches the i18n value).\n\n## 4. Doc audit (sys_* references) — no change needed\nThe only **design** doc referencing `sys_view`/`sys_report`/`sys_dashboard` is ADR-0034, already annotated **Implemented** with the \"these tables never existed on this backend\" note. CHANGELOG / ROADMAP / changesets are append-only **historical records** that correctly describe the work as-done — left unchanged.\n\n## Checks\n- `pnpm turbo build --filter=@object-ui/plugin-view` green\n- lint: 0 new errors (ViewTabBar's 3 `rules-of-hooks` are pre-existing, unchanged)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

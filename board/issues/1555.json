@@ -1,0 +1,32 @@
+{
+  "number": 1555,
+  "kind": "pull_request",
+  "title": "feat: AI-first magic moment + safer Open + smart empty states",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T03:45:25Z",
+  "updated_at": "2026-06-07T03:48:51Z",
+  "closed_at": "2026-06-07T03:46:12Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T03:46:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1555",
+  "body": "## What & why\n\nFront-of-funnel UX so a brand-new environment leads with the AI authoring \"magic moment\" instead of manual CRUD, and so failure/empty states stop dead-ending new users. Verified end-to-end in a local cloud+objectos stack (browser walkthrough of signup → env → AI online dev).\n\n## Changes\n\n- **AI-first home hero** (`HomePage`): new-env empty state leads with **Build with AI** (primary) deep-linking into the metadata-authoring assistant; manual create / settings demoted to secondary. Drops the **`ObjectUI` framework-name leak** from the welcome copy (was shown to end customers). Populated home also gains a Build-with-AI action so the magic moment stays one click away.\n- **Deep-link to authoring agent** (`AiChatPage`): supports `?agent=metadata_assistant`, captured once at mount so it survives the `/ai → /ai/:conversationId` redirect that strips the query. Falls back gracefully to the data-query default when the authoring agent isn't available (free plan / open-source).\n- **Creation-first starters**: the authoring agent's empty-state prompts are now build prompts (\"Build a CRM…\", \"Create a project app…\", \"Design a ticketing system…\") instead of schema-inspection questions.\n- **No more silent \"Open\"** (`ObjectView` / `RecordDetailView`): the custom `opensInNewTab` action path bypassed ActionRunner's toast-on-error, so a failed Open (e.g. a 503) looked like a dead button. Now `toast.error` on both failure branches.\n- **Query-aware empty state** (`ListView`): distinguishes first-run (\"Nothing here yet — create your first record\") from filtered-to-empty (\"No matching records — adjust or clear filters\"). The old copy told a brand-new user with no filters to \"adjust your filters\". Benefits every empty list (incl. the cloud control plane's first screen).\n- i18n: zh + en for all new strings.\n\n## Verification\n\nBrowser-verified: hero + deep-link land on the authoring agent with build prompts; empty-state both branches. The Open error-toast is code-level only (local request-mock didn't intercept; the patch adds `toast.error` to the existing failure branches — `toast` already imported).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

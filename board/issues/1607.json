@@ -1,0 +1,33 @@
+{
+  "number": 1607,
+  "kind": "pull_request",
+  "title": "feat(form): parent-scoped conditional rules in inline grids (#1581)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-08T13:50:01Z",
+  "updated_at": "2026-06-08T13:53:52Z",
+  "closed_at": "2026-06-08T13:51:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-08T13:51:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1607",
+  "body": "Closes #1581 — B2 follow-up: parent-scoped conditional rules in inline grids (\"paid invoice → lock lines\").\n\n## What\n\nWire the live header record into master-detail line grids as `parent`, so a column's `readonlyWhen` / `requiredWhen` CEL rule can react to the header — e.g. `readonlyWhen: \"parent.status == 'paid'\"` locks quantity / unit price / product when the invoice is paid.\n\nThe CEL engine `parent` scope, `GridField.contextRecord`, and column-rule derivation already existed; this wires the missing link in `MasterDetailForm`.\n\n## How (the #1581 reset fix)\n\nThe line grids + document totals move into a dedicated `<MasterDetailLines>` child that **owns** the scraped header record. A header edit therefore re-renders only the lines and never resets the header `ObjectForm`'s react-hook-form state mid-edit. The scrape is **deduped by value** to avoid needless churn. Header `<select>` values are captured via Radix's hidden native select (whose change bubbles to the form host).\n\n## Tests\n\n- `GridField.test.tsx` — parent-FALSE editable, parent-TRUE locks, per-row `parent`+`record` mix.\n- `MasterDetailForm.test.tsx` — scrape→lock/unlock as status toggles, and header value survives the locking re-render (no reset).\n- `e2e/live/grid-parent-rules.spec.ts` — new live e2e (pairs with the showcase backend rules).\n\nVerified in a real browser (real Radix `<select>`): Paid → Qty/Unit Price lock, Product stays editable, values preserved; Draft → unlock.\n\nBackend counterpart (showcase `invoice_line` rules) is a separate PR in the framework repo.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

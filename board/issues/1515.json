@@ -1,0 +1,30 @@
+{
+  "number": 1515,
+  "kind": "issue",
+  "title": "ADR-0034 step 3: runtime draft/publish UI chrome (flag-gated)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T09:32:21Z",
+  "updated_at": "2026-06-06T14:55:19Z",
+  "closed_at": "2026-06-06T14:55:19Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1515",
+  "body": "Part of **ADR-0034** (`docs/adr/0034-unified-runtime-metadata-persistence.md`). Follows the merged seam work (#1513) and ObjectView wiring (#1514).\n\n## Goal\nWhen `VITE_RUNTIME_EDIT_VIA_META` is **on**, the runtime editors save a per-item **draft** (via `persistRuntimeMetadata(..., mode:'draft')`). They currently have no way to **publish** that draft or to surface that unpublished changes exist. Add the draft/publish chrome to the three runtime config panels, mirroring studio's `ResourceEditPage`.\n\n## Scope\nAdd, **gated by `isViaMeta()` from `packages/app-shell/src/views/runtime-metadata-persistence.ts`** (so flag OFF = no UI change at all):\n- **Publish** button → calls `publishRuntimeMetadata(type, name, { metadataClient })` (already exists in the seam).\n- **\"Unpublished changes\"** indicator (read pending draft via `metadataClient.get(type, name, { state: 'draft' })`).\n- **Discard draft** → `metadataClient.reset(type, name, { state: 'draft' })` (confirm the exact discard API in `data-objectstack/src/metadata-client.ts`).\n- On panel open, **resume** an existing draft (`get(..., { state:'draft' })`) so a half-finished edit is restored.\n\n## Files\n- `packages/app-shell/src/views/ViewConfigPanel.tsx` + host `ObjectView.tsx`\n- `packages/app-shell/src/views/ReportConfigPanel.tsx` + host `ReportView.tsx`\n- `packages/app-shell/src/views/DashboardConfigPanel.tsx` + host `DashboardView.tsx`\n- Reuse studio chrome/affordances from `views/metadata-admin/ResourceEditPage.tsx` and the `engine.edit.*` i18n keys (`engine.edit.publish`, `engine.edit.draftPending`, `engine.edit.discardDraft`, …).\n\n## Acceptance criteria\n- **Flag OFF (default): zero UI change** — none of the new affordances render; existing Save behaviour is byte-identical.\n- Flag ON: Save writes a draft (existing seam); Publish promotes it (visible to other users + a new version); the indicator reflects a pending draft; discard removes it; reopening resumes the draft.\n- `pnpm turbo run build --filter=@object-ui/app-shell` + `pnpm -w vitest run packages/app-shell/src/views` green; lint clean.\n\n## Notes / risks\n- The **flag-ON path cannot be e2e-verified without a backend** — verify in a real environment (see the verification issue). Keep everything behind `isViaMeta()`.\n- Default to per-item Publish; the batch \"publish app\" already exists in studio (`/packages/:id/publish-drafts`)."
+}

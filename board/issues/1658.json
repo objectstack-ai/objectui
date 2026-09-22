@@ -1,0 +1,32 @@
+{
+  "number": 1658,
+  "kind": "pull_request",
+  "title": "feat(console): server-side pagination + search pushdown on the approvals inbox",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T05:24:20Z",
+  "updated_at": "2026-06-12T05:27:30Z",
+  "closed_at": "2026-06-12T05:24:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T05:24:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1658",
+  "body": "Companion to objectstack-ai/framework (listRequests q/limit/offset + countRequests). Closes the inbox half of framework#1745.\n\n- **Submitted/All tabs**: 50-row server windows, \"加载更多\" appender, \"已加载 X / 共 Y 条\" footer. Verified live: 56 rows → first page 50 + button → 56/56 and the button disappears.\n- **Server search**: debounced (350ms) `q` pushdown — record titles match via the payload snapshot, so hits come from the entire dataset, not the loaded page (verified: a title on an unloaded page matched).\n- **Status filter** pushes down with the page query; My Pending keeps instant client-side matching (bounded personal queue).\n- 3 new `approvalsInbox.*` keys × 10 locales (parity green on this branch).\n\nTests: i18n 100/100 ✅ · tsc clean ✅ · API-level paging verified (no page overlap, accurate totals, status pushdown).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

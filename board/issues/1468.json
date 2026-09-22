@@ -1,0 +1,30 @@
+{
+  "number": 1468,
+  "kind": "pull_request",
+  "title": "fix(marketplace): in-env install via same-origin route (fix cross-origin CORS)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-03T01:57:52Z",
+  "updated_at": "2026-06-03T02:23:41Z",
+  "closed_at": "2026-06-03T02:23:39Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-03T02:23:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1468",
+  "body": "**Browser-reproduced** the user's \"can't install from inside the environment\": the in-env marketplace install dialog showed **\"Failed to fetch\"**.\n\n**Root cause**: inside a tenant runtime (crm.objectos.app) `installPackage()` POSTed to the *separate* cloud origin `${cloudBase}/api/v1/actions/sys_package/install_package` with `credentials:'include'` — a cross-origin, cross-site-cookie request the browser blocks (CORS / SameSite) → \"Failed to fetch\".\n\n**Fix**: when `getCloudBase()` is non-empty (tenant runtime, cloud is another origin), install POSTs **same-origin** to `/api/v1/cloud-connection/install` — the route the cloud-owned runtime plugin mounts (cloud PR #50), which authorizes via the **env session** and forwards to cloud **server-to-server** (no CORS, no leaked cross-site cookie). Env is resolved by hostname server-side. Cloud control-plane path (`getCloudBase()===''`) unchanged.\n\nVerified: route works end-to-end on staging (200, package installed); `@object-ui/app-shell` build clean. Pairs with cloud #50 + docs/design/cloud-account-binding-marketplace-install.md.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

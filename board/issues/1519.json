@@ -1,0 +1,30 @@
+{
+  "number": 1519,
+  "kind": "issue",
+  "title": "ADR-0034: 迁移 sys_* 到覆盖层并退役专用表 + 清理形状转换",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T09:34:04Z",
+  "updated_at": "2026-06-06T14:55:59Z",
+  "closed_at": "2026-06-06T14:55:59Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1519",
+  "body": "Part of **ADR-0034**(总览 #1516)。**前置条件:#1518 验证通过且默认已翻为 flag-on。** 涉及后端 + ops + 前端清理。\n\n## ✅ 已开发(现状)\n- 运行时编辑已可经 `/meta` 草稿/发布(flag-on,#1513/#1514)。\n- 旧路径仍存在:`sys_view`/`sys_report`/`sys_dashboard` 表 + 形状转换 `toSysViewPayload`/`fromSysViewRecord`(`ObjectView.tsx`)+ report/dashboard 的 `adapter.update('sys_*')`。\n\n## 🛠 本任务(后续开发)\n1. **数据迁移**(后端/ops):把现有 `sys_view`/`sys_report`/`sys_dashboard` 行迁移为对应 item 的**已发布覆盖层**;保留**双读窗口**(先读覆盖层、回退读 `sys_*`)。\n2. **前端清理**(迁移稳定后):\n   - 删除 `toSysViewPayload`/`fromSysViewRecord`(`ObjectView.tsx`)。\n   - 移除 seam `RuntimePersistCtx.toSysViewPayload` 及 `view`/`report`/`dashboard` 分支里的 legacy `sys_*` 写入,只保留 `/meta` 路径;flag 可随之移除或常开。\n   - 移除运行时读路径里对 `sys_*` 的合并(`MetadataProvider.mergeViewsIntoObjects` 等若仍读 `sys_view`)。\n3. **退役表**:删除 `sys_view`/`sys_report`/`sys_dashboard`(后端)。\n\n## 🔍 待验证\n- 迁移后历史数据完整可读;双读窗口内新旧一致;回退可行。\n- 删除转换层后运行时编辑与读取无回归(report/dashboard/view 的保存/发布/读回)。\n- 多租户数据归属正确。\n\n## 验收\n- `sys_*` 表退役、转换代码删除、flag 简化;全量 build/test 绿;有迁移与回退记录。\n- ⚠️ 不可逆步骤(删表)前确保双读窗口与备份。"
+}

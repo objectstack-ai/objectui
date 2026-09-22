@@ -1,0 +1,30 @@
+{
+  "number": 1445,
+  "kind": "pull_request",
+  "title": "feat(app-shell): plugin permission disclosure on install (ADR-0025 PD4)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T22:19:22Z",
+  "updated_at": "2026-06-02T00:12:55Z",
+  "closed_at": "2026-06-02T00:12:55Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-02T00:12:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1445",
+  "body": "Frontend for ADR-0025 PD4 — the pre-install permission-disclosure screen, consuming the cloud fields landed in objectstack-ai/cloud#32.\n\n- **marketplaceApi**: `MarketplacePackageVersion` gains the disclosure fields the control plane projects (`artifact_kind`, `contains_code`, `runtime`, `packaging`, `permissions`, `engines`, `signed`, `platform_verified`).\n- **PluginDisclosure.tsx**: panel showing the \"contains code\" notice, trust tier, `signed` / \"reviewed & approved\" badges, and the exact `{services, hooks, network, fs}` the plugin requests (or \"no special permissions\").\n- **MarketplacePackagePage**: panel rendered in the install dialog; the Install button is gated behind an explicit \"I understand\" acknowledgement for code packages.\n\nStrings use `t(..., { defaultValue })`, so English ships without a translation-bundle change.\n\nVerified: app-shell `tsc` clean.\n\nAfter merge, cloud bumps `.objectui-sha` to pick this up.\n\n⚠️ Note: the marketplace UX is also under active work (cloud `cloud-control-ux-wave2`); this change is additive (new component + dialog section) but coordinate the merge to avoid clashing with that effort.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

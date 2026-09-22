@@ -1,0 +1,30 @@
+{
+  "number": 1484,
+  "kind": "pull_request",
+  "title": "fix(marketplace): detail CTA reflects installed state on tenant runtimes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-05T01:26:36Z",
+  "updated_at": "2026-06-05T01:30:06Z",
+  "closed_at": "2026-06-05T01:26:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-05T01:26:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1484",
+  "body": "The in-env marketplace package-DETAIL CTA stayed **'安装到云端… / Install to cloud…'** even when the package was already installed in the current env. Root cause: the installed-state probe was gated on `getRuntimeConfig().defaultEnvironmentId`, which is **empty on a per-subdomain tenant runtime**, so the probe never fired. `getCloudInstallationInfo`'s same-origin `/cloud-connection/installation` path resolves the env by hostname and needs no explicit id (pairs with cloud #88 which made that probe return correct data). Drop the guard → CTA flips to **'已安装 / Installed'**. Also adds the missing `marketplace.action.installed` key (was relying on a defaultValue fallback, so zh rendered English).\n\nVerified locally: `/cloud-connection/installation?package_id=…` returns `{installed:true}` with the env session; with this change the detail CTA reads '已安装'."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1535,
+  "kind": "pull_request",
+  "title": "chore(adr-0034): mark ADR Implemented + refresh runtime read after publish",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T15:20:01Z",
+  "updated_at": "2026-06-06T15:25:48Z",
+  "closed_at": "2026-06-06T15:22:12Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T15:22:12Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1535",
+  "body": "Final tidy-up after the ADR-0034 epic (#1533, #1534).\n\n## 1. ADR-0034 status → Implemented\n`docs/adr/0034-…md`: **Proposed → Implemented**; rollout steps 2–5 marked done with as-built notes (verified on app-showcase; flag + `sys_*` paths removed; the physical `sys_view`/`sys_report`/`sys_dashboard` tables turned out never to have existed on this backend, so there was nothing to migrate or drop).\n\n## 2. Refresh runtime read after Publish/Discard\nWire `onAfterChange` from each runtime config panel's `RuntimeDraftBar` to the host's refresh:\n- **ObjectView** → `setRefreshKey(k+1)`\n- **ReportView / DashboardView** → `refresh()`\n\nBefore this, after publishing a view edit the **tab label only updated on reopen**. Now the runtime re-reads the artifact in place.\n\n### Verified (showcase backend)\nEdit view label → Save (draft) → **Publish** → the active view tab updates **\"All Leads\" → \"All Leads (refresh test)\" in place, no reopen** ✅ (then restored).\n\n## Checks\n- `pnpm turbo build --filter=@object-ui/app-shell` green\n- `vitest packages/app-shell/src/views` → **197 passing**\n- lint: 0 new errors\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

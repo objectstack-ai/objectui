@@ -1,0 +1,32 @@
+{
+  "number": 1664,
+  "kind": "pull_request",
+  "title": "feat(adr-0045): canvas opens the real unlisted app after materialization + UnpublishedAppBar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T06:57:34Z",
+  "updated_at": "2026-06-12T07:09:35Z",
+  "closed_at": "2026-06-12T07:09:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T07:09:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1664",
+  "body": "## What\n\nv1 objectui slice of [ADR-0045](https://github.com/objectstack-ai/framework/pull/1767) — pairs with [cloud#256](https://github.com/objectstack-ai/cloud/pull/256) (apply_blueprint materializes) and [framework#1768](https://github.com/objectstack-ai/framework/pull/1768) (visibility gate):\n\n- `mapMessages` lifts **`materialized`** from the build envelope into `draftReview`\n- **`onBuildMaterialized`** (ChatbotEnhanced): fires once per materialized build — including on conversation reload — so the host flips the canvas\n- **LiveCanvas** swaps `?preview=draft` → the **real app URL** when the build materializes: the reload shows live seed rows in every list/kanban; header reads *“Live app — unlisted until published”*\n- **UnpublishedAppBar**: amber banner on `hidden: true` apps (*“fully functional, only builders can see it”*) with **Publish = visibility flip** (one `PUT /meta/app/:name` with `hidden: false`); yields to DraftPreviewBar in preview mode\n- ConsoleFloatingChatbot routes materialized previews to the real URL\n\n## Tests\n\nplugin-chatbot 67/67 · app-shell 418/418. Browser E2E on the full local stack follows in the verification pass (stage→materialize→banner→publish→launcher).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

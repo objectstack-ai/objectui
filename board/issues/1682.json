@@ -1,0 +1,32 @@
+{
+  "number": 1682,
+  "kind": "pull_request",
+  "title": "test(e2e): lookup quick-filter coverage (CRM parity)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T01:20:22Z",
+  "updated_at": "2026-06-13T01:27:17Z",
+  "closed_at": "2026-06-13T01:27:15Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T01:27:15Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1682",
+  "body": "Adds the record-picker dropdown case to the ADR-0047 live e2e suite: the Task List view's `project` lookup filter opens a searchable record list; picking a record narrows the grid, persists as `uf_project`, and the badge shows the selection. This is the path hotcrm's account workbench ([hotcrm#383](https://github.com/objectstack-ai/hotcrm/pull/383), `owner` user lookup) depends on.\n\nSkips gracefully when the running showcase predates the lookup example (framework companion: showcase `project` quick filter).\n\n5/5 live specs pass against the local stack.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

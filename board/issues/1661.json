@@ -1,0 +1,32 @@
+{
+  "number": 1661,
+  "kind": "pull_request",
+  "title": "fix(app-shell): extractItems accepts bare arrays — preview-mode list reads were silently empty",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T06:12:46Z",
+  "updated_at": "2026-06-12T06:18:03Z",
+  "closed_at": "2026-06-12T06:18:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T06:18:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1661",
+  "body": "Final piece of the Live Canvas draft-app chain, found by elimination on staging after [framework#1763](https://github.com/objectstack-ai/framework/pull/1763) deployed:\n\n- `GET /meta/app?preview=draft` now correctly returns 13 apps **including the draft-built one** (server side fixed) —\n- — but the canvas still showed **\"No Apps Configured\"**: `MetadataClient.list()` resolves a **bare array** (it unwraps `{items}` itself), while `extractItems` only handled the adapter SDK's `{items}` envelope and returned `[]` for arrays. Every preview-mode list read was silently empty; published mode was unaffected (different source, different shape).\n\nOne-line branch + regression tests (`extractItems` exported for tests): bare array passes through, `{items}` envelope unwraps, malformed → `[]`.\n\napp-shell suite 418/418.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

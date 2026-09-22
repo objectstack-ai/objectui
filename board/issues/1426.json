@@ -1,0 +1,32 @@
+{
+  "number": 1426,
+  "kind": "pull_request",
+  "title": "fix(fields): render reference/lookup cells as labels, not raw JSON",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T04:03:59Z",
+  "updated_at": "2026-06-01T04:28:06Z",
+  "closed_at": "2026-06-01T04:28:01Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T04:28:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1426",
+  "body": "## Problem\nA `lookup` / `master_detail` value can arrive as a **JSON-encoded object string** — e.g. an unresolved external-id reference `{\"externalId\":\"Website Relaunch\"}`. `LookupCellRenderer` treated the whole string as an opaque id, failed to resolve it via `useLookupName`, and fell through to `String(value)`, leaking raw JSON into the grid cell.\n\n## Fix\n- **`LookupCellRenderer`** now parses a JSON-object-looking string value and renders a human label (`name` → `label` → `externalId` → `id`).\n- **`coerceToSafeValue`** (the shared safe-render helper used by 8 cell renderers) gains the same JSON-string parsing, and `externalId` is added to the reference-label precedence for object values and arrays.\n\n## Verification\n- **Browser** (showcase task grid): Project column now shows **\"Website Relaunch\" / \"Data Platform\" / \"Compliance Audit\" / \"Mobile App\"** instead of `{\"externalId\":\"…\"}`.\n- **Unit tests**: new `coerce-safe-value.test.ts` (5 cases); full `@object-ui/fields` suite green (3103 passed).\n\n### Before / After\nBefore: `{\"externalId\":\"Website Relaunch\"}`  →  After: `Website Relaunch`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1574,
+  "kind": "pull_request",
+  "title": "feat(studio): seed a new record page from the object's default detail page (#1541)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T11:05:53Z",
+  "updated_at": "2026-06-07T11:10:42Z",
+  "closed_at": "2026-06-07T11:10:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T11:10:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1574",
+  "body": "## Why\n\nAfter PR #1572 you can create a record page bound to an object in Studio — but it started **blank**. The valuable workflow is \"tweak the auto-generated default detail page,\" not \"rebuild it from scratch.\"\n\n## What\n\n- Add a generic async **`createSeed`** hook to `MetadataResourceConfig` — create-time body augmentation that can reach runtime context the pure `createBuildBody` can't (e.g. fetch another metadata item). Merged into the create body after `createBuildBody`/`createDefaults`; best-effort (a failure leaves the un-augmented body).\n- Register `createSeed` on the **`page`** resource: when creating a `pageType: 'record'` page with an `object`, fetch the object (`client.get('object', …)`) and seed `regions` from `buildDefaultPageSchema(objectDef)` — the same default detail layout the runtime renders. (Lazy-imports the synth to avoid load-order coupling.)\n\n## Verification\n\n- Unit: 5 new `createSeed` tests (seeds regions from a mock object def; returns `{}` for non-record / no-object / on failure) + 187 metadata-admin tests pass.\n- **Live (browser, real backend):** New page → Label + Object=`showcase_invoice` → Save persists `type: record`, `object: showcase_invoice`, and **regions seeded** with `page:header / record:highlights / record:path / page:tabs / record:discussion` (the auto default), not blank.\n\nCompletes the Studio authoring path for #1541 (create → seeded design → edit in PagePreview → publish via the existing draft/publish chrome → renders on records via `usePageAssignment`). The end-user *runtime* edit entry remains intentionally deferred.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

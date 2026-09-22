@@ -1,0 +1,33 @@
+{
+  "number": 1420,
+  "kind": "pull_request",
+  "title": "fix: keep form-family views out of the object list-view switcher",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-30T16:42:35Z",
+  "updated_at": "2026-05-30T16:46:14Z",
+  "closed_at": "2026-05-30T16:43:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-05-30T16:43:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1420",
+  "body": "## Problem\n\nNavigating to `crm_activity` showed a third tab in the list-view switcher: **`crm_activity.default`** — which is actually a **form** view (`viewKind: 'form'`, expanded from `formViews.default`), not a list view. It should never appear in the list switcher, and opening its URL silently fell back to the grid.\n\nThe backend now exposes each view as an independent **ViewItem** carrying a `viewKind` discriminant (ADR-0017, \"Object has-many View\"). The runtime console path never read `viewKind`, so form-family views were not categorized:\n\n```\ncrm_activity.all       viewKind=list  config.type=grid      isDefault=true\ncrm_activity.calendar  viewKind=list  config.type=calendar\ncrm_activity.default   viewKind=form  config.type=simple    ← leaked into the switcher\n```\n\n## Fix\n\nTwo runtime paths ignored `viewKind`; both are now `viewKind`-aware:\n\n1. **`MetadataProvider.mergeViewsIntoObjects`** — recognizes the first-class ViewItem shape and routes by `viewKind` (`list` → `listViews`, `form`/`detail` → `formViews`), flattens `config` to the renderer shape, and skips the legacy aggregated container for objects that already have expanded ViewItems.\n2. **`OBJECTSTACKDataSource.listViews()`** — this is what actually feeds the switcher (`ObjectView` → `ViewTabBar`) and returned *every* view bound to the object. It now filters out `viewKind` `form`/`detail`. This was the real leak: the form tab survived path #1 because `listViews()` re-added it from the overlay endpoint. Legacy bare specs without a `viewKind` are still kept as list views.\n\n## Verification\n\nRan the framework backend + objectui console locally against the new view protocol, logged in, and opened `/apps/crm_app/crm_activity`:\n\n- **Before:** tabs were `All Activities`, `Activity Calendar`, **`crm_activity.default`**\n- **After:** tabs are `All Activities`, `Activity Calendar` only — the form tab is gone, list still renders all records.\n\n## Tests\n\n- `@object-ui/data-objectstack`: +4 tests (`listViews.test.ts`), 144 pass, type-check clean.\n- `@object-ui/app-shell`: `MetadataProvider.merge.test.ts`, 131 pass.\n- Changesets added for both packages.\n\n## Follow-up (out of scope)\n\nNavigating directly to `/view/crm_activity.default` now falls back to the grid (it's excluded from the switcher). Rendering form-kind view URLs as a record form is a separate enhancement."
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1536,
+  "kind": "issue",
+  "title": "tech-debt: ObjectView 51 处 react-hooks/rules-of-hooks(early return 后调用 hooks)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T15:26:09Z",
+  "updated_at": "2026-06-06T15:47:41Z",
+  "closed_at": "2026-06-06T15:47:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1536",
+  "body": "## 问题\n\n`packages/app-shell/src/views/ObjectView.tsx`(~2200 行)有 **51 处 `react-hooks/rules-of-hooks` lint error**(`npx eslint` 可复现)。报错信息为 \"React Hook … is called conditionally / Did you accidentally call a React Hook after an early return?\"。\n\n## 根因\n\n组件中段有一个**提前 `return`**,但其后还有 ~51 个 hooks:\n\n```js\n// ObjectView.tsx:265\nconst objectDef = objects.find(o => o.name === objectName);\nif (!objectDef) {\n  return (<Empty>对象不存在…</Empty>);   // ← 提前 return\n}\n// …… 后面还有 ~51 个 useState / useEffect / useMemo / useCallback\n```\n\nReact 用**调用顺序**识别 hooks,要求每次渲染调用的 hook 数量/顺序完全一致。同一实例上:\n- `objectDef` 缺失 → 走提前 return → 后面 51 个 hooks **不执行**\n- `objectDef` 存在 → 后面 51 个 hooks **执行**\n\n两次渲染 hook 数量不一致 → 违反 Rules of Hooks。\n\n## 风险\n\n实际很少发作,因为 `!objectDef` 通常是短暂/终态。但这是**潜伏 bug**:一旦 `objectDef` 在活实例上 有→无→有(切换对象、metadata 刷新短暂清空、重载失败),React 会错位 hook 状态 → `Rendered fewer hooks than expected` 崩溃,或状态串台/取到旧值。\n\n## 建议修法\n\n标准模式 —— **所有 hooks 无条件先调用完,提前 return 下沉到最后**:\n1. 把 hooks 之间对 `objectDef` 的访问(`objectDef.fields` 等)补 null 守卫。\n2. 把\"对象不存在\"空状态存进变量,在所有 hooks 之后再 `if (!objectDef) return <空状态>`。\n3. 同理检查其他几个组件内 early return(如 `if (!dataSource) return`)。\n4. ObjectView 2200 行的整体拆分\n\n⚠️ 改动面大(50+ hooks)、回归风险高,需配充分测试(ObjectView 现有单测 + 浏览器验证:对象存在/不存在、切换对象、metadata 刷新)。建议单独排期、小步推进,不要和功能改动混在一起。\n\n## 背景\n\n纯历史遗留 —— 与 ADR-0034 无关。main 上原本 52 条,#1534 顺带降到 51。lint 里这 51 条是 ObjectView 仅有的 error(其余全是 warning)。"
+}

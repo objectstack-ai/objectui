@@ -1,0 +1,33 @@
+{
+  "number": 1553,
+  "kind": "pull_request",
+  "title": "feat(console): MCP connect surface on Integrations page — show-once key + skill (closes #1550)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T22:36:53Z",
+  "updated_at": "2026-06-06T22:40:26Z",
+  "closed_at": "2026-06-06T22:37:00Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T22:37:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1553",
+  "body": "Closes #1550.\n\n## What\n\nADR-0036 **Phase 2b surfacing** — a \"Connect an AI agent (MCP)\" section on the Integrations page so a user connects their environment to Claude / Cursor / Codex / any MCP client in one flow. **One connection per environment** covers every app (agents discover apps/objects live, so a new app needs no reinstall).\n\n## Changes\n\n- **`AgentConnectSection.tsx`** (new):\n  - **MCP endpoint** — read from `GET /api/v1/discovery` → `routes.mcp` (opt-in via `OS_MCP_SERVER_ENABLED`; shows an enable hint when off).\n  - **Generate key (show-once)** — `POST /api/v1/keys` → reveals the raw key in a dialog with copy + a \"won't be shown again\" warning. The key acts as the user (permissions + RLS) and is revocable.\n  - **Download SKILL.md** — one-click portable skill (works with any skills-capable agent).\n  - **3-step connect** instructions (set `x-api-key` header — a session Bearer is *not* an API key).\n- **`objectstack-skill.ts`** (new): client-side renderer mirroring `@objectstack/mcp`'s `renderSkillMarkdown` (canonical source noted in a comment; importing the framework package into the browser bundle isn't viable). Generic, schema-discovered-live, `x-api-key` auth. **6 unit tests** assert the invariants (frontmatter, URL slot, tools, discover-first, no-Bearer).\n- **`IntegrationsPage.tsx`**: renders the section; refreshes the now-stale \"Authentication\" copy (keys are live); **fixes the cURL sample** `Authorization: Bearer` → `x-api-key` (our resolver treats Bearer as session auth, so a `sys_api_key` must go in `x-api-key`).\n\n## Consumes (framework, all merged/landing)\n\n`discovery.routes.mcp` (#1626), `renderSkillMarkdown` (#1628), `POST /api/v1/keys` (#1630).\n\n## Verification\n\nMy 3 files typecheck clean (remaining repo tsc errors are an unbuilt `@object-ui/app-shell` in the isolated worktree, present on untouched files too). `objectstack-skill.test.ts` — 6 green. Live browser e2e awaits a staging deploy of the framework changes (discovery.mcp + /keys).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

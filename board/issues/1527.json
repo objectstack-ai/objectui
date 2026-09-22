@@ -1,0 +1,34 @@
+{
+  "number": 1527,
+  "kind": "pull_request",
+  "title": "feat(form): inline master-detail in a plain ObjectForm via subforms",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T11:38:23Z",
+  "updated_at": "2026-06-06T11:42:02Z",
+  "closed_at": "2026-06-06T11:38:31Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T11:38:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1527",
+  "body": "## Summary\n\nCompletes the \"master-detail without a bespoke page\" story. `ObjectFormSchema` gains a **`subforms`** array; when present, a regular `object-form` renders as a master-detail form (object fields on top, an editable child grid per collection, persisted together in one atomic transaction) by delegating to `MasterDetailForm`.\n\n```ts\n{ type: 'object-form', objectName: 'expense_claim',\n  subforms: [{ childObject: 'expense_line' }] }   // FK + columns auto-derived (#1526)\n```\n\nEach subform needs only `childObject` — the relationship FK and grid columns are derived from the child object's metadata (override with `relationshipField` / `columns`). A form view can now declare its child collections directly instead of composing a custom `object-master-detail-form` page.\n\n## Tiers, recapped\n\n- **Tier 1** (#1526): `object-master-detail-form` with `{ childObject }` — columns/FK derived.\n- **Tier 2** (this PR): any `object-form` becomes master-detail by adding `subforms`.\n\n## Testing\n\n- +1 unit test: `ObjectForm` with `subforms` renders the master-detail UI (`md-form-submit` + child section). **77 plugin-form tests pass.**\n- `@object-ui/types` + `@object-ui/plugin-form` build clean — the mutual `ObjectForm ↔ MasterDetailForm` reference is render-time only (no circular-init issue).\n- The underlying master-detail/atomic path is already covered by the live e2e (#1521/#1526).\n\nNote: wiring object **form-view metadata** to populate `subforms` automatically (so the standard New/Edit screen includes children with zero page authoring) is a natural follow-up on top of this capability.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

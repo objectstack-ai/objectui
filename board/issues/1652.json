@@ -1,0 +1,32 @@
+{
+  "number": 1652,
+  "kind": "pull_request",
+  "title": "feat(console): approvals inbox UX v2 — id-free display + queue processing",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T16:10:20Z",
+  "updated_at": "2026-06-11T16:14:12Z",
+  "closed_at": "2026-06-11T16:10:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T16:10:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1652",
+  "body": "## Summary\n\nCompanion to objectstack-ai/framework#1737, closing the gaps from a business-UX review of the revamped inbox against SAP Fiori My Inbox / DingTalk & Feishu approval centers.\n\n- **No raw identifiers anywhere.** Payload summary renders server-resolved lookup titles (`Account: Fabrikam`, not `dpOfPMy7cbeEL1jk`) and *drops* unresolved opaque ids rather than showing them; waiting-on chips and the activity timeline use display names; object subtitles use the schema label (\"Project\", not `showcase_project`).\n- **Queue processing (Fiori \"My Inbox\" pattern).** The drawer gets Previous/Next with a position indicator (plus ←/→ keys), and approving/rejecting on the pending tab auto-advances to the next waiting request — an approver clears their queue without ever returning to the list.\n- **Quick comment phrases.** One-tap canned responses above the comment box (approve / approve-with-conditions / request-more-material), the DingTalk/Feishu staple.\n- Six new `approvalsInbox.*` i18n keys across all ten locales (locale-parity test green).\n\n## Test plan\n\n- `@object-ui/i18n`: 100/100 ✅  · console suite: 3558 passed / 24 skipped ✅ · `tsc --noEmit` clean ✅\n- In-browser e2e against showcase: drawer shows Fabrikam/Northwind/Contoso for account lookups, Dev Admin chips, \"第 1 / 4 条\" navigation; quick-phrase chip fills the comment; approving auto-advanced to the next request with badge and position refreshing ✅\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

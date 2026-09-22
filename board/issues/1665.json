@@ -1,0 +1,32 @@
+{
+  "number": 1665,
+  "kind": "pull_request",
+  "title": "feat(console): send back for revision in the approvals inbox (ADR-0044)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T06:57:42Z",
+  "updated_at": "2026-06-12T07:00:44Z",
+  "closed_at": "2026-06-12T06:57:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T06:57:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1665",
+  "body": "Console counterpart of [framework#1769](https://github.com/objectstack-ai/framework/pull/1769) (closes the UI half of framework#1744).\n\n## What\n\n- **Approver**: \"Send back\" button (violet, between Reject and Request info) with its own dialog explaining the semantics — this round ends as `returned`, the record unlocks, resubmission opens a fresh round for all approvers. Auto-reject toast when the server reports the `maxRevisions` budget exceeded.\n- **Submitter**: a returned request shows a revision panel — unlocked-record hint, edit-record link, optional comment, **Resubmit** (opens round N+1) and **Recall** (abandons the revision window; server cancels the parked run).\n- `returned` status: violet badge + status-filter option; **Round N** chips on list rows and the drawer strip (`row.round`); timeline renders `revise` (violet) / `resubmit` (blue) audit entries.\n- `approvalsApi.sendBack/resubmit`; row typings gain `returned` + `round`.\n- `approvalsInbox` i18n: 18 new keys across all ten locales (locale-parity tests green).\n\n## Verification\n\n- console: 3521 tests ✓, tsc clean; i18n: 100 ✓\n- Browser end-to-end against the framework showcase stack: send back (dialog → violet badge + timeline entry) → record unlocks → resubmit from the submitter panel → Round 2 chip + fresh trail → approve; third send-back auto-rejects with the audit trail `revise → reject (\"Auto-rejected: revision limit (2) exceeded\")`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

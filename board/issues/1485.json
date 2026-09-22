@@ -1,0 +1,34 @@
+{
+  "number": 1485,
+  "kind": "pull_request",
+  "title": "Polish chatbot and AI workspace UX",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-05T11:33:38Z",
+  "updated_at": "2026-06-05T12:11:17Z",
+  "closed_at": "2026-06-05T12:11:14Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-05T12:11:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1485",
+  "body": "## Summary\n- Improve floating chatbot responsive layout, streaming/stop states, and retryable error feedback\n- Polish the full-page AI workspace with desktop chat framing, mobile Chats drawer, and accessible conversation row actions\n- Update docs and add changesets/tests\n\n## Verification\n- pnpm --filter @object-ui/plugin-chatbot type-check\n- pnpm --filter @object-ui/plugin-chatbot test -- src/__tests__/ChatbotEnhanced.test.tsx src/__tests__/tool-display.test.ts src/__tests__/FloatingChatbot.test.tsx\n- pnpm --filter @object-ui/app-shell type-check\n- pnpm --filter @object-ui/app-shell test -- src/console/ai/__tests__/ConversationsSidebar.test.tsx src/layout/__tests__/ConsoleChatbotFab.test.tsx\n- In-app browser verification for floating chat and /ai/:conversationId desktop/mobile layouts"
+}

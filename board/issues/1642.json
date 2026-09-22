@@ -1,0 +1,32 @@
+{
+  "number": 1642,
+  "kind": "pull_request",
+  "title": "feat: ADR-0037 P3 client + P2.5 — preview dataset queries + same-document live refresh",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T12:32:55Z",
+  "updated_at": "2026-06-11T12:36:35Z",
+  "closed_at": "2026-06-11T12:32:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T12:32:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1642",
+  "body": "Client half of [framework#1726](https://github.com/objectstack-ai/framework/pull/1726) (ADR-0037 Phase 3) + the P2.5 follow-up from [#1639](https://github.com/objectstack-ai/objectui/pull/1639).\n\n## P3 — preview dataset queries\n`queryDataset` (data-objectstack adapter) sends `previewDrafts: true` when the document is in draft-preview mode. Read straight off `window.location.search` — preview is **URL-keyed by design** (one flag flips the whole document, including the Live Canvas iframe), so every `DatasetWidget` in any preview surface sends it automatically with zero context-threading through widget packages. Server side (framework#1726) overlays the pending seed draft's rows → **drafted dashboards chart real numbers before publish**, continuous across the gate.\n\n## P2.5 — same-document live refresh\n- `assistantBus`: `emitCanvasInvalidate` / `subscribeCanvasInvalidate` — fire-and-forget events kept OFF the snapshot (no useAssistant re-render storms).\n- `ConsoleFloatingChatbot` announces every drafted artifact (reusing `onDraftArtifacts` from #1639).\n- `MetadataProvider` (draft-preview mode ONLY) drops the announced type's cache → the open `?preview=draft` page refetches in place while you talk to the floating chat. Published-mode trees ignore the events.\n\n## Tests\nSuites green: app-shell 404/404, data-objectstack 164/164; workspace build green. (The seed-overlay math itself is covered by framework#1726's 9 cases.)\n\nActivation: cloud pin bump for BOTH framework + objectui follows.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

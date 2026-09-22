@@ -1,0 +1,30 @@
+{
+  "number": 1550,
+  "kind": "issue",
+  "title": "feat: MCP connect surface on Integrations page — show-once key + skill download (ADR-0036 Phase 2b)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T22:14:28Z",
+  "updated_at": "2026-06-06T22:37:01Z",
+  "closed_at": "2026-06-06T22:37:01Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1550",
+  "body": "## Context\n\nADR-0036 Phase 2b — the surfacing layer that turns \"your app is an MCP server\" into a one-click connect experience. Framework side is ready/landing:\n- discovery advertises `mcp` when enabled (framework #1626): `GET /api/v1/discovery` → `routes.mcp` present iff `OS_MCP_SERVER_ENABLED`.\n- generic Skill generator `renderSkillMarkdown({ mcpUrl, envName })` in `@objectstack/mcp` (#1628).\n- the Integrations page already exists (objectui #1540).\n\n**Blocked on:** objectstack-ai/framework#1629 (key-generation endpoint) — needed to show a real show-once key.\n\n## Goal\n\nOn the Integrations page, add a \"Connect an AI agent (MCP)\" section so a user can connect their environment to Claude / Cursor / Codex / any MCP+Skills client in one flow.\n\n## What to build\n\n1. **MCP endpoint card** — show the env's MCP URL from `discovery.mcp` (only when present; if absent, show \"MCP not enabled for this environment\" with a hint that it's opt-in via `OS_MCP_SERVER_ENABLED`).\n2. **Generate key (show-once)** — button → `POST /api/v1/keys` (framework#1629) → modal showing the raw key ONCE with copy + an explicit \"you won't see this again\" warning. Never persist/redisplay the raw key client-side beyond the modal.\n3. **Download Skill** — a \"Download skill (works with any agent)\" action that produces the env's `SKILL.md` via `renderSkillMarkdown({ mcpUrl, envName })` (either call a framework endpoint that serves it, or import the helper). Explain it's the portable, cross-agent artifact.\n4. **Connect instructions** — concise: set header `x-api-key: <key>` on a remote MCP server at the shown URL; note Bearer is session auth.\n\n## Notes / guardrails\n\n- One connection per **environment**, not per app (apps are discovered live via the MCP tools). Don't render per-app connect buttons.\n- Don't hand-build vendor-specific config JSON as the primary artifact; the Skill + URL + key is the cross-agent path. A one-click \"Add to Claude/Cursor\" deeplink is a nice-to-have on top.\n- Keep the existing Phase 1b Integrations content; this is an additive section.\n\n## Acceptance criteria\n\n- Section renders MCP URL from discovery; generate-key show-once modal works against framework#1629; skill download produces a valid `SKILL.md` with the env URL slotted; instructions accurate.\n"
+}

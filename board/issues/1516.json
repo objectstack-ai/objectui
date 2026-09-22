@@ -1,0 +1,30 @@
+{
+  "number": 1516,
+  "kind": "issue",
+  "title": "[Tracking] ADR-0034: 运行时编辑统一到 studio 的草稿/发布模型",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T09:33:01Z",
+  "updated_at": "2026-06-06T15:04:56Z",
+  "closed_at": "2026-06-06T15:04:56Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1516",
+  "body": "总览 issue。决策文档:`docs/adr/0034-unified-runtime-metadata-persistence.md`。\n\n目标:运行时(ObjectView/ReportView/DashboardView)的编辑统一复用 studio 的 **per-item 草稿 → 发布 → 版本** 模型(经 `/meta`),退役 `sys_view`/`sys_report`/`sys_dashboard`。保存=暂存草稿(用户看不到、编辑者实时预览),显式发布才生效。\n\n---\n\n## ✅ 已开发并合并(sandbox 内可验证的部分)\n\n| PR | 内容 |\n|---|---|\n| #1496 | 运行时视图编辑 UI 统一到 studio `ViewVariantInspector` |\n| #1503 | 视图 inspector 标签 i18n(en/zh) |\n| #1504 | 报表编辑 UI 统一到 studio `ReportDefaultInspector` |\n| #1505 | 仪表盘编辑 UI 统一到 studio inspectors |\n| #1508 | 报表/仪表盘编辑器补 **admin 门控**(修复无门控共享编辑) |\n| #1509 | PageView「在 studio 编辑」深链按钮 |\n| #1513 | **持久化 seam**(`persistRuntimeMetadata`/`publishRuntimeMetadata`)+ report/dashboard 接线;**flag `VITE_RUNTIME_EDIT_VIA_META` 默认关**=现有 `sys_*` 行为零变化 |\n| #1514 | ObjectView 视图**更新**路径接入 seam(flag-off 走真实的 `dataSource.updateViewConfig`) |\n\n现状:三个运行时编辑器的**主要保存路径**都经过 seam;`flag 默认关 → 行为与改造前逐字节一致`;flag 开 → 走 `metadataClient.save(type,name,body,{mode:'draft'})` + `publish`。已有单测覆盖 flag 开/关两条路径。\n\n**关键约束**:本仓库 CI/沙箱**无运行后端**,所以 flag-on 的「保存→草稿→发布→读回」真实链路**至今未经端到端验证**。\n\n---\n\n## 🔍 需验证(必须在有后端的真实环境做 —— 见 #1518)\n\n设 `VITE_RUNTIME_EDIT_VIA_META=true` 后验证:\n1. **保存=草稿**:运行时编辑 view/report/dashboard → 保存 → 后端生成 per-item 草稿(`PUT /meta/:type/:name?mode=draft`),**其他用户看不到**。\n2. **发布**:对该 item 发布(暂借 studio 现有\"发布\"UI)→ 生效 + 记版本。\n3. **读回 / 续编**:发布后运行时读到新值;`GET /meta/:type/:name?state=draft` 能读回草稿继续编辑。\n4. **回退**:flag 设回 `false` → 完全回到 `sys_*` 行为。\n5. **权限**(仅管理员)、**即时性**、**多租户**归属、**读路径**(运行时读已发布有效值)。\n\n> ⚠️ 在验证通过前,**不要翻默认值、不要删 `sys_*`、不要做数据迁移**。\n\n---\n\n## 🛠 后续开发任务(子 issue)\n\n- [x] #1515 — step 3:运行时**草稿/发布 UI**(发布按钮 / 未发布指示 / 丢弃草稿 / 打开续编),flag 门控 — **PR #1533**\n- [x] #1517 — 视图**创建**路径(`handleViewCreate`:`createView` + 默认列/kanban/gallery)接入 seam — **PR #1533**\n- [x] #1518 — 在真实环境验证 flag-on(showcase 后端,save→draft→publish→version 全通)。flag 已随 #1519 整体移除(metadata 成为唯一路径),翻默认已不适用。\n- [x] #1519 — 退役 `sys_*`(前端)— **PR #1534**。系统未上线,跳过数据迁移;前端删除 flag + 所有 legacy 路径 + `toSysViewPayload`/`fromSysViewRecord`。后端删 object schema/endpoint 为独立 framework-repo 任务。\n- [ ] #1520 —(v2/未来)仅视图加 `user` 覆盖 scope,支持普通用户个性化\n\n每个子 issue 内都写明了「✅ 已开发 / 🔍 待验证 / 🛠 后续开发」三块。\n\n**建议顺序**:#1515 +#1517(可并行,flag 默认关、安全)→ #1518(真实环境验证、翻默认)→ #1519(迁移退役)→ #1520(v2,按需)。\n\n"
+}

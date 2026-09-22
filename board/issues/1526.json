@@ -1,0 +1,33 @@
+{
+  "number": 1526,
+  "kind": "pull_request",
+  "title": "feat(master-detail): derive child columns + FK from metadata",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T11:34:25Z",
+  "updated_at": "2026-06-06T11:37:10Z",
+  "closed_at": "2026-06-06T11:35:09Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T11:35:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1526",
+  "body": "## Summary\n\nAnswers \"do master-detail forms really need a hand-authored columns block?\" — **no**. A child collection can now be configured with just the child object name; the relationship FK and editable grid columns are derived from the child object's metadata.\n\n```ts\n// before — ~40 lines\ndetails: [{ childObject: 'showcase_task', relationshipField: 'project', columns: [ /* 12+ lines */ ] }]\n// after\ndetails: [{ childObject: 'showcase_task' }]\n```\n\n## What it does\n\n- **`relationshipField`** auto-detected from the child's `master_detail`/`lookup` field whose `reference` is the parent (master_detail preferred).\n- **`columns`** derived from the child's fields — skips system/audit fields, the back-reference FK, and non-editable types (formula/summary/autonumber/file/json/…); select `options` and lookup `reference`/`displayField` carry through; types mapped to grid column types.\n- **`amountField`** (running-total source) defaults to the first numeric/currency column.\n- All of these remain explicitly overridable.\n- `MasterDetailForm` resolves unconfigured details via `getObjectSchema` and gates Save until resolved.\n\n## Testing\n\n- New pure helpers `deriveDetail` / `deriveColumns` / `findRelationshipField` + `fieldTypeToColumnType` — **9 unit tests** (76 plugin-form pass).\n- **Live e2e (2/2)**: the showcase form now derives its task columns at runtime and still posts the correct atomic `/api/v1/batch` (parent + child `{$ref:0}`). Paired showcase simplification in the framework repo drops its `details` block to one line.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

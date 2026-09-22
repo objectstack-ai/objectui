@@ -1,0 +1,32 @@
+{
+  "number": 1638,
+  "kind": "pull_request",
+  "title": "fix(app-shell): probed package publish from the banner + working New-chat button",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T09:43:40Z",
+  "updated_at": "2026-06-11T09:47:19Z",
+  "closed_at": "2026-06-11T09:43:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T09:43:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1638",
+  "body": "Closes out the two UI leftovers from the 2026-06-11 BVL staging E2E.\n\n## 1. Pending-drafts banner → probed publish path\nThe Home banner published every draft **by reference** — no ADR-0038 L3 probes anywhere on that path. In the staging test, a mid-publish container crash ate every seed row of `gym_management` and the banner still toasted *Published!* over an app whose dashboard was all zeros.\n\nNow: drafts are grouped by `packageId` and each package goes through `POST /packages/:id/publish-drafts` ([framework#1715](https://github.com/objectstack-ai/framework/pull/1715)'s probed + seed-ordered path). Probe findings reuse `publishHealthFromResponse` from [#1637](https://github.com/objectstack-ai/objectui/pull/1637):\n- runtime errors → ⚠ *Published, but verification found problems* + first finding\n- seed failure → existing seed warning\n- clean → *Published & verified — N sample row(s) live*\n\nPackage-less drafts keep the legacy by-ref fallback (structure first, seeds last) so they never dead-end.\n\n## 2. New-chat button was a no-op\n`New` navigated to `/ai`; `useChatConversation`'s resolved-once guard kept the current id and the URL-mirror effect bounced straight back to `/ai/:currentId`. Confirmed live on staging — every message landed in the same conversation, and the granular-precedent context steered later builds away from `apply_blueprint`.\n\nNow: `New` → `/ai?new=1`; the hook's new `forceNew` option skips the guard + cache, clears the stale id synchronously (so the mirror effect can't bounce while the create is in flight), and creates a fresh conversation. Flag self-strips when the fresh id is mirrored into the URL.\n\n## Tests\n- 3 new `useChatConversation` cases: fresh-create skips cache, mid-mount `forceNew` flip overrides the guard, explicit `activeId` wins over `forceNew`\n- app-shell suite 404/404, workspace build green\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

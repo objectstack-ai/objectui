@@ -1,0 +1,33 @@
+{
+  "number": 1680,
+  "kind": "pull_request",
+  "title": "feat: ADR-0047 UX round 2 — Airtable-parity toolbar polish",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T21:19:08Z",
+  "updated_at": "2026-06-12T21:25:10Z",
+  "closed_at": "2026-06-12T21:25:06Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T21:25:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1680",
+  "body": "## Summary\n\nSecond UX pass on the ADR-0047 surfaces, aligning the toolbar with Airtable's actual interaction patterns (per design review against Airtable Interfaces):\n\n1. **Visualization switcher → right-side dropdown.** The standalone button row is gone; a compact `Grid ▾` dropdown (icon menu, checkmark on current) sits as the first slot of the right tool cluster. The toolbar is now a single row on desktop and mobile.\n2. **Tabs and dropdown filters are mutually exclusive** on the toolbar (Airtable's Elements choice is tabs OR dropdowns, never both). Metadata tabs win when a view configures both.\n3. **Data mode keeps a clean toolbar**: filter elements render only when `userFilters` is explicitly configured — no more auto-derived dropdowns on every object with select fields. The `{ element: 'dropdown' }` shorthand still fills fields from the object definition.\n4. **Option counts survive selection**: counts snapshot while a field has an active selection, so picking \"Urgent\" no longer zeroes Low/Medium/High (the server returns pre-filtered rows).\n5. **Mobile card badges localize**: select values resolve to translated option labels + explicit metadata colors instead of leaking raw enums (`in_review` → `In Review`).\n\n## Testing\n\n- `plugin-list`: 130/130 pass (tests updated to dropdown interaction + new explicit-config contract)\n- `plugin-grid`: 53/53 pass; both packages build clean\n- Browser-verified against app-showcase (desktop 1600px + mobile 375px): single-row toolbar, dropdown switching, counts retention with filter applied on Task Workbench, localized mobile chips\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

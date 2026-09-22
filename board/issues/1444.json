@@ -1,0 +1,32 @@
+{
+  "number": 1444,
+  "kind": "pull_request",
+  "title": "feat(studio): object field designer Tier-2 ergonomics",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T21:52:26Z",
+  "updated_at": "2026-06-01T21:55:52Z",
+  "closed_at": "2026-06-01T21:52:37Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T21:52:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1444",
+  "body": "## Summary\nTier-2 editing ergonomics for the object field designer — the \"human makes simple modifications to AI-authored objects\" path.\n\n- **Default value** — a type-aware editor in the field inspector: tri-state select for boolean (— / True / False), number input for numeric, an option dropdown for single picklists, text otherwise. Omitted for computed / relational / media / structural types (no literal default). Persists on `Field.defaultValue`.\n- **Duplicate field** — clones the selected field directly below itself with a collision-free name (`<name>_copy`, `_copy_2`, …) and a \"(copy)\" label, then selects the clone.\n- **Keyboard reorder** — `Alt+↑/↓` on a focused field row swaps it with its nearest same-group neighbour (never crosses groups), reusing the existing reorder write path. A11y win for non-drag users.\n\nAll new strings localized (en-US / zh-CN).\n\n## Tests\n+11 RTL cases: default-value commit per kind, computed/lookup omit the editor, boolean uses a select; duplicate naming + selection + collision handling; Alt-arrow reorder + bounds + plain-arrow-noop + read-only inert. `metadata-admin` suite green (**97**); `tsc` clean; 0 lint errors.\n\n## Not included (still open from the evaluation)\n- Bulk multi-select of fields; conditional visibility; a full validation-rule editor — larger surfaces, deferred.\n- Help text was intentionally skipped: the field model has no distinct inline-help property (only `description` + `placeholder`).\n\n## Note\nLive browser verification remains blocked by a local framework dev-backend auth issue (`/api/v1/auth/get-session` 404 → console SPA can't restore a session), unrelated to this change; covered by unit tests.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

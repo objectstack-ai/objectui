@@ -1,0 +1,30 @@
+{
+  "number": 1630,
+  "kind": "pull_request",
+  "title": "feat(marketplace): Your organization section — discover + install org packages (ADR-0007 ②)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T22:12:26Z",
+  "updated_at": "2026-06-10T22:16:11Z",
+  "closed_at": "2026-06-10T22:12:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T22:12:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1630",
+  "body": "ADR-0007 **step ②** (frontend) — closes the original gap: a private/org package published by your org is now discoverable + installable from inside an environment's Marketplace.\n\n- `listOrgPackages()` reads the same-origin `/api/v1/cloud-connection/org-packages` proxy.\n- A **\"Your organization\"** section above the public catalog, with inline **Install** (reuses `installPackage` → `/cloud-connection/install`, env resolved by hostname). Already-installed packages show an **Installed** badge.\n- Self-hosted/unbound → `connected:false` → section doesn't render.\n\nPairs with cloud #191. `tsc` clean for marketplace files. Will be activated in cloud via a `.objectui-sha` bump, then browser-verified on staging.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1528,
+  "kind": "pull_request",
+  "title": "feat(view): forward form-view subforms to ObjectForm",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T11:53:38Z",
+  "updated_at": "2026-06-06T11:56:58Z",
+  "closed_at": "2026-06-06T11:53:51Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T11:53:51Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1528",
+  "body": "`ObjectView.buildFormSchema` now forwards `form.subforms` to `ObjectForm`. A form view that declares inline child collections renders as a master-detail form (parent fields + child grids, atomic save) in ObjectView's own create/edit form — no bespoke page.\n\nPairs with `@objectstack/spec` `FormViewSchema.subforms` and ObjectForm's existing `subforms` rendering (#1527).\n\n**Scope note (honest):** this covers the **ObjectView**-rendered form path. The console's standard \"New/Edit\" modal is built separately (app-shell `AppContent` → `ModalForm`, which renders its body via `SchemaRenderer` and does not go through the ObjectForm dispatcher). Making that path render subforms needs `ModalForm`/`DrawerForm` to host `MasterDetailForm` inside the dialog + `AppContent` to source `subforms` from the object's form view — tracked as a follow-up (it carries a UX decision: master-detail inside a modal vs a full page).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

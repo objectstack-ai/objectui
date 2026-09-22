@@ -1,0 +1,32 @@
+{
+  "number": 1585,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): per-widget dataset binding in DashboardWidgetInspector",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T15:02:55Z",
+  "updated_at": "2026-06-07T15:06:31Z",
+  "closed_at": "2026-06-07T15:03:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T15:03:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1585",
+  "body": "Makes per-widget dataset binding **authorable in the form**, symmetric to the report's dataset binding. The dashboard widget inspector is hand-built (not schema-derived), so the curated-form server-field graft (#1580) didn't reach it — `dataset`/`dimensions`/`values` on a widget were only editable via the raw *source* tab / API. This closes that gap.\n\n## What\n- new **Dataset binding** section: dataset name + dimensions + values (the latter two gated behind a bound dataset). dimensions/values are comma-separated → `string[]`; clearing the dataset sets it to `undefined`.\n- **additive dual-form**: the legacy inline `object`/`valueField`/`categoryField`/`aggregate` query stays visible & editable, so existing single-object widgets are unaffected. When `dataset` is set, `DashboardRenderer` already branches to `<DatasetWidget>` (consistent, cross-object, RLS-enforced) — this just makes that binding authorable.\n- field access via `(widget as any)` + cast patches (bundled `@object-ui/types` gains these fields only once objectui bumps the spec) — same accessor as `DatasetWidget`.\n- i18n en + zh-CN.\n\n## Tests\n- `DashboardWidgetInspector.test.tsx` (6): gating, commit/clear via a stateful host, csv parsing, dual-form coexistence, zh-CN, readOnly.\n- full inspector suite green (68).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

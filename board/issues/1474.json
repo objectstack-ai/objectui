@@ -1,0 +1,40 @@
+{
+  "number": 1474,
+  "kind": "pull_request",
+  "title": "chore(deps): upgrade @objectstack to 7.8.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-03T14:34:15Z",
+  "updated_at": "2026-06-03T14:38:00Z",
+  "closed_at": "2026-06-03T14:34:25Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-03T14:34:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1474",
+  "body": "## Summary\n- Bump `@objectstack/spec` and `@objectstack/client` from `^7.6.0` → `^7.8.0` across all workspaces (11 ranges) and refresh `pnpm-lock.yaml`.\n- Fix a pre-existing type error surfaced by `type-check`: the local `ProbeFn` interface in `related-count-store.ts` omitted `$count`, which the call site already passes.\n\n## Verification\n- `pnpm install` — lockfile updated to 7.8.0\n- `pnpm type-check` — green (58/58)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

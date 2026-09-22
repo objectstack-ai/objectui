@@ -1,0 +1,32 @@
+{
+  "number": 1624,
+  "kind": "pull_request",
+  "title": "feat(dashboard): render dataset widgets as their true chart type",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T14:45:42Z",
+  "updated_at": "2026-06-10T15:02:30Z",
+  "closed_at": "2026-06-10T15:02:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T15:02:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1624",
+  "body": "## Problem\n\nA dataset-bound dashboard widget **always rendered a bar chart** — `DatasetWidget` hardcoded `type: 'bar-chart'`. So a \"Status Flow (Sankey)\", \"Hours Treemap\", \"Priority Radar\", or pie/donut widget all drew bars, contradicting their titles. (From the Chart Gallery review.)\n\n## Fix\n\n`DatasetWidget` now dispatches on `widget.type`:\n- **metric / kpi / gauge / solid-gauge / bullet** (or no dimensions) → KPI value (with the measure label + format).\n- **table / pivot** → a grouped table of `dimensions` + `values` (measure `format` applied).\n- **bar / column / horizontal-bar / line / area / pie / donut / funnel / scatter / radar / treemap / sankey** → the shared advanced `chart` renderer with the **true** chart type and one series per measure (series carry the measure display label for the legend).\n- families with no distinct renderer map to their closest relative (`spline`→line, `stacked-area`→area, `pyramid`→funnel, grouped/stacked/bi-polar→bar) — never a silently-wrong bar.\n\n## Verification\n\nplugin-dashboard suite green (3564 passing). Will browser-verify on the showcase Chart Gallery after the framework `.objectui-sha` bump.\n\n> Pairs with a follow-up framework PR that trims the showcase Chart Gallery to one widget per distinctly-rendered family and recommends trimming `ChartTypeSchema` to the renderable set.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

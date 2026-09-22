@@ -1,0 +1,33 @@
+{
+  "number": 1605,
+  "kind": "issue",
+  "title": "[SDUI] Give PageView a console action runtime",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "sdui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-08T11:40:22Z",
+  "updated_at": "2026-06-08T14:52:44Z",
+  "closed_at": "2026-06-08T14:52:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1605",
+  "body": "## Problem\n\nRuntime pages currently render their page schema directly through `SchemaRenderer`, but they do not provide the console action runtime that ObjectView has. As a result, `action:button` can render on a page, but it cannot reliably collect params, call authenticated APIs, show result dialogs, refresh data, or navigate inside the SPA.\n\nThis blocks SDUI pages from acting as real app home pages. For example, ObjectStack Cloud needs a customer-facing home page with a primary \"Create environment\" action. That action should be metadata-driven, not a Cloud-only React component.\n\n## Current Observations\n\n- `PageView` is a thin wrapper around `SchemaRenderer`.\n- `ObjectView` wires `ActionProvider` with confirm, toast, navigate, param collection, result dialog, and api/flow/script/modal handlers.\n- `action:button` already uses `useAction()`, so the missing layer is the page-level runtime provider.\n\n## Proposed Direction\n\nExtract the generic console action wiring from ObjectView into a reusable hook, for example `useConsoleActionRuntime`, then let both ObjectView and PageView use it.\n\nThe hook should own or expose:\n\n- `ActionProvider` props: context, confirm handler, toast handler, navigate handler, param collection handler, result dialog handler, registered handlers.\n- Dialog states/render helpers for confirm, params, result dialog, and paused screen flows.\n- Authenticated API/flow/server-action handlers.\n- Refresh callback integration, so pages can invalidate embedded data after successful actions.\n- Optional object context, because pages may run global actions or object-scoped actions.\n\n## Acceptance Criteria\n\n- `PageView` wraps page schemas in `ActionProvider` using the shared console runtime.\n- A page-level `action:button` with `actionType: 'api'` can collect params and call an authenticated API endpoint.\n- A page-level `action:button` can navigate through the SPA or open external/new-tab URLs through the same semantics as ObjectView.\n- Confirm dialogs, param dialogs, result dialogs, and flow screen pauses work on pages.\n- ObjectView keeps existing action behavior after being migrated to the shared hook.\n- Add focused tests for PageView action execution and ObjectView regression coverage.\n\n## Related\n\n- Parent SDUI runtime work: #1549\n- Cloud customer home page use case: create environment from a metadata page."
+}

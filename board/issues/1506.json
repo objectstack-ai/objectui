@@ -1,0 +1,35 @@
+{
+  "number": 1506,
+  "kind": "pull_request",
+  "title": "feat(master-detail): atomic parent+children create via cross-object batch",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T07:43:22Z",
+  "updated_at": "2026-06-06T07:46:47Z",
+  "closed_at": "2026-06-06T07:43:57Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T07:43:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1506",
+  "body": "## Summary\n\nCompletes the front-end half of the atomic master-detail work (ObjectStack #1604). When the server exposes the transactional batch endpoint, a **new** parent record and its child line items are persisted in **one** server transaction — commit all or roll back all — replacing the previous client-orchestrated \"create parent → create children → best-effort cleanup on failure\" sequence.\n\nThis pairs with the already-merged framework changes:\n- ObjectQL `AsyncLocalStorage` ambient-transaction propagation (fixes the multi-write deadlock).\n- `POST /api/v1/batch` endpoint in `@objectstack/rest` with `{ $ref: <opIndex> }` intra-batch parent references.\n\n## Changes\n\n**`@object-ui/data-objectstack`**\n- `ObjectStackAdapter.batchTransaction(operations)` — posts `{ operations }` to `POST /api/v1/batch`; one server transaction; `{ $ref: N }` resolves to op N's generated id. Throws `ObjectStackError('BATCH_ERROR')` on non-2xx.\n\n**`@object-ui/plugin-form`**\n- `ObjectForm` — new `submitHandler` hook: when present the form validates and hands values to the host instead of calling `dataSource.create`/`update`.\n- `MasterDetailForm` — detects `batchTransaction`; on a new parent builds one atomic batch (parent at index 0, child FKs `{ $ref: 0 }`) via the new pure `buildMasterDetailBatch` helper, merging client-side total rollups into the parent payload. Edit mode + adapters without `batchTransaction` keep the existing client-orchestrated path.\n\n**`@object-ui/types`**\n- `ObjectFormSchema.submitHandler?` typed.\n\n## Testing\n\n- `buildMasterDetailBatch` unit tests (parent-first, child `$ref:0` FK, no-children case).\n- `ObjectForm` `submitHandler` delegation test (asserts `dataSource.create`/`update` are NOT called and `onSuccess` still fires).\n- Full `@object-ui/plugin-form` suite: **63 passing**.\n- Server `/api/v1/batch` `$ref` path proven end-to-end earlier (atomic commit returns 200; rollback returns 400 with nothing persisted; backend healthy after).\n\n**Note:** the live browser click-through of the showcase create form could not be completed because the required Radix Select (\"状态/Status\") would not bind its value to react-hook-form under test automation (synthetic + harness clicks alike) — a known test-automation quirk, not a product defect (real-user submission of the same form worked). The integration is therefore verified at the unit + adapter + server-e2e level rather than via a full live UI click-through.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

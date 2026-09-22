@@ -1,0 +1,32 @@
+{
+  "number": 1539,
+  "kind": "pull_request",
+  "title": "feat(detail): derive related lists from relationships (read-side mirror of inlineEdit)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T15:47:46Z",
+  "updated_at": "2026-06-06T15:51:29Z",
+  "closed_at": "2026-06-06T15:48:22Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T15:48:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1539",
+  "body": "## Summary\n\nThe record **detail page** now derives its related lists from the relationship graph — the read-side counterpart to the form's inline master-detail (`inlineEdit`). Every child relationship (`master_detail`/`lookup` referencing the parent) is shown as a related list by default (owned children first); the new relationship-level `relatedList` flag opts a child out, and `relatedListTitle`/`relatedListColumns` override the derived title/columns.\n\n| Side | Flag (on child FK) | Effect |\n|---|---|---|\n| Write | `inlineEdit: true` | editable child grid inside the parent's create/edit form |\n| Read | `relatedList` (+ `relatedListTitle`/`relatedListColumns`) | related list on the parent's detail page |\n\n## Changes\n- **New** `deriveRelatedLists(objectDef, objects)` pure helper (`app-shell/utils`) — read-side analogue of `attachInlineSubforms`. Scans child FKs, skips audit FKs, dedupes one list per child, honors `relatedList*` flags, orders owned (`master_detail`) children first. Fully unit-tested (12 cases).\n- Refactor `RecordDetailView.childRelations` onto the helper; thread `relatedListTitle`/`relatedListColumns` into both the synthesized page (`record:related_list`) and legacy `DetailView` paths.\n- **Live e2e** (`e2e/live/detail-related-list.spec.ts`): the showcase Account detail page auto-renders a \"Projects\" related list with the override columns.\n\n## Verification\n- Unit: app-shell 330 ✓, plugin-detail 118 ✓\n- Live browser e2e: full suite 9/9 ✓ (real backend on :3000, real console on :5180)\n\nPairs with framework#1623 (spec `relatedList` flags).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

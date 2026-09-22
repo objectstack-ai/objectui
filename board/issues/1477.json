@@ -1,0 +1,32 @@
+{
+  "number": 1477,
+  "kind": "pull_request",
+  "title": "perf(detail/header): lazy + dedupe related-list fan-out, coalesce header polls",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-04T07:07:51Z",
+  "updated_at": "2026-06-04T07:13:09Z",
+  "closed_at": "2026-06-04T07:09:18Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-04T07:09:18Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1477",
+  "body": "## Problem\nOpening a record detail (e.g. an environment in the cloud control plane) fired ~50 concurrent `/api/v1` requests that head-of-line-blocked one another on the single control-plane container, making the page feel slow.\n\n## Root causes (fixed at source)\n- **RecordDetailView** eagerly preloaded *every* reverse-reference child even when the reference rail renders them (≥2 related lists) — that data was then discarded (the Related tab is hidden in that layout) while the rail re-fetched the same collections. Now skips the preload when the rail owns the related lists.\n- **record-reference-rail** fetched every collection eagerly on mount, once per re-render. Now it (a) gates fetching on visibility via `IntersectionObserver` (the rail is `hidden xl:flex`), (b) caps concurrency at 3, and (c) fetches once per `(parentId + entries)` via a signature guard, applying results through a mounted-ref so a fetch that outlives a re-render isn't dropped.\n- **AppHeader** inbox/notification, approvals, and activity pollers re-ran several times during bootstrap (deps settling), each firing an immediate fetch. Added in-flight guards so the bootstrap re-runs coalesce to one request; results apply via a mounted ref.\n- The **approvals poll** now issues a single request with all identities comma-joined (pairs with the framework multi-approverId change) instead of one request per identity.\n\n## Verification\nLocal rig (Vite live source against the cloud control-plane), opening an environment detail:\n- total `/api/v1` requests on open: **~52 → ~17**\n- related collections: **×3–5 each → ×1**\n- `approvals/requests`: **×9 → ≤3**\n\nTypecheck clean; `plugin-detail` (117) and `app-shell` (243) test suites pass.\n\n## Deploy note\nThe approvals client change pairs with the framework multi-approverId endpoint — bump the cloud `.framework-sha` and `.objectui-sha` together.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

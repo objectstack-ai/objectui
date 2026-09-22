@@ -1,0 +1,32 @@
+{
+  "number": 1565,
+  "kind": "pull_request",
+  "title": "feat(grid): item-typeahead auto-fill from a lookup column",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T08:00:25Z",
+  "updated_at": "2026-06-07T08:05:42Z",
+  "closed_at": "2026-06-07T08:05:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T08:05:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1565",
+  "body": "## Why\n\nFinishes the line-item editor: picking a catalog item (e.g. a Product) should drop its details (unit price, description) into the row — the typeahead behaviour QuickBooks / Stripe / NetSuite all have.\n\n## What\n\n- **`GridField`** — when a lookup cell's record is selected, copy any of the record's fields whose names match a sibling column (e.g. product `unit_price` / `description`) into the row, then recompute computed columns. Opt out per column with `autofill: false`. New pure export `lookupAutofillPatch(columns, col, record)` (unit-tested).\n- **`LookupField`** — optional `onSelectRecord(record)` callback surfaces the full selected record (not just its id); in single-select it drives the update so the host owns the resulting value change. (Read off props via the existing index signature — no shared-type change.)\n\n## Verification\n\n- Unit: 20 `GridField` tests (incl. auto-fill copies same-named siblings; respects `autofill: false`).\n- Live e2e (9 passing): New Invoice → pick **Widget A** → `unit_price` 29.99 + `description` auto-fill → Qty 2 → computed Amount 59.98 → product/description/unit_price/amount all persisted in the atomic batch; the blank ghost line is not saved.\n\n> Pairs with framework#1639 (the `showcase_product` catalog + invoice line `product` lookup). The live backend already serves it.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 1476,
+  "kind": "pull_request",
+  "title": "docs: improve site onboarding and link checks",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "dependencies",
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-04T05:26:28Z",
+  "updated_at": "2026-06-04T06:59:39Z",
+  "closed_at": "2026-06-04T06:59:39Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-04T06:59:39Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1476",
+  "body": "## Summary\n- refresh docs homepage and quick start around current ObjectUI renderer setup\n- align DataSource docs with the typed adapter contract\n- fix stale internal docs links and add a docs link checker\n\n## Verification\n- pnpm docs:check-links\n- git diff --check\n- pnpm --filter @object-ui/example-schema-catalog build\n\nNote: full @object-ui/site Next production build was attempted earlier but stalled at the optimized production build step in the isolated worktree; the site prebuild/catalog TypeScript step passes."
+}

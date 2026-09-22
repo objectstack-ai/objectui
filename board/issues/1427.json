@@ -1,0 +1,32 @@
+{
+  "number": 1427,
+  "kind": "pull_request",
+  "title": "docs(agents): document console dev server ↔ backend loop + gotchas",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T05:12:04Z",
+  "updated_at": "2026-06-01T05:15:51Z",
+  "closed_at": "2026-06-01T05:15:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T05:15:40Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1427",
+  "body": "Fleshes out the AGENTS.md stub with a 'Local dev — console UI ↔ backend' section: console dev on :5180; the /api proxy defaults to :3000 (run the backend under test there; don't rely on DEV_PROXY_TARGET through `pnpm --filter`); backend-served `_console` is the published build, not src; routes use the app `name` (e.g. `showcase_app`); clearing localStorage logs you out; better-auth needs `localhost`; prefer desktop preview for verification. Captures the gotchas that caused avoidable thrash this session.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1613,
+  "kind": "pull_request",
+  "title": "feat(chatbot): auto-publish AI-built apps in chat — the self-use magic moment",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T02:19:52Z",
+  "updated_at": "2026-06-10T02:23:30Z",
+  "closed_at": "2026-06-10T02:20:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T02:20:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1613",
+  "body": "## What\n\nWhen the runtime enables `features.autoPublishAiBuilds`, a **whole-app build** (`apply_blueprint`, which the backend marks `autoPublishable`) is published the moment the agent finishes — the user lands on a populated, running app with no manual Publish click. **Incremental edits are not auto-published**: they stay drafts for explicit review, so a destructive change never goes live silently.\n\nPairs with [cloud#176](https://github.com/objectstack-ai/cloud/pull/176) (the backend policy + `autoPublishable` flag).\n\n## Design\nBackend declares lifecycle intent → chat decides → the **status panel is the single source of truth** for publish state (the model only describes what it built). The draft card flips to a **\"Published\" badge** once promoted, instead of leaving a stale Publish button.\n\n## Changes\n- **mapMessages**: lift `autoPublishable` + `failedCount` from the draft envelope.\n- **ChatbotEnhanced**: gate auto-publish on `autoPublishable`; dedup by `toolCallId` (repeat builds into one workspace package each fire once); **per-toolCallId** \"Published\" badge (a later edit into an already-published package still shows Publish); `onPublishDrafts` reports success so the badge reflects reality.\n- **runtime-config**: consume `features.autoPublishAiBuilds`.\n- **AiChatPage / ConsoleFloatingChatbot**: pass the flag, return publish success, \"Published\" label.\n\n## Verification\n- `plugin-chatbot` 48 tests (17 for auto-publish incl. scope + badge regressions). Typecheck clean.\n- Browser E2E on a full local stack: whole-app build auto-published live with 6 sample rows; incremental edit stayed a draft (home \"1 unpublished change\" banner). Two real bugs were found and fixed during E2E (per-package dedup, per-package badge over-marking).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

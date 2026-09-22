@@ -1,0 +1,38 @@
+{
+  "number": 1578,
+  "kind": "pull_request",
+  "title": "feat(forms): field-level conditional rules — visibleWhen/readonlyWhen/requiredWhen (B2 client)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "package: components",
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T12:44:28Z",
+  "updated_at": "2026-06-07T13:18:15Z",
+  "closed_at": "2026-06-07T13:18:14Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T13:18:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1578",
+  "body": "## What\n\nClient-side enforcement of field-level **conditional rules** so a form field can be conditionally **shown/hidden** (`visibleWhen`), made **read-only** (`readonlyWhen`), or made **required** (`requiredWhen`) based on a CEL predicate over the live record. Evaluated **reactively** as the user types.\n\nThis is the client half of B2. The server half (framework PR #1649) enforces `requiredWhen` in the rule-validator and strips `readonlyWhen` writes in `stripReadonlyWhenFields`. The showcase example lives in a framework PR (see below). See **ADR-0036**.\n\n## Why delegate to `@objectstack/formula`\n\nThe point of dual-side rules is that the **client UX and the persisted server verdict agree**. The client evaluates with the *exact same* engine + dialect the server uses — `@objectstack/formula`'s `ExpressionEngine` (CEL via `@marcbachmann/cel-js`) — rather than a parallel evaluator, so there is zero drift risk. The package is browser-safe (deps: `@marcbachmann/cel-js` + `@objectstack/spec`, which `@object-ui/core` already depends on).\n\n## Changes\n\n- **core**: `evalFieldPredicate` + `resolveFieldRuleState` — zero-React, **fail-open** (a broken/absent predicate never hides a field, blocks submit, or locks a field). Static `required`/`readonly` is a floor a FALSE predicate can't weaken.\n- **types**: `FormField` gains `visibleWhen` / `readonlyWhen` / `requiredWhen` (+ `@deprecated conditionalRequired` alias).\n- **components**: the form renderer watches the live record and gates `visible`/`readonly`/`required` per field. It seeds every declared field to `null` before overlaying *defined* watched values, so a predicate referencing a not-yet-registered field compares against `null` rather than faulting on a missing CEL key (mirrors the server's full-record merge).\n- **plugin-form**: `ObjectForm` carries the rule props through from object metadata.\n\n## Tests\n\n- 17 unit tests (`packages/core/.../fieldRules.test.ts`) — predicate eval, object form, `previous.*`, fail-open, **missing-key** contract, alias precedence, static-flag floor.\n- `e2e/live/field-conditional-rules.spec.ts` — drives the showcase Invoice Status through paid/sent/draft and asserts `paid_on` visibility, `tax_rate` lock, and `issued_on` required all re-gate reactively. **Passes** (full live suite 11/11 green).\n\n## Docs\n\n- `docs/adr/0036-field-conditional-rules.md`\n- `skills/objectui/guides/schema-expressions.md` — new CEL field-rules section (distinguishing the data-model CEL tier from the `${}`/`On` widget tier).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

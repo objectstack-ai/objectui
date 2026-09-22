@@ -1,0 +1,32 @@
+{
+  "number": 1458,
+  "kind": "pull_request",
+  "title": "chore(deps): bump js-yaml from 4.1.1 to 4.2.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T00:34:41Z",
+  "updated_at": "2026-06-03T14:23:57Z",
+  "closed_at": "2026-06-03T14:23:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-03T14:23:46Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1458",
+  "body": "Bumps [js-yaml](https://github.com/nodeca/js-yaml) from 4.1.1 to 4.2.0.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/nodeca/js-yaml/blob/master/CHANGELOG.md\">js-yaml's changelog</a>.</em></p>\n<blockquote>\n<h2>[4.2.0] - 2026-06-01</h2>\n<h3>Added</h3>\n<ul>\n<li>Added <code>docs/safety.md</code> with notes about processing untrusted YAML.</li>\n<li>Added <code>maxDepth</code> (100) loader option. Not a problem, but gives a better\nexception instead of RangeError on stack overflow.</li>\n<li>Added <code>maxMergeSeqLength</code> (20) loader option. Not a problem after <code>merge</code> fix,\nbut an additional restriction for safety.</li>\n<li>Added sourcemaps to <code>dist/</code> builds.</li>\n</ul>\n<h3>Changed</h3>\n<ul>\n<li>Stop resolving numbers with underscores as numeric scalars, <a href=\"https://redirect.github.com/nodeca/js-yaml/issues/627\">#627</a>.</li>\n<li>Switched dev toolchains to Vite / neostandard.</li>\n<li>Updated demo.</li>\n<li>Reorganized tests.</li>\n<li><code>dist/</code> files are no longer kept in the repository.</li>\n</ul>\n<h3>Fixed</h3>\n<ul>\n<li>Fix parsing of properties on the first implicit block mapping key, <a href=\"https://redirect.github.com/nodeca/js-yaml/issues/62\">#62</a>.</li>\n<li>Fix trailing whitespace handling when folding flow scalar lines, <a href=\"https://redirect.github.com/nodeca/js-yaml/issues/307\">#307</a>.</li>\n<li>Reject top-level block scalars without content indentation, <a href=\"https://redirect.github.com/nodeca/js-yaml/issues/280\">#280</a>.</li>\n<li>Ensure numbers survive round-trip, <a href=\"https://redirect.github.com/nodeca/js-yaml/issues/737\">#737</a>.</li>\n<li>Fix test coverage for issue <a href=\"https://redirect.github.com/nodeca/js-yaml/issues/221\">#221</a>.</li>\n<li>Fix flow scalar trailing whitespace folding, <a href=\"https://redirect.github.com/nodeca/js-yaml/issues/307\">#307</a>.</li>\n<li>Fix digits in YAML named tag handles.</li>\n</ul>\n<h3>Security</h3>\n<ul>\n<li>Fix potential DoS via quadratic complexity in merge - deduplicate repeated\nelements (makes sense for malformed files &gt; 10K).</li>\n</ul>\n<h2>[3.14.2] - 2025-11-15</h2>\n<h3>Security</h3>\n<ul>\n<li>Backported v4.1.1 fix to v3</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a href=\"https://github.com/nodeca/js-yaml/commits\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

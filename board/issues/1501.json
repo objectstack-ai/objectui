@@ -1,0 +1,32 @@
+{
+  "number": 1501,
+  "kind": "pull_request",
+  "title": "feat(chat): one-click Publish for AI-staged drafts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T06:36:52Z",
+  "updated_at": "2026-06-06T06:40:13Z",
+  "closed_at": "2026-06-06T06:37:21Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T06:37:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1501",
+  "body": "## 背景(本地 dogfood 实测)\nAI 助手能从一句话生成完整数据模型(实测宠物医院:owner/pet/appointment/treatment + 关系),但工具按 ADR-0033 只把对象 stage 成草稿、**发布步骤在聊天流里不可达** → 新用户拿到永不生效的草稿(data API 404),AI 还可能越权宣称\"已启用 API\"。手动 `POST /packages/:id/publish-drafts` 后对象立刻 live(data API 404→200)。\n\n## 改动\n- **mapMessages**:把草稿 envelope 的 `packageId`(cloud service-ai-studio 现已上报,见 objectstack-ai/cloud#130)提升进 `draftReview`。\n- **ChatbotEnhanced**:草稿结果带 packageId + 接了 `onPublishDrafts` 时,在「Review」旁渲染一键「发布」按钮;放宽显隐门槛,使没传 onReviewDraft 时「发布」也显示。\n- **ConsoleFloatingChatbot**:接 `onPublishDrafts` → `POST /api/v1/packages/:packageId/publish-drafts`(cookie 鉴权,镜像 PackagesPage),带成功/失败 toast + 中英文案。\n\n人仍点一下「发布」(ADR-0033 人工门保留),只是从对话可达了。type-clean。\n\n## 依赖 / 验证\n- 需配合 cloud #130(envelope 带 packageId)部署后,发布按钮才会出现。\n- 待 staging 验证:重跑\"一句话搭后端\"→ 聊天出现「发布」→ 点击 → 对象 live。"
+}

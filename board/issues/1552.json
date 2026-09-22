@@ -1,0 +1,33 @@
+{
+  "number": 1552,
+  "kind": "pull_request",
+  "title": "feat(master-detail): column chooser instead of hard column cap (no data loss)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T22:36:23Z",
+  "updated_at": "2026-06-06T22:39:53Z",
+  "closed_at": "2026-06-06T22:36:40Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T22:36:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1552",
+  "body": "## Why\nFollow-up to the inline-grid column budget. A **hard cap silently dropped** non-required editable fields with no end-user recourse — wrong for real business entry (e.g. an order line's `discount`/`warehouse` that isn't `required`). \n\n**How mainstream enterprise grids do it:** Salesforce line editor, Dynamics editable subgrids, Odoo `optional` columns, NetSuite/SAP sublists — all show a **curated default set + let users reveal the rest**, with horizontal scroll. They never silently drop data.\n\n## Change\n- **`deriveColumns`**: columns beyond the default-visible budget (6) are flagged `defaultHidden` **instead of dropped**. Every editable column is returned; primary (name/title) + all required columns stay visible. `maxColumns: 0` flags none.\n- **`GridField`**: renders the curated default + a **\"Columns\" chooser popover** to toggle optional columns; per-type **min-widths + horizontal scroll** so cells are never crushed. New `GridColumn.defaultHidden`.\n\n## Verification\n- In-browser (HMR): New Project Tasks grid shows 6 columns + \"Columns +N\" chooser revealing Assignee/Progress/Start Date/End Date/Labels/Notes; grid scrolls horizontally with comfortable widths.\n- Unit: deriveColumns (plugin-form **86**), GridField incl. chooser (fields **3428**); live e2e **9/9**.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

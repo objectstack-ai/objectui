@@ -1,0 +1,30 @@
+{
+  "number": 1495,
+  "kind": "issue",
+  "title": "Page editor: surface slotted record-page slot blocks for editing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T03:21:23Z",
+  "updated_at": "2026-06-06T05:39:41Z",
+  "closed_at": "2026-06-06T05:39:41Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1495",
+  "body": "While verifying the new schema-driven block pickers (#1494), I found the Studio page editor (PageBlockCanvas) surfaces full/region pages' blocks but NOT a slotted record page's slot blocks (slots.highlights / slots.details / slots.tabs[].children). Opening a kind:'slotted' page (e.g. app-showcase showcase_project_detail) shows the page-level object but no selectable blocks on the canvas, so its record:highlights / record:details / record:line_items can't be configured via the inspector (pickers included) — only via raw JSON.\n\nProposal: in PageBlockCanvas, when the page is kind:'slotted', surface the known slots (header/actions/alerts/highlights/details/tabs/discussion) as editable regions/blocks so the inspector + field pickers apply. The pickers themselves already work on full/region pages.\n\nFound during: schema-driven object/field pickers (objectui #1494) + showcase richer project detail (framework #1605)."
+}

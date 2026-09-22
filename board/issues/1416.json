@@ -1,0 +1,35 @@
+{
+  "number": 1416,
+  "kind": "pull_request",
+  "title": "chore: scrub stale apps/studio references",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-30T06:52:03Z",
+  "updated_at": "2026-05-30T06:55:39Z",
+  "closed_at": "2026-05-30T06:52:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-05-30T06:52:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1416",
+  "body": "## What\n\nUpdate comments, docs, and tests that still pointed at the old `apps/studio` paths to reference the current `apps/<app>` / Console locations instead.\n\n## Files\n\n- `apps/console/src/pages/developer/{ApiConsolePage,FlowRunsPage,PublicFormsPage}.tsx` + `hooks/useApiDiscovery.ts` — drop \"Ported from apps/studio\" wording in header comments\n- `content/docs/guide/metadata-diagnostics.md` — `/apps/studio/...` → `/apps/<app>/...`\n- `packages/app-shell/src/runtime-config.ts` — remove stale `apps/studio/src/lib/config.ts` reference in comment\n- `packages/app-shell/src/hooks/__tests__/useTrackRouteAsRecent.test.tsx` — use `apps/admin` paths in test fixtures\n- `packages/plugin-chatbot/README.md` — point lazy-load reference at Console's components\n\nDocs/comments/test-fixture only; no runtime behavior change."
+}

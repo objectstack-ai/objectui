@@ -1,0 +1,39 @@
+{
+  "number": 1631,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/* to platform 9.0 (needs ADR-0021 SpecReport migration)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T01:57:33Z",
+  "updated_at": "2026-06-11T02:00:58Z",
+  "closed_at": "2026-06-11T02:00:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1631",
+  "body": "Bumps all @objectstack deps to platform 9.0 (spec ^9.0.0 ×10, client/formula ^9.0.0).\n\n**Draft — blocked on the ADR-0021 analytics workstream**: spec 9.0's single-form report cutover rejects the legacy object+columns shape, breaking the SpecReport bridge — 14 failures in `@object-ui/types` spec-report + `plugin-report` (`a report needs 'dataset' + 'values'`). Everything else green (3516 passed). The SpecReport migration should land on this branch (or rebase it).\n\nNote: this does NOT block the pending 9.0 release (#1407) — the console runs fine against a framework 9.0 server on today's spec 8 types (verified extensively in browser E2E).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

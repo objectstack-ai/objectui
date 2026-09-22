@@ -1,0 +1,36 @@
+{
+  "number": 1521,
+  "kind": "pull_request",
+  "title": "fix(master-detail): reliable submit + durable live e2e harness",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T10:02:28Z",
+  "updated_at": "2026-06-06T10:06:02Z",
+  "closed_at": "2026-06-06T10:02:46Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T10:02:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1521",
+  "body": "## Why\n\n\"我填了表单,点最下面的创建还是没反应\" — clicking **Create** on the master-detail form did nothing. This turned out to be an **intermittent submit**, not a no-op: `MasterDetailForm.handleSave` called `form.requestSubmit()` synchronously inside the click handler right after a `setSaving()` state update, and the nested submit event was frequently dropped before react-hook-form's `onSubmit` ran. Only the occasional click actually submitted (which is why earlier testing produced a few duplicate records from many clicks).\n\nMore importantly, this kept being **un-verifiable** because synthetic DOM automation can't make Radix Select + react-hook-form bind. So this PR also lands a durable **live browser e2e harness** that drives the real stack with real input — the long-term fix for \"I can't verify my own UI work.\"\n\n## The fix\n\n- **`MasterDetailForm.handleSave`** defers the submit to a macrotask and re-queries the live `<form>`, so RHF's `onSubmit` fires **every** time. Verified 6/6 across repeats.\n\n## Durable live e2e harness (the bigger deliverable)\n\n- `playwright.live.config.ts` — drives the **running** console (`:5180`) + backend (`:3000`), separate from the mocked CI smoke config.\n- `e2e/live/global-setup.ts` — logs in via the better-auth API and injects a `storageState` (no fragile UI login).\n- `e2e/live/helpers.ts` — reusable real-input drivers: `selectOption` (Radix Select), `fillLookup` (reference picker), `addLineItem` (grid), `expectToast`.\n- `e2e/live/master-detail.spec.ts` — fills parent (name + lookup + status) and a child task row, submits, asserts the form resets (the reliable end-to-end success signal). **6/6 green across repeats.**\n- `pnpm test:e2e:live`.\n\n## Stable `data-testid`s\n\n`select-trigger-{field}` / `select-option-{value}` (SelectField), `lookup-trigger-{field}` (LookupField), `line-items-add` (GridField), `md-form-submit` / `md-form-cancel` (MasterDetailForm) — so automation and future e2e have deterministic hooks.\n\n## Also (partial)\n\nDedupe `react` / `react-dom` / `sonner` in the console vite config — the monorepo resolved **two React patch versions (19.2.6 vs 19.2.7)**, duplicating React and (downstream) sonner, so `toast()` and `<Toaster>` bound to different sonner instances and success toasts never rendered. This dedupes React for the build; a **complete** toast fix also needs `plugin-form`/`components` to externalize `sonner` rather than inline it — flagged as a follow-up.\n\n## Findings (no action needed here)\n\n- The showcase workspace page renders against the demo data layer, so the live spec asserts the **UX contract** (form reset) rather than a `POST /api/v1/batch`. The atomic cross-object batch wire is already covered by `@object-ui/plugin-form` unit tests + the framework REST e2e.\n\n## Testing\n\n- `@object-ui/plugin-form` unit suite: **65 passing**.\n- Live e2e: **6/6** (`master-detail` × 3 repeats) against the real console + backend.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

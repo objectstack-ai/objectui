@@ -1,0 +1,33 @@
+{
+  "number": 1568,
+  "kind": "pull_request",
+  "title": "feat(master-detail): de-frame line items, compact lookup cells, persist line order",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T08:43:22Z",
+  "updated_at": "2026-06-07T08:49:02Z",
+  "closed_at": "2026-06-07T08:49:01Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T08:49:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1568",
+  "body": "## Why\n\nYou flagged that the subform editor \"外面套了一个框，浪费了很多空间\" — the line items were wrapped in a `Card` (border + `p-6`) around a grid that already has its own border, double-framing it and stealing the width the table needs. Plus the three wrap-up items.\n\n## What\n\n- **De-frame the line-item section** — render it as a light label + the grid's own bordered table (no outer Card / `p-6`), so it spans the full content width.\n- **Compact lookup cells** — `LookupField` gains a `compact` mode (used by grid lookup cells): the selected value shows inline in a borderless single-line trigger, instead of a chip stacked above a separate \"Select…\" button (which doubled the row height).\n- **Persist drag-reorder** — `deriveMasterDetail` detects a sort field (`position`/`sort_order`/…), excludes it from the editable columns + row form, and threads it as the grid's `sort_field`, so reordering stamps `row[position] = index` and survives a reload.\n- **Fix the long-standing flaky `ListView` unit test** — with no filters the empty state is the first-run copy (\"Nothing here yet\"), not \"No items found\". CI Test job goes green (no more admin-merges needed for this).\n\n## Verification\n\n- Unit: 63 across GridField / deriveMasterDetail / masterDetailTx / MasterDetailForm; ListView suite 119 green.\n- Live e2e: 9 passing — New Invoice asserts the compact lookup auto-fill, computed amount, totals stack, and the stamped `position`.\n- Browser-verified: single-frame full-width grid + single-line product cell.\n\n> Pairs with framework#1641 (`showcase_invoice_line.position`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

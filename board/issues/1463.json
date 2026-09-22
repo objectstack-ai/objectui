@@ -1,0 +1,32 @@
+{
+  "number": 1463,
+  "kind": "pull_request",
+  "title": "feat(app-shell): ADR-0032 author-time condition validation in flow inspectors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T05:15:17Z",
+  "updated_at": "2026-06-02T05:30:49Z",
+  "closed_at": "2026-06-02T05:30:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-02T05:30:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1463",
+  "body": "## What\n\nADR-0032 (Step 7, frontend): the Studio flow inspectors now validate **conditions as you type**, so a malformed predicate is caught at author time — not at save/build. Most importantly it flags the `{record.x}` template-brace-in-CEL mistake (#1491) — `{…}` parses as a CEL map literal and silently fails — with the **same corrective message** the framework build and the `validate_expression` agent tool emit.\n\n## Changes\n\n- New `expression-validate.ts` — a small client-side checker (`validateExpressionClient(role, value)`) for `predicate` / `value` / `template` roles: detects brace-in-CEL, unbalanced parens/brackets, and single-brace-in-template (suggests `{{ }}`). Reads both a bare string and an `{ dialect, source }` envelope.\n- `FlowNodeConfigField` (expression fields) and `FlowEdgeInspector` (edge guards) render an inline error under the field when invalid.\n\n## Note on the dependency\n\nThis is intentionally a small client-side check — there is no CEL parser in the browser, and `@objectstack/formula`'s shared `validateExpression` isn't published yet. Once it ships, swap the body of `validateExpressionClient` for a call to the shared validator so GUI / SDK / CLI share one validator verbatim (ADR-0032 §5). The message wording already matches.\n\n## Verification\n\n`type-check` ✓, `build` ✓, app-shell test suite **238 passed** (incl. new `expression-validate.test.ts`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1451,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fumadocs-ui from 16.8.11 to 16.9.3",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T00:29:22Z",
+  "updated_at": "2026-06-02T07:28:03Z",
+  "closed_at": "2026-06-02T07:24:52Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-02T07:24:52Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1451",
+  "body": "Bumps [fumadocs-ui](https://github.com/fuma-nama/fumadocs) from 16.8.11 to 16.9.3.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/fuma-nama/fumadocs/releases\">fumadocs-ui's releases</a>.</em></p>\n<blockquote>\n<h2>fumadocs-ui@16.9.3</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [42f0255]</li>\n<li>Updated dependencies [a807798]\n<ul>\n<li>fumadocs-core@16.9.3</li>\n</ul>\n</li>\n</ul>\n<h2>fumadocs-ui@16.9.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [e77b9b3]</li>\n<li>Updated dependencies [334c8fd]\n<ul>\n<li>fumadocs-core@16.9.1</li>\n</ul>\n</li>\n</ul>\n<h2>fumadocs-ui@16.8.12</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [768b676]\n<ul>\n<li>fumadocs-core@16.8.12</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/34b75a0cfb8fd345f0ad04799630f8b329c2fe92\"><code>34b75a0</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3324\">#3324</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/73b9cec605ecd7f17b7faff8e9aafdb0d1ecab71\"><code>73b9cec</code></a> docs: fix build</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/d35d0d6a43492f8a185889d92fa8af8a991761f2\"><code>d35d0d6</code></a> fix(mdx): respect <code>root</code> in Vite config</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/a9f95ffbd913deac945bb420b6fb77589b7a7c8d\"><code>a9f95ff</code></a> chore: bump deps</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/783c048904305b4769293b047c27f9bd2ad9e31f\"><code>783c048</code></a> fix(preview): fix invalid content type in <code>/img</code> endpoint</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/42f02559dabd35137b28c29597c10bd7dad90fea\"><code>42f0255</code></a> feat(core): support <code>invalidate</code> &amp; <code>revalidate</code> on dynamic loader</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/a8077981c657305fe72b4db859768d4daa4f0488\"><code>a807798</code></a> fix(core): improve source API utils &amp; types</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/8b1701942c336148141b9a8dd80bb110a4227f70\"><code>8b17019</code></a> docs: document LLM_GATEWAY_MODEL for Ask AI (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3319\">#3319</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/cad622e541bdd38d552224f621f7ec1f5a257e25\"><code>cad622e</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3318\">#3318</a> from smakosh/feat/llmgateway-ai-provider</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/ee98724b9a13df85331016f1f7079e4e41d82e40\"><code>ee98724</code></a> fix(openapi): newer scalar client</li>\n<li>Additional commits viewable in <a href=\"https://github.com/fuma-nama/fumadocs/compare/fumadocs-ui@16.8.11...fumadocs-ui@16.9.3\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

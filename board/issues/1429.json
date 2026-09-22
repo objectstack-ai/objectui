@@ -1,0 +1,30 @@
+{
+  "number": 1429,
+  "kind": "pull_request",
+  "title": "feat(app-shell): repoint Console bell to sys_inbox_message + receipts (ADR-0030)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T08:00:39Z",
+  "updated_at": "2026-06-01T08:27:21Z",
+  "closed_at": "2026-06-01T08:27:19Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T08:27:19Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1429",
+  "body": "## What\n\nThe notification bell read the legacy `sys_notification` object's `recipient_id` / `is_read` / `title` / `body` columns. ADR-0030 re-modeled `sys_notification` into the **L2 event** (topic/payload/severity/dedup_key/source — **no recipient, no read-state**), so the bell's `recipient_id` query returned nothing: every notification the new pipeline produced (`@mention`, assignment, `notify` flows, email/preference pipeline) was **invisible in the UI**. This is the user-facing half of the ADR-0030 cut-over.\n\nThe bell now reads the **L5 in-app materialization**:\n\n- **List** — `sys_inbox_message` filtered by `user_id` (the `mine` scope), 20 most-recent, `created_at desc`.\n- **Read-state** — joins `sys_notification_receipt` (filtered by `user_id` + `channel:'inbox'`). A message is unread until its event carries a `read`/`clicked`/`dismissed` receipt; the unread count drives the badge.\n- **Mark-read** — `UPDATE`s the existing `delivered` receipt to `read` (keyed `(notification_id, user_id, channel)`), inserting only as a fallback when no receipt exists. Replaces the old `sys_notification.is_read` write (and drops the `sys_notification` bulk path).\n- **Navigation** — follows the materialization's `action_url` (absolute URL, `/apps/...`, or app-relative `/{object}/{id}`), falling back to the legacy `source_object`/`source_id`.\n- **\"View all\"** — routes to `/apps/setup/sys_inbox_message?view=mine`.\n\nStale doc comments in `RecordDetailView` updated to describe the `emit()` single-ingress path.\n\n## Pairs with\n\nFramework PR `objectstack-ai/framework#1456` (synthesizes `action_url` from the event `source` so collaboration notifications stay deep-linkable). The cut-over works against the already-shipped ADR-0030 P0–P3 pipeline.\n\n## Verification (showcase Console, live)\n\nFresh sqlite backend, full messaging pipeline. Seeded one `sys_inbox_message` for the signed-in user + its `delivered` receipt (exactly what the inbox channel materializes):\n\n1. Bell badge showed **1** (was empty before — regression reproduced & fixed).\n2. Popover rendered the row (\"You were mentioned on Demo Task\", unread dot, relative time) with the 未读/全部 filter and \"view all\" footer.\n3. **Mark all read** → the existing `delivered` receipt flipped to `read` **in place** (same id, fresh `at`, **no duplicate** — unique index respected) and the badge cleared.\n\n`tsc --noEmit` clean on `@object-ui/app-shell`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

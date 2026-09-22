@@ -1,0 +1,32 @@
+{
+  "number": 1534,
+  "kind": "pull_request",
+  "title": "feat(adr-0034): retire sys_view/sys_report/sys_dashboard (#1519)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T14:51:21Z",
+  "updated_at": "2026-06-06T14:54:48Z",
+  "closed_at": "2026-06-06T14:51:39Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T14:51:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1534",
+  "body": "Closes the ADR-0034 rollout: runtime view/report/dashboard editing now persists **only** through the metadata **draft → publish → version** model. The bespoke per-type tables and the feature flag that fronted them are removed. System is pre-launch, so **no data migration** (per direction on #1516).\n\n## What changed\n\n**Seam (`runtime-metadata-persistence.ts`)** — dropped the `VITE_RUNTIME_EDIT_VIA_META` flag and every legacy branch. `persist`/`create`/`read`/`discard`/`publish` are thin wrappers over `MetadataClient`; ctx is just `{ metadataClient }`.\n\n**Chrome (`RuntimeDraftBar`)** — no longer flag-gated; renders whenever a draft exists.\n\n**ObjectView**\n- Saved views read **only** via the metadata overlay (`listViews`); dropped `find('sys_view')`.\n- Rename / delete / pin / set-default / reorder use `updateView`/`deleteView` only; dropped the `update/delete('sys_view')` fallbacks.\n- Save/create persist via the seam; deleted the `toSysViewPayload` / `fromSysViewRecord` shape adapters.\n\n**ReportView / DashboardView** — dropped the `adapter.update('sys_report'|'sys_dashboard', …)` fallback.\n\n## Verification (real showcase backend)\n- View list loads from metadata (no `sys_view`) ✅\n- Edit → draft → **Publish** records a version ✅\n- **Rename** persists to the overlay (`updateView`) ✅\n- No active `sys_*` reference remains in `app-shell` ✅\n\n## Checks\n- `pnpm turbo build --filter=@object-ui/app-shell` green\n- `vitest packages/app-shell/src/views` → **197 passing**\n- lint: 0 new errors (ObjectView's pre-existing `rules-of-hooks` count went 52 → 51)\n\n## Out of scope (separate framework-repo change)\nDropping the physical `sys_view` / `sys_report` / `sys_dashboard` **object schemas + auto CRUD endpoints** lives in the backend (`framework`) repo — the frontend no longer references them, so the tables are now dead and can be removed independently.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

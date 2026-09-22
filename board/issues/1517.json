@@ -1,0 +1,30 @@
+{
+  "number": 1517,
+  "kind": "issue",
+  "title": "ADR-0034: 视图创建路径(handleViewCreate)接入持久化 seam",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T09:33:28Z",
+  "updated_at": "2026-06-06T14:55:41Z",
+  "closed_at": "2026-06-06T14:55:41Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1517",
+  "body": "Part of **ADR-0034**(总览 #1516)。\n\n## ✅ 已开发(现状)\n- 持久化 seam 已落地(#1513),`persistRuntimeMetadata`/`publishRuntimeMetadata` 在 `packages/app-shell/src/views/runtime-metadata-persistence.ts`。\n- 视图**更新**路径已接入(#1514):`ObjectView.handleViewConfigSave` → `persistRuntimeMetadata('view', …)`,seam 的 `view` 分支 flag-off 走真实的 `dataSource.updateViewConfig(objectName, name, body)`。\n- 视图**创建**路径(`ObjectView.handleViewCreate`)**尚未接入**,仍是它自己的逻辑:优先 `dataSource.createView(objectName, spec)`(ADR-0005 overlay 路径),legacy 兜底 `dataSource.create('sys_view', toSysViewPayload(spec, objectName, {defaultColumns}))`,并含默认列推导 + kanban/gallery 子配置处理 + `createdId` 解析 + 自动激活新视图。\n\n## 🛠 本任务(后续开发)\n把 `handleViewCreate` 的持久化也收敛到 seam,新增\"创建\"语义:\n- 在 seam 增加创建路径(例如 `createRuntimeMetadata(type, name?, body, ctx)` 或给 `persistRuntimeMetadata` 加 `op:'create'`):\n  - flag-off:**逐字节复刻**现有 `handleViewCreate` 的写入(`createView` 优先、legacy `create('sys_view', toSysViewPayload(...))` 兜底)。`toSysViewPayload` 回调已在 `RuntimePersistCtx.toSysViewPayload` 预留。\n  - flag-on:`metadataClient.save(type, name, body, { mode:'draft' })`(创建即草稿)。\n- ObjectView 侧保留默认列推导 + kanban/gallery 处理 + 自动激活逻辑(这些是 UI 层,不进 seam);只把\"最终写入调用\"换成 seam。\n- 补单测:flag-off 创建走 createView/兜底;flag-on 走 save draft。\n\n## 🔍 待验证(真实环境,见 #1516 验证清单)\n- flag-off:新建视图行为与改造前一致(createView/兜底、默认列、kanban/gallery、自动激活)。\n- flag-on:新建 → 生成草稿(用户看不到)→ 发布后出现在视图切换器。\n\n## 验收\n- flag 默认关时新建视图**行为零变化**;build + `vitest packages/app-shell/src/views` 全绿;lint 干净。\n- 不删 `sys_*`、不做迁移。"
+}

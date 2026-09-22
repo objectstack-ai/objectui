@@ -1,0 +1,33 @@
+{
+  "number": 1457,
+  "kind": "pull_request",
+  "title": "chore(deps): bump date-fns from 4.3.0 to 4.4.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T00:33:48Z",
+  "updated_at": "2026-06-02T07:27:56Z",
+  "closed_at": "2026-06-02T07:24:39Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-02T07:24:39Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1457",
+  "body": "Bumps [date-fns](https://github.com/date-fns/date-fns) from 4.3.0 to 4.4.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/date-fns/date-fns/releases\">date-fns's releases</a>.</em></p>\n<blockquote>\n<h2>v4.4.0</h2>\n<p>This release revisits the approach to CDN usage and introduces a new package, <code>@date-fns/cdn</code> and deprecates the <code>date-fns</code> CDN scripts. It allowed reducing the zipped package size from <code>5.83 MB</code> down to <code>3.96 MB</code> without introducing any breaking changes.</p>\n<p>In <code>v5.0.0-alpha.0</code> where CDN scripts are completely removed from <code>date-fns</code> the change is more significant and brings the zipped package size down to <code>2.89 MB</code>.</p>\n<p>It is just the first step in optimizing the package size. Expect further size reduction in the future v4 and v5 versions.</p>\n<h3>Changed</h3>\n<ul>\n<li>\n<p><strong>DEPRECATED</strong>: The <code>date-fns</code> CDN scripts are now deprecated and will be removed in the next major release. Please switch to the new <code>@date-fns/cdn</code> package for CDN usage.</p>\n</li>\n<li>\n<p>Removed CDN source maps to reduce the package size. If you rely on them, please switch to the new <code>@date-fns/cdn</code> package that still includes them.</p>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/cd53d2538cfa318404eff7ade6449b49bf34562e\"><code>cd53d25</code></a> Promote to v4.4.0</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/d948ec151d395096de8a45fbcd9b1e79c26fda25\"><code>d948ec1</code></a> Preserve but deprecate CDN versions for v4, set up v5 with polyfills</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/ee65753cfc5d73cc9acd43aaa8012b3b233ddf32\"><code>ee65753</code></a> Add root <code>mise :format</code> task</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/9f5bdf5d5a944772aa9668c4fa6567d89ca01fa9\"><code>9f5bdf5</code></a> Add positional argument to <code>test/smoke.sh</code> script</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/651ead6faf331515814803faf457f5b9db7c9729\"><code>651ead6</code></a> Split CDN bundles into separate <code>@​date-fns/cdn</code> package</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/224c1a209967dad359a2c2adc9a5b0ef72e4fe7b\"><code>224c1a2</code></a> Deprecate type tests as attw hangs on date-fns package</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/7bb2842dac3d579f84b2de62f015335fb3ac734a\"><code>7bb2842</code></a> Switch <code>PACKAGE_OUTPUT_PATH</code> to <code>--dist</code> flag in the package build script</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/b6ad5acc5ab0b40777a2695ec074c2ffcd982763\"><code>b6ad5ac</code></a> Add flags to control package build script</li>\n<li><a href=\"https://github.com/date-fns/date-fns/commit/424a783de1fd974bcdbe907c9c5eb5154e9db29f\"><code>424a783</code></a> Fix docs release after moving to monorepo setup</li>\n<li>See full diff in <a href=\"https://github.com/date-fns/date-fns/compare/v4.3.0...v4.4.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

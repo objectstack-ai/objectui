@@ -1,0 +1,33 @@
+{
+  "number": 1632,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): normalize viewType 'list'/missing/unknown to the grid renderer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T04:42:20Z",
+  "updated_at": "2026-06-11T04:46:06Z",
+  "closed_at": "2026-06-11T04:42:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T04:42:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1632",
+  "body": "Fixes the red **\"Unknown component type\"** box on every AI-built list view (live on staging: `/apps/expense_tracking/expense/view/all_expenses`).\n\nAI-authored view metadata stores the view **kind** (`type: 'list'`) which hosts forward verbatim as `viewType` — it names a category, not a renderer. ListView's normalization only defaulted a *missing* viewType, so `'list'` (truthy) slipped through to the switch's `default:` branch, which returned a **typeless** schema → SchemaRenderer error box dumping the raw config at the user.\n\n- normalization now maps `'list'` → `'grid'` (single normalization point);\n- the switch `default` shares the grid branch — an unrecognized viewType degrades to a working table, never a typeless schema.\n\nplugin-list **122** green (3 new: 'list' / missing / unknown all render without the red box — the first two land on the friendly empty state with no data, the third proves the default branch emits a typed grid schema).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

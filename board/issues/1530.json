@@ -1,0 +1,32 @@
+{
+  "number": 1530,
+  "kind": "pull_request",
+  "title": "feat(form): subforms in DrawerForm + full-page record form (Tier 0 everywhere)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T12:30:02Z",
+  "updated_at": "2026-06-06T12:33:15Z",
+  "closed_at": "2026-06-06T12:30:21Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T12:30:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1530",
+  "body": "## Summary\n\nCompletes config-driven master-detail across **all** standard create/edit entry points (the modal landed in #1529; this finishes the drawer + full-page paths):\n\n- **`DrawerForm`** hosts `MasterDetailForm` inside the drawer when the schema declares `subforms` (it owns its Save bar; closes + refreshes on success). `DrawerFormSchema` gains `subforms`.\n- **`RecordFormPage`** (full-page New/Edit) sources `subforms` from the object's form view, so the full-page form renders inline child collections too.\n- **`ObjectForm`**'s subforms shortcut now defers to the drawer/modal variants for those `formType`s (so they keep their envelope), rendering the master-detail form directly only for inline/simple forms.\n\nNet result: declaring `formViews.default.subforms: [{ childObject }]` yields a master-detail experience in the **modal, drawer, and full-page** form — no bespoke page anywhere, regardless of the object's navigation mode.\n\n## Testing\n\n- `plugin-form` 77 unit tests pass; `plugin-form` + `app-shell` build clean.\n- **Live e2e 3/3** (`form-view-subforms` + `master-detail`) after the change — no regression; the New Project modal still renders the inline Tasks subtable and posts one atomic `/api/v1/batch`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 1594,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/client from 7.9.0 to 8.0.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "data-adapter",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-08T08:12:58Z",
+  "updated_at": "2026-06-11T12:35:25Z",
+  "closed_at": "2026-06-11T12:35:23Z",
+  "closed_by": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1594",
+  "body": "Bumps [@objectstack/client](https://github.com/objectstack-ai/framework/tree/HEAD/packages/client) from 7.9.0 to 8.0.1.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/framework/releases\">@​objectstack/client's releases</a>.</em></p>\n<blockquote>\n<h2><code>@​objectstack/client</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</li>\n<li><code>@​objectstack/core</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</li>\n</ul>\n<h2><code>@​objectstack/client-react</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</li>\n<li><code>@​objectstack/core</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</li>\n<li><code>@​objectstack/client</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/framework/blob/main/packages/client/CHANGELOG.md\">@​objectstack/client's changelog</a>.</em></p>\n<blockquote>\n<h2>8.0.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</li>\n<li><code>@​objectstack/core</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.1</li>\n</ul>\n<h2>8.0.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [a46c017]</li>\n<li>Updated dependencies [b990b89]</li>\n<li>Updated dependencies [99111ec]</li>\n<li>Updated dependencies [d5a8161]</li>\n<li>Updated dependencies [5cf1f1b]</li>\n<li>Updated dependencies [9ef89d4]</li>\n<li>Updated dependencies [3306d2f]</li>\n<li>Updated dependencies [c262301]</li>\n<li>Updated dependencies [bc44195]</li>\n<li>Updated dependencies [9e2e229]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.0</li>\n<li><code>@​objectstack/core</code><a href=\"https://github.com/8\"><code>@​8</code></a>.0.0</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/7240aa5eb9d593733965726eae365bd16abf84ef\"><code>7240aa5</code></a> chore: version packages (<a href=\"https://github.com/objectstack-ai/framework/tree/HEAD/packages/client/issues/1661\">#1661</a>)</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/890d112f0c0f0439cb01340f602b3b574dc78149\"><code>890d112</code></a> chore: version packages (<a href=\"https://github.com/objectstack-ai/framework/tree/HEAD/packages/client/issues/1652\">#1652</a>)</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/6f8eeea685439ff882c7302b9b5fa09ce2951a2a\"><code>6f8eeea</code></a> Merge perf/approvals-multi-approverid: multi-approverId in one listRequests call</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/bcd6f687279508bc411a08a69af9529a9a3baf04\"><code>bcd6f68</code></a> perf(approvals): accept multiple approverIds in one listRequests call</li>\n<li>See full diff in <a href=\"https://github.com/objectstack-ai/framework/commits/@objectstack/client@8.0.1/packages/client\">compare view</a></li>\n</ul>\n</details>\n<br />"
+}

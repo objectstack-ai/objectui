@@ -1,0 +1,30 @@
+{
+  "number": 1614,
+  "kind": "pull_request",
+  "title": "feat(app-shell): pass auto-publish posture to the agent for consistent narration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T02:32:16Z",
+  "updated_at": "2026-06-10T02:35:49Z",
+  "closed_at": "2026-06-10T02:32:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T02:32:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1614",
+  "body": "## What\nForward `features.autoPublishAiBuilds` in the chat context so the agent's prose matches reality — when builds auto-publish, it says the app is live instead of \"publish it to make it live\". Consumed by [framework service-ai](https://github.com/objectstack-ai/framework)'s `buildSystemMessages`. Both chat surfaces (AiChatPage + ConsoleFloatingChatbot).\n\nOptional polish on top of [#1613](https://github.com/objectstack-ai/objectui/pull/1613) (auto-publish magic moment). typecheck clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

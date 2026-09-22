@@ -1,0 +1,32 @@
+{
+  "number": 1580,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): curated forms graft server-only fields (skew root-cure, last piece)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T14:38:55Z",
+  "updated_at": "2026-06-07T14:42:27Z",
+  "closed_at": "2026-06-07T14:39:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T14:39:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1580",
+  "body": "Completes the cross-repo spec-skew root-cure. The curated home inspectors (report/dashboard/view) derive their form from the **bundled** `@objectstack/spec`; when the server adds fields (e.g. a report's `dataset`/`rows`/`values`) before objectui bumps the bundled spec, those fields existed in the live server schema but were only editable via the raw *source* tab.\n\n`clientValidation` already stopped the bundled spec from being **stricter** than the server (no false 'required' banners). This is the symmetric other half: let the bundled-derived **form** be a **superset** by grafting server-only top-level properties in.\n\n## What\n- new `mergeServerFields()` — additive, lag-tolerant: grafts server-only props into **both** `schema.properties` **and** the form (trailing *More fields* section, since SchemaForm renders only form-declared fields). No-op offline / when nothing's new / once the bundle catches up — no per-field shim to remove.\n- thread `serverSchema` (`entry.schema`) through `MetadataDefaultInspectorProps` from `ResourceEditPage` into the report/dashboard/view default inspectors.\n- report surfaces `dataset`/`rows`/`values`/`runtimeFilter` directly; dashboard + view use the same generic path.\n- i18n `engine.inspector.moreFields` (en + zh-CN).\n\n## Tests\n- `mergeServerFields.test.ts` (7): graft, exclude-curated, no-op paths, bundle-catch-up, flat-render, already-declared.\n- existing inspector + schema suites green (69).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

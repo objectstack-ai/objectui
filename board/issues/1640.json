@@ -1,0 +1,30 @@
+{
+  "number": 1640,
+  "kind": "pull_request",
+  "title": "chore: bump .objectui-sha — ADR-0037 Live Canvas P1+P2 (objectui#1639)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T10:29:44Z",
+  "updated_at": "2026-06-11T10:30:07Z",
+  "closed_at": "2026-06-11T10:30:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1640",
+  "body": "Activates [objectui#1639](https://github.com/objectstack-ai/objectui/pull/1639) on cloud deployments: draft preview mode (`?preview=draft` + watermark bar with one-click exit/publish) and the split-view Live Canvas (chat left, drafted app rendering live right, growing artifact-by-artifact during builds).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

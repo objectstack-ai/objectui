@@ -1,0 +1,30 @@
+{
+  "number": 1410,
+  "kind": "pull_request",
+  "title": "feat(home): content-first Linear-style home (drop ambient color wash)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-05-29T08:43:51Z",
+  "updated_at": "2026-05-29T09:09:29Z",
+  "closed_at": "2026-05-29T09:09:25Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-05-29T09:09:25Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1410",
+  "body": "## Summary\nRedesigns the console **Home** page toward the current cutting-edge **product-interior** style (Linear / Vercel console / Stripe dashboard): a clean, neutral, content-first canvas where hierarchy comes from **typography, spacing, and hairline borders + micro-shadows** — not ambient color.\n\nAmbient color glows are a marketing-landing-page device; inside a dense app surface they compete with content and read as generic. So the home surface now goes the other way.\n\n### Changes (`packages/app-shell/src/console/home/HomePage.tsx`)\n- **Removed the background glow entirely** — neutral `bg-background` canvas in both light and dark mode.\n- **Flattened the stat pills** — dropped the glassy `backdrop-blur`/transparency (which only made sense over a glow) for a solid card + 1px border + subtle shadow.\n- **Flattened the getting-started hint card** — removed its gradient overlay + blur.\n- **Single brand-color highlight** — neutralized the \"All Applications\" header chip and the hero eyebrow icon, leaving the **gradient display name** as the page's one intentional brand accent.\n\n> Note: this supersedes the earlier intermediate commit that added a single indigo→violet glow. A squash merge collapses it; the net result is the neutral redesign.\n\n### Also included (independent commit)\n`fix(studio): default object preview to Designer mode` — a self-contained Studio fix committed locally alongside this work: the object Preview tab defaults to the Designer view, with `FieldDesigner` degrading gracefully via `readOnly` when `onPatch` is absent.\n\n## Testing\n- Browser-verified in light and dark mode — clean neutral canvas, no muddy wash, no console errors."
+}

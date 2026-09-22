@@ -1,0 +1,33 @@
+{
+  "number": 1567,
+  "kind": "pull_request",
+  "title": "feat(master-detail): live Subtotal / Tax / Total stack",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T08:24:15Z",
+  "updated_at": "2026-06-07T08:29:15Z",
+  "closed_at": "2026-06-07T08:29:14Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T08:29:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1567",
+  "body": "## Why\n\nThe last P1 item for the line-item editor: the right-aligned **Subtotal / Tax / Total** block every invoicing tool shows, computed live during entry.\n\n## What\n\n`MasterDetailForm` renders a document totals stack under the line items when the parent form has a tax-rate field (`taxRateField`, default `tax_rate`):\n\n- **Subtotal** = Σ line amounts\n- **Tax** = Subtotal × header rate %\n- **Total** = Subtotal + Tax\n\nThe header rate is read **live** via scoped event delegation on the existing form host (`formHostRef`) — no coupling into `ObjectForm`/`FormSchema` internals. When the stack is shown, the per-grid footer total is subsumed. The stack only appears when the tax-rate field is present, so other master-detail forms (e.g. project + tasks) are unaffected.\n\n## Verification\n\n- Unit: `MasterDetailForm` tests pass.\n- Live e2e: New Invoice → pick Widget A, Qty 2, Tax Rate 10 → **Subtotal ¥59.98 / Tax (10%) ¥6.00 / Total ¥65.98**.\n- Browser-verified (Gadget X × 2 @ 99 + 10% → ¥217.80).\n\n> Pairs with framework#1640 (the `showcase_invoice.tax_rate` field). The live backend already serves it.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

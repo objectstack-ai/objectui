@@ -1,0 +1,33 @@
+{
+  "number": 1483,
+  "kind": "pull_request",
+  "title": "Refine Studio package scope navigation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-04T14:59:46Z",
+  "updated_at": "2026-06-04T15:04:38Z",
+  "closed_at": "2026-06-04T15:04:35Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-04T15:04:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1483",
+  "body": "## Summary\n- Treat Studio's selected package as the scoped home/metadata context and preserve/repair the package query across navigation.\n- Remove duplicate package-as-metadata and all-metadata sidebar concepts, flatten the root Overview sidebar group, and route package metadata URLs to package management.\n- Keep the sidebar trigger usable at tablet-width layouts and add regression coverage for manual expand.\n\n## Verification\n- pnpm --filter @object-ui/app-shell type-check\n- pnpm --filter @object-ui/i18n type-check\n- pnpm --filter @object-ui/app-shell test\n- pnpm --filter @object-ui/console build\n- Browser smoke: Studio home at 970px preserves 报销管理, hides Overview/全部元数据类型, opens 软件包管理 with package query, redirects /metadata/package, and expands sidebar from 48px to 256px after clicking the top trigger."
+}

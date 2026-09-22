@@ -1,0 +1,35 @@
+{
+  "number": 1679,
+  "kind": "pull_request",
+  "title": "feat(plugin-markdown): ADR-0046 — heading anchors, code highlighting, GitHub alerts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "plugin",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T17:02:10Z",
+  "updated_at": "2026-06-12T17:09:59Z",
+  "closed_at": "2026-06-12T17:09:57Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T17:09:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1679",
+  "body": "## Summary\n\nMarkdown **grammar v1.1** for the shared `@object-ui/plugin-markdown` renderer (used by docs + AI chat), implementing the agreed Tier 1 + Tier 2 enrichments from the ADR-0046 follow-up discussion. All three run **behind the existing `rehype-sanitize` gate**, which stays last in the chain as the final XSS boundary.\n\n- **Heading anchors** (`rehype-slug` + `rehype-autolink-headings`) — headings get slug ids so intra-doc `#section` links resolve. This fixes a latent correctness gap: ADR-0046's own cross-reference design (`./doc.md#section`) had no anchor target at render time. `clobberPrefix: ''` keeps ids verbatim so author-written `#section` matches.\n- **Code highlighting** (`rehype-highlight`) — fenced code blocks get highlight.js token classes; colors are theme-aware (light/dark) via an injected stylesheet built on the console's shadcn CSS variables. The audience for plugin/driver docs is developers, so this is the highest-value addition.\n- **GitHub-style alerts** (`remark-github-blockquote-alert`) — `> [!NOTE]` / `[!TIP]` / `[!IMPORTANT]` / `[!WARNING]` / `[!CAUTION]` render as styled callouts. The syntax is valid CommonMark, so it **also renders natively in GitHub previews** (matching the ADR's \"links just work on GitHub\" philosophy) and degrades to a plain blockquote in any older renderer — **no CLI-lint coordination needed**.\n\n### Why no lint change (correction to earlier framing)\nThe `> [!NOTE]` GFM-alert syntax is already a valid CommonMark blockquote, so the framework `os build` lint already accepts it and there is no broken-state risk. The lockstep concern only applies to `:::`-directive admonitions, which we did **not** choose. This PR is therefore renderer-only.\n\n### Security posture (unchanged)\nThe sanitize schema is widened only for **inert** surfaces: `className`/`id` on `*`, `span`/`div` tags, and the autolink `<a>`. Class names and ids cannot execute code; `script` / `style` / event handlers / `javascript:` href / `iframe`/`object`/`embed` stay blocked. The alert icon **SVG is stripped** (svg is not whitelisted) — callout icons are CSS pseudo-elements, so there is **zero SVG surface** in the schema. A `class → className` canonicalization step runs before sanitize so the alert plugin's raw `class` attribute survives the whitelist.\n\n### Deferred (Tier 3)\nMermaid and KaTeX are intentionally **not** included — per the discussion, Mermaid's real demand is served by ADR-0046 §3.5 live metadata rendering (flows/state-machines are metadata, not hand-drawn), and KaTeX has near-zero demand in business-app docs.\n\n## Test plan\n- [x] 10 new SSR render + security-regression cases (`markdown-render.test.tsx`): slug ids, verbatim anchors, highlight token classes surviving sanitize, alert callouts, GFM tables/tasks; and guards that `<script>`, `javascript:`, `onerror`, and the alert `<svg>` are all stripped\n- [x] Existing registry tests still pass (15 total)\n- [x] `vite build` (incl. dts) succeeds\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

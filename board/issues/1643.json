@@ -1,0 +1,32 @@
+{
+  "number": 1643,
+  "kind": "pull_request",
+  "title": "feat(console): business-first Approvals Inbox revamp",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T13:34:02Z",
+  "updated_at": "2026-06-11T13:37:44Z",
+  "closed_at": "2026-06-11T13:34:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T13:34:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1643",
+  "body": "## Summary\n\nCompanion to objectstack-ai/framework#1728. Rebuilds the Approvals Inbox from a developer debug view into a business workbench. Full e2e review + redesign rationale: tested against the showcase app (approve / reject / recall / multi-step chain / bulk / keyboard / mobile all verified in-browser).\n\n**P0 fixes**\n- Role-addressed approvals never reached \"My Pending\": `buildApproverIdentities` only read a `roles` array, but better-auth sessions carry a single `role` string (possibly comma-separated). Both shapes resolve now.\n- Pending resolves every identity in ONE comma-separated `approverId` request (the server already supported it).\n- The tab badge is a dedicated my-pending count — it previously counted the *active tab's* rows, so it showed the global pending count while browsing \"All\".\n- Disabled Approve/Reject now always explain why (the explanation used to vanish whenever Recall was available); bulk approve gets a confirmation dialog; API errors toast as business language instead of `HTTP_404: Not found`.\n\n**P1 — information architecture**\n- Rows lead with flow display label + record-title link + requester name (server-enriched), semantic status colors, relative times with aging tints.\n- Drawer: business summary card (record link, requester, formatted key payload fields), action timeline, raw JSON collapsed by default, actor override admin-only.\n- Search covers record titles / requester names / process labels (\"Compliance Audit\" went 0 → 3 hits); status filter added on non-pending tabs.\n- Full i18n: `approvalsInbox.*` keys in all ten locales (locale-parity test green).\n\n**P2 — efficiency**\n- Hover quick approve/reject per row (reject confirms), `j/k/Enter/x/a/r` keyboard flow with a hint line, card layout on mobile (the table used to truncate to 2 columns at 375px).\n\n## Test plan\n\n- `@object-ui/i18n`: 100/100 (incl. locale-parity) ✅\n- console suite: 3598 passed / 24 skipped ✅\n- `tsc --noEmit` clean on console + i18n ✅\n- In-browser e2e against showcase (3700/5790): my-pending badge math, drawer approve with comment, inline reject confirm, recall confirm → `recalled` + timeline entry, bulk approve confirm → 2 approved, keyboard a/r, mobile cards, zero console errors ✅\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

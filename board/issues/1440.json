@@ -1,0 +1,32 @@
+{
+  "number": 1440,
+  "kind": "pull_request",
+  "title": "fix(react): repoint useClientNotifications to ADR-0030 client surface",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: react"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T18:23:06Z",
+  "updated_at": "2026-06-01T18:26:43Z",
+  "closed_at": "2026-06-01T18:23:44Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T18:23:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1440",
+  "body": "## What & why\n\nCross-repo cut-over for [framework ADR-0030 — Notification Convergence](../../framework/docs/handoff/adr-0030-notification-convergence.md). The objectui-side bell repoint (`sys_notification` → `sys_inbox_message` + `sys_notification_receipt`) and the receipt-upsert mark-read path already landed in #1429. This PR closes the remaining objectui item: the **SDK consumer**.\n\n`useClientNotifications` (the only objectui surface that touches `client.notifications.*`) called the SDK with signatures that no longer exist on `@objectstack/client@7.x`, so it would throw at runtime:\n\n- `registerDevice(token, platform)` → SDK takes a single `RegisterDeviceRequest` object → now `registerDevice({ token, platform })`.\n- `markAsRead(id)` → no single-id method; SDK is `markRead(ids: string[])` → now `markRead([id])` (kept the friendly single-id hook API).\n\nThese helpers are the stable transport contract; server-side ADR-0030 routes them to the L5 `sys_inbox_message` materialization and the `sys_notification_receipt` read-state spine.\n\n## Cut-over runbook (in the changeset)\n\nobjectui is frontend-only and cannot run the server-side data migration. The new changeset records the operational order so whoever deploys runs it:\n\n1. Deploy framework ADR-0030 (objects + `emit()` + producers).\n2. Run **`migrateSysNotificationToEvent({ driver, data })`** once (from `@objectstack/metadata/migrations`; idempotent, `not_applicable` on fresh installs) — server/data-engine step, not a Console step.\n3. Deploy the objectui repoint (this PR + the #1429 bell cut-over).\n\n## Verification\n\n- `tsc --noEmit` + eslint clean on the changed package (remaining lint warnings are pre-existing in untouched lines).\n- **Browser end-to-end** against a live ADR-0030 backend (showcase Console): seeded a `sys_inbox_message` + a `delivered` `sys_notification_receipt` for a test user →\n  - bell badge showed **1**, popover rendered the row;\n  - **Mark all read** flipped the *existing* receipt `delivered → read` in place (same row id, no duplicate) and cleared the badge to 0.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

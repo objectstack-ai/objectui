@@ -1,0 +1,32 @@
+{
+  "number": 1460,
+  "kind": "pull_request",
+  "title": "feat(studio): designer ↔ global-chat context + Ask AI entry point (P1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T01:17:14Z",
+  "updated_at": "2026-06-02T01:20:34Z",
+  "closed_at": "2026-06-02T01:17:27Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-02T01:17:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1460",
+  "body": "## Summary\nP1 of \"centralize AI metadata gen/mod in the global chat.\" Instead of forking a bespoke \"generate\" UI into each designer, this **connects the designers to the existing global chat** (which already binds Studio to the `metadata_assistant` agent with real metadata tools).\n\n- **`assistantBus`** (new singleton in app-shell): a designer publishes *what's being edited* (`{type, name, label, fields}`) and can *request the chat to open*. It crosses the lazy-FAB boundary without Provider plumbing; components read it via `useSyncExternalStore`.\n- **`ResourceEditPage`** publishes a light editor context (objects include a field summary; the agent can `describe_object` for full detail).\n- **`ConsoleFloatingChatbot`** merges that context into the agent `context` body (the chat transport rebuilds on body change, so the next turn carries it) — \"add a priority field\" now acts on the open object. Starter suggestions become **item-specific** when a designer is active.\n- **`ConsoleChatbotFab`** arms/opens the lazy chatbot on the open signal.\n- The object canvas gains **\"Ask AI\"** (toolbar) + **\"Generate fields with AI\"** (empty state) buttons that open the chat. All localized (en-US / zh-CN).\n\n## Why this shape (from the architecture eval)\nThe AI \"brain\" is already centralized (one agent + tools + global chat). This PR adds the **thin connective tissue** (context + entry point) so the chat actually serves the designers — no duplicated AI logic. It's **frontend-only**.\n\n## Out of scope (P2/P3)\n- **P2 — review-gated apply:** route AI changes through the designer **draft** so they surface in the **review/diff mode** (#1456) for confirm/publish. Needs a small framework-side \"write-to-draft / propose\" change (today the metadata tools persist immediately).\n- **P3 — more types + server approval gate.**\n\n## Tests\n+5 `assistantBus` (editor channel, open channel, snapshot stability, unsubscribe), +3 canvas Ask-AI (footer + empty-state open the bus, hidden when read-only). app-shell metadata/assistant/layout suites green (**128**); `tsc` clean; no new lint errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

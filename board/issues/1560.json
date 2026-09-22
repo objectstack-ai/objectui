@@ -1,0 +1,33 @@
+{
+  "number": 1560,
+  "kind": "pull_request",
+  "title": "feat(master-detail): inlineEdit mode (grid | form) + smart default",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T05:44:59Z",
+  "updated_at": "2026-06-07T05:48:31Z",
+  "closed_at": "2026-06-07T05:45:20Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T05:45:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1560",
+  "body": "## Summary\nRenders the inline child collection as an **editable grid** OR a **read-only list whose Add / per-row edit opens the child's full form** — chosen per relationship, with a smart default by child shape. The mainstream hybrid: thin children (invoice/order lines) → grid; fat children (rich types, many fields) → per-row form.\n\n## Changes\n- **deriveMasterDetail**: `resolveInlineMode(childSchema, inlineEdit)` → `'grid'|'form'` (explicit wins; else smart default — rich/form-only types or >8 business fields → form). `deriveDetail` returns `mode`; exported from plugin-form.\n- **MetadataProvider.attachInlineSubforms**: resolves + passes `inlineMode` per inline relationship.\n- **GridField**: `displayMode: 'grid' | 'list'` + `onAdd`. List mode = read-only rows (select → label, currency formatted, lookup → name) + per-row edit/delete; Add calls `onAdd`.\n- **MasterDetailForm**: form-mode details render the list; Add appends a row and opens it in the full inline editor; cancelling a freshly-added row discards it.\n\n## Verification\n- Live e2e **10/10** (showcase pins tasks to grid).\n- Form mode + smart default **browser-verified** (fat task child auto-renders the form-mode list: read-only rows + \"Add\" opens the full form) and unit-tested.\n- Unit: resolveInlineMode + deriveFormFields (plugin-form **93**), GridField incl. list mode (fields), app-shell **336**.\n\nPairs with framework#1636 (spec widen + showcase + docs).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

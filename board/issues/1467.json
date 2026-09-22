@@ -1,0 +1,30 @@
+{
+  "number": 1467,
+  "kind": "pull_request",
+  "title": "fix(app-shell): drop noopener on opensInNewTab pre-open (double-navigation)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T14:38:33Z",
+  "updated_at": "2026-06-02T15:07:15Z",
+  "closed_at": "2026-06-02T15:07:12Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-02T15:07:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1467",
+  "body": "Browser-reproduced: clicking **Open environment** (sso_as_owner) opened the env in a new tab but ALSO navigated the current list/detail page to the single-use-consumed SSO URL → error page.\n\n**Root cause**: the popup-safe pre-open used `window.open('about:blank','_blank','noopener,noreferrer')`. Per spec, `noopener` makes window.open return **null** even when the tab opens → `preOpenedTab` null → falls through to the popup branch → that open also returns null → `if(!popup) window.location.href = redirectUrl` navigates the **current** tab.\n\n**Fix**: pre-open (and popup-detection open) **without** `noopener` so we get a usable handle and drive that one tab; the current tab is never navigated. Safe — these tabs only load our own cloud→env SSO URL. Fixes both RecordDetailView (record_header) and ObjectView (list_item) paths.\n\nVerified: `@object-ui/app-shell` tsc/build clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

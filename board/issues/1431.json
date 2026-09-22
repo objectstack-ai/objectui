@@ -1,0 +1,32 @@
+{
+  "number": 1431,
+  "kind": "pull_request",
+  "title": "fix(fields,dashboard): fill renderer registry gaps for field & chart types",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T12:00:02Z",
+  "updated_at": "2026-06-01T12:03:45Z",
+  "closed_at": "2026-06-01T12:00:37Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-01T12:00:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1431",
+  "body": "## Problem\nThe Console silently fell back to a plain `<input type=text>` for ~25 field types, and showed a raw red **\"Unknown component type\"** JSON dump for most dashboard chart families — even though the server metadata carried the correct `type`. Surfaced while exercising the `example-showcase` Field Zoo + Chart Gallery.\n\n## Fix\n**Fields** (`packages/fields/src/index.tsx`)\n- `mapFieldTypeToFormType`: route toggle, secret, richtext, multiselect, radio, checkboxes, tags, tree, video, audio, composite, record, repeater, progress, color, slider, rating, code, json, avatar, address, geolocation, signature, qrcode, vector, object to their (already-registered) `field:*` widgets instead of defaulting to `field:text`.\n- New widgets: `MultiSelectField`, `RadioField`, `CheckboxesField`, `TagsField` (none existed) + registered via `fieldWidgetMap`.\n- `getCellRenderer`: read/detail renderers for the above. **`toggle` now renders as a boolean (was \"0.0\").** New `JsonCellRenderer` / `ColorSwatchCellRenderer`.\n\n**Dashboard** (`packages/plugin-dashboard/src/DashboardRenderer.tsx`)\n- Normalize chart families onto supported base renderers (`column→bar`, `spline→line`, `pyramid→funnel`, `bubble→scatter`, …) and admit `radar`.\n- `kpi`/`bullet`/`gauge`/`solid-gauge` → metric cards.\n- Families with no Recharts renderer (heatmap, treemap, sunburst, sankey, candlestick, …) → clean labelled placeholder instead of a raw error box.\n\n## Verification\nBuilt `@object-ui/console`, ran against `example-showcase`:\n- Field Zoo form: all 46 fields render correct widgets; toggle detail no longer \"0.0\".\n- Chart Gallery: `Unknown component type` count 23 → **0**; charts render, 13 unsupported families show clean placeholders.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

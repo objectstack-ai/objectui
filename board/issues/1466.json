@@ -1,0 +1,33 @@
+{
+  "number": 1466,
+  "kind": "pull_request",
+  "title": "feat(studio): ADR-0033 Phase B — draft review surface (chat → designer → generic diff)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-02T11:04:00Z",
+  "updated_at": "2026-06-02T11:42:39Z",
+  "closed_at": "2026-06-02T11:42:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-02T11:42:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1466",
+  "body": "## What & why\n\nImplements **Phase B** of ADR-0033 (AI-assisted metadata authoring) in Studio. The framework side (Phases A + C, merged in `objectstack-ai/framework` [#1529](https://github.com/objectstack-ai/framework/pull/1529) / [#1537](https://github.com/objectstack-ai/framework/pull/1537)) makes the assistant stage every change as a **draft** — nothing goes live until a human publishes. Until now Studio gave the human no path *from the chat to the review*: a tool returned `{status:'drafted', …}` as raw JSON, and non-object types had no draft-vs-published diff at all. This PR closes the loop.\n\n## Three pieces (one cohesive flow)\n\n1. **Chat surfaces \"Review N change(s)\"** — `mapMessages` detects the framework's draft envelopes (single `{status:'drafted', type, name}` and `apply_blueprint`'s `{drafted:[{type,name}]}` batch; the Vercel `{type:'text',value}` wrapper is peeled) and lifts the targets onto `ChatToolInvocation.draftReview`. `ChatbotEnhanced` renders a review button (new `onReviewDraft` prop). Mirrors the existing HITL approve-button path. `blueprint_proposed` is intentionally not surfaced (no draft yet).\n2. **Click → open the designer in review** — `assistantBus` gains a review channel; `ConsoleFloatingChatbot` wires the button to it; a navigator in `AppContent` (which knows the app base) routes to `/apps/:appName/metadata/:type/:name?review=1`. `ResourceEditPage` honours `?review=1` by force-reloading the pending draft (covers the case where the AI drafted the item *after* the page mounted) and opening the review/diff.\n3. **Generic structural diff for all types** — new `DraftReviewPanel` computes a draft↔last-published diff (added / changed / removed by key) reusing `LayeredDiff`'s `computeDiffRows`. Surfaced as a toolbar affordance + sheet whenever a draft exists, so **view / dashboard / flow** finally get a real review. The object designer keeps its richer per-field review.\n\n## Verification\n\n- **Type-check**: `@object-ui/plugin-chatbot` + `@object-ui/app-shell` clean.\n- **Unit**: new `mapMessages` draft-detection tests (single / batch / wrapper / negative cases) — plugin-chatbot **35** green. New `DraftReviewPanel` + `computeDraftChangeCount` tests; app-shell metadata-admin **135** green.\n- **Lint**: no new errors in changed files (pre-existing warnings/errors untouched).\n- Browser end-to-end (chat → review → publish) is the remaining manual check; the logic is unit-covered.\n\n## Scope\n\nPhase B only. Flow's graph-aware review stays deferred (the generic structural diff still *shows* a flow change). Nothing here publishes — the human still clicks Publish.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1524,
+  "kind": "pull_request",
+  "title": "test(e2e): live specs for Studio page editor + action modals",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T10:48:33Z",
+  "updated_at": "2026-06-06T10:48:42Z",
+  "closed_at": "2026-06-06T10:48:41Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T10:48:40Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1524",
+  "body": "## Summary\n\nExtends the live Playwright harness (real backend :3000 + console :5180) to two more SDUI surfaces, turning it into a broader regression net:\n\n- **`studio-editor.spec.ts`** — the Studio metadata **page editor** (`/apps/:app/metadata/page/:name`) loads with its config sections (Basics / Layout / …) and **\"Add block\"** opens a block-type **picker** offering configurable block kinds (Card / Section / Record details / Tabs / …). Directly guards the \"add block works and each block is configurable\" contract.\n- **`action-modal.spec.ts`** — a row **Edit** action opens its modal envelope (Dialog titled \"Edit Task\" + `modal-form-footer`) and closes cleanly on Escape. Guards the action-modal transport wiring.\n\n## Testing\n\n- `pnpm test:e2e:live` → studio-editor (2) + action-modal (1), green across 2 repeats against the live stack.\n- Excluded from the mocked CI run by the default config's `testIgnore: ['**/live/**']` (added in #1523).\n\nBuilds on the harness from #1521 (config + auth global-setup + Radix/lookup/grid helpers).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

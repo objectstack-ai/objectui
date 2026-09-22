@@ -1,0 +1,33 @@
+{
+  "number": 1523,
+  "kind": "pull_request",
+  "title": "test(e2e): live summary-rollup spec + exclude live specs from default config",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T10:41:14Z",
+  "updated_at": "2026-06-06T10:41:29Z",
+  "closed_at": "2026-06-06T10:41:28Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T10:41:28Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1523",
+  "body": "## Summary\n\n- Adds **`e2e/live/summary-rollup.spec.ts`** — verifies the new server-side roll-up `summary` fields (framework PR #1610) end-to-end against the **real SQL driver** via `/api/v1/batch`: `showcase_project.total_estimate` (SUM) + `task_count` (COUNT) computed on atomic create, and recomputed to `0` when the child is deleted. **2 passing** against the live stack.\n- Adds `testIgnore: ['**/live/**']` to the **default** `playwright.config.ts` so the mocked CI run (vite preview on :4173, no backend) skips the live specs. Live specs need the real stack (backend :3000 + console :5180) and the live config's auth global-setup; run them with `pnpm test:e2e:live`. This also retroactively keeps the master-detail live spec (added in #1521) out of the CI run.\n\n## Testing\n\n- `pnpm test:e2e:live` → master-detail (2) + summary-rollup (2) all green against the live stack.\n- `npx playwright test --list` (default) confirms live specs are excluded; smoke/console specs unaffected.\n\nPairs with framework PR #1610 (server-side summary computation).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

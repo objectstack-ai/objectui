@@ -1,0 +1,32 @@
+{
+  "number": 1489,
+  "kind": "pull_request",
+  "title": "feat(fields): lookup cells in line-item grids",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T01:33:41Z",
+  "updated_at": "2026-06-06T01:36:58Z",
+  "closed_at": "2026-06-06T01:33:47Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T01:33:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1489",
+  "body": "Line-item grids (`LineItemsField`) now support `type: 'lookup'` columns: each cell renders the existing `LookupField` picker (search + record picker), resolves the display label, and stores the foreign-key id. Read-only mode shows the resolved label. So master-detail line grids can reference other objects (category, account, assignee…) instead of plain selects.\n\nVerified end-to-end at `/dev/lookup` against live `showcase_account` (picked Contoso → row stores the account id, cell shows the label). Unit tests unchanged (8 pass, no regression).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

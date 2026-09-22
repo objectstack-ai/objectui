@@ -1,0 +1,33 @@
+{
+  "number": 1686,
+  "kind": "pull_request",
+  "title": "feat(ADR-0046): package documentation portal + nav entry",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T04:40:44Z",
+  "updated_at": "2026-06-13T04:52:06Z",
+  "closed_at": "2026-06-13T04:52:04Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T04:52:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1686",
+  "body": "## Why\n\nThe `/docs/:name` viewer (`DocPage`) already shipped, but there was **no way in** — no index page and no navigation entry — so a doc was reachable only by typing its exact URL. That is why docs were invisible in the console / showcase.\n\n## Changes\n\n- **`DocsIndex` (`/docs`)** — a platform-level portal that lists every installed `doc` metadata item, grouped by package namespace, each linking to the existing viewer. Fetches via `meta.getItems('doc')`; loading / empty / error states mirror `DocPage`.\n- **`groupDocsByPackage`** — pure, unit-tested grouping helper (6 tests).\n- **`UnifiedSidebar`** — a \"Documentation\" entry in the base home/system nav, **visible to all users** (placed in the always-shown `items` array, not the workspace-admin-gated cluster).\n- **`App.tsx`** — registers the top-level `/docs` route alongside `/docs/:name`. Both are **app-independent** (reachable with no active app), keeping the doc URL single-coordinate per ADR-0046.\n\n## Design (per ADR-0046)\n\nViewer is **platform-level** — one global `/docs/<name>`, no package/app prefix. The portal is the canonical discovery surface. Per-app deep-links remain **opt-in** `url` nav items pointing at the same global URL.\n\n## Verification\n\n- `/docs` renders live (heading \"Documentation\"); empty-state correct; the `{type, items:[{name,label}]}` shape it consumes matches the backend.\n- Backend serving of `doc` metadata is fixed separately in framework (objectstack-ai/framework#1808). With that, the portal lists `showcase_index` + `showcase_docs_guide`.\n- `doc-groups` unit tests: 6/6. Console + app-shell typecheck clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

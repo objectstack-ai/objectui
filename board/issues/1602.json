@@ -1,0 +1,33 @@
+{
+  "number": 1602,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @radix-ui/react-select from 2.2.6 to 2.3.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-08T08:20:06Z",
+  "updated_at": "2026-06-08T08:27:31Z",
+  "closed_at": "2026-06-08T08:24:15Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-08T08:24:15Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1602",
+  "body": "Bumps [@radix-ui/react-select](https://github.com/radix-ui/primitives/tree/HEAD/packages/react/select) from 2.2.6 to 2.3.0.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/radix-ui/primitives/blob/main/packages/react/select/CHANGELOG.md\">@​radix-ui/react-select's changelog</a>.</em></p>\n<blockquote>\n<h2>2.3.0</h2>\n<ul>\n<li>Added unstable <code>Provider</code> and <code>BubbleInput</code> parts to Select. <code>Select.unstable_Provider</code> sets up Select's context and state without implicitly rendering the hidden native <code>select</code>, and <code>Select.unstable_BubbleInput</code> exposes that previously internal native <code>select</code> so consumers can recompose it explicitly. <code>Select</code> continues to render both by default.</li>\n<li>Added support for presence-based exit animations in Select</li>\n<li>Fixed Select hidden input so it submits empty string when no value is selected</li>\n<li>Fixed placeholder rendering when a controlled Select is reset to an empty value</li>\n<li>Added missing <code>__selectScope</code> prop to <code>PopperContent</code> component</li>\n<li>Fixed <code>Select</code> closing unexpectedly after touch-scrolling its content when rendered inside an open shadow DOM</li>\n<li>Fixed a bug where iOS text selection and editing on HTML inputs within <code>react-dialog</code> were broken</li>\n<li>Fixed triggers referencing a non-existent element via <code>aria-controls</code> when their content is removed from the DOM (credit to <a href=\"https://github.com/dodomorandi\"><code>@​dodomorandi</code></a> for the <a href=\"https://redirect.github.com/radix-ui/primitives/pull/3243\">original PR</a>)</li>\n<li>Fixed <code>SelectValue</code> logging invalid prop errors when used with both <code>asChild</code> and a placeholder</li>\n<li>Added repository.directory to all package.json files</li>\n<li>Updated dependencies: <code>@radix-ui/react-presence@1.1.6</code>, <code>@radix-ui/react-popper@1.3.0</code>, <code>@radix-ui/react-slot@1.2.5</code>, <code>@radix-ui/react-focus-guards@1.1.4</code>, <code>@radix-ui/react-dismissable-layer@1.1.12</code>, <code>@radix-ui/react-collection@1.1.9</code>, <code>@radix-ui/react-direction@1.1.2</code>, <code>@radix-ui/number@1.1.2</code>, <code>@radix-ui/primitive@1.1.4</code>, <code>@radix-ui/react-compose-refs@1.1.3</code>, <code>@radix-ui/react-context@1.1.4</code>, <code>@radix-ui/react-focus-scope@1.1.9</code>, <code>@radix-ui/react-id@1.1.2</code>, <code>@radix-ui/react-portal@1.1.11</code>, <code>@radix-ui/react-primitive@2.1.5</code>, <code>@radix-ui/react-use-callback-ref@1.1.2</code>, <code>@radix-ui/react-use-controllable-state@1.2.3</code>, <code>@radix-ui/react-use-layout-effect@1.1.2</code>, <code>@radix-ui/react-use-previous@1.1.2</code>, <code>@radix-ui/react-visually-hidden@1.2.5</code></li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a href=\"https://github.com/radix-ui/primitives/commits/HEAD/packages/react/select\">compare view</a></li>\n</ul>\n</details>\n<details>\n<summary>Maintainer changes</summary>\n<p>This version was pushed to npm by <a href=\"https://www.npmjs.com/~GitHub%20Actions\">GitHub Actions</a>, a new releaser for <code>@​radix-ui/react-select</code> since your current version.</p>\n</details>\n<br />\n"
+}

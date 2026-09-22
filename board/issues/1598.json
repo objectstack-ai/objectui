@@ -1,0 +1,37 @@
+{
+  "number": 1598,
+  "kind": "pull_request",
+  "title": "chore(deps): bump lucide-react from 1.16.0 to 1.17.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "plugin",
+    "plugin: charts",
+    "plugin: kanban"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-08T08:16:26Z",
+  "updated_at": "2026-06-08T08:23:48Z",
+  "closed_at": "2026-06-08T08:20:39Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-08T08:20:39Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1598",
+  "body": "Bumps [lucide-react](https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react) from 1.16.0 to 1.17.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/lucide-icons/lucide/releases\">lucide-react's releases</a>.</em></p>\n<blockquote>\n<h2>Version 1.17.0</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>chore(lucide-vue-next|lucide-svelte|lucide-angular): Remove deprecated packages by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4376\">lucide-icons/lucide#4376</a></li>\n<li>chore(repo): Update issue templates and documentation for package ren… by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4379\">lucide-icons/lucide#4379</a></li>\n<li>feat(site): Adds survey overlay to website by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4380\">lucide-icons/lucide#4380</a></li>\n<li>feat(site): Certificate dev links by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4390\">lucide-icons/lucide#4390</a></li>\n<li>fix(icons): changed <code>martini</code> icon by <a href=\"https://github.com/jamiemlaw\"><code>@​jamiemlaw</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4335\">lucide-icons/lucide#4335</a></li>\n<li>chore(deps): bump brace-expansion from 1.1.11 to 5.0.6 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4386\">lucide-icons/lucide#4386</a></li>\n<li>chore(deps): bump <code>@​tootallnate/once</code> from 2.0.0 to 2.0.1 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4404\">lucide-icons/lucide#4404</a></li>\n<li>chore(deps): bump devalue from 5.8.0 to 5.8.1 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4391\">lucide-icons/lucide#4391</a></li>\n<li>chore(deps): bump ws from 8.18.0 to 8.20.1 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4392\">lucide-icons/lucide#4392</a></li>\n<li>fix(gh-icon): limit icon size to a maximum of 256 pixels by <a href=\"https://github.com/jguddas\"><code>@​jguddas</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4398\">lucide-icons/lucide#4398</a></li>\n<li>chore(dependencies): Update dependencies by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4377\">lucide-icons/lucide#4377</a></li>\n<li>feat(copilot): Adding copilot instructions by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4407\">lucide-icons/lucide#4407</a></li>\n<li>feat(icons): add <code>globe-check</code> by <a href=\"https://github.com/Barakudum\"><code>@​Barakudum</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4342\">lucide-icons/lucide#4342</a></li>\n<li>feat(metadata): Require use-cases in meta json by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4321\">lucide-icons/lucide#4321</a></li>\n<li>feat(icons): added <code>parasol</code> icon by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4347\">lucide-icons/lucide#4347</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/lucide-icons/lucide/compare/1.16.0...1.17.0\">https://github.com/lucide-icons/lucide/compare/1.16.0...1.17.0</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a href=\"https://github.com/lucide-icons/lucide/commits/1.17.0/packages/lucide-react\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

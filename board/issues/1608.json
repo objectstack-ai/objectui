@@ -1,0 +1,32 @@
+{
+  "number": 1608,
+  "kind": "pull_request",
+  "title": "feat(app-shell): give PageView a console action runtime (#1605)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-08T14:52:21Z",
+  "updated_at": "2026-06-08T14:56:15Z",
+  "closed_at": "2026-06-08T14:52:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-08T14:52:42Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1608",
+  "body": "Closes #1605 — [SDUI] Give PageView a console action runtime.\n\n## What\n\nRuntime pages rendered their schema straight through `SchemaRenderer` with no action runtime, so a page-level `action:button` could render but couldn't collect params, call authenticated APIs, show result dialogs, refresh, or navigate. This blocked metadata-driven app home pages (e.g. a Cloud \"Create environment\" primary action).\n\n## How\n\nExtract ObjectView's schema-action wiring into a reusable **`useConsoleActionRuntime`** hook (+ a **`ConsoleActionRuntimeProvider`** wrapper). The hook owns:\n\n- `ActionProvider` props: context, confirm / toast / navigate / param-collection / result-dialog handlers, and the registered `api` / `flow` / `script` / `modal` handlers;\n- the confirm / param / result dialogs + the paused screen-flow runner (returned as `dialogs`);\n- the authenticated API/flow/server-action handlers (Bearer + tenant + cookies);\n- a `refresh` callback so pages can invalidate embedded data after a successful action;\n- optional object context — pages run global (object-less) actions, ObjectView binds its current object.\n\n`ObjectView` now consumes the hook (behaviour unchanged — it also feeds the confirm/toast handlers into `useObjectActions`). `PageView` wraps its page schema in `ConsoleActionRuntimeProvider`.\n\n## Acceptance criteria\n\n- [x] PageView wraps page schemas in `ActionProvider` using the shared runtime.\n- [x] A page-level `action:button` with `actionType: 'api'` collects params and calls an authenticated endpoint.\n- [x] Page actions navigate the SPA / open external/new-tab URLs with the same semantics as ObjectView.\n- [x] Confirm / param / result dialogs and flow screen pauses work on pages.\n- [x] ObjectView keeps existing action behaviour after migration.\n- [x] Tests: PageView action execution + the shared hook; ObjectView app-shell suite stays green.\n\nType-check ✅, lint ✅ (warnings only), targeted tests ✅. Follow-up #1606 (compact embedded object views) builds on this.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

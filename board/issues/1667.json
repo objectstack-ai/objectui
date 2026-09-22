@@ -1,0 +1,30 @@
+{
+  "number": 1667,
+  "kind": "pull_request",
+  "title": "fix(i18n): add the preview key group to all 8 remaining locales",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T07:38:43Z",
+  "updated_at": "2026-06-12T07:44:48Z",
+  "closed_at": "2026-06-12T07:44:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T07:44:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1667",
+  "body": "[objectui#1659](https://github.com/objectstack-ai/objectui/pull/1659) added the `preview.*` key group (draft-preview empty states, draft bar, pending-changes panel) to **en + zh only** — the locale-parity test (`all locales have the same top-level keys`) failed on the other eight and was merged over. This adds translated (not English-stubbed) `preview` blocks to ja/ko/de/fr/es/pt/ru/ar.\n\ni18n suite: 100/100 ✅ (parity test green again)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

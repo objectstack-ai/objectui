@@ -1,0 +1,33 @@
+{
+  "number": 1659,
+  "kind": "pull_request",
+  "title": "feat(preview): make ADR-0037 draft preview honest end-to-end — sticky mode, real empty states, live publish truth, changeset panel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T05:31:52Z",
+  "updated_at": "2026-06-12T07:33:40Z",
+  "closed_at": "2026-06-12T07:33:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T07:33:37Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1659",
+  "body": "## Why\n\nThe Live Canvas / draft preview chain had a compound failure: an AI-built app's preview pane rendered the console's generic **\"No Apps Configured\" + \"Create Your First App\"** screen — lying about work that existed and misdirecting the user. Reproduced on the full local stack (cloud+objectos, prod-like, drafts staged via the same `saveMetaItem mode=draft` path `apply_blueprint` uses) and fixed link by link, browser-verified at each step.\n\nPairs with framework#1763 (REST `/meta` routes now forward `?preview=draft`); this PR is the client half plus the UX hardening around it.\n\n## Fixes\n\n1. **`extractItems` dropped the bare-array shape** (`MetadataProvider`): `MetadataClient.list()` returns an unwrapped array, the parser only accepted the adapter SDK's `{items}` envelope → **every preview-mode read collapsed to 0 items**, every type, always. This was the proximate cause of the empty canvas.\n2. **Sticky preview mode** (`PreviewModeContext`): in-app navigation (the app landing redirect, sidebar links) drops the query string. The context value flickered `false`, swapping the whole metadata source mid-session; the URL silently left the draft world. Preview now stays on until an explicit `markPreviewExit()` (Exit button), restores the flag via history-replace, and never flickers. Unit-tested (5 cases).\n3. **`NavigationSyncEffect` wrote from inside a preview**: the preview source-swap legitimately changes the page/dashboard sets; diffing across the swap misread draft items as user creations and issued real `PUT /meta/app/*` writes (observed live: 403s + \"Failed to update navigation\" toasts). Sync is now disabled for the whole preview session and re-seeds its baseline on exit.\n4. **Preview-specific empty states** (`PreviewDraftEmptyState`): inside preview, a missing app no longer falls back to a *different* app, and the generic console empty state never renders — replaced by honest not-ready / load-failed / retry states pointing back to the build conversation.\n\n## Features\n\n5. **Live publish truth on chat draft cards**: new `fetchPendingDraftCount` prop (wired in both chat hosts via the ADR-0033 `_drafts` endpoint). Publish/Published now reflects the server's current state — reloaded conversations stop replaying their birth snapshot; the button shows the real pending count; the ADR-0038 L1 `verification` verdict renders as a **Verified / N issues** chip.\n6. **Changeset panel** (`DraftChangesPanel`): the preview bar gains **Changes (N)** → a sheet listing every pending draft grouped by type, classified **New** (publishing adds) vs **Update** (publishing overwrites live), one published-list read per type.\n\n## Verification\n\n- Full-stack browser run: staged a 6-artifact production-management app as drafts → preview renders the drafted app (watermark bar, kanban/list views), sticky across navigation, zero stray writes on the wire → Changes (6) panel classifies all entries New → Publish promotes everything, auto-exits preview, app live with real kanban columns → `_drafts` count 0.\n- `vitest`: app-shell preview/hooks/chatbot suites green (111 + 142 + new 5).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1637,
+  "kind": "pull_request",
+  "title": "feat(chatbot): ADR-0038 L3 — build-health line under the Published card",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-11T08:04:13Z",
+  "updated_at": "2026-06-11T08:10:10Z",
+  "closed_at": "2026-06-11T08:10:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-11T08:10:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1637",
+  "body": "Second half of BVL Phase 2 ([ADR-0038](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0038-build-verification-loop.md)), pairing with [framework#1715](https://github.com/objectstack-ai/framework/pull/1715) (post-publish runtime probes): the chat now shows what a publish **actually did at runtime**, so \"Published\" and \"actually works\" are two separately-verified statements.\n\n## What\n\n- `onPublishDrafts` may return `{ ok, health }` — `PublishHealth` carries the publish response's `seedApplied` + `probes` (framework#1715). Legacy `boolean`/`void` returns keep working; `{ok:false}` counts as failure (no Published badge).\n- `ChatbotEnhanced` renders a **build-health line** under the Published badge:\n  - ✓ `12 sample rows live · 3 views · 4 widgets verified` — the \"verified\" claim appears **only when probes ran clean**;\n  - ✗ each runtime error (`empty_query`, `seed_not_applied`, `view_read_failed`, …) and the seed-load failure rendered loudly;\n  - ⚠ warnings (e.g. `probes_unavailable`) so silence never reads as \"probed and passed\".\n- `publishHealthFromResponse`: shared, dispatcher-envelope-tolerant extractor; both hosts (ConsoleFloatingChatbot + AiChatPage) wired to return structured outcomes.\n\nNo health data → no element (older runtimes degrade silently).\n\n## Tests\n- Health line: errors-present withholds \"verified\"; clean probes claim it; seed failure loud; legacy boolean → no element; `{ok:false}` → no Published badge.\n- `publishHealthFromResponse`: envelope tolerance, seedError mapping, undefined for older runtimes.\n- plugin-chatbot 65/65, app-shell 401/401, tsc green.\n\nStaging note: this card would have flagged today's live incident (publish reported success; the published app was unreadable minutes later — kernel-eviction metadata loss, diagnosed separately) as soon as L3 probes flow through a cloud .framework-sha bump.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

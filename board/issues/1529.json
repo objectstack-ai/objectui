@@ -1,0 +1,33 @@
+{
+  "number": 1529,
+  "kind": "pull_request",
+  "title": "feat(form): standard New/Edit modal renders form-view subforms (Tier 0)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T12:01:30Z",
+  "updated_at": "2026-06-06T12:05:05Z",
+  "closed_at": "2026-06-06T12:01:46Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-06T12:01:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1529",
+  "body": "## Summary\n\nCompletes the config-driven master-detail story (**Tier 0**): the console's **standard New/Edit record modal** now renders inline child collections when the object's form view declares `subforms` — master-detail entry with **no bespoke page**, saved as one atomic transaction.\n\n```ts\n// object form view — that's the whole config:\nformViews: { default: { sections: [...], subforms: [{ childObject: 'showcase_task' }] } }\n```\n→ clicking **New <object>** opens a modal with the object's fields + an inline child grid + one Save.\n\n## Changes\n\n- **`ModalForm`**: when `schema.subforms?.length`, renders `MasterDetailForm` inside the dialog (it owns its Save/Cancel bar, so the modal footer is suppressed); on success the modal closes + the list refreshes. `ModalFormSchema` gains `subforms`.\n- **app-shell `AppContent`**: the standard create/edit modal sources `subforms` from the object's default form view (`form.subforms` / `formViews.default.subforms`).\n\nBuilds on: `ObjectFormSchema.subforms` + `ObjectForm` delegation (#1527), metadata derivation (#1526), `@objectstack/spec` `FormViewSchema.subforms` (#1613), `ObjectView` pass-through (#1528).\n\n## Testing\n\n- `plugin-form` 77 unit tests pass; `plugin-form` + `app-shell` build clean (the `ModalForm → MasterDetailForm → ObjectForm → ModalForm` references are render-time only).\n- **Live e2e** (`e2e/live/form-view-subforms.spec.ts`, green): \"New Project\" opens a master-detail modal (project fields + inline **Tasks** grid), fills + submits, and posts exactly one `POST /api/v1/batch` with the populated parent (`name`/`status`) and a child op referencing the parent via `{$ref:0}`. Pairs with the showcase form-view change in the framework repo.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

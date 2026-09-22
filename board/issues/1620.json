@@ -1,0 +1,33 @@
+{
+  "number": 1620,
+  "kind": "pull_request",
+  "title": "fix(charts): angle + truncate crowded bar-chart x-axis labels",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-10T13:00:58Z",
+  "updated_at": "2026-06-10T13:07:42Z",
+  "closed_at": "2026-06-10T13:07:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-10T13:07:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1620",
+  "body": "## Problem\n\nOn narrow dashboard widgets, categorical X-axis labels (`Backlog`, `In Progress`, `In Review`, `To Do`) overlapped — `ChartImpl` rendered them horizontally with no tick management. (From the Chart Gallery dashboard review.)\n\n## Fix\n\n`ChartImpl` now angles the tick labels (-32°) and truncates long ones (with a hover `<title>` for the full text) **when the axis would crowd** — heuristic: more than 4 categories, or any label longer than 8 chars. Few short labels (e.g. `High` / `Low` / `Urgent`) stay horizontal. Bottom margin + axis height grow in the angled case so nothing clips.\n\n## Verification\n\nBrowser-tested on the showcase Chart Gallery:\n- **Tasks by Status / Hours by Status** (5 categories) → labels angled, readable, no overlap.\n- **Tasks by Priority** (3 short labels) → stays horizontal (not over-angled).\n\nplugin-charts tests green.\n\n> After merge, framework bumps `.objectui-sha` to vendor it.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

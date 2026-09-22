@@ -1,0 +1,32 @@
+{
+  "number": 1695,
+  "kind": "pull_request",
+  "title": "fix(studio): interface-page Design tab renders the live list, not a placeholder",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T10:04:09Z",
+  "updated_at": "2026-06-13T10:38:49Z",
+  "closed_at": "2026-06-13T10:38:47Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-13T10:38:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1695",
+  "body": "## What\n\nIn the Studio page editor, the **Design (设计) tab** showed a static *\"Interface page — configured in Properties\"* placeholder for ADR-0047 interface pages. Authors edit interfaceConfig on the right Properties panel (shown on the Design tab), so the left didn't reflect changes until manually switching to the **Preview (预览)** tab.\n\n## Change\n\n`PagePreview` now renders the live `InterfaceListPage` for interface pages in **both** design and preview modes — interface pages are config-driven (no regions to drag), so the design canvas shows the real list (source view + user filters + data) updating live as the author edits. No tab switch, no placeholder text.\n\n- Removes the now-dead interface empty-state from `PageBlockCanvas` (interface pages no longer reach it).\n- Tests flipped: `PagePreview.test.tsx` asserts the live list in design mode; `PageBlockCanvas.test.tsx` keeps only the region-composed empty state.\n\n## Verify\n\n- Unit: PagePreview + PageBlockCanvas (4/4).\n- Browser (showcase Task Workbench, Design tab): renders the list with status/priority filter chips + 10 records, no placeholder.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

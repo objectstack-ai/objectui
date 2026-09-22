@@ -1,0 +1,33 @@
+{
+  "number": 1436,
+  "kind": "pull_request",
+  "title": "ci: bound every job with timeout-minutes so a stalled runner fails fast",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-01T13:00:22Z",
+  "updated_at": "2026-06-03T14:23:17Z",
+  "closed_at": "2026-06-03T14:23:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-03T14:23:17Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1436",
+  "body": "## Why\n\nOn PR #1433 the **Test** job hung `in_progress` for **~19 min**, and again for **~11 min** on re-run. Diagnosis:\n\n- `vitest.config.mts` sets `testTimeout: 15000`, so a hanging *test* fails at 15s — a 19-min hang can't be a test body. It's a **stalled runner / non-exiting vitest worker**: the cancelled job's cleanup step terminated orphaned `turbo` + several `node`/`sh` (vitest) processes that never exited.\n- **No job declares `timeout-minutes`**, so such a stall runs unbounded up to GitHub's **6-hour** default instead of failing fast.\n- It's **intermittent** — the same suite passed on #1430 / #1432 — so it's not introduced by any one PR.\n\n## What\n\nAdd per-job `timeout-minutes` to every job in `ci.yml`:\n\n| Job | timeout | normal |\n|---|---|---|\n| Changeset Fixed Group Check | 10m | seconds |\n| Test | 20m | ~6m |\n| Build & E2E | 30m | ~4m |\n| Build Docs | 15m | seconds |\n| Dev-server fixture build | 15m | <1m |\n\nA future stall now **fails quickly and is retryable** instead of blocking a PR for hours.\n\n## Scope\n\nThis **bounds the symptom**. The underlying intermittent worker-exit hang (an open handle keeping a vitest worker alive under the turbo fan-out) is a separate follow-up — best pinpointed by running CI once with a hanging-process reporter (`why-is-node-running` / `--reporter=hanging-process`) to name the leaking package.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

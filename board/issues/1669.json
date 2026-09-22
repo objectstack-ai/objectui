@@ -1,0 +1,33 @@
+{
+  "number": 1669,
+  "kind": "pull_request",
+  "title": "feat(plugin-report): server-supplied totals in dataset matrix reports",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-12T11:06:03Z",
+  "updated_at": "2026-06-12T11:11:49Z",
+  "closed_at": "2026-06-12T11:11:47Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-12T11:11:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1669",
+  "body": "## Summary\nFramework PR [objectstack-ai/framework#1779](https://github.com/objectstack-ai/framework/pull/1779) (issue [objectstack-ai/framework#1753](https://github.com/objectstack-ai/framework/issues/1753)) added server-side totals to `queryDataset`: the selection accepts `totals: { groupings: string[][] }` and the result carries pre-aggregated `totals` entries with dimension labels resolved and the same measure columns as the primary rows.\n\nThis wires that into the dataset matrix report renderer:\n\n- **Request**: `type: 'matrix'` reports now pass `totals: { groupings: [rows, columns, []] }` in the queryDataset selection (row subtotals, column subtotals, grand total).\n- **Render**: `DatasetMatrixTable` places the server-supplied rows — a trailing **Total** column per measure (row subtotals, matched to row headers by the same `bucketId` used for the pivot), a trailing **Total** row (column subtotals), and the grand total (`[]` grouping) at their intersection. Totals entries are matched by their `dimensions` array.\n- **Graceful degrade**: a response without `totals` (older server) renders exactly as today — the client never re-aggregates bucketed values (ADR-0021 governance red line; the file header comment now documents that totals are server-supplied).\n\n## Tests\n- New: matrix requests the three totals groupings; server totals render as Total column/row + grand total; missing totals → no totals UI.\n- `pnpm vitest run` in `packages/plugin-report`: 32/32 pass; `pnpm build` and `pnpm lint` clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 1499,
+  "kind": "issue",
+  "title": "Page editor: edit nested sub-blocks inside container blocks (tabs/accordion/card/section)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T05:49:17Z",
+  "updated_at": "2026-06-06T06:11:34Z",
+  "closed_at": "2026-06-06T06:11:34Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1499",
+  "body": "Follow-up to the slotted-page editor (#1495). The canvas now surfaces top-level blocks in regions/slots and configures them (incl. object/field pickers). What's still missing: editing the blocks NESTED INSIDE a container.\n\nContainer child locations are inconsistent:\n- page:card → properties.body[]\n- page:section → properties.children[] (or body)\n- page:tabs / page:accordion → properties.items[<i>].children[]  ← the high-value case\n\nToday you can select a page:tabs block and edit its items (key/label) via the array editor, but the blocks inside each tab (e.g. a record:line_items in the Tasks tab of showcase_project_detail) can only be edited as raw JSON.\n\nScope to design carefully (why it's its own effort, not a quick add):\n1. Canvas: recursively render a container's children as indented, selectable sub-blocks with their own Add/remove.\n2. Addressing: PageBlockInspector.parsePath needs object-key hops to reach properties.items[<i>].children[<k>] (currently only key[index] array hops are supported).\n3. Composition with the slot ids (slot:<name>:<idx>) introduced in #1495 — nested paths under a slot block need a combined scheme.\n\nThis closes the last gap so a container's contents are fully point-and-click."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1575,
+  "kind": "pull_request",
+  "title": "docs(adr-0034) + test(e2e): record-page authoring via Studio (#1541)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T11:13:31Z",
+  "updated_at": "2026-06-07T11:19:10Z",
+  "closed_at": "2026-06-07T11:19:08Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-07T11:19:08Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1575",
+  "body": "## What\n\nCloses out the B1 / #1541 work with docs + a live e2e:\n\n- **ADR-0034 amendment** — record `page` now joins the per-item `/meta` draft→publish→version model **via Studio** (seam `'page'` #1571 · create object/type/kind #1572 · `createSeed`-from-default #1574 · `PagePreview` edit + publish · `usePageAssignment` render). The runtime end-user \"design this page\" entry stays intentionally deferred.\n- **Live e2e** (`studio-record-page.spec.ts`) — creating a record page bound to `showcase_invoice` in Studio persists `type: record` + `object` + **regions seeded** from `buildDefaultPageSchema` (`record:highlights` etc.), not blank.\n\n## Verification\n\n- Full live suite: **10 passing** (incl. the new spec).\n\nThis completes the Studio authoring path for record pages: create (bound + seeded from the default) → design in PagePreview → publish → renders on records — no `sys_page` table, no runtime editor.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

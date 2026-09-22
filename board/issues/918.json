@@ -1,0 +1,33 @@
+{
+  "number": 918,
+  "kind": "pull_request",
+  "title": "Optimize CI test duration: workspace split + slow test fixes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-28T13:26:57Z",
+  "updated_at": "2026-02-28T14:49:13Z",
+  "closed_at": "2026-02-28T14:43:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-28T14:43:08Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/918",
+  "body": "CI tests take ~9 minutes. Profiling shows setup time dominates: 1743s cumulative (~4.7s/file) across 370 files, while actual test execution is only 112s. Most of this is `vitest.setup.tsx` importing heavy UI packages for every file, including pure-logic tests that don't need React/DOM.\n\n### Workspace split\n\nReplace `vitest.workspace.yaml` with `vitest.workspace.ts` defining two projects:\n\n- **`unit`** — `packages/core`, `types`, `cli`, `data-objectstack` (51 files): `environment: 'node'`, no setupFiles. Skips heavy component registration, maplibre mock, happy-dom init.\n- **`ui`** — everything else: keeps `happy-dom` + full `vitest.setup.tsx`.\n\n```ts\nexport default defineWorkspace([\n  {\n    extends: './vitest.config.mts',\n    test: {\n      name: 'unit',\n      include: ['packages/core/src/**/*.test.ts', ...],\n      environment: 'node',\n      setupFiles: [],\n    },\n  },\n  {\n    extends: './vitest.config.mts',\n    test: {\n      name: 'ui',\n      exclude: [/* unit files */, ...],\n    },\n  },\n]);\n```\n\n### Slow test optimizations\n\n- **Onboarding.test.tsx** (5.3s/6 tests): Removed hard `setTimeout(r, 1000)` sleep, replaced with `waitFor`\n- **performance-benchmark.test.tsx** (2.4s/9 tests): Halved dataset sizes (1000→500 cards, 25→12 columns, 500→100 badge cards) — still validates scaling behavior without burning CI time\n- **LazyPluginLoader.test.tsx** (1.9s/8 tests): Reduced retry `waitFor` timeout 5000→2000ms\n- **BrowserSimulation.test.tsx** (4.8s/21 tests): Reduced `waitFor` timeout 12000→5000ms\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> ci test 时间太长了，大概有9分钟评估每一个测试是否有必要，是否需要简化或者优化\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

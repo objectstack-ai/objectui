@@ -1,0 +1,36 @@
+{
+  "number": 837,
+  "kind": "issue",
+  "title": "[全链路动态数据] CRM Dashboard Metrics/Charts/Table provider: 'object' 全面适配+空白BUG跟踪",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-24T13:44:54Z",
+  "updated_at": "2026-02-24T14:30:43Z",
+  "closed_at": "2026-02-24T14:30:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/837",
+  "body": "# 问题总览\n\n**当前 ObjectUI CRM Demo 的 Dashboard 动态数据适配存在以下系列问题和高优建议，现合并成一条全链路 issue 跟踪：**\n\n---\n## 1. Charts/Table/KPI \"全部空白\" 与 provider: 'object' 动态数据不渲染\n- 实际 demo 环境打开主看板，Recent Opportunities 可以正常渲染，但所有下方 Metrics 和 Charts 区域无论数据量如何都显示空白（详见 [截图](image2)）。\n- 该空白和聚合字段、对象 mock 驱动等有关，已排除表字段名、series dataKey、yField等初级配置问题。\n- pipeline: 聚合/对象 provider 路径没有走通，真实业务环境全部动态 provider: 'object' 场景未被覆盖。\n\n---\n## 2. 代码与配置现状复盘\n- 相关文件：examples/crm/src/dashboards/crm.dashboard.ts\n- 仅最后一项 Revenue by Account 走 provider: 'object'，其余全部走静态 mock items，导致大部分场景无法暴露数据适配/渲染类 bug。\n- 数据提供层 opportunity.data.ts 已包含 7 条 mock 数据、account 字段为 lookup-id（未做自动解引用）。\n- ObjectChart/AggregateRecords/DashboardRenderer 代码层面实际已实现聚合与 series 字段自动适配。\n- 但 demo config 未做到全面动态化，测试 surface 严重不足。\n\n---\n## 3. 综合建议与方案\n- **将整体 examples/crm/src/dashboards/crm.dashboard.ts 所有 metrics/charts/table 全部统一切换为 provider: 'object' 构造，流程如下：**\n    - 所有 chart/table/widget 均以 data: { provider: 'object', object, aggregate } 配置，聚合字段覆盖 amount、expected_revenue、stage、account、source、product、order 等全量字段。\n    - 涉及 groupBy、count、sum、avg/min/max 等不同类型。\n    - 新增跨对象、join/lookup、时间与动态区间、筛选等更复杂 provider: 'object' 场景。\n- **补充自动化回归测试，强依赖 provider: 'object' 路径，静态数据仅留最小对照组**。\n- 【重要】Mock 数据结构和 lookup 解引用、聚合算子、空数组/null/异常分支都要联动测试。\n- 每次变更必须附带 test（如 examples/crm/__tests__/DashboardRenderer.widgetData.test.tsx）。\n\n---\n## 4. 目标和验收标准\n- Dashboard/KPI/Charts 全部动态渲染、任何对象 provider 都可正常出现在看板视图，bug 能被自动发现。\n- RM/release/roadmap 更新、全量测试须通过。\n\n---\n相关截图：\n<img alt=\"全白看板截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/8ce753f7-701c-49f8-a6ab-c890511a237e\" />\n\n---\n相关历史：\n- #835 Revenue By Account 图表空白及聚合字段问题\n- #836 PR初步修复 extractRecords/字段适配，但无法终结全部空白 bug\n- 本议题合并所有上述细节与建议，总结为唯一主线，供维护者/贡献者 review/推进。\n\n/cc @objectstack-ai/objectui-maintainers\n\nCopilot is powered by AI, so mistakes are possible. Leave feedback via the 👍 👎 to help improve the experience."
+}

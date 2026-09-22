@@ -1,0 +1,33 @@
+{
+  "number": 878,
+  "kind": "pull_request",
+  "title": "fix: spec-aligned CRM i18n using I18nLabel objects and API-based translation loading",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-26T16:55:12Z",
+  "updated_at": "2026-02-26T18:06:53Z",
+  "closed_at": "2026-02-26T17:51:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-26T17:51:19Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/878",
+  "body": "CRM metadata used plain string labels instead of spec-aligned `I18nLabel` objects. The console had no mechanism to translate them, and language switching had no effect on CRM labels.\n\nPer feedback, the console is a metadata-driven platform and must not import CRM code directly. Instead, CRM metadata now uses spec-aligned `I18nLabel` objects (`{ key, defaultValue }`) and translations are loaded via API.\n\n### Changes\n\n- **CRM metadata** (`crm.app.ts`, `crm.dashboard.ts`) — All navigation labels, app name/description, and dashboard widget titles now use `I18nLabel` objects (e.g. `{ key: 'crm.navigation.dashboard', defaultValue: 'Dashboard' }`) instead of plain strings\n- **`NavigationItem` / `NavigationArea` types** (`app.ts`) — `label` field updated to support `string | { key, defaultValue, params? }` (I18nLabel union), aligning with `@objectstack/spec`\n- **`NavigationRenderer.tsx`** — Added exported `resolveLabel()` helper that resolves I18nLabel objects to plain strings (defaultValue fallback)\n- **`AppSchemaRenderer.tsx`** — Uses `resolveLabel()` for area and mobile navigation labels\n- **`utils.ts`** (console) — `resolveI18nLabel(label, t?)` now accepts an optional `t()` function for i18n translation lookup\n- **`AppSidebar.tsx` / `DashboardView.tsx`** — Pass `t()` from `useObjectTranslation` to `resolveI18nLabel` for runtime translation\n- **`main.tsx`** — Added `loadLanguage` callback that fetches translations from `/api/v1/i18n/:lang` via the I18nProvider's lazy-loading API\n- **Mock server** (`browser.ts`, `server.ts`) — Added `/api/v1/i18n/:lang` endpoint that serves application locale bundles from installed example packages\n- **Tests** — Updated CRM metadata tests and console test mocks for I18nLabel support; 183 tests pass across 7 test suites\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> console界面上crm国际化未生效，排查原因\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

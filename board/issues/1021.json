@@ -1,0 +1,35 @@
+{
+  "number": 1021,
+  "kind": "issue",
+  "title": "消除重复 merge 逻辑、提升 spec 协议一致性和插件���离——详细修复清单",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-03-04T04:37:58Z",
+  "updated_at": "2026-03-04T04:58:59Z",
+  "closed_at": "2026-03-04T04:58:59Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1021",
+  "body": "## 背景\n当前 ObjectUI 项目中，example 插件与主配置之间存在重复的 merge 逻辑，`listViews`、`actions` 和对象定义合并不仅违反了插件独立性原则，也与最新 @objectstack/spec 协议设计不符。部分 merge 是由于示例插件定义冲突或消费层的架构需求产生。\n\n## 需要调整的重点细节清单\n\n### 1. 移除无必要的 mergeActionsIntoObjects()\n- 检查所有 example 插件（CRM、Todo、Kitchen Sink）的 `actions` 是否都已正确设置 `objectName` 字段。\n- 使所有 actions 通过协议规范自动分配到对应的 object（spec 内部已完成）。\n- 删除 ObjectUI 自己的 `mergeActionsIntoObjects()` 辅助函数，避免重复劳动。\n\n### 2. 视图挂载方式调整（views → objects.listViews 映射）\n- 评估 Console 运行时是否可以直接消费顶层 `views[]`，通过适配层自动索引、挂载到 `object.listViews`，而非在配置阶段 hack。\n- 明确约定：插件定义应将全部视图挂在 Views 顶层，只做归档索引，不直接改写 Object。\n- 临时方案：短期可保留一次映射（mergeViewsIntoObjects），但需在未来移至 runtime/provider 层。\n\n### 3. Object 同名冲突（如 `account`）的规范化\n- 明确所有 example 插件不能出现同名 object 导致 merge 冲突。\n- 建议 CRM, Kitchen Sink 等插件将业务对象独立命名（如 `crm_account`, `ks_account`），避免聚合冲突，便于真正插件隔离。\n- 调整 plugin class 定义和 example config，保证独立可用和可组合。\n\n### 4. 用 composeStacks() 规范化所有配置合并\n- 取代所有手动 `[...crm.objects, ...todo.objects, ...ks.objects]`、flatMap 等展开式合并，用 @objectstack/spec 提供的 `composeStacks([a, b, c], {objectConflict: \"override\"})` 实现自动合并、冲突选项、协议兼容性。\n- 所有顶层配置避免人工 spread，减少后期维护难度。\n\n### 5. 清理配置文件与重复代码\n- 删除 `objectstack.config.ts` 和 `objectstack.shared.ts` 中全部重复的 merge/flatMap 展开代码，所有合并统一走 composeStacks。\n- merge 相关内容抽象到 utils 或彻底删除。\n\n### 6. 其他（Roadmap/文档/测试）\n- 更新 ROADMAP.md、Docs，补充新插件架构说明，示例插件导入使用范例。\n- 补全单元测试，覆盖新插件注册/合并场景���\n- 验证无 merge 情况下 Console/Designer 运行的行为一致性。\n"
+}

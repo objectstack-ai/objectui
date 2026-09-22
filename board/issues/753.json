@@ -1,0 +1,33 @@
+{
+  "number": 753,
+  "kind": "issue",
+  "title": "[P1] ListView Tabs — 多标签视图切换 UI",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:21:41Z",
+  "updated_at": "2026-02-23T14:07:13Z",
+  "closed_at": "2026-02-23T14:07:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/753",
+  "body": "## 背景\nParent Issue: #736\n\nSpec 定义了 `ViewTabSchema`（name, label, icon, view, filter, order, pinned, isDefault, visible），ObjectUI 类型已定义但无 Tab UI 渲染。\n\n## 目标\n- 在 ListView toolbar 上方渲染 Tab 栏\n- 每个 Tab 应用对应的 filter/view 配置\n- 支持 icon、pinned、isDefault 属性\n\n## 技术要点\n- `packages/types/src/objectql.ts` L1653-1662 — 已定义 `tabs` 类型\n- 需新增 `TabBar` 组件在 ListView toolbar 上方\n\n## 改动范围\n- `packages/plugin-list/src/components/TabBar.tsx` — 新增 Tab 栏组件\n- `packages/plugin-list/src/ListView.tsx` — 集成 TabBar，切换 Tab 时更新 filter/sort\n- `packages/i18n/src/locales/*.ts` — 添加 tab 相关 i18n key\n\n## 验收标准\n- [ ] Tab 栏在 toolbar 上方正确渲染\n- [ ] 点击 Tab 切换 filter/sort 配置\n- [ ] `isDefault` Tab 默认选中\n- [ ] `pinned` Tab 始终显示\n- [ ] Tab icon 通过 Lucide 解析\n- [ ] 所有新增代码有对应单元测试\n- [ ] `pnpm test` 全部通过\n"
+}

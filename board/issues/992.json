@@ -1,0 +1,33 @@
+{
+  "number": 992,
+  "kind": "pull_request",
+  "title": "fix: enable InMemoryDriver localStorage persistence in MSW browser mode",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T05:13:57Z",
+  "updated_at": "2026-03-03T06:00:06Z",
+  "closed_at": "2026-03-03T05:57:15Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T05:57:15Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/992",
+  "body": "`InMemoryDriver` persistence requires an explicit `driver.connect()` call to initialize the adapter (localStorage in browser). Without it, `markDirty()` on every CRUD op is a no-op and data is lost on refresh.\n\n### Changes\n\n- **`createKernel.ts`**: Add `persistence` option to `KernelOptions`, pass it to `InMemoryDriver` constructor. Call `driver.connect()` + `driver.flush()` after bootstrap and seed sync.\n- **`server.ts`**: Pass `persistence: false` to avoid file-system persistence in test/Node.js environment.\n\n### Lifecycle\n\n| Scenario | Behavior |\n|---|---|\n| First load | `connect()` finds empty localStorage, `flush()` persists seed data |\n| Refresh | `connect()` loads persisted data, overwriting fresh seeds — user changes survive |\n| Test mode | `persistence: false` — no I/O side effects |\n\n```ts\n// createKernel.ts\nconst driver = new InMemoryDriver(\n  persistence !== undefined ? { persistence } : undefined,\n);\n// ... bootstrap, syncDriverIds, patchDriverCreate ...\nawait driver.connect();\nawait driver.flush();\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[Bug] driver-memory 在 MSW/浏览器未持久化到 localStorage，导致刷新丢数据</issue_title>\n> <issue_description>## [Bug] `InMemoryDriver` 在 MSW 浏览器模式下未持久化到 localStorage\n> \n> **问题描述**：\n> 在 `objectstack-ai/objectui` 仓库内，driver-memory 在 MSW 模式下运行于浏览器时，数据\"应该\"自动持久化到 localStorage，但实际情况是每次刷新页面数据丢失。\n> \n> 调试发现，浏览器 localStorage 中没有 `objectstack:memory-db` 键，说明 `@objectstack/driver-memory` 的持久化适配器未生效。\n> \n> **根因分析**：\n> - `InMemoryDriver` 的 localStorage 持久化需要在构造后显式执行 `driver.connect()` 才会初始化 `initPersistence()` 并从 localStorage 恢复历史数据。\n> - 当前 MSW mock 代码中，`createKernel.ts` 没有调用 driver.connect()，并且种子数据直接写入 db，绕过了本地持久化链路。\n> \n> **复现路径**：\n> 1. 访问 https://demo.objectui.org/apps/crm_app/account/record/6\n> 2. 在浏览器刷新页面后，所有数据全部丢失，localStorage 无 `objectstack:memory-db` 键\n> \n> **预期行为**：\n> - 数据应持久化到 localStorage，在页面刷新后不会丢失。\n> \n> **建议修复方案**：\n> 1. 在 `apps/console/src/mocks/createKernel.ts` 的 kernel/driver 初始化后，显式调用 `await driver.connect()`，确保持久化适配器生效；\n> 2. 在 seed 数据写入（如 syncDriverIds/patchDriverCreate）后，额外调用 `driver.flush()` 或 `persistenceAdapter.save(db)`，保证本地数据落盘；\n> \n> **关键参考实现（spec 仓库）**：\n> - [`InMemoryDriver` 持久化逻辑](https://github.com/objectstack-ai/spec/blob/85098bc3832ce67d2f7dbf92a6ff43f85a2192d3/packages/plugins/driver-memory/src/memory-driver.ts#L986-L1050)\n> - [`LocalStoragePersistenceAdapter`](https://github.com/objectstack-ai/spec/blob/85098bc3832ce67d2f7dbf92a6ff43f85a2192d3/packages/plugins/driver-memory/src/persistence/local-storage-adapter.ts#L11-L60)\n> \n> ---\n> \n> ### 相关修复 Task\n> - [ ] `createKernel.ts` 显式调用 `await driver.connect()`\n> - [ ] 种子数据写入后调用 `driver.flush()` 或直接 save db\n> - [ ] 验证 localStorage 已有 `objectstack:memory-db` 且刷新的数据不会丢失\n> \n> ---\n> \n> 如需 cross-repo issue（spec 仓库），请补充 driver/persistence 相关通用文档/注释。\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#991\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

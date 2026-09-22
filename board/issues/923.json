@@ -1,0 +1,35 @@
+{
+  "number": 923,
+  "kind": "issue",
+  "title": "[Bug] Edit form shows 'Record not found' when editing from detail page (recordId mismatch); modal width too narrow on tablet",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-01T08:15:36Z",
+  "updated_at": "2026-03-01T08:36:09Z",
+  "closed_at": "2026-03-01T08:36:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/923",
+  "body": "### 问题描述\n在记录详情页点击\"编辑\"按钮时，弹出的 ModalForm 报错 `Error loading form [ObjectStack] Record contact-1772350253615-4 not found in contact`，实际是 recordId 传递格式与后台不匹配导致查不到数据，同时弹窗宽度在 iPad 等中等屏幕下偏窄，影响使用体验。\n\n**截图：**\n<img alt=\"详情页编辑报错截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/8a044f8f-6f3a-4d7a-acbe-9891a389a8e4\" />\n\n### 复现步骤\n1. 打开任一对象的详情页（如 Contact）。\n2. 点击编辑按钮。\n3. 出现弹窗，报错\"Record not found\"。\n\n### 期望结果\n- 编辑弹窗应正确读取当前记录数据，ID 传递格式应与后端一致。\n- 在 iPad 或中等分辨率下，弹窗宽度应自适应，避免过窄。\n\n### 当前行为分析\n- RecordDetailView 组件将 URL 中的 recordId（包含 objectName 前缀，如 `contact-1772350253615-4`）直接作为 ModalForm 的 recordId，导致后端查找失败。\n- ModalForm 初始化时，通过 dataSource.findOne(schema.objectName, schema.recordId) 查找记录，查不到时报错。\n- Modal 宽度采用默认设置，在中等分辨率下用户体验较差。\n\n### 建议修复方案\n- RecordDetailView.onEdit 时，应去除前缀，将纯 ID 传递给 ModalForm，或者在后端兼容此格式。\n- ModalForm 增加 modalSize=\"lg\"，提升中等屏幕的视觉体验。\n\n### 影响范围\n- ��有详情页快速编辑场景\n- PAD/平板端弹窗交互体验\n\n---\n\n#### 其他相关说明\n如需要技术细节或示例代码，可参考 apps/console/src/components/RecordDetailView.tsx 和 ModalForm 调用链。\n"
+}

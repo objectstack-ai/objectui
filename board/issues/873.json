@@ -1,0 +1,33 @@
+{
+  "number": 873,
+  "kind": "pull_request",
+  "title": "Remove ViewDesigner; consolidate view config into ViewConfigPanel with undo/redo and drag-and-drop",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-26T09:38:09Z",
+  "updated_at": "2026-02-26T14:48:54Z",
+  "closed_at": "2026-02-26T14:42:37Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-26T14:42:37Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/873",
+  "body": "Two competing view configuration systems existed: ViewConfigPanel (right-side panel, schema-driven, actively maintained) and ViewDesigner (full-page editor, legacy). This removes ViewDesigner entirely and upgrades ViewConfigPanel with the capabilities that were unique to ViewDesigner: undo/redo history and drag-and-drop column sorting.\n\n### Deleted\n- `packages/plugin-designer/src/ViewDesigner.tsx` and its tests\n- `apps/console/src/components/ViewDesignerPage.tsx` and its tests\n- Routes: `/:objectName/views/new`, `/:objectName/views/:viewId`\n\n### Cleaned up\n- **Types**: Removed `ViewDesignerSchema` and `ViewDesignerColumn` from `@object-ui/types`. Renamed the column interface to `ViewColumnConfig` (still used by `UnifiedViewConfig`)\n- **Exports**: Removed ViewDesigner from `plugin-designer/index.tsx` exports and `ComponentRegistry`\n- **i18n**: Removed `advancedEditor` key from all 10 locale files\n- **ObjectView**: Removed \"Advanced Editor\" dropdown menu item and its test\n- **Docs**: Updated ROADMAP.md and plugin-designer README to reflect removal\n\n### Upgraded ViewConfigPanel\n- **Undo/Redo**: Extended `useConfigDraft` hook with `pastRef`/`futureRef` history stacks, exposing `undo`, `redo`, `canUndo`, `canRedo`. Configurable `maxHistory` option (default: 50). Added `onUndo`/`onRedo`/`canUndo`/`canRedo` props to `ConfigPanelRenderer` with Undo2/Redo2 buttons in the header. Wired into ViewConfigPanel with i18n labels.\n- **Drag-and-drop column sorting**: Integrated `@dnd-kit/sortable` into the field selector via `SortableColumnItem` and `DraggableColumnList` components, replacing the static column list with a drag-to-reorder list while preserving the existing up/down button fallback.\n\n### Tests\n- 13 new undo/redo tests in `use-config-draft.test.tsx` (initial state, undo/redo flow, multi-step undo, empty history, clear on discard, clear on source change, maxHistory limit)\n- Updated ViewConfigPanel test mock with matching undo/redo implementation\n- All 301 tests pass across affected files (21 hook + 139 panel + 110 schema + 31 ObjectView)\n- No security vulnerabilities in `@dnd-kit` dependencies; CodeQL clean\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>删除列表视图高级编辑器（ViewDesigner）并升级配置面板</issue_title>\n> <issue_description>### 背景\n> 目前在项目中存在两套视图配置系统：\n> 1. ViewConfigPanel（右侧配置面板，Airtable风格）——已被广泛使用，支持全部字段、过滤、排序、外观等配套能力，并采用 schema 驱动架构。\n> 2. ViewDesigner（高级编辑器，全页面）——历史遗留，支持拖拽排序、撤销/重做等，但已与主流能力重复，且部分能力已被右侧面板覆盖。\n> \n> ### 存在问题\n> - 两套配置能力重复，导致用户困惑、代码维护困难。\n> - ViewDesigner 维护成本高，且未跟进新特性（如 toolbar toggles, 导出、导航等），和主流架构不一致。\n> - i18n 多语言中存在“advancedEditor”文本，但实际没有入口。\n> \n> ### 处理建议\n> 1. 升级 ViewConfigPanel：\n>    - 增加字段拖拽排序功能（可参考 ViewDesigner 现有逻辑，建议复用 @dnd-kit/core）。\n>    - 增加撤销/重做功能（复用 useDesignerHistory 钩子，集成进 useConfigDraft）。\n>    - 可选：增加配置拷贝/粘贴功能。\n> 2. 移除 ViewDesigner 相关代码：\n>    - 删除 apps/console/src/components/ViewDesignerPage.tsx 路由页面与入口。\n>    - 删除 packages/plugin-designer/src/ViewDesigner.tsx 组件及导出。\n>    - 删除 apps/console/src/__tests__/ViewDesignerSave.test.tsx 测试。\n>    - 清理 packages/types/src/designer.ts 中 ViewDesignerSchema 相关类型。\n>    - 删除/清理 i18n 各语言文件中的“advancedEditor”文本。\n>    - 路由中移除 /views/new /:viewId 入口。\n>    - 更新 README、ROADMAP.md，标记 ViewDesigner 已被配置面板取代。\n> \n> ### 验收标准\n> - 配置面板支持拖拽排序和撤销重做。\n> - ViewDesigner 及相关代码彻底移除。\n> - 文档/多语言/类型同步更新。\n> \n> ### 附图\n> <img alt=\"列表视图编辑器截图\" width=\"2572\" src=\"https://github.com/user-attachments/assets/b78c5549-44b3-4318-9298-ac9ffb852501\" />\n> \n> ### 注意事项\n> - 代码同步变更需运行测试（`pnpm test`），并在 ROADMAP/UPDATE_SUMMARY.md 做更新说明。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#872\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

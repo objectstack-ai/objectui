@@ -1,0 +1,33 @@
+{
+  "number": 1062,
+  "kind": "pull_request",
+  "title": "fix: resolve TS2742 in drawer.tsx and sidebar.tsx for portable declaration files",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-10T07:55:52Z",
+  "updated_at": "2026-03-10T08:46:13Z",
+  "closed_at": "2026-03-10T08:42:37Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-10T08:42:37Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1062",
+  "body": "pnpm strict module resolution prevents TypeScript from portably naming types from transitive dependencies (`vaul` → `@radix-ui/react-dialog`). The vite-dts plugin silently skipped `drawer.d.ts` and `sidebar.d.ts`, causing all downstream consumers (plugin-view, apps/console, apps/site) to fail with `Module '\"@object-ui/components\"' has no exported member 'Drawer'`.\n\nReplace `typeof DrawerPrimitive.X` / `typeof Separator` references with concrete HTML element types in `forwardRef` generics so declarations don't reference non-portable pnpm store paths:\n\n```tsx\n// Before — TS2742: cannot be named without a reference to @radix-ui/react-dialog\nconst DrawerContent = React.forwardRef<\n  React.ElementRef<typeof DrawerPrimitive.Content>,\n  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>\n>(...)\n\n// After — portable, concrete types\nconst DrawerContent = React.forwardRef<\n  HTMLDivElement,\n  React.ComponentPropsWithoutRef<\"div\">\n>(...)\n```\n\n- **`drawer.tsx`** — `DrawerTrigger`, `DrawerClose` get explicit `React.FC` annotations with `asChild`; `DrawerOverlay`, `DrawerContent`, `DrawerTitle`, `DrawerDescription` use concrete HTML element types\n- **`sidebar.tsx`** — `SidebarSeparator` uses `HTMLDivElement` + inline `orientation`/`decorative` props instead of `typeof Separator`\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

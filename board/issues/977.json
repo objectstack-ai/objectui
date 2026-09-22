@@ -1,0 +1,33 @@
+{
+  "number": 977,
+  "kind": "issue",
+  "title": "Console app base 路径统一为 /",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T01:44:56Z",
+  "updated_at": "2026-03-03T02:26:29Z",
+  "closed_at": "2026-03-03T02:26:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/977",
+  "body": "## 需求\n\n当前 apps/console 的 Vite base 路径在本地调试和生产部署上未统一，默认用 `/console/` 前缀。期望统一所有环境，无论本地开发还是生产打包/部署，base 均为 `/`，不带 `/console` 前缀。\n\n### 具体方案：\n1. 修改 `apps/console/vite.config.ts`：\n   - base 默认始终设为 `/`，无论 dev 还是 build。\n   - 所有部署、E2E、以及 vercel 配置均统一使用 `/`。\n2. 移除所有对 `/console/` base 路径的依赖与多余注释。\n   - 包括 `e2e/helpers/index.ts` 的 `CONSOLE_BASE`，如需则默认 `/`。\n   - 检查 vercel/build 脚本和文档。\n\n#### 建议代码：\n```ts\n// vite.config.ts\nexport default defineConfig({\n  base: '/',\n  // ...其他配置\n});\n```\n\n## 相关文件\n- apps/console/vite.config.ts\n- e2e/helpers/index.ts（如有）\n- apps/console/vercel.json\n- 文档及注释\n\n---\n完成后请：\n- 运行测试，确保开发、预览、生产部署均能在 `/` 主路径下正常访问\n- 更新 ROADMAP.md\n- 关联相关 Issue\n\n如需跨 repo 协作请另建 cross-repo issue。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1057,
+  "kind": "pull_request",
+  "title": "[WIP] Fix all CI errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-10T03:23:08Z",
+  "updated_at": "2026-03-10T04:12:00Z",
+  "closed_at": "2026-03-10T03:45:45Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-10T03:45:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1057",
+  "body": "- [x] Fix `ObjectDataTable.test.tsx` — \"should show error state on fetch failure\": `waitFor` uses `toBeDefined()` on `querySelector` result, but `null !== undefined` so it always passes without waiting. Changed to `toBeTruthy()`.\n- [x] Fix `RecordDetailEdit.test.tsx` — \"renders highlight fields for key field types\": test `objectsWithStatus` lacks `views.detail.highlightFields`, so highlight banner never renders. Added the missing config.\n- [x] Verify both fixes pass locally\n- [x] Run full test suite to confirm no regressions (375 files, 7120 tests passed)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/22844754908/job/66258364541#step:6:1\n> \n> fix all ci errors\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

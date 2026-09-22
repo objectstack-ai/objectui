@@ -1,0 +1,37 @@
+{
+  "number": 910,
+  "kind": "issue",
+  "title": "Redesign Report Designer Panel: Dashboard-Style UI & Address All Known Issues",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "designer",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-28T09:13:44Z",
+  "updated_at": "2026-02-28T10:44:25Z",
+  "closed_at": "2026-02-28T10:44:25Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/910",
+  "body": "## Background\n目前报表设计面板不够实用，主要问题包括：\n- 右侧配置面板的修改对左侧预览无实时响应（联动Bug）\n- 体验较为简陋，形同配置表单，而非真正的报告设计器\n- 缺少可视化字段选择、分组/聚合、拖拽排序、报表类型切换、条件格式、可视化图表编辑等核心交互功能\n- 配置项与数据未能实时联动，部分变动需手动保存、刷新、无法所见即所得\n\n## 参考对标\n- 设计与交互整体风格、操作体验应参考系统中已有的Dashboard配置面板（dashboard风格）\n- 主流低代码平台（Salesforce、ServiceNow、Power BI）的Report Builder功能（见比对分析）\n\n## 核心问题/改进点\n1. **实时预览Bug修复**：右侧面板变动后，应立即刷新左侧报表\n2. **字段/列选择**：需要可视化字段选择、聚合配置，并支持拖拽排序，类似Power BI/Salesforce的字段面板\n3. **报表类型切换**：支持Tabular/Table、Summary、Matrix/Pivot等主流报表类型，并切换对应的分组与小计配置\n4. **分组/聚合设置**：GroupBy/Sort要实现分组加聚合（不是单纯排序），可视化多级分组配置\n5. **图表配置面板**：支持可视化选择图表类型与字段映射，不直接编辑JSON\n6. **条件格式配置**：支持对字段值设置条件样式（如高亮、着色、标记）\n7. **报表section/区域管理**：可视化添加、删除、拖动各报表区块（如header/footer/summary/table/chart），结构和内容动态可调整\n8. **关联对象与数据源扩展**：objectName需支持跨对象、子表、lookup（树状）字段选择\n9. **导出/打印/调度**：在增强设计器的同时保留现有导出、打印、调度等功能\n10. **国际化与易用性**：汉化UI，按主流产品易用性设计（如快速填充，历史记录undo/redo，操作提示等）\n\n## 需求拆解与开发清单\n- [ ] **联动Bug修复**：右侧配置变动时自动触发数据和布局部分实时刷新，确保所见即所得\n- [ ] **字段/列选择器组件**（field-picker）：支持多选、拖拽排序、每列聚合方式配置\n- [ ] **报表类型/模式选择器**：Tabular, Summary, Matrix，可切换多种主要报表结构\n- [ ] **分组与聚合可视化设置**：多级GroupBy、聚合列拖拽、支持自定义分组字段\n- [ ] **图表编辑器优化**：图表类型切换+拖拽字段绑定，无需手写JSON\n- [ ] **条件格式UI**：规则可视化新建、规则编辑、为每字段添加多条高亮/格式规则\n- [ ] **Section/区块管理器**：支持管理header, detail, summary, chart等区块，区块顺序&内容可拖拽调整\n- [ ] **跨对象和多数据源支持**：objectName字段可选择主对象、关联表、子表\n- [ ] **UI国际化与易用性提升**：全UI中文/英文优化，增加快捷引导、提示、撤销重做等功能\n- [ ] **Dashboard风格一致性**：设计与交互风格与dashboard配置面板一致\n- [ ] **兼容导出/调度/打印**：调度/导出/打印等功能UI与设计器深度集成\n- [ ] **详细方案评审**：开发前整理设计方案、低保真原型，所有子任务经评审后细化拆分issue\n\n> 详细比对分析及竞品参考见[相关行业分析](https://www.bing.com/search?q=How+do+mainstream+low-code+platforms+like+Salesforce%2C+ServiceNow%2C+Power+BI+handle+report+builder%2Fdesigner+features%3F+What+capabilities+do+they+typically+offer%3F)\n\n---\n\n### 交付说明\n- 所有拆解子功能按上述需求清单**合并为单issue下的任务列表**，后续如有必要再独立为子issue\n- 提交需附带详细的开发方案，涉��设计稿、原型、API字段变更说明\n- 变更完成后需：1. 完善测试 2. 相关issue和ROADMAP.md同步\n\n---\n\n> 该issue代替所有之前关于报表设计器的零散问题，所有改进均在本issue下跟踪与推进"
+}

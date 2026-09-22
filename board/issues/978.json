@@ -1,0 +1,33 @@
+{
+  "number": 978,
+  "kind": "pull_request",
+  "title": "chore: unify console app base path to /",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T01:45:11Z",
+  "updated_at": "2026-03-03T02:32:06Z",
+  "closed_at": "2026-03-03T02:26:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T02:26:27Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/978",
+  "body": "Console app Vite `base` defaulted to `/console/` with a `VITE_BASE_PATH` env override, causing inconsistency between local dev and production. Unified to `/` everywhere.\n\n### Changes\n\n- **`apps/console/vite.config.ts`** — Hardcode `base: '/'`, remove env var override\n- **`e2e/helpers/index.ts`** — `CONSOLE_BASE` → `''` (all E2E URLs now root-relative)\n- **`apps/console/vercel.json`** — Drop redundant `VITE_BASE_PATH=/` from build command\n- **`playwright.config.ts`** — webServer URL `/console/` → `/`\n- **`apps/console/plugin.ts`** — JSDoc update\n- **`ROADMAP.md`** — P1.16 entry\n\n```ts\n// before\nconst basePath = process.env.VITE_BASE_PATH || '/console/';\n\n// after\nconst basePath = '/';\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Console app base 路径统一为 /</issue_title>\n> <issue_description>## 需求\n> \n> 当前 apps/console 的 Vite base 路径在本地调试和生产部署上未统一，默认用 `/console/` 前缀。期望统一所有环境，无论本地开发还是生产打包/部署，base 均为 `/`，不带 `/console` 前缀。\n> \n> ### 具体方案：\n> 1. 修改 `apps/console/vite.config.ts`：\n>    - base 默认始终设为 `/`，无论 dev 还是 build。\n>    - 所有部署、E2E、以及 vercel 配置均统一使用 `/`。\n> 2. 移除所有对 `/console/` base 路径的依赖与多余注释。\n>    - 包括 `e2e/helpers/index.ts` 的 `CONSOLE_BASE`，如需则默认 `/`。\n>    - 检查 vercel/build 脚本和文档。\n> \n> #### 建议代码：\n> ```ts\n> // vite.config.ts\n> export default defineConfig({\n>   base: '/',\n>   // ...其他配置\n> });\n> ```\n> \n> ## 相关文件\n> - apps/console/vite.config.ts\n> - e2e/helpers/index.ts（如有）\n> - apps/console/vercel.json\n> - 文档及注释\n> \n> ---\n> 完成后请：\n> - 运行测试，确保开发、预览、生产部署均能在 `/` 主路径下正常访问\n> - 更新 ROADMAP.md\n> - 关联相关 Issue\n> \n> 如需跨 repo 协作请另建 cross-repo issue。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#977\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

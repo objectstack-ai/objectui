@@ -1,0 +1,33 @@
+{
+  "number": 904,
+  "kind": "issue",
+  "title": "Platform UI optimization:schema expressiveness gaps, and i18n inconsistencies",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-28T05:06:37Z",
+  "updated_at": "2026-02-28T06:09:19Z",
+  "closed_at": "2026-02-28T06:09:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/904",
+  "body": "## Overview\n\nA comprehensive UI audit of the platform engine (using the CRM Project Task page as reference) revealed **two categories** of platform-level issues:\n\n2. **Non-grid UI** — Schema expressiveness gaps in HeaderBar, Sidebar, Breadcrumb, ViewSwitcher, and i18n inconsistencies\n\nThe CRM is only an example app; all issues identified are **platform engine bugs or missing schema capabilities** that affect any consumer.\n\n\n## Part B: Non-Grid UI — Schema Expressiveness Gaps (6 issues)\n\n### B1. [P0] HeaderBar schema lacks search/actions slots\n\n`HeaderBarSchema` only supports breadcrumbs. Console hardcodes search (⌘K), notifications, theme toggle, presence avatars in `AppHeader.tsx` — none of this is schema-configurable.\n\n**Fix:** Extend `HeaderBarSchema`:\n\n```typescript\ninterface HeaderBarSchema {\n  type: 'header-bar';\n  crumbs?: Breadcrumb[];\n  search?: { enabled: boolean; placeholder?: string; shortcut?: string };  // NEW\n  actions?: SchemaNode[];        // NEW: right-side action slots\n  rightContent?: SchemaNode;     // NEW: custom right content area\n}\n```\n\nUpdate `header-bar` renderer in `packages/components/src/renderers/navigation/header-bar.tsx` to render these new slots.\n\n**Files:** `packages/types/src/navigation.ts`, `packages/components/src/renderers/navigation/header-bar.tsx`\n\n### B2. [P1] SidebarNav missing badge, collapsible groups, search\n\n`SidebarNav` (`packages/layout/src/SidebarNav.tsx`) only supports flat `NavItem[]`:\n\n```tsx\nexport interface NavItem {\n  title: string;\n  href: string;\n  icon?: React.ComponentType<{ className?: string }>;\n}\n```\n\nBut `NavigationRenderer` already supports badges, collapsible groups, pinning, search, reorder. `SidebarNav` should expose a subset of these capabilities:\n\n```typescript\nexport interface NavItem {\n  title: string;\n  href: string;\n  icon?: React.ComponentType<{ className?: string }>;\n  badge?: string | number;        // NEW\n  badgeVariant?: 'default' | 'destructive' | 'outline';  // NEW\n  children?: NavItem[];           // NEW: nested items\n}\n\nexport interface SidebarNavProps {\n  items: NavItem[] | NavGroup[];  // Support grouped navigation\n  title?: string;\n  searchEnabled?: boolean;        // NEW: enable search filter\n  className?: string;\n  collapsible?: \"offcanvas\" | \"icon\" | \"none\";\n}\n```\n\n**Files:** `packages/layout/src/SidebarNav.tsx`\n\n### B3. [P1] Breadcrumb items don't support sibling dropdown navigation\n\nScreenshot shows `Project Task ▾` with a dropdown arrow for quick-switching between objects. Console implements this in `AppHeader.tsx` with `objectSiblings`, but `BreadcrumbItem` type has no `siblings` field:\n\n```typescript\n// packages/types/src/navigation.ts\nexport interface BreadcrumbItem {\n  label: string;\n  href?: string;\n  icon?: string;\n  siblings?: Array<{ label: string; href: string }>;  // NEW\n}\n```\n\nThe `header-bar` renderer should render a `DropdownMenu` when `siblings` is provided.\n\n**Files:** `packages/types/src/navigation.ts`, `packages/components/src/renderers/navigation/header-bar.tsx`\n\n### B4. [P1] Toolbar i18n: Mixed Chinese/English labels\n\nThe page shows `+ 新建` (Chinese create button) alongside English toolbar buttons (`Filter`, `Group`, `Sort`). The footer shows `7 条记录` (Chinese) next to `Page 1 of 1 (7 total)` (English).\n\n**Root Cause:** Different UI regions use different i18n namespaces or fallback differently. The ListView toolbar uses `useListViewTranslation()`, but the create button and page header come from a different namespace.\n\n**Fix:**\n1. Ensure all toolbar/footer text resolves from the same i18n context\n2. The `addRecord` button label must go through `t('list.addRecord')` / `t('list.create')`\n3. Pagination `recordCount` text must use the same locale as `Rows per page`\n\n**Files:** `packages/plugin-list/src/ListView.tsx`, `packages/i18n/src/`\n\n### B5. [P2] ViewSwitcher schema: No `allowCreateView` or per-view actions\n\nScreenshot shows a `+` button at the end of view tabs and `[S]` (share) / `[⚙]` (settings) icons per tab. These are not representable in `ViewSwitcherSchema`.\n\n**Fix:**\n```typescript\ninterface ViewSwitcherSchema {\n  // ... existing\n  allowCreateView?: boolean;     // NEW: show \"+\" button to add view\n  viewActions?: Array<{          // NEW: per-view action icons  \n    type: 'share' | 'settings' | 'duplicate' | 'delete';\n    icon?: string;\n  }>;\n}\n```\n\n**Files:** `packages/types/src/views.ts`, `packages/plugin-view/src/ViewSwitcher.tsx`\n\n### B6. [P3] Pagination footer: Mixed-language record count\n\n`7 条记录` (Chinese) and `Page 1 of 1 (7 total)` (English) appear simultaneously. All pagination text should resolve from one i18n context.\n\n**Files:** `packages/plugin-grid/src/ObjectGrid.tsx`, `packages/i18n/src/`\n\n---\n\n## Core Insight\n\n> **Schema expressiveness does not cover the UI complexity that Console actually renders.**\n\nConsole (`apps/console`) hardcodes advanced UI — search, breadcrumb siblings, create-view buttons — that are **not represented in schema types**. This means non-Console consumers cannot configure these features via JSON schema. The fix strategy is: **sink Console-layer UI enhancements into schema types + engine renderers**."
+}

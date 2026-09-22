@@ -1,0 +1,33 @@
+{
+  "number": 748,
+  "kind": "issue",
+  "title": "[P0] ListView Grouping — 分组渲染在全视图类型中生效",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:21:03Z",
+  "updated_at": "2026-02-23T09:31:41Z",
+  "closed_at": "2026-02-23T09:31:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/748",
+  "body": "## 背景\nParent Issue: #736\n\n`useGroupedData` hook 和 Group Popover 选择器已实现，但分组渲染仅在 Grid 视图中部分生效。Kanban/Gallery/Calendar/Timeline 等视图无分组渲染支持。\n\n## 目标\n- 分组配置通过 `schema.grouping` 驱动 **所有视图类型** 的分组渲染\n- Grid 视图：分组行头可展开/折叠，显示分组汇总\n- Kanban 视图：按分组字段自动生成泳道\n- Gallery 视图：按分组字段分区显示卡片\n\n## 技术要点\n- `packages/plugin-grid/src/useGroupedData.ts` — 已有 hook，需验证 `fields[].collapsed` 状态管理\n- `packages/plugin-grid/src/ObjectGrid.tsx` L348 — 已调用 `useGroupedData`，需实现分组行渲染（GroupRow 组件）\n- `packages/plugin-list/src/ListView.tsx` L328 — 已有 `groupingConfig` state，需传递到非 Grid 视图\n- Spec 协议：`GroupingConfigSchema` → `fields[].field`, `fields[].order`, `fields[].collapsed`\n\n## 改动范围\n- `packages/plugin-grid/src/ObjectGrid.tsx` — 添加 GroupRow 渲染组件\n- `packages/plugin-list/src/ListView.tsx` — 传递 groupingConfig 到所有 viewComponent\n- `packages/plugin-kanban/src/ObjectKanban.tsx` — 支持分组配置\n- `packages/plugin-gallery/src/ObjectGallery.tsx` — 支持分组配置\n\n## 验收标准\n- [ ] Grid 视图分组行可展开/折叠\n- [ ] 分组行显示字段值 + 记录数\n- [ ] Kanban 视图按分组字段分区\n- [ ] Gallery 视图按分组字段分区\n- [ ] `schema.grouping.fields[].collapsed` 初始折叠状态生效\n- [ ] 所有新增代码有对应单元测试\n- [ ] `pnpm test` 全部通过\n"
+}

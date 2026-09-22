@@ -1,0 +1,33 @@
+{
+  "number": 889,
+  "kind": "pull_request",
+  "title": "fix: ListView toolbar buttons opt-in by default, remove duplicate record count",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-27T05:29:33Z",
+  "updated_at": "2026-02-27T06:14:38Z",
+  "closed_at": "2026-02-27T06:10:25Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-27T06:10:25Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/889",
+  "body": "`showHideFields`, `showColor`, `showDensity` toolbar buttons were visible by default (opt-out), and record count rendered twice—once in ListView's `record-count-bar` and again in ObjectView's `record-count-footer`.\n\n### Toolbar defaults: opt-out → opt-in\n\n```tsx\n// Before (always visible unless explicitly disabled)\nshowHideFields: schema.showHideFields !== false,\nshowColor: schema.showColor !== false,\nshowDensity: ... schema.showDensity !== false,\n\n// After (hidden unless explicitly enabled)\nshowHideFields: schema.showHideFields === true,\nshowColor: schema.showColor === true,\nshowDensity: ... schema.showDensity === true,\n```\n\n- `packages/plugin-list/src/ListView.tsx` — toolbarFlags computation\n- `packages/types/src/objectql.ts` — `@default` JSDoc updated to `false` on both `NamedListView` and `ListViewSchema`\n\n### Duplicate record count\n\n- Removed `record-count-footer` from `apps/console/src/components/ObjectView.tsx` — ListView's `record-count-bar` is the single source of truth\n\n### Tests\n\n- 3 \"show by default\" tests flipped to \"hide by default\"\n- 8 tests that relied on implicit visibility now set explicit `showX: true`\n- ObjectView footer test updated to assert absence\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>按照 Airtable 风格对 ListView 进行优化，修复两个 UI 问题：</issue_title>\n> <issue_description>\n> \n> \n> ### 1. 顶部次要工具栏按钮默认不应显示\n> \n> **现状：** `Hide fields`、`Color`、`Comfortable`（密度）按钮默认始终显示在工具栏中，占用空间。\n> **期望：** 参考 Airtable，这些次要控件默认隐藏，仅在 schema 中显式启用时才显示。\n> \n> **根因：** `ListView.tsx` 中 `toolbarFlags` 的默认值使用 `!== false`（opt-out），应改为 `=== true`（opt-in）：\n> \n> ```tsx\n> // 当前（默认显示）\n> showHideFields: schema.showHideFields !== false,\n> showColor: schema.showColor !== false,\n> showDensity: ... schema.showDensity !== false,\n> \n> // 期望（默认隐藏）\n> showHideFields: schema.showHideFields === true,\n> showColor: schema.showColor === true,\n> showDensity: ... schema.showDensity === true,\n> ```\n> \n> **涉及文件：** `packages/plugin-list/src/ListView.tsx` (lines 278-280)\n> \n> ### 2. 底部记录数文字重复\n> \n> **现状：** 页面底部出现两行 \"10 条记录\" 文字。\n> **期望：** 只显示一次记录数。是否应该保留外层的因为除了表格视图还有日历试图甘特图试图等等等等。\n> \n> **根因：** 两个组件各自独立渲染了记录数：\n> - `ListView.tsx` 的 `record-count-bar`（line 1526）\n> - Console `ObjectView.tsx` 的 `record-count-footer`（line 593）\n> \n> **涉及文件：**\n> - `packages/plugin-list/src/ListView.tsx`\n> - `apps/console/src/components/ObjectView.tsx`\n> \n> ## 截图\n> \n> ![image1](image1)\n> \n> ## 验收标准\n> \n> - [ ] `showHideFields`、`showColor`、`showDensity` 默认值改为 `false`（opt-in）\n> - [ ] 底部记录数只显示一次（移除 ObjectView 中的重复 footer，或在 ListView 已显示时不重复）\n> - [ ] 运行 test 确保相关测试通过（更新默认行为变更的测试用例）\n> - [ ] 更新 ROADMAP.md 记录此优化\n> - [ ] 现有 schema 中显式设置 `showHideFields: true` 等的场景不受影响</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#887\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

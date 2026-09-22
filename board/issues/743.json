@@ -1,0 +1,36 @@
+{
+  "number": 743,
+  "kind": "issue",
+  "title": "App Creation Wizard（多步应用向导）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "plugin: editor"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-23T05:01:53Z",
+  "updated_at": "2026-02-26T09:39:41Z",
+  "closed_at": "2026-02-26T09:39:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/743",
+  "body": "实现\"新建应用\"多步引导流程，按Airtable/Notion体验设计，符合`@objectstack/spec`协议：\n\n## 开发内容\n1. 新建应用入口（可从首页/项目仪表盘触达）\n2. 向导步骤设计：\n  - 【基本信息】填写名称、icon、描述、选择模板（关联AppSchema字段校验，支持snake_case强校验）\n  - 【请选择业务对象】从Object List中勾选，将自动生成导航节点，可新建/导入对象\n  - 【导航设置】可视化拖拽构建导航树结构（recursive，支持嵌套/分组/分隔）\n  - 【品牌个性化】Logo上传、主题色选择、Favicon预览\n3. 步骤状态管理（保存为draft、返回历史步骤、取消确认、自定义校验）\n4. 按协议调用 DefineApp，提交全部schema数据\n5. 移动端兼容，完善 i18n\n\n## 交付要求\n- 交互稿+UI效果Mock（Figma推送到wiki）\n- 前端React组件分步实现（Tailwind + cva样式）\n- Storybook用例与vitest单元测试\n- `pnpm test` 必须通过\n- 完善开发文档及DEMO\n- Roadmap同步更新\n"
+}

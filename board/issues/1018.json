@@ -1,0 +1,35 @@
+{
+  "number": 1018,
+  "kind": "issue",
+  "title": "Refactor ObjectUI to support modular plugin architecture and dynamic management",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T03:50:59Z",
+  "updated_at": "2026-03-04T04:27:56Z",
+  "closed_at": "2026-03-04T04:27:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1018",
+  "body": "# Refactor ObjectUI for Plugin Modularity and Dynamic Management\n\nAfter an in-depth analysis of the current codebase and configuration merging logic, several architectural and development details require improvement to support true modular development, plugin isolation, and dynamic plugin install/uninstall at runtime.\n\n## Current Shortcomings\n- All example apps (CRM, Todo, Kitchen Sink) are merged into a single `mergedApp` definition at the repository root, causing:\n  - Loss of plugin/module boundaries (no identity per App/Plugin)\n  - No ability to install/uninstall modules at runtime\n  - Manual maintenance for each new plugin (non-scalable)\n  - Lack of standardized plugin lifecycle (init/start/stop)\n- No formalized kernel-based plugin registry (like `kernel.use(plugin)`)\n- Difficult to use ObjectUI as a host for third-party (or cross-repo) plugins\n- Hard to upgrade example apps independently or share/reuse their config in other ObjectStack projects\n- The merging approach limits custom configuration per app/plugin (e.g. i18n, permissions, datastores)\n\n## Actionable Improvements\n1. **Define a Plugin Class Standard**\n   - Each app/example and plugin should export a `Plugin` class (with `init`, `start`, `stop`, `name`, `version`, `description`, etc.)\n   - Example: `export class CRMPlugin { ... }`, `export class KanbanPlugin { ... }`\n2. **Refactor Root `objectstack.config.ts`**\n   - Remove the static merge logic and aggregation functions\n   - Load plugins modularly: `plugins: [new CRMPlugin(), new KanbanPlugin(), ...]`\n   - Plugins should register themselves with the kernel (ObjectStack runtime) at startup\n3. **Enable Dynamic Plugin Loading**\n   - Refactor runtime to allow `install(plugin)` and `uninstall(plugin)` at runtime (not just compile-time)\n   - Enable hot-reload or lazy loading of plugins for development and production\n4. **Preserve Plugin Identity**\n   - Ensure each object, action, dashboard, etc. keeps its origin plugin metadata for runtime inspection/debugging\n   - Support per-plugin i18n, permissions, data isolation\n5. **Make Example Apps True Plugins**\n   - Refactor `/examples/crm`, `/examples/todo`, `/examples/kitchen-sink` to export plugin classes, not just flat config objects\n   - Remove merge-based dependency; instead, let host choose what to load\n6. **Plugin Lifecycle Hooks**\n   - All plugins should support `init`, `start`, `stop`, and allow async setup/teardown\n   - Host can call these hooks when loading/unloading\n7. **Docs & Roadmap**\n   - Update documentation to explain plugin model, architecture, and runtime API\n   - Update ROADMAP.md to track plugin modularization progress and dynamic runtime features\n8. **Backward Compatibility**\n   - Provide clear migration paths for old app config merging to new plugin paradigm\n   - Support legacy config for transition\n\n---\n\n**Cross-repo Follow-up:** If dynamic plugin registry requires changes in ObjectStack runtime/core, create a cross-repo issue in [`objectstack-ai/objectstack`](https://github.com/objectstack-ai/objectstack).\n\n**Tests & Docs:** After implementation, update unit tests and Storybook, and refactor documentation accordingly.\n\n---\n**References:**\n- See HotCRM plugin architecture and plugin.ts class pattern for best practices.\n- [Current CRM plugin pattern](https://github.com/objectstack-ai/objectui/blob/main/examples/crm/plugin.ts)\n- [ROADMAP.md](https://github.com/objectstack-ai/objectui/blob/main/ROADMAP.md)\n"
+}

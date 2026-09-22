@@ -1,0 +1,33 @@
+{
+  "number": 1004,
+  "kind": "issue",
+  "title": "优化筛选器：字段过滤应弹出选择框支持多选",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-03-03T09:52:07Z",
+  "updated_at": "2026-03-03T10:54:09Z",
+  "closed_at": "2026-03-03T10:54:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1004",
+  "body": "### 背景\n目前，在参考其他主流平台时，字段过滤应弹出选择而不是手动输入ID，并且应支持多选操作。\n\n### 具体优化\n- 字段过滤（如\"所属客户\"）时应弹出下拉选择框，而不用输入ID。\n- 支持多选（select组件添加多选能力）。\n- 参考主流低代码平台排查所有字段类型进行优化\n- 检查并优化列表左上角的所有筛选器代码，确保统一体验。\n- 排查所有字段类型和统一过滤器中涉及的所有类型，保证多选兼容。\n\n### 相关截图\n<img alt=\"字段过滤筛选器优化建议\" width=\"2048\" src=\"https://github.com/user-attachments/assets/3b4b211b-5498-4e86-8d59-f7a249e3dcc1\" />\n\n### 期望结果\n- 用户添加过滤器时可以选择而不是输入ID。\n- select可以多选。\n- 各字段类型和过滤器类型渲染、交互统一。\n\n---\n完成需求后请：\n1. 运行测试。\n2. 更新相关 issue 进度。\n3. 更新 ROADMAP.md。\n4. 如需跨仓库协作，在目标 ObjectStack 仓库中创建 cross-repo issue。"
+}

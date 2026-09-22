@@ -1,0 +1,33 @@
+{
+  "number": 1094,
+  "kind": "pull_request",
+  "title": "feat(fields): RecordPickerDialog UI/UX overhaul — skeleton loading, sticky header, page jump, enhanced styling",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-19T08:21:56Z",
+  "updated_at": "2026-03-19T09:59:51Z",
+  "closed_at": "2026-03-19T09:57:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-19T09:57:00Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1094",
+  "body": "The lookup field record picker dialog had significant usability and visual gaps compared to mainstream low-code platforms. This overhaul addresses the core UX pain points.\n\n### Skeleton loading\n- Replaced the plain \"Loading…\" spinner with a table-shaped skeleton screen that mirrors the actual column layout during initial fetch.\n- Subsequent fetches (page/sort/filter) render a semi-transparent overlay with spinner over existing data instead of replacing it.\n\n### Sticky table header\n- `<TableHeader>` is now `sticky top-0` so column labels stay visible during vertical scroll.\n\n### Page jump\n- Added an input field in the pagination bar — type a page number and press Enter to navigate directly. Invalid values are silently ignored.\n\n### Table styling\n- Even/odd row striping (`bg-muted/20`), refined selected-row highlight (`bg-primary/5`), uppercase column headers with `tracking-wider`, rounded table border, tighter cell padding.\n- Row background logic extracted to `getRowBgClass` helper for readability.\n\n### Search & filter area\n- Search bar wrapped in a `rounded-md border bg-muted/30` container with borderless input for cleaner visual separation from the filter bar.\n- Filter panel now supports `lg:grid-cols-3` on wide viewports.\n\n### Responsive dialog sizing\n- Dialog uses responsive breakpoints (`sm:max-w-3xl lg:max-w-5xl`) to properly override the base `DialogContent`'s `sm:max-w-lg`, scaling from 768px on medium screens to 1024px on large screens for better data density.\n\n### z-index discipline\n- z-index values use Tailwind utilities (`z-[5]`, `z-10`) per repo guidelines (no inline styles).\n\n### Fix: React Error #185 (close-reset cycle)\n- Separated the dialog close-reset logic into its own `useEffect` (depends only on `open`) from the fetch-trigger effect (depends on `open` + pagination/sort/filter deps). Previously, the combined effect caused cascading state updates when closing — resetting `currentPage`/`sortField` changed the effect's own dependencies, re-triggering it in a loop that could hit React's maximum update depth.\n\n### Storybook stories\n- Added `record-picker-dialog.stories.tsx` with Default, MultiSelect, and WithFilters stories using a mock DataSource with simulated latency for visual verification.\n\n### Tests\n- 8 new tests covering skeleton column-count validation, sticky header classes, page jump (valid/invalid/single-page), and loading overlay.\n- Updated existing loading state test to match the new skeleton UI.\n\n### Visual verification (Storybook)\n\n| Default (single-select, pagination, page jump) | Wide viewport (1440px) |\n|---|---|\n| <img src=\"https://github.com/user-attachments/assets/b0654a6c-6478-4856-963a-906d7b78396f\"> | <img src=\"https://github.com/user-attachments/assets/1cbb1a67-647c-4e22-b316-6539b951bc2e\"> |\n\n> **Note**: Changes are in the `@object-ui/fields` package and will be visible in the console after this PR is merged and deployed. To verify locally, run `pnpm storybook` and navigate to **Fields → RecordPickerDialog**.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>参考主流低代码平台优化lookup字段选择列表弹窗界面</issue_title>\n> <issue_description>## 背景\n> 当前订单列表弹窗界面还有较大的可用性和观感提升空间。为提升平台竞争力和用户体验，应参考主流低代码平台，进行整体UI/UX优化。\n> \n> <img alt=\"现有界面截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/dd9d0a89-bf93-4375-bc6e-ad0dbdd0fa52\" />\n> \n> ## 优化建议\n> 1. **数据表头吸顶**：滚动时表头固定，提升操作性。\n> 2. **筛选与搜索区域优化**：\n>   - 搜索框与过滤条件显著分区，提升辨识度。\n>   - 支持自定义组合筛选项，筛选项宽度自适应，方便多条件筛选。\n> 3. **数据展示**：\n>   - 表格分隔线更清晰，突出每行间隔。\n>   - 状态列采用主流标签设计（风格更现代，色彩分级统一）。\n>   - 对金额、日期等展示格式友好化（如支持千分位、hover浮窗显示原始值）。\n> 4. **底部栏与分页**：\n>   - 固定底部记录总数与分页器。\n>   - 多页切换时支持跳转指定页。\n> 5. **交互反馈**：\n>   - 数据加载、筛选、分页等异步操作有loading动画或骨架屏。\n> 6. **响应式支持**：\n>   - 弹窗宽度及数据列可根据屏幕自适应，移动端友好。\n> \n> ## 参考侧重\n> - 参考宜搭、简道云等头部国产低代码平台交互与视觉风格。\n> - 强调可扩展性与组件通用性设计。\n> \n> ## 后续要求\n> - 优化设计需���持国际化、可配置化。\n> - 变更后需编写/调整单元测试，确保优化无回归。\n> - 完成后补充CHANGELOG，并更新相关进度issue。\n> \n> ---\n> 如需更多用户调研分析或竞品截图，可进一步补充。\n> \n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1093\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n📱 Kick off Copilot coding agent tasks wherever you are with [GitHub Mobile](https://gh.io/cca-mobile-docs), available on iOS and Android."
+}

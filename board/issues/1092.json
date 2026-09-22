@@ -1,0 +1,33 @@
+{
+  "number": 1092,
+  "kind": "pull_request",
+  "title": "feat(fields): always-visible \"Browse All\" button on LookupField",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-19T05:07:23Z",
+  "updated_at": "2026-03-19T05:55:32Z",
+  "closed_at": "2026-03-19T05:53:16Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-19T05:53:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1092",
+  "body": "RecordPickerDialog was only reachable via the in-popover \"Show All Results\" link, which is conditionally rendered when `total > pageSize`. For most datasets (<50 records), enterprise lookup features (multi-column table, sort/filter, cell renderers) were completely undiscoverable.\n\n### Changes\n\n- **LookupField.tsx**: Add a `Button` with `TableProperties` icon adjacent to the `PopoverTrigger` inside a flex row. Rendered unconditionally when `hasDataSource` is true. Opens `RecordPickerDialog` directly — independent of popover state or record count.\n- **record-picker.test.tsx**: 3 new tests — button renders with <5 records, opens dialog on click, hidden without dataSource.\n- **lookup.mdx**: Document \"Browse All\" button and dual entry points (button vs. in-popover link).\n- **CHANGELOG.md**: Entry under `[Unreleased]`.\n\n```tsx\n<div className=\"flex items-center gap-1.5\">\n  <Popover>\n    <PopoverTrigger asChild>\n      <Button className=\"min-w-0 flex-1 ...\">...</Button>\n    </PopoverTrigger>\n    <PopoverContent>...</PopoverContent>\n  </Popover>\n  {hasDataSource && (\n    <Button\n      variant=\"outline\"\n      size=\"icon\"\n      onClick={() => setIsPickerOpen(true)}\n      aria-label=\"Browse all records\"\n      data-testid=\"browse-all-records\"\n    >\n      <TableProperties className=\"size-4\" />\n    </Button>\n  )}\n</div>\n```\n\nThe existing conditional \"Show All Results\" inside the popover is preserved unchanged — both paths work independently.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[UX Enhancement] Always show \"Browse All\" button to open RecordPickerDialog in Lookup fields</issue_title>\n> <issue_description>## Background\n> Currently, the RecordPickerDialog (full enterprise picker) in Lookup fields is only accessible via the \"Show All Results\" button, which is only visible if the total record count exceeds the quick-select popover page size (default 50). For most CRM datasets, this means the enterprise dialog does not appear, and enterprise features like multi-column tables, sort/filter bar, and cell renderers are undiscoverable.\n> \n> This creates a perception that the advanced lookup features are missing, limiting end user and customer impact—even though the underlying metadata and implementation are complete.\n> \n> ## Requirement\n> Always render a dedicated \"Browse All\" (table icon) button next to the Lookup quick-select trigger (next to or inside the PopoverTrigger).  This should:\n> - Explicitly open the RecordPickerDialog (full-featured modal), regardless of record count\n> - Remain visible at all times, showing unified UX with platforms like Salesforce, MS Dynamics, etc.\n> - Use an accessible icon (Lucide's TableProperties or similar)\n> - Clearly separate quick-select vs. enterprise browsing (popover vs. dialog)\n> - Support keyboard accessibility and screen readers\n> \n> ## Acceptance Criteria\n> - Every LookupField with a dataSource/reference always renders a visible \"Browse All\" button\n> - Button opens RecordPickerDialog directly, not conditionally\n> - Both popover and dialog modes work independently—user can always swap between them\n> - Table icon is accessible and visually unobtrusive\n> - All feature flags/enterprise options (lookup_columns, lookup_filters, cell types) are demoable regardless of dataset size\n> - Unit test: assert button exists and dialog opens on click, even with <5 records\n> - Update Storybook, CRM demo, and docs to reference new enterprise entrypoint\n> - Document upgrade in CHANGELOG.md\n> \n> ## Out of Scope\n> - No API/metadata changes are needed; this is a pure frontend enhancement\n> - No breaking changes to existing filter/query logic\n> \n> ## References\n> - [Comparison: Salesforce Lookup UX](https://help.salesforce.com/s/articleView?id=sf.lookup_search_dialog.htm&type=5)\n> - [Current implementation example screenshot](https://github.com/objectstack-ai/objectui/issues/1089)</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1091\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

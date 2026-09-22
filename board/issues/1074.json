@@ -1,0 +1,33 @@
+{
+  "number": 1074,
+  "kind": "pull_request",
+  "title": "chore(deps): bump actions/download-artifact from 8.0.0 to 8.0.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-16T07:37:23Z",
+  "updated_at": "2026-03-16T07:53:15Z",
+  "closed_at": "2026-03-16T07:37:47Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-16T07:37:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1074",
+  "body": "Bumps [actions/download-artifact](https://github.com/actions/download-artifact) from 8.0.0 to 8.0.1.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/actions/download-artifact/releases\">actions/download-artifact's releases</a>.</em></p>\n<blockquote>\n<h2>v8.0.1</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>Support for CJK characters in the artifact name by <a href=\"https://github.com/danwkennedy\"><code>@​danwkennedy</code></a> in <a href=\"https://redirect.github.com/actions/download-artifact/pull/471\">actions/download-artifact#471</a></li>\n<li>Add a regression test for artifact name + content-type mismatches by <a href=\"https://github.com/danwkennedy\"><code>@​danwkennedy</code></a> in <a href=\"https://redirect.github.com/actions/download-artifact/pull/472\">actions/download-artifact#472</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/actions/download-artifact/compare/v8...v8.0.1\">https://github.com/actions/download-artifact/compare/v8...v8.0.1</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/actions/download-artifact/commit/3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c\"><code>3e5f45b</code></a> Add regression tests for CJK characters (<a href=\"https://redirect.github.com/actions/download-artifact/issues/471\">#471</a>)</li>\n<li><a href=\"https://github.com/actions/download-artifact/commit/e6d03f67377d4412c7aa56a8e2e4988e6ec479dd\"><code>e6d03f6</code></a> Add a regression test for artifact name + content-type mismatches (<a href=\"https://redirect.github.com/actions/download-artifact/issues/472\">#472</a>)</li>\n<li>See full diff in <a href=\"https://github.com/actions/download-artifact/compare/v8.0.0...v8.0.1\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=actions/download-artifact&package-manager=github_actions&previous-version=8.0.0&new-version=8.0.1)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

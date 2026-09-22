@@ -1,0 +1,35 @@
+{
+  "number": 773,
+  "kind": "pull_request",
+  "title": "chore(deps): bump tailwind-merge from 3.4.1 to 3.5.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T08:01:22Z",
+  "updated_at": "2026-02-23T08:55:23Z",
+  "closed_at": "2026-02-23T08:05:12Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-02-23T08:05:12Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/773",
+  "body": "[//]: # (dependabot-start)\n⚠️  **Dependabot is rebasing this PR** ⚠️ \n\nRebasing might not happen immediately, so don't worry if this takes some time.\n\nNote: if you make any changes to this PR yourself, they will take precedence over the rebase.\n\n---\n\n[//]: # (dependabot-end)\n\nBumps [tailwind-merge](https://github.com/dcastil/tailwind-merge) from 3.4.1 to 3.5.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/dcastil/tailwind-merge/releases\">tailwind-merge's releases</a>.</em></p>\n<blockquote>\n<h2>v3.5.0</h2>\n<h3>New Features</h3>\n<ul>\n<li>Add support for Tailwind CSS v4.2 by <a href=\"https://github.com/dcastil\"><code>@​dcastil</code></a> in <a href=\"https://redirect.github.com/dcastil/tailwind-merge/pull/651\">dcastil/tailwind-merge#651</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/dcastil/tailwind-merge/compare/v3.4.1...v3.5.0\">https://github.com/dcastil/tailwind-merge/compare/v3.4.1...v3.5.0</a></p>\n<p>Thanks to <a href=\"https://github.com/brandonmcconnell\"><code>@​brandonmcconnell</code></a>, <a href=\"https://github.com/manavm1990\"><code>@​manavm1990</code></a>, <a href=\"https://github.com/langy\"><code>@​langy</code></a>, <a href=\"https://github.com/roboflow\"><code>@​roboflow</code></a>, <a href=\"https://github.com/syntaxfm\"><code>@​syntaxfm</code></a>, <a href=\"https://github.com/getsentry\"><code>@​getsentry</code></a>, <a href=\"https://github.com/codecov\"><code>@​codecov</code></a>, a private sponsor, <a href=\"https://github.com/block\"><code>@​block</code></a>, <a href=\"https://github.com/openclaw\"><code>@​openclaw</code></a>, <a href=\"https://github.com/sourcegraph\"><code>@​sourcegraph</code></a> and more via <a href=\"https://github.com/thnxdev\"><code>@​thnxdev</code></a> for sponsoring tailwind-merge! ❤️</p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/270ac79f2c54fcaaabe811df2aa3c20300318bd9\"><code>270ac79</code></a> v3.5.0</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/86f772e7584311129f40f037c39db413aa51ce48\"><code>86f772e</code></a> add changelog for 3.5.0</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/6c1f77ca717df7d2685eb783c568ef7696148171\"><code>6c1f77c</code></a> Merge pull request <a href=\"https://redirect.github.com/dcastil/tailwind-merge/issues/651\">#651</a> from dcastil/feature/add-support-for-tailwind-css-v4.2</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/7a4cacfe56571a6b27137b76351fa14ca11538db\"><code>7a4cacf</code></a> Add support for decimal fraction values</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/9ef0f79a4528a60d737a8eaa1475ef72d81d98ad\"><code>9ef0f79</code></a> fix incorrectly escaped characters</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/f4938b0379dd3e29e1c6e03857e6ce3585001fe6\"><code>f4938b0</code></a> update README with v4.2 support</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/b02a57225dd0dad5fb1870e64bcc2ab5e57e95d8\"><code>b02a572</code></a> Add Tailwind v4.2 font-features utilities support</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/5bd25eca81eb484d0908cee626f6d39ff46bdaf6\"><code>5bd25ec</code></a> Add Tailwind v4.2 logical sizing utilities</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/697c920390a3aa7efef0bba2116b6a83c7eab3d8\"><code>697c920</code></a> Add Tailwind v4.2 logical border block utilities</li>\n<li><a href=\"https://github.com/dcastil/tailwind-merge/commit/6656a47db58862fcff765c483bd7a9152609af42\"><code>6656a47</code></a> Improve JSDoc comments for logical insets</li>\n<li>Additional commits viewable in <a href=\"https://github.com/dcastil/tailwind-merge/compare/v3.4.1...v3.5.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=tailwind-merge&package-manager=npm_and_yarn&previous-version=3.4.1&new-version=3.5.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

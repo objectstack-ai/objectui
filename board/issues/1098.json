@@ -1,0 +1,33 @@
+{
+  "number": 1098,
+  "kind": "pull_request",
+  "title": "fix: wire ActionProvider to console ObjectView for list toolbar action buttons",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-21T05:02:20Z",
+  "updated_at": "2026-03-21T05:39:30Z",
+  "closed_at": "2026-03-21T05:34:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-21T05:34:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1098",
+  "body": "Schema-driven action buttons in the list view toolbar (`action:bar` with `locations: ['list_toolbar']`) were rendered via `SchemaRenderer` without an `ActionProvider` ancestor. `useAction()` fell back to a throwaway local `ActionRunner` with no handlers — clicks executed silently.\n\n### Changes\n\n- **`apps/console/src/components/ObjectView.tsx`** — Wrapped the component tree with `ActionProvider`, mirroring the existing pattern in `RecordDetailView`:\n  - `onConfirm` → `ActionConfirmDialog` (promise-based)\n  - `onToast` → Sonner\n  - `onNavigate` → React Router / `window.open`\n  - `onParamCollection` → `ActionParamDialog`\n  - `handlers.api` → generic `dataSource.execute()` fallback\n\n- **`apps/console/src/__tests__/ListToolbarActions.test.tsx`** — 4 integration tests: renders buttons, shows confirm dialog on click, executes on accept, skips on cancel.\n\n- **`CHANGELOG.md`** — Documented fix.\n\n### Before / After\n\n```tsx\n// Before — action:bar rendered without ActionProvider context\n<SchemaRenderer schema={{\n  type: 'action:bar',\n  location: 'list_toolbar',\n  actions: objectDef.actions,\n}} />\n// useAction() → new ActionRunner() with no handlers → silent no-op\n\n// After — ActionProvider wraps the tree\n<ActionProvider\n  context={{ objectName: objectDef.name, user: currentUser }}\n  onConfirm={confirmHandler}\n  onToast={toastHandler}\n  onNavigate={navigateHandler}\n  onParamCollection={paramCollectionHandler}\n  handlers={{ api: apiHandler }}\n>\n  {/* ... existing content including action:bar ... */}\n</ActionProvider>\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

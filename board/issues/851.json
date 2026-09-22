@@ -1,0 +1,35 @@
+{
+  "number": 851,
+  "kind": "issue",
+  "title": "【Bug】图表控件加载数据时未聚合导致大量数据下载，需后端计算聚合",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-25T03:53:56Z",
+  "updated_at": "2026-02-25T07:23:56Z",
+  "closed_at": "2026-02-25T07:23:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/851",
+  "body": "### 问题描述\n\n在 dashboard 的图表控件（如柱状图、折线图、饼图等）中，当前加载数据时会直接获取全部原始数据（例如通过 https://demo.objectui.org/api/v1/data/opportunity 这类 API，一次性拉取所有数据），当数据量大时性能和体验极差。\n\n#### 期望行为\n- 图表类的 widget 在加载数据时，应该调用后端数据分析 API，由服务端完成分组/聚合计算，只返回聚合后的结果到前端。\n- 前端仅展示统计分析结果、而非全量数据。\n\n#### 建议修复思路\n- 梳理 dashboard 各 widget 的数据请求方式，区分明细 vs 聚合。\n- 图表控件如 area/bar/line/pie/donut/scatter/pivot 类型，统一走分析（aggregation）API，例如 GET /api/v1/analytics/opportunity?category=xxx&metric=yyy&agg=sum ，由后端负责聚合。\n- 仅明细类控件（如 grid/table/list）才可走全量数据接口。\n\n---\n请修复上述问题，并确保 dashboard 相关 test 通过。修复后同步更新项目 Roadmap。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 762,
+  "kind": "issue",
+  "title": "设置面板（ConfigPanel）UI Spec 对齐完善 & 遗留问题补全清单",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:49:12Z",
+  "updated_at": "2026-02-23T08:06:08Z",
+  "closed_at": "2026-02-23T08:06:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/762",
+  "body": "## 背景\n近期已对 Console 设置面板（ConfigPanel）进行了严格 schema-driven 和协议（spec）映射整改，但仍存在部分实现细节和测试覆盖未完全达标。此 issue 作为补全所有遗留问题的追踪清单，确保实现与 NamedListView/ListViewSchema 规格协议一一对齐，并消除所有遗留瑕疵。\n\n## 待完善开发细节\n\n### 1. ObjectGrid 行高 rowHeight 枚举与渲染支持\n- [ ] ObjectGridSchema.rowHeight 从 `'compact' | 'medium' | 'tall'` 扩展为 `'compact' | 'short' | 'medium' | 'tall' | 'extra_tall'` ，但 ObjectGrid 实现（例如：packages/plugin-grid/src/ObjectGrid.tsx:129, 804-808, 1031-1036）仅对 3 种进行了 hardcode，传入短值/超高值会 fallback，需增加 full 5 枚举的渲染/样式能力\n- [ ] ObjectGrid 的 Zod schema 目前无 rowHeight，需增加 rowHeight 字段对应 z.enum 保证 runtime 校验不脱节\n- [ ] 完成上述修复后需补充相关单测，确保 UI 层可用所有 rowHeight\n\n### 2. 各 Section 字段 Spec 全覆盖与 UI 交互互测\n- [ ] Appearance/UserActions/Sharing/Accessibility 等 section 的所有 spec 字段是否有对应 UI 控件、默认值、排序和禁用逻辑，需再次自检与 spec 全量核查\n- [ ] 检查并补足 bulkActions、collapseAllByDefault、emptyState 等边界 case 的配置项及说明\n- [ ] 检查协议字段条件可见/禁用/默认值等约束逻辑是否全部体现\n\n### 3. 测试 case 全覆盖\n- [ ] 测试用例除主路径外需覆盖所有界面交互异常、condictional rendering、协议边界值（如最长label、特殊枚举、隐藏字段等）\n- [ ] 针对 roadmap 更新、field顺序、appearance 细节补测，保持测试用例与 spec 变更同步\n\n\n### 5. Issue/PR/roadmap 文档同步\n- [ ] 回溯上述所有开发和测试变动，更新 milestone/roadmap 相关进度说明，避免遗漏步骤\n\n---\n> 合并清单：如需二次补充，请继续在本 issue 讨论区按 checklist 形式更新。完成全部后需要运行 test，并同步更新 roadmap。\n\n负责人: @hotlong\n"
+}

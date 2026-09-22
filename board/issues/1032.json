@@ -1,0 +1,33 @@
+{
+  "number": 1032,
+  "kind": "pull_request",
+  "title": "fix: record detail \"not found\" in external metadata environments",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T10:43:55Z",
+  "updated_at": "2026-03-04T11:17:30Z",
+  "closed_at": "2026-03-04T11:17:04Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-04T11:17:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1032",
+  "body": "When deploying to external metadata environments, navigating from list → record detail shows \"Record not found\" because `findOne` errors bypass the alt-ID fallback, and the `$expand` code path hard-fails on servers that don't support filter+populate.\n\n### DetailView fallback catches errors, not just nulls\n\nThe alt-ID fallback (strip/add objectName prefix) only ran when `findOne` returned `null`. If it **threw** (server 500, unsupported API, network error), the fallback was skipped entirely.\n\n```ts\n// Before: .then() never runs if promise rejects\nreturn findOnePromise.then((result) => { ... fallback ... });\n\n// After: convert error → null so fallback always runs\nreturn findOnePromise\n  .catch(() => null)\n  .then((result) => { ... fallback ... });\n```\n\n### ObjectStackAdapter degrades gracefully when $expand fails\n\n`findOne` with `$expand` uses `rawFindWithPopulate` with `$filter: { _id: id }`. Some servers don't support this filter+populate API. Previously threw on non-404 errors; now falls through to direct `data.get()` without expand.\n\n### Record IDs URL-encoded in navigation URLs\n\n`encodeURIComponent` added to all record ID URL construction points across:\n- `apps/console/src/components/ObjectView.tsx`\n- `apps/console/src/hooks/useObjectActions.ts`\n- `packages/plugin-view/src/ObjectView.tsx`\n- `packages/react/src/hooks/useNavigationOverlay.ts`\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 本项目作为元数据驱动的平台部署到其他元数据环境后，从列表进入记录详情页提示记录没找到。会不会是对ID做了什么特殊处理？https://demo.hotcrm.com/console/apps/crm/contact/record/contact-1772620343833-4\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

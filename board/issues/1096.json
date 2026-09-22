@@ -1,0 +1,33 @@
+{
+  "number": 1096,
+  "kind": "pull_request",
+  "title": "fix: use natural key references in CRM seed data for SeedLoader compatibility",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-19T10:31:44Z",
+  "updated_at": "2026-03-19T11:18:38Z",
+  "closed_at": "2026-03-19T11:15:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-19T11:15:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1096",
+  "body": "Order Item grid shows empty (\"-\") for Order and Product lookup columns because `SeedLoaderService` resolves foreign key references by `name` (the default `externalId`), not `id`. Values like `order: \"o1\"` fail resolution → set to `null`.\n\n### Root cause\n\n`SeedLoaderService.loadDataset()` iterates lookup fields and attempts reference resolution:\n\n1. `looksLikeInternalId(\"o1\")` → `false` (not UUID/ObjectID format)\n2. `insertedRecords.get(\"order\").get(\"o1\")` → miss (keys are name values like `\"ORD-2024-001\"`)\n3. `resolveFromDatabase(\"order\", \"name\", \"o1\")` → miss\n4. `multiPass: true` → `record.order = null`, deferred (never resolves)\n\nThis affected **all** lookup fields across all CRM seed data, not just order_item.\n\n### Changes\n\nUpdated all 8 CRM data files to use target record `name` as the foreign key value:\n\n- **order_item.data.ts**: `order: \"o1\"` → `\"ORD-2024-001\"`, `product: \"p1\"` → `\"Workstation Pro Laptop\"`\n- **order.data.ts**: `customer: \"2\"` → `\"Bob Smith\"`, `account: \"2\"` → `\"Salesforce Tower\"`\n- **contact.data.ts**: `account: \"1\"` → `\"ObjectStack HQ\"`\n- **account.data.ts**: `owner: \"1\"` → `\"Martin CEO\"`\n- **opportunity.data.ts**: `account` → account names\n- **opportunity_contact.data.ts**: `opportunity`/`contact` → name values\n- **project_task.data.ts**: `manager`/`assignee` → user names\n- **event.data.ts**: `organizer` → user names\n\nArray-valued lookups (e.g., `contacts: [\"2\", \"7\"]`) are unaffected — `SeedLoaderService` skips non-string values.\n\n```diff\n-{ id: \"li1\", name: 'LI-001', order: \"o1\", product: \"p1\", ... }\n+{ id: \"li1\", name: 'LI-001', order: \"ORD-2024-001\", product: \"Workstation Pro Laptop\", ... }\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

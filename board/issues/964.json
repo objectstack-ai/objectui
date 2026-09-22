@@ -1,0 +1,36 @@
+{
+  "number": 964,
+  "kind": "pull_request",
+  "title": "chore(deps): bump lucide-react from 0.575.0 to 0.576.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "plugin",
+    "plugin: kanban"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-02T08:05:31Z",
+  "updated_at": "2026-03-02T09:00:03Z",
+  "closed_at": "2026-03-02T08:12:22Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-02T08:12:22Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/964",
+  "body": "[//]: # (dependabot-start)\n⚠️  **Dependabot is rebasing this PR** ⚠️ \n\nRebasing might not happen immediately, so don't worry if this takes some time.\n\nNote: if you make any changes to this PR yourself, they will take precedence over the rebase.\n\n---\n\n[//]: # (dependabot-end)\n\nBumps [lucide-react](https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react) from 0.575.0 to 0.576.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/lucide-icons/lucide/releases\">lucide-react's releases</a>.</em></p>\n<blockquote>\n<h2>Version 0.576.0</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>Added zodiac signs by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/712\">lucide-icons/lucide#712</a></li>\n<li>fix(icons): fixes guideline violations in <code>package-*</code> icons. by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4074\">lucide-icons/lucide#4074</a></li>\n<li>fix(icons): changed <code>receipt</code> icon by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4075\">lucide-icons/lucide#4075</a></li>\n<li>fix(icons): updated <code>cuboid</code> icon tags and categories by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4095\">lucide-icons/lucide#4095</a></li>\n<li>fix(icons): changed <code>cuboid</code> icon by <a href=\"https://github.com/jamiemlaw\"><code>@​jamiemlaw</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4098\">lucide-icons/lucide#4098</a></li>\n<li>fix(lucide-font, lucide-static): Fixing stable code points by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/3894\">lucide-icons/lucide#3894</a></li>\n<li>feat(icons): added <code>fishing-rod</code> icon by <a href=\"https://github.com/7ender\"><code>@​7ender</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/3839\">lucide-icons/lucide#3839</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/lucide-icons/lucide/compare/0.575.0...0.576.0\">https://github.com/lucide-icons/lucide/compare/0.575.0...0.576.0</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a href=\"https://github.com/lucide-icons/lucide/commits/0.576.0/packages/lucide-react\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=lucide-react&package-manager=npm_and_yarn&previous-version=0.575.0&new-version=0.576.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

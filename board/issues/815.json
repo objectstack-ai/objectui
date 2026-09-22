@@ -1,0 +1,33 @@
+{
+  "number": 815,
+  "kind": "pull_request",
+  "title": "fix: dashboard edit mode widget selection blocked by SchemaRenderer content",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-24T01:10:00Z",
+  "updated_at": "2026-02-24T02:34:56Z",
+  "closed_at": "2026-02-24T02:31:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-24T02:31:52Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/815",
+  "body": "Widgets in the dashboard main area are unselectable in edit mode. Clicks on charts/tables rendered by `SchemaRenderer` are consumed by interactive child elements (SVG, canvas, table rows) before bubbling to the `Card`/`div` selection handler.\n\n### Fix — Defense in Depth\n\nTwo complementary layers ensure clicks always reach the widget selection handler in design mode:\n\n1. **`pointer-events-none`** on content wrappers: Disables chart/table interactivity (tooltips, hover effects) in design mode. Handles most standard HTML elements.\n\n2. **Transparent click-capture overlay** (`absolute inset-0 z-10`): Rendered on top of all widget content in design mode. Guarantees clicks reach the widget's `onClick` handler even if SVG child elements (e.g. Recharts tooltip hitbox `<rect>`) override inherited `pointer-events` via explicit SVG attributes.\n\n```tsx\n// Self-contained (metric) widgets\n<div className={cn(\"h-full w-full\", designMode && \"relative\", selectionClasses)} {...designModeProps}>\n    <SchemaRenderer schema={componentSchema} className={cn(\"h-full w-full\", designMode && \"pointer-events-none\")} />\n    {designMode && <div className=\"absolute inset-0 z-10\" aria-hidden=\"true\" />}\n</div>\n\n// Card-based (chart/table) widgets\n<Card className={cn(..., designMode && \"relative\", selectionClasses)} {...designModeProps}>\n    <CardContent className=\"p-0\">\n        <div className={cn(\"h-full w-full\", \"p-3 sm:p-4 md:p-6\", designMode && \"pointer-events-none\")}>\n            <SchemaRenderer schema={componentSchema} />\n        </div>\n    </CardContent>\n    {designMode && <div className=\"absolute inset-0 z-10\" aria-hidden=\"true\" />}\n</Card>\n```\n\n- **`DashboardRenderer.tsx`** — `pointer-events-none` on content wrappers + transparent click-capture overlay with `relative` positioning on widget containers, all gated on `designMode`\n- **`DashboardRenderer.designMode.test.tsx`** — Updated mock to forward `className` and include interactive child element; 9 new tests for pointer-events-none, overlay presence/absence, z-index, relative positioning, and click-to-select\n- **`ROADMAP.md`** — Phase 9 entry updated\n\nNon-edit mode is unaffected — widgets remain fully interactive with no overlays or pointer-events changes. All 115 dashboard tests pass (11 files).\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Left Pane Unselectable in Dashboard Edit Mode - Comprehensive Investigation Needed</issue_title>\n> <issue_description>## Problem\n> \n> In the current Dashboard edit mode, users are unable to select widgets or cards in the left/main view area. Based on the attached screenshot, only the property/config panel on the right remains accessible; the main UI does not react to selection, showing no visible highlights or controls on cards. This blocks property panel linkage and prevents any context-based editing.\n> \n> <img alt=\"Screenshot showing dashboard in edit mode. Left area is not selectable.\" width=\"2732\" src=\"https://github.com/user-attachments/assets/bb888944-d44d-4a7a-98d4-4eb6f8deeaf0\" />\n> \n> ## Scope of Investigation\n> - Review dashboard rendering logic in plugin-dashboard or relevant packages.\n> - Check widget/card selection state propagation (`@object-ui/core`, `@object-ui/react`, Zustand store).\n> - Audit event handler wiring: are `onClick`, `onSelect` events correctly hooked on dashboard items?\n> - Ensure SchemaRenderer and DashboardWidget components correctly pass selection callbacks.\n> - Evaluate how ListView/PageDesigner achieve selection and highlight.\n> - Compare store and actions between Dashboard and ListView modes.\n> - Check dashboard schema definition: Ensure `id`, `type`, `events` fields are present and wired as per @objectstack/spec.\n> - Review conditional disabling logic and expressions (`hidden`, `disabled`) that might block interaction.\n> \n> ## Technical Advice\n> - Focus on dashboard widget selection logic and visual feedback.\n> - Look for missing event wiring, store state, or selector propagation bugs.\n> - Do not ignore possibility of stale store, incorrect context provider, or schema mismatch.\n> \n> ## Acceptance Criteria\n> - Selection in left/main dashboard area is possible in edit mode.\n> - Selected widget/card receives visual highlight.\n> - Property panel on right reflects the correct widget selection context.\n> - Selection logic is consistent with ListView/PageDesigner implementations.\n> - Tests pass for selection and highlighting (run test after changes).\n> \n> ---\n> Complete investigation and propose fixes. Update roadmap and related issues as appropriate after resolving.\n> \n> Assignee: hotlong\n> Labels: bug\n> Type: Bug</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#814\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

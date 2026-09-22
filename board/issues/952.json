@@ -1,0 +1,33 @@
+{
+  "number": 952,
+  "kind": "pull_request",
+  "title": "fix: i18n compliance, auto row selection, column density, border contrast",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-02T04:57:07Z",
+  "updated_at": "2026-03-02T05:36:00Z",
+  "closed_at": "2026-03-02T05:31:44Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-02T05:31:44Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/952",
+  "body": "Grid/list/data-table had ~20 hardcoded English strings bypassing i18n, no auto-selection when bulk actions were defined, oversized index columns, and low-contrast row borders.\n\n### i18n\n\n- **data-table.tsx**: All 12+ visible strings (`\"No results found\"`, `\"Sort ascending\"`, `\"Hide column\"`, `\"Cancel All\"`, `\"Save All\"`, `\"Export CSV\"`, `\"Add record\"`, `\"Open\"`, `\"Search...\"`, etc.) now route through `t()` with fallback defaults\n- **ListView.tsx**: `\"Hide fields\"`, `\"Show all\"`, `\"Share\"`, `\"Print\"`, `\"Pull to refresh\"`, `\"Refreshing…\"` → `t()` calls\n- **en.ts / zh.ts**: Added corresponding keys to both locale files\n\n### Row selection auto-enable\n\nWhen `batchActions`/`bulkActions` are defined but no explicit `selectable` is set, ObjectGrid now auto-enables `selectionMode: 'multiple'`:\n\n```tsx\n} else if (hasBulkActions) {\n  selectionMode = 'multiple';\n}\n```\n\n### Column width & density\n\n- Selection checkbox + row number columns: `w-12` (48px) → `w-10` (40px)\n- Frozen column offset calculations updated to match\n\n### Border contrast\n\n- Row borders: `border-border/50` → `border-border`\n\n### Bug fix\n\n- Filler row `colSpan` was missing `showRowNumbers`, causing misaligned ghost rows when row numbers were enabled\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Airtable UX Polish: Table Selection, i18n, Layout, and Density Fixes</issue_title>\n> <issue_description>ObjectUI's current table/grid experience is visually advanced but falls short of true Airtable-level UX in several areas. This issue tracks a set of UI/UX optimizations required to narrow this gap.\n> \n> ## Problem Areas:\n> \n> 1. **Internationalization (i18n) Gaps**\n>    - Mixed Chinese/English in navigation, breadcrumbs, toolbar, and grid headers/controls.\n>    - Action: Route all surface-visible strings through the i18n engine. Eliminate hardcoded text.\n> \n> 2. **Missing Table Row Selection Feature**\n>    - Bulk actions (e.g., \"Send Email\") are present, but users cannot select multiple rows (no row checkboxes).\n>    - Action: Add a standard row selection checkbox column when bulk actions are defined for the table view.\n> \n> 3. **Pagination Footer & White Space**\n>    - Excessive blank space appears between data rows and the pagination footer when data is sparse.\n>    - Action: Anchor pagination directly below the last row or fill empty space with ghost rows for consistent density.\n> \n> 4. **Column Width/Alignment Issues**\n>    - Index (\"#\") and icon columns too wide; data columns too compressed.\n>    - Action: Use minimal/fixed width for index, flexible for main data columns.\n> \n> 5. **Header Spacing Consistency**\n>    - Header utilities crowded against the screen edge; misaligned with the app shell.\n>    - Action: Align navbar paddings to match grid/container width.\n> \n> 6. **Border & Cell Contrast**\n>    - Table/grid cell borders too subtle versus Airtable. Makes scanning rows/columns harder.\n>    - Action: Enhance the border-color contrast or respect 'bordered' prop more aggressively for denser tables.\n> \n> ## Reference\n> - [Airtable Reference Screenshot](image1)\n> - [Current ObjectUI Demo Screenshot](image2)\n> \n> ## Acceptance Criteria\n> - Pure i18n compliance (no visible raw strings)\n> - Multi-row selection & bulk action workflow\n> - Table always feels visually \"anchored\" to data, not viewport\n> - Proper cell/border balance for both light/dense modes\n> \n> ---\n> \n> Follow up with design QA & user testing. See ROADMAP.md for tracking this issue as an Airtable UX Polish milestone.</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#951\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

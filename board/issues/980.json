@@ -1,0 +1,33 @@
+{
+  "number": 980,
+  "kind": "pull_request",
+  "title": "Remove design-mode UI from main view; converge to ViewConfigPanel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T01:49:17Z",
+  "updated_at": "2026-03-03T02:28:17Z",
+  "closed_at": "2026-03-03T02:28:17Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/980",
+  "body": "Design-level controls (breadcrumb, ViewTabBar, filter/sort/group buttons) were rendered inline in the main content area, creating UI clutter for normal users. These belong exclusively in the right-side ViewConfigPanel.\n\n### Console `ObjectView.tsx`\n- Remove internal breadcrumb (duplicates AppHeader)\n- Remove `ViewTabBar` — view switching managed via ViewConfigPanel\n- Default `showFilters`, `showSort` to `false` (was `!== false`, i.e. default true)\n- Clean up dead imports (`ViewTabBar`, `ChevronRight`, view type icons/constants)\n\n### Plugin `ListView.tsx`\n- Flip toolbar defaults for `showSort`, `showFilters`, `showGroup` from opt-out (`!== false`) to opt-in (`=== true`)\n\n```ts\n// Before: buttons shown unless explicitly disabled\nshowSort: ua?.sort !== undefined ? ua.sort : schema.showSort !== false,\nshowFilters: ua?.filter !== undefined ? ua.filter : schema.showFilters !== false,\nshowGroup: schema.showGroup !== false,\n\n// After: buttons hidden unless explicitly enabled\nshowSort: ua?.sort !== undefined ? ua.sort : schema.showSort === true,\nshowFilters: ua?.filter !== undefined ? ua.filter : schema.showFilters === true,\nshowGroup: schema.showGroup === true,\n```\n\n### Tests\n- Updated assertions that depended on removed breadcrumb/tab bar text\n- Added explicit `showGroup/showSort/showFilters: true` to tests that exercise those toolbar buttons\n- All suites green: 259 ListView, 42 console ObjectView, 174 plugin-view\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>移除画圈的视图设计功能（面包屑/顶部标签栏/过滤器按钮），将其迁移到右侧配置面板</issue_title>\n> <issue_description>### 需求背景\n> 在\"商机（Opportunities）\"等对象列表页，部分设计及管理功能应只出现在右侧属性配置面板，而不是主界面顶部或工具栏。当前版本存在如下 UI 冗余（见下方截图）：\n> \n> <img alt=\"UI 要优化的区块\" width=\"2878\" src=\"https://github.com/user-attachments/assets/de949f09-09c8-452b-811b-0f78b6ef2022\" />\n> \n> **具体要求如下：**\n> \n> #### 1. 移除不必要的面包屑显示\n> - 移除主内容区 `ObjectView` 内部的路径面包屑（如 \"Opportunity > All Opportunities\"），避免和顶部全局 AppHeader 面包屑重复。\n> - 只保留页面头部（AppHeader）里的统一面包屑导航。\n> \n> #### 2. 移除顶部的视图标签栏\n> - UI 区块：`All Opportunities` / `Pipeline` / `Closing This Month` / `+` 这些 ViewTabBar 应该作为\"设计模式\"下的配置功能，在右侧 ViewConfigPanel 属性栏实现。\n> - 普通用户模式下不再显示顶部多视图标签。\n>   - 管理端在右侧面板（ViewConfigPanel）支持完整配置：添加/重命名/切换视图等（功能已在该 panel 内实现）。\n> \n> #### 3. 隐藏工具栏的筛选/分组/排序按钮\n> - 去掉主工具栏上的 \"筛选(Filter)\", \"分组(Group)\", \"排序(Sort)\", `+ Add Filter` 按钮。\n> - 这些属于高级管理功能，仅在属性面板可供设计时操作，不出现在普通用户主视图工具栏。\n> - Toolbar 显示逻辑：通过 `showFilters: false`, `showSort: false`, `showGroup: false` 这类 schema 配置关闭相关按钮。\n> - runtime 下仍允许用户级筛选下拉菜单（如实体字段多选 filter）存在。\n> \n> #### 4. 其它说明\n> - **保留**对象主标题（如 Opportunity）、主按钮（如新建、批量操作等）、快速筛选（UserFilters）、描述说明、右侧属性面板。\n> - **重点**：所有设计和结构性功能逐步收敛在 ViewConfigPanel 右侧栏，便于低代码场景统一配置。\n> - 所有 UI 调整需严格遵循 @objectstack/spec 约束，采用类型安全方案规范编写。\n> \n> ### 技术实现建议\n> 1. `apps/console/src/components/ObjectView.tsx`：移除自定义面包屑与顶部 ViewTabBar 的渲染，仅保留主标题与基础描述。\n> 2. `packages/plugin-list/src/ListView.tsx`：toolbar 区隐藏设计级别的过滤/分组/排序等按钮，根据 `schema.showFilters`、`schema.showSort`、`schema.showGroup` 控制；默认用户模式下这些全关。\n> 3. 右侧 ViewConfigPanel（设计时）继续承载所有高级视图配置能力。\n> 4. 修正/补充相关 storybook、单元测试，确保 toolbar 仅显示用户实际需要的筛选/搜索等控件。\n> \n> ### 验收标准\n> - 普通用户身份进入列表页，无设计模式、无画圈 UI 区域；UI 清爽。\n> - 管理端在 ViewConfigPanel 可全量控制视图分组/过滤等设计能力。\n> - 单元测试通过，Storybook 文档更新。\n> \n> > 参考截图：（已在上方插入）\n> \n> ---\n> \n> > 备注：本 Issue 为\"设计模式解耦/功能下放\"专项优化，严格遵循 ObjectStack 前端架构规范。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#979\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

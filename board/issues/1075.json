@@ -1,0 +1,34 @@
+{
+  "number": 1075,
+  "kind": "pull_request",
+  "title": "chore(deps): bump hono from 4.12.7 to 4.12.8",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "examples"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-16T07:39:59Z",
+  "updated_at": "2026-03-16T07:58:50Z",
+  "closed_at": "2026-03-16T07:40:14Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-16T07:40:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1075",
+  "body": "Bumps [hono](https://github.com/honojs/hono) from 4.12.7 to 4.12.8.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/honojs/hono/releases\">hono's releases</a>.</em></p>\n<blockquote>\n<h2>v4.12.8</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>fix(utils/mime): Normalize input extension to lowercase before MIME check by <a href=\"https://github.com/TheEssem\"><code>@​TheEssem</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4800\">honojs/hono#4800</a></li>\n<li>fix(bearer-auth): escape regex metacharacters in bearer auth prefix option by <a href=\"https://github.com/otoneko1102\"><code>@​otoneko1102</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4750\">honojs/hono#4750</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/TheEssem\"><code>@​TheEssem</code></a> made their first contribution in <a href=\"https://redirect.github.com/honojs/hono/pull/4800\">honojs/hono#4800</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/honojs/hono/compare/v4.12.7...v4.12.8\">https://github.com/honojs/hono/compare/v4.12.7...v4.12.8</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/honojs/hono/commit/fe689eceb7834db653a64ecae5f8d203d9c23b9a\"><code>fe689ec</code></a> 4.12.8</li>\n<li><a href=\"https://github.com/honojs/hono/commit/0c0bf8d789949d69d4e5bea244c468d2c7d9986b\"><code>0c0bf8d</code></a> fix(bearer-auth): escape regex metacharacters in bearer auth prefix option (#...</li>\n<li><a href=\"https://github.com/honojs/hono/commit/488ea6ab3e601d89fc57438db7275734af14a3b3\"><code>488ea6a</code></a> fix(utils/mime): Normalize input extension to lowercase before MIME check (<a href=\"https://redirect.github.com/honojs/hono/issues/4\">#4</a>...</li>\n<li>See full diff in <a href=\"https://github.com/honojs/hono/compare/v4.12.7...v4.12.8\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=hono&package-manager=npm_and_yarn&previous-version=4.12.7&new-version=4.12.8)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

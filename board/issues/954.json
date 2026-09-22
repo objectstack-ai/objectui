@@ -1,0 +1,33 @@
+{
+  "number": 954,
+  "kind": "issue",
+  "title": "统一 debug/metadata 入口，移除多余的 Metadata 按钮，提升终端用户体验",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-02T07:03:11Z",
+  "updated_at": "2026-03-02T07:18:57Z",
+  "closed_at": "2026-03-02T07:18:57Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/954",
+  "body": "### 背景\n目前 RecordDetailView、DashboardView、PageView、ReportView 等多个界面右上角都有明显 \"</> Metadata\" 按钮，对普通用户没有实际用途，且与 ObjectView/Design Tools 的调试入口功能重叠，容易引起困惑。\n\n已有独立的调试模式（DebugPanel），支持 ?__debug 参数和 Ctrl+Shift+D 激活，功能更强大，且 ObjectView 已经把 metadata inspector 限制为 admin 可见，放在 Design Tools 菜单下。\n\n截图：\n<img alt=\"RecordDetailView 界面存在 Metadata 按钮，无实际用途\" width=\"2732\" src=\"https://github.com/user-attachments/assets/638adfb8-d850-4722-83f1-b1cd63251ccb\" />\n\n### 问题\n- Metadata inspector 和 DebugPanel 功能重复\n- 终端用户界面冗余，按钮无实际意义\n- ObjectView 做了权限限制，其他视图未统一\n\n### 建议优化方案\n1. **RecordDetailView / DashboardView / PageView / ReportView** 彻底移除 `<MetadataToggle>` 按钮，不再在头部显式展示\n2. MetadataInspector 只在 `?__debug` 模式下自动开启/可见，或者仅 admin 通过菜单入口访问\n3. 保留 ObjectView Admin 的 design tools 菜单中的 debug/metadata inspector 入口（已实现）\n4. 更新文档，说明终端用户场景下不显示调试入口\n5. 检查 Roadmap 和相关文档，避免调试功能泄漏到用户主流程\n\n### 参考文件\n- apps/console/src/components/RecordDetailView.tsx\n- apps/console/src/components/DashboardView.tsx\n- apps/console/src/components/PageView.tsx\n- apps/console/src/components/ReportView.tsx\n- packages/components/src/debug/DebugPanel.tsx\n\n---\n建议先 quick win，PR 直接移除按钮。后续可考虑进一步统一 metadata inspector 与 debug panel。\n\n> 优化后能明显提升终端用户体验，并避免误触。\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 993,
+  "kind": "issue",
+  "title": "Auth 注册和登录在 MSW/Server 模式均不可用，未加载 AuthPlugin",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-03T05:19:16Z",
+  "updated_at": "2026-03-04T07:52:51Z",
+  "closed_at": "2026-03-04T07:52:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/993",
+  "body": "## 问题描述\n\n当前 objectui 仓库无论在 `pnpm dev` (MSW) 还是 `pnpm dev:server` (Server) 模式下，/api/v1/auth/sign-up/email 等注册、登录等认证 API 都不可用，返回 404。经分析发现，Kernel 并未加载 AuthPlugin，导致 HttpDispatcher.handleAuth 无法正常处理 better-auth 认证相关端点。\n\n## 影响范围\n- MSW 本地开发环境无法注册/登录，开发体验不完整\n- Server 环境只支持 legacy login，无法对接统一认证协议\n- 下游所有依赖 objectui/console 作为 IDE 的开发环境均无法测试用户认证\n\n## 根本原因\n- `apps/console/src/mocks/createKernel.ts` 及 `objectstack.config.ts` 都未加载 `@objectstack/plugin-auth`，导致 Kernel 没有注册 'auth' service。\n- HttpDispatcher 仅支持 legacy /auth/login fallback。\n- AuthPlugin 依赖于 HonoServerPlugin，但 MSW 模式下没有 HTTP server，可能报依赖错误。\n\n## 理想修复方案\n1. 在 objectui 的 kernel 配置（createKernel.ts 和 objectstack.config.ts）中统一加载 AuthPlugin。\n2. AuthPlugin 内部对于无 HTTP server 的环境应能优雅降级。不注册路由，不报错，但暴露认证 service 能被 HttpDispatcher 调用。\n3. 如果 AuthPlugin 无法自动兼容 MSW，则 HttpDispatcher 增加 better-auth 的标准 endpoint mock fallback（即使没有 auth service，能拦截 sign-up/email、sign-in/email、get-session 等并返回合理的 mock 响应）。\n4. 文档更新：明确所有模式都需要 AuthPlugin。\n\n## 参考代码\n```\nawait kernel.use(new AuthPlugin({\n  secret: 'dev-secret',\n  baseUrl: 'http://localhost',\n}));\n```\n\n## 行动建议\n- 优先在 spec repo 侧协作，推动 AuthPlugin 支持无 HTTP server 环境\n- objectui 尽快添加 AuthPlugin 的加载逻辑\n- 中短期可用 HttpDispatcher 增加 mock fallback 兜底\n\n---\n相关 spec 侧追踪 issue 另见 objectstack-ai/spec\n\n"
+}

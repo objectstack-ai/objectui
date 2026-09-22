@@ -1,0 +1,33 @@
+{
+  "number": 791,
+  "kind": "pull_request",
+  "title": "feat: useNavigationSync hook + NavigationSyncEffect — auto-sync navigation tree on Page/Dashboard CRUD",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T12:17:21Z",
+  "updated_at": "2026-02-23T13:40:56Z",
+  "closed_at": "2026-02-23T13:11:06Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T13:11:06Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/791",
+  "body": "Page/Dashboard create, delete, and rename operations don't propagate to the App's `navigation[]`, forcing manual maintenance of the navigation tree.\n\n### Changes\n\n- **`apps/console/src/hooks/useNavigationSync.ts`** — New hook exposing six per-app methods (`syncPageCreated`, `syncDashboardCreated`, `syncPageDeleted`, `syncDashboardDeleted`, `syncPageRenamed`, `syncDashboardRenamed`) that mutate `AppSchema.navigation` immutably, persist via `client.meta.saveItem`, refresh metadata, and show a sonner toast with **Undo**\n- **All-apps convenience methods** — `syncPageCreatedAllApps`, `syncDashboardCreatedAllApps`, `syncPageDeletedAllApps`, `syncDashboardDeletedAllApps`, `syncPageRenamedAllApps`, `syncDashboardRenamedAllApps` iterate all apps without requiring explicit `appName`\n- **`NavigationSyncEffect` component** — Headless component mounted in `AppContent` that monitors `pages` and `dashboards` metadata arrays, auto-detects additions/removals via diffing, and syncs navigation across ALL apps automatically. Includes effect cancellation on unmount and version-based race condition prevention.\n- **Pure utility functions** exported for testability:\n  - `addNavigationItem` / `removeNavigationItems` / `renameNavigationItems` — immutable tree operations with recursive group traversal\n  - `navigationEqual` — structural equality with fast-path for same reference\n- **`apps/console/src/App.tsx`** — Mounts `<NavigationSyncEffect />` inside `AppContent` to activate automatic navigation sync\n- **`apps/console/src/__tests__/useNavigationSync.test.tsx`** — 38 tests covering utilities, hook behavior, all-apps methods, NavigationSyncEffect auto-detection, error handling, undo flow, and edge cases (missing app, no-op delete/rename, undefined navigation)\n- **`apps/console/src/__tests__/console-load-performance.test.tsx`** — Bumped eager import threshold from 20 → 21\n- **`ROADMAP.md`** — Added entries under P1.7 for Navigation Sync Service, auto-detection, and all-apps API\n\n### Usage\n\n```tsx\n// Per-app sync (explicit appName)\nconst { syncPageCreated, syncPageDeleted } = useNavigationSync();\nawait syncPageCreated('crm', 'settings', 'Settings');\nawait syncPageDeleted('crm', 'settings');\n\n// All-apps sync (no appName needed)\nconst { syncPageCreatedAllApps, syncPageDeletedAllApps } = useNavigationSync();\nawait syncPageCreatedAllApps('settings', 'Settings');\nawait syncPageDeletedAllApps('settings');\n```\n\nEach call persists the updated app schema and shows a toast with an undo action that restores the previous navigation state.\n\n### Automatic sync\n\n`NavigationSyncEffect` is mounted in `AppContent` and watches metadata for page/dashboard additions and removals. When changes are detected, it automatically syncs navigation across all apps — no manual calls needed for create/delete operations. Rename detection requires explicit calls to `syncPageRenamed` / `syncDashboardRenamed` since renames cannot be distinguished from delete+create via metadata diffing alone.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Navigation结构自动同步服务：Page/Dashboard CRUD联动导航树</issue_title>\n> <issue_description>## 背景\n> \n> 当前Page和Dashboard的新增、编辑、删除操作并不会自动同步到App的导航结构（Navigation tree）。NavigationDesigner组件是纯受控，Navigation数据只在AppCreationWizard和EditAppPage中被持久化。导致开发者需要手动维护导航结构，非常容易遗漏、增加出错概率。\n> \n> ## 需求细节\n> \n> ### 功能目标\n> - 新建Page后自动将对应导航项（type: 'page', pageName）添加到App的navigation[]\n> - 新建Dashboard后自动将对应导航项（type: 'dashboard', dashboardName）添加到App的navigation[]\n> - 删除Page/Dashboard时递归移除navigation[]中所有引用此页面/仪表盘的项\n> - 重命名Page/Dashboard时同步更新navigation[]中的引用\n> - 操作完成后通过Toast通知用户导航结构已更新，同时支持undo撤销\n> - 不影响NavigationDesigner手动编辑navigation的能力\n> \n> ### 技术实现建议\n> \n> - 新增`useNavigationSync` hook或`NavigationSyncService`，监听Page/Dashboard CRUD事件，操作App schema的navigation字段。\n> - 事件建议在MetadataProvider统一分发，避免在各个DesignPage内写imperative代码，提高解耦性。\n> - 更新navigation后调用`client.meta.saveItem('app', appName, updatedSchema)`，并触发metadata.refresh。\n> - 删除时递归处理所有子group。\n> - 支持用户undo撤销（可用Toast提示+撤销按钮方案）。\n> \n> ### Acceptance Criteria\n> - [ ] 新建Page后，导航结构自动添加对应项\n> - [ ] 新建Dashboard后，导航结构自动添加对应项\n> - [ ] 删除Page/Dashboard后，导航结构自动移除所有相关项\n> - [ ] 重命名Page/Dashboard后，导航结构自动同步所有引用\n> - [ ] 操作完成有Toast通知，支持撤销\n> - [ ] NavigationDesigner原有手动编辑功能不受影响\n> \n> ### 技术选型需评估\n> - 事件分发机制、导航结构的数据一致性、错误/冲突处理等。\n> \n> ---\n> \n> 请参考本issue进行技术选型与开发，同步更新ROADMAP。\n> \n> 相关代码/设计参考：\n> - apps/console/src/pages/PageDesignPage.tsx\n> - apps/console/src/pages/DashboardDesignPage.tsx\n> - packages/plugin-designer/src/NavigationDesigner.tsx\n> - AppCreationWizard实现navigation draft管理\n> \n> （本issue为核心功能建议，优先级高，需紧跟上线后test并更新roadmap。）</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#790\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

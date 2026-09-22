@@ -1,0 +1,33 @@
+{
+  "number": 934,
+  "kind": "pull_request",
+  "title": "Fix CI test failures: ObjectCalendar double-fetch, stale mock dates, live preview assertion",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-01T11:34:39Z",
+  "updated_at": "2026-03-01T12:53:56Z",
+  "closed_at": "2026-03-01T12:51:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-01T12:51:12Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/934",
+  "body": "Three test failures on `main` caused by a redundant data fetch, hardcoded dates rolling past the calendar viewport, and a test assertion contradicting the feature it validates.\n\n### ObjectCalendar double-fetch (`ObjectCalendar.tsx`)\n\n`objectSchema` in the data-fetch `useEffect` dep array caused `find()` to fire twice on mount — once with null schema, again when the schema-fetch effect resolved. Switched to `useRef` so the data-fetch reads the latest schema without re-triggering:\n\n```tsx\nconst objectSchemaRef = useRef<any>(null);\nobjectSchemaRef.current = objectSchema;\n\n// In data-fetch effect:\nconst expand = buildExpandFields(objectSchemaRef.current?.fields);\n// deps no longer include objectSchema\n```\n\n### Date-sensitive mock data (`PluginsIntegration.test.tsx`)\n\nMock events used hardcoded Feb 2026 dates — invisible once the calendar's default month view advanced to March. Replaced with relative dates:\n\n```ts\nconst ONE_DAY_MS = 24 * 60 * 60 * 1000;\n{ due_date: new Date(Date.now() + ONE_DAY_MS).toISOString() }\n```\n\n### Live preview assertion (`ReportViewConfigPanel.test.tsx`)\n\nTest named \"should update preview live\" asserted the *old* title persisted after editing. Updated to assert the live-previewed value, matching the component's actual (correct) behavior.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix all ci test errors\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

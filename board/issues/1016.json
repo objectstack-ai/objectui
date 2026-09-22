@@ -1,0 +1,33 @@
+{
+  "number": 1016,
+  "kind": "pull_request",
+  "title": "chore: add patch changeset for hono dependency bump",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T01:56:00Z",
+  "updated_at": "2026-03-04T02:12:31Z",
+  "closed_at": "2026-03-04T01:59:05Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-04T01:59:05Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1016",
+  "body": "Adds a patch changeset for the hono 4.12.3 → 4.12.4 dependency bump merged in #1015.\n\n- Changeset targets `object-ui` which propagates to all packages via the `fixed` release group\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> changeset发一个补丁\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

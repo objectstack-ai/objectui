@@ -1,0 +1,33 @@
+{
+  "number": 921,
+  "kind": "issue",
+  "title": "平台级 DetailView 渲染优化：自动分组、空值隐藏、Header 智能化、响应式修正",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-01T08:00:49Z",
+  "updated_at": "2026-03-01T08:35:33Z",
+  "closed_at": "2026-03-01T08:35:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/921",
+  "body": "\n\n### 背景\n\n通过 CRM Contact 详情页（代表性用例）发现平台 DetailView 渲染引擎存在通用性短板——影响所有通过 schema 生成的对象详情页。**不涉及 spec 协议改动**，spec 现有能力（sections/collapsible/columns/highlights/responsive）已足够，问题在于 objectui 未充分消费。\n\n### 改动清单\n\n#### 1. `RecordDetailView.tsx` — 复用 form sections + 删除 `columns: 2` 硬编码\n- **文件**: `apps/console/src/components/RecordDetailView.tsx` L200-225\n- 当前将所有字段塞入单个 `Details` section 并硬编码 `columns: 2`\n- **改法**: 读取 `objectDef.views?.form?.sections` 生成分组；无配置时 fallback 但删除 columns 让 `autoLayout` 推断\n\n#### 2. `DetailSection.tsx` — 实现 hideEmpty 空值字段过滤\n- **文件**: `packages/plugin-detail/src/DetailSection.tsx` L70-80\n- 当前空值统一渲染为 `-`，浪费空间\n- **改法**: `section.hideEmpty` 为 true 时过滤 null/undefined/空字符串字段；空 section 隐藏\n- **类型**: `packages/types/src/views.ts` `DetailViewSection` 加 `hideEmpty?: boolean`\n\n#### 3. `DetailView.tsx` — Header 显示记录主属性 + 关键 Badge\n- **文件**: `packages/plugin-detail/src/DetailView.tsx` L252\n- 当前 header 显示静态 `schema.title`（如 \"Contact\"），不显示实际记录名\n- **改法**: \n  - `DetailViewSchema` 加 `primaryField?: string` + `summaryFields?: string[]`\n  - 渲染 `data[primaryField]` 为标题，`summaryFields` 渲染为 Badge\n  - `RecordDetailView` 自动从 objectDef 找 name/title 字段填入\n\n#### 4. `RecordActivityTimeline` — 空态智能折叠\n- **文件**: `packages/plugin-detail/src/RecordActivityTimeline.tsx` L287-294\n- 当前空态占满整个 Card + \"No activity recorded\"\n- **改法**: 空数据时最小化为仅评论输入框，增加 `collapseWhenEmpty` prop\n\n#### 5. `DetailSection.tsx` — 响应式断点修正\n- **文件**: `packages/plugin-detail/src/DetailSection.tsx` L159-165\n- 当前 `sm:` (640px) 断点在 iPad+侧边栏场景下过早触发多列\n- **改法**: 改为 `md:grid-cols-2` / `lg:grid-cols-3`，或集成 `@object-ui/mobile` 的 `useBreakpoint()`\n\n#### 6. 字段渲染器增强\n- **文件**: `packages/fields/` 各 CellRenderer\n- email → mailto + copy；phone → tel + call；boolean → 警告 Badge；经纬度 → 默认进 Metadata\n\n### 测试要求\n- `DetailSection.test.tsx`: hideEmpty 过滤、空 section 隐藏\n- `DetailView.test.tsx`: primaryField 标题渲染、summaryFields Badge\n- `autoLayout.test.ts`: columns undefined 时自动推断不回归\n- 响应式测试: 断点类名验证\n\n### 完成后\n- 更新 `ROADMAP.md`\n- 更新 Storybook `DetailView.stories.tsx` 展示新能力\n- 回归所有内置对象的 detail 页面一致性"
+}

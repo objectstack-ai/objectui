@@ -1,0 +1,36 @@
+{
+  "number": 744,
+  "kind": "issue",
+  "title": "Page/Canvas Editor & Dashboard Editor（WYSIWYG页面/仪表盘可视化编辑器）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "plugin: editor"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-23T05:02:10Z",
+  "updated_at": "2026-02-24T02:11:46Z",
+  "closed_at": "2026-02-24T02:11:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/744",
+  "body": "打造所见即所得的页面/仪表盘可视化编辑器，兼容@objectstack/spec的PageSchema与DashboardSchema：\n\n## 开发内容\n1. 画布布局编辑器，支持多种页面（Page/Dashboard）切换\n2. 支持组件拖拽、放置、位置调整、大小缩放、属性编辑\n3. Widget/区块类型：表格、看板、列表、图表、统计卡片、表单等\n4. 属性面板配置（数据源/显示/动作/样式/绑定协议字段）\n5. 支持Dashboard widgets嵌套\n6. 页面和仪表盘与导航管理器集成，自动同步结构\n7. Undo/Redo、分步预览、代码(JSON Schema)同步\n8. 移动端画布和适配\n\n## 交付要求\n- 交互稿、画布Alpha DEMO\n- React + Tailwind组件，cva样式\n- 支持全键盘导航 & i18n\n- Storybook用例 + 单元/E2E测试\n- `pnpm test` 必须通过\n- 代码文档和Roadmap同步"
+}

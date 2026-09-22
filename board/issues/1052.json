@@ -1,0 +1,35 @@
+{
+  "number": 1052,
+  "kind": "issue",
+  "title": "MSW mockServiceWorker.js 404 error in dev due to Vite base path mismatch",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-09T08:03:39Z",
+  "updated_at": "2026-03-09T08:15:58Z",
+  "closed_at": "2026-03-09T08:15:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1052",
+  "body": "### 问题描述\n在运行 `pnpm msw:dev` 时，浏览器控制台报错：\n\n```\n[MSW] Failed to register a Service Worker for scope ('http://localhost:5173/') with script ('http://localhost:5173/mockServiceWorker.js'): Service Worker script does not exist at the given path.\nDid you forget to run \"npx msw init <PUBLIC_DIR>\"?\n```\n\n分析代码后发现：\n- 项目使用了 Vite，其中 `base path` 设置为 `/console/`\n- MSW 默认会尝试从根路径 `/mockServiceWorker.js` 注册 Service Worker\n- 实际 `mockServiceWorker.js` 文件被 Vite 放在 `/console/mockServiceWorker.js`\n- 导致请求 `/mockServiceWorker.js` 返回 404\n\n### 复现步骤\n1. 运行 `pnpm msw:dev`\n2. 浏览器访问控制台出现上述 404 和启动失败报错\n\n### 具体原因\n- MSW 注册 Service Worker 的路径未考虑 Vite 的 `base path` 配置\n- 生产环境与开发环境的 base path 不一致，导致本地 dev 环境不能正常 mock\n\n---\n\n### 建议的修复方法\n1. 在 MSW 初始化代码中，将 service worker 的路径动态设置为 `${import.meta.env.BASE_URL}mockServiceWorker.js`，确保 base path 一致。\n2. 检查 `index.html` 等静态资源引用，确保都使用 `/console/` 前缀。\n3. 检查 Vercel 配置，移除不必要的 base path 覆盖。\n\n---\n\n### 检查点\n- [ ] msw:dev 能正常启动 mock 服务，不再报 404\n- [ ] 代码和环境生产/开发一致，mockServiceWorker.js 路径正确\n\n---\n如 MSW 插件不支持动态 serviceWorker 路径配置，请同步到 @objectstack/plugin-msw 仓库补充。"
+}

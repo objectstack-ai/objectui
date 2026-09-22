@@ -1,0 +1,35 @@
+{
+  "number": 839,
+  "kind": "issue",
+  "title": "[高优紧急] Dashboard 全量 provider:object 场景 Chart/Table 全部空白及 data-table 组件崩溃根因排查与修复",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-24T14:39:24Z",
+  "updated_at": "2026-02-24T16:00:12Z",
+  "closed_at": "2026-02-24T16:00:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/839",
+  "body": "# 问题总览\n\n合并当前线上 CRM Dashboard 所有 Metric/Charts/Table 全走 provider:object 场景后，线上出现如下重大问题：\n\n---\n## 1. 所有图表全部空白，未渲染出任何可见内容\n- 包括 Revenue Trends、Pipeline by Stage、Lead Source、Top Products、Avg Deal Size by Stage、Orders by Status 等所有 widgets。\n- 实际 API/Mock 层含数据，但所有 ObjectChart 均为全白，完全无数据渲染。\n- PR #838 合入后问题首次大面积暴露，之前仅 revenue by account 单点白屏。\n\n## 2. table 组件（Recent Opportunities）直接崩溃\n- 出现 \"Component 'data-table' failed to render: Me.some is not a function\" 的报错，页面卡死。\n- 出错前后 table data 为空或为 undefined，非空数组判定失效。\n\n## 3. KPI/Metric 组件只显示静态，未联动对象数据\n- 之前已知 KPI/metric 仍为静态硬编码，实际业务应走对象聚合。\n\n---\n\n# 详细排查与技术根因\n\n- **ObjectChart 依赖 dataSource 注入**：页面 context 未正确注入 dataSource，Chart 无法获取异步 data，全部跳过 fetch（代码：ObjectChart.tsx, DashboardRenderer.tsx，值为空直接 return）。\n- **table widget dataProvider/data 传递链异常**：DashboardRenderer 走 provider:object 时传 dataProvider, data-table 组件未实现异步场景，导致 data undefined，schema.data/some 报错。\n- **所有 provider:object widget 都未回落/兜底 data-source context**：Storybook 或 CRM Demo 层未传/兜底全局 dataSource，实际页面不可用。\n- **未实现全异步表格渲染**：data-table 必须支持 dataProvider+objectName 异步加载，或 DashboardRenderer 应为 table 兜底转 object-table 或 skeleton。\n- **测试链路未能识别 context 缺失场景**。\n- **数据 pipeline 统一性/���底能力失效**：表组件、图组件、数据 fetch、聚合与 fallback 缺少完整兜底与 graceful degrade，导致全链路失败直接全白。\n\n---\n# 建议修复方案\n\n1. **Chart/ObjectChart**：无 dataSource 时显式报错或 skeleton，不 silent fail。Demo/Storybook/context 树必须全路径传递 dataSource。\n2. **Table/data-table**：实现 provider:object 异步 fetch，或 DashboardRenderer/table widget fallback 至 object-table renderer。无数据应正常 skeleton。\n3. **DashboardRenderer**：所有 provider:object widget 全覆盖兜底 context/data 注入。\n4. **KPI/Metric**：可选切换 provider:object 动态数据测试。\n5. **补充单测+Storybook**：增加 context 缺失、接口异常、长耗时、无数据等极端 case。\n6. **开发完必须全量运行 test、roadmap 跟进。**\n\n---\n\n# 任务拆分与验收\n- 修复后，全链路全类型场景可在无 dataSource context 情况下输出显式错误或 skeleton，不再全白/崩溃\n- 任何 widget data 为 undefined/null 时均可 graceful degrade，不 fatal error\n- Roadmap/test 全部通过\n\n/cc @objectstack-ai/objectui-maintainers\n\n<img alt=\"全白Chart+table报错截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/03e309a7-7aeb-4c1f-8dc2-f6bfa9d51889\" />\n\n---\nCopilot is powered by AI, so mistakes are possible. Leave feedback via the 👍 👎 to help improve the experience."
+}

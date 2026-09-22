@@ -1,0 +1,32 @@
+{
+  "number": 1082,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @oclif/core from 4.8.4 to 4.9.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-16T08:05:18Z",
+  "updated_at": "2026-03-16T09:01:37Z",
+  "closed_at": "2026-03-16T08:05:38Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-16T08:05:38Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1082",
+  "body": "Bumps [@oclif/core](https://github.com/oclif/core) from 4.8.4 to 4.9.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/oclif/core/releases\"><code>@​oclif/core</code>'s releases</a>.</em></p>\n<blockquote>\n<h2>4.9.0</h2>\n<h3>Features</h3>\n<ul>\n<li>warn on hidden, deprecated aliases (<a href=\"https://github.com/oclif/core/commit/af47f6704496d8741316f5b24a1108ac71ec9262\">af47f67</a>)</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/oclif/core/blob/main/CHANGELOG.md\"><code>@​oclif/core</code>'s changelog</a>.</em></p>\n<blockquote>\n<h1><a href=\"https://github.com/oclif/core/compare/4.8.4...4.9.0\">4.9.0</a> (2026-03-12)</h1>\n<h3>Features</h3>\n<ul>\n<li>warn on hidden, deprecated aliases (<a href=\"https://github.com/oclif/core/commit/af47f6704496d8741316f5b24a1108ac71ec9262\">af47f67</a>)</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/oclif/core/commit/5670148e678c6dad618ec250b9b4608d116b214b\"><code>5670148</code></a> chore(release): 4.9.0 [skip ci]</li>\n<li><a href=\"https://github.com/oclif/core/commit/ee6f7e34bb04ab436cf1da75d5b99c579283c08c\"><code>ee6f7e3</code></a> Merge pull request <a href=\"https://redirect.github.com/oclif/core/issues/1555\">#1555</a> from rexxars/fix/warn-on-hidden-deprecated</li>\n<li><a href=\"https://github.com/oclif/core/commit/af47f6704496d8741316f5b24a1108ac71ec9262\"><code>af47f67</code></a> feat: warn on hidden, deprecated aliases</li>\n<li>See full diff in <a href=\"https://github.com/oclif/core/compare/4.8.4...4.9.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=@oclif/core&package-manager=npm_and_yarn&previous-version=4.8.4&new-version=4.9.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

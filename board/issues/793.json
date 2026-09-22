@@ -1,0 +1,33 @@
+{
+  "number": 793,
+  "kind": "pull_request",
+  "title": "[WIP] Align sharing, exportOptions, and pagination formats",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T12:21:59Z",
+  "updated_at": "2026-02-23T12:51:30Z",
+  "closed_at": "2026-02-23T12:46:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T12:46:12Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/793",
+  "body": "- [x] Update Zod validator for `sharing` to accept spec format (`type`, `lockedBy`) alongside ObjectUI format\n- [x] Update Zod validator for `exportOptions` to accept spec `string[]` format alongside ObjectUI object format\n- [x] Add sharing adapter in spec-bridge `list-view.ts` to normalize spec format (`personal`→`private`, `collaborative`→`team`, auto-enable)\n- [x] Add unit tests for sharing dual-format parsing (types + bridge)\n- [x] Add unit tests for exportOptions string[] format (types + ListView)\n- [x] Add unit tests for pageSizeOptions selector rendering, options enumeration, page size change with data reload\n- [x] Run tests — all 206 tests pass\n- [x] Update ROADMAP.md with completion status\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[P2] Sharing/ExportOptions/Pagination 协议对齐</issue_title>\n> <issue_description>## 背景\n> Parent Issue: objectstack-ai/objectui#736\n> \n> 三个属性存在 Spec 与 ObjectUI 的 schema 格式不兼容问题：\n> 1. **sharing**：Spec `{ type: personal/collaborative, lockedBy }` vs ObjectUI `{ visibility, enabled }`\n> 2. **exportOptions**：Spec `string[]` vs ObjectUI `{ formats, maxRecords, includeHeaders, fileNamePrefix }`\n> 3. **pagination.pageSizeOptions**：类型已定义，需 UI 选择器\n> \n> ## 目标\n> - 三个属性均通过适配层兼容两种格式\n> - pageSizeOptions 渲染 page size 下拉选择器\n> \n> ## 改动范围\n> - `packages/types/src/objectql.ts` — sharing 类型 union\n> - `packages/plugin-list/src/ListView.tsx` — exportOptions normalize + pageSizeOptions UI\n> - `packages/react/src/spec-bridge/bridges/list-view.ts` — sharing adapter\n> \n> ## 验收标准\n> - [ ] Spec sharing format 可被正确解析\n> - [ ] Spec `exportOptions: ['csv', 'xlsx']` 格式可正常工作\n> - [ ] pageSizeOptions 渲染下拉选择器\n> - [ ] 选择 page size 后数据重新按新 size 加载\n> - [ ] 所有新增代码有对应单元测试\n> - [ ] `pnpm test` 全部通过\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#750\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

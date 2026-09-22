@@ -1,0 +1,35 @@
+{
+  "number": 247,
+  "kind": "pull_request",
+  "title": "Deprecate div/span components in favor of Shadcn semantic components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-28T05:36:41Z",
+  "updated_at": "2026-03-23T22:21:00Z",
+  "closed_at": "2026-01-28T06:41:18Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-28T06:41:18Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/247",
+  "body": "The `div` and `span` renderers are deprecated. All documentation examples now use semantic Shadcn components (Card, Flex, Grid, Stack, Badge).\n\n## Changes\n\n**Component deprecation**\n- Added runtime warnings to `div.tsx` and `span.tsx` pointing to recommended alternatives\n- Updated component labels to \"(Deprecated)\"\n\n**Documentation migration (100+ replacements)**\n- `div` with `space-y-*` → `stack` with `spacing` prop\n- `div` with grid classes → `grid` component\n- `div` with flex classes → `flex` component  \n- `span` for badges → `badge` component\n\n**Files updated**\n- `div.mdx`, `span.mdx`: Added migration guides with code examples\n- `forms.mdx`, `dashboard.mdx`, `authentication.mdx`, `ecommerce.mdx`, `marketing.mdx`, `layout.md`: Migrated all examples\n\n## Migration Example\n\n```typescript\n// Before (deprecated)\n{\n  type: \"div\",\n  className: \"space-y-4 p-6\",\n  children: [...]\n}\n\n// After (recommended)\n{\n  type: \"stack\",\n  spacing: 4,\n  className: \"p-6\",\n  children: [...]\n}\n```\n\nDevelopers using deprecated components receive console warnings during development with specific replacement recommendations.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 作废 div span组件。所有引用到的例子替换为 shadcn 的标准组件\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 1099,
+  "kind": "issue",
+  "title": "[i18n] loadLanguage 未正确兼容 spec 协议 REST API i18n 响应格式，导致业务对象和字段国际化失效",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-21T06:25:55Z",
+  "updated_at": "2026-03-21T06:57:22Z",
+  "closed_at": "2026-03-21T06:57:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1099",
+  "body": "## 问题描述\n目前 ObjectUI 控制台项目的 `loadLanguage` 方法未正确处理来自 @objectstack/spec 提供的 `/api/v1/i18n/translations/:locale` REST API 的响应格式，导致业务对象和字段（如 console/crm）的国际化（i18n）无法生效。\n\n---\n### 具体表现\n- 请求 `/api/v1/i18n/translations/zh-CN` 等接口时，返回格式为：\n```json\n{\n  \"data\": {\n    \"locale\": \"zh-CN\",\n    \"translations\": {/* ... */}\n  }\n}\n```\n但 `apps/console/src/main.tsx` 的 `loadLanguage` 方法直接 `return await res.json()`，而非 `return (await res.json()).data.translations`。\n- `useObjectLabel`、`useObjectTranslation` 等 hooks 只拿到了包裹在 data 里的对象，没有解包 translations，致使 object/field label fallback 到英文。\n\n---\n### 标准行为（spec 规范）\n按照 [objectstack-ai/spec] 的 REST API 设计，所有 REST 返回都包裹 `{ data: ... }` 结构，国际化接口返回 `{ data: { locale: ..., translations: ... } }`。\n- 规范相关文档: [content/docs/guides/kernel-services.mdx], [packages/services/service-i18n]\n\n---\n### 建议修复方式\n1. **在 `apps/console/src/main.tsx` 的 `loadLanguage` 方法中增加兼容性判断**\n   - 检查 res.json() 是否有 `data.translations` 并返回之，否则 fallback 到原逻辑。\n   - 兼容 replay/dev/dev-plugin mock 场景。\n   - 示例修复：\n```ts\nasync function loadLanguage(lang: string): Promise<Record<string, unknown>> {\n  try {\n    const res = await fetch(`/api/v1/i18n/translations/${lang}`);\n    if (!res.ok) return {};\n    const json = await res.json();\n    if (json && json.data && json.data.translations) return json.data.translations;\n    // fallback，兼容 mock 或本地开发\n    return json;\n  } catch {\n    return {};\n  }\n}\n```\n2. **加强 typescript 类型定义和文档注释**，避免后续 i18n 结构\"错层\"兼容性 Bug。\n\n---\n### 影响评估\n- 兼容性良好，对 mock/dev/prod 场景无副作用\n- 能彻底解决 hotcrm 业务对象和字段国际化 label 不生效的问题\n\n---\n### 参考资料\n- [spec i18n REST 协议实现](https://github.com/objectstack-ai/spec/blob/main/packages/services/service-i18n/src/i18n-service-plugin.ts)\n- [console main.tsx 实现](https://github.com/objectstack-ai/objectui/blob/main/apps/console/src/main.tsx)\n- [api/[[...route]].ts Vercel handler](https://github.com/objectstack-ai/hotcrm/blob/main/api/%5B%5B...route%5D%5D.ts)\n\n---\n## Checklist\n- [x] 兼容 spec REST API i18n 响应格式\n- [x] 不破坏 mock/dev mockServer 代码\n\n---\n如有问题欢迎联系 @hotlong 或 Core Team。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1056,
+  "kind": "pull_request",
+  "title": "fix: show all sidebar pin icons only on hover",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-09T08:23:14Z",
+  "updated_at": "2026-03-09T09:56:17Z",
+  "closed_at": "2026-03-09T08:29:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-09T08:29:01Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1056",
+  "body": "Pinned navigation items permanently display the PinOff icon, cluttering the sidebar when many items are pinned.\n\n- Changed `showOnHover={!item.pinned}` → `showOnHover` on both `SidebarMenuAction` instances in `NavigationRenderer.tsx` (action-type and leaf items)\n- Updated ROADMAP.md to reflect the new behavior\n\nPreviously, `!item.pinned` evaluated to `false` for pinned items, keeping the unpin icon always visible. Now all pin/unpin icons are hover-only. Users still identify pinned items via the Favorites section.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Sidebar导航项已Pin状态下图钉图标过多，统一hover时显示</issue_title>\n> <issue_description>## 背景\n> 用户反馈：侧边栏导航项右侧的小图钉太多，视觉上显得非常拥挤（见截图）。目前所有已Pin项都会一直显示“取消Pin”图标。\n> \n> <img alt=\"侧边栏导航拥挤问题\" width=\"1320\" src=\"https://github.com/user-attachments/assets/17600e37-c1a3-47ba-abde-b65ee47a66a6\" />\n> \n> ## 问题代码\n> - `NavigationRenderer.tsx` 的 pin 交互逻辑导致所有已Pin项一直显示图钉（PinOff），造成界面不美观。\n> \n> ## 方案（A）：全部图钉仅在hover时显示\n> - 调整 `SidebarMenuAction` 的 `showOnHover` 属性，让所有pin/unpin按钮都只在hover时显示，无论当前项是否已Pin。\n> - 用户依然可以通过Favorites顶部区域区分已Pin项。\n> \n> \n> ## 期望效果\n> - 侧边栏更加简洁，用户hover再决定Pin/Unpin。\n> - Favorites区仍然展示已Pin项。\n> \n> \n> ## 截图\n> <img alt=\"侧边栏导航拥挤问题\" width=\"1320\" src=\"https://github.com/user-attachments/assets/17600e37-c1a3-47ba-abde-b65ee47a66a6\" />\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1055\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

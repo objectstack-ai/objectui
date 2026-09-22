@@ -1,0 +1,33 @@
+{
+  "number": 886,
+  "kind": "pull_request",
+  "title": "fix: ListView navigation modes page/new_window/split/popover non-functional on row click",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-27T04:52:26Z",
+  "updated_at": "2026-02-27T06:13:02Z",
+  "closed_at": "2026-02-27T06:08:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-27T06:08:46Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/886",
+  "body": "Only drawer/modal navigation modes worked when clicking ListView rows. The other four modes (page, new_window, split, popover) were silently no-ops due to missing wiring across multiple layers.\n\n### Root causes & fixes\n\n- **page mode** — Console's `onNavigate` callback only set `?recordId=` search params (overlay logic), never actually navigated. Now calls `navigate(`record/${recordId}`)` via React Router. Also wired `objectViewSchema.onNavigate` to handle `mode === 'view'`.\n\n- **new_window** — `useNavigationOverlay` hardcoded `window.open(/${objectName}/${recordId})` which doesn't match Console routing. Hook now delegates to `onNavigate(id, 'new_window')` when available; Console builds the correct URL from `window.location.pathname`.\n\n- **split mode** — `NavigationOverlay` requires `mainContent` prop for split rendering, but Console never passed it. Restructured JSX to conditionally render `NavigationOverlay` with `mainContent` wrapping `PluginObjectView` when split is active.\n\n- **popover mode** — `NavigationOverlay` required a `popoverTrigger` (Radix anchor), which list contexts don't have. Added fallback: renders as compact Dialog when no trigger is provided.\n\n- **plugin-view** — `handleRowClick` had no `split`/`popover` branches, so clicks fell through to no-op. Added both.\n\n### Key change in `useNavigationOverlay`\n\n```ts\n// new_window now delegates to app layer when onNavigate is available\nif (mode === 'new_window' || navigation.openNewTab) {\n  const recordId = record._id || record.id;\n  if (onNavigate && recordId != null) {\n    onNavigate(recordId as string | number, 'new_window');\n    return;\n  }\n  // fallback: generic URL\n  window.open(`/${objectName}/${recordId}`, '_blank');\n}\n```\n\n### Tests\n\n+10 new tests across 4 files with click-through verification for all navigation modes. Console ObjectView integration tests simulate row clicks through a ListView mock with `onRowClick` support and verify:\n\n- **page**: `mockNavigate('record/rec-1')` called after row click\n- **new_window**: `window.open` called with URL containing `/record/rec-1` + `'_blank'` after row click\n- **split**: Split detail panel with \"Close panel\" button renders after row click\n- **popover**: Fallback dialog (role=\"dialog\") renders after row click\n\nFull test suite: **6,736 passed / 0 failed** (366 files, 2 skipped). ROADMAP.md updated.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>ListView 多导航模式点击无反应：page、new_window、split、popover 等无效</issue_title>\n> <issue_description>## 现象\n> 在 ObjectUI 控制台/ListView，只有 drawer/modal 导航模式生效，设置为 page、new_window、split、popover 时点击行没有任何反应。\n> \n> ---\n> \n> ## 最终目标\n> 所有正式支持的行导航模式（drawer、modal、page、new_window、split、popover），点击列表行后都能正确弹窗、跳转或打开新窗口，表现与规范一致。\n> \n> ---\n> \n> ## 详细修复点与检查清单\n> \n> ### 1. page 模式无效\n> - [ ] Console 的 onNavigate 回调在 mode: 'view' 时未实现，应导航到 `/apps/:appName/:objectName/record/:recordId`\n> - [ ] 必须修复 onNavigate 支持 mode 为 view 时的跳转逻辑\n> - [ ] 单测：page 模式点击后能正常路由到详情页\n> \n> ### 2. new_window 模式无效\n> - [ ] useNavigationOverlay 新窗口跳转 URL 必须符合 Console 路由 (`/apps/:appName/:objectName/record/:recordId`)，不是 `/:objectName/:recordId`\n> - [ ] 或统一用 onNavigate 让应用层决定跳转方式\n> - [ ] 单测：new_window 下��开新标签页能展示正确数据\n> \n> ### 3. split 模式无效\n> - [ ] NavigationOverlay 需要 mainContent props，Console 需提供 mainContent，且点击行时 split 能展开详情\n> - [ ] PluginView 内 handleRowClick 需支持 split 并正确切换 overlay 状态\n> - [ ] 单测：split 状态下能够分栏浏览详情\n> \n> ### 4. popover 模式无效\n> - [ ] 传递 popoverTrigger，确保点击能弹出定位正确的卡片预览\n> - [ ] 单测：popover 能悬浮预览详情信息\n> \n> ### 5. PluginView 代码需补充 split、popover 分支\n> - [ ] handleRowClick 要有 split、popover 直接调用 overlay 控制\n> - [ ] 其他层级 handleClick 需同步\n> \n> ### 6. 通用 & 验收\n> - [ ] 所有导航模式回归测试（自动化/手工）\n> - [ ] 修复后运行所有 test，无回归/新增用例全过\n> - [ ] 更新 Roadmap 文档，补充导航模式说明\n> \n> \n> ---\n> \n> ## 参考关键源码文件\n> - apps/console/src/components/ObjectView.tsx\n> - packages/plugin-view/src/ObjectView.tsx\n> - packages/react/src/hooks/useNavigationOverlay.ts\n> - packages/components/src/custom/navigation-overlay.tsx\n> \n> \n> ## 优先级\n> - 高，严重影响主流程体验\n> \n> ---\n> \n> 如需补充关键代码片段、高亮异常行等请备注。完成后请务必运行全部 test，并更新团队 Roadmap。\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#885\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

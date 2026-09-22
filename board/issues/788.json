@@ -1,0 +1,38 @@
+{
+  "number": 788,
+  "kind": "pull_request",
+  "title": "feat: integrate Page/Dashboard editors into Console with design routes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T11:11:06Z",
+  "updated_at": "2026-02-23T12:29:05Z",
+  "closed_at": "2026-02-23T12:12:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T12:12:51Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/788",
+  "body": "Wire `PageCanvasEditor` and `DashboardEditor` from `plugin-designer` into Console as full editing routes with auto-save, export/import, and edit button entry points from read-only views.\n\n### Routes & Lazy Imports\n- `/design/page/:pageName` → `PageDesignPage` wrapping `PageCanvasEditor`\n- `/design/dashboard/:dashboardName` → `DashboardDesignPage` wrapping `DashboardEditor`\n- Both lazy-loaded; `MAX_CHUNK_COUNT` bumped 20→22\n- `design` excluded from `objectNameFromPath` detection to prevent false object lookups\n\n### Edit Buttons on Views\n- `PageView` and `DashboardView` gain a ✏️ Edit button navigating to the corresponding design route via relative path (`../design/page/:pageName`)\n\n### Design Pages\n- `PageDesignPage` / `DashboardDesignPage`: load schema from `useMetadata()`, init editor state, auto-save `onChange` via `dataSource.update('sys_page'|'sys_dashboard', ...)`, JSON export downloads file, back button navigates `-1`\n- **Ctrl+S / Cmd+S** keyboard shortcut to explicitly save with toast confirmation\n- Undo/redo and preview mode provided by the built-in editor hooks (`useUndoRedo`, Ctrl+Z/Ctrl+Y)\n\n### Storybook\n- `Designers/PageCanvasEditor` — Default, WithComponents, ReadOnly\n- `Designers/DashboardEditor` — Default, WithWidgets, ReadOnly\n\n### Tests\n- 12 new tests across `PageDesignPage.test.tsx` and `DashboardDesignPage.test.tsx` (render, 404, back nav, schema passthrough, onChange propagation, Ctrl+S keyboard save)\n- All 607 existing console tests pass, 235 plugin-designer tests unaffected\n\n### ROADMAP\n- Console Integration section updated with design page entries, Ctrl+S shortcut, and updated test counts\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>将 Page/Canvas Editor 和 Dashboard Editor 集成到 Console，支持完整编辑体验</issue_title>\n> <issue_description>为实现 objectstack-ai/objectui#744 的交付要求，需要将已开发的 PageCanvasEditor 和 DashboardEditor 集成到 Console 应用，打通所见即所得页面/仪表盘的设计与编辑体验。\n> \n> ## 目标\n> 1. 页面和仪表盘可视化编辑器可直接在 Console（管理后台）访问与修改。\n> 2. 支持页面/仪表盘的创建、编辑、保存，同步至元数据。\n> 3. 编辑操作后自动运行相关测试并更新 Roadmap。\n> \n> ## 需要开发的细节\n> \n> ### 1. Console 路由与入口\n> - [ ] 新增 `/design/page/:pageName` 路由，集成 `PageCanvasEditor`\n> - [ ] 新增 `/design/dashboard/:dashboardName` 路由，集成 `DashboardEditor`\n> - [ ] 在页面、仪表盘的只读视图（PageView/DashboardView）增加\"编辑\"按钮，跳转到对应设计器\n> - [ ] Console 左侧导航自动增补\"页面设计\"与\"仪表盘设计\"入口（可选）\n> \n> ### 2. 编辑与数据持久化\n> - [ ] 编辑器 `onChange` 时自动通过 `dataSource`/API 保存 schema（PageSchema/DashboardSchema）\n> - [ ] 从后端拉取 schema 时可回显到编辑器\n> - [ ] 支持 JSON Schema 导入导出，兼容与 @objectstack/spec 协议\n> - [ ] 支持编辑历史（undo/redo）、预览、以及键盘操作（保存、撤销）\n> \n> ### 3. Navigation 结构联动\n> - [ ] 新增/编辑 Page 或 Dashboard 后，可选同步到导航结构（navigation designer）\n> - [ ] 删除页面/仪表盘时同步移除导航项\n> \n> ### 4. Storybook & 测试\n> - [ ] 为 PageCanvasEditor、DashboardEditor 新增 Storybook 用例\n> - [ ] 补充/完善 E2E 测试场景：从 Console 编辑到保存，确保测试全部通过\n> \n> ### 5. ROADMAP 文档同步\n> - [ ] 集成、回归发布时在 ROADMAP.md 对应部分对进度和特性进行更新\n> \n> ---\n> - 参考 issue objectstack-ai/objectui#744\n> - 所有 pull request 提交前需运行 `pnpm test`，确保测试通过。\n> \n> #### 负责人：@hotlong\n> \n> 如遇实现细节方案冲突，可先发起讨论或新开 issue 进行技术选型分析。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#787\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

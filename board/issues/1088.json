@@ -1,0 +1,33 @@
+{
+  "number": 1088,
+  "kind": "pull_request",
+  "title": "feat(fields): RecordPicker lookup_filters, cell formatter, FilterUI integration, ObjectGrid reuse",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-18T09:49:57Z",
+  "updated_at": "2026-03-18T11:12:04Z",
+  "closed_at": "2026-03-18T10:41:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-18T10:41:51Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1088",
+  "body": "Implements four high-priority RecordPicker features to complete the enterprise Record Picker upgrade: schema-driven filter injection, type-aware cell rendering, FilterUI integration via slot architecture, and ObjectGrid reuse via render prop injection.\n\n### lookup_filters consumption\n\n- `RecordPickerDialog` accepts `lookupFilters: LookupFilterDef[]`, converts operators (`eq`→direct, `ne`→`$ne`, `in`→`$in`, etc.) to `$filter` Record, injected into every `DataSource.find()` call\n- Filters persist through search, sort, and pagination\n- `LookupField` reads `lookup_filters` from field metadata and passes through\n\n### Cell Type Formatter\n\n- `RecordPickerDialog` accepts optional `cellRenderer: CellRendererResolver` prop\n- Columns with a `type` property (e.g. `currency`, `date`, `select`, `boolean`) are rendered via the resolver; falls back to plain text\n- Circular dependency (`index.tsx` → `LookupField` → `RecordPickerDialog` → `index.tsx`) broken via `_cell-renderer-bridge.ts` singleton pattern\n\n### FilterUI filter bar integration\n\n- Built-in inline filter bar between search input and table, toggled via button with active-count badge\n- Supports text/number/select/date/boolean inputs; values merged with `lookupFilters`\n- `LookupField` auto-derives `filterColumns` from `lookup_columns` entries that have `type` via `mapFieldTypeToFilterType()`\n- **`renderFilterBar` slot prop** allows injecting the actual `FilterUI` component from `@object-ui/plugin-view` (avoids circular dependency since `plugin-view` depends on `fields`)\n- Exports `RecordPickerFilterBarProps` interface with `filterColumns`, `values`, `onChange`, `onClear`, `activeCount`\n- Auto-generates `filterColumns` from `lookupFilters` when no explicit `filterColumns` prop is provided, inferring input types from value types and operators\n\n### ObjectGrid table reuse\n\n- Built-in table with drag-to-resize column handles (`cursor-col-resize`, min-width 60px), `table-layout: fixed` when resized\n- **`renderGrid` slot prop** allows injecting `ObjectGrid` from `@object-ui/plugin-grid` (avoids circular dependency since `plugin-grid` depends on `fields`)\n- Exports `RecordPickerGridSlotProps` interface with `columns`, `records`, `loading`, `totalCount`, `currentPage`, `pageSize`, `sortField`, `sortDirection`, `onSort`, `onPageChange`, `onRowClick`, `isSelected`, `multiple`, `idField`, `cellRenderer`\n- Built-in table serves as default fallback when no `renderGrid` is provided\n\n```tsx\n<RecordPickerDialog\n  open={open}\n  onOpenChange={setOpen}\n  dataSource={ds}\n  objectName=\"customers\"\n  columns={[\n    { field: 'name', label: 'Name' },\n    { field: 'amount', label: 'Amount', type: 'currency' },\n    { field: 'status', label: 'Status', type: 'select' },\n  ]}\n  lookupFilters={[{ field: 'active', operator: 'eq', value: true }]}\n  cellRenderer={getCellRenderer}\n  filterColumns={[\n    { field: 'status', label: 'Status', type: 'select', options: [...] },\n  ]}\n  // Inject FilterUI from plugin-view\n  renderFilterBar={(props) => (\n    <FilterUI\n      schema={{ type: 'filter-ui', filters: props.filterColumns, layout: 'inline' }}\n      onChange={(values) => Object.entries(values).forEach(([k, v]) => props.onChange(k, v))}\n    />\n  )}\n  // Inject ObjectGrid from plugin-grid\n  renderGrid={(props) => (\n    <ObjectGrid\n      schema={{ type: 'object-grid', objectName, columns: props.columns }}\n      dataSource={dataSource}\n    />\n  )}\n  onSelect={handleSelect}\n/>\n```\n\n### Tests\n\n37 record-picker tests (17 new) covering filter injection (3), cell formatting (3), filter bar rendering (3), column resize handles (2), renderFilterBar slot (2), renderGrid slot (2), and auto-generated filter bar from lookupFilters (2). All 412 existing tests continue to pass.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>【RecordPicker 优先开发合并】高优功能实现：lookup_filters、cell 格式化、FilterUI 集成、ObjectGrid 复用</issue_title>\n> <issue_description>为全面完成 Issue objectstack-ai/objectui#1072『LookupField/Reference 字段下拉弹窗的企业级 Record Picker 方案升级』，需优先合并以下高优功能，提升实际可用性和架构完整度：\n> \n> ### 1. lookup_filters 实际消费\n> - 让 RecordPickerDialog/LookupField 能读取 schema 上配置的 lookup_filters，并动态注入到弹窗查询参数中，实现 UI 与业务筛选协议解耦。\n> - 支持组合筛选，兼容 FilterUI。\n> \n> ### 2. Cell Type Formatter（字段格式化渲染）\n> - 在 RecordPickerDialog 内支持 currency/date/select/boolean 字段类型格式化。\n> - 按 schema 的 LookupColumnDef.type，调用对应 renderer，包括 badge、���币、枚举等。\n> \n> ### 3. FilterUI filter bar 集成\n> - 弹窗内集成 FilterUI 作为 filter bar，支持多字段组合筛选。\n> - filter bar 可根据 lookup_filters 或 objectSchema 智能生成。\n> \n> ### 4. ObjectGrid 表格能力复用\n> - 使 RecordPickerDialog 内嵌 ObjectGrid 实现与主表格一致的列宽调整、排序、分页、空态适配。\n> - 避免弹窗自实现表格，提升一致性。\n> \n> ---</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1087\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 Send tasks to Copilot coding agent from [Slack](https://gh.io/cca-slack-docs) and [Teams](https://gh.io/cca-teams-docs) to turn conversations into code. Copilot posts an update in your thread when it's finished."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 804,
+  "kind": "issue",
+  "title": "ViewConfigPanel 部分控件细节问题及改进建议",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-23T14:23:18Z",
+  "updated_at": "2026-02-23T15:39:26Z",
+  "closed_at": "2026-02-23T15:39:26Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/804",
+  "body": "经对 ViewConfigPanel/ConfigPanelRenderer 代码以及控件交��/协议字段适配进行精查，发现如下问题值得追踪修复：\n\n1. \n控件 key/属性 与协议 NamedListView 字段 ⚠️ 不严格一致：部分场景（如单测、或历史逻辑）仍出现 selection.type/multi 与 multiple 混用，建议统一 key 为 multiple。\n\n2. \n部分 UI extension 字段未全在协议 spec 体现（如 description）。建议推进协议补全相关定义。\n\n3. \n部分设置字段是通过 visibleWhen 实现条件可见，但 UI 文案提示及状态同步逻辑不足，例如导航模式切换下 dependent 字段状态无提示。\n\n4. \nConfigPanelSchema Section/Field 的 collapsed 状态仅由本地 state 控制，未能支持外部打开指定Section的自动聚焦或高亮体验。\n\n5. \nSwitch/Checkbox/Input 等基础控件依赖简化 mock 组件（如测试/故事文件中代码），实际复杂场景可用性及可访问性还需生产环境下多端深测。\n\n6. \n部分控件显示/隐藏仅依赖 visibleWhen，但缺乏 \"disabled\" 受控属性，会导致一些配置项在 protocol 不支持情况下未置灰。\n\n请相关研发、产品和前端同学评估上述问题，逐项讨论优先级并逐步推进完善。\n\n如有新增控件细节 bug 或 UX 良性建议，请补充到本 issue 下面。"
+}

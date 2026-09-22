@@ -1,0 +1,36 @@
+{
+  "number": 885,
+  "kind": "issue",
+  "title": "ListView 多导航模式点击无反应：page、new_window、split、popover 等无效",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-27T04:52:08Z",
+  "updated_at": "2026-02-27T08:50:03Z",
+  "closed_at": "2026-02-27T08:50:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/885",
+  "body": "## 现象\n在 ObjectUI 控制台/ListView，只有 drawer/modal 导航模式生效，设置为 page、new_window、split、popover 时点击行没有任何反应。\n\n---\n\n## 最终目标\n所有正式支持的行导航模式（drawer、modal、page、new_window、split、popover），点击列表行后都能正确弹窗、跳转或打开新窗口，表现与规范一致。\n\n---\n\n## 详细修复点与检查清单\n\n### 1. page 模式无效\n- [ ] Console 的 onNavigate 回调在 mode: 'view' 时未实现，应导航到 `/apps/:appName/:objectName/record/:recordId`\n- [ ] 必须修复 onNavigate 支持 mode 为 view 时的跳转逻辑\n- [ ] 单测：page 模式点击后能正常路由到详情页\n\n### 2. new_window 模式无效\n- [ ] useNavigationOverlay 新窗口跳转 URL 必须符合 Console 路由 (`/apps/:appName/:objectName/record/:recordId`)，不是 `/:objectName/:recordId`\n- [ ] 或统一用 onNavigate 让应用层决定跳转方式\n- [ ] 单测：new_window 下��开新标签页能展示正确数据\n\n### 3. split 模式无效\n- [ ] NavigationOverlay 需要 mainContent props，Console 需提供 mainContent，且点击行时 split 能展开详情\n- [ ] PluginView 内 handleRowClick 需支持 split 并正确切换 overlay 状态\n- [ ] 单测：split 状态下能够分栏浏览详情\n\n### 4. popover 模式无效\n- [ ] 传递 popoverTrigger，确保点击能弹出定位正确的卡片预览\n- [ ] 单测：popover 能悬浮预览详情信息\n\n### 5. PluginView 代码需补充 split、popover 分支\n- [ ] handleRowClick 要有 split、popover 直接调用 overlay 控制\n- [ ] 其他层级 handleClick 需同步\n\n### 6. 通用 & 验收\n- [ ] 所有导航模式回归测试（自动化/手工）\n- [ ] 修复后运行所有 test，无回归/新增用例全过\n- [ ] 更新 Roadmap 文档，补充导航模式说明\n\n\n---\n\n## 参考关键源码文件\n- apps/console/src/components/ObjectView.tsx\n- packages/plugin-view/src/ObjectView.tsx\n- packages/react/src/hooks/useNavigationOverlay.ts\n- packages/components/src/custom/navigation-overlay.tsx\n\n\n## 优先级\n- 高，严重影响主流程体验\n\n---\n\n如需补充关键代码片段、高亮异常行等请备注。完成后请务必运行全部 test，并更新团队 Roadmap。\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1013,
+  "kind": "pull_request",
+  "title": "fix: use md: breakpoint for 2-column grid layouts in DetailSection",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T13:43:03Z",
+  "updated_at": "2026-03-03T14:01:33Z",
+  "closed_at": "2026-03-03T14:00:10Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T14:00:10Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1013",
+  "body": "`DetailSection` grid classes used `sm:grid-cols-2` but tests expected `md:grid-cols-2`, causing 2 test failures on main.\n\n- Updated `DetailSection.tsx` responsive grid breakpoints from `sm:` → `md:` for 2-column layouts\n- Fixed stale comment in test file\n\n```diff\n- effectiveColumns === 2 ? \"grid-cols-1 sm:grid-cols-2\" :\n- effectiveColumns === 3 ? \"grid-cols-1 sm:grid-cols-2 lg:grid-cols-3\" :\n+ effectiveColumns === 2 ? \"grid-cols-1 md:grid-cols-2\" :\n+ effectiveColumns === 3 ? \"grid-cols-1 md:grid-cols-2 lg:grid-cols-3\" :\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix all ci errors\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

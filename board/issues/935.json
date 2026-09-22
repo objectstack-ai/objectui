@@ -1,0 +1,33 @@
+{
+  "number": 935,
+  "kind": "pull_request",
+  "title": "fix: stop stripping objectName prefix from record detail URL IDs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-01T13:09:53Z",
+  "updated_at": "2026-03-01T13:47:06Z",
+  "closed_at": "2026-03-01T13:42:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-01T13:42:30Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/935",
+  "body": "Navigating from a list page to a record detail page shows \"Record not found\" because `RecordDetailView` strips the `objectName-` prefix from the URL recordId before calling `findOne`. The navigation code puts `record._id` directly into the URL — no prefix is added artificially — so stripping it truncates backend-generated IDs like `opportunity-1772370455623-1` → `1772370455623-1`, which doesn't match.\n\n### Changes\n\n- **`RecordDetailView.tsx`** — Remove prefix stripping; pass URL `recordId` through as-is\n- **`DetailView.tsx`** — Add ID format fallback: if `findOne` returns null, retry with the alternate format (strip or prepend `objectName-` prefix) for backward compatibility with either ID convention\n- **`RecordDetailEdit.test.tsx`** — Update expectations to assert `findOne` receives the full URL recordId\n\n### Before/After\n\n```\nURL: /apps/crm_app/opportunity/record/opportunity-1772370455623-1\n\nBefore: findOne(\"opportunity\", \"1772370455623-1\")  → null → \"Record not found\"\nAfter:  findOne(\"opportunity\", \"opportunity-1772370455623-1\") → record ✓\n```\n\nThe `DetailView` fallback ensures both ID formats resolve correctly regardless of backend convention:\n\n```typescript\ndataSource.findOne(objectName, resourceId).then((result) => {\n  if (result) { setData(result); return; }\n  // Fallback: try alternate ID format\n  const altId = resourceId.startsWith(prefix)\n    ? resourceId.slice(prefix.length)\n    : `${prefix}${resourceId}`;\n  return dataSource.findOne(objectName, altId)...\n});\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 你是顶牛的低代码企业管理软件设计专家，列表页点击进入记录，详情页报错，请完整的评估，目前的路由及处理流程是否合理？\n> \n> https://demo.objectui.org/apps/crm_app/opportunity/record/opportunity-1772370455623-1 \n> \n> Record not found\n> The record you are looking for does not exist or may have been deleted.\n> Go back\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 797,
+  "kind": "issue",
+  "title": "支持仪表盘设计模式下：点击左侧预览区组件后，右侧面板联动显示属性并可实时预览修改效果",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-23T12:53:13Z",
+  "updated_at": "2026-02-23T13:21:43Z",
+  "closed_at": "2026-02-23T13:21:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/797",
+  "body": "## 背景\n目前在仪表盘设计模式（Dashboard Editor 或 DashboardView + DesignDrawer）中，属性面板的变更可实时预览，但只能通过左侧列表或卡片区选择 widget，还无法像 Airtable 那样直接在主预览区点击任意组件进行选中、配置联动（所见即所得）。\n\n## 需求说明\n1. **主预览区（DashboardRenderer）所有widget都可以被鼠标直接点击选中**\n    - 鼠标点击任意widget（如图表、KPI卡片）时：\n      - 在主预览区为选中的组件显示高亮边框、阴影或背景高亮（如蓝色描边/背景变浅，参考Airtable风格）\n      - 同步将选中态传递给右侧属性面板，显示相应widget属性\n   \n2. **右侧属性面板联动显示当前选中widget**\n    - 面板内容随当前选中组件变化而刷新（如切换到不同的widget属性配置）\n    - 属性修改后，实时体现在主预览区（无需显式保存）\n    \n3. **交互增强**\n    - 预览区点击空白处时取消选中（右侧面板合上或恢复为Dashboard整体配置面板）\n    - 支持键盘←→导航选中组件（加分项，建议）\n    - 连续修改属性时，预览始终同步\n    \n4. **兼容性与无障碍**\n    - 高亮边框/背景需兼顾亮/暗色主题和无障碍（a11y）\n    - tab/shift+tab可以切换组件选中\n    \n5. **编码建议**\n    - 由DashboardRenderer外层统一管理selectedWidgetId状态，并为每个widget外包裹可点击区域\n    - 向上传递onWidgetClick回调，联动DashboardEditor/DashboardView/DesignDrawer中的schema和右侧面板属性\n    - 跨区域选中逻辑需避免事件冒泡干扰\n\n## 验收标准\n- 在设计模式下，用户点击主预览区任意组件，右侧面板能即时显示对应属性，修改后立刻在预览区生效\n- UI高亮样式、无障碍体验良好，自动适配亮暗主题\n- 相关功能通过自动化和手动测试验证，测试覆盖核心交互路径\n\n> 开发完成后务必运行 test，并更新 roadmap。\n\n参考 Airtable 行为，如截图2。"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 814,
+  "kind": "issue",
+  "title": "Left Pane Unselectable in Dashboard Edit Mode - Comprehensive Investigation Needed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-24T01:09:41Z",
+  "updated_at": "2026-02-24T02:31:53Z",
+  "closed_at": "2026-02-24T02:31:53Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/814",
+  "body": "## Problem\n\nIn the current Dashboard edit mode, users are unable to select widgets or cards in the left/main view area. Based on the attached screenshot, only the property/config panel on the right remains accessible; the main UI does not react to selection, showing no visible highlights or controls on cards. This blocks property panel linkage and prevents any context-based editing.\n\n<img alt=\"Screenshot showing dashboard in edit mode. Left area is not selectable.\" width=\"2732\" src=\"https://github.com/user-attachments/assets/bb888944-d44d-4a7a-98d4-4eb6f8deeaf0\" />\n\n## Scope of Investigation\n- Review dashboard rendering logic in plugin-dashboard or relevant packages.\n- Check widget/card selection state propagation (`@object-ui/core`, `@object-ui/react`, Zustand store).\n- Audit event handler wiring: are `onClick`, `onSelect` events correctly hooked on dashboard items?\n- Ensure SchemaRenderer and DashboardWidget components correctly pass selection callbacks.\n- Evaluate how ListView/PageDesigner achieve selection and highlight.\n- Compare store and actions between Dashboard and ListView modes.\n- Check dashboard schema definition: Ensure `id`, `type`, `events` fields are present and wired as per @objectstack/spec.\n- Review conditional disabling logic and expressions (`hidden`, `disabled`) that might block interaction.\n\n## Technical Advice\n- Focus on dashboard widget selection logic and visual feedback.\n- Look for missing event wiring, store state, or selector propagation bugs.\n- Do not ignore possibility of stale store, incorrect context provider, or schema mismatch.\n\n## Acceptance Criteria\n- Selection in left/main dashboard area is possible in edit mode.\n- Selected widget/card receives visual highlight.\n- Property panel on right reflects the correct widget selection context.\n- Selection logic is consistent with ListView/PageDesigner implementations.\n- Tests pass for selection and highlighting (run test after changes).\n\n---\nComplete investigation and propose fixes. Update roadmap and related issues as appropriate after resolving.\n\nAssignee: hotlong\nLabels: bug\nType: Bug"
+}

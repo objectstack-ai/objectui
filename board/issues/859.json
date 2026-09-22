@@ -1,0 +1,35 @@
+{
+  "number": 859,
+  "kind": "issue",
+  "title": "Console MSW handler should use MSWPlugin, not custom HTTP handlers; filter/sort/top fail otherwise",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-25T08:12:32Z",
+  "updated_at": "2026-02-25T08:43:11Z",
+  "closed_at": "2026-02-25T08:43:11Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/859",
+  "body": "## Bug Summary\n\nObjectUI Console (MSW 模式) 使用自定义 createHandlers 手写 HTTP handler，绕过了 ObjectStack 协议栈。结果导致 filter/sort/top 等所有查询参数失效，server 模式下正常。\n\n## 复现方式\n\n1. 启动 dev server (`pnpm dev`)。\n2. 访问 `/api/v1/data/contact?top=100&sort=name&filter=[\"priority\",\"=\",\"medium\"]`。\n3. 发现过滤条件没有���效，返回所有数据。\n4. server 模式 (`pnpm dev:server`) 下过滤正常。\n\n## 问题分析\n\n- `apps/console/src/mocks/handlers.ts` 的 Data handler 自己解析 query 参数并直接调用 `driver.find()`，不走 ObjectStack 协议 protocol。\n- filter/sort/top 等参数解析失效，实际行为和 dev server 不一致。\n- examples/msw-todo/QUICKSTART.md 推荐的写法是直接使用 `@objectstack/plugin-msw`，完全无需手写 handler。\n\n## 最佳解决方案\n\n- 删除 createHandlers + hand-written handlers，直接在 Console 的 MSW 模式下 use(new MSWPlugin({ baseUrl: '/api/v1' }))。\n- 这样所有 HTTP 路由都和 server 模式一致，filter/sort/top/pagination/metadata 自动正确处理。\n- 维护性最好，所有协议更新自动同步。\n\n## 建议修复步骤\n\n1. 移除 apps/console/src/mocks/handlers.ts （或者大幅简化，转为 use MSWPlugin）。\n2. 在 console mock 启动逻辑里直接 use(new MSWPlugin({ baseUrl: '/api/v1' }))。\n3. 对齐 QuickStart / msw-todo 示例。\n4. 补充测试：filter/sort/top/pagination 必须能通过。\n\n---\n\n_开发任务完成之后都应该运行test，并且相关的问题，然后更新roadmap。_\n\n相关 issue: #858"
+}

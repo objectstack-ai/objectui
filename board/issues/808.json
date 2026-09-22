@@ -1,0 +1,30 @@
+{
+  "number": 808,
+  "kind": "issue",
+  "title": "【Critical/Bug】设计模式下 Dashboard 设计器无法高亮选中和弹出属性面板 / Widget 无法选中",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T16:02:31Z",
+  "updated_at": "2026-02-24T01:04:47Z",
+  "closed_at": "2026-02-24T01:04:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/808",
+  "body": "# 症状复现\n- 仪表盘进入设计模式后，左侧主区无法选中任何 widget，无蓝色高亮（ring），\n- 右侧 DesignDrawer 只显示 widget 卡片列表，无法弹出任何 widget 属性面板；卡片点击也无效。\n- 适配 iPad、暗色模式表现更差，属性面板即使渲染实际不可见。\n\n## 截图参考\n<img alt=\"仪表盘设计模式实际效果\" width=\"2732\" src=\"https://github.com/user-attachments/assets/3d021357-9bd2-44e8-a018-9a6d753421fd\" />\n\n---\n\n# 技术调查：代码链路全分析\n\n1. **所有 widget 缺少 id 字段**：生产数据下 `DashboardWidgetSchema.id` 为 optional，未做 fallback，导致所有点击选中逻辑短路。\n2. **DashboardEditor 内部 useUndoRedo 只初始化一次 schema，不跟随外部 schema 变化**，���际内部 currentSchema 可能为旧数据。\n3. **WidgetPropertyPanel/WidgetCard 硬编码浅色样式**（如 bg-white border-gray-200 text-gray-800），夜间模式完全不可用。\n4. **sheet.tsx 的 sm:max-w-sm 和 drawer 自定义宽度冲突**。\n5. **iPad 下 hover 样式无效，选中无视觉提示**。\n\n## 导致的根本效果\n- 左侧预览区点击 widget 无任何选中或高亮，designMode props 失效。\n- 右侧 widget 列表无法点击（onSelect 返回 null），永远无属性面板。\n- 工具栏、属性面板受宽度影响显示异常。\n- 暗色模式下属性面板不可见。\n\n---\n\n# 统一修复建议\n1. **Widget id 兜底**：所有传入的 schema.widgets 强制补充唯一 id（入口+runtime 双兜底）。\n2. **useUndoRedo 添加外部 schema 变化同步**。\n3. **WidgetPropertyPanel/WidgetCard 使用 semantic token 替换硬编码颜色（border-border, bg-card, text-foreground...）。**\n4. **sheet.right/DesignDrawer 不要内置 max-w，由使用方决定。**\n5. **Design mode 下所有可选 widget 增加 ring-1+active:ring 明确提示。**\n\n# 验收标准\n- 设计模式下左侧和右侧都能正确选中 widget，蓝色高亮同步出现、属性面板弹出。\n- iPad、暗色模式下视觉完全可用。\n- 必须包含全端到端 E2E 回归测试。\n\n\n> 注：详细分析与修复建议见本 Issue 说明。"
+}

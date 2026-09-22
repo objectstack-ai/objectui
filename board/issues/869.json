@@ -1,0 +1,35 @@
+{
+  "number": 869,
+  "kind": "issue",
+  "title": "列表视图分组配置修改后未生效（分组视图无效）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-26T06:01:01Z",
+  "updated_at": "2026-02-26T06:41:32Z",
+  "closed_at": "2026-02-26T06:41:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/869",
+  "body": "### 问题描述\n当前列表页 ListView 右上角选择 Group 分组字段后，UI 没有出现分组效果（如 Airtable 分组那样的分组头和展开收起），实际上不能生效。\n\n#### 期望行为\n- 和 Airtable 一样可动态选择/取消分组字段，分组立即生效，正确渲染 group header、group child rows。\n\n#### 实际行为\n- 选择 Group 字段，列表仍然是普通行视图，没有分组效果（见截图）。\n\n#### 影响范围\n- 列表分组（Group）功能全部失效\n- 用户误以为分组不可用。\n\n---\n\n### 分析结果\n代码排查已定位到原因：\n- 虽然 ObjectGrid 实现已完整支持分组，相关分组 schema 也已动态下发。\n- **`packages/plugin-list/src/ListView.tsx` 第856行，`viewComponentSchema` 的 `useMemo` 依赖数组缺少 `groupingConfig`（用户切换分组配置不会触发 schema 变化）。**\n- 只要加上 `groupingConfig` 依赖即可修复。\n\n#### 关键修复点\n1. `ListView.tsx`, 第856行：\n   ```diff\n-   }, [currentView, schema, currentSort, effectiveFields]);\n+   }, [currentView, schema, currentSort, effectiveFields, groupingConfig, rowColorConfig, navigation.handleClick]);\n   ```\n\n2. （可选）测试用例增强：\n   - 测试点击任意 group 字段后列表马上变为分组展示，再次关闭 group 自动还原\n\n3. 修复完成后请运行所有 test 用例，确保无副作用\n\n4. 更新 Roadmap，记录此 bug 主要成因、解决方式与测试结果\n\n---\n\n### 相关截图和设计参考\n- <img alt=\"Airtable 分组交互效果示例\" width=\"2554\" src=\"https://github.com/user-attachments/assets/505bcfa7-6174-4193-a4c3-165225d47aa8\" />\n\n### 关联\n- 参考文件：`packages/plugin-list/src/ListView.tsx`\n- 涉及分组处理的逻辑文件：`packages/plugin-grid/src/useGroupedData.ts`, `packages/plugin-grid/src/GroupRow.tsx`, `packages/plugin-grid/src/ObjectGrid.tsx`\n\n### 重要说明\n- **此为基础表格能力 Bug，和列表分组基础体验紧密相关**。建议优先修复。"
+}

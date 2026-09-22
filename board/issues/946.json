@@ -1,0 +1,36 @@
+{
+  "number": 946,
+  "kind": "issue",
+  "title": "Help 页面未正确渲染 Markdown 内容，全部显示为纯文本",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "plugin: markdown"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-01T15:56:50Z",
+  "updated_at": "2026-03-01T16:14:31Z",
+  "closed_at": "2026-03-01T16:14:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/946",
+  "body": "## 问题描述\n在 CRM 应用的 Help 页面，Markdown 语法内容被当作普通文本显示，没有被解析成 HTML 样式。例如：\\n- `# CRM Help Guide` 并未显示为标题；\\n- 列表项、粗体等 Markdown 格式都未生效，所有内容都以原始文本形式展现。\\n\\n## 复现步骤\\n1. 打开 demo.objectui.org，左侧菜单点击「Help」或「帮助」；\\n2. 可见所有带有 `#`、`-`、`**` 等 Markdown 标记的文本未被格式化。\\n\\n见截图：\\n<img alt=\"Help 页面纯文本问题\" width=\"2732\" src=\"https://github.com/user-attachments/assets/2265da95-01bf-41eb-a8e2-e085c32c30aa\" />\\n\\n## 根因分析\\n查阅 `examples/crm/src/pages/help.page.ts` 可知：\\n- Help 页面使用了多个 `type: 'text'` 组件承载 Markdown 内容；\\n- `text` 组件仅以 <span> 形式渲染，不支持 Markdown；\\n- 实际应使用 `type: 'markdown'` 组件（来自 @object-ui/plugin-markdown），已内置完整 GFM 支持与安全策略。\\n\\n## 预期修复方案\\n- 用单个 `type: 'markdown'` 组件替换 Help 页面多个 `text` 组件，将内容合并为多行 Markdown 字符串，传给 `content` 字段；\\n- 保持原有排版风格，适当设置 `className`（如 max-w-3xl mx-auto p-8）；\\n\\n## 参考实现\\n```typescript\\n// 用 markdown 组件替代 text\\n{\\n  type: 'markdown',\\n  properties: {\\n    content: `# CRM Help Guide\\n...（所有原内容合并为 markdown 字符串）`\\n  }\\n}\\n```\\n\\n## 附加信息\\n- 相关插件：@object-ui/plugin-markdown\\n- 问题截图见上\\n- 参考文件：examples/crm/src/pages/help.page.ts\\n\\nCc @hotlong"
+}

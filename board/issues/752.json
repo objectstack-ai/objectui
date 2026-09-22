@@ -1,0 +1,33 @@
+{
+  "number": 752,
+  "kind": "issue",
+  "title": "[P1] UserActions 驱动 Toolbar 可见性 + AddRecord 按钮",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:21:34Z",
+  "updated_at": "2026-02-23T12:46:49Z",
+  "closed_at": "2026-02-23T12:46:49Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/752",
+  "body": "## 背景\nParent Issue: #736\n\nSpec `userActions` 配置（sort/search/filter/rowHeight/addRecordForm/buttons）应控制 toolbar 按钮可见性。ObjectUI 类型已定义但未接入 toolbar 渲染逻辑。同时 `addRecord` 配置应渲染 \"+ Add Record\" 按钮。\n\n## 目标\n- `schema.userActions.sort/search/filter` 控制对应 toolbar 按钮（覆盖 showSort/showSearch/showFilters）\n- `schema.userActions.addRecordForm` 控制 \"Add Record\" 按钮\n- `schema.addRecord` 配置（enabled, position, mode, formView）渲染 \"+ Add Record\" 按钮\n\n## 技术要点\n- `packages/plugin-list/src/ListView.tsx` — toolbarFlags 计算逻辑需合并 userActions\n- `packages/types/src/objectql.ts` L1620-1630 — userActions 已定义\n\n## 改动范围\n- `packages/plugin-list/src/ListView.tsx` — toolbarFlags 融合 userActions + AddRecord 按钮渲染\n- `packages/i18n/src/locales/*.ts` — addRecord i18n key\n\n## 验收标准\n- [ ] `userActions.search: false` 隐藏搜索按钮\n- [ ] `userActions.sort: false` 隐藏排序按钮\n- [ ] `addRecord.enabled: true` 渲染 \"+ Add Record\" 按钮\n- [ ] `addRecord.position` 控制按钮位置（top/bottom）\n- [ ] 所有新增代码有对应单元测试\n- [ ] `pnpm test` 全部通过\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1054,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump storybook from 8.6.17 to 8.6.18",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-09T08:03:57Z",
+  "updated_at": "2026-03-09T09:47:55Z",
+  "closed_at": "2026-03-09T08:04:14Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-09T08:04:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1054",
+  "body": "Bumps [storybook](https://github.com/storybookjs/storybook/tree/HEAD/code/core) from 8.6.17 to 8.6.18.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/storybookjs/storybook/releases\">storybook's releases</a>.</em></p>\n<blockquote>\n<h2>v8.6.18</h2>\n<h2>8.6.18</h2>\n<ul>\n<li>Add request validation</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/storybookjs/storybook/blob/v8.6.18/CHANGELOG.md\">storybook's changelog</a>.</em></p>\n<blockquote>\n<h2>8.6.18</h2>\n<ul>\n<li>Add request validation</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/storybookjs/storybook/commit/81930ad5d787bccdd43ffcdfecc9ee2ec765091b\"><code>81930ad</code></a> Bump version from &quot;8.6.17&quot; to &quot;8.6.18&quot; [skip ci]</li>\n<li><a href=\"https://github.com/storybookjs/storybook/commit/9dbe9b1c1c189c96b51ad780dbd4406ae784970f\"><code>9dbe9b1</code></a> Formatting</li>\n<li><a href=\"https://github.com/storybookjs/storybook/commit/c90626e7679727d899c6311c83be6193def3360c\"><code>c90626e</code></a> Add missing import</li>\n<li><a href=\"https://github.com/storybookjs/storybook/commit/7d88ff13f4d84a6be0e40436e56185923171040a\"><code>7d88ff1</code></a> Core: Backport origin/host validation and update related configurations</li>\n<li>See full diff in <a href=\"https://github.com/storybookjs/storybook/commits/v8.6.18/code/core\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=storybook&package-manager=npm_and_yarn&previous-version=8.6.17&new-version=8.6.18)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

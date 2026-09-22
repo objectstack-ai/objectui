@@ -1,0 +1,33 @@
+{
+  "number": 1118,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fumadocs-ui from 16.6.17 to 16.7.4",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-23T08:04:34Z",
+  "updated_at": "2026-03-23T08:14:30Z",
+  "closed_at": "2026-03-23T08:10:54Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-23T08:10:54Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1118",
+  "body": "[//]: # (dependabot-start)\n⚠️  **Dependabot is rebasing this PR** ⚠️ \n\nRebasing might not happen immediately, so don't worry if this takes some time.\n\nNote: if you make any changes to this PR yourself, they will take precedence over the rebase.\n\n---\n\n[//]: # (dependabot-end)\n\nBumps [fumadocs-ui](https://github.com/fuma-nama/fumadocs) from 16.6.17 to 16.7.4.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/fuma-nama/fumadocs/releases\">fumadocs-ui's releases</a>.</em></p>\n<blockquote>\n<h2>fumadocs-ui@16.7.4</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>57c83a5: fix toc\n<ul>\n<li>fumadocs-core@16.7.4</li>\n</ul>\n</li>\n</ul>\n<h2>fumadocs-ui@16.7.3</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>fumadocs-core@16.7.3</li>\n</ul>\n<h2>fumadocs-ui@16.7.2</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>652c725: Simplify internal types\n<ul>\n<li>fumadocs-core@16.7.2</li>\n</ul>\n</li>\n</ul>\n<h2>fumadocs-ui@16.7.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>11b8691: hotfix</li>\n<li>75b0b94: Refactor TOC slot\n<ul>\n<li>fumadocs-core@16.7.1</li>\n</ul>\n</li>\n</ul>\n<h2>fumadocs-ui@16.7.0</h2>\n<h3>Minor Changes</h3>\n<ul>\n<li>8bdee70: Implement renderer API for replacing layout components, deprecate old options</li>\n<li>bdffeba: Improved <code>defineI18nUI()</code> usage: allow language translations to be defined at root config.</li>\n<li>f45d703: stablize Shiki factory API</li>\n</ul>\n<h3>Patch Changes</h3>\n<ul>\n<li>3d17757: Improve <code>&lt;GithubInfo /&gt;</code> component</li>\n<li>Updated dependencies [f45d703]</li>\n<li>Updated dependencies [45aa454]\n<ul>\n<li>fumadocs-core@16.7.0</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/37e0243bd4d9000f0fc7b4701bdc714e4ad7f008\"><code>37e0243</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3137\">#3137</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/57c83a5012a59d3239009924ec3aece44e1755c6\"><code>57c83a5</code></a> UI: fix TOC</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/33b04a10cfb13444fe50c986b628a4af26cc956e\"><code>33b04a1</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3135\">#3135</a> from fuma-nama/changeset-release/dev</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/1376c470554df451743f39fb238bc01cbf1f0e2e\"><code>1376c47</code></a> UI: better TOC</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/7aa66f207c4433f70f25673fc8dabec7c929d984\"><code>7aa66f2</code></a> Base UI: Redesign home layout navigation menu</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/9580621d2d8e88c890c72d7d575645bd75207235\"><code>9580621</code></a> Base UI: fix sidebar scroll area</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/28de7b10a020de6df229cfaa1ba28836abb29b87\"><code>28de7b1</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3131\">#3131</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/9ef250f0c43066a991c7cf8ad45b256185bed359\"><code>9ef250f</code></a> UI: consistent slots enabled state</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/4fd00a05d7c920a46ec74ac99cedd2a7daadba28\"><code>4fd00a0</code></a> Docs: introduce docs page</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/652c7251ce1f52e0385bd25c4a85f9c271038f1c\"><code>652c725</code></a> UI: Simplify internal types</li>\n<li>Additional commits viewable in <a href=\"https://github.com/fuma-nama/fumadocs/compare/fumadocs-ui@16.6.17...fumadocs-ui@16.7.4\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=fumadocs-ui&package-manager=npm_and_yarn&previous-version=16.6.17&new-version=16.7.4)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

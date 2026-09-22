@@ -1,0 +1,33 @@
+{
+  "number": 965,
+  "kind": "issue",
+  "title": "手动将所有 package.json 版本设置为 3.1.0 并清理 changeset 文件",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-02T08:06:44Z",
+  "updated_at": "2026-03-02T08:58:01Z",
+  "closed_at": "2026-03-02T08:58:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/965",
+  "body": "由于 Changesets 自动发布会因 registry 上已有 3.1.0 或版本冲突导致跳版至 4.0.0，现需手动统一所有包版本。\n\n**任务步骤：**\n\n1. 遍历 monorepo 所有 `package.json`（包括 packages/*、apps/*、所有相关包）\n2. 将每个 package.json 的 `version` 字段调整为：`3.1.0`\n3. 删除 `.changeset/` 目录下所有 `.md` 文件（保留 config.json 和 README.md）\n4. 将上述变更直接提交到 main 分支（或发 PR），提交信息建议：`chore: 手动统一所有包版本为 3.1.0 并清理 changeset 文件`\n5. 确认 CI 通过并可正确生成后续版本\n\n**注意：**\n- 操作会导致所有包直接 step 到 3.1.0，与原有历史对齐。\n- 后续发布可重新启用 changeset 工作流。\n\n---\n\n如需自动脚本示例可追加。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 751,
+  "kind": "issue",
+  "title": "[P2] RowActions 行菜单 + BulkActions 批量操作栏",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:21:27Z",
+  "updated_at": "2026-02-23T11:24:34Z",
+  "closed_at": "2026-02-23T11:24:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/751",
+  "body": "## 背景\nParent Issue: #736\n\nSpec `rowActions: string[]` 和 `bulkActions: string[]` 已定义，ObjectUI 类型已存在但无 UI 渲染。\n\n## 目标\n1. **RowActions**：每行末尾渲染 \"...\" 操作下拉菜单，菜单项由 `rowActions` 配置\n2. **BulkActions**：多选行后在 toolbar 下方显示批量操作栏，操作项由 `bulkActions` 配置\n\n## 技术要点\n- `packages/plugin-grid/src/ObjectGrid.tsx` — 添加 action 列 + 批量操作栏\n- `packages/plugin-list/src/ListView.tsx` L335 — 已有 `selectedRows` state\n\n## 改动范围\n- `packages/plugin-grid/src/components/RowActionMenu.tsx` — 新增行菜单组件\n- `packages/plugin-grid/src/components/BulkActionBar.tsx` — 新增批量操作栏\n- `packages/plugin-grid/src/ObjectGrid.tsx` — 集成行菜单和批量栏\n- `packages/plugin-list/src/ListView.tsx` — 传递 rowActions/bulkActions 到子视图\n\n## 验收标准\n- [ ] Grid 每行末尾显示 \"...\" 按钮\n- [ ] 点击展开下拉菜单，包含 rowActions 配置的操作项\n- [ ] 多选后 toolbar 下方出现 \"N selected\" + 批量操作按钮\n- [ ] 批量操作按钮触发对应 action\n- [ ] 所有新增代码有对应单元测试\n- [ ] `pnpm test` 全部通过\n"
+}

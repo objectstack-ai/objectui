@@ -1,0 +1,33 @@
+{
+  "number": 781,
+  "kind": "pull_request",
+  "title": "QuickFilters dual-format adapter: Spec ↔ ObjectUI type union + bridge normalization",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T09:32:33Z",
+  "updated_at": "2026-02-23T10:39:50Z",
+  "closed_at": "2026-02-23T10:32:39Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T10:32:39Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/781",
+  "body": "Spec uses `{ field, operator, value }` for quick filters; ObjectUI uses `{ id, label, filters[] }`. These were incompatible at the type level, requiring `as any` casts and offering no type safety for spec-format consumers.\n\n### Types (`@object-ui/types`)\n- Added `SpecQuickFilterItem`, `ObjectUIQuickFilterItem`, and `QuickFilterItem` union type\n- `quickFilters` property on both `ObjectGridSchema` and `ListViewSchema` now accepts `QuickFilterItem[]`\n\n### Normalize Utility (`@object-ui/core`)\n- Extracted standalone `normalizeQuickFilter()` and `normalizeQuickFilters()` adapter functions into `packages/core/src/utils/normalize-quick-filter.ts`\n- Full operator mapping: `eq`, `ne`, `neq`, `gt`, `gte`, `lt`, `lte`, `equals`, `contains`, etc.\n- Properly typed with `QuickFilterItem` union input and `NormalizedQuickFilter` (alias of `ObjectUIQuickFilterItem`) output\n\n### Bridge (`packages/react/src/spec-bridge/bridges/list-view.ts`)\n- Bridge now normalizes quickFilters at spec→SchemaNode transform time using `normalizeQuickFilters()`\n- Spec-format items are converted to ObjectUI format before reaching ListView\n\n### ListView (`packages/plugin-list/src/ListView.tsx`)\n- Refactored to use shared `normalizeQuickFilters()` from `@object-ui/core` instead of inline normalization logic\n- Extended `mapOperator` with spec shorthand operators for FilterBuilder usage\n\n### Tests (162 total across 3 files)\n- **12 unit tests** for `normalizeQuickFilter` utility: operator mapping, auto-generated labels, null values, icon/defaultActive preservation, unknown operator passthrough\n- **6 bridge-level tests** in `P1SpecBridge.test.ts`: spec format normalization, ObjectUI passthrough, mixed arrays, auto-generated labels, null values, defaultActive/icon preservation\n- **6 ListView integration tests**: spec format rendering, ObjectUI format rendering, mixed arrays, shorthand operators, auto-generated labels, null value edge case\n- Removed all `as any` casts — union type covers both formats natively\n\n```typescript\n// Both formats now type-check without casts\nconst quickFilters: QuickFilterItem[] = [\n  { id: 'active', label: 'Active', filters: [['status', '=', 'active']] },\n  { field: 'priority', operator: 'eq', value: 'high', label: 'High Priority' },\n];\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[P1] QuickFilters 协议兼容 — 双格式适配层</issue_title>\n> <issue_description>## 背景\n> Parent Issue: objectstack-ai/objectui#736\n> \n> Spec 使用 `{ field, operator, value }` 格式，ObjectUI 使用 `{ id, label, filters[], defaultActive }` 格式。两者不兼容。\n> \n> ## 目标\n> - 实现 QuickFilter 适配层，自动识别并转换两种格式\n> - Spec format → ObjectUI format 自动转换\n> - ObjectUI format 保持原生支持\n> \n> ## 技术要点\n> - Spec: `QuickFilterSchema { field: string, operator: string, value: any }`\n> - ObjectUI: `QuickFilter { id: string, label: string, filters: any[], defaultActive?: boolean }`\n> - 适配函数：`normalizeQuickFilter(input): ObjectUIQuickFilter`\n> \n> ## 改动范围\n> - `packages/types/src/objectql.ts` — 添加 Spec QuickFilter 类型 union\n> - `packages/plugin-list/src/ListView.tsx` — quickFilters normalize 层\n> - `packages/react/src/spec-bridge/bridges/list-view.ts` — bridge 映射\n> \n> ## 验收标准\n> - [ ] Spec `{ field: 'status', operator: 'eq', value: 'active' }` 格式可正常渲染\n> - [ ] 现有 ObjectUI `{ id, label, filters[] }` 格式不受影响\n> - [ ] 混合格式数组可正常处理\n> - [ ] 单元测试覆盖两种格式及边界场景\n> - [ ] `pnpm test` 全部通过\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#756\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

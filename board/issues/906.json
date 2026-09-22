@@ -1,0 +1,35 @@
+{
+  "number": 906,
+  "kind": "issue",
+  "title": "全面对标 Airtable 的表格（Grid/List）UX 优化任务",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-28T06:42:37Z",
+  "updated_at": "2026-02-28T08:34:54Z",
+  "closed_at": "2026-02-28T08:34:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/906",
+  "body": "## 目标\n对比当前 ObjectUI 的表格组件（Grid/List/ObjectGrid）与 Airtable 的体验，综合落地以下优化，以实现用户感知上的高一致度。所有子项可单独提交 PR。\n\n---\n\n### 1. 日期字段人性化格式默认展示\n- 将所有日期型列的值从 ISO 格式（如 2024-01-15T00:00:00.000Z）自动格式化为本地化、人类可读格式（如 2024/2/28 12:57am），优先跟随浏览器 locale。\n- 涉及：cell renderer、Grid/ListView/fields 层的 formatDate 自动调用。\n\n### 2. 行悬浮\"Open >\"按钮/行为规范\n- Grid 和 ListView 统一：鼠标悬浮于首列或整行时，出现 \"Open >\" 文字按钮（含展开 icon），点击直达详情页（record detail）。\n- 优化现有 row-expand-button，去除仅 icon/tooltip 的做法，改用文字按钮。\n\n### 3. 单击单元格即进入编辑状态（单击编辑）\n- grid cell 默认支持 \"点击即编辑\"（editMode: 'click'），双击可作为快捷保存。\n- 相关属性：singleClickEdit、editMode，新建选项，默认值为 click。\n- InlineEditing 组件兼容此交互。\n\n### 4. 默认紧凑行高/密度模式\n- Grid 和 List 行高默认32-36px（densityMode: 'compact'）。\n- 工具栏保留密度切换，但默认使用紧凑。\n\n### 5. 列头样式极简化\n- 表头背景统一为浅灰（bg-muted/30），去除冗余分割线/色块。\n- 列名用 font-normal text-muted-foreground，排序箭头与文本内联。\n- 字段类型图标（如A,#,📅）全部启用。\n\n### 6. 搜索框移至工具栏\n- 搜索框与筛选、分组按钮并列在 toolbar 区域，而不用嵌入表头或首行。\n\n### 7. 筛选器 pill/chip 样式美化\n- 快速筛选条件区块采用更轻量化、Airtable 风格的 pill/chip，支持多条件并列、x移除。\n\n### 8. 列宽自适应内容\n- 启用自动列宽（autoSizeColumns），智能为文本/数值类等分配最优宽度。\n\n### 9. 行选择 Checkbox 交互样式\n- 新增 selectionStyle: 'hover'|'always'，支持始终显示 checkbox，适配批量操作。\n\n### 10. 空表格 ghost row 占位\n- 无数据时，底部以半透明 ghost row 显示示例数据轮廓，占位整体表格高度。\n\n---\n\n\n- 工具栏支持 dock/浮动切换\n- Dashboard/table 编辑右侧联动配置 panel 交互再精细\n\n\n\n\n---\n对应参考图：\n<img alt=\"ObjectUI演示截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/6f8f4b91-2fa7-44cc-9668-796f0b44969b\" />\n<img alt=\"Airtable截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/3a90c2a0-28a8-4a95-add2-0bb015ea30e6\" />\n"
+}

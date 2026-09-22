@@ -1,0 +1,36 @@
+{
+  "number": 1029,
+  "kind": "pull_request",
+  "title": "fix: align i18n API path with ObjectStack Spec protocol",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T07:03:08Z",
+  "updated_at": "2026-03-04T08:30:12Z",
+  "closed_at": "2026-03-04T08:10:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-04T08:10:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1029",
+  "body": "`loadLanguage` in the console fetches `/api/v1/i18n/{locale}`, but the ObjectStack Spec standard is `/api/v1/i18n/translations/{locale}`. MSW mocks masked the mismatch; real backends return 404.\n\n- **`apps/console/src/main.tsx`** — fix fetch URL\n- **`apps/console/src/mocks/browser.ts`**, **`server.ts`** — update MSW handler routes to match\n- **`ROADMAP.md`** — update stale path reference\n\n```diff\n- const res = await fetch(`/api/v1/i18n/${lang}`);\n+ const res = await fetch(`/api/v1/i18n/translations/${lang}`);\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Console i18n API 请求路径与后端标准不匹配导致 404</issue_title>\n> <issue_description>### 问题描述\n> 在 `apps/console/src/main.tsx` 中，`loadLanguage` 请求 `/api/v1/i18n/zh`，实际后端标准（ObjectStack Spec 协议）是 `/api/v1/i18n/translations/:locale`。本地开发时 MSW Mock 环境能兼容这个路径，但连接真实服务端时会出现 404。\n> \n> ### 详细排查过程\n> - Console 前端请求代码如下：\n>   ```tsx\n>   async function loadLanguage(lang: string): Promise<Record<string, unknown>> {\n>     const res = await fetch(`/api/v1/i18n/${lang}`);\n>     // ...\n>   }\n>   ```\n> - MSW mock 环境专为本地兼容注册了 `/api/v1/i18n/:lang` 路径。\n> - 根据 `objectstack-ai/spec` 仓库的协议标准，i18n API translation 路径为 `/api/v1/i18n/translations/:locale`。\n> - 如果未启动 MSW 或生产环境，发到真实服务器，该路径不存在，导致 404。\n> \n> ### 影响\n> - 本地开发用 MSW 无感，生产或对接真实 API 时 i18n 加载全部报 404，页面无法国际化。\n> \n> ### 解决建议\n> 1. 前端请求改为标准路径：\n>    ```tsx\n>    await fetch(`/api/v1/i18n/translations/${lang}`)\n>    ```\n> 2. 对应 mock handler 也保持兼容。\n> 3. 文档/注释补充说明连接真实 API 时要求路径完全与后端一致。\n> \n> ### 参考\n> - [ObjectStack spec i18n API 标准定义](https://github.com/objectstack-ai/spec/blob/main/packages/spec/src/api/plugin-rest-api.zod.ts)\n> - [MSW mock 用于兼容本地开发](https://github.com/objectstack-ai/objectui/blob/main/apps/console/src/mocks/browser.ts)\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#986\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

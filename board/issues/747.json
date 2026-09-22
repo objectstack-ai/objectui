@@ -1,0 +1,36 @@
+{
+  "number": 747,
+  "kind": "issue",
+  "title": "App Branding Editor（品牌与主题可视化编辑器）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "plugin: editor"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-23T05:02:40Z",
+  "updated_at": "2026-02-23T09:13:13Z",
+  "closed_at": "2026-02-23T09:13:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/747",
+  "body": "实现应用品牌个性化主题编辑模块，对接AppSchema/ThemeSchema：\n\n## 开发内容\n1. Logo上传、主题色选择（可视化）、Favicon管理\n2. 支持主题实时预览和撤销\n3. 输出配置到AppSchema.branding/ThemeSchema协议\n4. 审核常用主题色板，支持浅/深色切换\n5. 多语言及移动端主题预览\n\n## 交付要求\n- 主题编辑器React组件松耦合、可独立复用\n- 完善组件Storybook+单元测试\n- DEMO及开发文档\n- `pnpm test` 通过\n- Roadmap及时同步"
+}

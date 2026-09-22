@@ -1,0 +1,33 @@
+{
+  "number": 755,
+  "kind": "issue",
+  "title": "[P1] ConditionalFormatting 协议适配 — 表达式与字段规则互转",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:21:56Z",
+  "updated_at": "2026-02-24T00:36:25Z",
+  "closed_at": "2026-02-24T00:36:25Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/755",
+  "body": "## 背景\nParent Issue: #736\n\nSpec 使用表达式 `{ condition: string, style: Record<string,string> }`，ObjectUI 使用字段级 `{ field, operator, value, style }`。\n\n## 目标\n- 双格式兼容：Spec 表达式和 ObjectUI 字段规则均可工作\n- `evaluateConditionalFormatting()` 函数同时支持两种输入\n\n## 改动范围\n- `packages/plugin-list/src/ListView.tsx` — `evaluateConditionalFormatting` 扩展\n- `packages/types/src/objectql.ts` — ���型 union 定义\n- `packages/core/src/ExpressionEvaluator.ts` — 确保表达式可求值\n\n## 验收标准\n- [ ] Spec 表达式格式 `{ condition: \"status == 'overdue'\", style: { backgroundColor: 'red' } }` 可渲染\n- [ ] ObjectUI 格式 `{ field: 'status', operator: 'equals', value: 'overdue', style: {...} }` 不受影响\n- [ ] 混合规则数组可正常处理\n- [ ] `pnpm test` 全部通过\n"
+}

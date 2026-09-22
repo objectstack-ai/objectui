@@ -1,0 +1,33 @@
+{
+  "number": 990,
+  "kind": "pull_request",
+  "title": "feat(auth): Add linkComponent/labels props to auth forms, i18n support, widescreen layout",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T05:01:12Z",
+  "updated_at": "2026-03-03T06:47:03Z",
+  "closed_at": "2026-03-03T05:36:24Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T05:36:24Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/990",
+  "body": "Auth page links (Sign up, Forgot password, Sign in) use raw `<a>` tags that ignore React Router's `basename`, so deploying under `/console` prefix produces broken links. All form text is hardcoded English with no i18n path. Widescreen layout is a bare centered 350px form.\n\n### `linkComponent` prop — fixes prefix routing\n\nAuth forms accept an optional `linkComponent` prop (`React.ComponentType<AuthLinkComponentProps>`) defaulting to `<a>`. Console pages now pass a React Router `<Link>` wrapper, which respects `BrowserRouter basename` automatically:\n\n```tsx\nimport { Link } from 'react-router-dom';\nimport { LoginForm, type AuthLinkComponentProps } from '@object-ui/auth';\n\nconst RouterLink = ({ href, className, children }: AuthLinkComponentProps) => (\n  <Link to={href} className={className}>{children}</Link>\n);\n\n<LoginForm linkComponent={RouterLink} registerUrl=\"/register\" forgotPasswordUrl=\"/forgot-password\" />\n```\n\n### `labels` prop — i18n support\n\nEach form accepts a partial `labels` object to override all user-facing strings. Console pages wire this to `useObjectTranslation()`:\n\n```tsx\n<LoginForm labels={{ emailLabel: t('auth.login.emailLabel'), submitButton: t('auth.login.submitButton') }} />\n```\n\n### i18n locale additions\n\n- Added `auth.login.*`, `auth.register.*`, `auth.forgotPassword.*` keys to all 10 locale files (en, zh, ja, ko, de, fr, es, pt, ru, ar)\n- `successDescription` uses `{{email}}` placeholder for proper sentence structure across languages\n\n### Widescreen layout\n\n- New `AuthPageLayout` component: split-panel design (branding left / form right on `lg+`, full-width form on mobile)\n- Applied to LoginPage, RegisterPage, ForgotPasswordPage\n- Form width bumped from `sm:w-[350px]` → `sm:w-[380px]`\n\n### Exports\n\n- `AuthLinkComponentProps`, `LoginFormLabels`, `RegisterFormLabels`, `ForgotPasswordFormLabels` exported from `@object-ui/auth`\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>登录页面优化及 /console 前缀配置导致 API 路径错误（宽屏模式、404 问题）</issue_title>\n> <issue_description>参考其他主流企业管理平台，整体优化登录页面宽屏模式下的视觉体验。当前宽屏状态下页面美观性不足。\n> \n> 另，配置 /console 前缀时，相关链接注册，登录，忘记密码等未自动加上前缀。\n> \n> 请优化前端路由逻辑，以能正确拼接 API 请求路径并支持多前缀场景。\n> \n> 附错误截图：\n> <img alt=\"登录页面宽屏与报错\" width=\"2878\" src=\"https://github.com/user-attachments/assets/a494c29a-c345-457e-afce-272fd234ac79\" />\n> \n> 需求：\n> 1. 登录页视觉及布局参考主流管理平台整体优化（如airtable，salesforce，power apps等）。\n> 2. 支持 /console 等前缀情况下，API 请求能自动拼接对应前缀。\n> 3. 所有登录页面缺少国际化翻译。\n> 4. 检查注册（Sign up）、找回密码等同样受影响的链接路径。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#989\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 845,
+  "kind": "issue",
+  "title": "Dashboard widgets 数据空白并未发起服务器请求：dataSource/注入/容错等多点问题合并排查修复",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "data-adapter"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-25T02:34:02Z",
+  "updated_at": "2026-02-25T03:19:42Z",
+  "closed_at": "2026-02-25T03:19:42Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/845",
+  "body": "## 问题综述\n在 ObjectUI CRM 演示应用的 dashboard 页面（如 https://demo.objectui.org/apps/crm_app/dashboard/crm_dashboard），所有 dashboard widgets 显示空白，浏览器没有向服务器发起任何报表数据请求。\n\n## 详细排查后的所有潜在问题\n1. **dataSource 注入问题：**\n   - 控制台应用通过 <SchemaRendererProvider dataSource={dataSource || {}}> 包裹渲染，但如果 dataSource 未正确初始化，将得到一个空对象 `{}`，导致所有 widgets 数据请求失败。\n   - DashboardView 组件虽然接受 dataSource，但在 dataSource 初始化之前可能提前渲染，造成数据流断裂。\n\n2. **DashboardRenderer 未显式传递 dataSource 到子 widget 的 SchemaRenderer**\n   - DashboardRenderer 在渲染 widget 时未将 dataSource 做为 prop 传递给 SchemaRenderer，依赖上层 context。如果 context 里的 dataSource 不正确（空对象或缺失 .find 方法），widgets 请求会失败。\n\n3. **ObjectChart/表格等组件的数据加载异常 & 错误处理**\n   - ObjectChart 等依赖 dataSource 的组件，fetchData 时如果 dataSource 找不到 .find 方法，会被 try/catch 吞掉，用户看不到错误提示。\n\n4. **Demo 环境 dataSource 配置或连接异常：**\n   - Demo 服务器端没有正确配置后端 API 或 token，导致 dataSource 实例未能正常创建，最终传递的是 `{}`，所有请求都变成空白。\n\n5. **缺少重试或 loading/error 状态提示：**\n   - Dashboard/Widget 对 dataSource 的依赖没有 loading 或 error 状态展示，连接/初始化不成功时只表现为页面空白。\n\n## 复现步骤\n1. 打开 https://demo.objectui.org/apps/crm_app/dashboard/crm_dashboard\n2. 检查 network，发现未对后端发起任何数据请求\n3. 控制台无明显报错，页面 widgets 全部空白。\n\n## 建议修复方案\n- 在 App.tsx/SchemaRendererProvider 层，确保只有真正初始化完成的 dataSource 被传递。\n- DashboardView 增加 loading/error guard，确保 dataSource 可用再渲染。\n- DashboardRenderer/SchemaRenderer 显式传递 dataSource。\n- ObjectChart 等支持错误提示，必要时 fallback 到 loading/error UI。\n- demo 环境加强 dataSource 的配置/联调。\n\n## 任务要求\n- 修复必须覆盖上述所有潜在问题点。\n- 修复后务必运行 test 确认数据绑定和 widget 渲染全部正常。\n- 更新 roadmap 标记 dashboard 数据流/容错相关改进进度。\n\n## 标签\n- bug\n- dashboard\n- data binding\n- chart\n- data-adapter\n\n---\n请基于上述分析，严格自查所有相关代码再提交修复。"
+}

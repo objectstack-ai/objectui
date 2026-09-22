@@ -1,0 +1,33 @@
+{
+  "number": 759,
+  "kind": "pull_request",
+  "title": "feat: NavigationDesigner — icon editing, visibility toggle, export/import, responsive layout",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:35:31Z",
+  "updated_at": "2026-02-23T06:08:13Z",
+  "closed_at": "2026-02-23T06:00:45Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T06:00:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/759",
+  "body": "Enhances the NavigationDesigner with missing capabilities from the Navigation Tree Designer spec: node property editing (icon, visibility), schema import/export, and mobile layout.\n\n### NavigationDesigner component\n- **Icon editing** — Pencil button per node reveals inline text input for icon name (Enter/Escape commit/discard)\n- **Visibility toggle** — Eye/EyeOff button toggles `visible: false` on NavigationItem, renders \"Hidden\" badge + opacity\n- **Export/Import JSON** — Toolbar buttons: Export downloads `.json` file, Import accepts file upload. Optional `onExport`/`onImport` callback props for custom handling\n- **Responsive layout** — `flex-col` on mobile, `sm:flex-row` on desktop\n\n```tsx\n<NavigationDesigner\n  items={navItems}\n  onChange={setNavItems}\n  onExport={(items) => saveToBackend(items)}\n  onImport={(items) => loadFromBackend(items)}\n/>\n```\n\n### i18n\n- 9 new keys (`navEditIcon`, `navToggleVisible`, `navHidden`, `navExportSchema`, `navImportSchema`, etc.) across all 10 locales\n- `useDesignerTranslation` fallback dictionary updated\n\n### Tests\n- 15 new tests → 33 total (icon editing, visibility toggle, export/import callbacks, read-only guards, responsive classes)\n- 380 tests passing across 19 files\n\n### ROADMAP\n- Updated P1.11 Navigation Designer checklist, i18n key count (103), test count (33/180)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Navigation Tree Designer（可视化导航结构设计器）</issue_title>\n> <issue_description>开发应用导航结构可视化设计器，符合@objectstack/spec NavigationItemSchema协议：\n> \n> ## 开发内容\n> 1. 拖拽式导航树编辑组件，支持节点嵌套、分组、排序\n> 2. 支持快速添加页面、仪表盘、外链、分隔符等不同类型节点\n> 3. 节点属性编辑（icon、title、隐藏/禁用、移动/删除）\n> 4. 实时所见即所得预览与schema同步\n> 5. 导出/导入导航JSON Schema\n> 6. 新建页面/仪表盘自动注册在导航树\n> 7. i18n与移动端支持\n> \n> ## 交付要求\n> - React 组件实现 + 类型定义\n> - Tailwind样式，符合全局主题\n> - 优秀的交互体验（参考Airtable/Notion导航编辑）\n> - Storybook场景+交互测试\n> - 单元测试、E2E测试（RTL/Vitest）\n> - `pnpm test` 必须通过\n> - Roadmap文档同步</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#746\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

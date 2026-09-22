@@ -1,0 +1,33 @@
+{
+  "number": 1106,
+  "kind": "issue",
+  "title": "[i18n] 统一 i18n 插件加载与翻译注入机制，支持 server & MSW/mock 双模式",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-21T11:14:09Z",
+  "updated_at": "2026-03-21T11:45:18Z",
+  "closed_at": "2026-03-21T11:45:18Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1106",
+  "body": "## 背景\n目前 ObjectUI 在 i18n 加载链路上 server（Hono/production）和 MSW/mock（前端本地开发、Storybook 测试等）两种运行模式存在分裂：\n- 服务端（server.ts）默认不会自动注册 @objectstack/service-i18n 插件，且 appConfig/manifest 通常缺失 translations 字段，导致 i18n REST API 不可用。\n- 前端 mock 环境（apps/console/src/mocks/browser.ts, server.ts）通过 MSW customHandler 手动模拟 /api/v1/i18n/translations/:lang 路由，未用 spec 标准插件链路，返回格式也不完全一致。\n- examples/crm 的 CRM 业务翻译包仅以 crmLocales 导出，并未集成到任何 stack config 的 translations 字段里。\n\n这会引发：\n- 业务对象/字段翻译容易失效，尤其是生产 server 模式下\n- 维护两套 mock 和真实服务代码，容易产生格式和体验不一致问题\n\n---\n\n## 期望目标\n- 支持 unified i18n 加载机制，server & mock/MSW 环境下均采用规范的 @objectstack/service-i18n 插件动态注册/翻译注入\n- translations 在 objectstack.config.ts、sharedConfig、AppPlugin 中完整传递，并写入 kernel 的 i18n service，由 dispatcher 自动暴露 REST API 路由\n- 移除所有自定义 i18n MSW 路由 handler，全部用 dispatcher 内置机制\n- mock/browser/server/runtime 不再需要手动 import crmLocales 或自管 label\n\n---\n\n## 改动\n1. **examples/crm**：\n   - 在 objectstack.config.ts 添加 `i18n` 和 `translations: [crmLocales]` 字段\n2. **apps/console/objectstack.shared.ts**：\n   - 合并出来的 sharedConfig 要传递 translations 字段，不要丢失\n3. **apps/console/src/mocks/createKernel.ts**：\n   - kernel 初始化时始终注册 service-i18n plugin（可区分 dev/prod 用 memory adapter 或 disk adapter）\n   - AppPlugin 正常触发 loadTranslations\n   - 保证无论 server 还是 browser/msw，都走同一 i18n 插件链路\n4. **apps/console/src/mocks/browser.ts / server.ts**：\n   - **移除** MSW customHandler 的 i18n 路由\n   - 只用 MSWPlugin 暴露的 dispatcher handler\n5. **README & 相关文档**：\n   - 说明双环境链路、无需手动维护模拟 i18n 响应\n   - 推荐参考 examples/msw-todo 的最佳实践\n\n---\n\n## 兼容性 & 工程要求\n- 保证 mock、dev、storybook、server/production 环境下所有对象和字段国际化 label 均能正常 fallback/切换\n- 测试覆盖 examples/crm、apps/console 各物理环境\n- 变更后做一次相关代码和文档梳理，明确 i18n 传递和注册链路\n\n---\n\n如需详细方案/代码协助，请联系 Core Team。\n"
+}

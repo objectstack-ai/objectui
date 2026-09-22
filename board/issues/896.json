@@ -1,0 +1,35 @@
+{
+  "number": 896,
+  "kind": "issue",
+  "title": "合并列表视图的筛选、查找、排序���工具栏为一行，并支持字段筛选折叠",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-27T11:23:35Z",
+  "updated_at": "2026-02-27T17:50:54Z",
+  "closed_at": "2026-02-27T17:50:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/896",
+  "body": "## 变更评估\n\n参考 Airtable 的 Interfaces 工具栏及 <img alt=\"Airtable界面截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/831ff71d-c1ca-42c2-bf49-ee642a014cc7\" /> 优化 ObjectUI 的 ListView 组件，合并筛选、查找、排序相关两行工具栏为一行，并当左侧字段筛选过多时自动折叠。\n\n### 需要修改的模块与细节：\n1. **UserFilters.tsx（字段筛选徽章组件）**\n    - 增加 `maxVisible` 属性，超出时将多余字段筛选徽章折叠为 \"More\" 下拉按钮。\n    - 支持 Popover 展开所有隐藏字段筛选。\n    - 响应式处理，移动端按 1~2 个徽章显示。\n2. **ListView.tsx（列表视图主组件）**\n    - 合并原有的 UserFilters 行和工具按钮行，在 toolbar 栏内左侧显示字段筛选徽章，右侧显示排序、查找等工具按钮。\n    - 左侧徽章与右侧按钮通过分隔线视觉隔开。\n    - toolbar 行内采用 flex 布局，保证工具按钮固定显示，字段筛选徽章溢出时自动压缩、折叠。\n    - 查找（Search）按钮改为 icon，弹出输入框。\n    - 移除原先单独的 UserFilters 工具栏。\n3. **QuickFilters 行** 保持未变，仍然展示快速筛选。\n4. **兼容响应式**\n    - toolbar 在各屏幕尺寸下布局合理。\n    - 工��栏和筛选徽章均支持溢出时折叠，移动端显示合理。\n\n### 设计与体验要求：\n- 与 Airtable 界面风格接近，信息密集区提升一行展示能力。\n- 多字段筛选能方便折叠扩展，支持更多字段但不挤占工具按钮空间。\n\n## 参考资料：\n- Airtable 工具栏界面（见上传截图）\n- packages/plugin-list/src/ListView.tsx\n- packages/plugin-list/src/UserFilters.tsx\n\n---\n\n**任务要求：**\n- 按上述细节评估，对 ListView 相关工具栏���构进行重构，实现一行合并与折叠。\n- 编写必要的单元测试，确保折叠行为和交互逻辑。\n- 更新 ROADMAP.md 和相关 issue。\n\n---\n\n<img alt=\"Airtable界面截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/831ff71d-c1ca-42c2-bf49-ee642a014cc7\" />"
+}

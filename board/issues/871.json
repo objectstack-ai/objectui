@@ -1,0 +1,33 @@
+{
+  "number": 871,
+  "kind": "pull_request",
+  "title": "fix: skip filler rows in data-table when pagination is disabled",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-26T09:31:34Z",
+  "updated_at": "2026-02-26T09:53:02Z",
+  "closed_at": "2026-02-26T09:50:39Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-26T09:50:39Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/871",
+  "body": "Grouped list view renders excessive empty rows because each group's data-table inherits `pageSize: 10` while setting `pagination: false`. The filler row logic pads every group to 10 rows regardless.\n\n### Change\n\nIn `data-table.tsx`, gate filler row rendering on `pagination` being enabled:\n\n```diff\n- {paginatedData.length > 0 && Array.from({ length: Math.max(0, pageSize - paginatedData.length) }).map((_, i) => (\n+ {pagination && paginatedData.length > 0 && Array.from({ length: Math.max(0, pageSize - paginatedData.length) }).map((_, i) => (\n```\n\nFiller rows exist to maintain consistent page height during pagination — they have no purpose when pagination is off (grouped views, embedded tables).\n\n### Tests\n\n- Added test: no filler rows when `pagination: false` with `pageSize: 10`\n- Added test: filler rows still render when `pagination: true`\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 列表视图分组模式有很多空行\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

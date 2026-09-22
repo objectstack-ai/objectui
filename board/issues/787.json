@@ -1,0 +1,36 @@
+{
+  "number": 787,
+  "kind": "issue",
+  "title": "将 Page/Canvas Editor 和 Dashboard Editor 集成到 Console，支持完整编辑体验",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "plugin: editor"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-23T11:10:50Z",
+  "updated_at": "2026-02-23T12:12:52Z",
+  "closed_at": "2026-02-23T12:12:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/787",
+  "body": "为实现 #744 的交付要求，需要将已开发的 PageCanvasEditor 和 DashboardEditor 集成到 Console 应用，打通所见即所得页面/仪表盘的设计与编辑体验。\n\n## 目标\n1. 页面和仪表盘可视化编辑器可直接在 Console（管理后台）访问与修改。\n2. 支持页面/仪表盘的创建、编辑、保存，同步至元数据。\n3. 编辑操作后自动运行相关测试并更新 Roadmap。\n\n## 需要开发的细节\n\n### 1. Console 路由与入口\n- [ ] 新增 `/design/page/:pageName` 路由，集成 `PageCanvasEditor`\n- [ ] 新增 `/design/dashboard/:dashboardName` 路由，集成 `DashboardEditor`\n- [ ] 在页面、仪表盘的只读视图（PageView/DashboardView）增加\"编辑\"按钮，跳转到对应设计器\n- [ ] Console 左侧导航自动增补\"页面设计\"与\"仪表盘设计\"入口（可选）\n\n### 2. 编辑与数据持久化\n- [ ] 编辑器 `onChange` 时自动通过 `dataSource`/API 保存 schema（PageSchema/DashboardSchema）\n- [ ] 从后端拉取 schema 时可回显到编辑器\n- [ ] 支持 JSON Schema 导入导出，兼容与 @objectstack/spec 协议\n- [ ] 支持编辑历史（undo/redo）、预览、以及键盘操作（保存、撤销）\n\n### 3. Navigation 结构联动\n- [ ] 新增/编辑 Page 或 Dashboard 后，可选同步到导航结构（navigation designer）\n- [ ] 删除页面/仪表盘时同步移除导航项\n\n### 4. Storybook & 测试\n- [ ] 为 PageCanvasEditor、DashboardEditor 新增 Storybook 用例\n- [ ] 补充/完善 E2E 测试场景：从 Console 编辑到保存，确保测试全部通过\n\n### 5. ROADMAP 文档同步\n- [ ] 集成、回归发布时在 ROADMAP.md 对应部分对进度和特性进行更新\n\n---\n- 参考 issue #744\n- 所有 pull request 提交前需运行 `pnpm test`，确保测试通过。\n\n#### 负责人：@hotlong\n\n如遇实现细节方案冲突，可先发起讨论或新开 issue 进行技术选型分析。"
+}

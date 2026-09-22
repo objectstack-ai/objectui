@@ -1,0 +1,30 @@
+{
+  "number": 931,
+  "kind": "issue",
+  "title": "【任务】优化 Dashboard Table Widget 支持 object 数据源，修复表格空白问题",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-01T09:44:01Z",
+  "updated_at": "2026-03-01T09:48:22Z",
+  "closed_at": "2026-03-01T09:48:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/931",
+  "body": "### 目标\n实现 CRM Dashboard 等页面的 Table Widget 支持 object provider（异步数据），彻底解决表格类型显示为空白和搜索栏不适等问题。\n\n---\n\n#### 需要具体修改和实现的细节清单\n\n**P0. 支持异步 object provider 数据加载**\n- [ ] 新增或改造 `ObjectDataTable` 组件（或拓展 `DataTableRenderer`）：\n  - 能够识别 schema 中 `{ dataProvider, objectName }` 或 `provider: 'object'` 并自动发起数据加载，填充表格内容\n  - 加载中展示 skeleton，加载失败有提示，空数据友好显示\n- [ ] 在 `DashboardRenderer` 里，遇到 table widget 且配置为数据源 provider: 'object' 时，映射成 `type: 'object-data-table'` （或等价方案）\n- [ ] 统一表格调用逻辑，避免 `data: []` 直接导致空渲染\n\n**P1. 自动推导 Table 列定义（columns）**\n- [ ] 如果 widget 仅配置 `object` 无明确 columns，自动根据 metadata（如���象字段声明）构造合理 columns 数组传入\n- [ ] 优化类型断言和 schema 兼容\n\n**P2. Table 空状态体验优化**\n- [ ] dashboard 场景（searchable=false）下，空数据时空状态不显示放大搜索图标，而是更适合数据看板环境的描述\n\n**P3. 配置面板 Title 字段 `[object Object]` 显示问题修复**\n- [ ] 在 WidgetConfigPanel/flattenWidgetConfig 读取 title/description 时增加 resolveLabel 预处理\n\n**P4. 响应式 grid 适配与 metric 卡片展示优化**\n- [ ] 修正 metric 卡片截断，grid overflow 导致卡片显示异常\n- [ ] Dashboard grid col 数量自动 clamp，使 widget.layout.w 不会超出实际渲染列数\n\n---\n\n**提交要求：**\n- 对上述每一条细节分别单独提交/联动 commit\n- 完善相关测试用例（如 `DashboardRenderer.widgetData.test.tsx`）确保 object-data-table 场景下不会出现空白/崩溃\n\n<img alt=\"页面问题截图\" width=\"2048\" src=\"https://github.com/user-attachments/assets/ed0b0366-9145-47ca-831b-2b9604f6bdd3\" />\n\n关联问题：#table #dashboard #ObjectStack\n\n---\n\n**任务完成后**\n- 跑通测试\n- 更新相关 issue/ROADMAP.md\n- 如需跨仓库协作请自动创建 cross-repo issue\n"
+}

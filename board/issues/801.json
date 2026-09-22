@@ -1,0 +1,33 @@
+{
+  "number": 801,
+  "kind": "pull_request",
+  "title": "Fix CI build and test errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T13:24:35Z",
+  "updated_at": "2026-02-23T14:10:22Z",
+  "closed_at": "2026-02-23T14:06:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T14:06:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/801",
+  "body": "Main branch CI failing on both `Build Core` and `Test` jobs due to TypeScript errors and a missing mock export.\n\n### Build errors\n\n- **`DesignDrawer.tsx`** — Remove unused `useState` import (TS6133)\n- **`DesignDrawer.test.tsx`, `DashboardViewSelection.test.tsx`** — `@radix-ui/react-dialog` is a transitive dep (lives in `@object-ui/components`), so `vi.importActual<typeof import('...')>` fails type resolution. Use untyped `importActual` with `Record<string, unknown>` cast instead.\n- **`AgGridImpl.tsx`** — ag-grid v35 narrowed `GetContextMenuItems` return from `string` to the `DefaultMenuItem` literal union. Updated return type and added cast on the fallback branch:\n\n```ts\n// Before: (string | MenuItemDef)[]\n// After:\nconst getContextMenuItems = useCallback((params: GetContextMenuItemsParams): (DefaultMenuItem | MenuItemDef)[] => {\n  // ...\n  items.push(item as DefaultMenuItem);\n});\n```\n\n### Test errors\n\n- **`ListViewGroupingPropagation.test.tsx`** — `vi.mock('@object-ui/core')` replaced the entire module, dropping `normalizeQuickFilters` which `ListView` now imports. Switched to `importOriginal` pattern to preserve real exports alongside the mocked `ExpressionEvaluator`.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix all ci build and test errors\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

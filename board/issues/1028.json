@@ -1,0 +1,33 @@
+{
+  "number": 1028,
+  "kind": "pull_request",
+  "title": "Load AuthPlugin for server mode, add mock auth handlers for MSW mode",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T07:02:55Z",
+  "updated_at": "2026-03-04T07:52:48Z",
+  "closed_at": "2026-03-04T07:52:48Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-04T07:52:48Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1028",
+  "body": "All `/api/v1/auth/*` endpoints (sign-up, sign-in, get-session, sign-out) return 404 in both MSW and Server modes because neither `createKernel.ts` nor `objectstack.config.ts` loads `AuthPlugin`.\n\n### Server mode (`pnpm dev:server`)\n- Added `@objectstack/plugin-auth` to root dependencies\n- Added `AuthPlugin` to `objectstack.config.ts` plugin list (before `HonoServerPlugin`)\n\n### MSW mode (`pnpm dev`)\nSince `AuthPlugin` requires `HonoServerPlugin` (real HTTP server), MSW mode uses mock handlers instead:\n\n- New `apps/console/src/mocks/authHandlers.ts` — in-memory mock of all better-auth endpoints with `createAuthHandlers(baseUrl)` factory\n- Handlers added to `customHandlers` in both `browser.ts` and `server.ts`\n- Exports `resetAuthState()` for test isolation\n\n```ts\n// Usage in browser.ts / server.ts\ncustomHandlers: [\n  ...createAuthHandlers('/api/v1/auth'),\n  // ...other handlers\n]\n```\n\nNote: MSW v2 requires wildcard prefix (`*/api/v1/auth/...`) for handlers to match full URLs in node test environments — path-only patterns only work in the browser worker.\n\n### Tests\n- 11 new tests covering sign-up, sign-in, session, sign-out, password reset, update-user, and error cases\n- All existing MSW (7) and auth (24) tests pass\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Auth 注册和登录在 MSW/Server 模式均不可用，未加载 AuthPlugin</issue_title>\n> <issue_description>## 问题描述\n> \n> 当前 objectui 仓库无论在 `pnpm dev` (MSW) 还是 `pnpm dev:server` (Server) 模式下，/api/v1/auth/sign-up/email 等注册、登录等认证 API 都不可用，返回 404。经分析发现，Kernel 并未加载 AuthPlugin，导致 HttpDispatcher.handleAuth 无法正常处理 better-auth 认证相关端点。\n> \n> ## 影响范围\n> - MSW 本地开发环境无法注册/登录，开发体验不完整\n> - Server 环境只支持 legacy login，无法对接统一认证协议\n> - 下游所有依赖 objectui/console 作为 IDE 的开发环境均无法测试用户认证\n> \n> ## 根本原因\n> - `apps/console/src/mocks/createKernel.ts` 及 `objectstack.config.ts` 都未加载 `@objectstack/plugin-auth`，导致 Kernel 没有注册 'auth' service。\n> - HttpDispatcher 仅支持 legacy /auth/login fallback。\n> - AuthPlugin 依赖于 HonoServerPlugin，但 MSW 模式下没有 HTTP server，可能报依赖错误。\n> \n> ## 理想修复方案\n> 1. 在 objectui 的 kernel 配置（createKernel.ts 和 objectstack.config.ts）中统一加载 AuthPlugin。\n> 2. AuthPlugin 内部对于无 HTTP server 的环境应能优雅降级。不注册路由，不报错，但暴露认证 service 能被 HttpDispatcher 调用。\n> 3. 如果 AuthPlugin 无法自动兼容 MSW，则 HttpDispatcher 增加 better-auth 的标准 endpoint mock fallback（即使没有 auth service，能拦截 sign-up/email、sign-in/email、get-session 等并返回合理的 mock 响应）。\n> 4. 文档更新：明确所有模式都需要 AuthPlugin。\n> \n> ## 参考代码\n> ```\n> await kernel.use(new AuthPlugin({\n>   secret: 'dev-secret',\n>   baseUrl: 'http://localhost',\n> }));\n> ```\n> \n> ## 行动建议\n> - 优先在 spec repo 侧协作，推动 AuthPlugin 支持无 HTTP server 环境\n> - objectui 尽快添加 AuthPlugin 的加载逻辑\n> - 中短期可用 HttpDispatcher 增加 mock fallback 兜底\n> \n> ---\n> 相关 spec 侧追踪 issue 另见 objectstack-ai/spec\n> \n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#993\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

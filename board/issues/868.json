@@ -1,0 +1,33 @@
+{
+  "number": 868,
+  "kind": "pull_request",
+  "title": "fix: resolve CI build errors across plugin-aggrid, plugin-ai, plugin-workflow, and console",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-25T15:48:20Z",
+  "updated_at": "2026-02-25T17:33:58Z",
+  "closed_at": "2026-02-25T17:31:23Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-25T17:31:23Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/868",
+  "body": "CI \"Build Core\" job fails due to TypeScript errors in `@object-ui/console` (build-breaking) and type errors reported by `vite-plugin-dts` in three plugin packages.\n\n### Changes\n\n- **`apps/console/src/mocks/createKernel.ts`** — Cast `result` to `any` for `_id` property access; the `InMemoryDriver.create()` return type doesn't include `_id`\n- **`packages/plugin-aggrid/src/ObjectAgGridImpl.tsx`** — ag-grid 35.x changed `getContextMenuItems` return type from `string` to `DefaultMenuItem` (a string literal union). Updated return type and added import:\n  ```ts\n  const getContextMenuItems = useCallback(\n    (params: GetContextMenuItemsParams): (DefaultMenuItem | MenuItemDef)[] => {\n  ```\n- **`packages/plugin-ai/`** — Removed `baseUrl`/`paths` overrides from `tsconfig.json` that shadowed root path mappings; moved `@object-ui/*` from `peerDependencies` to `dependencies` (matching `plugin-grid`/`plugin-form` pattern); added type annotations to callback params; fixed `unknown` → `ReactNode` render via `String()`\n- **`packages/plugin-workflow/`** — Same dependency fix; added explicit types to `onChange`/`onValueChange` handler params across `ApprovalProcess`, `AutomationBuilder`, and `FlowDesigner`\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/22403579997/job/64856863262#step:7:1\n> \n> fix all ci errors\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

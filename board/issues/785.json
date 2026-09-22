@@ -1,0 +1,35 @@
+{
+  "number": 785,
+  "kind": "issue",
+  "title": "【Bug】编辑应用后顶部导航/应用切换消失：wizardDraftToAppSchema 未同步 icon/label 字段导致",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-23T10:56:50Z",
+  "updated_at": "2026-02-23T11:43:50Z",
+  "closed_at": "2026-02-23T11:43:49Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/785",
+  "body": "### 现象\n通过\"应用向导\"编辑应用并保存后，顶部导航和应用切换下拉菜单中部分应用消失（或名称/图标为空），无法切换到原来的应用。\n\n### 复现步骤\n1. 进入应用，例如\"应用A\"\n2. 点击\"编辑应用\"进入应用向导，做任意修改后保存\n3. 返回顶部导航/应用切换\n4. 发现当前或原有应用消失/名称为空/图标丢失\n\n### 期望结果\n- 编辑和保存后，顶部导航/应用切换下拉应正确显示所有应用，包括名称(label)、图标(icon)\n- 编辑保存不应导致已存在的 app 配置字段丢失\n\n### 问题分析\n- packages/types/src/app.ts 的 `wizardDraftToAppSchema` 只保存了 draft.title、logo、favicon 等字段，**未保存 icon/label/branding/active 等**\n- sidebar 工程中的 AppSidebar 依赖 app.label / app.icon 显示应用切换\n- 编辑/保存时，EditAppPage 直接用 wizardDraftToAppSchema 结果覆盖了原始 AppSchema，导致字段丢失\n- **实际保存后，后端返回数据缺少 label 和 icon，侧边栏就找不到应用条目**\n\n### 建议修复方案\n- 补全 wizardDraftToAppSchema 的字段：icon、label、branding、active\n- EditAppPage 保存时，和原始 app 配置做 merge 保留未在向导中维护的字段\n- 修复后确保 pnpm test、storybook、手动检查（已有测试可覆盖该场景）\n\n### 受影响文件\n- packages/types/src/app.ts\n- apps/console/src/pages/EditAppPage.tsx\n- apps/console/src/pages/CreateAppPage.tsx\n- apps/console/src/components/AppSidebar.tsx\n\n---\n该问题会直接影响用户正常切换 app，建议优先修复。"
+}

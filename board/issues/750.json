@@ -1,0 +1,33 @@
+{
+  "number": 750,
+  "kind": "issue",
+  "title": "[P2] Sharing/ExportOptions/Pagination 协议对齐",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:21:20Z",
+  "updated_at": "2026-02-23T12:46:13Z",
+  "closed_at": "2026-02-23T12:46:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/750",
+  "body": "## 背景\nParent Issue: #736\n\n三个属性存在 Spec 与 ObjectUI 的 schema 格式不兼容问题：\n1. **sharing**：Spec `{ type: personal/collaborative, lockedBy }` vs ObjectUI `{ visibility, enabled }`\n2. **exportOptions**：Spec `string[]` vs ObjectUI `{ formats, maxRecords, includeHeaders, fileNamePrefix }`\n3. **pagination.pageSizeOptions**：类型已定义，需 UI 选择器\n\n## 目标\n- 三个属性均通过适配层兼容两种格式\n- pageSizeOptions 渲染 page size 下拉选择器\n\n## 改动范围\n- `packages/types/src/objectql.ts` — sharing 类型 union\n- `packages/plugin-list/src/ListView.tsx` — exportOptions normalize + pageSizeOptions UI\n- `packages/react/src/spec-bridge/bridges/list-view.ts` — sharing adapter\n\n## 验收标准\n- [ ] Spec sharing format 可被正确解析\n- [ ] Spec `exportOptions: ['csv', 'xlsx']` 格式可正常工作\n- [ ] pageSizeOptions 渲染下拉选择器\n- [ ] 选择 page size 后数据重新按新 size 加载\n- [ ] 所有新增代码有对应单元测试\n- [ ] `pnpm test` 全部通过\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 1015,
+  "kind": "pull_request",
+  "title": "chore(deps): bump hono from 4.12.3 to 4.12.4",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "examples"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T01:34:31Z",
+  "updated_at": "2026-03-04T01:45:44Z",
+  "closed_at": "2026-03-04T01:34:47Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-04T01:34:47Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1015",
+  "body": "Bumps [hono](https://github.com/honojs/hono) from 4.12.3 to 4.12.4.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/honojs/hono/releases\">hono's releases</a>.</em></p>\n<blockquote>\n<h2>v4.12.4</h2>\n<h2>Security fixes</h2>\n<p>This release includes fixes for the following security issues:</p>\n<h3>SSE Control Field Injection</h3>\n<p>Affects: <code>streamSSE()</code> in Streaming Helper. Fixes injection of unintended SSE fields by rejecting CR/LF characters in <code>event</code>, <code>id</code>, and <code>retry</code>. <a href=\"https://github.com/honojs/hono/security/advisories/GHSA-p6xx-57qc-3wxr\">https://github.com/honojs/hono/security/advisories/GHSA-p6xx-57qc-3wxr</a></p>\n<h3>Cookie Attribute Injection in <code>setCookie()</code></h3>\n<p>Affects: <code>setCookie()</code> from <code>hono/cookie</code>. Fixes cookie attribute manipulation by rejecting <code>;</code>, <code>\\r</code>, and <code>\\n</code> in <code>domain</code> and <code>path</code> options. <a href=\"https://github.com/honojs/hono/security/advisories/GHSA-5pq2-9x2x-5p6w\">https://github.com/honojs/hono/security/advisories/GHSA-5pq2-9x2x-5p6w</a></p>\n<h3>Middleware Bypass in Serve Static</h3>\n<p>Affects: Serve Static middleware. Fixes inconsistent URL decoding that could allow protected static resources to be accessed without triggering route-based middleware. <a href=\"https://github.com/honojs/hono/security/advisories/GHSA-q5qw-h33p-qvwr\">https://github.com/honojs/hono/security/advisories/GHSA-q5qw-h33p-qvwr</a></p>\n<p>Users who uses Strreaming Helper, Cookie utility, and Serve Static are strongly encouraged to upgrade to this version.</p>\n<hr />\n<h2>Other changes</h2>\n<ul>\n<li>fix(client): preserve route schema in ApplyGlobalResponse by <a href=\"https://github.com/agumy\"><code>@​agumy</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4777\">honojs/hono#4777</a></li>\n<li>fix(utils/url): specify the return type of <code>tryDecodeURI</code> by <a href=\"https://github.com/yusukebe\"><code>@​yusukebe</code></a> in <a href=\"https://redirect.github.com/honojs/hono/pull/4779\">honojs/hono#4779</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/agumy\"><code>@​agumy</code></a> made their first contribution in <a href=\"https://redirect.github.com/honojs/hono/pull/4777\">honojs/hono#4777</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/honojs/hono/compare/v4.12.3...v4.12.4\">https://github.com/honojs/hono/compare/v4.12.3...v4.12.4</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/honojs/hono/commit/19d20d23a2921e26c3bbfdb5549fce98b4a39b28\"><code>19d20d2</code></a> 4.12.4</li>\n<li><a href=\"https://github.com/honojs/hono/commit/44ae0c8cc4d5ab2bed529127a4ac72e1483ad073\"><code>44ae0c8</code></a> Merge commit from fork</li>\n<li><a href=\"https://github.com/honojs/hono/commit/f4123ed9ea3c7c52380cc99a079a4d773838846e\"><code>f4123ed</code></a> Merge commit from fork</li>\n<li><a href=\"https://github.com/honojs/hono/commit/80a9837904c346f264b57dbfd22822a46cc24b08\"><code>80a9837</code></a> fix(utils/url): specify the return type of <code>tryDecodeURI</code> (<a href=\"https://redirect.github.com/honojs/hono/issues/4779\">#4779</a>)</li>\n<li><a href=\"https://github.com/honojs/hono/commit/6a0607a929d888893f0c91d92dce2fcfdb3662a3\"><code>6a0607a</code></a> Merge commit from fork</li>\n<li><a href=\"https://github.com/honojs/hono/commit/076823220335b2ef88360a5619c9e7fee3f568d2\"><code>0768232</code></a> fix(client): preserve route schema in ApplyGlobalResponse (<a href=\"https://redirect.github.com/honojs/hono/issues/4777\">#4777</a>)</li>\n<li>See full diff in <a href=\"https://github.com/honojs/hono/compare/v4.12.3...v4.12.4\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=hono&package-manager=npm_and_yarn&previous-version=4.12.3&new-version=4.12.4)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

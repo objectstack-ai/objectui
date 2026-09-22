@@ -1,0 +1,35 @@
+{
+  "number": 790,
+  "kind": "issue",
+  "title": "Navigation结构自动同步服务：Page/Dashboard CRUD联动导航树",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-23T12:17:06Z",
+  "updated_at": "2026-02-23T13:11:07Z",
+  "closed_at": "2026-02-23T13:11:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/790",
+  "body": "## 背景\n\n当前Page和Dashboard的新增、编辑、删除操作并不会自动同步到App的导航结构（Navigation tree）。NavigationDesigner组件是纯受控，Navigation数据只在AppCreationWizard和EditAppPage中被持久化。导致开发者需要手动维护导航结构，非常容易遗漏、增加出错概率。\n\n## 需求细节\n\n### 功能目标\n- 新建Page后自动将对应导航项（type: 'page', pageName）添加到App的navigation[]\n- 新建Dashboard后自动将对应导航项（type: 'dashboard', dashboardName）添加到App的navigation[]\n- 删除Page/Dashboard时递归移除navigation[]中所有引用此页面/仪表盘的项\n- 重命名Page/Dashboard时同步更新navigation[]中的引用\n- 操作完成后通过Toast通知用户导航结构已更新，同时支持undo撤销\n- 不影响NavigationDesigner手动编辑navigation的能力\n\n### 技术实现建议\n\n- 新增`useNavigationSync` hook或`NavigationSyncService`，监听Page/Dashboard CRUD事件，操作App schema的navigation字段。\n- 事件建议在MetadataProvider统一分发，避免在各个DesignPage内写imperative代码，提高解耦性。\n- 更新navigation后调用`client.meta.saveItem('app', appName, updatedSchema)`，并触发metadata.refresh。\n- 删除时递归处理所有子group。\n- 支持用户undo撤销（可用Toast提示+撤销按钮方案）。\n\n### Acceptance Criteria\n- [ ] 新建Page后，导航结构自动添加对应项\n- [ ] 新建Dashboard后，导航结构自动添加对应项\n- [ ] 删除Page/Dashboard后，导航结构自动移除所有相关项\n- [ ] 重命名Page/Dashboard后，导航结构自动同步所有引用\n- [ ] 操作完成有Toast通知，支持撤销\n- [ ] NavigationDesigner原有手动编辑功能不受影响\n\n### 技术选型需评估\n- 事件分发机制、导航结构的数据一致性、错误/冲突处理等。\n\n---\n\n请参考本issue进行技术选型与开发，同步更新ROADMAP。\n\n相关代码/设计参考：\n- apps/console/src/pages/PageDesignPage.tsx\n- apps/console/src/pages/DashboardDesignPage.tsx\n- packages/plugin-designer/src/NavigationDesigner.tsx\n- AppCreationWizard实现navigation draft管理\n\n（本issue为核心功能建议，优先级高，需紧跟上线后test并更新roadmap。）"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 913,
+  "kind": "pull_request",
+  "title": "feat(report): Redesign Report Designer Panel with Dashboard-Style UI & Address All Known Issues",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-28T09:14:53Z",
+  "updated_at": "2026-02-28T10:48:33Z",
+  "closed_at": "2026-02-28T10:44:24Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-28T10:44:24Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/913",
+  "body": "Complete redesign of the Report Designer Panel to match the Dashboard-style UI pattern, fixing the critical live preview linkage bug and adding all core interactive features from the issue checklist.\n\n### Live Preview Fixes (`ReportView.tsx`)\n- `mapReportForViewer` now **always regenerates sections** from current fields instead of only when `!mapped.sections` — fixes stale table columns after field changes\n- Data fetch effect uses live `editSchema` with memoized dependency keys (`filtersKey`, `dataSourceKey`) so filter/objectName/limit changes trigger re-fetch\n- Header title/description reads from `previewReport` instead of `reportData`\n- `availableFields` derives from `editSchema` so changing objectName updates the field list\n- Chart config from panel auto-generates chart section in preview\n\n### Config Panel Enhancements (`ReportConfigPanel.tsx`)\n- **Report type selector** — Tabular / Summary / Matrix (matrix planned)\n- **Field picker with per-column aggregation** — multi-select checkboxes from `availableFields` with type indicators and per-column aggregation dropdown (Sum/Avg/Count/Min/Max)\n- **Visual chart editor** — chart type selection (Bar/Line/Pie/Area/Donut/Scatter) + X-axis and Y-axis field mapping, no JSON editing required\n- **Conditional formatting UI** — rule builder with field/operator/value + background color/text color picker; add/remove rules visually\n- **Section/block manager** — add/remove/reorder report sections (Header, Summary, Table, Chart, Text) with up/down arrows and inline title editing\n- **Undo/redo** wired from `useConfigDraft` to `ConfigPanelRenderer`\n- New \"Columns\", \"Chart\", \"Conditional Format\", and \"Sections\" config sections\n\n### Client-Side Grouping (`ReportViewer.tsx`)\n- `groupData()` groups rows by first `groupBy` field, sorted by configured direction\n- Table sections render group header rows with label and count\n- `getCellStyle()` evaluates conditional formatting rules and applies inline `backgroundColor`/`color` styles to table cells\n\n### Types (`reports.ts`)\n- Added `ReportType = 'tabular' | 'summary' | 'matrix'` and `reportType` field to `ReportSchema`\n- Added `conditionalFormatting` field to `ReportSchema` (field/operator/value/backgroundColor/textColor rules)\n- Added `chartConfig` field to `ReportSchema` (chartType/xAxisField/yAxisFields)\n\n### Tests\n- 17 new tests covering: report type selector, field picker toggle, empty field state, undo/redo buttons, undo enable state, reportType in saved draft, per-column aggregation, chart config display, conditional formatting add/display, section manager display/add, grouped table rendering, ungrouped table rendering, conditional formatting cell styles\n- All 66 tests pass (49 existing + 17 new), 0 CodeQL alerts\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Redesign Report Designer Panel: Dashboard-Style UI & Address All Known Issues</issue_title>\n> <issue_description>## Background\n> 目前报表设计面板不够实用，主要问题包括：\n> - 右侧配置面板的修改对左侧预览无实时响应（联动Bug）\n> - 体验较为简陋，形同配置表单，而非真正的报告设计器\n> - 缺少可视化字段选择、分组/聚合、拖拽排序、报表类型切换、条件格式、可视化图表编辑等核心交互功能\n> - 配置项与数据未能实时联动，部分变动需手动保存、刷新、无法所见即所得\n> \n> ## 参考对标\n> - 设计与交互整体风格、操作体验应参考系统中已有的Dashboard配置面板（dashboard风格）\n> - 主流低代码平台（Salesforce、ServiceNow、Power BI）的Report Builder功能（见比对分析）\n> \n> ## 核心问题/改进点\n> 1. **实时预览Bug修复**：右侧面板变动后，应立即刷新左侧报表\n> 2. **字段/列选择**：需要可视化字段选择、聚合配置，并支持拖拽排序，类似Power BI/Salesforce的字段面板\n> 3. **报表类型切换**：支持Tabular/Table、Summary、Matrix/Pivot等主流报表类型，并切换对应的分组与小计配置\n> 4. **分组/聚合设置**：GroupBy/Sort要实现分组加聚合（不是单纯排序），可视化多级分组配置\n> 5. **图表配置面板**：支持可视化选择图表类型与字段映射，不直接编辑JSON\n> 6. **条件格式配置**：支持对字段值设置条件样式（如高亮、着色、标记）\n> 7. **报表section/区域管理**：可视化添加、删除、拖动各报表区块（如header/footer/summary/table/chart），结构和内容动态可调整\n> 8. **关联对象与数据源扩展**：objectName需支持跨对象、子表、lookup（树状）字段选择\n> 9. **导出/打印/调度**：在增强设计器的同时保留现有导出、打印、调度等功能\n> 10. **国际化与易用性**：汉化UI，按主流产品易用性设计（如快速填充，历史记录undo/redo，操作提示等）\n> \n> ## 需求拆解与开发清单\n> - [ ] **联动Bug修复**：右侧配置变动时自动触发数据和布局部分实时刷新，确保所见即所得\n> - [ ] **字段/列选择器组件**（field-picker）：支持多选、拖拽排序、每列聚合方式配置\n> - [ ] **报表类型/模式选择器**：Tabular, Summary, Matrix，可切换多种主要报表结构\n> - [ ] **分组与聚合可视化设置**：多级GroupBy、聚合列拖拽、支持自定义分组字段\n> - [ ] **图表编辑器优化**：图表类型切换+拖拽字段绑定，无需手写JSON\n> - [ ] **条件格式UI**：规则可视化新建、规则编辑、为每字段添加多条高亮/格式规则\n> - [ ] **Section/区块管理器**：支持管理header, detail, summary, chart等区块，区块顺序&内容可拖拽调整\n> - [ ] **跨对象和多数据源支持**：objectName字段可选择主对象、关联表、子表\n> - [ ] **UI国际化与易用性提升**：全UI中文/英文优化，增加快捷引导、提示、撤销重做等功能\n> - [ ] **Dashboard风格一致性**：设计与交互风格与dashboard配置面板一致\n> - [ ] **兼容导出/调度/打印**：调度/导出/打印等功能UI与设计器深度集成\n> - [ ] **详细方案评审**：开发前整理设计方案、低保真原型，所有子任务经评审后细化拆分issue\n> \n> > 详细比对分析及竞品参考见[相关行业分析](https://www.bing.com/search?q=How+do+mainstream+low-code+platforms+like+Salesforce%2C+ServiceNow%2C+Power+BI+handle+report+builder%2Fdesigner+features%3F+What+capabilities+do+they+typically+offer%3F)\n> \n> ---\n> \n> ### 交付说明\n> - 所有拆解子功能按上述需求清单**合并为单issue下的任务列表**，后续如有必要再独立为子issue\n> - 提交需附带详细的开发方案，涉��设计稿、原型、API字段变更说明\n> - 变更完成后需：1. 完善测试 2. 相关issue和ROADMAP.md同步\n> \n> ---\n> \n> > 该issue代替所有之前关于报表设计器的零散问题，所有改进均在本issue下跟踪与推进</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#910\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

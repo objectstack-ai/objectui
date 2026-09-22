@@ -1,0 +1,33 @@
+{
+  "number": 794,
+  "kind": "pull_request",
+  "title": "feat: userActions drives toolbar visibility + AddRecord button positioning",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T12:22:33Z",
+  "updated_at": "2026-02-23T13:03:14Z",
+  "closed_at": "2026-02-23T12:46:48Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T12:46:48Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/794",
+  "body": "`userActions.addRecordForm` was defined in types but not wired into the toolbar rendering logic. The `addRecord.position` field had no effect—button always rendered in the top toolbar.\n\n### Changes\n\n- **`ListView.tsx`** — Centralized addRecord visibility into `toolbarFlags` memo (`showAddRecord`, `addRecordPosition`), gated by `addRecord.enabled && userActions.addRecordForm !== false`. Button renders top (default) or bottom based on `addRecord.position`.\n- **i18n** — Added `list.addRecord` key to all 10 locale files + `LIST_DEFAULT_TRANSLATIONS` fallback.\n- **Tests** — 3 new tests: `addRecordForm: false` hides button, `position: 'bottom'` / `'top'` placement.\n- **ROADMAP** — Updated toolbar visibility entry to reflect userActions override.\n\n### Usage\n\n```tsx\n<ListView schema={{\n  type: 'list-view',\n  objectName: 'contacts',\n  fields: ['name', 'email'],\n  addRecord: { enabled: true, position: 'bottom' },\n  userActions: { search: false, addRecordForm: true },\n}} />\n```\n\n`userActions.search/sort/filter/rowHeight` were already wired in a prior PR—this PR completes the story by connecting `addRecordForm` and implementing position control.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[P1] UserActions 驱动 Toolbar 可见性 + AddRecord 按钮</issue_title>\n> <issue_description>## 背景\n> Parent Issue: objectstack-ai/objectui#736\n> \n> Spec `userActions` 配置（sort/search/filter/rowHeight/addRecordForm/buttons）应控制 toolbar 按钮可见性。ObjectUI 类型已定义但未接入 toolbar 渲染逻辑。同时 `addRecord` 配置应渲染 \"+ Add Record\" 按钮。\n> \n> ## 目标\n> - `schema.userActions.sort/search/filter` 控制对应 toolbar 按钮（覆盖 showSort/showSearch/showFilters）\n> - `schema.userActions.addRecordForm` 控制 \"Add Record\" 按钮\n> - `schema.addRecord` 配置（enabled, position, mode, formView）渲染 \"+ Add Record\" 按钮\n> \n> ## 技术要点\n> - `packages/plugin-list/src/ListView.tsx` — toolbarFlags 计算逻辑需合并 userActions\n> - `packages/types/src/objectql.ts` L1620-1630 — userActions 已定义\n> \n> ## 改动范围\n> - `packages/plugin-list/src/ListView.tsx` — toolbarFlags 融合 userActions + AddRecord 按钮渲染\n> - `packages/i18n/src/locales/*.ts` — addRecord i18n key\n> \n> ## 验收标准\n> - [ ] `userActions.search: false` 隐藏搜索按钮\n> - [ ] `userActions.sort: false` 隐藏排序按钮\n> - [ ] `addRecord.enabled: true` 渲染 \"+ Add Record\" 按钮\n> - [ ] `addRecord.position` 控制按钮位置（top/bottom）\n> - [ ] 所有新增代码有对应单元测试\n> - [ ] `pnpm test` 全部通过\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#752\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

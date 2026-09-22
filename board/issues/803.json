@@ -1,0 +1,33 @@
+{
+  "number": 803,
+  "kind": "pull_request",
+  "title": "Add missing unit tests for ListView miscellaneous properties",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T14:08:45Z",
+  "updated_at": "2026-02-23T15:42:14Z",
+  "closed_at": "2026-02-23T15:37:15Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T15:37:15Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/803",
+  "body": "All 5 features (description, allowPrinting, rowHeight short/extra_tall, sort legacy string, filterableFields) were already implemented but lacked complete test coverage.\n\n### Tests added\n\n- **`ListView.test.tsx`** — 3 test cases for `filterableFields` whitelist (set, unset, empty array)\n- **`SpecBridge.test.ts`** — `short` → `compact` and `extra_tall` → `spacious` density mapping assertions added to existing `maps rowHeight to density` test\n\n### Implementation already in place (no code changes needed)\n\n- `description` rendering gated by `appearance.showDescription` (ListView.tsx L1007-1012)\n- `allowPrinting` print button calling `window.print()` (ListView.tsx L1326-1338)\n- `rowHeight` enum mapping in both ListView.tsx (L452-457) and list-view.ts (L98-114)\n- `sort` legacy `\"field desc\"` string parsing (ListView.tsx L294-312)\n- `filterableFields` whitelist restriction on FilterBuilder (ListView.tsx L883-887)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[P2] ListView 杂项属性实现（description/allowPrinting/rowHeight 补全）</issue_title>\n> <issue_description>## 背景\n> Parent Issue: objectstack-ai/objectui#736\n> \n> 以下属性已有类型但缺少 UI 渲染：\n> 1. **description**：视图描述文本渲染\n> 2. **allowPrinting**：打印按钮\n> 3. **rowHeight** enum 补全：`short` 和 `extra_tall` 未映射\n> 4. **sort** legacy string format：`\"field desc\"` 格式未解析\n> 5. **filterableFields**：FilterBuilder 未限制字段白名单\n> \n> ## 目标\n> - description 在 toolbar 下方渲染描述文本（受 `appearance.showDescription` 控制）\n> - allowPrinting 在 toolbar 渲染打印按钮\n> - rowHeight 补全 short/extra_tall 映射\n> - sort 支持 legacy string 解析\n> - filterableFields 限制 FilterBuilder 字段列表\n> \n> ## 改动范围\n> - `packages/plugin-list/src/ListView.tsx` — description UI + print button + sort normalize + filterableFields\n> - `packages/react/src/spec-bridge/bridges/list-view.ts` L106-115 — rowHeight mapDensity 补全\n> \n> ## 验收标准\n> - [ ] `schema.description` + `appearance.showDescription: true` 渲染描述文本\n> - [ ] `allowPrinting: true` 渲染打印按钮，调用 `window.print()`\n> - [ ] `rowHeight: 'short'` 和 `'extra_tall'` 正确映射\n> - [ ] `sort: 'name desc'` legacy string 格式正确解析\n> - [ ] `filterableFields` 限制 FilterBuilder 字段选项\n> - [ ] 所有新增代码有对应单元测试\n> - [ ] `pnpm test` 全部通过\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#749\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

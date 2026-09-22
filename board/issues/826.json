@@ -1,0 +1,36 @@
+{
+  "number": 826,
+  "kind": "issue",
+  "title": "examples 目录所有 defineStack 应用定义中元数据规范性系统排查与清单",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "designer"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-24T07:05:52Z",
+  "updated_at": "2026-02-24T07:43:42Z",
+  "closed_at": "2026-02-24T07:43:42Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/826",
+  "body": "# 问题背景\n\n在对 dashboard 元数据进行 spec 协议合规性审查时，发现不仅 dashboard/widgets 有较多问题，**应用级的 defineStack（对象、views、apps、dashboards、pages 等）元数据整体规范性也存在疏漏**，包括但不限于以下症状：\n\n- 某些对象未补全所有必须字段（如 `id`/`name`/`label`/`fields`/`type`）\n- view/list/page 部分元数据结构无效或拼写错漏\n- dashboard 级别的 design panel 各种 binding 字段遗漏\n- manifests/app/region 相关内容未对齐最新协议约束\n- example/todo、crm、kitchen-sink 三个主 demo 存在不一致或冗余字段\n\n---\n\n## 排查建议与维度\n\n1. **对象（objects）定义：** name/label/fields/type 必填，fields 需对齐协议支持类型和格式，缺漏补齐，拼写一致。\n2. **视图（views）/listViews/pageViews:** name、label、type 必填，columns/data/provider 等需严格校验。避免出现未注册 view 类型。\n3. **dashboards/widgets:** 强制补全 dashboard 及 widget （id/title/object/categoryField/valueField/aggregate/filter），如前 issue #824。\n4. **pages/regions/components:** type、name、label、regions/children 等严格检查，兼容多栏布局和新协议模板结构。\n5. **apps/navigations:** 导航项 id/type/label/targetName 必须全量对齐，icon 只用协议内官方图标。\n6. **manifest:** id/version/type/name/description/data、权限等补足，规范嵌套层级与协议保持同步。\n7. **i18n:** label/description 必须支持多语言或配置主语言 fallback。\n\n---\n\n## 排查流程建议\n\n1. 批量脚本检查 `examples/` 目录下所有 defineStack/app 导出的元数据对象，逐类提取缺或冗余的字段。\n2. 逐个补齐或删冗余，对照 spec 协议修正格式和类型。\n3. 补充自动化测试，断言每一份元数据通过 spec zod 校验且能正确被 UI/渲染层接受。\n4. 文档和注释中同步校准用词、字段和协议声明，防止历史遗留类型渗透。\n\n---\n\n## 问题呈现与清单\n\n如可用，请输出以下类型的详细清单，按模块/文件/位置罗列所有具体不规范、冗余、缺失、拼写错漏字段，并列补充建议/整改要点。建议每次补充时附引用行号、字段内容引用。\n\n---\n\n如需自动脚本或持续集成 hook 提供批量输出，可另挂子 issue。"
+}

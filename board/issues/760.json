@@ -1,0 +1,33 @@
+{
+  "number": 760,
+  "kind": "issue",
+  "title": "Console 集成 App Creation Wizard — 完整功能可用",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:40:32Z",
+  "updated_at": "2026-02-23T06:08:17Z",
+  "closed_at": "2026-02-23T06:08:17Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/760",
+  "body": "## 背景\n\n`AppCreationWizard` 组件（#743）已在 `@object-ui/plugin-designer` 中完成开发（PR #739, #745 已合并），包括：\n- 4步向导（基本信息 → 对象选择 → 导航构建 → 品牌个性化）\n- 完整 i18n（94 keys × 10 locales）\n- 取消确认 / 保存草稿 / 步骤校验\n- 165 个单元测试全部通过\n- 已注册到 `ComponentRegistry` 为 `app-creation-wizard`\n\n**但该组件尚未集成到 Console 应用（`apps/console`）中**，用户无法在实际界面中使用「新建应用」功能。\n\n## 开发内容\n\n### 1. Console 路由与页面\n\n- [ ] 在 `apps/console/src/App.tsx` 添加新建应用路由（如 `/create-app` 或全局入口）\n- [ ] 创建 `apps/console/src/pages/CreateAppPage.tsx` 页面，渲染 `AppCreationWizard`\n- [ ] 从 `useMetadata()` 获取 `objects` 列表，传入 `availableObjects` prop\n- [ ] 处理 `onComplete` 回调 — 调用 `wizardDraftToAppSchema()` 转换后通过 API 创建应用（或 mock 模式下写入 metadata）\n- [ ] 处理 `onCancel` 回调 — 返回上一页/首页\n- [ ] 处理 `onSaveDraft` 回调 — 保存草稿到 localStorage 或 API\n- [ ] 创建成功后导航到新应用首页 `/apps/:newAppName`\n\n### 2. 入口触达\n\n- [ ] 在 `AppSidebar` 侧边栏 App Switcher 中添加「+ 新建应用」按钮\n- [ ] 在首页/无应用时（`No Apps Configured` 空状态）添加「创建第一个应用」CTA\n- [ ] 在 `CommandPalette`（⌘+K）中添加「Create New App」命令\n\n### 3. 编辑已有应用\n\n- [ ] 在 `AppSidebar` 或应用设置中添加「编辑应用」入口\n- [ ] 复用 `AppCreationWizard` 的 `initialDraft` prop 加载已有应用配置\n- [ ] 编辑模式下更新而非新建\n\n### 4. DefineApp API 集成\n\n- [ ] 对接 `@objectstack/client` 的 DefineApp API 或 kernel AppPlugin\n- [ ] MSW mock handler 支持应用 CRUD（创建/更新/删除）\n- [ ] 创建成功后刷新 metadata（`useMetadata().refresh()`）\n- [ ] 错误处理与 toast 通知\n\n### 5. NavigationDesigner 独立集成\n\n- [ ] 在应用设置页面中集成 `NavigationDesigner` 组件\n- [ ] 支持在已有应用上修改导航结构并保存\n\n### 6. 测试\n\n- [ ] Console 集成测试：从入口 → 完成4步向导 → 创建成功 → 跳转\n- [ ] Console 集成测试：编辑已有应用\n- [ ] Console 集成测试：取消/保存草稿流程\n- [ ] Console 集成测试：CommandPalette 触发创建应用\n- [ ] `pnpm test` 全量通过\n\n### 7. 文档与 Roadmap\n\n- [ ] 更新 Console 文档（`content/docs/guide/console.md` 和 `console-architecture.md`），补充 Create App 路由与页面说明\n- [ ] 更新 `ROADMAP.md`，在 P1.11 下增加 Console 集成子项\n- [ ] 补充 Storybook story（如有独立的 Console-level story）\n\n## 关键引用\n\n- 组件实现：`packages/plugin-designer/src/AppCreationWizard.tsx`\n- 类型定义：`packages/types/src/app.ts`（`AppWizardDraft`, `wizardDraftToAppSchema`）\n- ComponentRegistry 注册：`packages/plugin-designer/src/index.tsx`\n- Console 主路由：`apps/console/src/App.tsx`\n- Console 侧边栏：`apps/console/src/components/AppSidebar.tsx`\n- Console CommandPalette：`apps/console/src/components/CommandPalette.tsx`\n- 关联 Issue：#743\n\n## 交付要求\n\n- Console 中可完整走通「新建应用」全流程\n- 可从 Sidebar、CommandPalette、空状态页三个入口触达\n- 支持编辑已有应用配置\n- `pnpm test` 必须全量通过\n- 更新 Roadmap 和开发文档"
+}

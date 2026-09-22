@@ -1,0 +1,35 @@
+{
+  "number": 1026,
+  "kind": "issue",
+  "title": "统一使用 @objectstack/spec composeStacks，删除 @object-ui/core 实现",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T05:31:28Z",
+  "updated_at": "2026-03-04T06:59:38Z",
+  "closed_at": "2026-03-04T06:59:38Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1026",
+  "body": "## 目标\n将所有 ObjectStack 配置和插件聚合统一使用 @objectstack/spec 中定义的 composeStacks 方法，彻底删除 packages/core/src/utils/compose-stacks.ts（@object-ui/core）中的 composeStacks 实现，避免工具重复和协议分叉。\n\n## 任务明细\n1. **彻底删除 @object-ui/core 的 composeStacks**\n    - 移除 packages/core/src/utils/compose-stacks.ts 及其相关的 test 文件。\n    - 移除对 `@object-ui/core/composeStacks` 的所有引用。\n2. **切换为 @objectstack/spec composeStacks**\n    - 所有配置聚合（objectstack.config.ts、objectstack.shared.ts）等改为 `import { composeStacks } from '@objectstack/spec'`。\n    - 如有额外的视图/actions贴合需求，补充适配逻辑，但不要重新封装 composeStacks itself。\n3. **依赖清理**\n    - 如果其他包（例如 console/demo/test）引用到 core 版 composeStacks，全部调整为 spec 版。\n    - package.json、tsconfig 路径别名等不再包含 core composeStacks。\n4. **测试**\n    - 保证所有 example、console、main config 合并逻辑和之前结果一致，旧测试全部移除或迁移。\n\n---\n如有特殊 runtime 需求无法用 spec 层覆盖，可以提出新的 cross-repo spec/protocol 需求。\n\n"
+}

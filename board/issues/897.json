@@ -1,0 +1,33 @@
+{
+  "number": 897,
+  "kind": "pull_request",
+  "title": "Merge ListView filter/toolbar rows into single Airtable-style toolbar with badge overflow",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-27T11:23:48Z",
+  "updated_at": "2026-02-27T17:52:54Z",
+  "closed_at": "2026-02-27T17:50:53Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-27T17:50:53Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/897",
+  "body": "ListView had UserFilters badges and tool buttons on separate rows. This merges them into one row (badges left, tools right) matching Airtable Interfaces toolbar density, with automatic badge collapsing when filters exceed available space.\n\n### UserFilters: `maxVisible` overflow\n\n- New `maxVisible` prop on `UserFilters` — badges beyond the limit collapse into a \"More\" popover with count indicator\n- Only applies to `dropdown` mode; `tabs`/`toggle` modes unaffected\n\n```tsx\n<UserFilters config={config} onFilterChange={onChange} maxVisible={3} />\n```\n\n### ListView toolbar merge\n\n- UserFilters rendered inline at left of toolbar row with `maxVisible={3}`\n- Separator divides badges from tool buttons\n- Removed the standalone `user-filters` row entirely\n- Search changed from inline `<Input>` to icon button + `<Popover>` — icon highlights when a term is active\n\n### Tests\n\n- 7 existing search tests updated for icon+popover pattern (`search-icon-button` → open popover → interact with input)\n- 6 new tests for `maxVisible` collapse behavior (split, overflow popover, edge cases)\n- 3 new tests for merged toolbar layout\n- All 255 plugin-list tests pass\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>合并列表视图的筛选、查找、排序���工具栏为一行，并支持字段筛选折叠</issue_title>\n> <issue_description>## 变更评估\n> \n> 参考 Airtable 的 Interfaces 工具栏及 <img alt=\"Airtable界面截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/831ff71d-c1ca-42c2-bf49-ee642a014cc7\" /> 优化 ObjectUI 的 ListView 组件，合并筛选、查找、排序相关两行工具栏为一行，并当左侧字段筛选过多时自动折叠。\n> \n> ### 需要修改的模块与细节：\n> 1. **UserFilters.tsx（字段筛选徽章组件）**\n>     - 增加 `maxVisible` 属性，超出时将多余字段筛选徽章折叠为 \"More\" 下拉按钮。\n>     - 支持 Popover 展开所有隐藏字段筛选。\n>     - 响应式处理，移动端按 1~2 个徽章显示。\n> 2. **ListView.tsx（列表视图主组件）**\n>     - 合并原有的 UserFilters 行和工具按钮行，在 toolbar 栏内左侧显示字段筛选徽章，右侧显示排序、查找等工具按钮。\n>     - 左侧徽章与右侧按钮通过分隔线视觉隔开。\n>     - toolbar 行内采用 flex 布局，保证工具按钮固定显示，字段筛选徽章溢出时自动压缩、折叠。\n>     - 查找（Search）按钮改为 icon，弹出输入框。\n>     - 移除原先单独的 UserFilters 工具栏。\n> 3. **QuickFilters 行** 保持未变，仍然展示快速筛选。\n> 4. **兼容响应式**\n>     - toolbar 在各屏幕尺寸下布局合理。\n>     - 工��栏和筛选徽章均支持溢出时折叠，移动端显示合理。\n> \n> ### 设计与体验要求：\n> - 与 Airtable 界面风格接近，信息密集区提升一行展示能力。\n> - 多字段筛选能方便折叠扩展，支持更多字段但不挤占工具按钮空间。\n> \n> ## 参考资料：\n> - Airtable 工具栏界面（见上传截图）\n> - packages/plugin-list/src/ListView.tsx\n> - packages/plugin-list/src/UserFilters.tsx\n> \n> ---\n> \n> **任务要求：**\n> - 按上述细节评估，对 ListView 相关工具栏���构进行重构，实现一行合并与折叠。\n> - 编写必要的单元测试，确保折叠行为和交互逻辑。\n> - 更新 ROADMAP.md 和相关 issue。\n> \n> ---\n> \n> <img alt=\"Airtable界面截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/831ff71d-c1ca-42c2-bf49-ee642a014cc7\" /></issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#896\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

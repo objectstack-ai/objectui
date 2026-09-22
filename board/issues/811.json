@@ -1,0 +1,33 @@
+{
+  "number": 811,
+  "kind": "pull_request",
+  "title": "feat: ConditionalFormatting protocol adaptation — expression & field rule interop",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T16:08:36Z",
+  "updated_at": "2026-02-24T00:47:03Z",
+  "closed_at": "2026-02-24T00:36:24Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-24T00:36:24Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/811",
+  "body": "Spec uses `{ condition: \"status == 'overdue'\", style: { backgroundColor: 'red' } }` while ObjectUI uses `{ field, operator, value, style }`. This PR implements full dual-format support across types, core evaluator, and ListView rendering.\n\n### Changes\n\n- **`packages/types/src/objectql.ts`** — Named union types following the `QuickFilterItem` pattern:\n  - `ObjectUIConditionalFormattingRule` (field/operator/value format)\n  - `SpecConditionalFormattingRule` (condition/style format)\n  - `ConditionalFormattingRule` union type\n  - `ListViewSchema`, `NamedListView`, and `ObjectGridSchema` updated to use the union type\n\n- **`packages/types/src/index.ts`** — Exported all three new types\n\n- **`packages/types/src/zod/objectql.zod.ts`** — Zod validator updated with `z.union()` to accept both ObjectUI and Spec formats\n\n- **`packages/core/src/ExpressionEvaluator.ts`** — Added `evaluatePlainCondition()` convenience function for safe expression evaluation with record context. Supports both template expressions (`${data.amount > 1000}`) and plain expressions (`status == 'overdue'`). Record fields are spread into the evaluator context so both direct (`status`) and namespaced (`data.status`) references resolve.\n\n- **`packages/plugin-list/src/ListView.tsx`** — Refactored `evaluateConditionalFormatting` to use `evaluatePlainCondition` and proper union type narrowing via `in` operator checks for discriminating between Spec and ObjectUI rule formats.\n\n- **`packages/plugin-list/src/__tests__/ConditionalFormatting.test.ts`** — 8 new tests: plain condition matching, numeric comparisons, compound `&&`, style merging, invalid expression fallback, mixed Spec + ObjectUI rule arrays with fallthrough\n\n- **`packages/core/src/evaluator/__tests__/ExpressionEvaluator.test.ts`** — 6 new tests for `evaluatePlainCondition`: direct field references, numeric comparisons, compound conditions, template expression support, invalid expression fallback, non-boolean result handling\n\n- **`ROADMAP.md`** — Updated conditional formatting entry with full implementation details\n\n### Notes\n\n- The union type pattern mirrors the existing `QuickFilterItem = ObjectUIQuickFilterItem | SpecQuickFilterItem` approach\n- `data` is set after spread to avoid collision if record contains a `data` property\n- All 494 tests pass across types, core, and plugin-list packages\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[P1] ConditionalFormatting 协议适配 — 表达式与字段规则互转</issue_title>\n> <issue_description>## 背景\n> Parent Issue: objectstack-ai/objectui#736\n> \n> Spec 使用表达式 `{ condition: string, style: Record<string,string> }`，ObjectUI 使用字段级 `{ field, operator, value, style }`。\n> \n> ## 目标\n> - 双格式兼容：Spec 表达式和 ObjectUI 字段规则均可工作\n> - `evaluateConditionalFormatting()` 函数同时支持两种输入\n> \n> ## 改动范围\n> - `packages/plugin-list/src/ListView.tsx` — `evaluateConditionalFormatting` 扩展\n> - `packages/types/src/objectql.ts` — ���型 union 定义\n> - `packages/core/src/ExpressionEvaluator.ts` — 确保表达式可求值\n> \n> ## 验收标准\n> - [ ] Spec 表达式格式 `{ condition: \"status == 'overdue'\", style: { backgroundColor: 'red' } }` 可渲染\n> - [ ] ObjectUI 格式 `{ field: 'status', operator: 'equals', value: 'overdue', style: {...} }` 不受影响\n> - [ ] 混合规则数组可正常处理\n> - [ ] `pnpm test` 全部通过\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#755\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

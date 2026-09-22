@@ -1,0 +1,33 @@
+{
+  "number": 1007,
+  "kind": "pull_request",
+  "title": "feat: semantic status colors, collapsible RelatedList, responsive table headers, row hover & count Badge",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T10:44:33Z",
+  "updated_at": "2026-03-03T11:53:46Z",
+  "closed_at": "2026-03-03T11:51:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T11:51:06Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1007",
+  "body": "Record detail page lacks semantic color auto-detection for common status values (paid/pending/shipped/etc.), related lists stack vertically without collapse, and table headers wrap on narrow viewports.\n\n### Semantic status color auto-detection\n\nExpanded `PRIORITY_COLOR_MAP` → `SEMANTIC_COLOR_MAP` covering common status values. Normalizes spaces/hyphens to underscores for lookup.\n\n```\npaid/completed/active → green\npending/waiting       → yellow\nshipped/in_progress   → blue\ndraft/inactive/closed → gray\ncancelled/rejected    → red\ndelivered             → purple\n```\n\nExplicit `color` on field options still takes precedence over auto-detection.\n\n### Collapsible RelatedList cards with default page size\n\nNew `collapsible` and `defaultCollapsed` props on `RelatedList`. Chevron toggle on card header, action buttons use `stopPropagation` to remain independent.\n\nDetailView now passes `collapsible` and `pageSize={5}` (`DEFAULT_RELATED_PAGE_SIZE`) to all RelatedList instances in both autoTabs and non-autoTabs rendering paths, so related lists default to showing the first 5 rows with pagination controls.\n\n```tsx\n<RelatedList title=\"Orders\" type=\"table\" data={orders} collapsible pageSize={5} />\n```\n\n### Prominent record count Badge\n\nRecord count in the RelatedList card header now uses a `Badge` component (e.g., `Order [7]`) instead of plain text for more visual prominence, with `aria-label` for accessibility.\n\n### Enhanced row hover effect\n\nDataTable row hover increased from `hover:bg-muted/30` to `hover:bg-muted/50` for stronger visual feedback on row interaction.\n\n### Responsive table headers\n\nAdded `whitespace-nowrap truncate` to DataTable `<TableHead>` text span — prevents header text from wrapping/breaking on medium screens.\n\n### Tests\n\n- 10 new tests for semantic color mapping (including hyphen/space normalization)\n- 4 new tests for collapsible RelatedList behavior\n- Updated record count tests for Badge-based display\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>记录详情页界面优化</issue_title>\n> <issue_description>根据我对 `objectstack-ai/objectui` 代码库的深入分析和行业顶尖低代码平台（Salesforce、Airtable、Retool、Monday.com 等）的最佳实践对比，以下是对截图界面的全面评估和优化建议：\n> \n> ---\n> \n> \n> 截图展示的是 **CRM 应用中的记录详情页（Order Item LI-002）**，包含侧边栏导航、面包屑、记录头部、相关列表（Order 和 Product）等模块。\n> \n> ---\n> \n> ## 📋 优化建议（按优先级排序）\n> \n> \n> ### 2. 📊 Related List 表格 — 信息密度和交互体验不足\n> \n> **问题：**\n> - \"客户\" 和 \"所属客户\" 列只显示数字 ID（如 `2`、`3`），用户需要额外操作才能理解含义\n> - \"折扣\" 列显示 `—` 和数字混排，缺少格式化\n> - 状态 Badge 颜色语义不够明确（如 Pending 和 Shipped 颜色区分不明显）\n> - 表格缺少行悬停高亮、行点击进入详情的交互提示\n> \n> **行业对标：** Salesforce Related List 支持 **Lookup 字段自动展示名称**；Airtable 用 **彩色 Tag** 区分状态。\n> \n> **建议改进：**\n> - 关联字段（客户ID → 客户名称）应渲染为可点击的 **Lookup Link**，显示关联记录名称\n> - 金额字段统一格式化（对齐小数位）\n> - 状态 Badge 使用语义化颜色映射：`Paid` → 绿色, `Pending` → 黄色, `Shipped` → 蓝色, `Draft` → 灰色, `Cancelled` → 红色\n> - 添加行悬停效果和 `cursor: pointer`，提示可点击进入详情\n> \n> ---\n> \n> ---\n> \n> ### 4. 📐 内容区域布局 — 垂直滚动过长，缺少标签页组织\n> \n> **问题：** \"详情\" 和 \"相关 2\" 的 Tab 切换已存在，但 Order 和 Product 两个相关列表全部垂直堆叠在 \"相关\" Tab 下，页面过长。\n> \n> **行业对标：** Salesforce 使用 **Related Tab** + **独立卡片** 布局，每个相关对象是独立可折叠卡片。\n> \n> **代码层面：** 已有 `autoTabs` 支持：\n> \n> ```tsx name=apps/console/src/components/RecordDetailView.tsx url=https://github.com/objectstack-ai/objectui/blob/1ea1b2062e0d5626a5a3b2998eefad79f1966166/apps/console/src/components/RecordDetailView.tsx#L420-L449\n> const detailSchema: DetailViewSchema = {\n>     type: 'detail-view',\n>     autoTabs: true,\n>     autoDiscoverRelated: true,\n>     ...(related.length > 0 && { related }),\n> };\n> ```\n> \n> **建议改进：**\n> - 每个 Related List 包裹在 **可折叠 Card** 中，默认展开前 5 行，点击 \"查看全部\" 展开\n> - 相关列表卡片头部显示记录数量 Badge（如 `Order (7)`），当前已有但可更突出\n> - 考虑将每个相关对象做成独立的子 Tab（Order | Product | ...）而非全部堆叠\n> \n> ---\n> \n> ### 5. 🎨 视觉设计和间距 — 需要更精致的微交互\n> \n> **问题：**\n> - 面包屑 `CRM > Order Item > #li2` 与搜索栏之间间距过大\n> - 头部操作按钮（Adjust Quantity、分享、编辑）缺少 Tooltip\n> - 表格行之间没有微妙的分隔线或斑马纹效果\n> \n> **建议改进：**\n> - 表格添加 `hover:bg-muted/50` 行悬停效果（DataTable 已支持 `rowClassName`）\n> - 操作按钮添加 `Tooltip`（已有组件支持）\n> - 面包屑区域收紧 padding，给内容区更多空间\n> - 搜索框左侧图标颜色统一为 `text-muted-foreground`\n> \n> ---\n> \n> ### 6. 📱 响应式和信息密度\n> \n> **问题：** 截图显示在 iPad 尺寸下，表格列 \"所属客户\" 的表头文字被换行挤压，可读性差。\n> \n> **建议改进：**\n> - 表头文字使用 `whitespace-nowrap` + `text-ellipsis`\n> - 在中等屏幕上自动隐藏低优先级列（如 \"所属客户\"、\"折扣\"），提供 \"显示更多列\" 的 Column Picker\n> - 利用已有的 `frozenColumns` 功能冻结 \"订单编号\" 列\n> \n> ---\n> \n> ### 7. 🔔 缺少的关键功能入口\n> \n> 对比 Salesforce/Retool 等行业标杆，当前界面缺少：\n> \n> | 功能 | 行业标杆 | ObjectUI 现有支持 | 建议 |\n> |------|---------|------------------|------|\n> | **Record Activity Timeline** | Salesforce Chatter | ✅ `ActivityTimeline`, `RecordChatterPanel` | 在详情页添加 \"活动\" Tab |\n> | **Record Navigation** | Salesforce | ✅ `recordNavigation` in DetailViewSchema | 添加 ← → 前后记录切换按钮 |\n> | **Keyboard Shortcuts** | Notion/Linear | 🔍 需确认 | 添加 `Cmd+E` 编辑、`Cmd+D` 删除等快捷键 |\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1006\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

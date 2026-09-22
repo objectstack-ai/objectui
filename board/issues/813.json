@@ -1,0 +1,33 @@
+{
+  "number": 813,
+  "kind": "pull_request",
+  "title": "refactor: ReportView edit mode → left-right split with DesignDrawer + complete config panel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T16:13:44Z",
+  "updated_at": "2026-02-24T00:42:32Z",
+  "closed_at": "2026-02-24T00:36:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-24T00:36:54Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/813",
+  "body": "ReportView edit mode replaced the entire page with `ReportBuilder` (a hand-rolled Card+Tabs form), breaking WYSIWYG preview and diverging from the DashboardView/ListView design pattern. No ConfigPanelRenderer reuse, no auto-save, no undo/redo.\n\n## Changes\n\n- **New `ReportConfigPanel`** (`packages/plugin-report/src/`) — schema-driven config panel using `ConfigPanelRenderer` + `useConfigDraft`, mirroring `DashboardConfigPanel`. Seven sections covering all report-level properties:\n  - **Basic** — Title, Description\n  - **Data** — Data source (objectName), Row limit\n  - **Filters** — FilterBuilder integration via `filter` control type (field/operator/value conditions with AND/OR logic)\n  - **Group By** — SortBuilder integration via `sort` control type (field selection + asc/desc ordering)\n  - **Export** — Show export/print buttons, default export format (PDF/Excel/CSV/JSON/HTML)\n  - **Schedule** — ScheduleConfig embedded via `custom` render (enable/disable, frequency, time, timezone, recipients, formats)\n  - **Appearance** — Show toolbar, refresh interval\n\n- **Refactored `ReportView`** (`apps/console/src/components/`) — edit mode now opens a `DesignDrawer` (right-side Sheet, `modal={false}`) while `ReportViewer` stays visible as live preview. Schema changes flow through `editSchema` state for real-time preview, same as `DashboardView`. Available fields are derived from object schema metadata and passed to filter/sort editors.\n\n- **`ReportBuilder` preserved** — still registered in ComponentRegistry for backward compat; just no longer used as the primary edit surface.\n\n### Architecture alignment with DashboardView\n\n```\nReportView (orchestrator)\n├── Left: ReportViewer (schema={previewReport})  ← stays visible during edit\n├── Right: DesignDrawer\n│   └── ReportConfigPanel (ConfigPanelRenderer + useConfigDraft)\n│       ├── Filters (FilterBuilder) + Group By (SortBuilder)\n│       ├── Schedule (ScheduleConfig)\n│       └── auto-save via dataSource.update() + Ctrl+S\n```\n\n### Tests\n- 18 new `ReportConfigPanel` unit tests (open/close, all 7 sections, save/discard, live updates)\n- All 4 existing `ReportView` integration tests pass\n- All 7 existing `ReportBuilder` tests unaffected\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>重构报表设计模式：统一为左右分屏（主区预览+右侧属性面板），与 Dashboard/ListView 设计器一致</issue_title>\n> <issue_description># 问题\n> \n> 报表设计模式（ReportView → Edit）当前存在与仪表盘类似但更严重的架构问题：\n> \n> ## 1. 编辑模式整页替换，丧失所见即所得\n> - 点击 Edit 后 `ReportView` 整页切换为 `ReportBuilder`（全屏 Card+Tabs 表单），主区预览完全消失\n> - 不是\"左侧预览 + 右侧属性面板\"的 Drawer 模式，与 DashboardView、ObjectView 体验割裂\n> \n> ## 2. ReportBuilder 完全手写，未复用 ConfigPanelRenderer\n> - `ReportBuilder`（packages/plugin-report/src/ReportBuilder.tsx）用 Card + Tabs（Fields/Filters/Sections/Schedule/Export）全手写\n> - 没有复用 `ConfigPanelRenderer` + `useConfigDraft` + `ConfigPanelSchema` 体系\n> - 没有 undo/redo、没有 dirty 检测、没有自动保存\n> - `handleSave` 只有 `console.log`，无实际持久化\n> \n> ## 3. 两套 Report 设计组件互不关联\n> - `ReportDesigner`（plugin-designer 包）：有画布、PropertyEditor、useUndoRedo，是打印布局设计器\n> - `ReportBuilder`（plugin-report 包）：Tab 表单，面向数据报表配置\n> - `ReportView` 只用了 `ReportBuilder`，`ReportDesigner` 完全未集成\n> - 导致产品中报表配置体验极度分散\n> \n> ## 4. 深色模式 / 移动端 / 协议对齐问题\n> - `ReportBuilder` 使用 `Card`, `CardHeader` 等带硬编码浅色样式（如 `bg-blue-50/50`, `text-blue-900`）\n> - 无触摸设备适配、无响应式 Drawer\n> - 表单字段和 @objectstack/spec ReportSchema 协议对齐不完整\n> \n> # 目标\n> - `ReportView` 编辑模式改为 DashboardView 一致的\"左侧实时预览 + 右侧属性 Drawer\"模式\n> - 右侧 Drawer 复用 `ConfigPanelRenderer` + `useConfigDraft` 体系\n> - 未选中组件时显示 ReportConfigPanel（报表级属性：标题、数据源、过滤、分组、导出设置...）\n> - 选中 section/field 时切换为对应 FieldConfigPanel（字段级属性）\n> - 主区保持 `ReportViewer` 渲染，属性改动即时反映\n> - 保存通过 `DesignDrawer` 的 auto-save 机制持久化到后端\n> - 统一 undo/redo、dirty 检测、save/discard\n> \n> # 技术建议\n> - 仿照 `DashboardView` + `DesignDrawer` 的架构改造 `ReportView`\n> - 新建 `ReportConfigPanel`（报表级 ConfigPanelSchema）替代 `ReportBuilder` 的 Tab 表单\n> - 复用 `packages/plugin-dashboard/src/DashboardConfigPanel.tsx` 的模式\n> - `ReportDesigner`（布局设计器）可作为高级模式入口，但默认配置体验走 ConfigPanel\n> \n> # 验收标准\n> - ReportView 编辑模式为左右分屏，右侧固定属性面板，主区所见即所得\n> - 所有属性配置走 ConfigPanelRenderer，行为和 Dashboard/ListView 完全一致\n> - 保存/撤销/undo-redo/auto-save 全部正常工作\n> - 深色模式、iPad 触摸设备体验完整\n> - E2E 测试覆盖\n> \n> > 关联 issue：#808 objectstack-ai/objectui#809</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#812\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

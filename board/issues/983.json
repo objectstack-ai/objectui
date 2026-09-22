@@ -1,0 +1,33 @@
+{
+  "number": 983,
+  "kind": "pull_request",
+  "title": "Fix search popover layout on tablet and enable client-side filtering for static data",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T04:26:09Z",
+  "updated_at": "2026-03-03T05:34:33Z",
+  "closed_at": "2026-03-03T05:31:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T05:31:01Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/983",
+  "body": "ListView search popover has a fixed `w-64` width that overlaps the table header on iPad/tablet viewports, and `searchTerm` is completely ignored when `schema.data` provides static/inline data (both array and value-provider forms).\n\n### Popover layout\n\n- Changed `PopoverContent` from fixed `w-64` to `w-[calc(100vw-2rem)] sm:w-64` — fills viewport on small screens, unchanged on desktop.\n\n### Static data search filtering\n\nBoth inline data paths (`Array.isArray(schema.data)` and `provider: 'value'`) now apply client-side filtering before `setData()`:\n\n```tsx\nif (searchTerm) {\n  const q = searchTerm.toLowerCase();\n  items = items.filter((row: any) =>\n    Object.values(row).some(\n      (v) => v != null && String(v).toLowerCase().includes(q),\n    ),\n  );\n}\n```\n\nThis matches the existing pattern in `data-table.tsx`. `searchTerm` was already in the effect's dependency array, so re-filtering triggers automatically on input change.\n\n### Tests\n\nAdded two test cases covering search filtering for both plain-array and value-provider static data modes.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[Bug] Search box popover layout broken & filtering ignored on iPad/tablet/static data</issue_title>\n> <issue_description>## 问题描述\n> \n> <img alt=\"搜索框显示混乱且搜索没有效果\" width=\"2732\" src=\"https://github.com/user-attachments/assets/90d84738-181a-4aea-92df-707a2afac9a7\" />\n> \n> 在 iPad 或平板页面（如 demo.objectui.org），列表视图的搜索框弹出层（Popover）布局混乱，且搜索输入没有任何过滤效果。\n> \n> ### 问题 1：搜索框弹层布局混乱\n> - 搜索输入框弹层 (`PopoverContent`) 在 iPad 上会与表格标题栏重叠、显示异常。\n> - 典型表现：弹出框宽度固定且对齐方式（`align=\"end\"`）导致遮挡，输入框和清除按钮视觉重叠。\n> \n> ### 问题 2：静态数据/内联数据无法搜索过滤\n> - 如果 `ListView` 的 `schema.data` 提供的是数组（静态/内联数据，如 demo/demo 数据），`searchTerm` 状态不会应用过滤。\n> - searchTerm 仅对远程数据（`dataSource.find` 请求）有效，对静���数据始终返回全部记录，实际无搜索功能。\n> - 代码引用：早期 return 跳过 searchTerm，如：\n>   ```tsx\n>   // ListView.tsx 551-572\n>   if (Array.isArray(schema.data)) {\n>     setData(schema.data);\n>     // 没有对 searchTerm 过滤\n>     return;\n>   }\n>   ```\n> - 正确做法：\n>   - searchTerm 应该对静态数据进行前端过滤（模糊匹配，参考 data-table.tsx 组件实现）。\n> \n> ## 复现步骤\n> 1. 打开 demo.objectui.org，进入 CRM（商机）列表。\n> 2. 在搜索框输入任意内容，如 \"tokyo\"。\n> 3. 搜索框弹出布局混乱，且内容始终不变（过滤无效）。\n> \n> ## 建议修复\n> 1. **弹层布局优化**：对于移动端，宽度应设为百分比并调整对齐/层级，支持自适应。\n> 2. **静态数据搜索**：在 `ListView` 的 `useEffect` 中对 Array 数据实现 client-side 过滤功能，如：\n>    ```tsx\n>    if (Array.isArray(schema.data)) {\n>      let items = schema.data;\n>      if (searchTerm) {\n>        items = items.filter(row => ...);\n>      }\n>      setData(items);\n>      ...\n>    }\n>    ```\n> \n> ## 环境信息\n> - ObjectUI v1.0+（React，iPad Chrome/Safari）\n> - 前端组件：`packages/plugin-list/src/ListView.tsx`\n> \n> ---\n> 如需英文版本/PR代码修复可补充说明。\n> \n> Related code links:\n> - [ListView.tsx search popover](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-list/src/ListView.tsx#L1441-L1481)\n> - [ListView.tsx client-side data fetch](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-list/src/ListView.tsx#L551-L572)\n> - [data-table.tsx client-side filtering impl](https://github.com/objectstack-ai/objectui/blob/main/packages/components/src/renderers/complex/data-table.tsx#L244-L273)\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#982\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

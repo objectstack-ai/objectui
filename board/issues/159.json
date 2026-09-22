@@ -1,0 +1,36 @@
+{
+  "number": 159,
+  "kind": "pull_request",
+  "title": "Fix Tailwind v4 theme configuration for fumadocs components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T06:20:49Z",
+  "updated_at": "2026-03-23T21:55:09Z",
+  "closed_at": "2026-01-23T09:08:44Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T09:08:44Z",
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/159",
+  "body": "Components in fumadocs documentation (calendar, buttons, etc.) are rendering without styles due to missing Tailwind v4 theme configuration.\n\n## Problem\n\nAfter the Tailwind v4 upgrade in PR #158, the fumadocs site was missing the `@theme` directive required for Tailwind v4 to generate utility classes. The site had `@import 'tailwindcss'` but without the `@theme` configuration, no utility classes like `.bg-primary`, `.bg-destructive`, etc. were being generated.\n\nUser confirmed this styling issue existed even before the v4 upgrade - the site never had proper Tailwind configuration (neither v3 nor v4).\n\n## Changes\n\n**Added Tailwind v4 theme configuration to `apps/site/app/global.css`:**\n\n```css\n@theme {\n  /* Border radius tokens */\n  --radius-lg: var(--radius);\n  --radius-md: calc(var(--radius) - 2px);\n  --radius-sm: calc(var(--radius) - 4px);\n\n  /* Color tokens mapped to CSS variables */\n  --color-border: hsl(var(--border));\n  --color-input: hsl(var(--input));\n  --color-ring: hsl(var(--ring));\n  --color-background: hsl(var(--background));\n  --color-foreground: hsl(var(--foreground));\n  --color-primary: hsl(var(--primary));\n  --color-primary-foreground: hsl(var(--primary-foreground));\n  --color-secondary: hsl(var(--secondary));\n  --color-secondary-foreground: hsl(var(--secondary-foreground));\n  --color-destructive: hsl(var(--destructive));\n  --color-destructive-foreground: hsl(var(--destructive-foreground));\n  --color-muted: hsl(var(--muted));\n  --color-muted-foreground: hsl(var(--muted-foreground));\n  --color-accent: hsl(var(--accent));\n  --color-accent-foreground: hsl(var(--accent-foreground));\n  --color-popover: hsl(var(--popover));\n  --color-popover-foreground: hsl(var(--popover-foreground));\n  --color-card: hsl(var(--card));\n  --color-card-foreground: hsl(var(--card-foreground));\n}\n```\n\n**Added `tailwindcss-animate` plugin:**\n- Added `@plugin 'tailwindcss-animate'` directive\n- Installed `tailwindcss-animate` package dependency\n\n**Removed obsolete Tailwind v3 configuration:**\n- Deleted `tailwind.config.ts` file (ignored in Tailwind v4)\n\n## Solution\n\nThe configuration now matches the working setup in `packages/components/src/index.css`. The key was using `@theme` without the `reference` keyword - using `@theme reference` prevents Tailwind from generating utility classes.\n\n## Status\n\n✅ **Issue Resolved**: Tailwind v4 theme configuration is now properly set up and matches the working components package configuration. Utility classes will be generated correctly.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fumadocs文档中展示的组件很多样式丢失，比如说日历，按钮的颜色\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

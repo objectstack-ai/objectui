@@ -1,0 +1,33 @@
+{
+  "number": 831,
+  "kind": "pull_request",
+  "title": "fix: guard chart data to prevent crash on non-array input",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-24T10:36:34Z",
+  "updated_at": "2026-02-24T11:16:17Z",
+  "closed_at": "2026-02-24T11:12:38Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-24T11:12:38Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/831",
+  "body": "`object-chart` crashes with `r.slice is not a function` when `boundData` (from `useDataScope`) or `schema.data` resolves to a non-array truthy value (e.g., an object). Recharts internally calls `.slice()` on the data prop expecting an array.\n\nAdded `Array.isArray()` guards at three layers:\n\n- **`ObjectChart.tsx`** — validate resolved data before passing to `ChartRenderer`\n- **`ChartRenderer.tsx`** — validate `schema.data` in the useMemo adapter\n- **`AdvancedChartImpl.tsx`** — defensive guard on `data` prop before it reaches Recharts\n\n```tsx\n// Before — non-array truthy value flows through unchecked\nconst finalData = boundData || schema.data || fetchedData || [];\n\n// After\nconst rawData = boundData || schema.data || fetchedData;\nconst finalData = Array.isArray(rawData) ? rawData : [];\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> Component \"object-chart\" failed to render\n> r.slice is not a function. (In 'r.slice(n,i+1)', 'r.slice' is undefined)\n> Retry\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

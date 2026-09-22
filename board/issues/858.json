@@ -1,0 +1,34 @@
+{
+  "number": 858,
+  "kind": "issue",
+  "title": "MSW mock handler bypasses protocol, causes filter/sort/top to fail in console – should proxy to protocol service",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-25T08:08:51Z",
+  "updated_at": "2026-02-25T08:12:47Z",
+  "closed_at": "2026-02-25T08:12:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/858",
+  "body": "## Bug Summary\n\n在 console（MSW 模式）中通过 `GET /api/v1/data/contact?...` 访问时，filter/sort/top 等查询参数全部失效，返回所有数据，server 模式下行为正常。\n\n### 复现方式\n\n1. 启动 dev server (`pnpm dev`)。\n2. 访问 `/api/v1/data/contact?top=100&sort=name&filter=[\"priority\",\"=\",\"medium\"]`。\n3. 发现过滤条件没有生效，返回所有数据。\n4. 同样接口在 `pnpm dev:server` 下过滤正常。\n\n## 问题分析\n\n- `apps/console/src/mocks/handlers.ts` 的 Data handler 直接调用 driver.find，不经过 ObjectStack 协议 protocol 层，相当于绕过 query 解析和 filter/sort/top 的标准化。\n- Metadata handlers 是调用 protocol 服务的，所以 server/MSW 是一致的。\n- Data handlers 需要像 Metadata 一样调用 protocol 服务，不能直接 driver。\n- filter/sort/top 等参数解析/标准化只能在协议层统一做，否则容易分叉。\n\n## 最佳解决方案\n\n- **MSW 模式下 Data handler 应直接 proxy 转发到 protocol 服务**（如同 Metadata handler）。这样 MSW 路径和 server 路径完全一致，filter/sort/top/query/pagination 所有解析/支持都自动同步。\n- handler 不应处理任何业务参数，只做 HTTP ↔ protocol 的适配，不做 query params 到 driver.find 的手动映射。\n\n### 问题代码片段\n\n```typescript\nhttp.get(`${prefix}${baseUrl}/data/:objectName`, async ({ params, request }) => {\n  const url = new URL(request.url);\n  const query: any = {};\n\n  url.searchParams.forEach((value, key) => {\n    try {\n      query[key] = JSON.parse(value);\n    } catch {\n      query[key] = value;\n    }\n  });\n\n  const response = await driver.find(params.objectName as string, query);\n  return HttpResponse.json({ value: response }, { status: 200 });\n}),\n```\n\n## 建议修复\n\n- 改为：\n\n```typescript\n// 直接转发给 protocol data 服务，不做 query 解析\nconst response = await protocol.getData({ object: params.objectName, query: url.search });\n```\n\n- 或者统一处理：参考 Metadata handler 的实现，把所有 data CRUD 都走 protocol。\n\n## 影响分析\n\n- 目前所有通过 MSW dev 的 Data CRUD 均未经过协议栈，filter/sort/top 都失效，实际测试 server/dev 下表现完全不同。\n- 长期维护风险：业务协议变更容易遗漏 MSW handler。\n\n---\n\n_开发任务完成之后都应该运行test，并且相关的问题，然后更新roadmap。_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 855,
+  "kind": "pull_request",
+  "title": "fix: refresh metadata after dashboard save to sync edit/view state",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-25T07:25:21Z",
+  "updated_at": "2026-02-25T07:52:23Z",
+  "closed_at": "2026-02-25T07:36:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-25T07:36:20Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/855",
+  "body": "Dashboard saves (PATCH 200) didn't refresh the metadata cache. Closing the config panel reverted the preview to stale cached data, requiring a full page reload to see changes.\n\n### Changes\n\n- **`DashboardView.saveSchema`** — call `metadata.refresh()` after successful save\n- **`DashboardDesignPage.saveSchema`** — same\n- **`previewSchema` fallback** — changed from `configPanelOpen && editSchema ? editSchema : dashboard` to `editSchema || dashboard`, so edits remain visible after panel close until metadata catches up\n- **Stale editSchema cleanup** — `useEffect` on `dashboard` clears `editSchema` once metadata refreshes while panel is closed; also reset on `dashboardName` navigation\n- **5 new tests** verifying `refresh()` is called after widget save, delete, and Ctrl+S\n- **ROADMAP.md** updated (P1.10 Phase 11)\n\n### Key change\n\n```tsx\nconst saveSchema = useCallback(async (schema: DashboardSchema) => {\n  try {\n    if (adapter) {\n      await adapter.update('sys_dashboard', dashboardName!, schema);\n      refresh().catch(() => {}); // sync metadata cache\n    }\n  } catch (err) {\n    console.warn('[DashboardView] Auto-save failed:', err);\n  }\n}, [adapter, dashboardName, refresh]);\n\nconst previewSchema = editSchema || dashboard; // was: configPanelOpen && editSchema ? editSchema : dashboard\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>【Bug】Dashboard 编辑/保存后看不到实时刷新或已保存的配置效果</issue_title>\n> <issue_description>### 问题综述\n> 在 dashboard 编辑和配置保存流程中，虽然 HTTP PATCH 请求返回 200，但保存后的编辑内容在关闭右侧配置面板后页面不刷新、或刷新后才能看到改动，用户体验不佳。\n> \n> #### 详细排查和可能原因\n> 1. **编辑面板里的实时预览仅生效于 configPanelOpen=true 时**。\n>    - 仅靠本地 `editSchema` 状态驱动 live preview；关闭面板后，展示数据依赖于 `dashboard`，即 metadata。  \n> 2. **保存（PATCH）成功后未刷新 metadata**\n>    - `saveSchema` 只发送 PATCH 请求，没有调用 `metadata.refresh()`，导致 metadata cache 没有及时同步，页面依旧引用旧的 dashboard definition。\n> 3. **dashboard 和 widget schema 更新不可见的其它原因**：\n>    - 数据层有缓存（如 `useViewData`, `SchemaRenderer` 内部二级 cache，可能未直接监听 schema 变动触发重新 fetch）\n>    - dashboard widgets 定义不规范或配置缺失：如遗漏 `categoryField`, `valueField`, `object` 字段，导致 live preview 路径不会被完全触发\n>    - 后端接口代理/Mock 层返回的不是最新数据\n> 4. **Widget 类型/数据源切换等低频问题**：\n>    - Schema 结构变更但数据实际未被刷新（如切换 Pie → Bar 类型但数据源未变，导致看起来效果无感知）\n>    - `designMode` 下 widget 容器 `pointer-events-none`，测试体验时容易忽略数据没变化or变了看不到\n> 5. **Console 页面和 DashboardWithConfig 逻辑差异**\n>    - DashboardWithConfig.tsx 内部 liveSchema 示范没完全移植到 DashboardView.tsx（Console 主页面依赖）\n> \n> #### 总结\n> 本问题综合涉及：\n> - 配置保存后 metadata 没有刷新，导致内容不可见\n> - 数据流双向同步缺失（editSchema 只影响编辑态）\n> - schema 配置的 key 约定不全或 widget 配置结构与渲染解耦导致变更失效\n> \n> ### 期望修复\n> - 配置/保存 dashboard 后能立即看到结果，无需刷新\n> - Widget 配置及类型切换、数据源切换均能实时生效且刷新后状态一致\n> - 编辑态和浏览态数据同步一致\n> \n> ### 建议修复思路\n> 1. **保存成功后自动刷新 metadata**：`saveSchema` 成功后需调用 `metadata.refresh()` 使 dashboards 列表及时同步。\n> 2. **完善数据流与 schema 更新的监听/同步**。\n> 3. **提升 widget schema 和数据层规范、减少边界兼容问题**。\n> 4. **必要时移植 DashboardWithConfig 的部分 live preview 机制，保持 Console 和 Playground 行为一致。**\n> \n> ---\n> 请修复上述问题，并确保所有相关 dashboard 交互和 test 全通过，修复后请同步更新项目 Roadmap。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#854\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

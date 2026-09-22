@@ -1,0 +1,33 @@
+{
+  "number": 939,
+  "kind": "pull_request",
+  "title": "fix: fetch objectSchema for inline data to enable type-aware cell rendering",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-01T14:05:07Z",
+  "updated_at": "2026-03-01T15:12:46Z",
+  "closed_at": "2026-03-01T14:38:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-01T14:38:33Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/939",
+  "body": "ObjectGrid conflated \"inline data\" with \"no schema needed.\" When data arrives via `provider: 'value'` (e.g., ListView passing server-fetched results as props), the unified async effect bails entirely—skipping `getObjectSchema()`. With `objectSchema` null, all field type resolution falls back to heuristic inference or `String(value)`, breaking lookup, select, currency, and other typed renderers.\n\n### Changes\n\n- **Separate schema-fetch effect for inline data** (`ObjectGrid.tsx`): When `hasInlineData && objectName && dataSource`, a dedicated `useEffect` calls `getObjectSchema()` to populate `objectSchema`. Data fetch is still skipped. Failure is non-fatal (warns, falls back to inference).\n\n- **Enrich legacy inline-data column fallback** (`ObjectGrid.tsx`): The no-`columns` path for inline data now mirrors the string[] enrichment logic—resolves field types from `objectSchema`, selects CellRenderers, applies labels/options/currency/alignment instead of generating bare `{ header, accessorKey }` stubs.\n\n- **5 regression tests** (`objectdef-enrichment.test.tsx`): Inline data + DataSource scenarios covering all three column generation paths (string[], ListColumn[], and legacy fallback)—verifying schema fetch occurs, `find()` is not called, headers use schema labels, select/lookup fields get proper CellRenderers with colored badges, and ListColumn[] columns without explicit types are enriched via objectSchema.\n\n### Before/After\n\n```tsx\n// Inline data with objectName + dataSource\n<ObjectGrid\n  schema={{ type: 'object-grid', objectName: 'order', \n            data: { provider: 'value', items: orders },\n            columns: ['name', 'status', 'assigned_to'] }}\n  dataSource={ds}\n/>\n\n// Before: status renders as \"pending\", assigned_to as \"u1\" or [object Object]\n// After:  status renders as colored Badge(\"Pending\"), fields use schema-defined types\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>【严重影响】ObjectGrid传入inline数据（data）时未加载objectSchema，导致lookup/关联字段全量失效</issue_title>\n> <issue_description>## 问题描述\n> \n> 当ListView将服务端查询到的数据以`data` prop（inline array）传递给下层SchemaRenderer（ObjectGrid）时，ObjectGrid会检测到inline data存在，于是**直接跳过** object schema 的加载：\n> \n> ```tsx\n> useEffect(() => {\n>     if (hasInlineData) return;   // 🔴 直接 return！完全跳过 getObjectSchema()\n>     // ...省略...\n> }, [objectName, ...]);\n> ```\n> \n> 而此时ObjectGrid的字段columns通常是`string[]`（如['order','product','item_type']），生成列时会走如下逻辑：\n> \n> ```tsx\n> const fieldDef = objectSchema?.fields?.[fieldName];\n> const resolvedType = fieldDef?.type || inferColumnType({ field: fieldName }) || null;\n> ```\n> \n> 由于objectSchema为null，**无法获得字段类型信息**，导致所有自定义渲染器（比如lookup/master_detail/select/user/status）全丢失，只能兜底为`String(value)`。\n> \n> 这会造成：\n> - 关联型字段（如lookup、user等）无论服务端是否expand，始终只显示ID字符串（或出���[object Object]）\n> - select/status等字段不会被注册的CellRenderer渲染\n> - 格式化/嵌套/自定义渲染全部失效\n> \n> ## 表现举例\n> - 用户只看到order/produc/user等显示\"o1\"、\"p1\"、\"u1\"，而不是对应的名称或更多信息\n> - 甚至expand展开的对象，因没有CellRenderer也变成[object Object]\n> \n> ## 复现步骤\n> 1. ListView正常加载一个有lookup/关联/选项等类型字段的数据对象。\n> 2. 服务端已支持expand，数据能带出完整对象。\n> 3. ObjectGrid通过props.data收到inline数据，**不会加载objectSchema**。\n> 4. \"generateColumns\"函数里字段类型全部靠猜，导致CellRenderer注册机制无效。\n> \n> ## 根因总结\n> 根本原因是ObjectGrid将\"inline data\"和\"无需schema\"混淆，实际上**无论数据来源（inline/server），只要配置了objectName都应加载一次schema用于推断字段类型及渲染器选择**。\n> \n> ## 修复建议\n> - ObjectGrid props.data存在时，仅跳过数据fetch，但应**始终加载一次objectName对应的objectSchema**并据此生成columns与类型。\n> - 保证CellRenderer注册逻辑和后端/inline数据模式一致。\n> - 修复后补足UT，避免类似回归。\n> \n> ---\n> 如需代码、Trace或详细复现方法可联系@hotlong。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#938\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

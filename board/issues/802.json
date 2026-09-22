@@ -1,0 +1,33 @@
+{
+  "number": 802,
+  "kind": "pull_request",
+  "title": "Fix incorrect relative imports in ConfigPanel.stories.tsx",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T14:08:03Z",
+  "updated_at": "2026-02-23T15:16:56Z",
+  "closed_at": "2026-02-23T15:15:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T15:15:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/802",
+  "body": "Storybook build fails with Rollup `handleInvalidResolvedId` — `ConfigPanel.stories.tsx` lives in `src/stories/` but imports siblings with `./` instead of `../`, resolving to nonexistent paths.\n\n```diff\n-import { ConfigPanelRenderer } from './custom/config-panel-renderer';\n+import { ConfigPanelRenderer } from '../custom/config-panel-renderer';\n```\n\nFixed all 4 imports (`config-panel-renderer`, `config-field-renderer`, `use-config-draft`, `config-panel` types) to use `../` relative paths.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 21:52:49.398     at error (file://./node_modules/.pnpm/rollup@4.57.1/node_modules/rollup/dist/es/shared/parseAst.js:398:42)\n> 21:52:49.398     at ModuleLoader.handleInvalidResolvedId (file://./node_modules/.pnpm/rollup@4.57.1/node_modules/rollup/dist/es/shared/node-entry.js:21687:24)\n> 21:52:49.398     at file://./node_modules/.pnpm/rollup@4.57.1/node_modules/rollup/dist/es/shared/node-entry.js:21647:26\n> 21:53:02.296  ELIFECYCLE  Command failed with exit code 1.\n> 21:53:02.315 Error: Command \"pnpm storybook:build\" exited with 1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

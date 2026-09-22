@@ -1,0 +1,33 @@
+{
+  "number": 902,
+  "kind": "issue",
+  "title": "ObjectGrid: accessorKey-format columns bypass type inference — raw dates, no badges, no progress bars",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-28T04:53:58Z",
+  "updated_at": "2026-02-28T05:47:00Z",
+  "closed_at": "2026-02-28T05:47:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/902",
+  "body": "## Summary\n\nThe ObjectGrid rendering pipeline **completely skips** type inference and cell renderer injection when columns use `accessorKey` format (data-table format) instead of `field` format (ListColumn format). This causes all type-aware rendering to break — dates show raw ISO strings, status/priority show plain text, progress shows raw numbers, and user fields show raw IDs.\n\n![image1](image1)\n\n## Root Cause\n\nIn `ObjectGrid.generateColumns()`, the `accessorKey` branch returns columns as-is with no processing:\n\n```tsx\n// packages/plugin-grid/src/ObjectGrid.tsx L506-514\nif ('accessorKey' in firstCol) {\n  return cols;  // ← BUG: skips entire inference + renderer pipeline\n}\n```\n\nMeanwhile the `field` (ListColumn) branch correctly runs `inferColumnType()` → `getCellRenderer()` → cell renderer injection. This is a platform-level rendering pipeline gap that affects **any view** using `accessorKey`-format column definitions.\n\n## Symptoms (all caused by the same root cause)\n\n| Column Type | Current (broken) | Expected |\n|------------|-----------------|----------|\n| Date (`start_date`, `end_date`) | `2024-02-01T00:00:00.000Z` | `Feb 1, 2024` via `DateCellRenderer` |\n| Status (`status`) | `in_progress` (plain text) | Colored `<Badge>` via `SelectCellRenderer` |\n| Priority (`priority`) | `high` / `critical` (plain text) | Semantic colored badge (orange/red) |\n| Progress (`progress`) | `75` (raw number) | Mini progress bar + `75%` via `PercentCellRenderer` |\n| Assignee (`assignee`) | `2` (raw ID) | Avatar + name via `UserCellRenderer` |\n\n## Required Changes\n\n### 1. [P0] Apply inference to `accessorKey`-format columns\n\n**File:** `packages/plugin-grid/src/ObjectGrid.tsx` — `generateColumns()` L506-514\n\nWhen columns are in `accessorKey` format, iterate and apply `inferColumnType()` + `getCellRenderer()` for columns that don't already have a `cell` renderer:\n\n```tsx\nif ('accessorKey' in firstCol) {\n  return (cols as any[]).map((col, colIndex) => {\n    if (col.cell) return col; // already has custom renderer\n\n    const syntheticCol = { field: col.accessorKey, label: col.header, type: col.type };\n    const inferredType = inferColumnType(syntheticCol);\n    if (!inferredType) return col;\n\n    const CellRenderer = getCellRenderer(inferredType);\n    const fieldMeta = { name: col.accessorKey, type: inferredType };\n\n    if (inferredType === 'select') {\n      const uniqueValues = Array.from(new Set(data.map(row => row[col.accessorKey]).filter(Boolean)));\n      fieldMeta.options = uniqueValues.map(v => ({ value: v, label: humanizeLabel(String(v)) }));\n    }\n\n    return {\n      ...col,\n      headerIcon: getTypeIcon(inferredType),\n      cell: (value, row) => <CellRenderer value={value} field={fieldMeta} />,\n    };\n  });\n}\n```\n\n### 2. [P1] Auto-humanize snake_case select labels\n\n**File:** `packages/fields/src/index.tsx` — `SelectCellRenderer`\n\nAdd and export a `humanizeLabel()` utility, use as fallback when no `option.label` exists:\n\n```tsx\nexport function humanizeLabel(value: string): string {\n  return value.replace(/[_-]/g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());\n}\n\n// In SelectCellRenderer:\nconst label = option?.label || humanizeLabel(String(value));\n```\n\nAlso apply in `ObjectGrid.generateColumns()` when auto-generating options from data values.\n\n### 3. [P1] PercentCellRenderer value normalization for `progress` fields\n\n**File:** `packages/fields/src/index.tsx` — `PercentCellRenderer`\n\nUse field name to disambiguate 0-1 fraction vs 0-100 whole number:\n\n```tsx\nconst isWholePercentField = /progress|completion/.test(field?.name?.toLowerCase() || '');\nconst barValue = isWholePercentField\n  ? numValue\n  : (numValue > -1 && numValue < 1) ? numValue * 100 : numValue;\n```\n\n## Affected Packages\n\n- `packages/plugin-grid/src/ObjectGrid.tsx` — core fix\n- `packages/fields/src/index.tsx` — `SelectCellRenderer`, `PercentCellRenderer`, `humanizeLabel()`\n\n## Acceptance Criteria\n\n- [ ] `accessorKey`-format columns receive type inference via `inferColumnType()`\n- [ ] Inferred types get appropriate `getCellRenderer()` cell renderers applied\n- [ ] Columns with existing `cell` renderer are NOT overridden\n- [ ] snake_case select values display as Title Case (e.g., `in_progress` → `In Progress`)\n- [ ] Explicit `option.label` still takes priority over humanized fallback\n- [ ] `progress` field with value `75` renders as `75%` with correctly filled bar\n- [ ] `probability` field with value `0.75` renders as `75%`\n- [ ] All existing tests pass; new tests added for:\n  - `accessorKey`-format inference path\n  - `humanizeLabel()` edge cases\n  - `PercentCellRenderer` with progress-type fields\n- [ ] ROADMAP.md updated"
+}

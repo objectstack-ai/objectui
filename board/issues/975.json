@@ -1,0 +1,35 @@
+{
+  "number": 975,
+  "kind": "issue",
+  "title": "Vercel 构建 OOM 根因分析与优化建议",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-03T01:40:53Z",
+  "updated_at": "2026-03-03T07:11:52Z",
+  "closed_at": "2026-03-03T07:11:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/975",
+  "body": "## 问题背景\n当前 Vercel 构建 `@object-ui/console` 应用经常出现 OOM（内存溢出）导致构建失败。之前尝试通过降低 turbo 并发（`--concurrency=2`）和提升 Node 堆内存（`NODE_OPTIONS=--max-old-space-size=4096`）解决，但会引发构建超时问题。\n\n经重新评估，根因及最佳优化方案如下：\n\n---\n\n## 1. 核心原因分析\n\n- **Vite/Rollup 构建环节消耗大量内存**\n  - Vite 配置 resolve.alias 指向 25+ 个 workspace package 的 src 源码，导致整个 monorepo 直接被 Vite/Rollup 一次性 AST 分析、tree-shake 和打包，单进程内存峰值可达 4-5GB。\n  - 打包阶段同时启用 `gzip`、`brotli` 等压缩插件和 `rollup-plugin-visualizer`（分析可视化），内存再叠加 1-1.5GB。\n  - turbo/turbo run 主要带来额外的 tsc 编译进程（并行数量大于 Vercel 平台合理承载数）。\n\n---\n\n## 2. 建议优化措施\n\n1. **Vercel/CI 环境禁用 memory-hungry 插件**\n   - 不在 Vercel 环境下运行 visualizer/temp stats 或 bundle 压缩插件（构建产物交由 CDN 自动压缩）。\n   - 通过 `process.env.VERCEL` 判断环境，CI 构建时跳过。\n2. **生产构建尽可能依赖预编译包（dist/）**\n   - resolve.alias 只在开发环境开启，生产构建直接依赖各包的 dist/ 出口，避免重复全量编译。\n   - 若需 workspace alias，尽量指向 dist/ 而非 src/。\n3. **确认 turbo & Vite 构建步骤分工**\n   - 若 alias 均指向 dist/，保留 turbo build 阶段；否则减去冗余步骤，提升构建速度并减缓内存压力。\n\n---\n\n## 3. 推荐 action\n- **关闭现有的\"降并发+扩堆内存\"方案（PR #974）**。\n- 新建 PR，按上面建议拆分 vite config（区分 dev 和 CI/生产场景插件）、alias 指向、turbo 与 vite 的协作模式。\n- 修改后在 Vercel 手动多次验证内存峰值和实际用时。\n\n---\n\n## 参考分析详情\n- https://github.com/objectstack-ai/objectui/pull/974\n- [Vercel limits 2026](https://vercel.com/docs/limits)\n\n如需具体配置代码示例，可在此 issue 下补充讨论。\n"
+}

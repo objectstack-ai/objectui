@@ -1,0 +1,33 @@
+{
+  "number": 1039,
+  "kind": "issue",
+  "title": "合并 SDUI 元数��平台 DetailView/RecordDetailView 重大优化（类型渲染/性能/响应式/虚拟化/元数据化）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-05T05:04:01Z",
+  "updated_at": "2026-03-08T06:51:43Z",
+  "closed_at": "2026-03-08T06:51:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1039",
+  "body": "## 合并优化 Issue：DetailView/RecordDetailView 代码架构与体验提升\n\n### 1. HeaderHighlight 高亮区类型感知展示\n- **问题**：高亮栏金额等字段未格式化，直接 `String(value)` 渲染，丢失货币、枚举等类型语义。\n- **建议**：使用 getCellRenderer 进行类型感知展示。例如金额要格式化为 `$250,000.00`；stage 等枚举字段可用 Badge。已传递 type 信息，只需在 HeaderHighlight.tsx 内处理。\n\n### 3. RecordDetailView 生成 detailSchema 需 useMemo 优化\n- **问题**：每次渲染都重新组装 detailSchema 对象，导致无谓 re-render，影响性能。\n- **建议**：用 useMemo 包裹 detailSchema，依赖 objectDef、pureRecordId、related、childRelatedData、actionRefreshKey。\n\n### 4. autoLayout 列数推断需考虑容器宽度（响应式优化）\n- **问题**：autoLayout 目前只按字段数量推断列数，iPad/手机等窄屏下易出现 3 列紧密排布，影响可读性。\n- **建议**：在 inferDetailColumns 增加对容器宽度的感知，或采用 CSS Container Query/useMediaQuery。宽度 <640px 强制1列，<900px 最多2列，其余按原逻辑。\n\n### 6. Activity/Chatter 面板空状态折叠\n- **问题**：底部无评论时 Activity 面板依然常显，占用大量页面空间。\n- **建议**：为 RecordChatterPanel/RecordActivityTimeline 传入 collapseWhenEmpty/defaultCollapsed 实现空状态自动收起。\n\n### 7. DetailSection 虚拟化渲染\n- **问题**：单一 section 字段多时全量挂载影响渲染性能。\n- **建议**：引入虚拟滚动配置（virtualScroll），在大字段数量时分批渲染/回收 DOM，提高性能。可用 @object-ui/react/usePerformance 已支持该配置。\n\n### 8. HIGHLIGHT_FIELD_NAMES 元数据化\n- **问题**：高亮字段名硬编码于代码中，不同业务��象场景下不适用。\n- **建议**：完全取自 objectDef.views.detail.highlightFields 配置，没有 fallback。\n\n---\n\n本 issue 汇总上述 6 项平台级 SDUI 代码优化，兼顾类型安全、性能、移动端体验、真实元数据驱动等维度。\n\n相关组件涉及：\n- `@object-ui/plugin-detail`（HeaderHighlight, DetailView, autoLayout, DetailSection, RecordChatterPanel, RecordActivityTimeline）\n- `apps/console`（RecordDetailView 构建层）\n\n\n<img alt=\"界面截图参考\" width=\"2732\" src=\"https://github.com/user-attachments/assets/399d0d0d-a0e9-434e-aa6d-47c4cc5e1aaf\" />\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 861,
+  "kind": "issue",
+  "title": "Dashboard右侧编辑器修改时左侧无法实时预览效果（排查所有导致Live Preview失效的原因）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "plugin: editor"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-25T08:25:46Z",
+  "updated_at": "2026-02-25T08:49:56Z",
+  "closed_at": "2026-02-25T08:49:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/861",
+  "body": "## 问题描述\n在Dashboard编辑页面，右侧Widget配置面板（如数据绑定、聚合、布局等字段）编辑时，左侧主区域预览不会实时反映修改效果。\n\n见如下截图：\n<img alt=\"编辑右侧无预览效果\" width=\"3834\" src=\"https://github.com/user-attachments/assets/0bfe14fb-c735-487b-a0cf-57f6a8b4a126\" />\n\n## 已知排查点\n1. **editSchema修改流**\n   - 右侧配置面板通过`useConfigDraft`管理草稿，字段修改后调用`onFieldChange`更新`editSchema`。\n   - `previewSchema = editSchema || dashboard` 应该驱动 DashboardRenderer 重新渲染新 schema。\n\n2. **DashboardRenderer组件**\n   - 能否响应`schema` prop更新，重新渲染所有widgets。\n   - 是否有memoization导致局部widget渲染不及时？\n\n3. **SchemaRenderer内容**\n   - 是否依赖外部数据（如dataSource），配置项变更时数据refetch有无触发？\n   - widget的`component`对象内容是否发生深拷贝/identity change，有无因为React浅对比失效。\n\n4. **配置面板与左侧渲染分离**\n   - Memoization策略（如`widgetConfig`、`editSchema`、`configVersion`）是否导致预览不同步。\n\n5. **其它场景补充**\n   - 多widget、嵌套widget或复杂数据源场景是否存在预览失效。\n   - 浏览器端不同屏幕/移动端等是否会出现此问题。\n\n## 建议排查步骤\n- 检查`handleWidgetFieldChange`是否完全驱动预览流。（setEditSchema后预览是否变化？）\n- DashboardRenderer内部是否对schema/widgets有深度响应。\n- widget/component config是否因memo或引用不变导致无法更新UI。\n- SchemaRenderer及widget自身数据依赖是否有副作用。\n- 编辑panel与主panel之间通信流是否一致且能触发重绘。\n\n## 相关代码分析摘要\n- 右侧ConfigPanel编辑通过`useConfigDraft`回调驱动editSchema。\n- 左侧DashboardRenderer响应editSchema为previewSchema。\n- DashboardRenderer渲染schema.widgets，但组件渲染或数据绑定可能未刷新。\n\n## 优先级\n- plugin: editor\n- bug\n\n---\n开发任务完成后请运行相关test并更新roadmap。"
+}

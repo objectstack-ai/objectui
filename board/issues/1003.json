@@ -1,0 +1,33 @@
+{
+  "number": 1003,
+  "kind": "pull_request",
+  "title": "fix: deduplicate action buttons in action-bar renderer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T09:39:42Z",
+  "updated_at": "2026-03-03T10:41:05Z",
+  "closed_at": "2026-03-03T10:26:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T10:26:29Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1003",
+  "body": "- [x] Analyze root cause of duplicate action buttons in record detail header\n- [x] Fix action-bar.tsx: Add deduplication by action `name` in `filteredActions` (platform-level fix)\n- [x] Fix RecordDetailView.tsx: Deduplicate `recordHeaderActions` before passing to schema (consumer-level defense)\n- [x] Add tests for deduplication in action-bar test suite (2 new tests)\n- [x] Run existing tests to validate changes (1839 tests pass, 14 action-bar tests pass)\n- [x] Code review and security scan (0 alerts)\n- [x] Fix React error #310: replaced `useMemo` (placed after early returns) with IIFE\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[Bug] Duplicate Action Buttons in Record Detail Header</issue_title>\n> <issue_description>### Problem\n> \n> In the CRM record detail page header (`RecordDetailView`), action buttons such as \"Change Status\" and \"Assign User\" are rendered multiple times, including both inline and in the dropdown.\n> 列表页也有类似的问题，这是一个元数据驱动的平台，从平台层面去解决为什么action按钮会重复？\n> \n> #### Screenshot\n> <img alt=\"Action buttons rendered multiple times in record detail header\" width=\"2732\" src=\"https://github.com/user-attachments/assets/42304771-593f-4fc4-ad9d-7ce9d9d3fdc4\" />\n> \n> ### Root Cause\n> - `recordHeaderActions` are pre-filtered for `record_header` but are wrapped in an `action:bar` and passed to the schema.\n> - In the `DetailView`, the schema renders both `action:bar` (which has its own overflow menu) **and** a separate hardcoded `⋯` (More Actions dropdown), leading to duplication.\n> - Actions defined with both `record_header` and `record_more` locations may appear in both the toolbar and the menu.\n> \n> ### How to Reproduce\n> 1. Go to any CRM record detail page (e.g., Project Task > Backend API Integration)\n> 2. Observe the action buttons: duplicates are visible inline and in the dropdown menu.\n> \n> ### Expected Behavior\n> - Each action should only appear once in the header.\n> - Inline actions and menu actions should not duplicate each other.\n> - \"More Actions\" dropdown should only show actions that are not shown inline.\n> \n> ### Possible Fix\n> - Deduplicate `recordHeaderActions` before passing to schema.\n> - `action:bar` should filter actions strictly by location and avoid including duplicates.\n> - Ensure menu actions do not overlap with inline actions.\n> - Consider merging the overflow logic into a single menu, not two.\n> \n> ### References\n> - Related code: apps/console/src/components/RecordDetailView.tsx, packages/plugin-detail/src/DetailView.tsx, packages/components/src/renderers/action/action-bar.tsx</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1002\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

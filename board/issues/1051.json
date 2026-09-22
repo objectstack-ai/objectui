@@ -1,0 +1,36 @@
+{
+  "number": 1051,
+  "kind": "pull_request",
+  "title": "chore(deps): bump lucide-react from 0.576.0 to 0.577.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "plugin",
+    "plugin: kanban"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-09T07:56:40Z",
+  "updated_at": "2026-03-09T09:11:07Z",
+  "closed_at": "2026-03-09T08:07:49Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-09T08:07:49Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1051",
+  "body": "[//]: # (dependabot-start)\n⚠️  **Dependabot is rebasing this PR** ⚠️ \n\nRebasing might not happen immediately, so don't worry if this takes some time.\n\nNote: if you make any changes to this PR yourself, they will take precedence over the rebase.\n\n---\n\n[//]: # (dependabot-end)\n\nBumps [lucide-react](https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react) from 0.576.0 to 0.577.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/lucide-icons/lucide/releases\">lucide-react's releases</a>.</em></p>\n<blockquote>\n<h2>Version 0.577.0</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>chore(deps): bump rollup from 4.53.3 to 4.59.0 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4106\">lucide-icons/lucide#4106</a></li>\n<li>fix(repo): correctly ignore docs/releaseMetadata via .gitignore by <a href=\"https://github.com/bhavberi\"><code>@​bhavberi</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4100\">lucide-icons/lucide#4100</a></li>\n<li>feat(icons): added <code>ellipse</code> icon by <a href=\"https://github.com/KISHORE-KUMAR-S\"><code>@​KISHORE-KUMAR-S</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/3749\">lucide-icons/lucide#3749</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/bhavberi\"><code>@​bhavberi</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4100\">lucide-icons/lucide#4100</a></li>\n<li><a href=\"https://github.com/KISHORE-KUMAR-S\"><code>@​KISHORE-KUMAR-S</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/3749\">lucide-icons/lucide#3749</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/lucide-icons/lucide/compare/0.576.0...0.577.0\">https://github.com/lucide-icons/lucide/compare/0.576.0...0.577.0</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/lucide-icons/lucide/commit/f6c0d0603ae2bc92f54d0397d70233274e53da97\"><code>f6c0d06</code></a> chore(deps): bump rollup from 4.53.3 to 4.59.0 (<a href=\"https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react/issues/4106\">#4106</a>)</li>\n<li>See full diff in <a href=\"https://github.com/lucide-icons/lucide/commits/0.577.0/packages/lucide-react\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=lucide-react&package-manager=npm_and_yarn&previous-version=0.576.0&new-version=0.577.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

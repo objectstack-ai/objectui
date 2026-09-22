@@ -1,0 +1,33 @@
+{
+  "number": 825,
+  "kind": "pull_request",
+  "title": "fix: add spec-compliant fields to all dashboard widgets in examples",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-24T06:45:21Z",
+  "updated_at": "2026-02-24T07:19:03Z",
+  "closed_at": "2026-02-24T07:06:53Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-24T07:06:52Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/825",
+  "body": "Dashboard widgets across all examples were missing required `DashboardWidgetSchema` spec fields (`id`, `title`, `object`, `categoryField`, `valueField`, `aggregate`), causing empty property panels and broken config workflows.\n\n### Changes\n\n- **`examples/crm/src/dashboards/crm.dashboard.ts`** — 10 widgets: added `id`, `title`, `object`; chart widgets get `categoryField`/`valueField`/`aggregate`\n- **`examples/todo/objectstack.config.ts`** — 6 widgets: same treatment\n- **`examples/kitchen-sink/objectstack.config.ts`** — 7 widgets: same treatment\n- **`examples/crm/src/__tests__/crm-metadata.test.ts`** — 5 new spec compliance tests (unique ids, titles, object binding, metric title↔label consistency, chart data binding fields)\n- **`ROADMAP.md`** — Added completion entry\n\n### Before → After\n\n```ts\n// Before: metric widget missing id/title/object\n{\n  type: 'metric',\n  layout: { x: 0, y: 0, w: 1, h: 1 },\n  options: { label: 'Total Revenue', value: '$652,000', icon: 'DollarSign' }\n}\n\n// After: spec-compliant\n{\n  id: 'crm_total_revenue',\n  title: 'Total Revenue',\n  type: 'metric',\n  object: 'opportunity',\n  layout: { x: 0, y: 0, w: 1, h: 1 },\n  options: { label: 'Total Revenue', value: '$652,000', icon: 'DollarSign' }\n}\n```\n\nChart widgets additionally get top-level data binding:\n\n```ts\n{\n  id: 'crm_pipeline_by_stage',\n  title: 'Pipeline by Stage',\n  type: 'bar',\n  object: 'opportunity',\n  categoryField: 'stage',\n  valueField: 'amount',\n  aggregate: 'sum',\n  // options unchanged...\n}\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>examples 目录下所有 dashboard/widget 元数据不符合 spec 协议的修正清单与整改</issue_title>\n> <issue_description># 问题概述\n> \n> 目前 `examples/` 目录下各演示项目（如 `crm`、`todo`）的 dashboard 和 widget 元数据存在多处与 @objectstack/spec 协议不符的情况，导致属性面板、自动表单等功能无法标准工作，极大影响定制和二次开发。\n> \n> **主要症状：**\n> - 选中 widget 后右侧属性面板 fields 空白或提示\"请选择对象/字段\"。\n> - 部分 widget 未显示 title，也无聚合等关键参数。\n> - 某些 KPI metric widget 缺失 id/title。\n> \n> ---\n> \n> ## 核心规范遗漏\n> 所有 Dashboard Widget 必须具备 spec 标准字段（见 [DashboardWidgetSchema](https://github.com/objectstack-ai/objectui/blob/main/packages/types/src/complex.ts)）\n> \n> - `id`：唯一标识（务必保证）\n> - `title`：用于属性/工具面板的人类可读标题\n> - `object`：数据源对象（如 chart 数据源）\n> - `categoryField`：X 轴或分组字段（如 bar/line/pie）\n> - `valueField`：Y 轴或数值字段\n> - `aggregate`：聚合函数（如 sum/count/avg/min/max），适用 chart/table/pivot\n> - metric/KPI widget 保证 id/title；title 应与 options.label 保持一致\n> \n> ---\n> \n> ## 实际 examples 违规清单（已排查主要 demo）\n> \n> ### 1. examples/crm/src/dashboards/crm.dashboard.ts\n> - 所有 chart/table widget（如 Revenue Trends、Lead Source）均只在 options 填写 xField/yField/data，**未写 object/categoryField/valueField/aggregate 等 spec 字段**\n> - 所有 metric widget 均未填写 id，也无 title，仅 options.label\n> - \"Recent Opportunities\"（type: table）同样无数据绑定字段，无 id/title\n> - 某些 bar/pie/table widgets 仅 options.data，无上层动态数据源描述\n> \n> ### 2. examples/todo/objectstack.config.ts 下 dashboards 字段\n> - 所有 widget 均未填写 id/title/object/categoryField/valueField/aggregate（均藏在 options 内）\n> - KPI metric widget 只写 options.label/value，无 id/title\n> - 统计类 chart widget（Tasks by Status、Tasks by Category）缺少上面列举 spec 字段。\n> \n> ### 3. 其他 demo（如 examples/erp、examples/finance 等）[如存在暂略，建议提取脚本批量校验]\n> - 检查所有 dashboard/widget 元数据是否存在相同问题。\n> \n> ---\n> \n> ## 需要修正的内容\n> - [ ] 为所有 dashboard widgets 添加唯一 `id` 字段\n> - [ ] 所有 widget 添加标准 `title`（title 与 options.label 对齐）\n> - [ ] bar/line/area/pie/donut/table/pivot 等可绑定数据 widget，**顶级添加 object/categoryField/valueField/aggregate 等绑定字段**，options 仅为渲染补充\n> - [ ] metric widget 也应加 `object` 指明来源（如有）\n> - [ ] 检查 filter/measures/colorVariant 等，高级属性是否遗漏规范化\n> \n> ---\n> \n> ## 建议流程\n> 1. 批量 parse/validate examples/ 下所有 dashboard/widget，输出未补全字段清单\n> 2. 逐个修正 examples/crm、examples/todo 等源码 schema\n> 3. 所有字段用 spec 标准英文名、注释补充，多语言/业务自定义内容统一放 options\n> 4. 增加自动化测试，防止回归\n> \n> ---\n> \n> ## 参考\n> - [DashboardWidgetSchema spec 协议定义](https://github.com/objectstack-ai/objectui/blob/main/packages/types/src/complex.ts)\n> - [P1.3 Dashboard Spec Alignment 测试](https://github.com/objectstack-ai/objectui/blob/main/packages/types/src/__tests__/p1-spec-alignment.test.ts)\n> \n> 如需详细文件位置、需修正内容 diff，可追加提交。欢迎补充其他 example 的类似问题。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#824\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

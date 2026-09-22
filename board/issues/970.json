@@ -1,0 +1,33 @@
+{
+  "number": 970,
+  "kind": "pull_request",
+  "title": "feat(plugin-detail): complete remaining roadmap features for detail page",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-02T08:55:34Z",
+  "updated_at": "2026-03-02T11:06:32Z",
+  "closed_at": "2026-03-02T11:01:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-02T11:01:36Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/970",
+  "body": "- [x] 1. **Auto-discover related lists from objectSchema reference fields** — Added `autoDiscoverRelated` prop to DetailViewSchema; when true, auto-generates related lists from lookup/master_detail reference fields in objectSchema\n- [x] 2. **Tab layout (Details/Related/Activity) for detail page** — Added `autoTabs` prop; when true, organizes sections into Details tab, related lists into Related tab, and activities into Activity tab\n- [x] 3. **Related list row-level Edit/Delete quick actions** — Added `onRowEdit`/`onRowDelete` callback props to RelatedList; renders Edit/Delete buttons per row with confirmation dialog for delete\n- [x] 4. **Related list pagination, sorting, filtering** — Added `pageSize`, `sortable`, `filterable` props to RelatedList; includes client-side pagination controls, sort buttons, and text filter input\n- [x] 5. **Collapsible section groups** — Added `SectionGroup` component and `sectionGroups` prop to DetailViewSchema for grouping multiple sections under a collapsible header\n- [x] 6. **Header highlight area with key fields** — Added `HeaderHighlight` component and `highlightFields` prop to DetailViewSchema for a prominent key-field banner below the header\n- [x] 7. Add i18n translation keys for new features (11 new keys)\n- [x] 8. Add tests for all new features (36 new tests, all passing)\n- [x] 9. Update ROADMAP.md to reflect completed items\n- [x] 10. Code review and security checks (0 CodeQL alerts)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 完成roadmap 开发\n> \n> Remaining (future PRs):\n> \n>  Auto-discover related lists from objectSchema reference fields\n>  Tab layout (Details/Related/Activity) for detail page\n>  Related list row-level Edit/Delete quick actions\n>  Related list pagination, sorting, filtering\n>  Collapsible section groups\n>  Header highlight area with key fields\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

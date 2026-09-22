@@ -1,0 +1,37 @@
+{
+  "number": 738,
+  "kind": "issue",
+  "title": "Feature: App Creation & Editing Flow (Airtable Designer UX, spec-compliant)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "designer",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-23T03:51:37Z",
+  "updated_at": "2026-02-26T09:39:55Z",
+  "closed_at": "2026-02-26T09:39:55Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/738",
+  "body": "## Overview\nDesign and implement a complete App Creation & Editing Flow in ObjectUI, following spec协议要求，并对标 Airtable Interface Designer 的用户体验，覆盖 app/schema 创建、导航、页面、Dashboard 等全流程。\n\n---\n\n### 1. App Creation Wizard\n- 多步表单（对标 Airtable，新建Interface Wizard）\n- 步骤：\n  1. App基础信息（名称、icon、描述、模板）\n  2. 选择/新建业务对象（Object list，选中即自动生成侧边导航条）\n  3. 拓扑导航树Builder（支持拖拽、无限递归分组）\n  4. Branding（Logo、主题色、Favicon，可预览）\n- 使用 spec 的 AppSchema ���准字段（强校验——name必须snake_case，传入DefineApp）\n\n### 2. Navigation Designer\n- 拖拽式组件树（递归 NavigationItemSchema）\n- 快速添加（Object Page、Dashboard、Report、Group、外链URL）\n- 所见即所得，左侧导航可实时预览\n\n### 3. Page/Canvas Editor\n- WYSIWYG 画布，支持单页/多页（PageSchema、DashboardSchema 全覆盖）\n- 拖拽添加组件（Grid, Kanban, Gallery, Calendar, Dashboard集成Chart）\n- 属性面板（各组件props、数据源、过滤、动作、外观配置）\n- 支持与导航同步（新建页面→立即加到导航树）\n\n### 4. Dashboard Editor\n- 支持DashboardSchema，网格布局，拖拽排序\n- Widget类型齐全（KPI卡片、表格、各类图表）\n- Widget属性编辑（数据源、过滤、聚合，布局，样式）\n\n### 5. Object View Configurator\n- 映射 ListViewSchema/FormViewSchema\n- 支持多视图切换、列显示控制、快速筛选器等\n- 各种记录增删改（inline/new record/dialog/form）\n\n### 6. 快捷交互与底层特性\n- 实时预览/编辑模式切换（Edit/Preview/Code）\n- Wizard 状态管理 & draft/undo/redo\n- JSON Schema/TypeScript Code 双向预览\n- 支持移动端（mobileNavigation配置项）\n- 完全无后端依赖的mock/preview模式\n- 完整的 i18n 支持\n\n---\n\n## 交付要求\n- 前端页面设计稿（含设计系统）\n- React 组件实现（Tailwind + cva + @object-ui/types协议驱动）\n- 完善 Vitest + RTL 测试用例\n- Demo/Storybook 场景及开发文档\n- 保证协议兼容 objectstack-ai/spec 的 App/Page/View/Dashboard/NavigationItem Schema\n- 提交前必须 `pnpm test` 通过并更新 roadmap/issue\n\n---\n\n## 相关参考\n\nhttps://github.com/objectstack-ai/objectui/wiki/%E5%BA%94%E7%94%A8%E5%88%9B%E5%BB%BA-&-%E7%BC%96%E8%BE%91%E6%B5%81%E7%A8%8B%E8%AE%BE%E8%AE%A1%E6%96%B9%E6%A1%88\n\n- [spec repo: AppSchema/Nav/Page/Dashboard/View](https://github.com/objectstack-ai/spec/tree/main/packages/spec/src/ui)\n- [Airtable Interface Designer UX](https://support.airtable.com/hc/en-us/sections/900000249703-Interface-Designer)\n- [Notion page builder]\n\n---\n\n（如需子任务，请拆分 navigation、dashboard、canvas/page editor 等为多issue，或指定子模块 owner）\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1109,
+  "kind": "issue",
+  "title": "[i18n] `/api/v1/i18n/translations/:lang` 返回 translations 为空，根因与 createKernel i18n Service 注册实现有关",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-22T03:37:01Z",
+  "updated_at": "2026-03-23T03:38:22Z",
+  "closed_at": "2026-03-23T03:38:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1109",
+  "body": "## 问题描述\n运行 `pnpm dev` 时，访问接口 `http://localhost:3000/api/v1/i18n/translations/zh` 返回：\n\n```json\n{\"success\":true,\"data\":{\"locale\":\"zh\",\"translations\":{}}}\n```\nCRM 业务国际化实际未生效。\n\n---\n\n## 初步定位\n核心表现：无论 mock/server/MSW，接口始终 `translations: {}` 为空。\n\n- CRM 翻译包（`crmLocales.zh`）数据实际完整且已合入。\n- `objectstack.shared.ts` 的 `sharedConfig.i18n.bundles` 合并正确，也能拿到 CRM 包。\n- **但 `apps/console/src/mocks/createKernel.ts` 注册 i18n Service 的 `getTranslations` 实现格式不对**，返回的是 `{ locale, translations }` 对象，而 spec HttpDispatcher 期望 i18n Service 返回的是平铺的 translations 字典（`Record<string, string>`），dispatcher 再包一层 `{ data: { locale, translations } }`。\n- Dispatcher 捕获的实际结果是 `{ data: { locale, translations: { locale, translations: {...} } } }` 或 `{ data: { locale, translations: {} } }`，下游拿到为空。\n\n### 可疑点复查\n1. `createKernel.ts` 注册的 i18n service：\n   - `getTranslations: (lang) => ({ locale: lang, translations: ... })` —— 格式多包了一层。\n2. catch-all dispatcher 只认 spec `II18nService.getTranslations(lang) => Record<string, any>` 的输出。\n3. MSW mock handler 路径没有通配，可能没被正确命中（实际大概率 dispatcher 在 server/dev 环境下优先生效）。\n4. 传入的 `bundles`、`crmLocales` 本身大概率无问题，层层定义没断。\n\n---\n\n## 修复建议\n- **修正 `createKernel.ts` 内 `kernel.registerService('i18n')` 的实现使其兼容 spec II18nService接口**：\n  - `getTranslations: (lang) => resolveI18nTranslations(i18nBundles, lang)`，而不是 `{ locale, translations: ... }`\n  - 这样 dispatcher 包装后的层级刚好是 `{ data: { locale, translations } }`\n- 严格对齐 spec 对于 service-i18n 返回类型的断言，避免再包裹一层。\n- 检查 MSW custom handler 路径注册时是否要加 `*` 通配前缀，以防浏览器 dev/proxy 静默不命中。\n\n---\n\n## 验证\n- 修复后 `/api/v1/i18n/translations/zh` 返回应为：\n```json\n{\"success\":true,\"data\":{\"locale\":\"zh\",\"translations\":{\"crm\":{...}}}}\n```\n- CRM 及通用字段能正常切换和 fallback。\n- 运行 `pnpm test`、`pnpm dev`、storybook mock_server 下均兼容。\n\n---\n\n## 参考\n- [spec II18nService](https://github.com/objectstack-ai/spec/blob/main/packages/runtime/src/services/service-i18n.ts)\n- [objectstack.shared.ts 合并代码]\n- [createKernel.ts i18n handler 注册代码]"
+}

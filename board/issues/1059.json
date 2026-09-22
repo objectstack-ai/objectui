@@ -1,0 +1,33 @@
+{
+  "number": 1059,
+  "kind": "pull_request",
+  "title": "feat(components): migrate to unified radix-ui package + shadcn v4 RTL classes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-10T04:00:51Z",
+  "updated_at": "2026-03-10T05:10:30Z",
+  "closed_at": "2026-03-10T05:06:23Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-10T05:06:22Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1059",
+  "body": "Aligns `@object-ui/components` with shadcn v4 (Jan–Feb 2026 changelog): adds logical side animation classes for RTL support and consolidates 27 individual `@radix-ui/react-*` packages into the unified `radix-ui` package.\n\n## Inline start/end animation classes\n\nPer the [January 2026 shadcn update](https://ui.shadcn.com/docs/changelog), adds `data-[side=inline-start]` and `data-[side=inline-end]` slide-in classes to all floating content components so animations behave correctly in RTL layouts:\n\n- `tooltip.tsx`, `popover.tsx`, `hover-card.tsx`\n- `dropdown-menu.tsx`, `context-menu.tsx`, `menubar.tsx`, `select.tsx`\n\n## Unified `radix-ui` package migration\n\nPer the [February 2026 shadcn update](https://ui.shadcn.com/docs/changelog), replaces 27 individual `@radix-ui/react-*` dependencies with the single `radix-ui` package.\n\n**Import pattern change** (namespace semantics are identical — no usage logic changes):\n```ts\n// Before\nimport * as DialogPrimitive from \"@radix-ui/react-dialog\"\n\n// After\nimport { Dialog as DialogPrimitive } from \"radix-ui\"\n```\n\n**`Slot` named-import pattern** (only case requiring usage updates):\n```ts\n// Before\nimport { Slot } from \"@radix-ui/react-slot\"\nconst Comp = asChild ? Slot : \"button\"\n\n// After\nimport { Slot as SlotPrimitive } from \"radix-ui\"\nconst Comp = asChild ? SlotPrimitive.Slot : \"button\"\n```\n\nCovers all 48 UI components plus custom components (`button-group`, `field`, `item`, `mobile-dialog-content`). `command.tsx`'s `DialogProps` type is now derived via `React.ComponentProps<typeof DialogPrimitive.Root>`. `shadcn-components.json` registry metadata updated to reflect the consolidated dependency.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

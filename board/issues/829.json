@@ -1,0 +1,37 @@
+{
+  "number": 829,
+  "kind": "issue",
+  "title": "[Bug] Dashboard 图表不支持 provider: 'object'，导致动态聚合类 widget 均显示空白",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "data-adapter",
+    "plugin: charts"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-24T09:59:26Z",
+  "updated_at": "2026-02-24T10:16:03Z",
+  "closed_at": "2026-02-24T10:16:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/829",
+  "body": "# CRM Dashboard \"Revenue by Account\" 图表数据展示与 provider: 'object' 适配相关问题\n\n## 主要问题描述\n在 CRM Demo Dashboard（`crm_dashboard`）中，\"Revenue by Account\" 这一 widget 采用了 provider: 'object' 或聚合对象数据（如：sum by account），但在页面中始终无法显示任何数据，呈现空白。\n\n**经过源码排查，发现存在如下核心问题：**\n\n### 1. DashboardRenderer 只支持 provider: 'value' 的静态/演示数据\n代码位置：`packages/plugin-dashboard/src/DashboardRenderer.tsx`, getComponentSchema()\n- 当前的 getComponentSchema() 仅能识别：\n  - widgetData 为数组（即硬编码数据）\n  - widgetData.items（provider: 'value' 格式）\n- 对于 provider: 'object' 场景，dashboard 配置只会传递聚合描述对象（如 { provider: 'object', object: 'opportunity', aggregate: {...} }），而当前实现直接取 widgetData?.items || []，于是 chart 渲染始终接收到空数组，实际未启动过真正的数据查询，因此始终显示空白。\n\n### 2. 未将 object provider 的 data schema 向下传递给 ObjectChart 等图表组件\n- DashboardRenderer 实际缺少对 provider: 'object' 的 schema 透传能力，导致如 ObjectChart 等异步数据组件没法根据配置自行请求并渲染数据。\n- demo 配置未能全流程走通\"动态聚合数据→画图\"这条链路。\n\n### 3. 其他潜在相关问题\n- 代码内文档和 WidgetConfig 面板未明确当前聚合/动态数据 provider 的适配边界，易让开发和维护成员误以为 dashboard 已支持所有数据源类型，造成踩坑。\n- 其他有同样数据 provider 但非静态 items 的 widget 亦会出现该现象。\n- 当前 DashboardRenderer TESTS 未覆盖\"对象聚合\"真实数据流动场景。\n\n## 建议修复方案\n1. **DashboardRenderer 需识别 provider: 'object' 并将 Schema 透传**\n    - 由图表子组件（如 ObjectChart）负责根据 config.provider=object 配置异步加载并管理 loading/error 状态，DashboardRenderer 不再直接取 items 数组，而应透传整个 data 配置。\n2. **完善相关 Widget 的测试**，覆盖 provider: 'object' 场景（含异步 mock 数据流动、渲染和出错态）。\n3. **完善文档和设计面板提示**，避免使用者被静态 demo 迷惑。\n\n---\n\n# 问题复现和定位路径（for QA/dev）\n- 打开 https://demo.objectui.org/apps/crm_app/dashboard/crm_dashboard\n- 查看 \"Revenue by Account\" 图表，一直空白；Chrome F12 可见 DOM 下数据数组为空\n- 查看源码：examples/crm/src/dashboards/crm.dashboard.ts（最后一个widget配置）\n- 跟进 renderer：packages/plugin-dashboard/src/DashboardRenderer.tsx，getComponentSchema()\n\n---\n\n# 建议标签/类型\n- labels: plugin: charts, data-adapter, bug\n- type: Bug\n"
+}

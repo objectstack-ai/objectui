@@ -1,0 +1,33 @@
+{
+  "number": 924,
+  "kind": "pull_request",
+  "title": "Fix edit form recordId mismatch on detail page; widen modal for tablet",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-01T08:15:46Z",
+  "updated_at": "2026-03-01T08:40:48Z",
+  "closed_at": "2026-03-01T08:36:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-01T08:36:07Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/924",
+  "body": "`RecordDetailView` passes the URL-param `recordId` (e.g. `contact-1772350253615-4`) directly to `ModalForm`, but the backend expects the bare ID (`1772350253615-4`). This causes \"Record not found\" on every detail-page edit. Additionally, the edit modal defaults to `max-w-lg`, which is too narrow on tablet viewports.\n\n### Changes\n\n- **`RecordDetailView.tsx`** — Strip `${objectName}-` prefix from URL recordId before passing to `onEdit`:\n  ```tsx\n  const pureId = recordId?.startsWith(`${objectName}-`)\n    ? recordId.slice(objectName.length + 1)\n    : recordId;\n  onEdit({ _id: pureId, id: pureId });\n  ```\n- **`App.tsx`** — Set `modalSize: 'lg'` (`max-w-2xl`) on the CRUD `ModalForm` schema\n- **`RecordDetailEdit.test.tsx`** — Tests for both prefixed and non-prefixed recordId cases\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[Bug] Edit form shows 'Record not found' when editing from detail page (recordId mismatch); modal width too narrow on tablet</issue_title>\n> <issue_description>### 问题描述\n> 在记录详情页点击\"编辑\"按钮时，弹出的 ModalForm 报错 `Error loading form [ObjectStack] Record contact-1772350253615-4 not found in contact`，实际是 recordId 传递格式与后台不匹配导致查不到数据，同时弹窗宽度在 iPad 等中等屏幕下偏窄，影响使用体验。\n> \n> **截图：**\n> <img alt=\"详情页编辑报错截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/8a044f8f-6f3a-4d7a-acbe-9891a389a8e4\" />\n> \n> ### 复现步骤\n> 1. 打开任一对象的详情页（如 Contact）。\n> 2. 点击编辑按钮。\n> 3. 出现弹窗，报错\"Record not found\"。\n> \n> ### 期望结果\n> - 编辑弹窗应正确读取当前记录数据，ID 传递格式应与后端一致。\n> - 在 iPad 或中等分辨率下，弹窗宽度应自适应，避免过窄。\n> \n> ### 当前行为分析\n> - RecordDetailView 组件将 URL 中的 recordId（包含 objectName 前缀，如 `contact-1772350253615-4`）直接作为 ModalForm 的 recordId，导致后端查找失败。\n> - ModalForm 初始化时，通过 dataSource.findOne(schema.objectName, schema.recordId) 查找记录，查不到时报错。\n> - Modal 宽度采用默认设置，在中等分辨率下用户体验较差。\n> \n> ### 建议修复方案\n> - RecordDetailView.onEdit 时，应去除前缀，将纯 ID 传递给 ModalForm，或者在后端兼容此格式。\n> - ModalForm 增加 modalSize=\"lg\"，提升中等屏幕的视觉体验。\n> \n> ### 影响范围\n> - ��有详情页快速编辑场景\n> - PAD/平板端弹窗交互体验\n> \n> ---\n> \n> #### 其他相关说明\n> 如需要技术细节或示例代码，可参考 apps/console/src/components/RecordDetailView.tsx 和 ModalForm 调用链。\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#923\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 778,
+  "kind": "pull_request",
+  "title": "feat: App Branding Editor with visual theme editing, undo/redo, and i18n",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T08:49:18Z",
+  "updated_at": "2026-02-23T09:32:32Z",
+  "closed_at": "2026-02-23T09:13:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T09:13:12Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/778",
+  "body": "Standalone `BrandingEditor` component for visual editing of `AppSchema.branding` / `ThemeSchema` configuration — logo, colors, favicon, font, with real-time preview.\n\n### Component (`packages/plugin-designer/src/BrandingEditor.tsx`)\n- Logo URL + favicon URL inputs with live preview\n- Native `<input type=\"color\">` picker + 16-swatch preset palette (Blue→Navy)\n- Font family selector (9 web fonts + system default)\n- Light/dark mode preview toggle (desktop + mobile mockup)\n- Undo/redo via `useUndoRedo` hook, synced to parent `onChange` via `useEffect`\n- JSON export/import (file I/O or custom `onExport`/`onImport` callbacks)\n- Read-only mode, keyboard shortcuts (Ctrl+Z/Y), responsive layout\n\n```tsx\n<BrandingEditor\n  branding={{ logo: '...', primaryColor: '#6366f1', favicon: '...' }}\n  onChange={(config: BrandingConfig) => save(config)}\n  appTitle=\"My CRM\"\n  onExport={(b) => download(b)}\n/>\n```\n\n### i18n\n- 14 new keys (`brandingEditor`, `colorPalette`, `modeLight`, `modeDark`, `mobilePreview`, etc.) added to all 10 locales + `useDesignerTranslation` fallbacks\n\n### Registry & Exports\n- Registered as `branding-editor` in `ComponentRegistry`\n- Exported `BrandingEditor` + `BrandingEditorProps` from package index\n\n### Tests\n- 29 tests covering rendering, editing, palette swatches, light/dark toggle, read-only, undo/redo propagation, export/import callbacks, keyboard shortcuts, preview content\n\n### Roadmap\n- Updated `ROADMAP.md` P1.11 section with branding editor completion, test counts (235→297 across designer+i18n)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>App Branding Editor（品牌与主题可视化编辑器）</issue_title>\n> <issue_description>实现应用品牌个性化主题编辑模块，对接AppSchema/ThemeSchema：\n> \n> ## 开发内容\n> 1. Logo上传、主题色选择（可视化）、Favicon管理\n> 2. 支持主题实时预览和撤销\n> 3. 输出配置到AppSchema.branding/ThemeSchema协议\n> 4. 审核常用主题色板，支持浅/深色切换\n> 5. 多语言及移动端主题预览\n> \n> ## 交付要求\n> - 主题编辑器React组件松耦合、可独立复用\n> - 完善组件Storybook+单元测试\n> - DEMO及开发文档\n> - `pnpm test` 通过\n> - Roadmap及时同步</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#747\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

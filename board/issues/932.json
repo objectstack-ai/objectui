@@ -1,0 +1,35 @@
+{
+  "number": 932,
+  "kind": "issue",
+  "title": "【需求/优化】Dashboard 表格类（Table/Pivot）widget 支持 object 数据+上下文感知配置面板优化",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "configuration"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-01T09:48:11Z",
+  "updated_at": "2026-03-01T11:28:30Z",
+  "closed_at": "2026-03-01T11:28:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/932",
+  "body": "### 目标\n全面提升 Dashboard 表格类（Table/Pivot）组件体验，支持 object provider（异步数据），并为各类 widget 区分专属的配置面板。\n\n---\n\n#### 需修改&优化的细节清单\n\n**P0. object/provider 支持（Table & Pivot）**\n- [ ] 新增 / 改造 `ObjectDataTable`、`ObjectPivotTable` 组件，实现 schema 中配置 `{dataProvider, objectName}` 之后自动加载数据，填充表格\n    - 加载中显示 skeleton，异常显示错误提示，空数据有友好提示\n    - 支持 columns/rows/value 字段自动推导（如无则根据 metadata 自动生成）\n    - 同���支持 pivot 类型，解决当前 pivot widget 空数据无渲染、无加载的问题\n- [ ] `DashboardRenderer` 里 Table 与 Pivot 都应根据 provider/objectName 自动选择正确渲染器，并统一传递 config（不能一直 data: []）\n\n**P1. WidgetConfigPanel 全面上下文感知（动态渲染）**\n- [ ] 配置面板根据 widget type 动态生成：\n    - Table 类型支持自定义 columns（含排序、宽度、显示/隐藏、label）\n    - Pivot 类型支持 Rows、Columns、Values、Show Totals、Sort by 等完整配置\n    - Chart 类型展示 axis、series、legend 等专属面板\n- [ ] 支持选项的拖动排序、switch、toggle，控件信息密度、交互细节参考 Airtable\n- [ ] 目前 Title、Description 字段如果是 I18nLabel 格式，统一预处理（resolveLabel）避免显示 [object Object]\n- [ ] 配置面板视觉密度提升，参考 Airtable 右侧结构优化分组、文案排版\n\n**P2. 新 widget 类型补全、入口展示**\n- [ ] Dashboard 新增 widget 下拉菜单补充 Pivot Table 类型\n- [ ] Widget 类型面板图标与交互优化（分组展示/置顶常用类型）\n\n**P3. 响应式 grid 和 metric 卡片优化**\n- [ ] 卡片类 widget (如 metric) 处理 overflow/截断异常，Grid 布局自动 clamp col\n\n**P4. 细节体验强化**\n- [ ] dashboard 下的 table/pivot 空状态信息更合适（非一律放大镜/搜索 icon）\n- [ ] 完善多维表格、空行/合计行/小计行的样式细节\n\n---\n**实现要求**\n- 每条优化单独 commit 或 PR\n- 完善对应测试用例/故事\n- 任务完成后：跑通测试，更新 ROADMAP.md，更新关联 issue\n- 如需跨 repo 协作，自动创建 cross-repo 问题\n\n<img alt=\"Airtable pivot截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/5ebb9b80-48ae-4284-8c94-b8dbb6d0f2b0\" />\n"
+}

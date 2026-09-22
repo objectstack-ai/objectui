@@ -1,0 +1,33 @@
+{
+  "number": 741,
+  "kind": "issue",
+  "title": "设置面板 UI 严格按协议（spec）对齐、梳理和整改",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T04:43:12Z",
+  "updated_at": "2026-02-26T09:39:55Z",
+  "closed_at": "2026-02-26T09:39:55Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/741",
+  "body": "## 背景\n\n当前 Console 设置面板（ConfigPanel）已实现 schema-driven 架构，但 UI 设计未做到严格与协议（spec）定义对齐，存��部分字段、结构或交互与协议描述不一致现象。\n\n## 任务内容\n\n- 全面梳理当前设置面板各 Section（如 PageConfig、Data、Appearance、UserActions、Sharing、Accessibility 等）涉及的 UI 字段、控件、分组、布局细节，与 spec 协议（如 objectViewSchema/listViewSchema/DashboardViewSchema/Field options/控件类型等）进行一一对照\n- 列出所有不一致项，包括：字段缺失/多余、控件类型不符、分组结构不符、交互/校验/显示条件未按协议实现等\n- 严格以协议（spec）为唯一\"蓝本\"调整 UI，并补充/修正 panel schema，优先采用声明式映射而不是特殊逻辑/兼容 hack\n- 明确记录每一处改动的 spec 来源，如字段描述/属性、枚举、校验、分组规则、可选/必选项等\n- 用 issues/pr checklist 跟踪全部修正点，确保 UI 能一键映射 spec\n- 若 spec 未覆盖的实际需求，应输出\"协议建议\"并补充到产品/规范升级流程\n- 要求所有控件命名、顺序、分组、交互、校验、提示信息与协议完全一致，UI 不得自行\"优化\"字段或布局\n\n## 验收标准\n\n- 设置面板 UI 与 spec 协议字段/层级/校验/分组完全一致\n- 所有 UI 显示字段都有明确 spec 对应/注释\n- 不再存在\"协议外\"自定义控件或字段，所有特殊兼容、历史遗留 hack 已清理\n- UI 设计遇到协议缺口需同步补齐协议或提交升级建议\n\n## 附加说明\n- 强制 test 覆盖全部字段协议映射和校验逻辑\n- 完成后同步更新 Roadmap 与相关文档\n\n@hotlong 按上述要求推进，输出严格对齐 spec 的 schema-driven 设置面板实现和修正清单。"
+}

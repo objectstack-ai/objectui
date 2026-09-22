@@ -1,0 +1,35 @@
+{
+  "number": 940,
+  "kind": "issue",
+  "title": "examples/todo、crm等示例object缺少actions字段，导致Action按钮永远不显示（需补充actions并确保API流通）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-01T14:05:59Z",
+  "updated_at": "2026-03-01T14:54:34Z",
+  "closed_at": "2026-03-01T14:54:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/940",
+  "body": "### 问题描述\n示例仓库（如examples/todo、examples/crm等）的对象定义（object.object.ts/config）均未包含actions（纯fields）。actions均以栈顶层单独数组声明，没有自动merge，导致Console、Studio、低代码设计器、app-demo-console、PWA等所有界面业务Action按钮/批量Action菜单全部不可见。\n\n### 预期行为\n- 每个对象（task/contact等）都需有明确的actions字段（内联定义或通过插件注册自动合并）\n- actions需带locations（record_header/list_toolbar/list_item等）和完整metadata（图标、visible/disabled表达式、成功消息、批量/单条等）\n- /api/v1/meta/objects/:name 获取到的schema含actions字段，Console/Studio能实时渲染\n\n### 实现建议\n- 参照examples/crm/src/actions/*.actions.ts里的结构，每个对象都补充actions声明\n- 要么内联到objectSchema，要么在config里actions并配合AppPlugin自动merge机制\n- Todo示例应补全[完整按钮清单](https://github.com/objectstack-ai/objectui/issues/840#issuecomment)和handler（如completeTask, startTask, cloneTask, deferTask, setReminder等）\n- 保证API返回对象元数据含actions属性，前端无需任何手工merge\n\n### 价值\n- 完整支持可视ActionBar、ActionButton、ActionMenu所有位置批量/单条操作及二次开发使用\n- 对齐ServiceNow/Salesforce/Power Platform等主流SaaS一体化行为\n\nfixes #840\n"
+}

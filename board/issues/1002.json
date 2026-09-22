@@ -1,0 +1,36 @@
+{
+  "number": 1002,
+  "kind": "issue",
+  "title": "[Bug] Duplicate Action Buttons in Record Detail Header",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "duplicate"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-03T08:58:17Z",
+  "updated_at": "2026-03-03T10:26:30Z",
+  "closed_at": "2026-03-03T10:26:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1002",
+  "body": "### Problem\n\nIn the CRM record detail page header (`RecordDetailView`), action buttons such as \"Change Status\" and \"Assign User\" are rendered multiple times, including both inline and in the dropdown.\n列表页也有类似的问题，这是一个元数据驱动的平台，从平台层面去解决为什么action按钮会重复？\n\n#### Screenshot\n<img alt=\"Action buttons rendered multiple times in record detail header\" width=\"2732\" src=\"https://github.com/user-attachments/assets/42304771-593f-4fc4-ad9d-7ce9d9d3fdc4\" />\n\n### Root Cause\n- `recordHeaderActions` are pre-filtered for `record_header` but are wrapped in an `action:bar` and passed to the schema.\n- In the `DetailView`, the schema renders both `action:bar` (which has its own overflow menu) **and** a separate hardcoded `⋯` (More Actions dropdown), leading to duplication.\n- Actions defined with both `record_header` and `record_more` locations may appear in both the toolbar and the menu.\n\n### How to Reproduce\n1. Go to any CRM record detail page (e.g., Project Task > Backend API Integration)\n2. Observe the action buttons: duplicates are visible inline and in the dropdown menu.\n\n### Expected Behavior\n- Each action should only appear once in the header.\n- Inline actions and menu actions should not duplicate each other.\n- \"More Actions\" dropdown should only show actions that are not shown inline.\n\n### Possible Fix\n- Deduplicate `recordHeaderActions` before passing to schema.\n- `action:bar` should filter actions strictly by location and avoid including duplicates.\n- Ensure menu actions do not overlap with inline actions.\n- Consider merging the overflow logic into a single menu, not two.\n\n### References\n- Related code: apps/console/src/components/RecordDetailView.tsx, packages/plugin-detail/src/DetailView.tsx, packages/components/src/renderers/action/action-bar.tsx"
+}

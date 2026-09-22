@@ -1,0 +1,33 @@
+{
+  "number": 22,
+  "kind": "pull_request",
+  "title": "Add @object-ui/types package - TypeScript protocol definitions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-14T09:36:37Z",
+  "updated_at": "2026-03-23T19:09:21Z",
+  "closed_at": "2026-01-14T10:01:54Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-14T10:01:54Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/22",
+  "body": "## Plan: Define all @object-ui/types ✅ COMPLETE\n\n- [x] Create packages/types directory structure\n- [x] Define base schema types (BaseSchema, SchemaNode)\n- [x] Define all layout component schemas (Container, Flex, Grid, Card, Tabs)\n- [x] Define all form component schemas (Input, Button, Select, Checkbox, Form, etc.)\n- [x] Define all data display component schemas (Table, DataTable, List, Badge, Avatar, Chart, etc.)\n- [x] Define all feedback component schemas (Alert, Loading, Progress, Skeleton, Toast)\n- [x] Define all disclosure component schemas (Accordion, Collapsible)\n- [x] Define all overlay component schemas (Dialog, Sheet, Drawer, Popover, Tooltip, etc.)\n- [x] Define all navigation component schemas (Header, Sidebar)\n- [x] Define all complex component schemas (Kanban, Calendar, Timeline, FilterBuilder, etc.)\n- [x] Define common types (ComponentInput, ComponentMeta, ComponentConfig)\n- [x] Define data source types (DataSource interface)\n- [x] Create package.json for @object-ui/types\n- [x] Create tsconfig.json for @object-ui/types\n- [x] Export all types from index.ts\n- [x] Ensure ZERO dependencies (protocol-first design)\n- [x] Build package successfully\n- [x] Create comprehensive README documentation\n- [x] Add usage examples\n- [x] Address code review feedback (improve type safety, reduce duplication)\n- [x] Fix CI build failure - update pnpm-lock.yaml\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 定义所有的 @object-ui/types\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

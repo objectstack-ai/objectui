@@ -1,0 +1,37 @@
+{
+  "number": 1101,
+  "kind": "pull_request",
+  "title": "fix(console): unused params in test mocks breaking tsc build",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "tests"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-21T07:37:01Z",
+  "updated_at": "2026-03-21T08:39:13Z",
+  "closed_at": "2026-03-21T08:39:13Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-21T08:39:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1101",
+  "body": "`noUnusedParameters: true` in `apps/console/tsconfig.json` causes TS6133 on two mock component declarations in `ListToolbarActions.test.tsx`, failing the `tsc` step in CI.\n\n- Prefixed unused `props` → `_props` in `ObjectKanban` and `ObjectCalendar` vi.mock factories\n\n```diff\n-  ObjectKanban: (props: any) => <div data-testid=\"object-kanban\">Kanban View</div>\n+  ObjectKanban: (_props: any) => <div data-testid=\"object-kanban\">Kanban View</div>\n```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix all ci errors, build and test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n⚡ Quickly spin up Copilot coding agent tasks from anywhere on your macOS or Windows machine with [Raycast](https://gh.io/cca-raycast-docs).\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 1014,
+  "kind": "pull_request",
+  "title": "Remove unnecessary CI tests to reduce test suite overhead",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T14:02:21Z",
+  "updated_at": "2026-03-03T15:29:58Z",
+  "closed_at": "2026-03-03T15:26:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T15:26:52Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1014",
+  "body": "Each of the 384 test files incurs ~4.7s of setup overhead (environment init, imports, setup files). Removing files with no meaningful regression value directly reduces wall-clock time.\n\nRemoved 11 test files (~77 tests) across these categories:\n\n- **Runtime type-checking tests redundant with TypeScript/Zod** — `SpecCompliance.test.tsx` (24 tests checking `typeof x === 'string'` on typed config objects)\n- **Circular/self-validating tests** — `ServerDefinitions.test.tsx` (12 tests constructing schema objects then asserting their own properties)\n- **Static HTML accessibility tests** — `console-accessibility.test.tsx` (10 axe-core tests on hand-written markup, not actual components — won't catch real regressions)\n- **Brittle source-file regex tests** — `console-load-performance.test.tsx` (14 tests reading `.tsx` files as strings and regex-matching patterns)\n- **Trivial smoke tests** — `SkeletonComponents.test.tsx` (only asserts `element count > 0`), `ConsoleFeatures.test.tsx` (1 test, superseded by `ObjectView.test.tsx`)\n- **Pure export existence checks** — `registration.test.tsx` files in plugin-list, plugin-detail, plugin-view, plugin-charts, and `Registry.test.ts` in components (collectively 10 tests that only call `toBeDefined()` / `typeof === 'function'`)\n\nCoverage thresholds should remain unaffected — removed tests covered no meaningful code paths.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> ci test 时间太长，请耐心的仔细评估每一个测试移除不必要的测试\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

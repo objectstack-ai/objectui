@@ -1,0 +1,33 @@
+{
+  "number": 981,
+  "kind": "pull_request",
+  "title": "Remove breadcrumb and Add Filter button; simplify ViewTabBar to read-only; restructure toolbar layout",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T02:32:50Z",
+  "updated_at": "2026-03-03T03:38:44Z",
+  "closed_at": "2026-03-03T03:34:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T03:34:01Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/981",
+  "body": "Removes design-mode UI elements from the main content area that duplicate AppHeader functionality or belong in the right-side config panel. Restructures the toolbar to an Airtable Interfaces-style split layout.\n\n### ObjectView (`apps/console/src/components/ObjectView.tsx`)\n- **Remove inline breadcrumb** (\"Opportunity > All Opportunities\") — redundant with AppHeader global breadcrumb\n- **Simplify ViewTabBar to read-only view switcher** — tabs remain visible for switching between views, but design-mode features are removed: drag-to-reorder is disabled (`config={{ reorderable: false }}`), the \"+\" add view button is removed, and context menu actions (rename, duplicate, delete, set default, share, pin, reorder, change type) are removed. These features are now accessible only via ViewConfigPanel (right sidebar).\n- Clean up unused imports and constants (`AVAILABLE_VIEW_TYPES`, `ChevronRight`, etc.)\n\n### UserFilters (`packages/plugin-list/src/UserFilters.tsx`)\n- **Remove `+ Add filter` button** from DropdownFilters mode. Tab mode's `allowAddTab` button is preserved (different feature).\n\n### ListView toolbar (`packages/plugin-list/src/ListView.tsx`)\n- **Split toolbar into left/right regions**: UserFilter chips on the left, tool buttons (filter, sort, group, search, export, etc.) on the right\n\n```\nBefore: [UserFilters | HideFields | Filter | Sort | Group | ... | Search]  [AddRecord]\nAfter:  [UserFilters]  [HideFields | Filter | Sort | Group | ... | Search | AddRecord]\n```\n\n### Tests\n- Updated assertions in `ObjectView.test.tsx`, `ViewSwitching.test.tsx`, `ListView.test.tsx`, `UserFilters.test.tsx` to reflect the changes\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>移除画圈的视图设计功能（面包屑/顶部标签栏/过滤器按钮），将其迁移到右侧配置面板</issue_title>\n> <issue_description>### 需求背景\n> 在\"商机（Opportunities）\"等对象列表页，部分设计及管理功能应只出现在右侧属性配置面板，而不是主界面顶部或工具栏。当前版本存在如下 UI 冗余（见下方截图）：\n> \n> <img alt=\"UI 要优化的区块\" width=\"2878\" src=\"https://github.com/user-attachments/assets/de949f09-09c8-452b-811b-0f78b6ef2022\" />\n> \n> **具体要求如下：**\n> \n> #### 1. 移除不必要的面包屑显示\n> - 移除主内容区 `ObjectView` 内部的路径面包屑（如 \"Opportunity > All Opportunities\"），避免和顶部全局 AppHeader 面包屑重复。\n> - 只保留页面头部（AppHeader）里的统一面包屑导航。\n> \n> #### 2. 移除顶部的视图标签栏\n> - UI 区块：视图拖动换位置，新增 `+` 应该作为\"设计模式\"下的配置功能，移除\n> \n> \n> #### 3. 工具栏\n> - 去掉主工具栏上的 `+ Add Filter` 按钮。\n> - 参考airtable interfaces，左侧过滤区块靠左，右侧的筛选排序分组搜索等按钮靠右</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#979\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

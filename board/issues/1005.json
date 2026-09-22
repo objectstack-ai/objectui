@@ -1,0 +1,33 @@
+{
+  "number": 1005,
+  "kind": "pull_request",
+  "title": "feat: comprehensive filter optimization — multi-select support and full field type coverage",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T09:52:19Z",
+  "updated_at": "2026-03-03T11:05:09Z",
+  "closed_at": "2026-03-03T10:54:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T10:54:07Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1005",
+  "body": "Filter value inputs for reference fields (e.g. \"所属客户\") required manual ID entry instead of showing a dropdown. Select fields lacked multi-select when using `in`/`notIn` operators. Many field types (currency, datetime, time, status, user, owner) were treated as plain text in filter controls.\n\n### FilterBuilder (`packages/components/src/custom/filter-builder.tsx`)\n\n- `FilterCondition.value` type widened to `string | number | boolean | (string | number | boolean)[]`\n- `in`/`notIn` operators on fields with `options` now render a checkbox list instead of a text input\n- Field types grouped into unified categories with proper operator sets and input types:\n  - **numberLikeTypes** (`number`, `currency`, `percent`, `rating`) → number operators, number input\n  - **dateLikeTypes** (`date`, `datetime`, `time`) → date operators, `date`/`datetime-local`/`time` input\n  - **selectLikeTypes** (`select`, `status`) → select operators, dropdown or checkbox list\n  - **lookupLikeTypes** (`lookup`, `master_detail`, `user`, `owner`) → lookup operators, dropdown or checkbox list\n- Extracted `normalizeToArray()` helper for consistent value → array coercion\n\n```tsx\n// Before: lookup field rendered a plain <Input> — user typed raw IDs\n// After: lookup field with options renders <Select> or checkbox list\nfields={[\n  { value: 'account', label: 'Account', type: 'lookup',\n    options: [{ value: 'acme', label: 'Acme Corp' }, ...] }\n]}\n// operator: \"in\" → checkbox multi-select\n// operator: \"equals\" → single-select dropdown\n```\n\n### FilterUI (`packages/plugin-view/src/FilterUI.tsx`)\n\n- New `multi-select` case in `renderInput` — checkbox-based multi-value selection\n\n### ObjectView (`packages/plugin-view/src/ObjectView.tsx`)\n\n- Auto-generated filterSchema now maps `lookup`/`master_detail`/`user`/`owner` fields with options to `multi-select` type\n- `status` fields auto-map to `select` type with their options\n\n### Console (`apps/console/src/utils/view-config-utils.ts`)\n\n- `normalizeFieldType` expanded to classify `lookup`/`master_detail`/`user`/`owner`/`status`/`time` into appropriate filter categories\n\n### Types (`packages/types/src/views.ts`, `zod/views.zod.ts`)\n\n- Added `'multi-select'` to `FilterUISchema` filter type enum\n\n### Tests\n\n- 14 new tests for FilterBuilder (lookup, multi-select, currency, datetime, time, status, user field types)\n- 5 new tests for FilterUI multi-select type\n- All 2288 existing tests pass\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>优化筛选器：字段过滤应弹出选择框支持多选</issue_title>\n> <issue_description>### 背景\n> 目前，在参考其他主流平台时，字段过滤应弹出选择而不是手动输入ID，并且应支持多选操作。\n> \n> ### 具体优化\n> - 字段过滤（如\"所属客户\"）时应弹出下拉选择框，而不用输入ID。\n> - 支持多选（select组件添加多选能力）。\n> - 参考主流低代码平台排查所有字段类型进行优化\n> - 检查并优化列表左上角的所有筛选器代码，确保统一体验。\n> - 排查所有字段类型和统一过滤器中涉及的所有类型，保证多选兼容。\n> \n> ### 相关截图\n> <img alt=\"字段过滤筛选器优化建议\" width=\"2048\" src=\"https://github.com/user-attachments/assets/3b4b211b-5498-4e86-8d59-f7a249e3dcc1\" />\n> \n> ### 期望结果\n> - 用户添加过滤器时可以选择而不是输入ID。\n> - select可以多选。\n> - 各字段类型和过滤器类型渲染、交互统一。\n> \n> ---\n> 完成需求后请：\n> 1. 运行测试。\n> 2. 更新相关 issue 进度。\n> 3. 更新 ROADMAP.md。\n> 4. 如需跨仓库协作，在目标 ObjectStack 仓库中创建 cross-repo issue。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1004\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

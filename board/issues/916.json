@@ -1,0 +1,33 @@
+{
+  "number": 916,
+  "kind": "pull_request",
+  "title": "fix: resolve CI test failures in DashboardRenderer and ReportViewer tests",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-28T11:24:49Z",
+  "updated_at": "2026-02-28T11:56:34Z",
+  "closed_at": "2026-02-28T11:53:06Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-28T11:53:06Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/916",
+  "body": "Two test failures on `main` introduced by recent merges.\n\n- **DashboardRenderer.designMode.test**: Overly broad `.pointer-events-none` selector matched data-table ghost rows (internal implementation detail unrelated to design mode). Narrowed selector with `:not([data-testid=\"ghost-row\"])`.\n\n- **ReportViewer.test**: Color assertion expected `rgb(187, 247, 208)` but happy-dom preserves hex values as-is. Updated to assert `#bbf7d0`.\n\n```diff\n- expect(container.querySelector('.pointer-events-none')).not.toBeInTheDocument();\n+ expect(container.querySelector('.pointer-events-none:not([data-testid=\"ghost-row\"])')).not.toBeInTheDocument();\n```\n\n```diff\n- expect(wonCell?.style.backgroundColor).toBe('rgb(187, 247, 208)');\n+ expect(wonCell?.style.backgroundColor).toBe('#bbf7d0');\n```\n\n**Note**: The DashboardRenderer test's `vi.mock('@object-ui/react')` is ineffective because `vitest.setup.tsx` pre-loads `@object-ui/plugin-dashboard`, binding the real `SchemaRenderer` before the mock takes effect. This causes actual data-table components (with ghost rows) to render in the test. A broader fix to the mock strategy is out of scope here.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix ci test errors\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

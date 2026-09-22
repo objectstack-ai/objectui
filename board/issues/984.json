@@ -1,0 +1,36 @@
+{
+  "number": 984,
+  "kind": "issue",
+  "title": "Console端未接入详情页相关表自动渲染与Tab、多语言等新功能",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-03T04:39:55Z",
+  "updated_at": "2026-03-03T06:54:58Z",
+  "closed_at": "2026-03-03T06:54:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/984",
+  "body": "## 问题描述\n\n目前虽然`@object-ui/plugin-detail`底层已实现：\n- 详情页相关表自动发现与渲染（autoDiscoverRelated/related）\n- Tab区块（详情/相关/活动），Section分组、顶部高亮区（highlightFields, sectionGroups）\n- 多语言label自动切换、相关表CRUD入口（ViewAll, 新建、编辑、删除）\n\n但ObjectUI的Console端的`RecordDetailView.tsx`未将这些新功能接入到`detailSchema`中，导致上述功能在页面上无法体验、无效果。\n\n具体表现：\n- 相关表/子表未显示\n- 无Tab页切换（无\"相关\"区）\n- 无高亮区、无分组折叠、无相关表操作入口\n- 多语言未生效、日期/空值展示未统一\n\n## 如何复现\n1. 打开ObjectUI Console，进入任意对象详情页\n2. 观察页面下方无\"相关\"区块、自带相关表、相关操作按钮\n\n## 期望功能\n- Console端将`autoTabs`、`autoDiscoverRelated`、`highlightFields`、`sectionGroups`、相关表CRUD入口等参数正确传递给`DetailView`，自动发现并渲染所有相关表数据\n- 多语言配置生效，所有label/tab/字段自动切换\n- Tab布局分隔（详情/相关/活动）可用\n- 顶部高亮区与Section分组可收起\n- 相关表支持新建、编辑、删除等操作\n\n## 影响范围\n- 影响所有通过Console访问的对象详情页\n- 影响ROADMAP对相关表功能端到端验收\n\n## 建议修复步骤\n1. 补充`RecordDetailView.tsx`构造`detailSchema`逻辑，传递上述参数并绑定实际相关表CRUD数据源\n2. 联动自动化测试覆盖相关表、Tab区、分组、国际化等核心功能\n3. 更新文档与ROADMAP，明确端到端可用性\n"
+}

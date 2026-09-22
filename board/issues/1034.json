@@ -1,0 +1,35 @@
+{
+  "number": 1034,
+  "kind": "issue",
+  "title": "【Bug】手机端详情页布局导致列内容挤到一起",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-04T11:49:23Z",
+  "updated_at": "2026-03-04T13:16:20Z",
+  "closed_at": "2026-03-04T13:16:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1034",
+  "body": "### 问题描述\n如附件截图（<img alt=\"手机端��情页布局问题\" width=\"1320\" src=\"https://github.com/user-attachments/assets/2ce0f68f-b1b5-49e9-b256-43703b2f676c\" />，<img alt=\"联系详情页布局问题\" width=\"1320\" src=\"https://github.com/user-attachments/assets/12a53162-3749-49f3-a75a-91d7f5bbbad4\" />），在手机端访问详情页时，字段区域显示为三列布局，导致前两列内容挤到一起，影响可读性和用户体验。\n\n平台为元数据驱动，理应在小屏幕设备自动适应单列或双列布局。实际情况显示部分字段布局过于密集，与桌面端表现不一致。\n\n### 复现步骤\n1. 在手机端打开 `demo.objectui.org` 详情页（例如客户/联系人详情）。\n2. 查看主要字段区域显示效果，发现部分字段显示为三列，内容挤压。\n\n### 预期行为\n- 手机端详情页字段应以 1 列或 2 列显示，避免三列挤压。\n- 保持字段 label 与 value 显示分明，有足够间距。\n- 自动适应屏幕宽度，保证良好可读性。\n\n### 截图证据\n<img alt=\"手机端详情页布局问题\" width=\"1320\" src=\"https://github.com/user-attachments/assets/2ce0f68f-b1b5-49e9-b256-43703b2f676c\" />\n<img alt=\"联系详情页布局问题\" width=\"1320\" src=\"https://github.com/user-attachments/assets/12a53162-3749-49f3-a75a-91d7f5bbbad4\" />\n\n### 环境信息\n- ObjectUI 版本：最新演示环境\n- 设备类型：手机（iOS/Android均可复现）\n- 浏览器：Safari/Chrome\n- 访问地址：https://demo.objectui.org\n\n### 技术参考\n- 组件受 `applyDetailAutoLayout` 和 `DetailSection` 控制响应式布局，详见源码：\n  - `packages/plugin-detail/src/autoLayout.ts` — 自动分栏规则\n  - `packages/plugin-detail/src/DetailSection.tsx` — 布局实现、列数推断、breakpoint class逻辑\n\n参考实现：\n- 移动端应强制单列（`grid-cols-1`），4~10个字段时可用双列（`md:grid-cols-2`），避免在小屏使用三列（`lg:grid-cols-3`）。\n- 建议调整 `applyDetailAutoLayout`，让 `<md` 屏幕宽度只渲染单列，不在移动端应用三列逻辑。\n\n### 优化建议\n- 检查 Tailwind 响应式 class 规则，确认 breakpoints:\n  - `grid-cols-1`（默认移动）\n  - `md:grid-cols-2`（平板及以上）\n  - `lg:grid-cols-3`（仅桌面大屏）\n- 复用并测试组件，确保在 480px 以下屏幕不出现三列布局。\n- 回归测试相关 detail/record 组件，避免其��场景受影响。\n\n---\n完成修复后请：\n1. 补充相关测试覆盖移动端细节页布局。\n2. 更新已关联 issue。\n3. 维护 ROADMAP.md。\n\n如代码调整会影响到其他 ObjectStack 仓库，请额外提交 cross-repo issue。\n\n【问题严重影响移动端用户体验，建议优先处理】"
+}

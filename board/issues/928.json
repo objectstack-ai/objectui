@@ -1,0 +1,33 @@
+{
+  "number": 928,
+  "kind": "pull_request",
+  "title": "fix: strip objectName prefix from recordId in detail page, show \"Record not found\" on null",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-01T09:13:15Z",
+  "updated_at": "2026-03-01T09:51:57Z",
+  "closed_at": "2026-03-01T09:49:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-01T09:49:29Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/928",
+  "body": "Detail pages render blank when navigating via URL (e.g. `/contact/record/contact-1772355903654-1`) because the URL `recordId` includes an `objectName-` prefix that the backend doesn't store. `findOne(\"contact\", \"contact-1772355903654-1\")` returns null silently.\n\n### Changes\n\n- **RecordDetailView**: Compute `pureRecordId` once at component top, use it for all downstream queries — `detailSchema.resourceId`, presence filter, comment thread IDs, and `onEdit` callback\n\n```tsx\nconst pureRecordId = recordId && objectName && recordId.startsWith(`${objectName}-`)\n  ? recordId.slice(objectName.length + 1)\n  : recordId;\n```\n\n- **DetailView**: Add \"Record not found\" empty state when `data` is null post-load, with optional back navigation — prevents silent blank page\n\n- **Tests**: Fix broken `waitFor` selectors in `RecordDetailEdit.test.tsx`, add assertions that `findOne` receives the stripped ID, add two tests for the record-not-found state\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[Bug] 详情页刷新/进入无法显示数据，recordId 带前缀导致 findOne 查不到记录</issue_title>\n> <issue_description>### 现象\n> 如 https://demo.objectui.org/apps/crm_app/contact/record/contact-1772355903654-1 进入详情页或者刷新，页面不会显示任何数据，也无错误提示。\n> \n> ### 预期\n> 详情页应能正常显示记录内容。\n> \n> ### 原因分析\n> - URL 里的 `recordId` 为 `contact-1772355903654-1`，包含对象名前缀\n> - RecordDetailView 直接将此 id 作为 resourceId 传递给 DetailView\n> - DetailView 调用 dataSource.findOne(\"contact\", \"contact-1772355903654-1\")，后端实际存储的是去前缀的 id（如 \"1772355903654-1\"），查不到返回 null，页面就空白了\n> \n> ### 关键代码\n> RecordDetailView.tsx：\n> ```tsx\n> const detailSchema: DetailViewSchema = {\n>   type: 'detail-view',\n>   objectName: objectDef.name,\n>   resourceId: recordId, // 此处未剥离前缀\n>   ...\n> }\n> ```\n> \n> DetailView.tsx 会直接用 resourceId 查找：\n> ```tsx\n> dataSource.findOne(schema.objectName, schema.resourceId)\n> ```\n> \n> ### 建议修复\n> - RecordDetailView 组件提��剥离前缀，只传递纯 id 给 detailSchema.resourceId 和 presence、评论 fetch 等所有相关数据查询点\n> - DetailView 找不到记录（result==null）应显示 \"Record not found\" 或错误提示，避免空白页面\n> \n> ### 影响范围\n> - 所有详情页的初始加载和刷新\n> - 任何依赖 recordId 查询的功能\n> \n> ### 补充\n> - 已有 PR objectstack-ai/objectui#924 只修了编辑弹窗的 onEdit 未修复详情页本身\n> \n> /assign @hotlong </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#927\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

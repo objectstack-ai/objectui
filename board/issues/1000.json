@@ -1,0 +1,35 @@
+{
+  "number": 1000,
+  "kind": "issue",
+  "title": "[Mobile UI] Clean Up Action Buttons, Layout, and Remove Duplicate Sidebar Toggle Button",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-03T08:50:48Z",
+  "updated_at": "2026-03-03T09:31:22Z",
+  "closed_at": "2026-03-03T09:31:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1000",
+  "body": "### 问题概述\n移动端订单详情页存在以下主要问题：\n\n1. **Action Buttons Clutter（操作按钮堆叠）**\n   - 顶部显示多个主要操作按钮（如“Change Status”、“Generate Invoice”、“Mark as Shipped”等），导致页面内容区域被挤压、操作区显得拥挤。\n   - 建议：仅保留最重要的主操作按钮，其他操作放入“...”（更多）菜单内。\n\n2. **Layout & Spacing（布局与间距）**\n   - 详情区字段排版竖直过长，没有充分利用屏幕宽度。\n   - 建议：使用网格布局优化字段展示，提升移动端空间利用率。\n\n3. **顶部折叠侧边栏按钮出现两次**\n   - 顶部（Header）区域重复显示了两个侧边栏折叠按钮，影响视觉简洁性，也容易让用户混淆。\n   - 建议：仅保留一个全局的折叠按钮，删除页面内的冗余按钮，并共享状态。\n\n### 参考截图\n<img alt=\"订单详情页移动端问题\" width=\"1320\" src=\"https://github.com/user-attachments/assets/e1f60956-62d8-4789-a445-f2197181353c\" />\n\n### 优化建议汇总\n- 保留单一主操作按钮，其他操作合并进下拉菜单，简化头部区域。\n- 采用2列网格优化详情字段排版，保持整体风格一致。\n- 只显示一个侧边栏折叠切换按钮，避免按钮重复，统一状态。\n\n### 期望结果\n- 页面更加简洁、操作顺畅、移动端显示更美观。\n- Header区域只有一个折叠按钮，所有操作一目了然。\n\n---\n如需详细设计方案，可随时补充！"
+}

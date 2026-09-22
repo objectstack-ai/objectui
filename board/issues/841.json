@@ -1,0 +1,35 @@
+{
+  "number": 841,
+  "kind": "issue",
+  "title": "[极高优先] Dashboard 仍然全部空白，需要Debug/Test模式定位数据链路断点",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-24T16:23:17Z",
+  "updated_at": "2026-02-25T03:36:21Z",
+  "closed_at": "2026-02-25T03:36:21Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/841",
+  "body": "# 问题现象\n- Dashboard（CRM Overview）所有图表和表格依然全部空白，无任何数据渲染。\n- 已合入近期针对 provider:object、聚合、多数据格式、类型校验等多项 bugfix，但依然完全无数据。\n- 页面无报错，所有 widget skeleton/passive，且无明显 loading/error。（见上传截图和 #839 #837 相关问题链）\n\n# 近期已完成排查与修复（但无效）\n- ObjectChart、ObjectTable 相关的【数据聚合、extractRecords、series字段自动适配】均已修正。\n- DashboardRenderer 向各 widget 下发 objectName、aggregate/dataProvider 等链路已验证。\n- 各组件内有 Array.isArray/data无类型检查防御。\n- main 分支测试和CI完全通过。\n\n# 可能遗漏与新疑点\n1. **dataSource 注入/挂载问题？**\n   - 被动 context（SchemaRendererProvider）注入的 dataSource 实际 value 可能为 `{}` 或 `null`。\n   - CRM Demo/Console App 入口处，DashboardView 是否拿到真实 dataSource？\n   - 打印 dataSource/context 相��的 debug 输出确认其类型和结构。\n2. **数据 mock/context stub 被覆盖或未生效？**\n   - Storybook/Console/Demo 环境的注入写法与生产版/自定义切换是否一致？比如 <SchemaRendererProvider dataSource={}></SchemaRendererProvider>\n3. **测试与运行时 divergence？**\n   - 测试用例用 mock data，CI 通过但线上依赖接口/adapter真实请求。\n   - 若无 mock-server 或接口异常，整体 context 会断链。\n4. **错误静默&可观测性不足**\n   - 没有更详细的 loading/error UI（如 dataSource/dataProvider 断链时全链路红色告警提示）。\n\n# 建议方案\n- 新增【Dashboard/SchemaRenderer 全局 debug/test 模式】：\n  - 自动打印（或渲染到widget/看板顶部）当前 dataSource/context/主要数据结构内容。\n  - widget渲染链路主动输出 dataSource 是否有效、objectName 是否已下发，fetch error、record数、聚合、渲染入口参数等。\n  - 支持 dashboard/schema 参数如 `debug: true` 继而各级联动。\n- 建议在生产态提供可选开关（如 debug 面板、长按/按钮触发、report 页面特定路径querystring）以便快速定位后端/context注入问题。\n"
+}

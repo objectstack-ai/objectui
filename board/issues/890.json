@@ -1,0 +1,30 @@
+{
+  "number": 890,
+  "kind": "issue",
+  "title": "[cross-repo] Package 级发布 UI — Publish/Revert/状态指示器",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-27T06:07:01Z",
+  "updated_at": "2026-02-28T04:57:56Z",
+  "closed_at": "2026-02-28T04:57:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/890",
+  "body": "## 背景\n\n`objectstack-ai/spec` 将实现 Package 级统一元数据发布机制（见 spec 仓库对应 Issue），包括：\n- `IMetadataService.publishPackage()` — 整包发布\n- `IMetadataService.revertPackage()` — 整包回滚\n- `IMetadataService.getPublished()` — 获取已发布版本\n- `MetadataRecordSchema` 新增 `version`, `published_definition`, `published_at`, `published_by` 字段\n- REST 端点：`POST /packages/:id/publish`, `POST /packages/:id/revert`, `GET /metadata/:type/:name/published`\n\n**ObjectUI 需要实现配套的前端 UI。**\n\n对标 Airtable 截图中的发布状态栏：\n- **Clean**: `\"No changes · Last published Feb 21, 2026\"` — Publish 按钮禁用\n- **Dirty**: `\"Interface has unpublished changes · Last published Feb 18, 2026\"` — Publish 按钮高亮\n- **Never published**: `\"Draft · Never published\"` — Publish 按钮可用\n\n![image2](image2)\n![image1](image1)\n\n---\n\n## 开发任务\n\n### P0 — 核心 Publish 流程\n\n- [ ] **`usePackagePublish` Hook** — Package 发布状态管理\n  - 调用 `GET /api/v1/packages/:packageId` 获取包下所有元数据的发布状态\n  - 计算 `hasUnpublishedChanges`（比对 `definition` vs `published_definition`）\n  - 提供 `publish()` / `revert()` 方法\n  - 状态：`idle` / `publishing` / `reverting` / `error`\n  - 位置：`packages/react/src/hooks/usePackagePublish.ts` 或 `packages/plugin-designer/src/hooks/`\n\n- [ ] **`PublishStatusBar` 组件** — 顶栏发布状态指示器\n  - 渲染 Airtable 风格的状态文字：\n    - `\"No changes · Last published {date}\"` \n    - `\"Package has unpublished changes · Last published {date}\"`\n    - `\"Draft · Never published\"`\n  - Publish 按钮（红色/高亮，参考 Airtable）\n  - 位置：`packages/plugin-designer/src/components/PublishStatusBar.tsx` 或 `apps/console/src/components/`\n\n- [ ] **Publish 确认弹窗**\n  - 显示即将发布的变更摘要（新增/修改/删除的元数据列表）\n  - 可选 Change Note 输入\n  - 确认/取消\n\n- [ ] **Revert 确认弹窗**\n  - 警告：将丢弃所有未发布的修改\n  - 显示受影响的元数据列表\n  - ���认/取消\n\n### P1 — 集成到 Console\n\n- [ ] **Console 页面集成** — 在 App 编辑/设计页面显示 PublishStatusBar\n  - `apps/console/src/pages/EditAppPage.tsx` — App 编辑页顶栏\n  - `apps/console/src/pages/PageDesignPage.tsx` — Page 设计页顶栏  \n  - `apps/console/src/pages/DashboardDesignPage.tsx` — Dashboard 设计页顶栏\n\n- [ ] **Auto-Save 状态增强**\n  - 现有 `saveSchema()` 调用后，更新 `hasUnpublishedChanges` 状态\n  - 页面右上角显示 \"All changes saved\" 绿色指示器（Airtable 风格）\n\n### P2 — 版本历史\n\n- [ ] **Package Version History Panel**\n  - 显示包的发布历史：版本号、发布时间、发布者、Change Note\n  - 可查看过去版本的快照\n  - 位置：`packages/plugin-designer/src/components/VersionHistory.tsx`\n\n### P3 — Preview Mode\n\n- [ ] **\"Preview as\" 切换**\n  - 设计者可切换到终端用户视角，看到的是 `published_definition`\n  - 切换回设计模式看到的是 `definition`（包含未发布修改）\n\n---\n\n## 技术方案\n\n### 判断 \"has unpublished changes\" 逻辑\n\n```typescript\n// 前端判断逻辑，不需要专门的 schema：\nconst hasUnpublishedChanges = packageItems.some(item => \n  JSON.stringify(item.definition) !== JSON.stringify(item.published_definition)\n);\n\nconst statusText = !latestPublishedAt \n  ? 'Draft · Never published'\n  : hasUnpublishedChanges \n    ? `Package has unpublished changes · Last published ${formatDate(latestPublishedAt)}`\n    : `No changes · Last published ${formatDate(latestPublishedAt)}`;\n```\n\n### API 调用\n\n```typescript\n// Publish\nconst result = await client.post(`/packages/${packageId}/publish`, {\n  changeNote: 'Updated sales dashboard layout',\n  publishedBy: currentUser.id,\n});\n\n// Revert\nawait client.post(`/packages/${packageId}/revert`);\n\n// Get published version (for preview mode)\nconst published = await client.get(`/metadata/${type}/${name}/published`);\n```\n\n---\n\n## 关联\n\n- 上游协议 & Runtime: `objectstack-ai/spec` — Package 级统一元数据发布机制\n- Airtable 评估 Issue: `objectstack-ai/spec#823`\n- 现有设计页面：\n  - `PageDesignPage.tsx` — 已有 `saveSchema()` 但无 publish\n  - `DashboardDesignPage.tsx` — 已有 `saveSchema()` 但无 publish\n  - `WorkflowDesigner.tsx` — 已有 `handlePublish()` 但只改本地 status，未调 API\n  - `DesignDrawer.tsx` — 已有 Ctrl+S 保存，但无 publish\n\n## 工作量估计\n\n| 任务 | 工作量 |\n|:---|:---:|\n| `usePackagePublish` Hook | 2 天 |\n| `PublishStatusBar` 组件 | 2 天 |\n| Publish/Revert 确认弹窗 | 1 天 |\n| Console 各页面集成 | 2 天 |\n| Auto-Save 状态增强 | 1 天 |\n| 测试 | 2 天 |\n| **P0+P1 合计** | **~1.5 周** |\n| P2 版本历史 | 1 周 |\n| P3 Preview Mode | 1 周 |\n\n## 验收标准\n\n- [ ] `pnpm test` 全部通过\n- [ ] PublishStatusBar 正确显示 3 种状态（clean/dirty/never published）\n- [ ] 点击 Publish → 调用 API → 状态切换为 clean\n- [ ] 点击 Revert → 调用 API → 丢弃未发布修改\n- [ ] Console 的 Page/Dashboard/App 设计页面顶栏都集成了 PublishStatusBar\n- [ ] WorkflowDesigner 的 Publish 按钮对接真实 API\n- [ ] ROADMAP.md 更新"
+}

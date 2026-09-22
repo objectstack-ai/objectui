@@ -1,0 +1,36 @@
+{
+  "number": 914,
+  "kind": "issue",
+  "title": "参考Airtable提升设置面板体验与分组层级，实现渐进披露等UI优化",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-28T09:38:46Z",
+  "updated_at": "2026-02-28T11:17:10Z",
+  "closed_at": "2026-02-28T11:17:10Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/914",
+  "body": "## 背景\n现有的设置右侧面板（config panel/设置面板）信息量过大，缺乏层级、分组、视觉呼吸空间和渐进披露，体验远逊于 Airtable 等产品。为优化用户体验、提升面板可维护性和美观度，需借鉴 Airtable 的最佳实践，对设置面板进行全面升级。\n\n参考文档与图片：\n- <img alt=\"Airtable设置面板设计\" width=\"2732\" src=\"https://github.com/user-attachments/assets/45dd8087-9514-4175-8d75-97092ca253e3\" />\n- <img alt=\"ObjectUI现状\" width=\"2732\" src=\"https://github.com/user-attachments/assets/174ed2dd-1924-45fd-8500-626c1a7539dc\" />\n- [Airtable官方设计实践](https://blog.airtable.com/interface-designer-best-practices/)\n\n---\n## 需求目标\n- 明显提升设置面板的分组与层级感，避免\"控件堆砌\"。\n- 强化视��节奏与间距，减少信息密度。\n- 部分高级/不常用选项默认为折叠/隐藏，用渐进披露替代全量展开。\n- 支持Airtable式\"概览+二级弹窗\"操作体验，提升可维护性。\n\n---\n## 主要开发清单\n1. **Section视觉层级与间距调整**  \n   - 增加section分隔线高度，section内控件上下间距从`space-y-0.5`提升至`space-y-1`或更大。\n   - 参考Airtable面板，在`ConfigPanelRenderer`中每个Section顶部增加更多留白，section之间`my-3`。\n2. **渐进披露（Progressive Disclosure）与默认折叠**  \n   - 工具栏/外观/高级/分享等section默认collapsed，只展开主要（如\"常规\", \"数据\"）section。\n   - 相关schema（如`view-config-schema.tsx`）增加`defaultCollapsed: true`配置。\n3. **新增ControlType: 'summary'**  \n   - 支持Airtable那种\"summary row + gear button\"风格（如\"可视化类型：List, Gallery, Kanban…\"），点开弹窗进行详细配置。\n   - type: 'summary' 字段支持配置 summaryText 和 onSummaryClick 处理函数。\n4. **优化ConfigRow布局**  \n   - 对齐Airtable两列式（左label右控件），输入控件宽度统一，label单独maxWidth。\n   - 如可能，增加内容自动省略号、溢出提示。\n5. **Section可选icon支持**  \n   - Section支持带有Lucide Icon，帮助用户更快定位常用分组。\n6. **支持Section分组/子分组**  \n   - Schema层增加可嵌套subsections，便于更复杂的大结构时灵活分组。\n7. **\"工具栏\"等七连toggle控件合并为summary样式**\n   - 替换成\"已启用×项\"chip+齿轮，点击后弹出单独子编辑器。\n   - 提升主面板简洁度，次选项后移。\n8. **视图Schema与渲染层整体调整**  \n   - 优先调整典型列表/表格/Grid视图设置schema作为模板。\n   - 逐步推广至Dashboard、Report等其它可配置区域。\n\n---\n## 验收标准\n- 任意信息量大的设置面板打开信息量不超过8项（可折叠等为主），整体比现状更\"可呼吸\"。\n- 工具栏等共用控件被概览chip合并，展开子面板可正常编辑所有选项。\n- Section分隔、折叠、icon、子分组、summary row等视觉元素均可用。\n- 代码层schema实现可维护、具备良好扩展性/复用性。\n\n---\n## 备注\n- 设计/动效细节可参考Airtable，优先实现主要结构和功能。\n- 参见图片及原型进行操作流对齐。\n\n---\n以上优化能大幅提升复杂配置场景下的易用性与美观度。"
+}

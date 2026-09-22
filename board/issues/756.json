@@ -1,0 +1,33 @@
+{
+  "number": 756,
+  "kind": "issue",
+  "title": "[P1] QuickFilters 协议兼容 — 双格式适配层",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:22:07Z",
+  "updated_at": "2026-02-23T10:32:40Z",
+  "closed_at": "2026-02-23T10:32:40Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/756",
+  "body": "## 背景\nParent Issue: #736\n\nSpec 使用 `{ field, operator, value }` 格式，ObjectUI 使用 `{ id, label, filters[], defaultActive }` 格式。两者不兼容。\n\n## 目标\n- 实现 QuickFilter 适配层，自动识别并转换两种格式\n- Spec format → ObjectUI format 自动转换\n- ObjectUI format 保持原生支持\n\n## 技术要点\n- Spec: `QuickFilterSchema { field: string, operator: string, value: any }`\n- ObjectUI: `QuickFilter { id: string, label: string, filters: any[], defaultActive?: boolean }`\n- 适配函数：`normalizeQuickFilter(input): ObjectUIQuickFilter`\n\n## 改动范围\n- `packages/types/src/objectql.ts` — 添加 Spec QuickFilter 类型 union\n- `packages/plugin-list/src/ListView.tsx` — quickFilters normalize 层\n- `packages/react/src/spec-bridge/bridges/list-view.ts` — bridge 映射\n\n## 验收标准\n- [ ] Spec `{ field: 'status', operator: 'eq', value: 'active' }` 格式可正常渲染\n- [ ] 现有 ObjectUI `{ id, label, filters[] }` 格式不受影响\n- [ ] 混合格式数组可正常处理\n- [ ] 单元测试覆盖两种格式及边界场景\n- [ ] `pnpm test` 全部通过\n"
+}

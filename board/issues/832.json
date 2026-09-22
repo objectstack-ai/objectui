@@ -1,0 +1,33 @@
+{
+  "number": 832,
+  "kind": "pull_request",
+  "title": "fix: comprehensive view component spec UI protocol compliance audit",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-24T11:13:55Z",
+  "updated_at": "2026-02-24T12:05:51Z",
+  "closed_at": "2026-02-24T12:00:23Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-24T12:00:23Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/832",
+  "body": "`ViewType`, view-related Zod validators, and component registrations were out of sync with the `@objectstack/spec/ui` ListView type enum and their own TS interfaces.\n\n### ViewType enum\n\nSpec defines ListView `type` as `grid | kanban | gallery | calendar | timeline | gantt | map`. ObjectUI's `ViewType` was missing `gallery` and `gantt`.\n\n```typescript\n// before\nexport type ViewType = 'list' | 'detail' | 'grid' | 'kanban' | 'calendar' | 'timeline' | 'map';\n\n// after\nexport type ViewType = 'list' | 'detail' | 'grid' | 'kanban' | 'calendar' | 'timeline' | 'map' | 'gallery' | 'gantt';\n```\n\n### Zod ↔ TS interface drift in `views.zod.ts`\n\n- **`DetailViewFieldSchema.type`** — Zod had 10 values, TS interface had 21. Added missing data-oriented types: `number`, `currency`, `percent`, `boolean`, `select`, `lookup`, `master_detail`, `email`, `url`, `phone`, `user`\n- **`DetailViewFieldSchema`** — Missing properties: `options`, `reference_to`, `reference_field`, `currency`\n- **`DetailViewSectionSchema`** — Missing properties: `showBorder`, `headerColor`\n\n### plugin-view ViewSwitcher\n\nAdded `gallery` (`Images` icon) and `gantt` (`GanttChartSquare` icon) to `DEFAULT_VIEW_LABELS` and `DEFAULT_VIEW_ICONS` maps.\n\n### plugin-list component registrations\n\nThe `list-view` and `list` component registrations had invalid `viewType` enum values (`'list'` and `'chart'` are not valid spec types) and were missing `'gallery'`, `'timeline'`, `'gantt'`, and `'map'`. Fixed to match spec's `grid | kanban | gallery | calendar | timeline | gantt | map`.\n\n### plugin-detail component registrations\n\n- **`detail-view`** registration was missing 8 inputs that exist on `DetailViewSchema`: `layout`, `columns`, `loading`, `backUrl`, `editUrl`, `deleteConfirmation`, `header`, `footer`.\n- **`detail-section`** registration was missing `showBorder` and `headerColor` inputs that are already implemented in the `DetailSection.tsx` component and TS interface.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 审查所有view相关的组件，不符合 spec ui 协议的部分进行修正\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

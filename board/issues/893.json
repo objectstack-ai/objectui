@@ -1,0 +1,35 @@
+{
+  "number": 893,
+  "kind": "issue",
+  "title": "导航到 Calendar 视图时未激活正确视图类型（viewName 被忽略）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-27T09:16:25Z",
+  "updated_at": "2026-02-27T10:40:43Z",
+  "closed_at": "2026-02-27T10:40:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/893",
+  "body": "### 问题复现\n- 在 CRM 应用（或类似场景）侧边栏点击 \"Calendar\" 菜单。\n- 实际展示的是表格列表视图（grid），而不是 calendar。\n\n#### 代码根因\n- CRM app 的 navigation 配置项如下：\n    ```ts\n    {\n      id: 'nav_events',\n      type: 'object',\n      objectName: 'event',\n      viewName: 'calendar', // 已正确配置，期望打开 calendar 视图\n      label: { key: 'crm.navigation.calendar', defaultValue: 'Calendar' },\n      icon: 'calendar'\n    }\n    ```\n- Event 对象的 listViews 也已正确定义 calendar 类型：\n    ```ts\n    listViews: {\n      calendar: { type: 'calendar', ...calendarConfig }, ... }\n    }\n    ```\n- 但 platform 的 NavigationRenderer/resolveHref 函数忽略了 viewName，只生成为 `/apps/crm_app/event`，未带上 `/view/calendar`\n    ```tsx\n    case 'object':\n      return { href: `${basePath}/${item.objectName ?? ''}`, external: false };\n    ```\n- 导致 ObjectView fallback 到 grid 视图。\n\n#### 影响\n- 不能通过导航直接打开 calendar/kanban 等特定视图，只会显示默认 grid 视图。\n- \"Calendar\"、\"Pipeline\"等菜单都会丢失视图参数，严重影响多视图体验。\n\n### 修复建议\n1. `NavigationItem` 类型添加 viewName 属性。\n2. NavigationRenderer.resolveHref 中，如果 item.viewName 存在，URL 应拼接 `/view/${item.viewName}`，如 `/apps/crm_app/event/view/calendar`。\n\n### 参考案例\n- examples/crm/src/apps/crm.app.ts\n- examples/crm/src/views/event.view.ts\n- packages/layout/src/NavigationRenderer.tsx\n\n### 截图\n<img alt=\"复现截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/4eda89cd-d831-46f2-b20c-e8a12b5781c7\" />\n\n---\n本问题属于平台 bug，请尽快修复。"
+}

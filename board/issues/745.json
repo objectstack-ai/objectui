@@ -1,0 +1,33 @@
+{
+  "number": 745,
+  "kind": "pull_request",
+  "title": "feat: i18n integration, cancel confirmation, and save draft for App Creation Wizard",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T05:02:11Z",
+  "updated_at": "2026-02-23T05:40:44Z",
+  "closed_at": "2026-02-23T05:34:40Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T05:34:40Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/745",
+  "body": "AppCreationWizard and NavigationDesigner hardcoded English strings despite i18n keys existing in all 10 locale files. Also missing: cancel confirmation on unsaved changes and save-as-draft support.\n\n### i18n Integration\n\n- Added `@object-ui/i18n` dependency to `@object-ui/plugin-designer`\n- Created `useDesignerTranslation` safe wrapper hook (falls back to English defaults when no `I18nProvider` — same pattern as `useListViewTranslation` in plugin-list)\n- Replaced all hardcoded strings in `AppCreationWizard.tsx` and `NavigationDesigner.tsx` with `t()` calls\n- Added 40 new keys to `appDesigner` section across all 10 locale files (en, zh, ja, ko, de, fr, es, ar, ru, pt)\n\n### Cancel Confirmation Dialog\n\n- Detects unsaved changes (name or title filled) before allowing cancel\n- Integrates existing `useConfirmDialog` hook — renders inline modal with Discard/Keep Editing actions\n\n```tsx\n<AppCreationWizard\n  onCancel={() => navigate('/apps')}     // now guarded by confirm dialog\n  onSaveDraft={(draft) => saveDraft(draft)} // new: partial progress save\n  onComplete={(draft) => createApp(draft)}\n/>\n```\n\n### NavigationDesigner i18n\n\n- `NAV_TYPE_META` and `QUICK_ADD_TYPES` switched from hardcoded `label` to `labelKey` references resolved via `t()`\n- `t` threaded through recursive `NavItemRow` for type badges, aria-labels, and empty states\n\n### Tests\n\n- 12 new tests: cancel confirmation (4), save draft (3), i18n fallback rendering (5)\n- 365 tests pass across 19 affected files (plugin-designer, i18n, types)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>App Creation Wizard（多步应用向导）</issue_title>\n> <issue_description>实现\"新建应用\"多步引导流程，按Airtable/Notion体验设计，符合`@objectstack/spec`协议：\n> \n> ## 开发内容\n> 1. 新建应用入口（可从首页/项目仪表盘触达）\n> 2. 向导步骤设计：\n>   - 【基本信息】填写名称、icon、描述、选择模板（关联AppSchema字段校验，支持snake_case强校验）\n>   - 【请选择业务对象】从Object List中勾选，将自动生成导航节点，可新建/导入对象\n>   - 【导航设置】可视化拖拽构建导航树结构（recursive，支持嵌套/分组/分隔）\n>   - 【品牌个性化】Logo上传、主题色选择、Favicon预览\n> 3. 步骤状态管理（保存为draft、返回历史步骤、取消确认、自定义校验）\n> 4. 按协议调用 DefineApp，提交全部schema数据\n> 5. 移动端兼容，完善 i18n\n> \n> ## 交付要求\n> - 交互稿+UI效果Mock（Figma推送到wiki）\n> - 前端React组件分步实现（Tailwind + cva样式）\n> - Storybook用例与vitest单元测试\n> - `pnpm test` 必须通过\n> - 完善开发文档及DEMO\n> - Roadmap同步更新\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#743\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

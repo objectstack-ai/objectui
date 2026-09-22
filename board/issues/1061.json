@@ -1,0 +1,33 @@
+{
+  "number": 1061,
+  "kind": "pull_request",
+  "title": "Refactor auth client to use official better-auth createAuthClient",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-10T05:35:24Z",
+  "updated_at": "2026-03-10T06:54:36Z",
+  "closed_at": "2026-03-10T06:51:06Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-10T06:51:06Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1061",
+  "body": "Replace the custom HTTP-based `createAuthClient` with the official `better-auth/client` `createAuthClient`, eliminating manual request handling and type mismatches while unlocking the full better-auth feature set (OAuth, magic links, session hooks, plugins).\n\n### Core change\n\n`createAuthClient` now delegates to `better-auth/client` internally via an adapter that preserves the existing `AuthClient` interface — all consumers (AuthProvider, AuthGuard, useAuth, forms, createAuthenticatedFetch) are unchanged.\n\n```ts\n// Before: manual fetch calls per endpoint\nasync function request<T>(path: string, options?: RequestInit): Promise<T> {\n  const response = await fetchFn(`${baseURL}${path}`, { ...options, credentials: 'include' });\n  // ...manual error handling\n}\n\n// After: delegates to official better-auth client\nconst betterAuth = createBetterAuthClient({ baseURL: origin, basePath, ... });\nconst { data, error } = await betterAuth.signIn.email({ email, password });\n```\n\n### Changes\n\n- **`packages/auth/src/createAuthClient.ts`** — Rewrote to wrap `better-auth/client` `createAuthClient`, with `resolveAuthURL()` to support both relative (`/api/v1/auth`) and absolute URLs\n- **`packages/auth/package.json`** — Added `better-auth` dependency\n- **`apps/console/src/mocks/authHandlers.ts`** — Updated endpoint from `/forgot-password` → `/forget-password` (better-auth convention)\n- **Tests & docs** — Updated `createAuthClient.test.ts`, `authHandlers.test.ts`, README, ROADMAP\n\n### Notes\n\n- better-auth TS types are narrower than runtime responses (e.g. `session` not in signIn type but present at runtime), so controlled `unknown` casts bridge between type systems\n- `forgetPassword` (better-auth spelling) exists at runtime but not in default TS types — accessed via a typed cast\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Refactor auth client to use official better-auth createAuthClient</issue_title>\n> <issue_description>## Problem\n> Current client implementation uses a custom `createAuthClient` instead of the official better-auth client, leading to several integration bugs:\n> \n> - Client does not leverage the full feature set of official better-auth client (OAuth, magic links, session hooks, etc.)\n> - Type mismatches and manual request handling increase maintenance burden and introduce hard-to-debug edge cases\n> \n> ## Recommended Fix\n> \n> **Priority refactor:**\n> \n> 1. Replace custom `createAuthClient` with official `better-auth/react` or `better-auth/client` (`createAuthClient`) and migrate usage accordingly.</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1060\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

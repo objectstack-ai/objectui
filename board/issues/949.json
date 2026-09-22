@@ -1,0 +1,33 @@
+{
+  "number": 949,
+  "kind": "pull_request",
+  "title": "fix: CI test failures for DetailView $expand params and PivotTable error state assertion",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-02T02:15:51Z",
+  "updated_at": "2026-03-02T02:48:12Z",
+  "closed_at": "2026-03-02T02:46:09Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-02T02:46:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/949",
+  "body": "Three CI test failures introduced by PR #944's DetailView `$expand` changes.\n\n- **RecordDetailEdit.test.tsx** — `DetailView` now passes `params` (even when `undefined`) as third arg to `findOne()`. Updated assertions to match the new call signature:\n  ```ts\n  // Before: findOne('contact', id)\n  // After:  findOne('contact', id, undefined)  — $expand params slot\n  expect(ds.findOne).toHaveBeenCalledWith('contact', 'contact-...', undefined);\n  ```\n\n- **ObjectPivotTable.test.tsx** — `querySelector` returns `null` on miss, not `undefined`. `toBeDefined()` always passed, so `waitFor` never actually waited for the error state to render — classic race condition in CI.\n  ```ts\n  // Before: expect(errorEl).toBeDefined()  — always true (null ≠ undefined)\n  // After:  expect(errorEl).not.toBeNull()  — actually gates on element presence\n  ```\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 拉取请求: https://github.com/objectstack-ai/objectui/pull/944\n> fix ci test\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

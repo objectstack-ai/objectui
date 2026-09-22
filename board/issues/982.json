@@ -1,0 +1,35 @@
+{
+  "number": 982,
+  "kind": "issue",
+  "title": "[Bug] Search box popover layout broken & filtering ignored on iPad/tablet/static data",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-03T04:25:45Z",
+  "updated_at": "2026-03-03T05:31:02Z",
+  "closed_at": "2026-03-03T05:31:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/982",
+  "body": "## 问题描述\n\n<img alt=\"搜索框显示混乱且搜索没有效果\" width=\"2732\" src=\"https://github.com/user-attachments/assets/90d84738-181a-4aea-92df-707a2afac9a7\" />\n\n在 iPad 或平板页面（如 demo.objectui.org），列表视图的搜索框弹出层（Popover）布局混乱，且搜索输入没有任何过滤效果。\n\n### 问题 1：搜索框弹层布局混乱\n- 搜索输入框弹层 (`PopoverContent`) 在 iPad 上会与表格标题栏重叠、显示异常。\n- 典型表现：弹出框宽度固定且对齐方式（`align=\"end\"`）导致遮挡，输入框和清除按钮视觉重叠。\n\n### 问题 2：静态数据/内联数据无法搜索过滤\n- 如果 `ListView` 的 `schema.data` 提供的是数组（静态/内联数据，如 demo/demo 数据），`searchTerm` 状态不会应用过滤。\n- searchTerm 仅对远程数据（`dataSource.find` 请求）有效，对静���数据始终返回全部记录，实际无搜索功能。\n- 代码引用：早期 return 跳过 searchTerm，如：\n  ```tsx\n  // ListView.tsx 551-572\n  if (Array.isArray(schema.data)) {\n    setData(schema.data);\n    // 没有对 searchTerm 过滤\n    return;\n  }\n  ```\n- 正确做法：\n  - searchTerm 应该对静态数据进行前端过滤（模糊匹配，参考 data-table.tsx 组件实现）。\n\n## 复现步骤\n1. 打开 demo.objectui.org，进入 CRM（商机）列表。\n2. 在搜索框输入任意内容，如 \"tokyo\"。\n3. 搜索框弹出布局混乱，且内容始终不变（过滤无效）。\n\n## 建议修复\n1. **弹层布局优化**：对于移动端，宽度应设为百分比并调整对齐/层级，支持自适应。\n2. **静态数据搜索**：在 `ListView` 的 `useEffect` 中对 Array 数据实现 client-side 过滤功能，如：\n   ```tsx\n   if (Array.isArray(schema.data)) {\n     let items = schema.data;\n     if (searchTerm) {\n       items = items.filter(row => ...);\n     }\n     setData(items);\n     ...\n   }\n   ```\n\n## 环境信息\n- ObjectUI v1.0+（React，iPad Chrome/Safari）\n- 前端组件：`packages/plugin-list/src/ListView.tsx`\n\n---\n如需英文版本/PR代码修复可补充说明。\n\nRelated code links:\n- [ListView.tsx search popover](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-list/src/ListView.tsx#L1441-L1481)\n- [ListView.tsx client-side data fetch](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-list/src/ListView.tsx#L551-L572)\n- [data-table.tsx client-side filtering impl](https://github.com/objectstack-ai/objectui/blob/main/packages/components/src/renderers/complex/data-table.tsx#L244-L273)\n"
+}

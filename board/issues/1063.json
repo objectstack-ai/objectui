@@ -1,0 +1,35 @@
+{
+  "number": 1063,
+  "kind": "issue",
+  "title": "统一记录主键字段为 id，废弃 _id，兼容 objectstack-ai/spec 协议",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-10T08:56:35Z",
+  "updated_at": "2026-03-10T09:50:44Z",
+  "closed_at": "2026-03-10T09:50:44Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1063",
+  "body": "**问题描述**\nobjectui 前端、mock、部分插件、数据源仍优先使用 record._id，而底层协议（objectstack-ai/spec）已统一要求主键字段为 id，导致记录详情页编辑等操作无法正确定位或修改记录。\n\n目前表现：\n- 详情页 URL/编辑操作使用 record._id，导致 findOne/filter 发送 $filter: {_id: ...}，服务端按 id 查找，结果 404。\n- mock 数据、插件（如 LookupField/ValueDataSource）默认以 _id 作为主键。\n\n**解决方案**\n1. 全面统一 record.id 为主键字段，废弃 _id（兼容 Mongo/Mingo storage，仅底层存储保留 _id）。\n2. 前端所有列表/detail 行点击、导航、filter、数据源等操作均优先使用 record.id。\n3. ValueDataSource/LookupField 默认 idField 改为 'id'。\n4. mock/seed 数据生成与测试用例全部迁移至 id。\n5. 详情页、编辑页、导航等所有地方用 id。\n6. 兼容旧数据，必要时自动同步 _id → id。\n\n**参考标准/协议**\n- objectstack-ai/spec: SystemFieldName.ID = 'id';\n- 数据协议（driver.zod.ts）：MUST NOT return implementation details like _id\n\n**影响范围/风险**\n- 需全链路排查 record._id 使用点（Grid、Gantt、Map、Calendar、Detail、Lookup、mock、测试）\n- 兼容性，Mongo/Mingo/老数据需妥善处理\n\n**相关错误示例**\n- 404: GET /api/v1/data/opportunity/104\n- vendor-objectstack-xxx.js: [DEBUG] HTTP response ... status: 404\n"
+}

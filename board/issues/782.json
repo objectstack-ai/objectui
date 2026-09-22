@@ -1,0 +1,33 @@
+{
+  "number": 782,
+  "kind": "pull_request",
+  "title": "feat: Column pinned/summary/link/action — 列级高级特性实现",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T09:32:47Z",
+  "updated_at": "2026-02-23T10:41:19Z",
+  "closed_at": "2026-02-23T10:33:04Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T10:33:04Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/782",
+  "body": "Spec bridge already passes `pinned`, `summary`, `link`, `action` column properties but ObjectGrid had no rendering logic for `pinned` or `summary`, and `action` columns rendered as link-style text instead of proper buttons.\n\n### Changes\n\n- **`useColumnSummary` hook** — New hook computing column aggregations (`count`/`sum`/`avg`/`min`/`max`). Accepts string shorthand (`'sum'`) or object config (`{ type: 'sum', field: 'amount' }`).\n\n- **Pinned columns** — ObjectGrid reorders columns: `pinned:'left'` first → unpinned → `pinned:'right'` last. Left-pinned count drives `frozenColumns`. Right-pinned get `sticky right-0` CSS.\n\n- **Summary footer** — Renders aggregation row below the data table when any column has `summary` config.\n\n- **Action columns** — Improved to render a Shadcn `Button` component with formatted action label (e.g., `'send_email'` → \"Send Email\") instead of link-style text. Added `data-testid=\"action-cell\"` for testability.\n\n- **Link columns** — Added `data-testid=\"link-cell\"` for link cells and `data-testid=\"primary-field-link\"` for auto-linked primary fields.\n\n- **Zod schema** — Added `pinned` and `summary` to `ListColumnSchema`.\n\n### Usage\n\n```tsx\nconst schema = {\n  type: 'object-grid',\n  objectName: 'deals',\n  columns: [\n    { field: 'name', label: 'Name', pinned: 'left', link: true },\n    { field: 'status', label: 'Status', summary: 'count' },\n    { field: 'amount', label: 'Amount', summary: { type: 'sum' }, pinned: 'right', action: 'edit' },\n  ],\n};\n```\n\n### Tests\n\n28 tests covering all aggregation types, edge cases (empty data, string numerics, custom field refs), footer rendering, pinned ordering, link/action cell `data-testid` verification, action button label formatting, click behavior, and combined features (pinned+summary, link+action, all-four-features integration). All 237 plugin-grid tests pass.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[P1] Column pinned/summary/link/action — 列级高级特性实现</issue_title>\n> <issue_description>## 背景\n> Parent Issue: objectstack-ai/objectui#736\n> \n> Spec bridge 已传递 `pinned`, `summary`, `link`, `action` 列属性，但 ObjectGrid 无对应渲染逻辑。\n> \n> ## 目标\n> 1. **pinned**：固定列（left/right），CSS `position: sticky` 实现\n> 2. **summary**：列底部聚合（count/sum/avg/min/max）\n> 3. **link**：列内容渲染为可点击链接\n> 4. **action**：列内容渲染为操作按钮\n> \n> ## 技术要点\n> - `packages/plugin-grid/src/ObjectGrid.tsx` — 列渲染逻辑\n> - `packages/react/src/spec-bridge/bridges/list-view.ts` L78-91 — 已传递属性\n> \n> ## 改动范围\n> - `packages/plugin-grid/src/ObjectGrid.tsx` — pinned 列 sticky CSS + summary footer + link/action cell renderer\n> - `packages/plugin-grid/src/useColumnSummary.ts` — 新增聚合 hook\n> - `packages/types/src/objectql.ts` — ObjectGridSchema 列定义补充 pinned/summary\n> \n> ## 验收标准\n> - [ ] `pinned: 'left'` 列在水平滚动时固定\n> - [ ] `summary: { type: 'sum' }` 在列底部显示合计值\n> - [ ] `link: true` 列内容渲染为蓝色可点击链接\n> - [ ] `action: 'edit'` 列渲染操作按钮\n> - [ ] 所有新增代码有对应单元测试\n> - [ ] `pnpm test` 全部通过\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#754\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

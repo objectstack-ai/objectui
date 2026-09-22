@@ -1,0 +1,37 @@
+{
+  "number": 816,
+  "kind": "issue",
+  "title": "视图配置面板存在无效项目，需排查并修复",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "configuration",
+    "invalid"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-24T02:11:14Z",
+  "updated_at": "2026-02-24T02:54:41Z",
+  "closed_at": "2026-02-24T02:54:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/816",
+  "body": "在视图配��面板中存在一些无效/没有实际作用的配置项，容易造成用户困惑。根据源码分析，主要问题包括：\n\n<img alt=\"视图配置面板部分无效项\" width=\"2732\" src=\"https://github.com/user-attachments/assets/82129a50-6d06-4473-b1ae-0e0a52bc67ce\" />\n\n### 问题分类：\n1. **非支持视图类型应隐藏的项**：如 \"showGroup\"、\"showColor\"、\"showDensity\" 等应仅在部分视图下显示。\n2. **尚无实际实现的项**：如 \"searchableFields\"、\"filterableFields\"、\"quickFilters\"、\"virtualScroll\"、\"fieldTextColor\"、\"showDescription\"、\"conditionalFormatting\"。\n3. **重复/冗余项**：如 \"densityMode\"（被 rowHeight 替换）、\"_groupBy\" 与 kanban.groupByField。\n4. **与实际视图无关项**：如 \"prefixField\"、\"collapseAllByDefault\"（仅分组时适用）。\n\n**修复建议：**\n- 为这些项在 schema 中添加 visibleWhen 条件，保证只有在对应场景下才显示。\n- 删除重复功能项，合并配置入��。\n- 检查所有 UI 配置项和 NamedListView/运行时代码的实际消费，移除未实现或未实际生效的部分。\n- 检查和补充相关单元测试，确保 panel 始终与运行时行为一致。\n- 更新文档和 ROADMAP。\n\n请在修复上述问题后运行相关 test，并同步维护 ROADMAP。\n\n关联文件/参考：\n- `apps/console/src/utils/view-config-schema.tsx`\n- `apps/console/src/utils/view-config-utils.ts`\n- `packages/types/src/objectql.ts`\n- `ROADMAP.md`\n\n---\n> 本问题为代码审查后提出，建议细致逐项梳理配置面板与运行时代码实现的一致性。"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 1114,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump the dev-dependencies group with 2 updates",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "examples"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-23T07:53:43Z",
+  "updated_at": "2026-03-23T08:08:38Z",
+  "closed_at": "2026-03-23T08:05:28Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-23T08:05:28Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1114",
+  "body": "Bumps the dev-dependencies group with 2 updates: @objectstack/cli and [typedoc](https://github.com/TypeStrong/TypeDoc).\n\nUpdates `@objectstack/cli` from 3.2.8 to 3.2.9\n\nUpdates `typedoc` from 0.28.17 to 0.28.18\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/TypeStrong/TypeDoc/releases\">typedoc's releases</a>.</em></p>\n<blockquote>\n<h2>v0.28.18</h2>\n<h3>Features</h3>\n<ul>\n<li>Support TypeScript 6.0, <a href=\"https://redirect.github.com/TypeStrong/TypeDoc/issues/3084\">#3084</a>.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/TypeStrong/typedoc/blob/master/CHANGELOG.md\">typedoc's changelog</a>.</em></p>\n<blockquote>\n<h2>v0.28.18 (2026-03-23)</h2>\n<h3>Features</h3>\n<ul>\n<li>Support TypeScript 6.0, <a href=\"https://redirect.github.com/TypeStrong/TypeDoc/issues/3084\">#3084</a>.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/TypeStrong/typedoc/commit/1ebdcb114e4dd219aed205bf367a061e409474a8\"><code>1ebdcb1</code></a> Update changelog for release</li>\n<li><a href=\"https://github.com/TypeStrong/typedoc/commit/59463c1487256418d080808a350ac631bf715ce3\"><code>59463c1</code></a> Bump version to 0.28.18</li>\n<li><a href=\"https://github.com/TypeStrong/typedoc/commit/af0719874ec4cc3710e8bc1247c3dd3a0c68f5d0\"><code>af07198</code></a> Fix example build, plugin list tweaks</li>\n<li><a href=\"https://github.com/TypeStrong/typedoc/commit/2a2ccddb231fcab24c53b8fe9f21c9be1f7ceac4\"><code>2a2ccdd</code></a> Support TypeScript 6.x and update dependencies</li>\n<li><a href=\"https://github.com/TypeStrong/typedoc/commit/2d23fc06f2d71ce682ccd79a6f3f136d85ca81f3\"><code>2d23fc0</code></a> Actually fix lint</li>\n<li><a href=\"https://github.com/TypeStrong/typedoc/commit/807f3469a98673da20ec3ce8f773460d5ca20965\"><code>807f346</code></a> Fix lint, update dprint plugins</li>\n<li><a href=\"https://github.com/TypeStrong/typedoc/commit/f5be63f360c2a961a3356dd96a0e5a5508e36a44\"><code>f5be63f</code></a> Update deps, closes <a href=\"https://redirect.github.com/TypeStrong/TypeDoc/issues/3080\">#3080</a></li>\n<li><a href=\"https://github.com/TypeStrong/typedoc/commit/207f1b6641cb954d9506184a9f2f695b4f264051\"><code>207f1b6</code></a> Update docs for <a href=\"https://github.com/ignore\"><code>@​ignore</code></a></li>\n<li><a href=\"https://github.com/TypeStrong/typedoc/commit/7b25e8452b58f09459f59bc0b02cd013ed42070d\"><code>7b25e84</code></a> More docs about custom tags</li>\n<li><a href=\"https://github.com/TypeStrong/typedoc/commit/fe89773e565f4758f6ee3076489d25500df5a501\"><code>fe89773</code></a> Recommend a JS config file for defining tags</li>\n<li>Additional commits viewable in <a href=\"https://github.com/TypeStrong/TypeDoc/compare/v0.28.17...v0.28.18\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore <dependency name> major version` will close this group update PR and stop Dependabot creating any more for the specific dependency's major version (unless you unignore this specific dependency's major version or upgrade to it yourself)\n- `@dependabot ignore <dependency name> minor version` will close this group update PR and stop Dependabot creating any more for the specific dependency's minor version (unless you unignore this specific dependency's minor version or upgrade to it yourself)\n- `@dependabot ignore <dependency name>` will close this group update PR and stop Dependabot creating any more for the specific dependency (unless you unignore this specific dependency or upgrade to it yourself)\n- `@dependabot unignore <dependency name>` will remove all of the ignore conditions of the specified dependency\n- `@dependabot unignore <dependency name> <ignore condition>` will remove the ignore condition of the specified dependency and ignore conditions\n\n\n</details>"
+}

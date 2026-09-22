@@ -1,0 +1,33 @@
+{
+  "number": 1103,
+  "kind": "pull_request",
+  "title": "feat(plugin-dashboard): ObjectDataTable columns support string[] shorthand",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-21T07:54:41Z",
+  "updated_at": "2026-03-21T08:14:25Z",
+  "closed_at": "2026-03-21T08:09:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-21T08:09:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1103",
+  "body": "`ObjectDataTable` crashes when `columns` is a `string[]` (e.g. `['name', 'amount']`) because `derivedColumns` passes strings straight through to the `data-table` renderer, which accesses `col.accessorKey` on a plain string → `undefined`.\n\n### Changes\n\n- **`normalizeColumns` helper** in `ObjectDataTable.tsx` — maps each string entry to `{ header, accessorKey }`, passes objects through unchanged. Handles per-element normalization so mixed arrays work too.\n- **Header derivation** — snake_case (`close_date` → `Close Date`) and camelCase (`firstName` → `First Name`) both title-cased correctly.\n- **8 unit tests** for `normalizeColumns`, 2 integration tests for the component with string columns.\n\n### Usage\n\n```ts\n// Before: only object[] worked\ncolumns: [\n  { header: 'Name', accessorKey: 'name' },\n  { header: 'Close Date', accessorKey: 'close_date' },\n]\n\n// Now: string[] shorthand also works\ncolumns: ['name', 'close_date']\n\n// Mixed is fine too\ncolumns: ['name', { header: 'Amount ($)', accessorKey: 'amount' }]\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>ObjectDataTable: columns 应兼容 string[] 简写格式，自动 normalize 为对象数组</issue_title>\n> <issue_description># 渲染兼容建议：table columns 支持字符串简写格式\n> \n> 目前 ObjectUI 的 ObjectDataTable 在解析 columns 字段时，直接透传了 schema.columns，没有对字符串数组 such as ['name', 'amount'] 做转换，导致当业务 schema 采用字符串简写时，下游渲染器会因为访问 undefined (col.accessorKey) 而崩溃。\n> \n> 但根据 @objectstack/spec 协议，Widget.options 是 z.unknown()，业务层 columns 配置为 string[] 本应属于合法且更简洁、国际化友好的写法（header 可自动推导，多语言 UI 可基于 accessorKey + i18n 自动实现）。\n> \n> ## 建议修复\n> 在 ObjectDataTable 中，对 columns 做 normalize，兼容 string[] 和对象数组：\n> ```ts\n> const normalizeColumns = (columns) => {\n>   if (!columns || columns.length === 0) return [];\n>   if (typeof columns[0] === 'string') {\n>     return columns.map((field) => ({\n>       header: field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ' '),\n>       accessorKey: field,\n>     }));\n>   }\n>   return columns;\n> };\n> ```\n> 这样即��无缝支持业务 schema 更简洁的 columns 字段，同时兼容国际化和完整对象写法。\n> \n> ## 参考\n> - [Spec 协议对 columns 并无格式强约束](https://github.com/objectstack-ai/spec/blob/main/packages/spec/src/ui/dashboard.zod.ts)\n> - [ObjectDataTable 源码](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-dashboard/src/ObjectDataTable.tsx)\n> - [讨论：ObjectUI Issue objectstack-ai/objectui#303](https://github.com/objectstack-ai/hotcrm/issues/303)\n> \n> ## 建议\n> - columns 支持 string[]/object[] 双语法，提升易用性和兼容性\n> - 推荐在文档中增加关于 columns 用法的说明示例\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1102\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

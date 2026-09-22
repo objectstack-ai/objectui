@@ -1,0 +1,33 @@
+{
+  "number": 1009,
+  "kind": "issue",
+  "title": "Enhance Modal Form Layout: Responsive Multi-Column and Width Auto-Sizing for CRUD Dialogs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T12:13:18Z",
+  "updated_at": "2026-03-03T14:01:31Z",
+  "closed_at": "2026-03-03T14:01:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1009",
+  "body": "## Issue Summary\nWhen creating new records (e.g., Opportunities) in ObjectUI, the modal dialog for forms is too narrow and displays fields in a single column, even on wide screens with many fields. This causes poor user experience compared to mainstream enterprise CRMs, where dialogs auto-expand and utilize multiple columns for complex forms.\n\n<img alt=\"Opportunity creation modal screenshot\" width=\"2732\" src=\"https://github.com/user-attachments/assets/06569fe4-78ad-4d0e-92d3-1ff1748ce003\" />\n\n## Requirements\n### 1. Auto Detect Columns\n- **Goal**: When the form has >3 fields, render them in 2 columns by default, unless user configuration says otherwise.\n- Use internal auto-layout logic: if field count > 3, set columns=2.\n- If wide fields (e.g., textarea, grid) are present, these should span both columns.\n- Respect any explicit `columns` or `sections` settings from the JSON schema; auto-layout only applies if absent.\n\n### 2. Modal Width Auto-Sizing\n- The modal should be responsive to the number of columns:\n    - 1 column → max-w-lg (default)\n    - 2 columns → max-w-xl or wider (consider max-w-4xl or max-w-5xl)\n    - 3 columns → full width/modal size 'full'\n- Change mapping in `autoLayout.ts` so 2 columns map to 'xl' and 3 columns to 'full'.\n- Update `modalSizeClasses` in ModalForm.tsx to use wider width for 'xl' and 'full'.\n- Remove any hardcoded modal size overrides (such as `modalSize: 'lg'`) from Console/App.tsx to allow auto-layout to control size.\n\n### 3. Responsive Layout\n- Use Tailwind container queries to ensure form takes advantage of horizontal space, but reverts to single column on small/mobile widths.\n- Confirm new grid classes for 2/3/4 columns use responsive Tailwind (`@md:`, `@2xl:`). \n\n### 4. Accessibility & Internationalization\n- Ensure all visible form labels, descriptions, and error messages remain in English (per codebase rule).\n- No inline styles; all style changes via Tailwind & cva.\n\n### 5. Tests\n- Update existing ModalForm integration and auto-layout tests to verify:\n    - 2 columns are rendered for forms with 4+ fields.\n    - Modal expands beyond 670px for multi-column forms.\n    - No layout regression for mobile (single column).\n\n### 6. Documentation\n- Update any relevant design docs or Storybook stories.\n\n## Acceptance Criteria\n- New CRUD dialogs with >3 fields now use multi-column and wider modal automatically.\n- Screenshots in docs show improved usage of horizontal space.\n- No breaking changes for existing field and modal overrides in JSON schema.\n\nRefer to included image for the current problem:\n<img alt=\"Opportunity creation modal screenshot\" width=\"2732\" src=\"https://github.com/user-attachments/assets/06569fe4-78ad-4d0e-92d3-1ff1748ce003\" />\n\n---\n**Repository**: objectstack-ai/objectui\n**Labels**: form, layout, UI, modal\n**Type**: feature request, UI\n"
+}

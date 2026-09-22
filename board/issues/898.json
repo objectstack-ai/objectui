@@ -1,0 +1,33 @@
+{
+  "number": 898,
+  "kind": "pull_request",
+  "title": "feat: promote system routes to top-level and improve no-app empty state UX",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-27T11:24:07Z",
+  "updated_at": "2026-02-27T18:15:17Z",
+  "closed_at": "2026-02-27T18:08:48Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-27T18:08:48Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/898",
+  "body": "- [x] **1. Modify `RootRedirect` in App.tsx** — Always show \"Create App\" button (even on error) + add \"System Settings\" link\n- [x] **2. Modify `AppContent` empty state in App.tsx** — Show \"Create App\" + \"System Settings\" buttons; allow system routes when no active app\n- [x] **3. Add top-level `/system/*` and `/create-app` routes in `App()`** — So system pages are accessible without any app context\n- [x] **4. Modify `AppSidebar.tsx`** — Handle no-app fallback with system navigation items (System Settings, Create App, Users, Orgs, Roles)\n- [x] **5. Modify `SystemHubPage.tsx`** — Handle missing `appName` param for top-level route access\n- [x] **6. Modify `AppManagementPage.tsx`** — Handle missing `appName` param for top-level route access\n- [x] **7. Add/update tests** — 5 new tests validating empty state buttons, system routes accessibility\n- [x] **8. Run tests and verify** — All 739+ tests pass (1 pre-existing flaky failure unrelated), 2 skipped\n- [x] **9. Code review** — Addressed all feedback (simplified fallback nav labels, reduced test timeouts)\n- [x] **10. Security scan** — CodeQL: 0 alerts found\n- [x] **11. Fix CI build errors** — TS6133: unused `record` in ObjectView.tsx, unused `fireEvent` import in test\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>改善后台管理系统空状态和系统菜单可用性</issue_title>\n> <issue_description>## 需求背景\n> 在创建租户后，访问首页显示\"无应用\"，此时应该允许用户立即创建应用。理论上，系统应该包含系统设置菜单，并且登录、注册页也应该可以正常访问，但当前未看到这些入口，导致用户无法进行后续操作。\n> \n> ## 综合评估后开发需求如下：\n> \n> 1. **空状态下操作优化**\n>     - 当\"无应用\"时，始终展示\"创建应用\"按钮，无论配置加载失败与否。\n>     - 空状态页应提示用户如何开启系统功能，并包含去设置页面和去创建应用的快捷入口。\n> \n> 2. **系统菜单/设置入口可用性**\n>     - 即使没有任何应用，也应在侧边栏或菜单中保留\"系统设置\"入口，使租户能够进行基础配置，如用户管理、权限分配等。\n>     - 系统相关路由（如用户管理、应用管理、组织管理、权限管理、个人中心等）需提升为主级路由，保证用户可以在未创建应用时访问。\n> \n> 3. **登��/注册/忘记密码页可正常访问**\n>     - 登录、注册、忘记密码应始终可访问，无论系统/应用状态如何。\n>     - 确认 `ConditionalAuthWrapper` 和相关逻辑在认证服务不可用时也能出发登录页显示。\n> \n> 4. **后台管理整体结构优化**\n>     - 侧边栏在无应用时显示基本系统导航（如系统设置、创建应用、帮助等）。\n>     - 文案、交互需适配不同\"无应用\"与\"系统不可用\"场景。\n> \n> ## 验收标准\n> - 首页空状态有\"创建应用\"按钮，且设置入口可直接访问。\n> - 登录、注册页始终可见。\n> - 系统管理菜单无应用时可访问。\n> - 租户能通过设置菜单调整系统参数。\n> \n> ## 建议技术实现\n> - 路由微调（将系统管理相关路由提升到主路由层级）\n> - 空状态 UI/UX 优化\n> - 侧边栏 fallback 菜单配置\n> - 认证包与权限包异常分支完善\n> \n> ---\n> 请根据以上需求开展开发任务，实现后台管理的空状态优化与入口可用性提升。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#895\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

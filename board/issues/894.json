@@ -1,0 +1,33 @@
+{
+  "number": 894,
+  "kind": "pull_request",
+  "title": "fix: include viewName in navigation href and preserve listViews through defineStack",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-27T09:16:51Z",
+  "updated_at": "2026-02-27T10:44:02Z",
+  "closed_at": "2026-02-27T10:40:42Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-27T10:40:42Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/894",
+  "body": "`NavigationItem` of type `'object'` with a `viewName` (e.g. `calendar`, `pipeline`) generated hrefs that dropped the view segment, always falling back to the default grid view. Additionally, `defineStack()` from `@objectstack/spec` stripped `listViews` from object definitions via Zod validation, so even with the correct URL the console's `ObjectView` never saw the calendar/kanban view definitions and always fell back to grid.\n\n```ts\n// CRM nav config already specifies viewName\n{ id: 'nav_events', type: 'object', objectName: 'event', viewName: 'calendar', ... }\n\n// Before: /apps/crm_app/event        → grid (wrong, and listViews missing from objectDef)\n// After:  /apps/crm_app/event/view/calendar  → calendar (correct, listViews preserved)\n```\n\n### Changes\n\n#### Part 1: href generation — append `/view/${viewName}` when present\n\n- **`packages/types/src/app.ts`** — Add optional `viewName` to `NavigationItem`\n- **`packages/types/src/zod/app.zod.ts`** — Add `viewName` to Zod schema\n- **`packages/layout/src/NavigationRenderer.tsx`** — `resolveHref` appends `/view/${viewName}` when present\n- **`packages/layout/src/AppSchemaRenderer.tsx`** — Same fix in `MobileBottomNav` inline href logic\n- **`apps/console/src/App.tsx`** — `findFirstRoute()` includes `viewName` for home redirect\n- **`apps/console/src/components/AppSidebar.tsx`** — Console mobile bottom nav includes `viewName`\n- **`apps/console/src/components/SearchResultsPage.tsx`** — Search results include `viewName`\n- **`packages/layout/src/__tests__/NavigationRenderer.test.tsx`** — Test for viewName href generation\n\n#### Part 2: view data pipeline — preserve `listViews` through `defineStack()`\n\n- **`apps/console/objectstack.shared.ts`** — Re-merge `listViews` into objects **after** `defineStack()` validation strips them (MSW/browser mode)\n- **`objectstack.config.ts`** — Same fix plus add missing `views` array to the merged config (server mode)\n\n`defineStack()` validates config through Zod schemas which strip non-standard properties like `listViews` from objects. The existing `mergeViewsIntoObjects()` call was being undone by the subsequent `defineStack()`. The fix applies `defineStack()` first for validation, then re-merges views from the raw configs into the validated objects. Without this, `ObjectView` received `objectDef.listViews = undefined` and always fell back to a default grid view regardless of the URL.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>导航到 Calendar 视图时未激活正确视图类型（viewName 被忽略）</issue_title>\n> <issue_description>### 问题复现\n> - 在 CRM 应用（或类似场景）侧边栏点击 \"Calendar\" 菜单。\n> - 实际展示的是表格列表视图（grid），而不是 calendar。\n> \n> #### 代码根因\n> - CRM app 的 navigation 配置项如下：\n>     ```ts\n>     {\n>       id: 'nav_events',\n>       type: 'object',\n>       objectName: 'event',\n>       viewName: 'calendar', // 已正确配置，期望打开 calendar 视图\n>       label: { key: 'crm.navigation.calendar', defaultValue: 'Calendar' },\n>       icon: 'calendar'\n>     }\n>     ```\n> - Event 对象的 listViews 也已正确定义 calendar 类型：\n>     ```ts\n>     listViews: {\n>       calendar: { type: 'calendar', ...calendarConfig }, ... }\n>     }\n>     ```\n> - 但 platform 的 NavigationRenderer/resolveHref 函数忽略了 viewName，只生成为 `/apps/crm_app/event`，未带上 `/view/calendar`\n>     ```tsx\n>     case 'object':\n>       return { href: `${basePath}/${item.objectName ?? ''}`, external: false };\n>     ```\n> - 导致 ObjectView fallback 到 grid 视图。\n> \n> #### 影响\n> - 不能通过导航直接打开 calendar/kanban 等特定视图，只会显示默认 grid 视图。\n> - \"Calendar\"、\"Pipeline\"等菜单都会丢失视图参数，严重影响多视图体验。\n> \n> ### 修复建议\n> 1. `NavigationItem` 类型添加 viewName 属性。\n> 2. NavigationRenderer.resolveHref 中，如果 item.viewName 存在，URL 应拼接 `/view/${item.viewName}`，如 `/apps/crm_app/event/view/calendar`。\n> \n> ### 参考案例\n> - examples/crm/src/apps/crm.app.ts\n> - examples/crm/src/views/event.view.ts\n> - packages/layout/src/NavigationRenderer.tsx\n> \n> ### 截图\n> <img alt=\"复现截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/4eda89cd-d831-46f2-b20c-e8a12b5781c7\" />\n> \n> ---\n> 本问题属于平台 bug，请尽快修复。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#893\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

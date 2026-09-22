@@ -1,0 +1,33 @@
+{
+  "number": 936,
+  "kind": "issue",
+  "title": "Convention-based Auto-resolution for Object & Field Label i18n",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-01T13:58:34Z",
+  "updated_at": "2026-03-01T16:00:19Z",
+  "closed_at": "2026-03-01T16:00:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/936",
+  "body": "\n\n### Problem\n\nCRM object and field names do not display translated labels (e.g., Chinese) even though:\n- Translation files (`examples/crm/src/i18n/zh.ts`) contain complete translations for all objects and fields\n- The i18n provider correctly loads CRM locale bundles via `/api/v1/i18n/:lang`\n- Navigation sidebar labels are already translated correctly\n\n**Root cause:** Object metadata files (`examples/crm/src/objects/*.object.ts`) define `label` as plain English strings, and the Console `ObjectView.tsx` renders `objectDef.label` / `field.label` directly without any i18n lookup.\n\n```typescript\n// examples/crm/src/objects/order_item.object.ts — plain strings, no i18n\nexport const OrderItemObject = ObjectSchema.create({\n  name: 'order_item',\n  label: 'Order Item',               // ← rendered as-is in ObjectView\n  fields: {\n    name: Field.text({ label: 'Line Item' }),  // ← rendered as-is in table header\n    order: Field.lookup('order', { label: 'Order' }),\n  }\n});\n```\n\n```typescript\n// examples/crm/src/i18n/zh.ts — translations exist but are never consumed\nobjects: { order_item: { label: '订单明细', description: '...' } },\nfields: { order_item: { name: '订单项', order: '订单' } }\n```\n\nThe naive fix would be to convert every `label` to an `I18nLabel` object (`{ key: 'crm.objects.order_item.label', defaultValue: 'Order Item' }`), but this requires ~200 manual changes across 10 objects and is hard to maintain.\n\n### Proposed Solution: Convention-based Auto-resolution (Salesforce-style)\n\nInspired by Salesforce's Translation Workbench, implement a **convention-based automatic translation resolver** that:\n\n1. **Keeps object metadata unchanged** — `label` stays as a plain string (English default)\n2. **Keeps translation files unchanged** — existing `zh.ts` structure is already correct\n3. **Framework auto-resolves** — at render time, automatically constructs translation keys from `{objectName}` + `{fieldName}` and looks up translations\n\n#### Convention Rules\n\n| What | Auto-generated key | Fallback |\n|------|-------------------|----------|\n| Object label | `crm.objects.{objectName}.label` | `objectDef.label` (plain string) |\n| Object description | `crm.objects.{objectName}.description` | `objectDef.description` |\n| Field label | `crm.fields.{objectName}.{fieldName}` | `field.label` (plain string) |\n\n#### Implementation Plan\n\n**Step 1: New `useObjectLabel` hook in `packages/i18n`**\n\n```typescript\n// packages/i18n/src/useObjectLabel.ts\nexport function useObjectLabel() {\n  const { t } = useObjectTranslation();\n\n  return {\n    objectLabel: (objectDef: { name: string; label: string }) => {\n      const key = `crm.objects.${objectDef.name}.label`;\n      const translated = t(key, { defaultValue: '' });\n      return (translated && translated !== key && translated !== '')\n        ? translated\n        : objectDef.label;\n    },\n\n    objectDescription: (objectDef: { name: string; description?: string }) => {\n      if (!objectDef.description) return undefined;\n      const key = `crm.objects.${objectDef.name}.description`;\n      const translated = t(key, { defaultValue: '' });\n      return (translated && translated !== key && translated !== '')\n        ? translated\n        : objectDef.description;\n    },\n\n    fieldLabel: (objectName: string, fieldName: string, fallback: string) => {\n      const key = `crm.fields.${objectName}.${fieldName}`;\n      const translated = t(key, { defaultValue: '' });\n      return (translated && translated !== key && translated !== '')\n        ? translated\n        : fallback;\n    },\n  };\n}\n```\n\n**Step 2: Wire into Console ObjectView (~3 lines)**\n\n```tsx\n// apps/console/src/components/ObjectView.tsx\nconst { objectLabel, objectDescription } = useObjectLabel();\n\n// Replace direct renders:\n- <h1>{objectDef.label}</h1>\n+ <h1>{objectLabel(objectDef)}</h1>\n```\n\n**Step 3: Wire into ListView/DataTable column headers (~10 lines)**\n\nWhen building columns, wrap field labels:\n```typescript\nconst columns = Object.entries(objectDef.fields).map(([fieldName, fieldDef]) => ({\n  ...fieldDef,\n  label: fieldLabel(objectDef.name, fieldName, fieldDef.label),\n}));\n```\n\n**Step 4: Wire into NavigationRenderer for object names (~5 lines)**\n\n### Affected Files\n\n| File | Change |\n|------|--------|\n| `packages/i18n/src/useObjectLabel.ts` | **New** — convention-based resolver hook |\n| `packages/i18n/src/index.ts` | Export new hook |\n| `apps/console/src/components/ObjectView.tsx` L701, L705, L707 | Use `objectLabel()` / `objectDescription()` |\n| `packages/plugin-list/src/ListView.tsx` | Use `fieldLabel()` for column headers |\n| `packages/components/src/renderers/complex/data-table.tsx` | Use `fieldLabel()` for column headers |\n| `packages/layout/src/NavigationRenderer.tsx` | Use `objectLabel()` for object nav items |\n| `examples/crm/src/objects/*.object.ts` | **No change needed** ✅ |\n| `examples/crm/src/i18n/*.ts` | **No change needed** ✅ |\n\n### Benefits\n\n- **Zero metadata changes** — all 10 CRM object files stay untouched\n- **Zero translation file changes** — existing `zh.ts` structure already matches the convention\n- **~20 lines of code** total vs ~200 manual `I18nLabel` conversions\n- **Graceful fallback** — if no translation found, plain string label renders (English)\n- **Aligned with industry best practice** — Salesforce uses the same convention-based approach\n\n### Acceptance Criteria\n\n- [ ] Switching language to `zh` shows Chinese object names (e.g., \"订单明细\" instead of \"Order Item\") in:\n  - [ ] ObjectView breadcrumb\n  - [ ] ObjectView page title\n  - [ ] ObjectView description\n  - [ ] Data table column headers\n  - [ ] Navigation sidebar object labels\n- [ ] Switching language to `en` continues to show English labels\n- [ ] Object metadata files (`*.object.ts`) require zero changes\n- [ ] All existing tests pass\n- [ ] New unit tests for `useObjectLabel` hook"
+}

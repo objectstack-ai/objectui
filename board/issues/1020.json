@@ -1,0 +1,36 @@
+{
+  "number": 1020,
+  "kind": "issue",
+  "title": "Register analytics service in createKernel() for demo and MSW environments",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "plugin"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-04T03:55:51Z",
+  "updated_at": "2026-03-04T11:17:52Z",
+  "closed_at": "2026-03-04T11:17:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1020",
+  "body": "## Problem\n\nThe demo (and MSW/test) environments in ObjectUI do not properly enable analytics capabilities:\n- The API route POST `/api/v1/analytics/query` and `/api/v1/analytics/meta` return 405 errors because the ObjectStack kernel is missing the `analytics` service registration.\n- Although `MemoryAnalyticsService` exists and is fully implemented in `@objectstack/spec` and `driver-memory`, it is not wired up in `createKernel()` when bootstrapping for demo/MSW/test environments. Thus, the analytics endpoints are not functional even though all dependencies are present.\n\n## Reproduction\nGo to [https://demo.objectui.org](https://demo.objectui.org) and inspect network requests for `/api/v1/analytics/query`. You will see a 405 error and MSW passthrough, indicating the kernel is missing analytics service wiring.\n\n## Solution Proposal\n- In `apps/console/src/mocks/createKernel.ts` (and any similar \"createKernel\" setups for MSW, Storybook, or Demo):\n    - Instantiate `MemoryAnalyticsService` from `@objectstack/driver-memory`, passing the correct `InMemoryDriver` and cube configuration (the same one used for other in-memory objects).\n    - Add a line:\n      ```ts\n      ctx.registerService('analytics', new MemoryAnalyticsService({ driver, cubes: [.../* config */] }));\n      ```\n    - Ensure this runs before MSWPlugin is loaded, so dispatcher can route analytics requests to a real implementation.\n\n- Update any tests/Storybook/preview setups that need analytics endpoints for dashboards, reporting, or BI widgets.\n\n## Impact\n- Enables live analytics queries and metadata endpoints for ObjectUI demo, Storybook, MSW, and local dev environments\n- Fixes 405 passthrough and makes `/api/v1/analytics/*` APIs available for dashboards, charts, grid, and BI views\n- Unblocks frontend teams from building/test-driving analytics plugins and SDUI dashboards using the pure frontend kernel\n\n---\n\n- Please reference `@objectstack/spec` and `@objectstack/driver-memory` for the contract and implementation imports.\n- Ensure correct cube config is injected to reflect available metrics and dimensions.\n- Add code comments clarifying why this registration is needed only in demo/MSW/dev environments.\n"
+}

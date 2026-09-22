@@ -1,0 +1,33 @@
+{
+  "number": 776,
+  "kind": "pull_request",
+  "title": "feat: enhance Page/Canvas Editor & Dashboard Editor with WYSIWYG capabilities",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T08:24:30Z",
+  "updated_at": "2026-02-23T09:14:17Z",
+  "closed_at": "2026-02-23T08:48:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T08:48:29Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/776",
+  "body": "Adds undo/redo, JSON schema sync, preview mode, i18n, keyboard navigation, and mobile responsiveness to `DashboardEditor` and `PageCanvasEditor`.\n\n### DashboardEditor\n- Undo/redo via `useUndoRedo` hook + Ctrl+Z/Y keyboard shortcuts\n- JSON export/import toolbar (`onExport`/`onImport` callbacks)\n- Preview mode toggle rendering `DashboardPreview` panel\n- Widget layout size editing (w/h inputs) in property panel\n- Delete/Backspace removes selected widget\n\n### PageCanvasEditor\n- Page/Dashboard mode tab switcher (`role=\"tablist\"`, `aria-selected`)\n- Undo/redo, JSON export/import, preview mode (same pattern as dashboard)\n- Delete/Backspace removes selected component\n\n### Shared\n- Full i18n via `useDesignerTranslation` — zero hardcoded UI strings\n- 16 new keys across all 10 locales (en, zh, ja, de, fr, es, ar, ru, pt, ko)\n- Mobile responsive: `flex-col` → `sm:flex-row`\n\n### Usage\n\n```tsx\n<DashboardEditor\n  schema={dashboardSchema}\n  onChange={setSchema}\n  onExport={(s) => downloadJson(s)}\n  onImport={(s) => console.log('imported', s)}\n/>\n\n<PageCanvasEditor\n  schema={pageSchema}\n  onChange={setSchema}\n  onExport={(s) => downloadJson(s)}\n/>\n```\n\n### Tests\n- DashboardEditor: 10 → 22 tests (undo/redo, export/import, preview, layout size)\n- PageCanvasEditor: 9 → 23 tests (mode tabs, undo/redo, export/import, preview)\n- 206 designer tests, 62 i18n tests — all passing\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Page/Canvas Editor & Dashboard Editor（WYSIWYG页面/仪表盘可视化编辑器）</issue_title>\n> <issue_description>打造所见即所得的页面/仪表盘可视化编辑器，兼容@objectstack/spec的PageSchema与DashboardSchema：\n> \n> ## 开发内容\n> 1. 画布布局编辑器，支持多种页面（Page/Dashboard）切换\n> 2. 支持组件拖拽、放置、位置调整、大小缩放、属性编辑\n> 3. Widget/区块类型：表格、看板、列表、图表、统计卡片、表单等\n> 4. 属性面板配置（数据源/显示/动作/样式/绑定协议字段）\n> 5. 支持Dashboard widgets嵌套\n> 6. 页面和仪表盘与导航管理器集成，自动同步结构\n> 7. Undo/Redo、分步预览、代码(JSON Schema)同步\n> 8. 移动端画布和适配\n> \n> ## 交付要求\n> - 交互稿、画布Alpha DEMO\n> - React + Tailwind组件，cva样式\n> - 支持全键盘导航 & i18n\n> - Storybook用例 + 单元/E2E测试\n> - `pnpm test` 必须通过\n> - 代码文档和Roadmap同步</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#744\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 53,
+  "kind": "pull_request",
+  "title": "Add dev, build, start, lint, and test commands to CLI",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "documentation"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T01:15:03Z",
+  "updated_at": "2026-03-23T23:26:32Z",
+  "closed_at": "2026-01-15T03:11:45Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T03:11:45Z",
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/53",
+  "body": "## Enhance CLI with Complete Development Workflow Commands\n\nBased on the requirement to support mainstream development framework patterns, add the following commands to the Object UI CLI:\n\n### Plan\n- [x] Understand current CLI implementation\n- [x] Add `dev` command - Start development server with hot reload\n- [x] Add `build` command - Build application for production\n- [x] Add `start` command - Serve production build\n- [x] Add `lint` command - Lint the generated application code\n- [x] Add `test` command - Run tests for the application\n- [x] Extract shared utilities to app-generator module\n- [x] Update CLI README documentation\n- [x] Fix TypeScript and ESLint warnings\n- [x] Address code review feedback\n- [x] Fix CodeQL security issue - Add rate limiting\n- [x] Test all commands work correctly\n- [x] Ensure commands follow mainstream framework patterns (Next.js, Vite, etc.)\n\n### Changes Made\n- Created `/packages/cli/src/commands/dev.ts` - Development server command\n- Created `/packages/cli/src/commands/build.ts` - Production build command\n- Created `/packages/cli/src/commands/start.ts` - Production server command with rate limiting\n- Created `/packages/cli/src/commands/lint.ts` - Linting command with ESLint\n- Created `/packages/cli/src/commands/test.ts` - Testing command with Vitest\n- Created `/packages/cli/src/utils/app-generator.ts` - Shared utilities for app generation\n- Updated `/packages/cli/src/commands/serve.ts` - Refactored to use shared utilities\n- Updated `/packages/cli/src/cli.ts` - Added new command definitions\n- Updated `/packages/cli/README.md` - Documented all commands\n- Updated `/packages/cli/package.json` - Added express-rate-limit dependency\n- Fixed all TypeScript and ESLint warnings\n- Moved all imports to top level for consistency\n\n### All Available Commands\n1. **`objectui init`** - Initialize a new project\n2. **`objectui dev`** - Development server with HMR\n3. **`objectui build`** - Production build\n4. **`objectui start`** - Serve production build (with rate limiting for security)\n5. **`objectui lint`** - Lint code with ESLint\n6. **`objectui test`** - Run tests with Vitest\n7. **`objectui serve`** - Legacy development server (backward compatible)\n\n### Security\n- ✅ Added rate limiting to `start` command to prevent DoS attacks (1000 requests per IP per 15 minutes)\n- ✅ Fixed CodeQL security alert: \"Missing rate limiting\" (js/missing-rate-limiting)\n- ✅ Uses `express-rate-limit` middleware with standard headers\n\n### Testing\nAll commands have been tested and verified to work correctly:\n- ✅ `objectui init` - Creates new projects successfully\n- ✅ `objectui dev` - Starts development server with hot reload\n- ✅ `objectui build` - Builds for production\n- ✅ `objectui start` - Serves production build with rate limiting protection\n- ✅ `objectui lint` - Lints generated application code\n- ✅ `objectui test` - Runs tests with multiple options (watch, coverage, UI)\n- ✅ `objectui serve` - Legacy command still works\n\nThe CLI now follows mainstream framework patterns similar to Next.js, Vite, and other modern development tools, with enterprise-grade security features.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 参考主流开发框架，Cli应该支持完整的开发流程和命令，包括并不限于dev build start \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

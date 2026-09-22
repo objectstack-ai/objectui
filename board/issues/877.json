@@ -1,0 +1,33 @@
+{
+  "number": 877,
+  "kind": "pull_request",
+  "title": "Fix CI: strict TypeScript errors and flaky SystemPages test",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-26T16:50:42Z",
+  "updated_at": "2026-02-26T17:50:50Z",
+  "closed_at": "2026-02-26T17:28:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-26T17:28:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/877",
+  "body": "Console app build (`tsc`) fails on main due to ~215 implicit `any` parameters (TS7006), untyped generic calls (TS2347), and implicit `any` indexing (TS7053). One test (`SystemPages > RoleManagementPage`) fails intermittently due to a race condition.\n\n### TypeScript strict mode violations (10 source files)\n\n- **`view-config-schema.tsx`** — Added `: any` to all `render` and `visibleWhen` callback parameters (matching `ConfigField` interface signatures)\n- **`view-config-schema.test.tsx`** — Typed `.find()`/`.filter()` callback parameters\n- **`App.tsx`, `ObjectView.tsx`, `DashboardView.tsx`, `AppSidebar.tsx`, `useObjectActions.ts`**, etc. — Added explicit types to event/callback parameters\n\n### Untyped function calls in `ViewConfigPanel.test.tsx`\n\nCast `require('react')` inside `vi.mock()` factory to preserve generics:\n\n```typescript\n// Before — TS2347: Untyped function calls may not accept type arguments\nconst React = require('react');\nconst pastRef = React.useRef<any[]>([]); // ❌\n\n// After\nconst React = require('react') as typeof import('react');\nconst pastRef = React.useRef<any[]>([]); // ✅\n```\n\nAlso typed `collapsed` state as `Record<string, boolean>` to fix TS7053 indexing error.\n\n### Flaky `SystemPages.test.tsx`\n\nAssertions on async-rendered content were outside `waitFor`, causing race conditions in CI:\n\n```typescript\n// Before — passes locally, fails in CI\nawait waitFor(() => { expect(mockFind).toHaveBeenCalledWith('sys_role'); });\nexpect(screen.getByText('Admin')).toBeInTheDocument(); // ❌ data not rendered yet\n\n// After\nawait waitFor(() => { expect(mockFind).toHaveBeenCalledWith('sys_role'); });\nawait waitFor(() => { expect(screen.getByText('Admin')).toBeInTheDocument(); }); // ✅\n```\n\nApplied to all 5 similar assertions across User/Org/Role/AuditLog/Permission tests.\n\nAll 366 test files pass (6,723 tests).\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix ci errors all\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 899,
+  "kind": "issue",
+  "title": "平台级别 UI 导航&表格功能优化任务",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-02-27T11:29:14Z",
+  "updated_at": "2026-02-28T01:55:10Z",
+  "closed_at": "2026-02-28T01:55:10Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/899",
+  "body": "### 任务背景\n平台级别综合 UI 功能优化。当前以 CRM Opportunity 页面为例，但所有 AppShell/Sidebar/Grid/Table 相关改动都应适用于平台通用场景（多应用、多对象、多视图）。\n\n### 优化要求清单\n#### 1. 左侧菜单固定图标（Pin icons）过于密集\n- [ ] 固定图标仅在 hover 时显示（未固定时），已固定的始终显示。\n- [ ] NavigationRenderer/SidebarMenuAction 组件实现 showOnHover功能，action/leaf类型都适用。\n- [ ] 修��平台全局 sidebar 相关组件。\n\n#### 2. 日期字段显示优化\n- [ ] Grid/Table 中的 date/datetime 字段应统一用人类友好格式显示（不展示 ISO 字符串）。\n- [ ] 所有对象/视图 schema 字段类型推断，自动识别 date/datetime 并使用 DateCellRenderer。\n\n#### 3. 表格视觉层次统一\n- [ ] 行号列简化或仅 hover 时显示；概率列百分号/进度条；金额列货币格式化；状态列 Badge 显示并按平台标准颜色规范匹配。\n- [ ] 表头样式、字体、间距在 Grid/Table 组件中保持一致。\n\n#### 4. 侧边菜单/导航栏通用优化\n- [ ] Favorites 区无 pinned 项时隐藏；搜索框 placeholder 增强对比度、统一全局样式；Recent 区提升显示位置；支持自调侧边栏宽度。\n\n#### 5. 头部区域统一\n- [ ] 面包屑、描述、操作按钮样式和布局全局一致，语言可配置。\n\n---\n所有改动需应用于平台级别组件和核心渲染逻辑，须适用于多应用、多对象、多视图。任何通用能力如 Badge、DateCellRenderer、Pin 功能、Grid 表头等，需可复用。\n\n完成后请：\n- 运行相关 tests\n- 更新相关 issues\n- 更新 ROADMAP.md\n\n负责人: @hotlong\n类型: Task\n标签: enhancement, platform-ui\n"
+}

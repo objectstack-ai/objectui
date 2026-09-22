@@ -1,0 +1,33 @@
+{
+  "number": 880,
+  "kind": "pull_request",
+  "title": "Fix I18nLabel objects rendered as React children causing 11 CI test failures",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-26T18:36:36Z",
+  "updated_at": "2026-02-27T03:23:20Z",
+  "closed_at": "2026-02-27T03:19:22Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-27T03:19:22Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/880",
+  "body": "CRM app metadata uses I18nLabel objects (`{key, defaultValue}`) for `label` and `description` fields. Several components rendered these directly as React children, crashing with `Objects are not valid as a React child`.\n\n### Component fixes — wrap labels with `resolveI18nLabel()`\n\n- **`ConsoleLayout.tsx`** — `activeApp.label` passed unresolved to `AppHeader` appName prop and branding title interpolation\n- **`AppSidebar.tsx`** — app switcher dropdown (`line 304`) and condensed nav item labels (`line 533`)\n- **`CommandPalette.tsx`** — all `item.label` / `app.label` in `<span>` children and `value` string props\n- **`DashboardRenderer.tsx`** — `widget.title`, `schema.title`, `schema.description` rendered as children; added local `resolveLabel` helper since `@object-ui/react` doesn't export the utility\n- **`AppManagementPage.tsx`** — `app.label` and `app.description` in system page listing\n\n### Test fix\n\n- **`SpecCompliance.test.tsx`** — `typeof app.label` / `app.description` assertions updated to accept I18nLabel objects with shape validation:\n\n```ts\nexpect(['string', 'object']).toContain(typeof app.label);\nif (typeof app.label === 'object') {\n    expect(app.label).toHaveProperty('key');\n}\n```\n\nFull suite: 366 files, 6723 tests passing, 0 failures.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> fix all ci errors\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

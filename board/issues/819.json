@@ -1,0 +1,33 @@
+{
+  "number": 819,
+  "kind": "pull_request",
+  "title": "Dashboard widget config panel: auto-assign IDs, default titles, searchable Combobox dropdowns",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-24T03:05:26Z",
+  "updated_at": "2026-02-24T03:59:39Z",
+  "closed_at": "2026-02-24T03:48:17Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-24T03:48:17Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/819",
+  "body": "Dashboard property panel had three core UX gaps: widgets without IDs couldn't be selected in design mode, new widgets rendered blank config panels, and data binding fields were free-text inputs instead of metadata-driven dropdowns.\n\n### Widget ID stability\n- `ensureWidgetIds()` auto-assigns unique IDs to widgets missing them on edit mode entry\n- Prevents unclickable widgets in the design-mode renderer\n\n### New widget defaults\n- `defaultWidgetTitle(type)` generates descriptive titles (e.g., \"New Bar Chart\") instead of empty strings\n- Eliminates blank/unusable config panels on widget creation\n\n### Searchable Combobox for object/field selectors\n- `WidgetConfigPanel` accepts optional `availableObjects` and `availableFields` props\n- `buildWidgetSchema()` renders Data Source / Category Field / Value Field as **searchable Combobox controls** (using the existing `@object-ui/components` Combobox with real-time search and keyboard navigation) via `type: 'custom'` ConfigField render functions when metadata is available, falls back to text inputs otherwise\n- Field comboboxes are disabled when no object is selected (`disabled={!draft.object}`)\n\n```tsx\n<WidgetConfigPanel\n  open={configPanelOpen}\n  config={widgetConfig}\n  onSave={handleWidgetConfigSave}\n  onFieldChange={handleWidgetFieldChange}\n  availableObjects={availableObjects}   // from useMetadata().objects\n  availableFields={availableFields}     // derived from selected widget's object\n/>\n```\n\n### DashboardView metadata integration\n- Extracts `objects` from `MetadataProvider` context\n- Computes `availableFields` reactively based on the selected widget's `object` field\n- Handles both array and record-style field definitions; filters out entries without names\n\n### Tests\n- 5 new tests for `ensureWidgetIds` (ID assignment, uniqueness, data preservation, no-op when IDs exist)\n- 5 new tests for Combobox dropdown behavior (combobox vs input rendering, disabled state based on object selection)\n- 2 new tests for DashboardWithConfig panel switching (breadcrumb verification, onWidgetSave prop acceptance)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>仪表盘属性面板优化：完善选中与新建widget的切换及属性字段选择体验（对齐Airtable交互）</issue_title>\n> <issue_description># 复现与现状\n> <img alt=\"任务仪表盘问题现场截图\" width=\"3838\" src=\"https://github.com/user-attachments/assets/9dd06978-0cc2-4425-b5f8-9f326e4e81ea\" />\n> \n> 当前仪表盘属性面板存在以下核心问题：\n> 1. 选中已有 Widget 时，右侧属性面板未切换到 Widget 设置界面，无法编辑。\n> 2. 新建 Widget 时虽然切换成功，但属性面板全是空白，体验混乱。\n> 3. 属性配置关键字段如\"对象\"\"字段\"等为输入框，缺失下拉选择与依赖联动。\n> \n> 这些问题导致实际体验远未达到 Airtable/Notion 那种主区预览+右侧表单属性可编辑的经典交互（如字段联动、实时反馈等）。\n> \n> ---\n> \n> ## 详细改进需求\n> \n> ### 一、Widget选中相关\n> - 确保所有 Dashboard 的 Widget 都有稳定唯一 id。\n>   - 初始化 editSchema 时自动补全没有 id 的 Widget。\n>   - DashboardRenderer 点击 Widget 后，能正确响应并展现对应 Widget 的 Panel。\n>   - 右侧属性面板始终保持\"选中即切换\"：未选中显示 DashboardConfigPanel，选中任意 Widget 显示 WidgetConfigPanel。\n> \n> ### 二、新建Widget体验\n> - 新建 Widget 属性面板应自动填充类型、标题等合理默认值。\n>   - 避免空白/无数据导致面板没法正常编辑。\n>   - 类型标签(title)同步更新，避免全空。\n> \n> ### 三、属性编辑表单交互对齐 Airtable\n> - \"数据源对象\"、\"分类字段\"、\"值字段\"全部采用下拉选择：\n>   - \"对象\"字段：下拉选择当前 metadata.providers.objects 中所有 object（label=object 名称）。\n>   - \"分类字段\"、\"值字段\"：下拉选择选中对象的所有字段（label=field.name），依赖于对象选择。\n>   - 未选择对象时\"字段\"下拉禁用或灰显。\n> - 下拉可实时搜索，支持键盘操作（可采用\"combobox\"控件），提示路径、类型。\n> - 所有关联字段（如聚合方式、布局等）也采用下拉型控件。\n> \n> ### 四、属性面板结构/交互一致\n> - 使用统一的 WidgetConfigPanel/DashboardConfigPanel 面板渲染规范，复用 ConfigPanelRenderer。\n> - 表单所有交互均为即时保存（auto-save）、支持撤销、还原。\n> - 兼容对象 schema 扩展，做到自适应。\n> \n> ### 五、完善测试\n> - 为��述核心流程添加自动化测试（如 widget 选中切换、属性实时联动、下拉可选等）\n> - 验证主区与属性面板联动，新增/编辑/切换都与所见即所得预览同步。\n> \n> ---\n> \n> ## 技术细节与建议\n> - `DashboardView`中增加ensureWidgetIds函数，自动补全缺失id。\n> - 新建Widget默认填充合理内容，避免全空。\n> - WidgetConfigPanel属性 schema 支持对象/字段动态下拉（利用metadata/context，全局传递object/field信息）。\n> - 下拉及字段联动：可参考Airtable设计，采用Combobox/SelectField实现，对象/字段选择与显示类型提示。\n> - 组件/数据联动、实时保存参照现有配置面板实现规范。\n> \n> ---\n> \n> ## 验收标准\n> - 所有核心属性配置体验与Airtable完全一致，包括对象/字段下拉、实时联动、选中切换等。\n> - 新/老模式无割裂，所有面板配置支持自动保存/撤销，还原等所有ConfigPanelRenderer标准交互。\n> - 自动化测试覆盖所有流程。\n> \n> ---\n> \n> ## 参考issue\n> 详见前置设计优化（#809）以及Airtable实际体验。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#818\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

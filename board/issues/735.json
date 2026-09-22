@@ -1,0 +1,33 @@
+{
+  "number": 735,
+  "kind": "pull_request",
+  "title": "Migrate ViewConfigPanel to Schema-Driven architecture (1655→170 lines)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T03:33:58Z",
+  "updated_at": "2026-02-23T04:52:05Z",
+  "closed_at": "2026-02-23T04:35:05Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T04:35:05Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/735",
+  "body": "ViewConfigPanel was ~1655 lines of imperative UI code. Migrated to the existing Schema-Driven config panel framework (`ConfigPanelRenderer` + `useConfigDraft` + `ConfigPanelSchema`).\n\n## Changes\n\n### New files\n- **`apps/console/src/utils/view-config-utils.ts`** — Extracted shared utilities: operator mappings (`SPEC_TO_BUILDER_OP`/`BUILDER_TO_SPEC_OP`), `normalizeFieldType`, `parseSpecFilter`/`toSpecFilter`, field option derivation\n- **`apps/console/src/utils/view-config-schema.tsx`** — Schema factory producing a `ConfigPanelSchema` with all 6 sections. Complex widgets (column selector, filter/sort builders, conditional formatting, quick filters) use `type: 'custom'` render functions. Includes `ExpandableWidget` component to avoid hooks-in-render violations for expandable sub-sections\n\n### Rewritten\n- **`apps/console/src/components/ViewConfigPanel.tsx`** — Now a ~170-line wrapper: `useConfigDraft` for state, `buildViewConfigSchema` for structure, `ConfigPanelRenderer` for rendering\n\n```tsx\n// Before: 1655 lines of imperative JSX with manual useState/useEffect/useCallback\n// After:\nconst { draft, isDirty, updateField, discard } = useConfigDraft(effectiveActiveView, { mode, onUpdate: onViewUpdate });\nconst schema = buildViewConfigSchema({ t, fieldOptions, objectDef, updateField, filterGroupValue, sortItemsValue });\nreturn <ConfigPanelRenderer open={open} schema={dynamicSchema} draft={draft} ... />;\n```\n\n### Enhanced\n- **`ConfigPanelRenderer`** — Added optional props for panel customization: `panelRef`, `role`, `ariaLabel`, `tabIndex`, `testId`, `closeTitle`, `footerTestId`, `saveTestId`, `discardTestId`. Enables backward-compatible test IDs when wrapping in domain-specific panels\n\n### Tests\n- All 122 existing ViewConfigPanel tests pass (mock updated for `ConfigPanelRenderer` + `useConfigDraft`)\n- All 24 ObjectView integration tests pass\n- 53 new tests covering utils and schema factory\n- 2,457 total tests across 81 files pass\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Console 右侧面板改造为通用 Schema-Driven 配置体系（包含全部迁移与优化任务）</issue_title>\n> <issue_description>## 背景\n> 当前 console 的 ViewConfigPanel 右侧面板为命令式实现（>1600行），维护成本高，缺乏声明式抽象，未来难以快速迭代或支持新场景。通用 Schema-Driven Panel 框架已成熟，应全面迁移并优化 console 面板。\n> \n> ---\n> \n> ## 改造目标\n> - 将 ViewConfigPanel 以及全部右侧面板（UserActions/Sharing/Accessibility/Data/Appearance/PageConfig）迁移为 Schema-Driven 配置体系，彻底消除命令式冗余代码\n> - 保留所有现有功能，同时提升一致性、扩展性与可维护性\n> - 支持复杂/定制交互采用 type=\"custom\" 或 escape hatch\n> - 统一草稿态、脏检测、保存/丢弃等交互逻辑，适配 useConfigDraft\n> \n> ---\n> \n> ## 具体任务拆解\n> \n> ### 1. 公共逻辑抽取与框架接入\n> - 抽取/迁移 Operator Mapping（SPEC_TO_BUILDER_OP, BUILDER_TO_SPEC_OP）、normalizeFieldType、parseSpecFilter、toSpecFilter 至 @object-ui/components 或共用 utils 层\n> - ViewConfigPanel 改造为轻量外壳，只负责 schema factory、hook 调用与渲染\n> - i18n label 用 t 函数参数化注入各字段\n> - 保证所有字段变化均通过 onViewUpdate 实时同步草稿与预览\n> - 保证 useConfigDraft 支持 create/edit/dirty/discard/save 全流程\n> \n> ---\n> \n> ### 2. 按 Section 迁移 ViewConfigPanel → Schema-Driven\n> \n> #### 2.1 UserActions / Sharing / Accessibility (Phase 1)\n> - 全部字段直接映射为 ConfigPanelSchema 中 input/select/switch 类型，无 custom widget\n> - 预计1天完成\n> - 保证 testid/单元测试兼容\n> \n> #### 2.2 Page Config Section (Phase 2)\n> - label/description/type/showSearch/showFilters/showSort/showHideFields/showGroup/showColor/showDensity/allowExport/showRecordCount/allowPrinting/selection.type/densityMode等映射\n> - Navigation/AddRecord/ExportOptions等复合字段以 type:'custom' 或拆分+ visibleWhen 处理\n> \n> #### 2.3 Appearance Section (Phase 3)\n> - rowHeight 用 type:'icon-group' 直接映射\n> - conditionalFormatting 用 custom widget\n> - EmptyState 分为3个 input 字段\n> \n> #### 2.4 Data Section (Phase 4)\n> - source/groupBy/prefixField/pageSize/virtualScroll等直映射\n> - Fields/Columns 选择器（多选+可排序）抽为 ColumnSelectorWidget（type:'custom'）\n> - Searchable/Filterable/Hidden Fields 用 FieldMultiSelectWidget（type:'custom'）\n> - Sort/Filter 用框架 type:'sort' / 'filter' 并桥接 spec <-> builder\n> - Type-Specific Options 用 visibleWhen+动态 section+schema工厂注入\n> \n> #### 2.5 清理冗余与优化（Phase 5）\n> - 删除旧命令式 ViewConfigPanel 代码\n> - 移动公共Utils\n> - 单元测试、E2E与 Storybook用例覆盖\n> \n> ---\n> \n> ## 风险重点\n> - 保证所有 spec 格式桥接逻辑保留，不丢失业务细节\n> - Create Mode 默认值/流程需全部兼容\n> - onViewUpdate 实时同步需按字段粒度\n> - testid/快照测试需要兼容原有用例\n> - i18n 字段标签全量参数化\n> \n> ---\n> \n> ## 验收标准\n> - 所有 Section 均为 Schema-Driven 实现，冗余命令式代码减少 >50%\n> - 配置面板可用性、交互一致性与现有体验至少持平\n> - 所有主要配置项、面板均有 Storybook+测试覆盖\n> - 支持后续平台扩展与自定义场景\n> \n> ---\n> \n> ### 预估时间\n> - 总计 8.5 工作日，分阶段推进\n> \n> ---\n> \n> 相关链接：\n> - [ViewConfigPanel 主线实现](https://github.com/objectstack-ai/objectui/blob/HEAD/apps/console/src/components/ViewConfigPanel.tsx)\n> - [DashboardConfigPanel 通用框架例子](https://github.com/objectstack-ai/objectui/blob/HEAD/packages/plugin-dashboard/src/DashboardConfigPanel.tsx)\n> - [ConfigPanelRenderer 统一渲染器](https://github.com/objectstack-ai/objectui/blob/HEAD/packages/components/src/custom/config-panel-renderer.tsx)\n> - [ROADMAP.md](https://github.com/objectstack-ai/objectui/blob/HEAD/ROADMAP.md)\n> \n> ---\n> \n> @hotlong 本任务涵盖所有 Console 配置面板迁移、共用逻辑抽取、全平台 Schema-Driven 流程设计与测试。建议完成后运行 test 并更新 Roadmap。\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#734\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

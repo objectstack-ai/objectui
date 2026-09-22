@@ -1,0 +1,33 @@
+{
+  "number": 853,
+  "kind": "pull_request",
+  "title": "Chart widgets: server-side aggregation via DataSource.aggregate()",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-25T06:59:52Z",
+  "updated_at": "2026-02-25T07:29:57Z",
+  "closed_at": "2026-02-25T07:23:55Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-25T07:23:55Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/853",
+  "body": "Chart widgets (bar/line/area/pie/donut/scatter) fetch all raw records and aggregate client-side, causing unnecessary data transfer at scale. This adds a server-side aggregation path through the `DataSource` interface.\n\n### `@object-ui/types` — `DataSource.aggregate()` interface\n\n- Added optional `aggregate?(resource, params: AggregateParams): Promise<AggregateResult[]>` to `DataSource`\n- New types: `AggregateParams` (`field`, `function`, `groupBy`, `filter?`), `AggregateResult`\n\n### `ObjectChart` — prefer server-side aggregation\n\n- When `schema.aggregate` is set and `dataSource.aggregate()` exists → call it directly (no raw data transfer)\n- Otherwise → fallback to `dataSource.find()` + client-side `aggregateRecords()` (backward compat)\n\n### Adapter implementations\n\n- **`ValueDataSource`** — in-memory aggregation (tests/demos)\n- **`ApiDataSource`** — `GET {base}/aggregate?field=…&function=…&groupBy=…`\n- **`ObjectStackAdapter`** — delegates to `this.client.analytics.query()` from `@objectstack/client` SDK; falls back to `find()` + client-side aggregation if analytics endpoint unavailable\n\n```typescript\n// DataSource WITH aggregate() — only aggregated results transferred\nconst ds = new ObjectStackAdapter({ baseUrl, token });\n// ObjectChart automatically routes through analytics API:\n// POST /api/v1/analytics/query { object, measures, dimensions }\n\n// DataSource WITHOUT aggregate() — transparent fallback\nconst legacy = { find: mockFind };\n// Still works: find() → extractRecords() → aggregateRecords()\n```\n\nDetail widgets (grid/table/list) are unaffected — they continue using `find()`.\n\n### Tests\n\n- 4 new `ObjectChart.dataFetch` tests: aggregate preference, find fallback, no-aggregate-config skip, filter passthrough\n- 5 new `ValueDataSource` tests: sum/count/avg/min/max aggregation\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>【Bug】图表控件加载数据时未聚合导致大量数据下载，需后端计算聚合</issue_title>\n> <issue_description>### 问题描述\n> \n> 在 dashboard 的图表控件（如柱状图、折线图、饼图等）中，当前加载数据时会直接获取全部原始数据（例如通过 https://demo.objectui.org/api/v1/data/opportunity 这类 API，一次性拉取所有数据），当数据量大时性能和体验极差。\n> \n> #### 期望行为\n> - 图表类的 widget 在加载数据时，应该调用后端数据分析 API，由服务端完成分组/聚合计算，只返回聚合后的结果到前端。\n> - 前端仅展示统计分析结果、而非全量数据。\n> \n> #### 建议修复思路\n> - 梳理 dashboard 各 widget 的数据请求方式，区分明细 vs 聚合。\n> - 图表控件如 area/bar/line/pie/donut/scatter/pivot 类型，统一走分析（aggregation）API，例如 GET /api/v1/analytics/opportunity?category=xxx&metric=yyy&agg=sum ，由后端负责聚合。\n> - 仅明细类控件（如 grid/table/list）才可走全量数据接口。\n> \n> ---\n> 请修复上述问题，并确保 dashboard 相关 test 通过。修复后同步更新项目 Roadmap。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#851\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 987,
+  "kind": "issue",
+  "title": "Onboarding dialog renders two overlapping close (×) buttons",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-03T04:57:39Z",
+  "updated_at": "2026-03-03T05:35:50Z",
+  "closed_at": "2026-03-03T05:35:50Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/987",
+  "body": "## Problem\n\nThe Onboarding dialog displays two overlapping close (×) buttons in the upper-right corner (see screenshot below):\n\n<img alt=\"Onboarding dialog with two close buttons\" width=\"944\" src=\"https://github.com/user-attachments/assets/148f4868-ed70-4611-904e-c42d2068eed1\" />\n\n---\n\n### Cause\n- The OnboardingWalkthrough component manually renders its own close button in the header:\n  - `<Button variant=\"ghost\" size=\"icon\" ...><X ... /></Button>`\n- The DialogContent component (from `@object-ui/components`) already includes a built-in close button positioned absolutely at the top-right corner.\n- These two buttons appear at the same location, resulting in a duplicated UI control and confusion.\n\n### Example (from code):\n```tsx\n// In OnboardingWalkthrough.tsx\n<DialogHeader>\n  <DialogTitle>...</DialogTitle>\n  <Button ...><X ... /></Button> // Manually added close button\n</DialogHeader>\n\n// In DialogContent (auto-generated via Radix)\n<DialogPrimitive.Close ...>\n  <X ... />\n</DialogPrimitive.Close>\n```\n\n## Solution\n- **Remove the manually rendered close button** from the OnboardingWalkthrough's DialogHeader, as DialogContent already provides an accessible close control.\n- Verify that dismissing the dialog still works via the remaining button and that keyboard/escape functionality behaves correctly via `Dialog`'s `onOpenChange`.\n\n## References\n- Dialog: [`packages/components/src/ui/dialog.tsx`](https://github.com/objectstack-ai/objectui/blob/main/packages/components/src/ui/dialog.tsx)\n- Onboarding: [`apps/console/src/components/OnboardingWalkthrough.tsx`](https://github.com/objectstack-ai/objectui/blob/main/apps/console/src/components/OnboardingWalkthrough.tsx)\n\n### Screenshot\n<img alt=\"Screenshot showing duplicate close buttons\" width=\"944\" src=\"https://github.com/user-attachments/assets/148f4868-ed70-4611-904e-c42d2068eed1\" />\n\n## Severity\nMinor – does not block usage but affects UX polish.\n\n---\n\n**Test after fix:**\n- Only one close button visible\n- Dialog dismissal works as expected (button, ESC, clicking outside)\n- WCAG accessibility for close button touch targets preserved\n\n---\n_Related file: `apps/console/src/components/OnboardingWalkthrough.tsx`_\n\n---\n\n> After completing this task: run tests, update related issues, and update ROADMAP.md. If a change requires work in another ObjectStack repo, create a cross-repo issue in the target repo."
+}

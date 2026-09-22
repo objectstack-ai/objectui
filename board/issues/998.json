@@ -1,0 +1,36 @@
+{
+  "number": 998,
+  "kind": "issue",
+  "title": "修复详情页与相关表字段的国际化显示和字段类型支持",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T08:35:23Z",
+  "updated_at": "2026-03-03T09:38:46Z",
+  "closed_at": "2026-03-03T09:38:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/998",
+  "body": "### 问题清单（见 #968 #883 #942）\n\n1. **详情页字段名未做国际化**\n   - Details Tab、相关子表等记录字段名��示无多语言切换，未统一调用 useObjectLabel / fieldLabel。\n2. **相关表（子表）字段未做国际化**\n   - Related Tab 的表头、字段、按钮未统一支持 i18n，尤其字段名、title/section 名、操作按钮。\n3. **相关表/字段类型显示不统一**\n   - 相关表 reference/lookup 字段只显示 ID，无关联对象展示（如订单显示 o1、o2）；类型/格式未区分 badge、链接、日期等显示方式。\n4. **详情页 Tab、分组标题未国际化**\n   - Tab（详情/相关/活动）、 SectionGroup/分组、区块 title 均需支持 i18n。\n5. **空值与日期显示未国际化处理**\n   - 空值统一显示（如淡化样式）；日期字段按用户 locale 格式化。\n6. **相关表支持 View All、Inline Edit/Delete、新建等操作**\n   - 支持子表批量操作、Tab布局、分页排序，按钮名需多语言。\n7. **详情页高亮区、字段类型显示未达 Salesforce 动态相关列表模式**\n   - 支持动态高亮区、分组/可收起、相关表按模型自动生成。\n\n---\n#### 参考资料\n- Salesforce 相关表设计：https://help.salesforce.com/s/articleView?id=platform.customizing_related_lists.htm\n- Dynamic Related List 实践：https://www.salesforceben.com/ultimate-guide-to-salesforce-dynamic-related-lists/\n\n<img alt=\"详情页截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/5b60f767-42b3-428b-ab39-1bafa1bf6a5d\" />\n<img alt=\"相关表截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/b13e2318-73b5-445f-aead-769f24bb4145\" />\n\n> 任务完成后：请运行全部相关测试，用 ROADMAP.md 记录进展，更新相关 issues。如果改动涉及 ObjectStack 其他仓库，请创建 cross-repo 任务。\n"
+}

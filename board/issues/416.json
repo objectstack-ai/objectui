@@ -1,0 +1,33 @@
+{
+  "number": 416,
+  "kind": "pull_request",
+  "title": "feat: implement enterprise-grade features (roadmap 2.4)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-09T15:05:23Z",
+  "updated_at": "2026-03-23T23:30:09Z",
+  "closed_at": "2026-02-09T15:52:49Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-09T15:52:49Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/416",
+  "body": "Implements all four enterprise-grade features from roadmap section 2.4: Advanced Grid, Reporting Engine, Workflow Engine, and AI Integration.\n\n## New type definitions (`@object-ui/types`)\n\n- **`workflow.ts`** — 13 types: `WorkflowSchema`, `WorkflowNode`, `WorkflowEdge`, `WorkflowDesignerSchema`, `ApprovalProcessSchema`, `ApprovalRule`, `WorkflowInstanceSchema`, etc.\n- **`ai.ts`** — 10 types: `AIFormAssistSchema`, `AIRecommendationsSchema`, `NLQuerySchema`, `AIInsightsSchema`, `AIConfig`, `AIFieldSuggestion`, etc.\n\n## Advanced Grid (`plugin-aggrid`)\n\n- `TreeDataConfig` — hierarchy path / parent-child tree data support via AG Grid's `treeData` API\n- `RowGroupingConfig` — field-based row grouping with aggregation functions\n- `ExcelExportConfig` — Excel-compatible CSV export with toolbar button and context menu item\n\n## Reporting Engine (`plugin-report`)\n\n- **`ReportExportEngine.ts`** — browser-native export to PDF (print dialog), Excel (BOM+TSV), CSV, JSON, HTML. No heavy dependencies.\n- **`ScheduleConfig.tsx`** — frequency/day/time/timezone/recipients configuration component\n- Wired export buttons (PDF/Excel/CSV) into `ReportViewer`, added Schedule tab to `ReportBuilder`\n\n## Workflow Engine (`plugin-workflow`) — new package\n\n- **`WorkflowDesigner`** — visual flow builder with 9 node types, node palette, properties panel, edge management\n- **`ApprovalProcess`** — approve/reject/reassign UI with history timeline and rule display\n- 10 tests across 2 suites\n\n## AI Integration (`plugin-ai`) — new package\n\n- **`AIFormAssist`** — field suggestion cards with confidence scores, apply/dismiss, batch apply\n- **`AIRecommendations`** — scored item recommendations in list or grid layout\n- **`NLQueryInput`** — natural language query input with suggestion chips, result table, query history\n- 14 tests across 3 suites\n\n## Security\n\n- `escapeHTML()` for XSS prevention in generated HTML/PDF\n- `sanitizeCSVValue()` — prefixes formula chars (`=`, `+`, `-`, `@`, `|`) with tab to prevent CSV injection\n- `validatePageSize()` / `validateOrientation()` — whitelist validation against CSS injection in `@page` rules\n\n```typescript\n// New component registration pattern\nComponentRegistry.register('workflow-designer', WorkflowDesigner, {\n  label: 'Workflow Designer',\n  category: 'Enterprise',\n  inputs: [\n    { name: 'workflow', type: 'code', label: 'Initial Workflow Definition' },\n    { name: 'readOnly', type: 'boolean', label: 'Read Only', defaultValue: false },\n  ]\n});\n```\n\n**Note:** Pre-existing test failures from `plugin-dashboard`'s `WidthProvider` import in the global vitest setup are unrelated to these changes.\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

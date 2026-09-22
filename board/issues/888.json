@@ -1,0 +1,33 @@
+{
+  "number": 888,
+  "kind": "issue",
+  "title": "[跨仓库] 支持自动注入 $expand 以解决动态 lookup 字段展示问题（配合 objectql engine）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-27T05:27:55Z",
+  "updated_at": "2026-02-27T10:20:42Z",
+  "closed_at": "2026-02-27T10:20:42Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/888",
+  "body": "## 任务背景\n在 ObjectUI 的 Grid/List/Kanban 等数据视图中，遇到 lookup/master_detail 字段为动态引用时，往往无法显示 label，只能显示 ID。即使 renderer 层已修复，如 LookupCellRenderer 可用 options 或对象自动 resolve，但 API 返回的数据若没有展开（expand），仍会出现原始 ID。\n\n## 任务目标\n1. 前端自动梳理 schema，识别所有 type: 'lookup' 与 type: 'master_detail' 字段\n2. 在请求 data 时，自动将这些字段名作为 $expand 注入到 QueryParams\n3. 若 columns 为 ListColumn[] 显式配置，也需兼容其 dynamic lookup 需求\n4. 必须和 objectql 后端的 expand 实现协同，允许多级嵌套\n5. 保留现有 fallback（不支持 expand 时降级显示 ID）\n\n## 实现理由\n- 只有注入 $expand 后，objectql 才能返回 lookup 对象而不是原始外键\n- 前端统一注���，避免每个 renderer/视图重复处理\n- 符合协议规范，提升体验，与 Airtable 等主流 UX 保持一致\n\n## 参考\n- 需同步 objectql engine 完善 expand（见 cross-repo 任务）\n\n---\n实现完成后运行 tests、更新相关 issues，并补充 ROADMAP.md。"
+}

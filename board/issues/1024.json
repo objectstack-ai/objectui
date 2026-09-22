@@ -1,0 +1,33 @@
+{
+  "number": 1024,
+  "kind": "pull_request",
+  "title": "Remove double-pass defineStack hack, unify config composition flow",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T05:02:46Z",
+  "updated_at": "2026-03-04T05:23:16Z",
+  "closed_at": "2026-03-04T05:18:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-04T05:18:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1024",
+  "body": "`defineStack()` Zod validation strips runtime properties (`listViews`, `actions`) from objects, forcing a second `composeStacks()` pass to restore them. Console config also manually spreads apps/reports from individual sources instead of using composed output.\n\n### Config simplification\n\n- **`objectstack.config.ts`**: Remove `defineStack()` + second `composeStacks()` pass. Single `composeStacks()` call produces final config directly.\n- **`apps/console/objectstack.shared.ts`**: Same double-pass removal. Replace manual `[...crmApps, ...(todoConfig.apps || []), ...]` with `composed.apps` (CRM nav patch applied post-composition). Replace `...(crmConfig.reports || [])` with `...(composed.reports || [])`.\n\nBefore:\n```ts\nconst composed = composeStacks(allConfigs, { objectConflict: 'override' });\nconst validated = defineStack({ ...composed } as any);       // strips listViews, actions\nexport default {\n  ...validated,\n  objects: composeStacks([                                    // second pass to restore\n    { objects: validated.objects || [] },\n    ...allConfigs.map(cfg => ({ views: cfg.views, actions: cfg.actions })),\n  ]).objects,\n};\n```\n\nAfter:\n```ts\nconst composed = composeStacks(allConfigs, { objectConflict: 'override' });\nexport default sharedConfig;  // single pass, runtime properties preserved\n```\n\n### Tests\n\n- Added conflict detection test (`objectConflict: 'error'` catches duplicate `account`)\n- Added prefixed naming coexistence test (`account` + `ks_account` with `objectConflict: 'error'`)\n\n### Docs\n\n- Updated ROADMAP.md Phase 1.5 with `composeStacks` responsibility split: `@object-ui/core` handles runtime mapping (views→objects, actions→objects); `@objectstack/spec` handles protocol-level composition.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>merge 配置未彻底解决、配置 double-pass hack 和对象命名冲突问题待修复</issue_title>\n> <issue_description>## 问题描述\n> \n> 近期虽然已将 `mergeViewsIntoObjects` 和 `mergeActionsIntoObjects` 相关逻辑从手动 merge 移动到了 `@object-ui/core` 的 `composeStacks()`，但实际 main/config 代码流和 objects/views/actions 的 runtime 映射，依然停留在 double-pass hack，以及对象名冲突未彻底解决。\n> \n> ---\n> \n> ### 1. `defineStack()` 验证后又二次 `composeStacks()`，double-pass hack\n> - `objectstack.config.ts` 和 `apps/console/objectstack.shared.ts` 都有相似的模式：先 compose+validate，再重新 merge views/actions 到 objects；\n> - `defineStack()` 的 Zod parse 会剥掉非标准字段（如 listViews），导致必须二次 merge，显式 hack；\n> - 当前已经是 \"merge hidden, not removed\"（只是换了个位置藏起来）；\n> - 建议提炼为唯一的数据流入口工具，或从 schema 协议源头支持动态字段；\n> \n> ### 2. apps 配置仍然有手动结构展开\n> - 比如 console 侧 apps 是 `[...crmApps, ...(todoConfig.apps || []), ...(kitchenSinkConfig.apps || [])]`，而不是完全走 composed.apps;\n> - 应简化入口逻辑，只用 composed/apps 统一流；\n> \n> ### 3. Kitchen Sink 对象未改名，objectConflict 仍然只是静默压制冲突\n> - Kitchen Sink 和 CRM 仍然定义了同名 `account` object，spec/merge 静默覆盖一方，数据丢失；\n> - 按 objectstack-ai/objectui#1021 Issue 要求，应将 Kitchen Sink 的 `account` 对象改名或移除，彻底消除多 source 的命名冲突；\n> \n> ### 4. composeStacks 工具重复，协议和工具并存\n> - ObjectUI 有独立实现 (@object-ui/core)，spec/core 层也有相同工具，功能高度重叠；\n> - 建议统一为 spec 层提供的 composeStacks，ObjectUI 侧只保留 runtime 映射适配；\n> \n> ---\n> \n> ## 建议修复清单\n> \n> 1. 明确只调用一次 composeStacks 汇总所有数据，避免 double-pass（如 objects/views/actions apps），不再手动二次 merge；\n> 2. 完全用 composeStacks 输出 apps（去掉手动展开），apps 部分保持和 objects 一致的数据流；\n> 3. Kitchen Sink example 对象重命名，按照插件隔离原则区分 source，消除 silent override；\n> 4. 明确 ObjectUI 和 Spec 层 composeStacks 的职责、避免重复实现；\n> 5. 评估 ObjectSchema/ViewSchema 支持 runtime 字段的方式，减少 hack;\n> 6. Tests & Docs：针对合并/冲突场景补充分支测试，ROADMAP.md、架构文档同步更新。\n> \n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1023\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

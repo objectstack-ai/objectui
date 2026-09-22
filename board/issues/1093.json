@@ -1,0 +1,35 @@
+{
+  "number": 1093,
+  "kind": "issue",
+  "title": "参考主流低代码平台优化lookup字段选择列表弹窗界面",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-03-19T08:21:28Z",
+  "updated_at": "2026-03-19T09:57:02Z",
+  "closed_at": "2026-03-19T09:57:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1093",
+  "body": "## 背景\n当前订单列表弹窗界面还有较大的可用性和观感提升空间。为提升平台竞争力和用户体验，应参考主流低代码平台，进行整体UI/UX优化。\n\n<img alt=\"现有界面截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/dd9d0a89-bf93-4375-bc6e-ad0dbdd0fa52\" />\n\n## 优化建议\n1. **数据表头吸顶**：滚动时表头固定，提升操作性。\n2. **筛选与搜索区域优化**：\n  - 搜索框与过滤条件显著分区，提升辨识度。\n  - 支持自定义组合筛选项，筛选项宽度自适应，方便多条件筛选。\n3. **数据展示**：\n  - 表格分隔线更清晰，突出每行间隔。\n  - 状态列采用主流标签设计（风格更现代，色彩分级统一）。\n  - 对金额、日期等展示格式友好化（如支持千分位、hover浮窗显示原始值）。\n4. **底部栏与分页**：\n  - 固定底部记录总数与分页器。\n  - 多页切换时支持跳转指定页。\n5. **交互反馈**：\n  - 数据加载、筛选、分页等异步操作有loading动画或骨架屏。\n6. **响应式支持**：\n  - 弹窗宽度及数据列可根据屏幕自适应，移动端友好。\n\n## 参考侧重\n- 参考宜搭、简道云等头部国产低代码平台交互与视觉风格。\n- 强调可扩展性与组件通用性设计。\n\n## 后续要求\n- 优化设计需���持国际化、可配置化。\n- 变更后需编写/调整单元测试，确保优化无回归。\n- 完成后补充CHANGELOG，并更新相关进度issue。\n\n---\n如需更多用户调研分析或竞品截图，可进一步补充。\n\n"
+}

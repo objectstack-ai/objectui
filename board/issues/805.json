@@ -1,0 +1,33 @@
+{
+  "number": 805,
+  "kind": "pull_request",
+  "title": "feat: ConfigPanel disabledWhen, expandedSections, description spec alignment, navigation hints",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T14:24:39Z",
+  "updated_at": "2026-02-23T15:44:06Z",
+  "closed_at": "2026-02-23T15:39:24Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T15:39:24Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/805",
+  "body": "Addresses several ViewConfigPanel/ConfigPanelRenderer detail issues: missing `disabled` state for view-type-dependent fields, no external collapse control, `description` not in protocol spec, and no UX hints on conditionally-visible navigation fields.\n\n### Protocol alignment\n- Add `description?: string` to `NamedListView` interface — was annotated as \"UI extension\", now spec-aligned\n\n### `disabledWhen` predicate on `ConfigField`\n- New `disabledWhen?: (draft) => boolean` on `ConfigField` type\n- Evaluated in `ConfigFieldRenderer` as `effectiveDisabled` for all control types (input, switch, checkbox, select, slider, color, icon-group, field-picker)\n- Grid-only fields (`striped`, `bordered`, `wrapHeaders`, `resizable`) now disabled when `type !== 'grid'`\n\n```tsx\n// buildSwitchField now accepts optional disabledWhen\nbuildSwitchField('striped', t('...'), 'toggle-striped', false, true,\n    (draft) => draft.type != null && draft.type !== 'grid')\n```\n\n### `expandedSections` prop on `ConfigPanelRenderer`\n- New `expandedSections?: string[]` prop overrides local collapsed state for listed section keys\n- Enables external callers to programmatically open/highlight specific sections\n\n### Navigation-dependent field hints\n- `helpText` added to `_navigationWidth` and `_navigationOpenNewTab` fields\n- New i18n keys `navigationWidthHint` / `openNewTabHint` translated across all 11 locales\n- `ConfigFieldRenderer` renders `helpText` as a `<p>` element below the field control for all field types including `custom`\n\n### Tests\n- 27 new tests: `expandedSections` override (3), `disabledWhen` evaluation (2), grid-only predicates (16), helpText validation (2), description spec alignment (1), helpText rendering in ConfigFieldRenderer (3)\n- All 283 related tests passing\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>ViewConfigPanel 部分控件细节问题及改进建议</issue_title>\n> <issue_description>经对 ViewConfigPanel/ConfigPanelRenderer 代码以及控件交��/协议字段适配进行精查，发现如下问题值得追踪修复：\n> \n> 1. \n> 控件 key/属性 与协议 NamedListView 字段 ⚠️ 不严格一致：部分场景（如单测、或历史逻辑）仍出现 selection.type/multi 与 multiple 混用，建议统一 key 为 multiple。\n> \n> 2. \n> 部分 UI extension 字段未全在协议 spec 体现（如 description）。建议推进协议补全相关定义。\n> \n> 3. \n> 部分设置字段是通过 visibleWhen 实现条件可见，但 UI 文案提示及状态同步逻辑不足，例如导航模式切换下 dependent 字段状态无提示。\n> \n> 4. \n> ConfigPanelSchema Section/Field 的 collapsed 状态仅由本地 state 控制，未能支持外部打开指定Section的自动聚焦或高亮体验。\n> \n> 5. \n> Switch/Checkbox/Input 等基础控件依赖简化 mock 组件（如测试/故事文件中代码），实际复杂场景可用性及可访问性还需生产环境下多端深测。\n> \n> 6. \n> 部分控件显示/隐藏仅依赖 visibleWhen，但缺乏 \"disabled\" 受控属性，会导致一些配置项在 protocol 不支持情况下未置灰。\n> \n> 请相关研发、产品和前端同学评估上述问题，逐项讨论优先级并逐步推进完善。\n> \n> 如有新增控件细节 bug 或 UX 良性建议，请补充到本 issue 下面。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#804\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 820,
+  "kind": "issue",
+  "title": "ObjectUI 平台级界面风格与交互一致性优化",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-24T03:52:40Z",
+  "updated_at": "2026-02-24T04:57:15Z",
+  "closed_at": "2026-02-24T04:57:15Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/820",
+  "body": "## 概述\n\n本 issue 针对 **ObjectUI 元数据平台**（非某个特定示例应用）提出整体界面风格和交互规范优化建议。所有通过 ObjectUI SDUI 引擎生成的应用界面（Grid、Board、Calendar、Dashboard、Report 等）均应从中受益。\n\n<img alt=\"当前平台界面参考\" width=\"3838\" src=\"https://github.com/user-attachments/assets/6e37e8f3-1cff-436c-80ac-f52696644b71\" />\n\n---\n\n## 关联 Issues\n\n- #736 ListView Spec Protocol Gap\n- #724 ViewConfigPanel 对齐 spec\n- #731 通用 Schema-Driven 配置面板框架\n- #741 设置面板 UI 严格按协议对齐\n\n---\n\n## 1️⃣ 全局主题与设计 Token 标准化\n\n**涉及**：`packages/core/src/theme/ThemeEngine.ts`、`packages/components/src/index.css`、`content/docs/guide/theming.md`\n\n### 现状问题\n- 部分组件直接使用硬编码灰度色（如 `GridField.tsx` 中 `text-gray-500`、`bg-gray-50`），未走 theme token\n- 字体未统一强制使用 Inter（Storybook 配置了，但平台运行时未全局注入）\n- 边框、圆角、间距在不同插件间存在不一致\n\n### 具体改进\n- [ ] **扫描所有硬编码颜色**：`packages/fields/src/widgets/GridField.tsx`、`packages/plugin-report/src/ReportRenderer.tsx` 等组件中 `text-gray-*`、`bg-gray-*` 全部替换为 theme token（`text-muted-foreground`、`bg-muted`）\n- [ ] **强制全局字体**：在 `packages/components/src/index.css` 的 `:root` 中注入 `font-family: 'Inter', ui-sans-serif, system-ui`，确保所有渲染场景生效\n- [ ] **统一间距/圆角**：所有 card/panel/popover 使用 `rounded-lg`（`var(--radius)`），边框统一 `border-border/50`\n- [ ] **过渡动画**：所有可交互元素添加 `transition-colors duration-150`\n\n---\n\n## 2️⃣ Sidebar 导航组件（`packages/layout` + `packages/components/src/ui/sidebar.tsx`）\n\n### 现状问题\n- `SidebarNav` 组件缺少分组分隔、活跃项指示强化\n- 折叠态下图标缺少 Tooltip\n- `packages/runner/src/LayoutRenderer.tsx` 中的手写 sidebar 与 `packages/layout/src/SidebarNav.tsx` 组件风格不统一\n\n### 具体改进\n- [ ] **活跃项样式强化**：`SidebarMenuButton` 的 `isActive` 态增加左侧 3px 指示条（`before:absolute before:left-0 before:w-[3px] before:bg-primary`）\n- [ ] **分组视觉分隔**：`SidebarGroupLabel` 增加 `border-t border-border/30 pt-3 mt-2` 分隔\n- [ ] **统一 LayoutRenderer 和 SidebarNav**：`packages/runner/src/LayoutRenderer.tsx` 的手写 sidebar 迁移使用 `@object-ui/layout` 的 `SidebarNav` 组件，消除两套实现\n- [ ] **折叠态 Tooltip**：`collapsible=\"icon\"` 模式下确保所有 `SidebarMenuButton` 有 `tooltip` prop\n\n---\n\n## 3️⃣ ListView 工具栏布局（`packages/plugin-list/src/ListView.tsx`）\n\n### 现状问题\n- 工具按钮（Hide fields / Filter / Group / Sort / Color / Density）和快捷过滤器（Status / Priority / Category）平铺在同一行，视觉层次平坦\n- Search 以按钮形态隐藏，不够直观\n- 工具栏按钮在窄屏下溢出处理不佳\n\n### 具体改进\n- [ ] **双行布局**：第一行为视图操作工具（Hide fields / Filter / Sort / Group / Color / Density），第二行为 `quickFilters` pills 和 `userFilters`\n- [ ] **搜索栏改为 inline Input**：`toolbarFlags.showSearch` 为 true 时，右侧固定渲染 `<Input>` 搜索框（而非点击展开），宽度 `w-48`\n- [ ] **激活态强化**：当 Filter/Sort/Group 有值时，对应按钮增加 `bg-primary/8 border-primary/20` 背景\n- [ ] **响应式溢出**：窄屏时工具按钮使用 `overflow-x-auto` 横向滚动，或折叠为 \"More\" 下拉菜单\n\n---\n\n## 4️⃣ ObjectGrid 单元格渲染器（`packages/plugin-grid/src/ObjectGrid.tsx` + `packages/fields/`）\n\n### 现状问题\n- `inferColumnType()` 自动推断类型后的渲染缺少视觉标识——select/status 类字段显示纯文本\n- 日期字段直接输出 ISO 字符串（如 `2026-02-26T03:09:07.458Z`）\n- Boolean 字段无视觉渲染\n\n### 具体改进\n- [ ] **select/status 类型**：当 field.type 为 `select` 时，`getCellRenderer()` 返回 `<Badge>` 并支持从 field.options 映射颜色\n- [ ] **日期类型格式化**：`formatDate()` 在 `packages/fields/src/formatters.ts` 中增加相对时间模式（\"2 days ago\"、\"Today\"、\"Overdue 3d\"），并在 ObjectGrid 列推断时默认启用\n- [ ] **Boolean 类型**：渲染为 `<Checkbox disabled checked={value} />` 或 `✓/—` 图标\n- [ ] **表头样式**：`ObjectGrid` 表头行统一使用 `text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 bg-muted/5`\n\n---\n\n## 5️⃣ ConfigPanelRenderer（`packages/components/src/custom/` + `apps/console/src/components/ViewConfigPanel.tsx`）\n\n### 现状问题\n- 右侧配置面板 Section 之间缺少明显分隔\n- Toggle/Switch 项密集排列，缺少分组呼吸感\n- 面板宽度在不同场景下不一致（ViewConfig vs Dashboard vs Report）\n\n### 具体改进\n- [ ] **Section 间分隔**：`ConfigPanelRenderer` 渲染 section 之间插入 `<Separator className=\"my-1\" />`\n- [ ] **折叠 Section 默认策略**：低频使用的 Section（Sharing、Accessibility、Advanced）默认折叠（`defaultCollapsed: true`）\n- [ ] **统一面板宽度**：所有 ConfigPanel 类组件统一使用 CSS 变量 `--config-panel-width: 280px`，支持 schema 覆盖\n- [ ] **标签语言统一**：利用 `packages/i18n` 确保面板标签与主界面语言一致，消除中英混排\n\n---\n\n## 6️⃣ 视图 Tab 栏（`packages/plugin-view/src/ObjectView.tsx` + `packages/plugin-list/src/components/TabBar.tsx`）\n\n### 现状问题\n- Named View Tabs（All Tasks / Board / Calendar / Active）间距过大\n- 活跃 Tab 指示器不够明显\n- Tab 与 `ViewSwitcher` 组件视觉风格不统一\n\n### 具体改进\n- [ ] **Tab 间距收紧**：`TabsTrigger` 间使用 `gap-0.5`，padding 缩减为 `px-3 py-1.5`\n- [ ] **活跃态指示**：底部 `border-b-2 border-primary` + `font-medium text-foreground`\n- [ ] **Badge 标记**：带状态标记的 Tab（如 \"Active•\"）使用 `<Badge variant=\"dot\" className=\"bg-green-500\">` 替代纯文本圆点\n\n---\n\n## 验收标准\n\n- [ ] 所有硬编码灰度色已替换为 theme token\n- [ ] 全局字体、间距、圆角通过 CSS custom properties 统一\n- [ ] Sidebar 两套实现合并为一套\n- [ ] ListView 工具栏改为双行布局\n- [ ] ObjectGrid 的 select/date/boolean 类型有视觉化渲染\n- [ ] ConfigPanel section 有明确分隔和折叠策略\n- [ ] Tab 栏视觉风格统一\n- [ ] `pnpm test` 全量通过\n- [ ] ROADMAP.md 相关条目更新"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 779,
+  "kind": "pull_request",
+  "title": "feat: ListView grouping across all view types (Grid, Kanban, Gallery)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T08:49:36Z",
+  "updated_at": "2026-02-23T09:45:21Z",
+  "closed_at": "2026-02-23T09:31:40Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T09:31:40Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/779",
+  "body": "`groupingConfig` was only wired to the Grid view. Kanban and Gallery views ignored it entirely, despite ListView already maintaining the state.\n\n### Changes\n\n- **GroupRow.tsx** — New standalone component extracted from inline ObjectGrid group rendering, with collapsible headers (chevron + label + count), aggregation summary display, and `aria-expanded` accessibility attribute\n- **ObjectGrid.tsx** — Refactored to use the new `GroupRow` component for grouped rendering\n- **ListView.tsx** — Propagate `groupingConfig` to kanban and gallery view schema construction (was only passed to grid)\n- **ObjectGallery.tsx** — Implement grouped rendering with collapsible section headers, mirroring the Grid's `useGroupedData` pattern. Supports `fields[].collapsed` initial state and per-field sort order\n- **ObjectKanban.tsx** — Map `grouping.fields[0].field` → `swimlaneField` fallback, reusing existing swimlane rendering. Explicit `swimlaneField` takes precedence\n- **KanbanSchema (types.ts)** — Add `grouping?: GroupingConfig` to the type\n- **index.tsx** (plugin-grid) — Export `GroupRow` component and `GroupRowProps` type\n\n### Gallery grouping example\n\n```tsx\n<ObjectGallery\n  schema={{\n    objectName: 'products',\n    grouping: {\n      fields: [{ field: 'category', order: 'asc', collapsed: false }],\n    },\n  }}\n  data={items}\n/>\n// Renders: [▾ Electronics (3)] [grid] / [▾ Tools (2)] [grid] / ...\n```\n\n### Tests (41 new tests)\n\n- `useGroupedData.test.ts` — 12 tests: collapsed state management, toggleGroup, multi-field grouping, sort order, empty labels\n- `GroupRow.test.tsx` — 11 tests: render, collapse/expand, aggregation summary, chevron icons, accessibility (aria-expanded)\n- `GalleryGrouping.test.tsx` — 8 tests: grouped rendering, collapse/expand toggle, initial collapsed state, record counts, sort order, empty labels\n- `KanbanGrouping.test.tsx` — 6 tests: swimlane mapping, explicit swimlane priority, resolution logic edge cases\n- `ListViewGroupingPropagation.test.tsx` — 4 tests: verifies groupingConfig flows correctly to grid, kanban, and gallery view schemas\n- All 523 existing tests across grid/list/kanban packages continue to pass\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[P0] ListView Grouping — 分组渲染在全视图类型中生效</issue_title>\n> <issue_description>## 背景\n> Parent Issue: objectstack-ai/objectui#736\n> \n> `useGroupedData` hook 和 Group Popover 选择器已实现，但分组渲染仅在 Grid 视图中部分生效。Kanban/Gallery/Calendar/Timeline 等视图无分组渲染支持。\n> \n> ## 目标\n> - 分组配置通过 `schema.grouping` 驱动 **所有视图类型** 的分组渲染\n> - Grid 视图：分组行头可展开/折叠，显示分组汇总\n> - Kanban 视图：按分组字段自动生成泳道\n> - Gallery 视图：按分组字段分区显示卡片\n> \n> ## 技术要点\n> - `packages/plugin-grid/src/useGroupedData.ts` — 已有 hook，需验证 `fields[].collapsed` 状态管理\n> - `packages/plugin-grid/src/ObjectGrid.tsx` L348 — 已调用 `useGroupedData`，需实现分组行渲染（GroupRow 组件）\n> - `packages/plugin-list/src/ListView.tsx` L328 — 已有 `groupingConfig` state，需传递到非 Grid 视图\n> - Spec 协议：`GroupingConfigSchema` → `fields[].field`, `fields[].order`, `fields[].collapsed`\n> \n> ## 改动范围\n> - `packages/plugin-grid/src/ObjectGrid.tsx` — 添加 GroupRow 渲染组件\n> - `packages/plugin-list/src/ListView.tsx` — 传递 groupingConfig 到所有 viewComponent\n> - `packages/plugin-kanban/src/ObjectKanban.tsx` — 支持分组配置\n> - `packages/plugin-gallery/src/ObjectGallery.tsx` — 支持分组配置\n> \n> ## 验收标准\n> - [ ] Grid 视图分组行可展开/折叠\n> - [ ] 分组行显示字段值 + 记录数\n> - [ ] Kanban 视图按分组字段分区\n> - [ ] Gallery 视图按分组字段分区\n> - [ ] `schema.grouping.fields[].collapsed` 初始折叠状态生效\n> - [ ] 所有新增代码有对应单元测试\n> - [ ] `pnpm test` 全部通过\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#748\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

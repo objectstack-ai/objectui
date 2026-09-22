@@ -1,0 +1,33 @@
+{
+  "number": 950,
+  "kind": "pull_request",
+  "title": "fix: preserve seed data _id as stable record id across page refreshes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-02T03:46:10Z",
+  "updated_at": "2026-03-02T04:46:30Z",
+  "closed_at": "2026-03-02T04:42:47Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-02T04:42:47Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/950",
+  "body": "Detail page shows \"Record not found\" on browser refresh because the in-memory MSW kernel reboots with new timestamp-based IDs, invalidating the ID in the URL.\n\n### Root cause\n\n`syncDriverIds()` unconditionally overwrites seed data's stable `_id` (e.g. `\"101\"`) with the driver-generated `id` (e.g. `\"opportunity-1772422975850-6\"`). On refresh, a new kernel generates different timestamps → old URL IDs are orphaned.\n\n```ts\n// Before: always overwrites seed _id\nrecord._id = record.id;\n\n// After: promotes seed _id to canonical id when present\nif (record._id != null && record._id !== record.id) {\n  record.id = record._id;\n} else if (record.id) {\n  record._id = record.id;\n}\n```\n\n### Changes\n\n- **`apps/console/src/mocks/createKernel.ts`** — `syncDriverIds` now promotes explicit seed `_id` to `id`, keeping record identifiers stable across kernel reboots\n- **`packages/data-objectstack/src/index.ts`** — Defensive array handling in `findOne` $expand path, consistent with `normalizeQueryResult` for `find()`\n- **`apps/console/src/__tests__/MSWServer.test.tsx`** — Tests verifying seed IDs are preserved and records are fetchable by stable `_id` via HTTP\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> https://demo.objectui.org/apps/crm_app/opportunity/record/opportunity-1772422975850-6 进入详情页刷新显示record not found\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

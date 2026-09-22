@@ -1,0 +1,33 @@
+{
+  "number": 844,
+  "kind": "pull_request",
+  "title": "feat: URL-driven debug/developer panel (à la amis devtools)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-24T17:12:47Z",
+  "updated_at": "2026-02-24T17:59:04Z",
+  "closed_at": "2026-02-24T17:51:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-24T17:51:07Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/844",
+  "body": "Adds a universal `?__debug` URL parameter to activate a floating developer panel across all `@object-ui/*` packages, with fine-grained sub-flags and SSR safety.\n\n### `@object-ui/core` — debug flag parsing & data collection\n- Export `DebugFlags`, `DebugCategory`, `parseDebugFlags(search?)`, enhanced `isDebugEnabled()`\n- Resolution order: URL params → `globalThis.OBJECTUI_DEBUG` → `process.env.OBJECTUI_DEBUG`\n- Sub-flags: `?__debug_schema`, `?__debug_perf`, `?__debug_data`, `?__debug_expr`, `?__debug_events`, `?__debug_registry`\n- New `DebugCollector` singleton for centralized perf/expression/event data collection (tree-shakeable, capped at 200 entries)\n\n### `@object-ui/react` — hook + context + renderer enhancements\n- `useDebugMode()` → `{ enabled, flags, toggle, setEnabled }` with `Ctrl+Shift+D` shortcut\n- `SchemaRendererContext` extended with optional `debugFlags` propagation\n- `SchemaRenderer` injects `data-debug-type` / `data-debug-id` attributes when debug mode is active\n- `SchemaRenderer` reports render performance to `DebugCollector` for the Perf tab\n\n### `@object-ui/components` — DebugPanel\n- Floating panel in `src/debug/` with 7 built-in tabs:\n  - **Schema** — current rendered JSON schema\n  - **Data** — active data context\n  - **Perf** — component render timing (highlights slow renders >16ms)\n  - **Expr** — expression evaluation trace\n  - **Events** — action/event timeline\n  - **Registry** — all registered component types\n  - **Flags** — current debug flag state\n- Plugin-extensible via `extraTabs` prop\n\n### `apps/console` — MetadataInspector backward compatibility\n- `useMetadataInspector()` auto-opens when `?__debug` URL parameter is detected\n\n```tsx\nimport { useDebugMode } from '@object-ui/react';\nimport { DebugPanel } from '@object-ui/components';\n\nfunction App() {\n  const debug = useDebugMode(); // auto-detects ?__debug\n  return (\n    <>\n      <MyApp />\n      <DebugPanel\n        open={debug.enabled}\n        onClose={debug.toggle}\n        flags={debug.flags}\n        schema={currentSchema}\n        dataContext={data}\n      />\n    </>\n  );\n}\n```\n\n### Tests\n48 new tests across 5 test files: core debug flags (16), DebugCollector (10), useDebugMode hook (6), DebugPanel (13), SchemaRenderer debug attributes (3).\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>通过URL参数驱动的通用调试/开发者面板（类amis devtools模式）</issue_title>\n> <issue_description>## 背景与��标\n> \n> 目前 ObjectUI 仅支持通过 `globalThis.OBJECTUI_DEBUG` 或环境变量切换调试输出，调试面板仅在 Console/少部分模块局部实现，难以统一扩展和全局可视化。类 amis 的 `?debug`/`devtools` URL 参数驱动调试模式，将极大提升开发体验和问题诊断能力。\n> \n> 目标：\n> - 通过 URL 参数（如 ?__debug）一键开启/关闭全局调试模式，显示\"开发者调试面板\"\n> - 支持统一式的 Schema 查看、Data Context 查看、性能/表达式/事件追踪、组件注册表浏览等\n> - 基础能力适配所有 @object-ui/* 层级，面向后续低代码生态和 VSCode 插件扩展\n> \n> ## 详细需求拆解\n> \n> ### 1. URL-Driven Debug Mode\n> - [ ] 设计通用 debug 参数规范：如 `?__debug`（主开关），`?__debug_schema`、`?__debug_perf`、`?__debug_data` 精细开关\n> - [ ] @object-ui/core 增强 parseDebugFlags/isDebugEnabled(url/env/globalThis)\n> - [ ] SSR/静态部署安全兼容（不会在 window 不存在时报错）\n> - [ ] 支持全局和局部热切换（如快捷键、开关按钮）\n> \n> ### 2. Debug 状态与调试面板\n> - [ ] @object-ui/react 实现 useDebugMode Hook，自动响应 URL/快捷键/手动切换，向 SchemaRendererContext 透传\n> - [ ] 新增 DebugPanel 浮动调试面板（建议放 @object-ui/components/debug 目录，可插件扩展Tab）\n> - [ ] Tab 初期实现：\n>     - Schema（当前渲染 JSON schema）\n>     - Data（schema data context）\n>     - Perf（组件渲染耗时与高亮慢组件）\n>     - Expr（表达式求值追踪）\n>     - Events（所有 Action/Event时间线）\n>     - Registry（所有注册类型/组件）\n> \n> ### 3. SchemaRenderer/渲染运行时增强\n> - [ ] 支持注入 data-debug-* 属性到组件，hover/聚焦 DOM 高亮\n> - [ ] 跟踪子组件渲染次数、性能数据，并收集到上报给 DebugPanel\n> \n> ### 4. 向后兼容 Console MetadataInspector\n> - [ ] apps/console: MetadataInspector 保持向后兼容，debug模式自动增强为全域调试面板\n> \n> ### 5. 代码解耦与扩展性\n> - [ ] Debug 数据采集应不影响生产包体积与性能，支持 TreeShaking\n> - [ ] 调试数据 UI/采集代码彻底解耦，面向插件扩展、VSCode插件等未来场景\n> \n> ## 长远扩展考量\n> - 支持后续接入更多自定义Tab，如API流控、Schema溯源分析、权限等\n> - 打通 VSCode 插件、本地调试代理、自动诊断能力\n> \n> ---\n> \n> **Best Practice：** 关键实现细节建议参考 amis/devtools、AntDesign Pro Devtools、React DevTools。调试代码请隔离核心渲染主流程（副作用/TreeShaking友好），并具备良好单元测试。完成后请运行 test 并补充 ROADMAP。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#843\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

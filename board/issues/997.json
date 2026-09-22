@@ -1,0 +1,33 @@
+{
+  "number": 997,
+  "kind": "pull_request",
+  "title": "fix: auto-generate RelatedList columns from object schema metadata",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T07:51:41Z",
+  "updated_at": "2026-03-03T08:21:27Z",
+  "closed_at": "2026-03-03T08:18:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T08:18:43Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/997",
+  "body": "Detail page \"Related\" tab renders empty tables for all child objects — title and record count appear but zero columns/rows. The data flow never passes the child object name (`api`) to `RelatedList`, and `RelatedList` never consults `dataSource.getObjectSchema()` to derive columns, so `columns` falls back to `[]`.\n\n### Changes\n\n- **`RecordDetailView.tsx`** — Pass `api: childObject` in related entries so downstream components know which object to query\n- **`RelatedList.tsx`** — When `api` and `dataSource` are available but `columns` is empty, fetch the child object schema and auto-generate column definitions from `objectSchema.fields`, filtering out `_`-prefixed internal fields:\n\n```tsx\nconst effectiveColumns = React.useMemo(() => {\n  if (columns && columns.length > 0) return columns;\n  if (!objectSchema?.fields) return [];\n  return Object.entries(objectSchema.fields)\n    .filter(([key]) => !key.startsWith('_'))\n    .map(([key, def]: [string, any]) => ({\n      accessorKey: key,\n      header: def.label || key,\n    }));\n}, [columns, objectSchema]);\n```\n\nThis aligns `RelatedList` with how `ObjectGrid`, `ObjectAgGrid`, and `ObjectMap` already use `getObjectSchema()` for metadata-driven column generation.\n\n### Tests\n\nAdded tests verifying schema-derived columns render correctly (including `_`-prefix exclusion) and that explicit `columns` prop bypasses schema fetching.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[Bug] 详情页相关子表未从元数据生成列定义，导致表格内容为空</issue_title>\n> <issue_description>## 问题描述\n> \n> 在详情页面（任何业务对象），\"相关\"tab 下的子表仅显示标题、记录数和搜索框，**表格内容（行和列）完全为空**。该问题是平台级 bug，影响所有通过元数据驱动的相关列表。\n> \n> <img alt=\"image1\" width=\"2732\" src=\"https://github.com/user-attachments/assets/2a8ea4a8-1483-4db9-9d21-6e09f8c84154\" />\n> <img alt=\"image2\" width=\"2732\" src=\"https://github.com/user-attachments/assets/690a26c0-2c68-4651-8c5c-ff2790b2811a\" />\n> \n> ## 根因分析\n> \n> 整条数据流链路中，没有任何一层利用 `dataSource.getObjectSchema()` 获取子对象的字段元数据来生成 columns：\n> \n> 1. **`RecordDetailView`** 构建 `related` 时只传了 `title`、`type`、`data`，**没有传 `columns` 也没有传子对象名称（`api`）**。\n> 2. **`DetailView`** 原样透传给 `RelatedList`，不做 columns 补全。\n> 3. **`RelatedList`** 生成 `viewSchema` 时 `columns` fallback 到 `[]`，SchemaRenderer 收到空列配置，不渲染任何内容。\n> \n> ```\n> RecordDetailView                    DetailView                        RelatedList\n> related = [{                   →    <RelatedList                  →   viewSchema = {\n>   title: 'Order Item',               data={related.data}               type: 'data-table',\n>   type: 'table',                     columns={undefined}               data: [...],\n>   data: [7条记录]                     api={undefined}                   columns: [] ← 空！\n> }]                                  />                                }\n> ```\n> \n> ## 对比主流平台做法\n> \n> | 平台 | 策略 |\n> |---|---|\n> | **Salesforce** | 读取子对象的 Object Metadata + Page Layout，自动生成列（label、type、顺序） |\n> | **Retool** | 绑定查询后自动检查返回数据的 key 生成列 |\n> | **Appsmith** | 类似 Retool，表格绑定数据后自动推断列定义 |\n> \n> ObjectUI 作为元数据驱动平台，应走 **Salesforce 路线**：利用已有的 `dataSource.getObjectSchema(childObjectName)` 获取子对象字段定义来生成 columns。\n> \n> 平台其他组件（`ObjectGrid`、`ObjectAgGrid`、`ObjectMap`）都已正确使用该方法，`RelatedList` 是唯一缺失的。\n> \n> ## 建议修复方案\n> \n> ### `RelatedList` 组件内自动获取元数据（推荐）\n> \n> 在 `RelatedList` 中，当 `api`（objectName）和 `dataSource` 存在但 `columns` 为空时，调用 `dataSource.getObjectSchema(api)` 获取子对象字段定义，自动生成 columns：\n> \n> ```tsx\n> // RelatedList.tsx — 新增 objectSchema 获取逻辑\n> const [objectSchema, setObjectSchema] = React.useState<any>(null);\n> \n> React.useEffect(() => {\n>   if (api && dataSource?.getObjectSchema && (!columns || columns.length === 0)) {\n>     dataSource.getObjectSchema(api).then(setObjectSchema).catch(() => {});\n>   }\n> }, [api, dataSource, columns]);\n> \n> // 从 objectSchema 生成 columns\n> const effectiveColumns = React.useMemo(() => {\n>   if (columns && columns.length > 0) return columns;\n>   if (!objectSchema?.fields) return [];\n>   return Object.entries(objectSchema.fields)\n>     .filter(([key]) => !key.startsWith('_'))\n>     .map(([key, def]: [string, any]) => ({\n>       accessorKey: key,\n>       header: def.label || key,\n>     }));\n> }, [columns, objectSchema]);\n> ```\n> \n> ## 影响范围\n> \n> 平台级 bug，所有通过元数据驱动生成的相关子表均受影响。修复后需全面测试各类业务对象详情页。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#996\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

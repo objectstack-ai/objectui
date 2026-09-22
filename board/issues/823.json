@@ -1,0 +1,33 @@
+{
+  "number": 823,
+  "kind": "pull_request",
+  "title": "ObjectGrid cell type rendering: select/status Badge colors, date Overdue format, boolean semantic indicators",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-24T06:11:15Z",
+  "updated_at": "2026-02-24T07:03:04Z",
+  "closed_at": "2026-02-24T06:56:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-24T06:56:43Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/823",
+  "body": "Module 4 of #820 — cell renderers for inferred column types were rendering without visual distinction: select/status fields showed plain text (no color), dates showed raw formatted strings (no relative time), booleans rendered unchecked checkboxes for null.\n\n### Select/Status Badge rendering\n- `getCellRenderer()` maps both `select` and `status` types to `SelectCellRenderer` with colored Badge output\n- Auto-generate `options` from unique data values when `inferColumnType()` infers `'select'` — passes them through `fieldMeta` so `SelectCellRenderer` can render colored badges\n- Priority semantic color auto-detection via `PRIORITY_COLOR_MAP`: `Critical→red`, `High→orange`, `Medium→yellow`, `Low→gray`\n- Default badge style changed from hardcoded blue to muted (`bg-muted text-muted-foreground border-border`) when no color is configured\n\n```tsx\n// Before: all inferred select values rendered as blue badges (no options passed)\n<CellRenderer value={value} field={{ name: col.field, type: 'select' }} />\n\n// After: options auto-populated from data, priority colors auto-detected\n<CellRenderer value={value} field={fieldMeta} />\n// fieldMeta.options = [{ value: 'High', label: 'High' }, ...]\n```\n\n### Date formatting\n- `DateCellRenderer` defaults to `'relative'` style — \"Today\", \"Yesterday\", \"Overdue 3d\", \"In 4 days\"\n- Overdue dates (2–7 days past) render as `\"Overdue Xd\"` with `text-red-600` styling\n- Dates beyond 7 days fall back to human-readable format (`\"Feb 26, 2026\"`)\n- Full ISO string available via `title` tooltip\n- `formatRelativeDate()` threshold tightened from 30→7 days\n\n### Boolean visualization\n- `BooleanCellRenderer` renders `—` for `null`/`undefined` instead of an unchecked checkbox\n- Semantic completion fields (`is_completed`, `done`) render as green circle indicators with `✓` icon (true) or empty circle (false), with `role=\"img\"` and `aria-label` for accessibility\n- Non-completion boolean fields continue to render standard `<Checkbox disabled>`\n\n### Housekeeping\n- Moved `PRIORITY_COLOR_MAP`, `BADGE_COLOR_MAP`, `getBadgeColorClasses()` to module-level constants\n- 45 new tests covering select/status color mapping, date relative/overdue, boolean null, completion indicators, `formatRelativeDate` edge cases\n- Updated ROADMAP.md cell renderer section\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>ObjectGrid 单元格类型渲染优化 — select Badge / 日期格式化 / Boolean 视觉化</issue_title>\n> <issue_description>## 背景\n> \n> 本 issue 为 [#820](https://github.com/objectstack-ai/objectui/issues/820) 的遗留工作。#820 的 6 大模块中，第 4️⃣ 模块（ObjectGrid 单元格渲染器）是目前唯一完全未完成的部分，其余模块已在 PR objectstack-ai/objectui#821、#805、#817、#799 等中基本落地。\n> \n> ### 现状问题\n> \n> - `inferColumnType()` 自动推断类型后的渲染缺少视觉标识——select/status 类字段显示纯文本\n> - 日期字段直接输出 ISO 字符串（如 `2026-02-26T03:09:07.458Z`），用户无法快速识别时间含义\n> - Boolean 字段无视觉渲染，显示 `true`/`false` 原始值\n> \n> ---\n> \n> ## 涉及文件\n> \n> - `packages/plugin-grid/src/ObjectGrid.tsx` — `inferColumnType()` 和列生成逻辑\n> - `packages/fields/src/formatters.ts` — `formatDate()` 等格式化函数\n> - `packages/fields/src/widgets/` — 字段级渲染组件\n> - `packages/fields/src/cell-renderers.ts` — `getCellRenderer()` 函数\n> \n> ---\n> \n> ## 具体改进\n> \n> ### 1. select/status 类型 Badge 渲染\n> \n> - [ ] 当 `field.type` 为 `select` 或 `status` 时，`getCellRenderer()` 返回 `<Badge>` 组件\n> - [ ] 支持从 `field.options` 映射颜色（如 `{ value: 'In Progress', color: 'blue' }` → `<Badge variant=\"blue\">`）\n> - [ ] 未配置颜色时使用默认 muted 样式的 Badge\n> - [ ] Priority 字段支持语义配色（Critical → red, High → orange, Medium → yellow, Low → gray）\n> \n> ### 2. 日期类型格式化\n> \n> - [ ] `formatDate()` 在 `packages/fields/src/formatters.ts` 中增加相对时间模式：\n>   - 今天 → `\"Today\"`\n>   - 昨天 → `\"Yesterday\"`\n>   - 7 天内 → `\"3 days ago\"`\n>   - 逾期 → 红色文字 `\"Overdue 2d\"`\n>   - 超过 7 天 → `\"Feb 26, 2026\"` 人类可读格式\n> - [ ] ObjectGrid `inferColumnType()` 推断为 date 类型时默认启用人类可读格式\n> - [ ] 保留 ISO 格式作为 hover tooltip 显示完整时间\n> \n> ### 3. Boolean 类型视觉渲染\n> \n> - [ ] Boolean 字段渲染为 `<Checkbox disabled checked={value} />` 或 `✓/—` 图标\n> - [ ] 支持 `is_completed` 等布尔字段的语义化渲染（绿色圆形指示器）\n> - [ ] null/undefined 值显示为空白或 `—`\n> \n> ### 4. 表头样式统一（已在 objectstack-ai/objectui#821 中部分完成，需验证）\n> \n> - [ ] 确认 `ObjectGrid` 表头行使用 `text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 bg-muted/5`\n> - [ ] 如未完成，补齐表头样式\n> \n> ---\n> \n> ## 测试要求\n> \n> - [ ] 为 `getCellRenderer()` 的 select/date/boolean 类型新增单元测试\n> - [ ] 为 `formatDate()` 相对时间模式新增测试用例（含 edge case：null、未来日期、逾期日期）\n> - [ ] `pnpm test` 全量通过\n> \n> ## 验收标准\n> \n> - [ ] ObjectGrid 中 select/status 字段显示为带颜色的 Badge\n> - [ ] 日期字段显示为人类可读格式，逾期用红色标记\n> - [ ] Boolean 字段显示为 Checkbox 或图标\n> - [ ] 全部测试通过\n> - [ ] ROADMAP.md 更新 objectstack-ai/objectui#820 第 4️⃣ 模块为已完成\n> \n> ## 关联\n> \n> - Parent: objectstack-ai/objectui#820 ObjectUI 平台级界面风格与交互一致性优化</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#822\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

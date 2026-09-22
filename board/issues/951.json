@@ -1,0 +1,35 @@
+{
+  "number": 951,
+  "kind": "issue",
+  "title": "Airtable UX Polish: Table Selection, i18n, Layout, and Density Fixes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-02T04:56:35Z",
+  "updated_at": "2026-03-02T05:31:46Z",
+  "closed_at": "2026-03-02T05:31:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/951",
+  "body": "ObjectUI's current table/grid experience is visually advanced but falls short of true Airtable-level UX in several areas. This issue tracks a set of UI/UX optimizations required to narrow this gap.\n\n## Problem Areas:\n\n1. **Internationalization (i18n) Gaps**\n   - Mixed Chinese/English in navigation, breadcrumbs, toolbar, and grid headers/controls.\n   - Action: Route all surface-visible strings through the i18n engine. Eliminate hardcoded text.\n\n2. **Missing Table Row Selection Feature**\n   - Bulk actions (e.g., \"Send Email\") are present, but users cannot select multiple rows (no row checkboxes).\n   - Action: Add a standard row selection checkbox column when bulk actions are defined for the table view.\n\n3. **Pagination Footer & White Space**\n   - Excessive blank space appears between data rows and the pagination footer when data is sparse.\n   - Action: Anchor pagination directly below the last row or fill empty space with ghost rows for consistent density.\n\n4. **Column Width/Alignment Issues**\n   - Index (\"#\") and icon columns too wide; data columns too compressed.\n   - Action: Use minimal/fixed width for index, flexible for main data columns.\n\n5. **Header Spacing Consistency**\n   - Header utilities crowded against the screen edge; misaligned with the app shell.\n   - Action: Align navbar paddings to match grid/container width.\n\n6. **Border & Cell Contrast**\n   - Table/grid cell borders too subtle versus Airtable. Makes scanning rows/columns harder.\n   - Action: Enhance the border-color contrast or respect 'bordered' prop more aggressively for denser tables.\n\n## Reference\n- [Airtable Reference Screenshot](image1)\n- [Current ObjectUI Demo Screenshot](image2)\n\n## Acceptance Criteria\n- Pure i18n compliance (no visible raw strings)\n- Multi-row selection & bulk action workflow\n- Table always feels visually \"anchored\" to data, not viewport\n- Proper cell/border balance for both light/dense modes\n\n---\n\nFollow up with design QA & user testing. See ROADMAP.md for tracking this issue as an Airtable UX Polish milestone."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 866,
+  "kind": "pull_request",
+  "title": "ViewConfigPanel: split pageConfig into 5 sections, eye-toggle field selector, tab gear icon & panel animation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-25T11:25:14Z",
+  "updated_at": "2026-02-25T12:27:21Z",
+  "closed_at": "2026-02-25T12:21:11Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-25T12:21:11Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/866",
+  "body": "The `pageConfig` section mixed 18+ fields (toolbar toggles, navigation, export, selection, record creation) into a single block, making it hard for users to locate settings. Field selector used checkboxes instead of Airtable-style eye toggles and lacked search/batch operations. View tabs had no direct config panel access, and the panel lacked slide animation.\n\n### Section restructure\n\nSplit `pageConfig` into 5 focused sections:\n\n- **General** — label, description, view type (non-collapsible)\n- **Toolbar** — 7 toggle switches for search/sort/filter/group/color/density\n- **Navigation** — mode, drawer width, new tab\n- **Records** — selection mode, add record sub-editor\n- **Export &amp; Print** — export config, record count, printing (`defaultCollapsed: true`)\n\n```ts\n// Before: 1 section with 18 fields\nsections: [buildPageConfigSection(...), buildDataSection(...), ...]\n\n// After: 5 sections, ordered by usage frequency\nsections: [\n  buildGeneralSection(...),\n  buildToolbarSection(...),\n  buildNavigationSection(...),\n  buildRecordsSection(...),\n  buildExportPrintSection(...),\n  buildDataSection(...),\n  ...\n]\n```\n\n### Field selector upgrade\n\n- Eye/eye-off button toggles replace checkboxes (`col-eye-{name}`)\n- Search input filters fields by name\n- Show All / Hide All batch buttons\n- Grip handles for visual drag affordance\n\n### View tab gear icon & panel linkage\n\n- Added `onConfigView` prop to `ViewTabBar` with a Settings2 gear icon on the active tab\n- Clicking the gear icon opens the ViewConfigPanel for that specific view\n- Panel auto-syncs content on view tab switch (draft resets via `stableKey = activeView.id`)\n\n### Panel slide animation\n\n- CSS `transition-[max-width,opacity] duration-300 ease-in-out` wraps the ViewConfigPanel for smooth slide-in/slide-out\n\n### i18n\n\n13 new keys added to all 11 locales (en, zh, ja, de, fr, es, ar, ru, pt, ko, ar).\n\n### Tests\n\n- Schema tests: 110 passing (+7 new for section structure)\n- ViewConfigPanel tests: 139 passing (+3 new for search/Show All/Hide All)\n- ViewTabBar tests: 49 passing (+5 new for gear icon)\n- ObjectView tests: 31 passing (section expansion for collapsed exportPrint)\n- Broader suite: 899 passing, 4 pre-existing ObjectForm failures unrelated\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Console 列表视图配置面板（Airtable级体验）设计与开发细节评估</issue_title>\n> <issue_description>## 背景\n> 目前 Console（apps/console/src/components/ObjectView.tsx）中的列表视图配置面板（ViewConfigPanel, apps/console/src/components/ViewConfigPanel.tsx + view-config-schema.tsx）已实现 Airtable 风格右侧编辑，但仍存在如下不足：\n> - 配置项过于冗杂，主要设置与高阶细节混杂一个 section 内，用户难以聚焦主要任务。\n> - 字段选择器体验与 Airtable 存在明显差距（无拖拽、无眼睛一键显示/隐藏等）。\n> - Dashboard/看板等不同视图界面设置体验不统一。\n> - 视图 Tab 与配置面板联动性有差距。\n> \n> 本 Issue 用于评估 Console 集成版列表视图设计器升级为完全对标 Airtable 的所有详细开发点。\n> \n> ---\n> \n> ## 目标\n> - 列表视图配置（包含：字段、排序、筛选、布局、分页、分组、显隐、导航模式、toolbar、导出打印、快捷操作等）分区清晰，找��到、用得对齐 Airtable。\n> - 字段配置、状态切换、排序等区域 UX 直接对齐 Airtable。\n> - 页面设置等通用设置与个性化、功能性细节分区。\n> - 工程实现层面通用、可测试。\n> \n> ---\n> \n> ## 需要评估与拆分的开发细节\n> \n> ### 1. Section结构与信息架构梳理\n> - [ ] 将 `pageConfig` section 拆分为多个明显分区：\n>     - General（标题/描述/类型）\n>     - Toolbar有关 toggle（搜索/过滤/分组/密度/显示记录数/导出等）\n>     - Navigation（行点击模式、详情抽屉等）\n>     - Records（选择模式、新建、批量删除/打印等）\n>     - Export & Print（导出格式、导出细节、打印开关等）\n> - [ ] 保证可折叠/默认折起，分区顺序贴合用户常用频率\n> - [ ] 确认旧 schema 下的所有字段/视图设置项在各 section 合理归类、无遗漏\n> \n> ### 2. 字段选择器升级，体验对齐 Airtable\n> - [ ] 字段列表支持拖拽排序，并用 eye/eye-off 实时切换显隐【UI对标】\n> - [ ] 可搜索字段筛选，支持 Show All/Hide All 批量操作\n> - [ ] 点击字段名称弹出子面板调整字段细节（宽度/类型/格式等），支持自定义/扩展\n> - [ ] 引入表头分组（如Airtable分组字段、多列等情况）\n> \n> ### 3. 分组与类型特有设置梳理\n> - [ ] \"分组\"（GroupBy）支持 grid/kanban/gallery 等全部场景，并与 ViewType 联动\n> - [ ] 不同 ViewType（如calendar/gantt/map）类型特有字段的 schema 位置、默认值、联动逻辑\n> \n> ### 4. 工具栏按钮配置与行为\n> - [ ] 支持用户自定义 toolbar 可见项与顺序【如Airtable\"显示/隐藏/记录数/分组/颜色/密度\"按钮】\n> - [ ] toolbar按钮开关与实际功能逻辑解耦、支持未来 extension\n> \n> ### 5. Panel 触发与选中视图联动\n> - [ ] 支持每个视图 Tab 上直接点击齿轮，打开该视图设置\n> - [ ] Tab 切换自动同步右侧面板内容\n> \n> ### 6. 配置面板可测试性与工程一致性\n> - [ ] schema细粒度单测（不同 section/字段/默认值/联动逻辑均可单元测试）\n> - [ ] 强制开发完���后 run test；相关问题跟踪\n> - [ ] 完成后及时同步 roadmap\n> \n> ### 7. 互动/UX细节补充\n> - [ ] 状态切换时的动画、panel滑入/滑出过渡\n> - [ ] 支持键盘导航、无障碍便捷交互\n> - [ ] 错误/冲突状态提示，与 Console 其他面板体验一致\n> \n> ---\n> \n> ## 交付标志\n> - 列表视图右侧设置面板分区合理、Airtable体验齐全、字段选择器及高级交互完整\n> - 完成后运行所有 test 并修复问题，更新 Roadmap\n> \n> ---\n> \n> > *如有遗漏或新需求，请补充补全再细化拆分 issue。*\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#865\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 847,
+  "kind": "issue",
+  "title": "Airtable Parity: 产品视图和界面细节优化（全局UI提升）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-25T03:18:24Z",
+  "updated_at": "2026-02-25T04:38:00Z",
+  "closed_at": "2026-02-25T04:38:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/847",
+  "body": "### 📝 背景\n当前 CRM 产品目录界面已达Airtable基本水准，但对齐顶级Airtable用户体验还有细致表层gap。为实现ObjectUI的Airtable体验极限和ROADMAP中的parity目标，需对主要产品视图和相关配置界面做以下UI/UX优化。\n\n---\n\n### 🧩 优化细节清单\n\n#### 1. 产品表格（Grid）区\n- 【P0】`IS ACTIVE` 列渲染为 `<Checkbox disabled>`（支持 BooleanCellRenderer，空白变为显式布尔开关）\n- 【P0】`价格` 列使用货币格式化显示（如 `$2,499.99` 而非 `2499.99`），利用 formatCurrency 方法\n- 【P0】设置默认 `行高` 为 `short` 或 `compact`，提升信息密度\n- 【P1】行号（#）列 hover 时显示 Checkbox（支持多选行为）\n- 【P1】Stock=0 的商品行用红色高亮（条件格式化，参考 conditionalFormatting 规则）\n- 【P2】SKU、CATEGORY 列默认宽度收窄，NAME 保持主要展现\n- 【P2】Stock 列低库存（如<5）添加视觉警示（淡黄色/橙色）\n- 【P2】价格列对齐方式为右对齐\n\n#### 2. Toolbar 顶部工具栏\n- 【P1】`Filter/Sort/Group`/Color 按钮分组，主次分明，有分隔符\n- 【P1】所有 filter chips（active 条件、标签等）统一嵌入 Filter 下拉弹窗内（删除 toolbar 零散 chips，toolbar 按钮只保留 filter+badge）\n- 【P1】inline search 搜索框放置于 toolbar 左端，宽度 w-48，风格与 Airtable 一致\n- 【P2】Filter/Sort/Group 按钮支持激活状态高亮（bg-primary/10，已大部分支持，但需补齐所有variant）\n- 【P2】Toolbar 滚动溢出优化，对齐 ROADMAP P2.7，overflow-x-auto\n\n#### 3. 配置面板（右侧 View Config Panel）\n- 【P1】高级/非常用开关（如 允许打印/导出/table row resizable/etc.）默认折叠，仅保留常用开关展开（如 搜索/排序/筛选）\n- 【P2】View Config 面板宽度默认提升为 320px（当前 CSS 变量 --config-panel-width: 280px）\n- 【P2】面板内标题、描述、开关项文案全部统一为中文，如有中英混合，全部引用i18n key\n- 【P2】排序/分组等逻辑表达式控件区域，分组层级更清晰（分隔线/底色增强）\n\n#### 4. 侧边栏 & Tab\n- 【P2】产品导航 `Products` 激活状态，增加 3px 左色条指示，参考 SidebarMenuButton active state\n- 【P2】分组分隔线加粗加深，加强导航区域感知\n- 【P2】Recent 区域默认折叠（节省空间）\n- 【P2】Tab（All Products等）`•` 标记用更明确的 badge/tooltip 替代\n\n---\n\n### 🚦 验收标准\n- 主要列表和配置区域体验与 Airtable 基本达到视觉和交互一致\n- 经过测试验证主要 UX gap 已全部覆盖\n\n### 🔨 关联需求/文档\n- ROADMAP：P1.8.1, P2.7, P1.9 及上述细节\n- 评估参考：Airtable 官方 UI 体验\n- <img alt=\"当前CRM产品表格截图\" width=\"3838\" src=\"https://github.com/user-attachments/assets/d3a3eb15-5275-42e1-a1c7-8e105b4ee20c\" />\n\n---\n优化完成后必须运行 **test** 全量测试，并及时更新 ROADMAP 优化卡片。"
+}

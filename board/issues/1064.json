@@ -1,0 +1,33 @@
+{
+  "number": 1064,
+  "kind": "pull_request",
+  "title": "refactor: unify primary key field from `_id` to `id` per objectstack-ai/spec",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-10T08:56:47Z",
+  "updated_at": "2026-03-10T09:55:10Z",
+  "closed_at": "2026-03-10T09:50:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-10T09:50:43Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1064",
+  "body": "The codebase used `record._id` as the primary key in navigation, filters, data sources, and mock data, while the spec protocol (`objectstack-ai/spec`) standardized on `id`. This caused 404s on detail/edit pages because `$filter: { _id: ... }` was sent but the server indexes by `id`.\n\n### Core\n\n- **ValueDataSource**: default `idField` → `'id'`, `getRecordId()` fallback order → `id ?? _id`, auto-generated IDs use `id` field\n- **LookupField**: default `idField` → `'id'`, `recordToOption()` prefers `id`\n- **useNavigationOverlay**: all record ID extraction → `record.id || record._id`\n- **data-objectstack `findOne`**: `$filter: { _id: String(id) }` → `$filter: { id: String(id) }` (root cause of 404s)\n- **fields/index.tsx**: `coerceToSafeValue` and lookup cell renderer prefer `id` over `_id` for display name extraction\n\n### Plugins\n\n- **ObjectView, ObjectCalendar, calendar-view-renderer, ObjectGallery**: flipped to `record.id || record._id`\n- ObjectGrid, Gantt, Kanban, Map already had correct order — no changes\n\n### Console app\n\n- **ObjectView**: `{ _id: recordId, id: recordId }` → `{ id: recordId }`\n- **RecordDetailView**: `onEdit({ _id, id })` → `onEdit({ id })`\n- **createKernel `syncDriverIds`**: rewritten to id-first semantics — canonical `id` derives `_id` for backward compat; legacy `_id`-only records get promoted to `id`\n\n### Seed data & tests\n\n- All 10 CRM seed data files: `_id:` → `id:`\n- msw-todo `Task` interface: `id` is primary, `_id` is optional legacy alias\n- 40+ test files updated to use `id` in mock data and assertions\n\n### Backward compatibility\n\n`_id` remains as a fallback everywhere via `record.id || record._id`. `createKernel.syncDriverIds` still syncs `_id ↔ id` bidirectionally for Mongo/Mingo storage layers.\n\n```diff\n- const recordId = record._id || record.id;\n+ const recordId = record.id || record._id;\n\n- $filter: { _id: String(id) },\n+ $filter: { id: String(id) },\n\n- const field = this.idField ?? '_id';\n+ const field = this.idField ?? 'id';\n```\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>统一记录主键字段为 id，废弃 _id，兼容 objectstack-ai/spec 协议</issue_title>\n> <issue_description>**问题描述**\n> objectui 前端、mock、部分插件、数据源仍优先使用 record._id，而底层协议（objectstack-ai/spec）已统一要求主键字段为 id，导致记录详情页编辑等操作无法正确定位或修改记录。\n> \n> 目前表现：\n> - 详情页 URL/编辑操作使用 record._id，导致 findOne/filter 发送 $filter: {_id: ...}，服务端按 id 查找，结果 404。\n> - mock 数据、插件（如 LookupField/ValueDataSource）默认以 _id 作为主键。\n> \n> **解决方案**\n> 1. 全面统一 record.id 为主键字段，废弃 _id（兼容 Mongo/Mingo storage，仅底层存储保留 _id）。\n> 2. 前端所有列表/detail 行点击、导航、filter、数据源等操作均优先使用 record.id。\n> 3. ValueDataSource/LookupField 默认 idField 改为 'id'。\n> 4. mock/seed 数据生成与测试用例全部迁移至 id。\n> 5. 详情页、编辑页、导航等所有地方用 id。\n> 6. 兼容旧数据，必要时自动同步 _id → id。\n> \n> **参考标准/协议**\n> - objectstack-ai/spec: SystemFieldName.ID = 'id';\n> - 数据协议（driver.zod.ts）：MUST NOT return implementation details like _id\n> \n> **影响范围/风险**\n> - 需全链路排查 record._id 使用点（Grid、Gantt、Map、Calendar、Detail、Lookup、mock、测试）\n> - 兼容性，Mongo/Mingo/老数据需妥善处理\n> \n> **相关错误示例**\n> - 404: GET /api/v1/data/opportunity/104\n> - vendor-objectstack-xxx.js: [DEBUG] HTTP response ... status: 404\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1063\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

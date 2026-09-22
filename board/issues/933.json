@@ -1,0 +1,33 @@
+{
+  "number": 933,
+  "kind": "pull_request",
+  "title": "feat: ObjectDataTable/ObjectPivotTable async data loading, context-aware WidgetConfigPanel, and dashboard UX improvements",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-01T09:51:04Z",
+  "updated_at": "2026-03-01T11:37:50Z",
+  "closed_at": "2026-03-01T11:28:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-01T11:28:29Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/933",
+  "body": "Dashboard table/pivot widgets lacked object provider support, the config panel was one-size-fits-all regardless of widget type, and several UX issues (overflow, empty states, I18nLabel rendering) needed addressing.\n\n### P0: Object/Provider Support (Table & Pivot)\n\nCreated two new async-aware wrapper components following the established `ObjectChart` pattern:\n\n- **`ObjectPivotTable`** — Fetches records via `dataSource.find()` from `SchemaRendererContext`, renders skeleton loading → error state → empty state → `PivotTable` with fetched data. Registered as `object-pivot` in `ComponentRegistry`.\n- **`ObjectDataTable`** — Same async lifecycle (skeleton/error/empty), plus auto-derives columns from fetched data keys when no explicit columns are configured. Registered as `object-data-table` in `ComponentRegistry`.\n- **`DashboardRenderer` routing**: Table widgets with `objectName` or `provider: 'object'` are now routed to `object-data-table`; pivot widgets are routed to `object-pivot`. Static data tables/pivots continue using `data-table` and `pivot` types directly. No more passing `data: []` for object-bound widgets.\n\n### P1: Context-aware WidgetConfigPanel\n\nSections now show/hide via `visibleWhen` predicates based on `draft.type`:\n\n- **Pivot** → Data, Rows (field, sort by/order via `icon-group` toggle, show label, show totals), Columns (same), Values (field, aggregation, number format)\n- **Chart** → Axis & Series (x/y labels, show legend)\n- **Table** → Columns (searchable, pagination)\n- Breadcrumb adapts: `\"Pivot table\"` / `\"Table\"` / `\"Chart\"` / `\"Widget\"` via `BREADCRUMB_LABELS` lookup\n- Sort by uses compact `icon-group` controls (`Group | Value`), Sort order uses `↑ | ↓` toggles (Airtable visual parity)\n- `resolveLabel()` pre-processes `title`/`description` config values so `{key, defaultValue}` I18nLabel objects render as strings instead of `[object Object]`\n\n### P2: Pivot widget type registration\n\n- Added `'pivot'` to `DASHBOARD_WIDGET_TYPES` in `@object-ui/types`\n- Added `Pivot Table` option in WidgetConfigPanel dropdown\n\n### P3: Responsive grid and metric card fixes\n\n- **Grid column clamping**: `layout.w` clamped to `Math.min(w, columns)` preventing overflow\n- **MetricWidget**: `overflow-hidden` on Card, `truncate` on label/value/description, `shrink-0` on icon/trend\n\n### P4: Detail experience polish\n\n- **PivotTable**: friendly empty state with grid icon + \"No data available\" (replaces empty `<tbody>`)\n- **PivotTable**: improved total/subtotal row styling — `bg-muted/40` on tfoot, `bg-muted/20` on row-total column, `font-bold` on grand total\n- **Widget description**: rendered in card headers via `resolveLabel()` with `line-clamp-2`\n\n### Tests\n\n29 new tests (188 total): ObjectPivotTable (8), ObjectDataTable (6), context-aware sections (6), I18nLabel resolution (2), pivot type option (1), pivot object binding (1), description rendering (2), grid clamping (1), pivot empty state (2). CodeQL security scan clean.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>【需求/优化】Dashboard 表格类（Table/Pivot）widget 支持 object 数据+上下文感知配置面板优化</issue_title>\n> <issue_description>### 目标\n> 全面提升 Dashboard 表格类（Table/Pivot）组件体验，支持 object provider（异步数据），并为各类 widget 区分专属的配置面板。\n> \n> ---\n> \n> #### 需修改&优化的细节清单\n> \n> **P0. object/provider 支持（Table & Pivot）**\n> - [ ] 新增 / 改造 `ObjectDataTable`、`ObjectPivotTable` 组件，实现 schema 中配置 `{dataProvider, objectName}` 之后自动加载数据，填充表格\n>     - 加载中显示 skeleton，异常显示错误提示，空数据有友好提示\n>     - 支持 columns/rows/value 字段自动推导（如无则根据 metadata 自动生成）\n>     - 同���支持 pivot 类型，解决当前 pivot widget 空数据无渲染、无加载的问题\n> - [ ] `DashboardRenderer` 里 Table 与 Pivot 都应根据 provider/objectName 自动选择正确渲染器，并统一传递 config（不能一直 data: []）\n> \n> **P1. WidgetConfigPanel 全面上下文感知（动态渲染）**\n> - [ ] 配置面板根据 widget type 动态生成：\n>     - Table 类型支持自定义 columns（含排序、宽度、显示/隐藏、label）\n>     - Pivot 类型支持 Rows、Columns、Values、Show Totals、Sort by 等完整配置\n>     - Chart 类型展示 axis、series、legend 等专属面板\n> - [ ] 支持选项的拖动排序、switch、toggle，控件信息密度、交互细节参考 Airtable\n> - [ ] 目前 Title、Description 字段如果是 I18nLabel 格式，统一预处理（resolveLabel）避免显示 [object Object]\n> - [ ] 配置面板视觉密度提升，参考 Airtable 右侧结构优化分组、文案排版\n> \n> **P2. 新 widget 类型补全、入口展示**\n> - [ ] Dashboard 新增 widget 下拉菜单补充 Pivot Table 类型\n> - [ ] Widget 类型面板图标与交互优化（分组展示/置顶常用类型）\n> \n> **P3. 响应式 grid 和 metric 卡片优化**\n> - [ ] 卡片类 widget (如 metric) 处理 overflow/截断异常，Grid 布局自动 clamp col\n> \n> **P4. 细节体验强化**\n> - [ ] dashboard 下的 table/pivot 空状态信息更合适（非一律放大镜/搜索 icon）\n> - [ ] 完善多维表格、空行/合计行/小计行的样式细节\n> \n> ---\n> **实现要求**\n> - 每条优化单独 commit 或 PR\n> - 完善对应测试用例/故事\n> - 任务完成后：跑通测试，更新 ROADMAP.md，更新关联 issue\n> - 如需跨 repo 协作，自动创建 cross-repo 问题\n> \n> <img alt=\"Airtable pivot截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/5ebb9b80-48ae-4284-8c94-b8dbb6d0f2b0\" />\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#932\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

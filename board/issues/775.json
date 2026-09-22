@@ -1,0 +1,33 @@
+{
+  "number": 775,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump rollup-plugin-visualizer from 6.0.5 to 7.0.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T08:04:07Z",
+  "updated_at": "2026-03-01T11:55:22Z",
+  "closed_at": "2026-03-01T11:55:14Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-01T11:55:14Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/775",
+  "body": "Bumps [rollup-plugin-visualizer](https://github.com/btd/rollup-plugin-visualizer) from 6.0.5 to 7.0.0.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/btd/rollup-plugin-visualizer/blob/master/CHANGELOG.md\">rollup-plugin-visualizer's changelog</a>.</em></p>\n<blockquote>\n<h2>7.0.0</h2>\n<ul>\n<li><strong>Breaking change</strong> Migrate package to ESM-only</li>\n<li><strong>Breaking change</strong> Drop NodeJS 20, minimal version is 22</li>\n<li>Added rolldown RC versions to peer deps</li>\n<li>Add markdown report template (LLM-friendly)</li>\n</ul>\n<h2>6.0.8</h2>\n<ul>\n<li>Not published (rolled back, moved to 7.0.0)</li>\n</ul>\n<h2>6.0.7</h2>\n<ul>\n<li>Not published (moved to 7.0.0)</li>\n</ul>\n<h2>6.0.6</h2>\n<ul>\n<li>Not published (moved to 7.0.0)</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/1beef6d88e0702f766cee1a96e856ac34c7dbd9c\"><code>1beef6d</code></a> 7.0.0</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/02a196285e39062f12424dadab46fc3cc6757c3c\"><code>02a1962</code></a> Update deps</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/4c0788b31048980482d46ad15e0b9c0531bcdc82\"><code>4c0788b</code></a> Update readme</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/8ddb46a95bcf7bf356f323da2ff6c15e880800b2\"><code>8ddb46a</code></a> Update changelog</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/96639070b46f3c0e114604fd13fa5ad97be8f3ce\"><code>9663907</code></a> Update readme</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/ae270425b009b883a7b0cbb4a8709eb7361efc32\"><code>ae27042</code></a> Add vite to dev deps</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/39cdbc081764ec3d1a3252482984eaf7682528e3\"><code>39cdbc0</code></a> Implement markdown LLM friendly report</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/c65c81b9ab0542d520eef2f49cc6444b8e35e214\"><code>c65c81b</code></a> Update test version of rolldown</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/717cd31d7505da13c401476c255a1cfc315a6abd\"><code>717cd31</code></a> Rebuild package lock after few updates</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/d5cf061658315f6415fb89cf1e616c18d1d00e6f\"><code>d5cf061</code></a> Update snapshots</li>\n<li>Additional commits viewable in <a href=\"https://github.com/btd/rollup-plugin-visualizer/compare/v6.0.5...v7.0.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=rollup-plugin-visualizer&package-manager=npm_and_yarn&previous-version=6.0.5&new-version=7.0.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

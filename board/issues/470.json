@@ -1,0 +1,33 @@
+{
+  "number": 470,
+  "kind": "pull_request",
+  "title": "[WIP] Complete all development as per roadmap",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-12T08:52:54Z",
+  "updated_at": "2026-03-23T17:48:31Z",
+  "closed_at": "2026-02-12T09:57:37Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-12T09:57:37Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/470",
+  "body": "- [x] **N.1 v3.0.0 Deep Integration (P0)** — All 8 items complete\n  - [x] N.1.1: Adopt Cloud namespace — `CloudOperations` class (deploy, hosting, marketplace)\n  - [x] N.1.2: Integrate contracts module — `validatePluginContract`, `generateContractManifest`\n  - [x] N.1.3: Integrate integration module — `IntegrationManager` (Slack, email, webhook connectors)\n  - [x] N.1.4: Integrate security module — `SecurityManager` (CSP, audit logging, data masking)\n  - [x] N.1.5: Adopt studio module — canvas config, grid snapping, auto-layout algorithms\n  - [x] N.1.6: PaginatedResult migration verified (records/total/hasMore)\n  - [x] N.1.7: ObjectStackAdapter `getItems`/`getCached` + `MetadataCache.getCachedSync`\n  - [x] N.1.8: 17 v3.0.0 compatibility tests — all passing\n- [x] **N.2 Designer Completion — Phase 2: Interaction Layer (P0)** — All 5 items complete\n  - [x] N.2.1: Drag-and-drop via native HTML5 DnD in all 5 designers\n  - [x] N.2.2: Undo/redo via `useUndoRedo` hook (command pattern) in all designers\n  - [x] N.2.3: Confirmation dialogs via `useConfirmDialog` + `ConfirmDialog` component\n  - [x] N.2.4: Edge creation UI in ProcessDesigner (click-to-connect with connection ports)\n  - [x] N.2.5: Inline entity field editing in DataModelDesigner\n- [x] **N.2 Designer Completion — Phase 3: Advanced Features (P0)** — All 7 items complete\n  - [x] N.2.6: `PropertyEditor` component with grouped fields and live preview\n  - [x] N.2.7: i18n integration — all hardcoded strings in LABELS constants\n  - [x] N.2.8: Canvas pan/zoom via `useCanvasPanZoom` + `Minimap` component\n  - [x] N.2.9: Auto-layout algorithms (grid-based for DataModel, topological for Process)\n  - [x] N.2.10: Copy/paste via `useClipboard` hook (Ctrl+C/V)\n  - [x] N.2.11: Multi-select via `useMultiSelect` hook (Shift+Click)\n  - [x] N.2.12: Responsive/collapsible panel layout with toggle buttons\n- [x] **N.2 Designer Completion — Phase 4: Collaboration Integration (P0)** — All 5 items complete\n  - [x] N.2.13: `useCollaboration` wired into all 5 designers\n  - [x] N.2.14: Live cursor positions via collaboration context\n  - [x] N.2.15: Operation-based undo/redo synchronized via `sendOperation`\n  - [x] N.2.16: Conflict resolution UI via collaboration provider\n  - [x] N.2.17: `VersionHistory` component with timeline and restore\n- [x] ROADMAP.md updated to mark all N.1 and N.2 items as complete\n- [x] Plugin-designer index.tsx updated to export new hooks and components\n- [x] Tests validated — 17/17 v3.0.0 compatibility tests passing\n- [ ] N.3-N.5, Q4 items are business/infra (marketplace website, Discord, YouTube, Cloud hosting, industry solutions, partnerships) — not implementable as code\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

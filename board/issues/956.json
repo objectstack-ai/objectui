@@ -1,0 +1,33 @@
+{
+  "number": 956,
+  "kind": "pull_request",
+  "title": "Add changeset for minor version bump across all packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-02T07:05:17Z",
+  "updated_at": "2026-03-02T07:21:55Z",
+  "closed_at": "2026-03-02T07:19:42Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-02T07:19:42Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/956",
+  "body": "Unify all 38 package versions via a single minor changeset bump (3.0.3 → 3.1.0).\n\n- Adds `.changeset/unify-versions-minor.md` declaring `minor` for every package in the fixed group\n- All packages already share a `fixed` group in `.changeset/config.json`, so `changeset version` will bump them in lockstep\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 统一所有软件包的版本号changeset发minior 版本\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

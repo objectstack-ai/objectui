@@ -1,0 +1,33 @@
+{
+  "number": 1025,
+  "kind": "pull_request",
+  "title": "Register MemoryAnalyticsService in createKernel() for demo/MSW environments",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T05:18:20Z",
+  "updated_at": "2026-03-04T11:21:44Z",
+  "closed_at": "2026-03-04T11:17:50Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-04T11:17:50Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1025",
+  "body": "`/api/v1/analytics/query` and `/api/v1/analytics/meta` return 405 in demo/MSW environments because the kernel has no `analytics` service registered, causing `HttpDispatcher` to skip the handler.\n\n### Changes\n\n- **Import `MemoryAnalyticsService`** from `@objectstack/driver-memory` alongside existing `InMemoryDriver` import\n- **Auto-generate cube definitions** from app config objects via `buildCubesFromConfig()` — creates `count`/`sum`/`avg` measures for numeric fields and `string`/`time` dimensions for scalar/date fields\n- **Register analytics service** on the kernel before MSWPlugin loads, with a thin adapter bridging the `getMetadata()` ↔ `getMeta()` method name mismatch between `HttpDispatcher` and `IAnalyticsService`\n- **Add analytics routes to broker shim** (`analytics.query`, `analytics.meta`, `analytics.sql`)\n\n```ts\nconst cubes = buildCubesFromConfig(appConfig);\nconst memoryAnalytics = new MemoryAnalyticsService({ driver, cubes });\nkernel.registerService('analytics', {\n  query: (query: any) => memoryAnalytics.query(query),\n  getMeta: (cubeName?: string) => memoryAnalytics.getMeta(cubeName),\n  getMetadata: () => memoryAnalytics.getMeta(),\n  generateSql: (query: any) => memoryAnalytics.generateSql(query),\n});\n```\n\nNo new dependencies — `MemoryAnalyticsService` already ships with `@objectstack/driver-memory` which is an existing dependency.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Register analytics service in createKernel() for demo and MSW environments</issue_title>\n> <issue_description>## Problem\n> \n> The demo (and MSW/test) environments in ObjectUI do not properly enable analytics capabilities:\n> - The API route POST `/api/v1/analytics/query` and `/api/v1/analytics/meta` return 405 errors because the ObjectStack kernel is missing the `analytics` service registration.\n> - Although `MemoryAnalyticsService` exists and is fully implemented in `@objectstack/spec` and `driver-memory`, it is not wired up in `createKernel()` when bootstrapping for demo/MSW/test environments. Thus, the analytics endpoints are not functional even though all dependencies are present.\n> \n> ## Reproduction\n> Go to [https://demo.objectui.org](https://demo.objectui.org) and inspect network requests for `/api/v1/analytics/query`. You will see a 405 error and MSW passthrough, indicating the kernel is missing analytics service wiring.\n> \n> ## Solution Proposal\n> - In `apps/console/src/mocks/createKernel.ts` (and any similar \"createKernel\" setups for MSW, Storybook, or Demo):\n>     - Instantiate `MemoryAnalyticsService` from `@objectstack/driver-memory`, passing the correct `InMemoryDriver` and cube configuration (the same one used for other in-memory objects).\n>     - Add a line:\n>       ```ts\n>       ctx.registerService('analytics', new MemoryAnalyticsService({ driver, cubes: [.../* config */] }));\n>       ```\n>     - Ensure this runs before MSWPlugin is loaded, so dispatcher can route analytics requests to a real implementation.\n> \n> - Update any tests/Storybook/preview setups that need analytics endpoints for dashboards, reporting, or BI widgets.\n> \n> ## Impact\n> - Enables live analytics queries and metadata endpoints for ObjectUI demo, Storybook, MSW, and local dev environments\n> - Fixes 405 passthrough and makes `/api/v1/analytics/*` APIs available for dashboards, charts, grid, and BI views\n> - Unblocks frontend teams from building/test-driving analytics plugins and SDUI dashboards using the pure frontend kernel\n> \n> ---\n> \n> - Please reference `@objectstack/spec` and `@objectstack/driver-memory` for the contract and implementation imports.\n> - Ensure correct cube config is injected to reflect available metrics and dimensions.\n> - Add code comments clarifying why this registration is needed only in demo/MSW/dev environments.\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1020\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

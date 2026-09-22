@@ -1,0 +1,36 @@
+{
+  "number": 731,
+  "kind": "issue",
+  "title": "通用 Schema-Driven 配置面板框架建设及全平台接入",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "enhancement"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-22T16:55:43Z",
+  "updated_at": "2026-02-26T09:39:54Z",
+  "closed_at": "2026-02-26T09:39:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/731",
+  "body": "## 背景\n目前已实现的 ViewConfigPanel 体量大、难以维护，即将进入 Dashboard、Page、Form 等多种配置面板的密集需求期，面向未来，需统一抽象、声明式驱动的新一代配置面板体系，提升开发效率与一致性。\n\n## 目标\n- 建设一套**通用 Schema-Driven 配置面板框架**，让所有「View/Dashboard/Form/Page/Report」等配置面板都能以声明式 schema 生成\n- 支持复杂交互通过 escape hatch 可扩展机制自定义渲染\n- 渐进迁移现有 ViewConfigPanel、支持未来所有协议级配置面板场景\n\n## 主要任务\n\n### 1. 通用配置原语与渲染器开发\n- [ ] 抽取现有 ConfigRow、SectionHeader 到 @object-ui/components（已完成，仅确认依赖版本）\n- [ ] 实现 useConfigDraft 通用 hook，封装草稿态、脏检测、保存/丢弃逻辑\n- [ ] 定义 ConfigPanelSchema/ConfigSection/ConfigField 类型支持 schema 驱动\n- [ ] 实现 ConfigPanelRenderer，负责：\n    - 渲染头部、breadcrumb、footer\n    - 各 section 支持 collapsible/collapsed\n    - 各字段按 type: input/switch/select/filter/sort/custom 渲染\n    - 配置变更时透传 onFieldChange\n- [ ] 实现 ConfigFieldRenderer 覆盖多种控件，包括但不限于：\n    - Input/Switch/Select/Checkbox\n    - FieldPicker（字段选择器）\n    - Inline FilterBuilder/SortBuilder\n    - IconGroup/Slider/ColorPicker/CodeEditor（根据需要拓展）\n    - type='custom' 支持传入 render 回调，应对无法自动渲染的复杂场景\n- [ ] 官方测试、Storybook 展示\n\n### 2. DashboardConfigPanel 实现（demo + 实战验证）\n- [ ] 设计 DashboardConfigPanelSchema，涵盖 dashboard 配置典型元素（columns/gap/widgets/globalFilter/appearance…）\n- [ ] 迁移实现到新版通用框架\n- [ ] 交互覆盖：保存/丢弃，section 折叠，子编辑器集成\n- [ ] 新增 Storybook 用例\n- [ ] 用 Vitest & Playwright 覆盖 E2E/UI 测试\n\n### 3. ViewConfigPanel 渐进迁移\n- [ ] 按 section/功能单元分阶段迁移至通用方案（Page/Data/Appearance/UserActions/Sharing/Accessibility…）\n- [ ] 保持复杂交互用 type='custom' （如字段多选、拖拽排序、row height 快捷按钮）\n- [ ] 完成 migration 后移除遗留 ViewConfigPanel 大量冗余代码，提高可维护性\n\n### 4. 其他平台配置面板快速跟进\n- [ ] FormConfigPanel（表单/分组/布局/schema 动态）\n- [ ] ReportConfigPanel（报表字段/分组/聚合）\n- [ ] PageConfigPanel（页面类型/区域/组件树/变量等）\n- [ ] 可复用面板基础单元（如字段选择、分组、颜色/图标等选择器）\n\n### 5. 规范和文档\n- [ ] 撰写开发标准（如何写新的 ConfigPanelSchema/Field/Section，何时使用 type: 'custom'）\n- [ ] 维护/更新设计文档，指导后续团队成员规范化开发\n- [ ] 用例与最佳实践集成到 Storybook\n\n## 技术细节\n- 草稿态、脏检测统一由 useConfigDraft hook 提供\n- 每个字段渲染与编辑都由唯一的 ConfigField 配置定义，抽离所有表单和状态管理细节\n- Panel 渲染器支持单一/多级 section、折叠、子编辑器、footer 等，全局一致的 UX\n- 支持按需传入 objectDef 实现字段动态渲染\n- 复杂交互采用 type='custom' + render prop 定点突破\n- 后续支持自动根据 zod schema 生成 ConfigPanelSchema\n\n## 验收标准\n- DashboardConfigPanel/新老 ViewConfigPanel 可用性 >= 现有体验，支持全部主流自定义场景\n- 各种类型的配置面板可根据 schema 快速生成，二次开发成本大幅降低\n- 代码层级明显收敛，组件内无重复/低效/难以测试的结构\n- 所有配置项均覆盖测试与文档\n\n## 附加说明\n- 强调迁移工作的渐进式，不建议 Big Bang 重写\n- 推荐 Storybook + 单元测试体系完善后再推广至报表、页面、AppShell 等更大粒度平台\n\n---\n\n相关链接：\n- [ViewConfigPanel 主线实现](https://github.com/objectstack-ai/objectui/blob/HEAD/apps/console/src/components/ViewConfigPanel.tsx)\n- [DashboardConfigPanel 设计范例（规划）](https://github.com/objectstack-ai/objectui/blob/HEAD/ROADMAP.md)\n- [ConfigRow/SectionHeader 实现](https://github.com/objectstack-ai/objectui/blob/HEAD/packages/components/src/custom/config-row.tsx)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 170,
+  "kind": "pull_request",
+  "title": "Enhance playground examples to demonstrate complete component library",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-23T16:48:50Z",
+  "updated_at": "2026-03-23T23:08:48Z",
+  "closed_at": "2026-01-23T18:03:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-23T18:03:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/170",
+  "body": "Playground examples were minimal and didn't showcase ObjectUI's full capabilities. Users couldn't see how components work together or understand real-world usage patterns.\n\n## Changes\n\n**Enhanced Form Example**\n- Multi-column layout with proper labels\n- Select dropdown, separator, newsletter checkbox\n- Primary + secondary button pattern\n\n**Enhanced Dashboard Example**\n- 4 stat cards with icons and trend indicators (was 3 basic cards)\n- Recent Activity section with avatars and badges\n- Top Products section with categorized items\n- 4-column and 2-column grid layouts\n\n**New Data Table Example**\n- User management table with 5 columns\n- Pagination controls and result counters\n- Hoverable and striped row styling\n\n**New E-commerce Example**\n- Product cards with star ratings, pricing, and badges\n- Gradient backgrounds for product categories\n- Filter and Sort actions\n\n**Navigation**\n- Descriptive labels: \"Data Table\", \"E-commerce\" (was \"dataTable\", \"ecommerce\")\n\n## Impact\n\n- Component coverage: 8 → 15+ types\n- Examples demonstrate: `label`, `select`, `separator`, `icon`, `badge`, `avatar`, `table`, `pagination`\n- Real-world patterns: contact forms, analytics dashboards, data management, product showcases\n\nExample of enhanced schema structure:\n```typescript\n{\n  type: \"card\",\n  children: [{\n    type: \"grid\",\n    columns: 4,\n    children: [\n      {\n        type: \"card\",\n        children: [\n          { type: \"icon\", name: \"DollarSign\" },\n          { type: \"text\", content: \"$45,231.89\", className: \"text-2xl font-bold\" },\n          { type: \"text\", content: \"+20.1%\", className: \"text-green-600\" }\n        ]\n      }\n      // ... 3 more stat cards\n    ]\n  }]\n}\n```\n\n> [!WARNING]\n>\n> <details>\n> <summary>Firewall rules blocked me from connecting to one or more addresses (expand for details)</summary>\n>\n> #### I tried to connect to the following addresses, but was blocked by firewall rules:\n>\n> - `fonts.googleapis.com`\n>   - Triggering command: `/usr/local/bin/node node /home/REDACTED/work/objectui/objectui/apps/site/node_modules/.bin/../next/dist/bin/next build` (dns block)\n>\n> If you need me to access, download, or install something from one of these locations, you can either:\n>\n> - Configure [Actions setup steps](https://gh.io/copilot/actions-setup-steps) to set up my environment, which run before the firewall is enabled\n> - Add the appropriate URLs or hosts to the custom allowlist in this repository's [Copilot coding agent settings](https://github.com/objectstack-ai/objectui/settings/copilot/coding_agent) (admins only)\n>\n> </details>\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> playground 几个例子都做得精致一点，能够体现完整的功能\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

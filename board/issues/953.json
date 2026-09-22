@@ -1,0 +1,33 @@
+{
+  "number": 953,
+  "kind": "pull_request",
+  "title": "chore: upgrade @objectstack/* 3.0.10 → 3.2.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-02T06:33:37Z",
+  "updated_at": "2026-03-02T07:09:57Z",
+  "closed_at": "2026-03-02T07:04:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-02T07:04:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/953",
+  "body": "Bumps all `@objectstack/*` packages to latest `3.2.0` across the monorepo.\n\n### Version updates\n- 14 `package.json` files updated: `^3.0.10` → `^3.2.0`\n- Packages: spec, core, client, cli, objectql, runtime, driver-memory, plugin-msw, plugin-hono-server, studio\n\n### Breaking change: `target` required on actions\nSpec 3.2.0 enforces `target` on actions with `type: 'api' | 'url' | 'flow' | 'modal'`. Added `target` to all 35 API actions across examples:\n\n```ts\n// Before\n{ name: 'account_send_email', type: 'api' as const, ... }\n\n// After\n{ name: 'account_send_email', type: 'api' as const, target: 'account_send_email', ... }\n```\n\nAffected: `examples/crm` (23), `examples/todo` (6), `examples/msw-todo` (3), `examples/kitchen-sink` (3)\n\n### Docs\n- ROADMAP.md updated with v3.2.0 upgrade summary and version references\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> @objectstack升级到最新版\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

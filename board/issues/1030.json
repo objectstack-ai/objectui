@@ -1,0 +1,33 @@
+{
+  "number": 1030,
+  "kind": "issue",
+  "title": "修复和补全 User Filters 筛选字段面板配置与预览链路（Airtable模式/Spec协议全链路覆盖）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T07:30:33Z",
+  "updated_at": "2026-03-04T08:36:58Z",
+  "closed_at": "2026-03-04T08:36:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1030",
+  "body": "# 面板可配置 User Filters、左侧预览生效、配置可保存全链路修复\n\n**目标：实现与 Airtable Interfaces 风格一致的用户筛选字段配置功能**。确保 CRM/业务对象视图可以在配置面板中选择筛选字段，编辑和保存后左侧预览即时生效，且永久保存于视图定义。\n\n---\n\n## 开发任务清单\n\n### 1. 类型定义补齐\n- [ ] 在 `packages/types/src/objectql.ts` 的 `NamedListView` 类型中补充 `userFilters?: ...`，严格保持与 `ListViewSchema` 属性一致。\n\n### 2. Console ObjectView 透传 userFilters\n- [ ] 在 `apps/console/src/components/ObjectView.tsx` 的 `renderListView` 构造 fullSchema 时，将 `userFilters` 从 `viewDef`/`listSchema`传递给 `<ListView schema={fullSchema} ... />`。\n\n### 3. 配置面板 UI\n- [ ] 在 `apps/console/src/utils/view-config-schema.tsx` 增加 `buildUserFiltersSection` 和相关交互：\n    - dropdown/tabs/toggle 元素类型选择。\n    - 可视化选择/排序筛选字段、配置 tab。\n    - 实时推送到 draft.userFilters，设计与 `quickFilters` 编辑体验一致。\n\n### 4. i18n 国际化\n- [ ] 补充 en/zh keys：userFilters、元素类型、dropdowns、tabs、无可用字段提示\n\n### 5. 测试覆盖\n- [ ] `ViewConfigPanel.test.tsx`/`ObjectView.test.tsx`/\nplugin-list `ListView.test.tsx`:\n    - 能编辑 userFilters 元素/字段/tab，并推送到 draft/viewDef\n    - 配置变更，左侧预览 toolbar badge 实时变化\n    - 配置保存后，下次打开视图配置生效\n\n### 6. PluginObjectView 组件透传\n- [ ] 在 `packages/plugin-view/src/ObjectView.tsx` （如用到 renderListView schema 构造），确保 `userFilters` 也能透传\n\n---\n\n## 验收标准\n- [ ] 面板右侧能够完整配置筛选字段，元素类型为 dropdown/tabs/toggle 均有效果\n- [ ] 配置后左侧列表工具栏实时展示筛选 badge，并可交互过滤\n- [ ] 保存后刷新页面、切换视图配置信息不丢失\n- [ ] 相关 i18n/测试覆盖完整\n- [ ] 符合 ROADMAP.md Airtable Parity 节点要求\n\n---\n\n（如需其他 repo 配合可 cross-repo 创建 issue）\n\n关联截图：\n<img alt=\"Airtable配置面板截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/8f961365-2788-43f7-bb31-666421785945\" />\n<img alt=\"CRM列表视图截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/92ae9078-e9e5-4291-ba9b-23d6ac3975e1\" />\n"
+}

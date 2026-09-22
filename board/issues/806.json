@@ -1,0 +1,35 @@
+{
+  "number": 806,
+  "kind": "issue",
+  "title": "【BUG】仪表盘设计模式右侧属性面板未按预期联动、不可选中预览区组件",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-23T14:26:46Z",
+  "updated_at": "2026-02-23T15:39:33Z",
+  "closed_at": "2026-02-23T15:39:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/806",
+  "body": "## 问题描述\n如截图3，当前在仪表盘设计（DashboardView + DesignDrawer）模式下：\n- 点击 Edit 后打开的右侧抽屉仍仅显示 widget 卡片列表模式（DashboardEditor），而**不是所选组件的属性配置面板**。\n- 左侧主预览区的图表/KPI 卡片/表格等 widget **无法被直接点击选中**，无高亮，也不会在右侧显示属性配置。\n- 即使点击 widget 卡片列表，也只是切换列表项，没有联动左侧实时高亮，也不能直接编辑核心配置项。\n\n\n## 预期行为\n- 进入设计模式后，左侧主预览区的任何组件都可以被直接点击选中。\n    - 选中 widget 时，组件高亮边框或背景（参考 Airtable 行为）。\n    - 右侧属性面板自动显示该 widget 的全部可编辑属性（而不是 widget 卡片列表）。\n    - 编辑属性后，左侧预览区即时反映变更，无需保存/刷新。\n- 主预览区点击空白处应能取消选中，还原整体配置。\n\n\n## 复现步骤\n1. 打开仪表盘页面，点击 Edit 进入设计模式（如 demo.objectui.org/CRMDashboard）\n2. 观察右侧内容，发现只展示了 appDesigner.addWidget 按钮和 widget 列表\n3. 点击左侧主区任意图表/卡片无任何选中高亮/联动属性面板\n4. 右侧列表项也无法弹出对应属性编辑 panel\n\n\n## 影响评估\n- 实际效果与预期和Airtable体验不符\n- 业务用户/产品无法进行所见即所得的配置与实时反馈\n- Issue #795 #797 所需核心能力仍未落地\n\n\n## 截图参考\n<img alt=\"当前实际效果截图3\" width=\"2732\" src=\"https://github.com/user-attachments/assets/c433c0ec-6f3c-49df-8f29-c177e4b45c6d\" />\n\n> 功能修正后请运行 test，并更新 roadmap。"
+}

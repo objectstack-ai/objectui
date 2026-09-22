@@ -1,0 +1,36 @@
+{
+  "number": 795,
+  "kind": "issue",
+  "title": "可视化编辑面板从右侧展开并支持修改后实时预览",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "plugin: editor"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-23T12:28:15Z",
+  "updated_at": "2026-02-23T12:48:07Z",
+  "closed_at": "2026-02-23T12:48:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/795",
+  "body": "## 功能描述\n可视化编辑的面板应从页面右侧以抽屉（Drawer）方式展开。用户通过该面板进行编辑时，所做的修改应能立即在主页面或相关组件中预览效果，无需额外保存或刷新操作。\n\n## 需求细节\n- 编辑面板以右侧抽屉形式出现，不覆盖主工作区内容；\n- 用户在编辑面板中修改配置或样式时，预览区实时反映所做更改。\n- 支持多种类型的可视化内容（如仪表盘、表格、图表等）的编辑实时同步预览；\n- 面板关闭时保留或还原用户编辑前的状态（可根据用户需求选择）\n- 实现良好的交互体验，例如动画、拖拽等。\n- 确保新面板功能配合原有 UI，无突兀切换。\n\n## 设计参考\n<img alt=\"CRM可视化编辑面板右侧展开示意\" width=\"2732\" src=\"https://github.com/user-attachments/assets/d3d565de-9e3a-4b50-bafe-d2077fa30cfb\" />\n\n## 验收标准\n- 右侧编辑面板交互顺畅、无明显卡顿\n- 编辑内容能被即时预览\n- UI 整体风格与系统一致\n- 部署后运行相关 test 确保功能无异常\n- 跟进相关问题并及时更新 roadmap\n\n> 完成功能开发后，需运行测试，并根据实际情况更新 roadmap。"
+}

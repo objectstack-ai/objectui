@@ -1,0 +1,33 @@
+{
+  "number": 1090,
+  "kind": "pull_request",
+  "title": "feat(crm): Add enterprise lookup metadata to all CRM lookup fields",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-18T11:01:28Z",
+  "updated_at": "2026-03-18T12:43:28Z",
+  "closed_at": "2026-03-18T12:31:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-18T12:31:07Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1090",
+  "body": "All 14 CRM lookup fields lacked `lookup_columns`, `lookup_filters`, and `description_field`, so RecordPickerDialog rendered a single default column with no type-aware cell formatting or business filters.\n\n### Root cause\n\n`ObjectSchema.create()` from `@objectstack/spec` uses Zod default `.strip()` mode, silently removing non-spec properties like `lookup_columns` and `lookup_filters`.\n\n### Approach\n\nPost-create `Object.assign()` injection — same pattern listViews use to bypass Zod stripping. Compatible with `defineStack({ strict: false })`.\n\n```ts\nconst _AccountObject = ObjectSchema.create({ /* ... */ });\n\n// Enterprise metadata survives via Object.assign after Zod validation\nObject.assign(_AccountObject.fields.owner, {\n  description_field: 'email',\n  lookup_columns: [\n    { field: 'name', label: 'Name' },\n    { field: 'role', label: 'Role', type: 'select' },\n    { field: 'active', label: 'Active', type: 'boolean', width: '80px' },\n  ],\n  lookup_filters: [\n    { field: 'active', operator: 'eq', value: true },\n  ],\n});\n\nexport const AccountObject = _AccountObject;\n```\n\n### Changes\n\n- **8 object files** — All 14 lookup fields across account, contact, opportunity, order, order_item, event, project, opportunity_contact now have:\n  - `lookup_columns` with type hints (`select`, `currency`, `boolean`, `date`, `number`, `percent`) to activate cell renderers\n  - `lookup_filters` with business-appropriate base filters (`eq`, `ne`, `in`, `notIn`)\n  - `description_field` for popover secondary text\n- **19 new tests** — 12 metadata tests validating columns/filters/description presence, type diversity (select+currency+boolean+date), operator diversity (eq+ne+in+notIn), and specific business logic (active-only users, non-cancelled orders, open opportunities). 7 integration tests verifying `lookup_filters` → `$filter` query parameter injection (eq/$in/$ne/$nin conversion), `lookup_columns` type hints → filter bar auto-generation (select/number/boolean mapping), and full CRM filter non-empty validation.\n- **CHANGELOG.md / ROADMAP.md** updated\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>【CRM 示例补充】完善 Lookup 字段 enterprise 元数据配置，以展示 RecordPicker 企业级特性</issue_title>\n> <issue_description>### 问题背景\n> Issue objectstack-ai/objectui#1087 的所有企业级能力（lookup_filters、cell 格式化、filter bar、ObjectGrid 复用等）已在底层 RecordPickerDialog & LookupField 实现并合并。但在 Console/CRM 示例页面 lookup 字段的弹窗中，看不到任何区别。\n> \n> ### 根因分析\n> - CRM 示例对象所有 lookup 字段未配置 `lookup_columns`、`lookup_filters` 等企业级属性，导致 RecordPickerDialog 只显示默认一列，缺乏类型信息，不触发 cellRenderer，也没有基础业务筛选、过滤条。\n> - 目前 examples/crm 下无任何含 lookup_filters/lookup_columns 配置的元数据。\n> - 如未配置 type, 相关 currency/date/select/boolean 格式化均不会被触发；未加 filters, 弹窗未体现企业级筛选能力。\n> \n> ### 需要做的\n> 1. 补充 CRM 示例中所有 lookup 字段：\n>    - 配置 `lookup_columns`（带 type、label），保证弹窗多列且激活对应的 cell 渲染器\n>    - 配置 `lookup_filters`，如 contacts/status、account/type 等\n>    - 视情况配置 `lookup_page_size`、description_field\n> \n> 2. 如发现 `@objectstack/spec` 的 Field.lookup 工厂/defineStack Zod parse strip 掉自定义属性，要修复以透传（参考 listViews 处理方式）\n> \n> 3. 编写/完善相关 UI 测试，确保企业级能力（多列、筛选、格式化、多类型可见性）可在 Console/CRM 演示端到端落地。\n> \n> ### 验收标准\n> - 任一 CRM 示例的 lookup 弹窗，能看到多列（含类型icon/色块/日期/数字/Badge 等），过滤条多类型可编辑，能预览 filter bar+lookup_filters 联合筛选效果\n> - 测试用例覆盖查询参数注入、cell 类型渲染、企业级表格功能\n> - CHANGELOG.md / ROADMAP.md 更新\n> \n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1089\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 Send tasks to Copilot coding agent from [Slack](https://gh.io/cca-slack-docs) and [Teams](https://gh.io/cca-teams-docs) to turn conversations into code. Copilot posts an update in your thread when it's finished."
+}

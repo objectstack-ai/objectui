@@ -1,0 +1,33 @@
+{
+  "number": 850,
+  "kind": "pull_request",
+  "title": "fix: Dashboard widget config live preview sync, data binding bridge, and scatter chart type switch",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-25T03:46:14Z",
+  "updated_at": "2026-02-25T04:43:33Z",
+  "closed_at": "2026-02-25T04:38:31Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-25T04:38:31Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/850",
+  "body": "Dashboard right-side config panel changes (data source, category field, aggregation, etc.) were not reflected in the left-side widget preview in real time. Additionally, switching widget type to `scatter` caused rendering errors.\n\n### Root causes\n\n- **`DashboardWithConfig` had no live preview path** — `WidgetConfigPanel` was rendered without `onFieldChange`, so edits only applied on Save.\n- **`scatter` missing from chart type conditions** — `DashboardRenderer` and `DashboardGridLayout` only matched `bar|line|area|pie|donut`, causing `scatter` to fall through to the default handler (`{...widget, ...options}`) which produces an invalid chart schema.\n- **Data binding fields disconnect** — `DashboardRenderer.getComponentSchema()` only read from `options.xField`/`options.yField`/`options.data`, but the config panel edits `widget.categoryField`/`widget.valueField`/`widget.object`/`widget.aggregate`. There was no bridge between these two field paths, so data binding changes in the config panel had no effect on the rendered widget.\n- **New widgets from config panel failed to render** — Widgets created via the config panel have `widget.object` set but no `options.data` provider, so chart/table rendering produced empty results instead of constructing proper object-chart/data-table schemas.\n\n### Changes\n\n- **`DashboardWithConfig.tsx`** — Add internal `liveSchema` state + `configVersion` counter for real-time preview. Pass `onFieldChange` to `WidgetConfigPanel`. Uses the same draft stabilization pattern as `DashboardView` to prevent `useConfigDraft` reset loops.\n\n- **`DashboardRenderer.tsx` / `DashboardGridLayout.tsx`** — Add `'scatter'` to the chart type condition in `getComponentSchema()`. Add widget-level field fallbacks so config panel changes take effect:\n  - `xAxisKey` now reads `widget.categoryField || options.xField || 'name'`\n  - `yField` now reads `widget.valueField || options.yField || 'value'`\n  - When no data provider exists but `widget.object` is set, constructs object-chart schema from widget-level fields (`object`, `categoryField`, `valueField`, `aggregate`)\n  - Same pattern for table widgets: constructs data-table from `widget.object` when no data provider exists\n\n- **Tests** — 7 new tests (scatter value/object-chart providers, categoryField override, valueField override, object-chart from widget fields, data-table from widget.object, DashboardWithConfig live preview). All 148 dashboard tests pass. CRM metadata tests (35) also pass.\n\n- **ROADMAP.md** — Added P1.10 Phase 10 documenting these fixes.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>【Bug】Dashboard 右侧配置变更后左侧 Widget 未及时刷新，Widget 类型切换异常</issue_title>\n> <issue_description>### 问题描述\n> 在 dashboard 页面，当右侧配置面板（如数据源、分类字段、聚合方式等）发生修改后，左侧 Widget 并不会立刻同步变化，导致用户体验不佳。并且在切换 Widget type 时，部分类型会报错不可用。\n> \n> #### 详细复现步骤：\n> 1. 打开 CRM Dashboard 页面。\n> 2. 选择任意 Widget，尝试在右侧面板修改其配置（如数据源、字段等）。\n> 3. 此时发现左侧 Widget 并不会立刻刷新内容。\n> 4. 切换 Widget type（如 Area Chart -> Pie Chart），部分类型会提示报错且不可用。\n> \n> #### 期望结果\n> - 右侧面板配置修改后，左侧 Widget 能够自动刷新。\n> - 切换不同 Widget type 时，应当兼容主要常用类型，不应出现不可用报错，或应有友好提示。\n> \n> #### 截图信息\n> <img alt=\"dashboard交互问题\" width=\"3352\" src=\"https://github.com/user-attachments/assets/05f41862-c341-4c8b-a500-b18a3e87e29e\" />\n> \n> ### 建议修复思路\n> - 检查 widget 配置的状态管理（如需响应式 State 或 Context、事件），确保变更能驱动视图刷新。\n> - 针对不同 Widget type，增强配置兼容性和类型切换的容错/友好提示。\n> \n> ---\n> 请修复上述问题，并在修复后确保所有 dashboard 相关 test 通过。修复完成后请同步更新项目 Roadmap。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#849\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

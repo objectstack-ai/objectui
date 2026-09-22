@@ -1,0 +1,33 @@
+{
+  "number": 852,
+  "kind": "pull_request",
+  "title": "[WIP] Update objectstack to latest version and adjust code",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-25T04:40:16Z",
+  "updated_at": "2026-02-25T05:10:12Z",
+  "closed_at": "2026-02-25T05:02:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-25T05:02:28Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/852",
+  "body": "- [x] Update all `@objectstack/*` package versions from `^3.0.9` to `^3.0.10` across all 14 package.json files\n- [x] Run `pnpm install` to update lockfile\n- [x] Re-export new spec/ui types from `@object-ui/types`: `DensityModeSchema`, `ViewFilterRule`, `ViewFilterRuleSchema`, `ThemeModeSchema`, `WcagContrastLevelSchema`\n- [x] Update `p2-spec-exports.test.ts` to cover new types (29/29 pass)\n- [x] Fix examples to conform to v3.0.10 protocol:\n  - [x] CRM view filters: convert tuple `['field', '=', 'value']` → object `[{ field, operator, value }]` (6 files)\n  - [x] Todo active filter: convert `[['status', '!=', 'Done']]` → `[{ field: 'status', operator: '!=', value: 'Done' }]`\n  - [x] Kitchen-sink dashboard widgets: add `id` to 7 widgets\n  - [x] Todo dashboard widgets: add `id` to 6 widgets\n  - [x] CRM dashboard widgets: add `id` to 12 widgets\n- [x] Update `ROADMAP.md` with v3.0.10 upgrade notes\n- [x] Run full test suite: **6698 passed**, 8 pre-existing date-timezone failures (unrelated)\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> @objectstack升级到最新版，并按新版协议，调整现有的代码\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

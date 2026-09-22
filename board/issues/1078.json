@@ -1,0 +1,33 @@
+{
+  "number": 1078,
+  "kind": "pull_request",
+  "title": "chore(deps): bump the react group with 2 updates",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-16T07:57:08Z",
+  "updated_at": "2026-03-16T08:31:38Z",
+  "closed_at": "2026-03-16T08:09:48Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-03-16T08:09:48Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1078",
+  "body": "[//]: # (dependabot-start)\n⚠️  **Dependabot is rebasing this PR** ⚠️ \n\nRebasing might not happen immediately, so don't worry if this takes some time.\n\nNote: if you make any changes to this PR yourself, they will take precedence over the rebase.\n\n---\n\n[//]: # (dependabot-end)\n\nBumps the react group with 2 updates: [react-resizable-panels](https://github.com/bvaughn/react-resizable-panels) and [react-i18next](https://github.com/i18next/react-i18next).\n\nUpdates `react-resizable-panels` from 4.7.2 to 4.7.3\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/bvaughn/react-resizable-panels/releases\">react-resizable-panels's releases</a>.</em></p>\n<blockquote>\n<h2>4.7.3</h2>\n<ul>\n<li><a href=\"https://redirect.github.com/bvaughn/react-resizable-panels/pull/690\">690</a>: Imperative Panel API supports non-percentage sizes</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/bvaughn/react-resizable-panels/blob/main/CHANGELOG.md\">react-resizable-panels's changelog</a>.</em></p>\n<blockquote>\n<h2>4.7.3</h2>\n<ul>\n<li><a href=\"https://redirect.github.com/bvaughn/react-resizable-panels/pull/690\">690</a>: Imperative Panel API supports non-percentage sizes</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/bvaughn/react-resizable-panels/commit/08cfd6fdd5e9c7bff07b1c27ae34e679a45f7057\"><code>08cfd6f</code></a> 4.7.2 -&gt; 4.7.3</li>\n<li><a href=\"https://github.com/bvaughn/react-resizable-panels/commit/e8dd4300a1db74b127d91e77fc81b16ed0bd4af8\"><code>e8dd430</code></a> Panel imperative API resize() accepts all size units (<a href=\"https://redirect.github.com/bvaughn/react-resizable-panels/issues/690\">#690</a>)</li>\n<li><a href=\"https://github.com/bvaughn/react-resizable-panels/commit/552111976c74906fbcf96e63744bb8fc97a5aae6\"><code>5521119</code></a> Tweaked e2e separtor style</li>\n<li><a href=\"https://github.com/bvaughn/react-resizable-panels/commit/5c13ebda2dd2e7254649c437530aa0683d6b8ec6\"><code>5c13ebd</code></a> Site search (<a href=\"https://redirect.github.com/bvaughn/react-resizable-panels/issues/685\">#685</a>)</li>\n<li><a href=\"https://github.com/bvaughn/react-resizable-panels/commit/55e538a8b800c3bd4a8609a5c23cbf99a3214c5d\"><code>55e538a</code></a> Wording tweak</li>\n<li>See full diff in <a href=\"https://github.com/bvaughn/react-resizable-panels/compare/4.7.2...4.7.3\">compare view</a></li>\n</ul>\n</details>\n<br />\n\nUpdates `react-i18next` from 16.5.6 to 16.5.8\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/i18next/react-i18next/blob/master/CHANGELOG.md\">react-i18next's changelog</a>.</em></p>\n<blockquote>\n<h3>16.5.8</h3>\n<ul>\n<li>A selector function cannot be resolved without an i18n instance... returning empty string is safer than leaking the raw function reference. <a href=\"https://redirect.github.com/i18next/react-i18next/issues/1907\">1907</a></li>\n</ul>\n<h3>16.5.7</h3>\n<ul>\n<li>fix: <code>&lt;Trans&gt;</code> component with <code>enableSelector: true</code> does not support multiple selectors for fallbacks <a href=\"https://redirect.github.com/i18next/react-i18next/issues/1907\">1907</a></li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/i18next/react-i18next/commit/b00adfad4296543ab637d87a6af2b2faec119fcb\"><code>b00adfa</code></a> 16.5.8</li>\n<li><a href=\"https://github.com/i18next/react-i18next/commit/e3675225420193f8cf455888c429e4a4eb7953f7\"><code>e367522</code></a> A selector function cannot be resolved without an i18n instance... returning ...</li>\n<li><a href=\"https://github.com/i18next/react-i18next/commit/1cbd152a234ac507a6f9982bbd7e35f02e84be94\"><code>1cbd152</code></a> 16.5.7</li>\n<li><a href=\"https://github.com/i18next/react-i18next/commit/c257c2e7a9ba036a867bbe55b303b165b38ee08a\"><code>c257c2e</code></a> fix: <code>\\&lt;Trans&gt;</code> component with <code>enableSelector: true</code> does not support multipl...</li>\n<li>See full diff in <a href=\"https://github.com/i18next/react-i18next/compare/v16.5.6...v16.5.8\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore <dependency name> major version` will close this group update PR and stop Dependabot creating any more for the specific dependency's major version (unless you unignore this specific dependency's major version or upgrade to it yourself)\n- `@dependabot ignore <dependency name> minor version` will close this group update PR and stop Dependabot creating any more for the specific dependency's minor version (unless you unignore this specific dependency's minor version or upgrade to it yourself)\n- `@dependabot ignore <dependency name>` will close this group update PR and stop Dependabot creating any more for the specific dependency (unless you unignore this specific dependency or upgrade to it yourself)\n- `@dependabot unignore <dependency name>` will remove all of the ignore conditions of the specified dependency\n- `@dependabot unignore <dependency name> <ignore condition>` will remove the ignore condition of the specified dependency and ignore conditions\n\n\n</details>"
+}

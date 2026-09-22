@@ -1,0 +1,33 @@
+{
+  "number": 985,
+  "kind": "pull_request",
+  "title": "Wire up detail page autoTabs, autoDiscoverRelated, highlightFields, sectionGroups + reverse-reference child discovery in Console RecordDetailView",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T04:40:08Z",
+  "updated_at": "2026-03-03T07:08:03Z",
+  "closed_at": "2026-03-03T06:54:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T06:54:56Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/985",
+  "body": "Console `RecordDetailView` constructs a `detailSchema` but omits the new plugin-detail features (`autoTabs`, `autoDiscoverRelated`, `highlightFields`, `sectionGroups`), so none of them render despite being fully implemented in `@object-ui/plugin-detail`. Additionally, child objects referencing the current record (e.g., `order_item` → `order`) were not discovered or displayed.\n\n### Changes\n\n- **`RecordDetailView.tsx`**: Pass `autoTabs: true` and `autoDiscoverRelated: true` to enable tab layout and automatic related table discovery from reference fields. Auto-detect `highlightFields` from well-known field names (status, stage, priority, amount, etc.) with override via `objectDef.views.detail.highlightFields`. Forward `sectionGroups` from object definition config. Added **reverse-reference discovery**: scans all objects for `lookup`/`master_detail` fields pointing back to the current object (e.g., `order_item.order` → `order`), fetches filtered child records via `dataSource.find(childObject, { $filter })`, and passes them as explicit `related` entries in the schema. Uses `Promise.all` with cancellation and sanitized record IDs.\n\n- **`DetailView.tsx`**: Fixed `effectiveRelated` to pass `api: r.objectName` for auto-discovered forward references so `RelatedList` can fetch data via `dataSource`. Fixed `discoveredRelated` to check both `reference_to` and `reference` field properties for ObjectStack metadata compatibility.\n\n- **`DetailSection.tsx`**: Fixed field enrichment to resolve reference target from both `reference_to` and `reference` properties on objectSchema fields.\n\n- **`RelatedList.tsx`**: Added `useEffect` to sync internal `relatedData` state when the `data` prop changes, fixing stale initial state from `useState(data)`.\n\n- **`RecordDetailEdit.test.tsx`**: Four new integration tests covering auto tabs rendering, forward related list discovery from lookup fields, highlight field display, and reverse-reference child object discovery with filtered data fetching. Tests use ObjectStack-convention `reference` property to match real runtime metadata.\n\n- **`ROADMAP.md`**: Mark Console end-to-end integration and reverse-reference discovery as complete under P1.15.\n\n### Key bug fixes\n\n1. **`$filter` format** — Changed from OData string (`\"order eq 'o1'\"`) to object format (`{ order: 'o1' }`) matching `QueryParams.$filter: Record<string, any>`. The string format was silently mangled by `convertFiltersToAST()` treating character indices as keys, resulting in zero matching records.\n\n2. **Field property name mismatch** — ObjectStack metadata API returns lookup field references as `reference` (e.g., `{ type: 'lookup', reference: 'order' }`), but ObjectUI code only checked `reference_to`. This caused `childRelations` discovery and auto-discovered related lists to always be empty. Fixed by checking both `reference_to` and `reference` via `refTarget = fieldDef.reference_to || fieldDef.reference` in RecordDetailView, DetailView, and DetailSection.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Console端未接入详情页相关表自动渲染与Tab、多语言等新功能</issue_title>\n> <issue_description>## 问题描述\n> \n> 目前虽然`@object-ui/plugin-detail`底层已实现：\n> - 详情页相关表自动发现与渲染（autoDiscoverRelated/related）\n> - Tab区块（详情/相关/活动），Section分组、顶部高亮区（highlightFields, sectionGroups）\n> - 多语言label自动切换、相关表CRUD入口（ViewAll, 新建、编辑、删除）\n> \n> 但ObjectUI的Console端的`RecordDetailView.tsx`未将这些新功能接入到`detailSchema`中，导致上述功能在页面上无法体验、无效果。\n> \n> 具体表现：\n> - 相关表/子表未显示\n> - 无Tab页切换（无\"相关\"区）\n> - 无高亮区、无分组折叠、无相关表操作入口\n> - 多语言未生效、日期/空值展示未统一\n> \n> ## 如何复现\n> 1. 打开ObjectUI Console，进入任意对象详情页\n> 2. 观察页面下方无\"相关\"区块、自带相关表、相关操作按钮\n> \n> ## 期望功能\n> - Console端将`autoTabs`、`autoDiscoverRelated`、`highlightFields`、`sectionGroups`、相关表CRUD入口等参数正确传递给`DetailView`，自动发现并渲染所有相关表数据\n> - 多语言配置生效，所有label/tab/字段自动切换\n> - Tab布局分隔（详情/相关/活动）可用\n> - 顶部高亮区与Section分组可收起\n> - 相关表支持新建、编辑、删除等操作\n> \n> ## 影响范围\n> - 影响所有通过Console访问的对象详情页\n> - 影响ROADMAP对相关表功能端到端验收\n> \n> ## 建议修复步骤\n> 1. 补充`RecordDetailView.tsx`构造`detailSchema`逻辑，传递上述参数并绑定实际相关表CRUD数据源\n> 2. 联动自动化测试覆盖相关表、Tab区、分组、国际化等核心功能\n> 3. 更新文档与ROADMAP，明确端到端可用性\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#984\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

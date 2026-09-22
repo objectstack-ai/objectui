@@ -1,0 +1,33 @@
+{
+  "number": 1104,
+  "kind": "pull_request",
+  "title": "fix(build): replace dynamic require() with static imports in plugin-view",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-21T09:22:37Z",
+  "updated_at": "2026-03-21T10:39:17Z",
+  "closed_at": "2026-03-21T10:30:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-21T10:30:52Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1104",
+  "body": "CI build fails on two issues: Turbopack rejects module-level `require('@object-ui/react')` during SSR prerendering of `/docs/components/complex/view-switcher`, and TS6133 on unused `...rest` in `ObjectCalendar`.\n\n- **`plugin-view/src/index.tsx` & `ObjectView.tsx`**: Replace `try { require('@object-ui/react') } catch {}` with static imports. `@object-ui/react` is already a declared dependency and statically imported elsewhere in the package (`ViewSwitcher.tsx`), so the dynamic require was unnecessary.\n\n```diff\n-const mod = require('@object-ui/react');\n-SchemaRendererComponent = mod.SchemaRenderer || null;\n+import { SchemaRenderer as ImportedSchemaRenderer } from '@object-ui/react';\n+const SchemaRendererComponent: React.FC<any> = ImportedSchemaRenderer;\n```\n\n- **`plugin-calendar/src/ObjectCalendar.tsx`**: Remove unused `...rest` destructured prop (TS6133).\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 引用: https://github.com/objectstack-ai/objectui/actions/runs/23375916259/job/68007789159#step:8:1\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n📱 Kick off Copilot coding agent tasks wherever you are with [GitHub Mobile](https://gh.io/cca-mobile-docs), available on iOS and Android."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 799,
+  "kind": "pull_request",
+  "title": "feat(plugin-list): TabBar component for ListView multi-tab view switching with console integration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T13:12:10Z",
+  "updated_at": "2026-02-23T14:15:10Z",
+  "closed_at": "2026-02-23T14:07:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T14:07:12Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/799",
+  "body": "`ViewTabSchema` types exist but no tab UI renders. This adds a `TabBar` component that renders above the ListView toolbar, with active tab state management and filter switching on tab change, fully integrated into the console app.\n\n### New: `TabBar` component (`packages/plugin-list/src/components/TabBar.tsx`)\n- Controlled/uncontrolled active tab state; auto-selects `isDefault` tab\n- `pinned` tabs always visible regardless of `visible` flag\n- Lucide icon resolution from kebab-case names\n- Order-based sorting, `visible: 'false' | false` filtering\n- ARIA: `role=\"tablist\"` / `role=\"tab\"` / `aria-selected`\n\n### ListView integration\n- Replaces inline tab rendering with `TabBar`\n- `handleTabChange` applies tab's `filter` config to `currentFilters` state and fires `onFilterChange`\n- Filter IDs scoped per tab (`tab-filter-${tab.name}`)\n\n### Console & plugin-view integration\n- `packages/plugin-view/src/ObjectView.tsx` — `renderContent` schema now propagates `tabs` from schema level to ListView\n- `apps/console/src/components/ObjectView.tsx` — `renderListView` fullSchema now propagates `tabs` from listSchema\n- Full data flow: `ObjectViewSchema.tabs` → PluginObjectView `renderContent` → Console `renderListView` → `ListView` → `TabBar`\n\n### i18n\n- `list.tabs` and `list.allRecords` keys added to all 10 locale files + fallback translations\n\n### Usage\n```tsx\n<ListView\n  schema={{\n    type: 'list-view',\n    objectName: 'contacts',\n    viewType: 'grid',\n    fields: ['name', 'email', 'status'],\n    tabs: [\n      { name: 'all', label: 'All', isDefault: true },\n      { name: 'active', label: 'Active', icon: 'circle-check', filter: { logic: 'and', conditions: [{ field: 'status', operator: 'eq', value: 'active' }] } },\n      { name: 'vip', label: 'VIP', pinned: true, icon: 'star' },\n    ],\n  }}\n  onFilterChange={(filters) => console.log(filters)}\n/>\n```\n\n### Tests\n- 17 new TabBar unit tests covering rendering, state, pinned visibility, order sorting, icons, ARIA, controlled mode, and filter propagation\n- 1 new integration test in `config-sync-integration.test.tsx` verifying tabs propagation through `renderListView`\n- All 109 existing ListView tests and 23 console ObjectView tests pass unchanged\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[P1] ListView Tabs — 多标签视图切换 UI</issue_title>\n> <issue_description>## 背景\n> Parent Issue: objectstack-ai/objectui#736\n> \n> Spec 定义了 `ViewTabSchema`（name, label, icon, view, filter, order, pinned, isDefault, visible），ObjectUI 类型已定义但无 Tab UI 渲染。\n> \n> ## 目标\n> - 在 ListView toolbar 上方渲染 Tab 栏\n> - 每个 Tab 应用对应的 filter/view 配置\n> - 支持 icon、pinned、isDefault 属性\n> \n> ## 技术要点\n> - `packages/types/src/objectql.ts` L1653-1662 — 已定义 `tabs` 类型\n> - 需新增 `TabBar` 组件在 ListView toolbar 上方\n> \n> ## 改动范围\n> - `packages/plugin-list/src/components/TabBar.tsx` — 新增 Tab 栏组件\n> - `packages/plugin-list/src/ListView.tsx` — 集成 TabBar，切换 Tab 时更新 filter/sort\n> - `packages/i18n/src/locales/*.ts` — 添加 tab 相关 i18n key\n> \n> ## 验收标准\n> - [ ] Tab 栏在 toolbar 上方正确渲染\n> - [ ] 点击 Tab 切换 filter/sort 配置\n> - [ ] `isDefault` Tab 默认选中\n> - [ ] `pinned` Tab 始终显示\n> - [ ] Tab icon 通过 Lucide 解析\n> - [ ] 所有新增代码有对应单元测试\n> - [ ] `pnpm test` 全部通过\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#753\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 862,
+  "kind": "pull_request",
+  "title": "fix: dashboard config panel edits not reflected in live preview",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-25T08:26:01Z",
+  "updated_at": "2026-02-25T09:06:15Z",
+  "closed_at": "2026-02-25T08:49:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-25T08:49:54Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/862",
+  "body": "Widget config panel edits to data binding fields (`categoryField`, `valueField`, `aggregate`, `object`) had no effect on the live preview when the widget had a data provider (`widget.data.aggregate`). The renderer read directly from the data provider config, which the config panel never touches.\n\n### Core fix: `getComponentSchema()` field precedence\n\nIn both `DashboardRenderer` and `DashboardGridLayout`, widget-level fields now override data provider config:\n\n```ts\n// Before: data provider config used directly, ignoring config panel edits\naggregate: widgetData.aggregate,\nobjectName: widgetData.object || widget.object,\n\n// After: widget-level fields take precedence for live preview\nconst providerAgg = widgetData.aggregate;\nconst effectiveAggregate = providerAgg ? {\n  field: widget.valueField || providerAgg.field,\n  function: widget.aggregate || providerAgg.function,\n  groupBy: widget.categoryField || providerAgg.groupBy,\n} : undefined;\nobjectName: widget.object || widgetData.object,\naggregate: effectiveAggregate,\n```\n\nThis also fixes `objectName` precedence for table/pivot widgets (same `widgetData.object || widget.object` → `widget.object || widgetData.object` reversal).\n\n### `DashboardWithConfig` missing design mode wiring\n\n`DashboardWithConfig` defined `handleWidgetSelect` but never passed `designMode`/`selectedWidgetId`/`onWidgetClick` to `DashboardRenderer`, making widget selection impossible in the plugin-level component.\n\n### Tests\n\n- 6 new tests for widget-level field override behavior (groupBy, field, function, objectName, table objectName, simultaneous overrides)\n- 2 new tests for `DashboardWithConfig` design mode (overlay presence, widget click-to-select)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Dashboard右侧编辑器修改时左侧无法实时预览效果（排查所有导致Live Preview失效的原因）</issue_title>\n> <issue_description>## 问题描述\n> 在Dashboard编辑页面，右侧Widget配置面板（如数据绑定、聚合、布局等字段）编辑时，左侧主区域预览不会实时反映修改效果。\n> \n> 见如下截图：\n> <img alt=\"编辑右侧无预览效果\" width=\"3834\" src=\"https://github.com/user-attachments/assets/0bfe14fb-c735-487b-a0cf-57f6a8b4a126\" />\n> \n> ## 已知排查点\n> 1. **editSchema修改流**\n>    - 右侧配置面板通过`useConfigDraft`管理草稿，字段修改后调用`onFieldChange`更新`editSchema`。\n>    - `previewSchema = editSchema || dashboard` 应该驱动 DashboardRenderer 重新渲染新 schema。\n> \n> 2. **DashboardRenderer组件**\n>    - 能否响应`schema` prop更新，重新渲染所有widgets。\n>    - 是否有memoization导致局部widget渲染不及时？\n> \n> 3. **SchemaRenderer内容**\n>    - 是否依赖外部数据（如dataSource），配置项变更时数据refetch有无触发？\n>    - widget的`component`对象内容是否发生深拷贝/identity change，有无因为React浅对比失效。\n> \n> 4. **配置面板与左侧渲染分离**\n>    - Memoization策略（如`widgetConfig`、`editSchema`、`configVersion`）是否导致预览不同步。\n> \n> 5. **其它场景补充**\n>    - 多widget、嵌套widget或复杂数据源场景是否存在预览失效。\n>    - 浏览器端不同屏幕/移动端等是否会出现此问题。\n> \n> ## 建议排查步骤\n> - 检查`handleWidgetFieldChange`是否完全驱动预览流。（setEditSchema后预览是否变化？）\n> - DashboardRenderer内部是否对schema/widgets有深度响应。\n> - widget/component config是否因memo或引用不变导致无法更新UI。\n> - SchemaRenderer及widget自身数据依赖是否有副作用。\n> - 编辑panel与主panel之间通信流是否一致且能触发重绘。\n> \n> ## 相关代码分析摘要\n> - 右侧ConfigPanel编辑通过`useConfigDraft`回调驱动editSchema。\n> - 左侧DashboardRenderer响应editSchema为previewSchema。\n> - DashboardRenderer渲染schema.widgets，但组件渲染或数据绑定可能未刷新。\n> \n> ## 优先级\n> - plugin: editor\n> - bug\n> \n> ---\n> 开发任务完成后请运行相关test并更新roadmap。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#861\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

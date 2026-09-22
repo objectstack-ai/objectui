@@ -1,0 +1,35 @@
+{
+  "number": 766,
+  "kind": "issue",
+  "title": "系统设置与应用管理中心：新增应用清单与集中入口",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T06:20:54Z",
+  "updated_at": "2026-02-23T08:13:08Z",
+  "closed_at": "2026-02-23T08:13:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/766",
+  "body": "## 背景\n现有 Console 已支持用户、组织、角色、审计日志、个人资料等系统设置页面（/system/users、/organizations、/roles、/audit-log、/profile），但缺失\"应用清单/应用管理\"页面，以及真正的 System Hub 统一入口。\n\n当前现况：\n- 配置和切换 App 只能通过 Sidebar 下拉，缺乏完整的全局列表、搜索、启用/禁用与删除入口。\n- Settings 仅指向个人资料页，无法作为设置中心。\n- systemObjects 已定义 sys_permission，但也缺一个权限管理页。\n\n## 目标\n1. 新增\"应用清单/管理\"页面（AppManagementPage）：集中列出��有已配置 App，支持：\n    - 查询/筛选/分页所有 App（名称/描述/状态/启用/默认）\n    - 新建（跳转 CreateAppPage）、编辑（跳转 EditAppPage）、删除 App\n    - 启用/停用 App（toggle active 字段）\n    - 设置默认 App\n    - 支持批量操作（启用/禁用/删除）和二次确认\n    - 支持导航到应用主页、以及应用设置（如导航设计、品牌等二级入口）\n\n2. 新增 System Settings 总览页（SystemHubPage，路径 /system/ 下直接入口）：\n    - 以卡片/列表形式横向（或网格）展示各类管理功能，包括：App清单、用户、组织、角色、权限、审计日志、个人资料\n    - 提供所有设置分支的跳转，可视化各分支统计总量（如用户数/应用数/组织数等）\n    - 统一 Settings/系统设置菜单，所有跳转由该页分发\n\n3. 权限管理页补全（PermissionManagementPage）：\n    - 以 grid/table 形式展示 sys_permission 对象，增删改查\n    - 支持搜索、批量授权、角色分配\n\n4. Sidebar 和 Setting 入口优化：\n    - Sidebar 用户区点击 Settings 按钮跳转至 /system/ 统一 Hub\n    - System Hub 提供子页 Tab 或卡片（App/用户/组织/权限/...）\n    - Sidebar/AppSwitcher 下拉扩展\"管理所有应用\"直达 AppManagementPage\n\n5. 路由调整与文档同步：\n    - /system/ 默认进入 System Hub，保留 /system/profile 作为子页\n    - 文档、Console 结构图更新，清晰标注各管理入口与二级页面链路\n\n## 参考细节\n- 权限控制建议使用 usePermissions hook 控制入口展示\n- 关键页面/表格建议支持批量操作和分页\n- 组件可复用现有 Table、Card、Modal 等统一风格\n- 若数据量较大，后端接口需支持分页、检索、排序\n\n## 投交标准\n- 能在单处系统中心页发现所有管理分支和功能\n- 任一 App 的增删改查、启用/禁用均可视、可控\n- 所有系统管理功能 card/link 在统一入口可见，并有清晰统计\n- 权限管理支持角色授权、分配\n- 所有改动有测试及文档/路由结构更新"
+}

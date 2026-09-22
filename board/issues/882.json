@@ -1,0 +1,33 @@
+{
+  "number": 882,
+  "kind": "pull_request",
+  "title": "fix: wire navOverlay.handleClick into list view row click handlers",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-27T03:56:23Z",
+  "updated_at": "2026-02-27T04:26:19Z",
+  "closed_at": "2026-02-27T04:20:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-27T04:20:34Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/882",
+  "body": "Row clicks in list views fell back to `onEdit` (edit form) instead of routing through `navOverlay.handleClick`, which handles drawer/modal/page navigation modes. The `useNavigationOverlay` hook was also missing its `onNavigate` callback, so `mode: 'page'` was a no-op.\n\n### Changes\n\n- **`PluginObjectView.onRowClick`** — fallback changed from `onEdit` → `navOverlay.handleClick`\n- **`renderListView` onRowClick** — fallback changed from `editHandler` → `navOverlay.handleClick`\n- **`useNavigationOverlay` init** — added `onNavigate` that sets `recordId` search param for page-mode navigation\n- **Dependency array** — added `navOverlay` to `renderListView` useCallback deps\n\n```diff\n- onRowClick={onRowClick || ((record: any) => onEdit?.(record))}\n+ onRowClick={onRowClick || ((record: any) => {\n+     navOverlay.handleClick(record);\n+ })}\n```\n\n```diff\n  const navOverlay = useNavigationOverlay({\n      navigation: detailNavigation,\n      objectName: objectDef.name,\n+     onNavigate: (recordId: string | number, _action?: string) => {\n+         const newParams = new URLSearchParams(searchParams);\n+         newParams.set('recordId', String(recordId));\n+         setSearchParams(newParams);\n+     },\n  });\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

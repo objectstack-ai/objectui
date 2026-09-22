@@ -1,0 +1,33 @@
+{
+  "number": 908,
+  "kind": "issue",
+  "title": "Bug: Default Navigation Mode (Page) Clicks Have No Effect — Stale Closure Root Cause",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-28T08:51:24Z",
+  "updated_at": "2026-02-28T09:04:46Z",
+  "closed_at": "2026-02-28T09:04:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/908",
+  "body": "\n\n### Summary\n\nClicking a row in the grid/list when the default navigation mode is `Page` does nothing. This has been reported and patched multiple times but the underlying root cause was never addressed. The bug is a **stale closure chain** caused by unmemoized objects/callbacks passed into `useNavigationOverlay`.\n\n### Screenshot\n\n![Navigation mode dropdown showing Page is selected but clicks do nothing](image)\n\n### Root Cause Analysis (3 Compounding Issues)\n\n#### Issue 1: `{ mode: 'page' }` fallback creates a new object every render\n\nIn `apps/console/src/components/ObjectView.tsx` line 423:\n\n```tsx\nconst detailNavigation: ViewNavigationConfig = activeView?.navigation ?? objectDef.navigation ?? { mode: 'page' };\n```\n\n`{ mode: 'page' }` is a new object literal on every render. This causes the `navigation` option passed to `useNavigationOverlay` to change reference every render, which in turn causes its internal `handleClick` `useCallback` to be recreated every render.\n\n#### Issue 2: `onNavigate` callback is not memoized\n\nIn `apps/console/src/components/ObjectView.tsx` lines 428-445, the `onNavigate` is an inline arrow function:\n\n```tsx\nconst navOverlay = useNavigationOverlay({\n    navigation: detailNavigation,\n    objectName: objectDef.name,\n    onNavigate: (recordId: string | number, action?: string) => {\n        // inline — new function identity every render\n        if (action === 'view' || !action || action === 'page') {\n            navigate(`record/${String(recordId)}`);\n        }\n    },\n});\n```\n\nBecause both `navigation` AND `onNavigate` have unstable identities, React may batch-skip the render where `handleClick` picks up the fresh `onNavigate`, resulting in a stale (or initial undefined) closure being called.\n\n#### Issue 3: Cascade instability through `renderListView`\n\n`navOverlay` (returned from `useMemo`) gets a new reference every render because its deps (`handleClick`, etc.) changed. This propagates through `renderListView`'s `useCallback` deps, causing the `<ListView>` to re-render with potentially stale intermediate closures during React's batched updates.\n\n### Call Chain Trace\n\n```\nUser clicks grid row\n  → ObjectGrid.onRowClick\n    → PluginObjectView.handleRowClick (line 397)\n      → Console's onRowClick lambda (line 840)\n        → navOverlay.handleClick\n          → useNavigationOverlay.handleClick (line 120)\n            → mode === 'page' → calls onNavigate(recordId, 'view')\n              → ⚠️ onNavigate may be stale/undefined due to unmemoized deps\n```\n\n### Proposed Fix\n\nMemoize the navigation config and `onNavigate` callback in `apps/console/src/components/ObjectView.tsx`:\n\n```tsx\n// 1. Memoize the fallback navigation config\nconst detailNavigation: ViewNavigationConfig = useMemo(\n    () => activeView?.navigation ?? objectDef.navigation ?? { mode: 'page' },\n    [activeView?.navigation, objectDef.navigation]\n);\n\n// 2. Memoize the onNavigate callback\nconst handleNavOverlayNavigate = useCallback(\n    (recordId: string | number, action?: string) => {\n        if (action === 'new_window') {\n            const basePath = window.location.pathname.replace(/\\/view\\/.*$/, '');\n            window.open(`${basePath}/record/${String(recordId)}`, '_blank');\n            return;\n        }\n        if (action === 'view' || !action || action === 'page') {\n            if (viewId) {\n                navigate(`../../record/${String(recordId)}`, { relative: 'path' });\n            } else {\n                navigate(`record/${String(recordId)}`);\n            }\n        }\n    },\n    [navigate, viewId]\n);\n\n// 3. Use memoized values\nconst navOverlay = useNavigationOverlay({\n    navigation: detailNavigation,\n    objectName: objectDef.name,\n    onNavigate: handleNavOverlayNavigate,\n});\n```\n\n### Files Affected\n\n| File | Change |\n|------|--------|\n| `apps/console/src/components/ObjectView.tsx` | Memoize `detailNavigation` with `useMemo`, extract `onNavigate` into `useCallback` |\n| `packages/react/src/__tests__/useNavigationOverlay.test.ts` | Add test for stale closure scenario |\n| `ROADMAP.md` | Document fix |\n\n### Acceptance Criteria\n\n- [ ] Clicking a grid row with `navigation.mode: 'page'` (default) navigates to record detail page\n- [ ] Clicking a grid row with `navigation.mode: 'drawer'` opens drawer overlay\n- [ ] Clicking a grid row with `navigation.mode: 'modal'` opens modal overlay  \n- [ ] Clicking a grid row with `navigation.mode: 'none'` does nothing\n- [ ] All existing `useNavigationOverlay` tests pass (29 tests)\n- [ ] All existing `ObjectView` tests pass (32 tests)\n- [ ] New test: verify `handleClick` uses latest `onNavigate` after re-render\n- [ ] Update `ROADMAP.md` with root cause and fix\n\n### Labels\n\n`bug`, `P0`, `navigation`"
+}

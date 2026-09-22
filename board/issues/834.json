@@ -1,0 +1,33 @@
+{
+  "number": 834,
+  "kind": "pull_request",
+  "title": "fix: ListView config panel live preview — remove remount gate and fix navigation priority",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-24T12:08:17Z",
+  "updated_at": "2026-02-24T13:27:42Z",
+  "closed_at": "2026-02-24T13:24:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-24T13:24:08Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/834",
+  "body": "Config panel property changes (showRecordCount, allowPrinting, addRecord, selection, navigation mode, etc.) required clicking Save to take effect. The data flow `viewDraft → activeView → mergedViews → PluginObjectView` was correct, but two issues blocked live preview.\n\n### `key={refreshKey}` on PluginObjectView\n\n`refreshKey` only incremented on save/create. React keying forced a full remount as the only update path, making prop-driven re-rendering a no-op between saves.\n\n```diff\n- <PluginObjectView\n-     key={refreshKey}\n-     schema={objectViewSchema}\n+ <PluginObjectView\n+     schema={objectViewSchema}\n```\n\n### Navigation overlay ignoring view-level config\n\nDetail overlay only consumed `objectDef.navigation`, so switching navigation mode (drawer/modal/split/popover) in the config panel had no effect.\n\n```diff\n- const detailNavigation: ViewNavigationConfig = objectDef.navigation ?? { mode: 'drawer' };\n+ const detailNavigation: ViewNavigationConfig = activeView?.navigation ?? objectDef.navigation ?? { mode: 'drawer' };\n```\n\n### Tests\n\n- Added ListView mock to isolate data-flow assertions from ListView's async internals\n- Added comprehensive live preview tests covering all config panel properties mentioned in the issue:\n  - `showRecordCount` and `allowPrinting` toggles propagate to ListView schema in real-time\n  - `selection` mode change propagates to ListView schema in real-time\n  - `addRecord` toggle propagates both `addRecord` and `addRecordViaForm` to ListView\n  - `navigation` mode change from config panel propagates to ListView schema live\n  - Navigation priority verified: ListView receives view-level navigation (`activeView.navigation > objectDef.navigation`)\n  - Label changes reflect immediately in breadcrumb\n  - Multiple simultaneous config changes all propagate without save\n  - Grid persists after config changes (no remount)\n- ROADMAP updated with root causes #10 and #11\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>【列表视图】配置面板属性变更后未实时生效（需点击保存）/ 导航与部分属性未正确同步</issue_title>\n> <issue_description>### 问题列表（结合详细排查后已合并）：\n> \n> **1. 列表视图（ListView）配置面板中的大部分属性变更（如\"显示记录数\"、\"允许打印\"、\"添加记录按钮\"、选择模式等），仅在点击保存后才会生效，无法实时预览。**\n> - 预期：修改任何配置应立即反映到主视图组件，达到实时（Live Preview）效果。\n> - 实际表现：侧边栏切换/勾选各种选项后，主表格、工具栏等内容未实时刷新，只有保存后才体现。\n> - 主要原因：配置变更只更新了`viewDraft`，但`PluginObjectView`用了`key={refreshKey}`，只有保存/创建时才会re-mount，普通变动（onViewUpdate）不触发key更换，导致视图不更新。\n> - **建议修复方案：**\n>   1. 移除`key={refreshKey}`，或通过依赖viewDraft/activeView保证主组件可以响应props变化重新渲染；\n>   2. 或在onViewUpdate时同步刷新key（不推荐，性能差，且用户体验差）；\n>   3. 优化数据流：让Live Preview不需要重挂载即可响应配置变更。\n> \n> **2. 导航模式（如Page/Drawer/Modal/Split/Popover）等设置面板切换无效，Overlay详情弹窗的导航配置未能和View配置实时同步。**\n> - 预期：切换不同的导航模式，应随即生效，改变弹窗/分屏表现。\n> - 实际：导航配置（如mode: drawer/modal/...）实际取自objectDef.navigation，只在对象级用，视图级别的navigation未被消费。\n> - **建议修复方案：**\n>   - 让详情Overlay支持消费当前视图的navigation（activeView.navigation）或嵌套优先级 objectDef < activeView。\n> \n> **3. 各种Toolbar和Actions属性未实时生效，例如：**\n>   - 添加记录按钮（addRecord/addRecordViaForm）\n>   - 允许打印（allowPrinting）\n>   - 显示记录数（showRecordCount）\n>   - 选择模式（selection）等\n> - 相关代码流上，很多prop已经透传到主ListView schema，但因为主视图未及时re-render，所以未生效。\n> \n> **4. 代码一致性与最佳实践建议：**\n> - PluginObjectView建议React式解耦key依赖，利用useMemo等响应变化。\n> - 子组件/Overlay建议向下消费viewDraft或activeView内的所有控制项。\n> \n> ---\n> \n> #### 附问题截图��\n> <img alt=\"列表属性变动无效示例\" width=\"2732\" src=\"https://github.com/user-attachments/assets/7b8a53c0-7369-47b7-bd57-8fc5ded8e860\" />\n> \n> ---\n> \n> ### 复现步骤\n> 1. 打开Contacts模块，右侧列表视图配置面板\n> 2. 切换如添加记录、显示记录数、打印等选项\n> 3. 观察主表主体和Toolbar无实时响应，需等到点击\"保存\"才刷新配置\n> 4. 导航模式切换无效，始终是Drawer/未变成Split/Modal等\n> \n> ### 期望行为\n> - 切换任意面板属性后能立刻在列表中反映出来（Live Preview效果，无需保存）\n> - 导航模式等变更能及时同步到Overlay\n> \n> ### 相关代码位置：\n> - apps/console/src/components/ObjectView.tsx (handleViewUpdate, renderListView等)\n> - apps/console/src/components/ViewConfigPanel.tsx\n> - packages/plugin-list/src/ListView.tsx\n> - ...等\n> \n> ### 参考：\n> - ROADMAP 已有相关Phase 2, Phase 3优化记录，但本问题为实际体验断层\n> - [ ListView 属性和Live Preview 代码文档与测试用例详见 repo 搜索 ]\n> \n> ---\n> \n> ### 需要关注/修复标签：\n> bug, 配置, live preview\n> \n> ---\n> #### 补充说明：建议修复后，务必补充自动化测试，覆盖所有toolbar、显示行为props的变更场景。\n> \n> ---\n> > **请开发修复后：记得运行`test`、确保所有相关场景通过，必要时补充ROADMAP进度注记。**\n> \n> ---\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#833\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

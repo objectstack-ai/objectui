@@ -1,0 +1,33 @@
+{
+  "number": 809,
+  "kind": "issue",
+  "title": "重构仪表盘设计模式右侧为固定属性面板/配置页，与ListView一致",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T16:07:21Z",
+  "updated_at": "2026-02-24T00:35:58Z",
+  "closed_at": "2026-02-24T00:35:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/809",
+  "body": "# 问题\n\n目前设计模式下右侧 DesignDrawer 渲染的并非真正的属性配置页，而是\"DashboardEditor\"（包含卡片列表、工具栏、预览等），严重背离了 Airtable/Notion\"主区预览 + 右侧表单属性面板\"最佳实践，导致：\n- 右侧操作混乱，属性编辑、卡片列表混在一起、无法专注于 widget 配置\n- 无法实现所见即所得、实时属性配置联动\n- 代码重复，未复用已有成熟的 ConfigPanelRenderer、WidgetConfigPanel 架构\n\n# 目标\n- 向 ListView/PageDesigner/WorkflowDesigner 等看齐，右侧属性 Drawer 必须**始终只做属性配置**\n- 未选中任何 widget 时，显示 DashboardConfigPanel（dashboard 级总属性）\n- 选中任一 widget 时，右侧固定切换为 WidgetConfigPanel（所有可编辑属性、布局、数据源、样式…）\n- 配置项和业务 schema 严格对齐，支持协议扩展\n- 不再在右侧 drawer 中做 widget 卡片的 preview 或列表，主区才��所见即所得 preview\n- 指定属性表单的 sticky/save/discard/footer 全面回归 ConfigPanelRenderer 通用实现\n\n# 技术建议\n- 复用 packages/plugin-dashboard/src/DashboardConfigPanel.tsx、WidgetConfigPanel.tsx\n- drawer 内容结构见 ListViewConfigPanel 参考实现\n- 编辑模式下，主区与右侧属性随选中联动，属性改动主区实时反映\n\n# 验收标准\n- 所有属性配置体验与 ListView/PageDesigner 完全统一，且和 schema/协议保持同步\n- 新/老模式无割裂，所有面板配置支持自动保存/撤销，还原等所有 ConfigPanelRenderer 标准交互\n\n> 详见相关 issue #808"
+}

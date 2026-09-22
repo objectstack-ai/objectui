@@ -1,0 +1,33 @@
+{
+  "number": 856,
+  "kind": "pull_request",
+  "title": "Fix os:start/os:dev scripts to use local CLI package",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-25T07:29:59Z",
+  "updated_at": "2026-02-25T07:57:38Z",
+  "closed_at": "2026-02-25T07:39:24Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/856",
+  "body": "`pnpm os:start` fails with `ERR_MODULE_NOT_FOUND` because the scripts reference `node_modules/@objectstack/cli/bin/objectstack.js`, an external package that isn't installed. The local `packages/cli` already provides identical `serve`/`dev` commands and is used by 6 other root scripts (`cli`, `objectui`, `doctor`, `studio`, `check`, `generate`).\n\n- **Root `package.json`**: Updated `os:start` and `os:dev` to use `node packages/cli/dist/cli.js` instead of `tsx node_modules/@objectstack/cli/bin/objectstack.js`\n- **`apps/console/package.json`**: Updated `start` script with same fix using relative path `../../packages/cli/dist/cli.js`\n\n```diff\n-\"os:dev\": \"tsx node_modules/@objectstack/cli/bin/objectstack.js dev\",\n-\"os:start\": \"tsx node_modules/@objectstack/cli/bin/objectstack.js serve\",\n+\"os:dev\": \"node packages/cli/dist/cli.js dev\",\n+\"os:start\": \"node packages/cli/dist/cli.js serve\",\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

@@ -1,0 +1,42 @@
+{
+  "number": 71,
+  "kind": "pull_request",
+  "title": "Enhance metadata specifications and component system",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "examples",
+    "package: core",
+    "package: react",
+    "package: types"
+  ],
+  "assignees": [
+    "Copilot",
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-01-15T04:52:19Z",
+  "updated_at": "2026-03-23T18:55:38Z",
+  "closed_at": "2026-01-15T07:05:26Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-01-15T07:05:25Z",
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/71",
+  "body": "## 完善基础元数据规范和控件体系 (Enhance Metadata Specifications and Component System)\n\nBased on the goal of developing complete projects using JSON, this PR improves the fundamental metadata specifications and component system.\n\n### Phase 1: Enhance Type Definitions ✅\n- [x] Analyze current type system structure\n- [x] Identify gaps in metadata specifications\n- [x] Add missing common properties to BaseSchema (visible, hidden, disabled, name, label, description, placeholder, style, testId, ariaLabel)\n- [x] Add comprehensive JSDoc documentation\n- [x] Create CRUD operation schemas\n- [x] Create API integration schemas\n\n### Phase 2: Component System Features ✅\n- [x] Add CRUD component schema with full Create/Read/Update/Delete support\n- [x] Add ActionSchema for button actions with API integration\n- [x] Add DetailSchema for record detail views\n- [x] Add filter, pagination, and toolbar configurations\n- [x] Add EventHandler system for dynamic interactions\n- [x] Add DataFetchConfig for automatic data loading\n- [x] Add Expression system for dynamic values\n\n### Phase 3: Improve Protocol Specifications ✅\n- [x] Create comprehensive JSON schema examples (user-management, api-integration)\n- [x] Document component usage patterns (CRUD protocol, API integration)\n- [x] Add validation schemas for runtime checking\n- [x] Create CRUD protocol specification\n- [x] Create API integration guide\n\n### Phase 4: Developer Experience ✅\n- [x] Add schema validation utilities (validateSchema, assertValidSchema, isValidSchema)\n- [x] Create schema builder helpers (Form, CRUD, Button, Input, Card, Grid, Flex builders)\n- [x] Improve TypeScript type inference with composite projects\n- [x] Add schema composition utilities via fluent builders\n\n### Phase 5: Documentation & Examples ✅\n- [x] Update protocol documentation (CRUD, API integration)\n- [x] Create comprehensive component catalog examples\n- [x] Add real-world application examples (user management, API integration)\n- [x] Create best practices guide\n\n## Key Features Added\n\n### 1. Enhanced Type Definitions\n- Extended BaseSchema with conditional rendering properties (`visibleOn`, `hiddenOn`, `disabledOn`)\n- Added semantic properties (name, label, description, placeholder)\n- Added accessibility properties (ariaLabel, testId)\n- New CRUD operation schemas for complete data management\n- New API integration schemas for dynamic data and events\n\n### 2. Schema Validation\n```typescript\nimport { validateSchema, assertValidSchema } from '@object-ui/core';\n\nconst result = validateSchema(mySchema);\nif (!result.valid) {\n  console.error(result.errors);\n}\n```\n\n### 3. Schema Builders\n```typescript\nimport { crud, form, button } from '@object-ui/core/builder';\n\nconst userCRUD = crud()\n  .resource('user')\n  .api('/api/users')\n  .columns([...])\n  .enableCreate()\n  .enableUpdate()\n  .enableDelete()\n  .pagination(20)\n  .build();\n```\n\n### 4. Comprehensive Examples\n- **user-management**: Complete CRUD interface with filters, pagination, batch actions\n- **api-integration**: API calls, event handling, data fetching, conditional rendering\n\n### 5. Documentation\n- **CRUD Protocol**: Complete specification for CRUD components\n- **API Integration Guide**: How to fetch data, submit forms, handle events\n- **Best Practices**: Comprehensive guide for building maintainable apps\n\n## Summary\n\n✅ **All 5 phases complete!**\n\nThis PR delivers a comprehensive enhancement to Object UI's metadata specifications and component system, enabling developers to build complete, production-ready applications using pure JSON schemas with full type safety and excellent developer experience.\n\nSee [ENHANCEMENT_SUMMARY.md](./ENHANCEMENT_SUMMARY.md) for detailed documentation of all changes.\n\n## Migration Guide\n\n**No breaking changes.** All changes are additive and backward compatible. Existing schemas continue to work as before. New features are opt-in.\n\n## Build Status\n\n✅ All packages build successfully with `pnpm build`\n✅ All packages lint successfully with `pnpm lint` (0 errors)\n✅ TypeScript composite projects configured correctly\n✅ Vercel build passing\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> 根据使用json开发完整项目的目标，完善基础的元数据规范和控件体系。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

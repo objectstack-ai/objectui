@@ -1,0 +1,33 @@
+{
+  "number": 1012,
+  "kind": "pull_request",
+  "title": "chore: add patch changeset for v3.1.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T12:19:45Z",
+  "updated_at": "2026-03-03T13:32:58Z",
+  "closed_at": "2026-03-03T13:32:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1012",
+  "body": "Adds a changeset to trigger a patch release covering the improvements merged in #1007.\n\n- **Changeset**: `.changeset/patch-release.md` — `\"object-ui\": patch`\n- All 37+ packages bump together via the fixed versioning group in `.changeset/config.json`\n\nCovers: semantic status color auto-detection, collapsible RelatedList, responsive table headers, row hover effect, record count Badge.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> changeset发一个补丁\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

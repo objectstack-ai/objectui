@@ -1,0 +1,33 @@
+{
+  "number": 796,
+  "kind": "pull_request",
+  "title": "feat: right-side visual editor drawer with real-time preview",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T12:28:29Z",
+  "updated_at": "2026-02-23T13:11:38Z",
+  "closed_at": "2026-02-23T12:48:06Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-23T12:48:06Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/796",
+  "body": "Edit buttons on PageView and DashboardView previously navigated to separate `/design/` routes, breaking context and preventing live preview. This PR replaces that navigation with an inline right-side drawer (Shadcn Sheet) that keeps the main view visible and syncs editor changes to the renderer in real-time.\n\n### Changes\n\n- **`DesignDrawer` component** — Reusable right-side Sheet panel using render props pattern. Handles auto-save on every change, Ctrl+S/Cmd+S explicit save with toast, and sr-only description for a11y.\n- **`PageView` / `DashboardView`** — Edit button now toggles drawer open instead of `navigate()`. Local `editSchema` state is lifted so both the renderer and the editor share the same schema reference — changes propagate instantly.\n- **Editors lazy-loaded** inside the drawer via `React.lazy()` to avoid increasing the initial bundle.\n- **Backward compatible** — existing `/design/page/:pageName` and `/design/dashboard/:dashboardName` routes remain intact.\n- **7 new tests** covering drawer lifecycle, real-time preview sync, auto-save, Ctrl+S, and no-navigation assertion.\n- **ROADMAP.md** updated to reflect completion.\n\n### How it works\n\n```tsx\n// PageView: edit button opens drawer, schema changes flow to SchemaRenderer\nconst [editSchema, setEditSchema] = useState<PageSchema | null>(null);\nconst previewSchema = drawerOpen && editSchema ? editSchema : page;\n\n<SchemaRenderer schema={previewSchema} />\n<DesignDrawer schema={editSchema || page} onSchemaChange={setEditSchema} collection=\"sys_page\" recordName={pageName!}>\n  {(schema, onChange) => <PageCanvasEditor schema={schema} onChange={onChange} />}\n</DesignDrawer>\n```\n\nAll 50 console test files pass (615 tests). CodeQL: 0 alerts.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>可视化编辑面板从右侧展开并支持修改后实时预览</issue_title>\n> <issue_description>## 功能描述\n> 可视化编辑的面板应从页面右侧以抽屉（Drawer）方式展开。用户通过该面板进行编辑时，所做的修改应能立即在主页面或相关组件中预览效果，无需额外保存或刷新操作。\n> \n> ## 需求细节\n> - 编辑面板以右侧抽屉形式出现，不覆盖主工作区内容；\n> - 用户在编辑面板中修改配置或样式时，预览区实时反映所做更改。\n> - 支持多种类型的可视化内容（如仪表盘、表格、图表等）的编辑实时同步预览；\n> - 面板关闭时保留或还原用户编辑前的状态（可根据用户需求选择）\n> - 实现良好的交互体验，例如动画、拖拽等。\n> - 确保新面板功能配合原有 UI，无突兀切换。\n> \n> ## 设计参考\n> <img alt=\"CRM可视化编辑面板右侧展开示意\" width=\"2732\" src=\"https://github.com/user-attachments/assets/d3d565de-9e3a-4b50-bafe-d2077fa30cfb\" />\n> \n> ## 验收标准\n> - 右侧编辑面板交互顺畅、无明显卡顿\n> - 编辑内容能被即时预览\n> - UI 整体风格与系统一致\n> - 部署后运行相关 test 确保功能无异常\n> - 跟进相关问题并及时更新 roadmap\n> \n> > 完成功能开发后，需运行测试，并根据实际情况更新 roadmap。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#795\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

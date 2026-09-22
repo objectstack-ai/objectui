@@ -1,0 +1,35 @@
+{
+  "number": 875,
+  "kind": "issue",
+  "title": "Console 记录详情页面评论/讨论（ChatterPanel）实际不可见（Drawer 未集成 & 默认导航配置）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-26T10:03:06Z",
+  "updated_at": "2026-02-26T16:12:56Z",
+  "closed_at": "2026-02-26T16:12:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/875",
+  "body": "## 发现的问题\n\n### 问题一：Drawer 中未集成 Discussion/Chatter 面板\n在 Console 实际点击记录行（如 Contact/Account 等）时，默认会弹出 Drawer 侧边栏，而不是跳转到详情（RecordDetailView）页面。Drawer 内目前只集成了 DetailView，**并没有包含 RecordChatterPanel、评论、activity timeline 等讨论面板**。因此用户日常操作下根本看不到评论/协作功能。\n\n- 参考代码：`apps/console/src/components/ObjectView.tsx`，Drawer 的 NavigationOverlay 渲染内容。\n- 期望结果：Drawer 中详情下方也应有完整的讨论面板（可折叠）。\n\n### 问题二：默认导航模式配置为 'drawer'，而不是 'page'\n当前对象的明细点击后默认以 Drawer 方式预览详情。只有显示为 'page' 模式时才会跳转进入支持评论的 `RecordDetailView` 页面。\n\n- 参考代码：`ObjectView.tsx` 中 detailNavigation 默认值 `{ mode: \"drawer\" }`\n- 期望修正：如需全页评论协作，建议默认 navigation.mode 改为 'page'，或让对象可定制该行为。\n\n---\n\n## 建议修改方案\n1. **Drawer 集成 ChatterPanel**：在 Drawer 的详情视图下方同步集成与 RecordDetailView 一致的 RecordChatterPanel/Feed/ActivityTimeline，合理收缩默认可折叠。\n2. **导航默认为 Page**：如大部分业务习惯全页评论交流，建议默认 navigation.mode = 'page'（实在需要 Drawer 行为再配置）。如需兼容历史，建议项目 README 加说明。\n\n---\n\n## 修复完成后校验：\n- Drawer/页面详情都能展示评论/讨论面板，体验一致；\n- 打开任何行记录详情都能评论、查看活动流。\n\n---\n\n请优先处理（影响业务场景评论协作入口可发现性）。"
+}

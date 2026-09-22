@@ -1,0 +1,33 @@
+{
+  "number": 989,
+  "kind": "issue",
+  "title": "登录页面优化及 /console 前缀配置导致 API 路径错误（宽屏模式、404 问题）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-03T05:00:59Z",
+  "updated_at": "2026-03-03T05:36:25Z",
+  "closed_at": "2026-03-03T05:36:25Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/989",
+  "body": "参考其他主流企业管理平台，整体优化登录页面宽屏模式下的视觉体验。当前宽屏状态下页面美观性不足。\n\n另，配置 /console 前缀时，相关链接注册，登录，忘记密码等未自动加上前缀。\n\n请优化前端路由逻辑，以能正确拼接 API 请求路径并支持多前缀场景。\n\n附错误截图：\n<img alt=\"登录页面宽屏与报错\" width=\"2878\" src=\"https://github.com/user-attachments/assets/a494c29a-c345-457e-afce-272fd234ac79\" />\n\n需求：\n1. 登录页视觉及布局参考主流管理平台整体优化（如airtable，salesforce，power apps等）。\n2. 支持 /console 等前缀情况下，API 请求能自动拼接对应前缀。\n3. 所有登录页面缺少国际化翻译。\n4. 检查注册（Sign up）、找回密码等同样受影响的链接路径。"
+}

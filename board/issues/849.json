@@ -1,0 +1,35 @@
+{
+  "number": 849,
+  "kind": "issue",
+  "title": "【Bug】Dashboard 右侧配置变更后左侧 Widget 未及时刷新，Widget 类型切换异常",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-02-25T03:46:00Z",
+  "updated_at": "2026-02-25T04:38:32Z",
+  "closed_at": "2026-02-25T04:38:32Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/849",
+  "body": "### 问题描述\n在 dashboard 页面，当右侧配置面板（如数据源、分类字段、聚合方式等）发生修改后，左侧 Widget 并不会立刻同步变化，导致用户体验不佳。并且在切换 Widget type 时，部分类型会报错不可用。\n\n#### 详细复现步骤：\n1. 打开 CRM Dashboard 页面。\n2. 选择任意 Widget，尝试在右侧面板修改其配置（如数据源、字段等）。\n3. 此时发现左侧 Widget 并不会立刻刷新内容。\n4. 切换 Widget type（如 Area Chart -> Pie Chart），部分类型会提示报错且不可用。\n\n#### 期望结果\n- 右侧面板配置修改后，左侧 Widget 能够自动刷新。\n- 切换不同 Widget type 时，应当兼容主要常用类型，不应出现不可用报错，或应有友好提示。\n\n#### 截图信息\n<img alt=\"dashboard交互问题\" width=\"3352\" src=\"https://github.com/user-attachments/assets/05f41862-c341-4c8b-a500-b18a3e87e29e\" />\n\n### 建议修复思路\n- 检查 widget 配置的状态管理（如需响应式 State 或 Context、事件），确保变更能驱动视图刷新。\n- 针对不同 Widget type，增强配置兼容性和类型切换的容错/友好提示。\n\n---\n请修复上述问题，并在修复后确保所有 dashboard 相关 test 通过。修复完成后请同步更新项目 Roadmap。"
+}

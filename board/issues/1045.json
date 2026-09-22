@@ -1,0 +1,33 @@
+{
+  "number": 1045,
+  "kind": "pull_request",
+  "title": "fix: move useMemo before early returns to prevent React error #310",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-09T02:04:39Z",
+  "updated_at": "2026-03-09T02:23:54Z",
+  "closed_at": "2026-03-09T02:22:21Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-09T02:22:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1045",
+  "body": "`RecordDetailView` crashes with React error #310 (\"Rendered more hooks than during the previous render\") because the `useMemo(detailSchema)` hook is placed after two conditional early returns (`isLoading`, `!objectDef`). First render calls 24 hooks and returns early; next render calls 25, triggering the error.\n\n- **Move `useMemo` before early returns** with a `!objectDef` guard inside the callback returning a minimal unused schema\n- **Fold intermediate variables** (`primaryField`, `sections`, `highlightFields`, `sectionGroups`, `related`, `recordHeaderActions`) into the `useMemo` callback — they were only consumed by `detailSchema` anyway\n\n```tsx\n// Before: useMemo after early returns = inconsistent hook count\nif (isLoading) return <SkeletonDetail />;\nif (!objectDef) return <Empty />;\nconst primaryField = ...;\nconst sections = ...;\nconst detailSchema = useMemo(() => ({ ... }), [...]); // ← hook #25, skipped on early return\n\n// After: all hooks called unconditionally\nconst detailSchema = useMemo(() => {\n  if (!objectDef) return { type: 'detail-view' } as DetailViewSchema;\n  // ... all computation moved inside\n}, [objectDef?.name, pureRecordId, childRelatedData, actionRefreshKey]);\n\nif (isLoading) return <SkeletonDetail />;\nif (!objectDef) return <Empty />;\n```\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

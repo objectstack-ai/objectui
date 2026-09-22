@@ -1,0 +1,35 @@
+{
+  "number": 938,
+  "kind": "issue",
+  "title": "【严重影响】ObjectGrid传入inline数据（data）时未加载objectSchema，导致lookup/关联字段全量失效",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-01T14:04:28Z",
+  "updated_at": "2026-03-01T14:38:34Z",
+  "closed_at": "2026-03-01T14:38:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/938",
+  "body": "## 问题描述\n\n当ListView将服务端查询到的数据以`data` prop（inline array）传递给下层SchemaRenderer（ObjectGrid）时，ObjectGrid会检测到inline data存在，于是**直接跳过** object schema 的加载：\n\n```tsx\nuseEffect(() => {\n    if (hasInlineData) return;   // 🔴 直接 return！完全跳过 getObjectSchema()\n    // ...省略...\n}, [objectName, ...]);\n```\n\n而此时ObjectGrid的字段columns通常是`string[]`（如['order','product','item_type']），生成列时会走如下逻辑：\n\n```tsx\nconst fieldDef = objectSchema?.fields?.[fieldName];\nconst resolvedType = fieldDef?.type || inferColumnType({ field: fieldName }) || null;\n```\n\n由于objectSchema为null，**无法获得字段类型信息**，导致所有自定义渲染器（比如lookup/master_detail/select/user/status）全丢失，只能兜底为`String(value)`。\n\n这会造成：\n- 关联型字段（如lookup、user等）无论服务端是否expand，始终只显示ID字符串（或出���[object Object]）\n- select/status等字段不会被注册的CellRenderer渲染\n- 格式化/嵌套/自定义渲染全部失效\n\n## 表现举例\n- 用户只看到order/produc/user等显示\"o1\"、\"p1\"、\"u1\"，而不是对应的名称或更多信息\n- 甚至expand展开的对象，因没有CellRenderer也变成[object Object]\n\n## 复现步骤\n1. ListView正常加载一个有lookup/关联/选项等类型字段的数据对象。\n2. 服务端已支持expand，数据能带出完整对象。\n3. ObjectGrid通过props.data收到inline数据，**不会加载objectSchema**。\n4. \"generateColumns\"函数里字段类型全部靠猜，导致CellRenderer注册机制无效。\n\n## 根因总结\n根本原因是ObjectGrid将\"inline data\"和\"无需schema\"混淆，实际上**无论数据来源（inline/server），只要配置了objectName都应加载一次schema用于推断字段类型及渲染器选择**。\n\n## 修复建议\n- ObjectGrid props.data存在时，仅跳过数据fetch，但应**始终加载一次objectName对应的objectSchema**并据此生成columns与类型。\n- 保证CellRenderer注册逻辑和后端/inline数据模式一致。\n- 修复后补足UT，避免类似回归。\n\n---\n如需代码、Trace或详细复现方法可联系@hotlong。"
+}

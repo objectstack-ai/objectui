@@ -1,0 +1,36 @@
+{
+  "number": 746,
+  "kind": "issue",
+  "title": "Navigation Tree Designer（可视化导航结构设计器）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "plugin: editor"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-02-23T05:02:18Z",
+  "updated_at": "2026-02-26T09:39:41Z",
+  "closed_at": "2026-02-26T09:39:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/746",
+  "body": "开发应用导航结构可视化设计器，符合@objectstack/spec NavigationItemSchema协议：\n\n## 开发内容\n1. 拖拽式导航树编辑组件，支持节点嵌套、分组、排序\n2. 支持快速添加页面、仪表盘、外链、分隔符等不同类型节点\n3. 节点属性编辑（icon、title、隐藏/禁用、移动/删除）\n4. 实时所见即所得预览与schema同步\n5. 导出/导入导航JSON Schema\n6. 新建页面/仪表盘自动注册在导航树\n7. i18n与移动端支持\n\n## 交付要求\n- React 组件实现 + 类型定义\n- Tailwind样式，符合全局主题\n- 优秀的交互体验（参考Airtable/Notion导航编辑）\n- Storybook场景+交互测试\n- 单元测试、E2E测试（RTL/Vitest）\n- `pnpm test` 必须通过\n- Roadmap文档同步"
+}

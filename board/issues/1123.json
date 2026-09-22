@@ -1,0 +1,33 @@
+{
+  "number": 1123,
+  "kind": "pull_request",
+  "title": "chore: upgrade @objectstack packages from v3.2.9 to v3.3.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-23T14:21:46Z",
+  "updated_at": "2026-03-23T15:10:21Z",
+  "closed_at": "2026-03-23T15:07:26Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-23T15:07:26Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1123",
+  "body": "Bump all `@objectstack/*` dependencies to latest (v3.3.0) across the monorepo.\n\n- **13 `package.json` files** updated: root, `apps/console`, `examples/*`, `packages/{core,types,react,data-objectstack,plugin-map,plugin-gantt,plugin-timeline}`\n- **`pnpm-lock.yaml`** regenerated — 19 resolved `@objectstack/*` packages now at 3.3.0 (`plugin-audit` stays at 3.2.10, its latest)\n- **`CHANGELOG.md`** / **`ROADMAP.md`** updated with version references\n\nAll 42 build tasks and 7,224 tests pass with no breaking changes.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> @objectstack 升级到最新版\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n⌨️ Start Copilot coding agent tasks without leaving your editor — available in [VS Code](https://gh.io/cca-vs-code-docs), [Visual Studio](https://gh.io/cca-visual-studio-docs), [JetBrains IDEs](https://gh.io/cca-jetbrains-docs) and [Eclipse](https://gh.io/cca-eclipse-docs).\n"
+}

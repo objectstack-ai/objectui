@@ -1,0 +1,33 @@
+{
+  "number": 988,
+  "kind": "pull_request",
+  "title": "Remove duplicate close button from OnboardingWalkthrough dialog",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-03T04:58:04Z",
+  "updated_at": "2026-03-03T05:38:02Z",
+  "closed_at": "2026-03-03T05:35:48Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-03T05:35:48Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/988",
+  "body": "`OnboardingWalkthrough` manually renders a close `<Button>` in the `DialogHeader`, but `DialogContent` already includes a `DialogPrimitive.Close` button at the same position — producing two overlapping × buttons.\n\n- Removed the manual `<Button><X /></Button>` and its wrapping flex `div` from the header\n- Removed unused `X` import from `lucide-react`\n\nDismissal continues to work via `DialogContent`'s built-in close button, which triggers `Dialog`'s `onOpenChange` → `dismiss()`. ESC and overlay click are unaffected.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Onboarding dialog renders two overlapping close (×) buttons</issue_title>\n> <issue_description>## Problem\n> \n> The Onboarding dialog displays two overlapping close (×) buttons in the upper-right corner (see screenshot below):\n> \n> <img alt=\"Onboarding dialog with two close buttons\" width=\"944\" src=\"https://github.com/user-attachments/assets/148f4868-ed70-4611-904e-c42d2068eed1\" />\n> \n> ---\n> \n> ### Cause\n> - The OnboardingWalkthrough component manually renders its own close button in the header:\n>   - `<Button variant=\"ghost\" size=\"icon\" ...><X ... /></Button>`\n> - The DialogContent component (from `@object-ui/components`) already includes a built-in close button positioned absolutely at the top-right corner.\n> - These two buttons appear at the same location, resulting in a duplicated UI control and confusion.\n> \n> ### Example (from code):\n> ```tsx\n> // In OnboardingWalkthrough.tsx\n> <DialogHeader>\n>   <DialogTitle>...</DialogTitle>\n>   <Button ...><X ... /></Button> // Manually added close button\n> </DialogHeader>\n> \n> // In DialogContent (auto-generated via Radix)\n> <DialogPrimitive.Close ...>\n>   <X ... />\n> </DialogPrimitive.Close>\n> ```\n> \n> ## Solution\n> - **Remove the manually rendered close button** from the OnboardingWalkthrough's DialogHeader, as DialogContent already provides an accessible close control.\n> - Verify that dismissing the dialog still works via the remaining button and that keyboard/escape functionality behaves correctly via `Dialog`'s `onOpenChange`.\n> \n> ## References\n> - Dialog: [`packages/components/src/ui/dialog.tsx`](https://github.com/objectstack-ai/objectui/blob/main/packages/components/src/ui/dialog.tsx)\n> - Onboarding: [`apps/console/src/components/OnboardingWalkthrough.tsx`](https://github.com/objectstack-ai/objectui/blob/main/apps/console/src/components/OnboardingWalkthrough.tsx)\n> \n> ### Screenshot\n> <img alt=\"Screenshot showing duplicate close buttons\" width=\"944\" src=\"https://github.com/user-attachments/assets/148f4868-ed70-4611-904e-c42d2068eed1\" />\n> \n> ## Severity\n> Minor – does not block usage but affects UX polish.\n> \n> ---\n> \n> **Test after fix:**\n> - Only one close button visible\n> - Dialog dismissal works as expected (button, ESC, clicking outside)\n> - WCAG accessibility for close button touch targets preserved\n> \n> ---\n> _Related file: `apps/console/src/components/OnboardingWalkthrough.tsx`_\n> \n> ---\n> \n> > After completing this task: run tests, update related issues, and update ROADMAP.md. If a change requires work in another ObjectStack repo, create a cross-repo issue in the target repo.</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#987\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

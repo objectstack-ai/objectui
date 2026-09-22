@@ -1,0 +1,33 @@
+{
+  "number": 1095,
+  "kind": "pull_request",
+  "title": "fix: LookupField shows no visual feedback after RecordPickerDialog selection",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-19T09:59:03Z",
+  "updated_at": "2026-03-19T10:32:18Z",
+  "closed_at": "2026-03-19T10:29:18Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-19T10:29:18Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1095",
+  "body": "Selecting a record in the RecordPickerDialog (Level 2) updates the form value but the LookupField UI shows nothing — no badge, no label. Affects both single and multi-select.\n\n**Root cause:** `findOption` only searches `staticOptions` and `fetchedOptions` (Level 1 popover). Records loaded by the dialog's own fetch are invisible to the parent.\n\n### Changes\n\n- **`RecordPickerDialog`**: New optional `onSelectRecords` callback returns full record objects alongside IDs. A `selectedRecordsMap` ref persists record data across page navigation for multi-select.\n- **`LookupField`**: New `pickerResolvedRecords` state caches records from the dialog. `findOption` checks this as a third fallback source.\n\n```tsx\n// RecordPickerDialog now passes back record objects\n<RecordPickerDialog\n  onSelect={onChange}                          // IDs (unchanged)\n  onSelectRecords={handlePickerSelectRecords}  // full records → display cache\n/>\n```\n\n### Tests\n\n4 new tests covering `onSelectRecords` for single/multi-select and end-to-end LookupField badge rendering after dialog selection.\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> lookup 字段弹出窗口选中记录之后界面看不出任何效果。并且需要考虑单选和多选两种情况。\n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 Send tasks to Copilot coding agent from [Slack](https://gh.io/cca-slack-docs) and [Teams](https://gh.io/cca-teams-docs) to turn conversations into code. Copilot posts an update in your thread when it's finished."
+}

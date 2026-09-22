@@ -1,0 +1,33 @@
+{
+  "number": 1031,
+  "kind": "pull_request",
+  "title": "feat: wire userFilters through NamedListView type, config panel, and preview passthrough",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T07:30:46Z",
+  "updated_at": "2026-03-04T08:47:14Z",
+  "closed_at": "2026-03-04T08:36:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-04T08:36:52Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1031",
+  "body": "`userFilters` (Airtable Interfaces-style dropdown/tabs/toggle filter controls) existed on `ListViewSchema` and rendered in `plugin-list`, but was missing from `NamedListView`, the config panel, and both ObjectView passthrough paths — so it couldn't be configured or persisted.\n\n### Type parity\n- Added `userFilters` to `NamedListView` in `packages/types/src/objectql.ts` via `ListViewSchema['userFilters']` to avoid inline duplication and prevent type drift.\n\n### Schema passthrough\n- **Console `ObjectView.tsx`**: `userFilters: viewDef.userFilters ?? listSchema.userFilters` in `renderListView` fullSchema construction.\n- **Plugin-view `ObjectView.tsx`**: `userFilters: activeView?.userFilters ?? (schema as any).userFilters` in `renderContent`.\n\n### Config panel UI\n- Added `_userFilters` custom field in `buildDataSection` (after `_quickFilters`):\n  - Element type selector: three styled buttons for `dropdown` / `tabs` / `toggle`\n  - **Dropdown/toggle mode**: field picker via `<select>` filtered to discrete-option fields only (select/boolean types or fields with explicit options), per-field remove button\n  - **Tabs mode**: full tab preset editor — add/remove tabs, label editing via `<Input>`, default tab checkbox, `showAllRecords` toggle (defaults to checked, matching runtime behavior where `showAllRecords !== false`), `allowAddTab` toggle\n  - Conditional rendering switches between field picker and tab editor based on selected element type\n  - `ExpandableWidget` with comma-joined field/tab label summary\n  - All mutations via `updateField('userFilters', ...)` → draft → live preview\n\n### i18n\n- 10 new keys in `en.ts` / `zh.ts`: `ufElements`, `ufDropdown`, `ufTabs`, `ufToggle`, `ufAddField`, `ufNoFields`, `ufAddTab`, `ufTabLabel`, `ufShowAllRecords`, `ufAllowAddTab`.\n\n### Tests\n- `view-config-schema.test.tsx`: field key order updated, `_userFilters` existence + ordering assertions.\n- Console `ObjectView.test.tsx`: mock renders `schema-userFilters`, passthrough test from `listViews[].userFilters`.\n- Plugin-view `ObjectView.test.tsx`: propagation test from `activeView.userFilters`.\n- `ViewConfigPanel.test.tsx`: 8 new tests — editor rendering, element type switching, field add/remove, tabs section rendering, tab add/remove/edit label.\n- All 477 tests pass across 6 affected test files.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>修复和补全 User Filters 筛选字段面板配置与预览链路（Airtable模式/Spec协议全链路覆盖）</issue_title>\n> <issue_description># 面板可配置 User Filters、左侧预览生效、配置可保存全链路修复\n> \n> **目标：实现与 Airtable Interfaces 风格一致的用户筛选字段配置功能**。确保 CRM/业务对象视图可以在配置面板中选择筛选字段，编辑和保存后左侧预览即时生效，且永久保存于视图定义。\n> \n> ---\n> \n> ## 开发任务清单\n> \n> ### 1. 类型定义补齐\n> - [ ] 在 `packages/types/src/objectql.ts` 的 `NamedListView` 类型中补充 `userFilters?: ...`，严格保持与 `ListViewSchema` 属性一致。\n> \n> ### 2. Console ObjectView 透传 userFilters\n> - [ ] 在 `apps/console/src/components/ObjectView.tsx` 的 `renderListView` 构造 fullSchema 时，将 `userFilters` 从 `viewDef`/`listSchema`传递给 `<ListView schema={fullSchema} ... />`。\n> \n> ### 3. 配置面板 UI\n> - [ ] 在 `apps/console/src/utils/view-config-schema.tsx` 增加 `buildUserFiltersSection` 和相关交互：\n>     - dropdown/tabs/toggle 元素类型选择。\n>     - 可视化选择/排序筛选字段、配置 tab。\n>     - 实时推送到 draft.userFilters，设计与 `quickFilters` 编辑体验一致。\n> \n> ### 4. i18n 国际化\n> - [ ] 补充 en/zh keys：userFilters、元素类型、dropdowns、tabs、无可用字段提示\n> \n> ### 5. 测试覆盖\n> - [ ] `ViewConfigPanel.test.tsx`/`ObjectView.test.tsx`/\n> plugin-list `ListView.test.tsx`:\n>     - 能编辑 userFilters 元素/字段/tab，并推送到 draft/viewDef\n>     - 配置变更，左侧预览 toolbar badge 实时变化\n>     - 配置保存后，下次打开视图配置生效\n> \n> ### 6. PluginObjectView 组件透传\n> - [ ] 在 `packages/plugin-view/src/ObjectView.tsx` （如用到 renderListView schema 构造），确保 `userFilters` 也能透传\n> \n> ---\n> \n> ## 验收标准\n> - [ ] 面板右侧能够完整配置筛选字段，元素类型为 dropdown/tabs/toggle 均有效果\n> - [ ] 配置后左侧列表工具栏实时展示筛选 badge，并可交互过滤\n> - [ ] 保存后刷新页面、切换视图配置信息不丢失\n> - [ ] 相关 i18n/测试覆盖完整\n> - [ ] 符合 ROADMAP.md Airtable Parity 节点要求\n> \n> ---\n> \n> （如需其他 repo 配合可 cross-repo 创建 issue）\n> \n> 关联截图：\n> <img alt=\"Airtable配置面板截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/8f961365-2788-43f7-bb31-666421785945\" />\n> <img alt=\"CRM列表视图截图\" width=\"2732\" src=\"https://github.com/user-attachments/assets/92ae9078-e9e5-4291-ba9b-23d6ac3975e1\" />\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1030\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

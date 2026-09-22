@@ -1,0 +1,33 @@
+{
+  "number": 846,
+  "kind": "pull_request",
+  "title": "fix: useDataScope returns adapter as boundData, blocking dashboard widget data fetches — plus comprehensive fault tolerance across all data-fetching components",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-25T02:34:17Z",
+  "updated_at": "2026-02-25T03:46:12Z",
+  "closed_at": "2026-02-25T03:19:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-25T03:19:41Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/846",
+  "body": "Dashboard widgets with `provider: 'object'` render blank — no server requests are ever made. Root cause: `useDataScope(undefined)` returns the full `context.dataSource` (the service adapter), making `!boundData` false and skipping all async fetches.\n\n### `useDataScope` fix\n\n```diff\n// packages/react/src/context/SchemaRendererContext.tsx\n export const useDataScope = (path?: string) => {\n   const context = useContext(SchemaRendererContext);\n   const dataSource = context?.dataSource;\n-  if (!dataSource || !path) return dataSource;\n+  if (!path) return undefined;\n+  if (!dataSource) return undefined;\n   return path.split('.').reduce((acc, part) => acc && acc[part], dataSource);\n }\n```\n\nWhen `schema.bind` is undefined (always for dashboard widgets), the hook now returns `undefined` instead of the adapter object. This unblocks the fetch path in `ObjectChart`, `ObjectKanban`, `ObjectGallery`, `ObjectTimeline`, and `ObjectGrid`.\n\n### `ObjectChart` & `ObjectGallery` fault tolerance\n\n- Use `useContext(SchemaRendererContext)` directly with `?.` instead of `useSchemaContext()` which throws without a provider\n- Guard `typeof dataSource.find !== 'function'` before calling — prevents crash when `dataSource` is `{}` (the `dataSource || {}` fallback in `SchemaRendererProvider`)\n\n### `typeof dataSource.find` guard across all data-fetching components\n\nAdded `typeof dataSource.find !== 'function'` guard to every component that calls `dataSource.find()`:\n- `ObjectChart`, `ObjectGallery`, `ObjectKanban`, `ObjectTimeline`\n- `ObjectCalendar`, `ObjectGantt`, `ObjectMap`\n- `RelatedList`\n\n### Plugin bridge renderer fallbacks\n\nAdded `|| {}` fallback to `useSchemaContext()` in all plugin bridge renderers for graceful degradation without a provider:\n- `ObjectCalendarRenderer`, `ObjectGanttRenderer`, `ObjectMapRenderer`, `ObjectTimelineRenderer`\n- Matching existing pattern already used by `ObjectKanbanRenderer` and `ObjectGridRenderer`\n\n### Tests\n\n- 7 `useDataScope` tests covering no-path, valid path, nested path, missing provider, adapter leak prevention\n- 7 `ObjectChart` tests covering fetch trigger, aggregation, missing/invalid dataSource, prop-vs-context priority\n- Updated `ObjectGallery` and `GalleryGrouping` test mocks to provide `SchemaRendererContext`\n- 971 tests passing across 82 affected test files\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>Dashboard widgets 数据空白并未发起服务器请求：dataSource/注入/容错等多点问题合并排查修复</issue_title>\n> <issue_description>## 问题综述\n> 在 ObjectUI CRM 演示应用的 dashboard 页面（如 https://demo.objectui.org/apps/crm_app/dashboard/crm_dashboard），所有 dashboard widgets 显示空白，浏览器没有向服务器发起任何报表数据请求。\n> \n> ## 详细排查后的所有潜在问题\n> 1. **dataSource 注入问题：**\n>    - 控制台应用通过 <SchemaRendererProvider dataSource={dataSource || {}}> 包裹渲染，但如果 dataSource 未正确初始化，将得到一个空对象 `{}`，导致所有 widgets 数据请求失败。\n>    - DashboardView 组件虽然接受 dataSource，但在 dataSource 初始化之前可能提前渲染，造成数据流断裂。\n> \n> 2. **DashboardRenderer 未显式传递 dataSource 到子 widget 的 SchemaRenderer**\n>    - DashboardRenderer 在渲染 widget 时未将 dataSource 做为 prop 传递给 SchemaRenderer，依赖上层 context。如果 context 里的 dataSource 不正确（空对象或缺失 .find 方法），widgets 请求会失败。\n> \n> 3. **ObjectChart/表格等组件的数据加载异常 & 错误处理**\n>    - ObjectChart 等依赖 dataSource 的组件，fetchData 时如果 dataSource 找不到 .find 方法，会被 try/catch 吞掉，用户看不到错误提示。\n> \n> 4. **Demo 环境 dataSource 配置或连接异常：**\n>    - Demo 服务器端没有正确配置后端 API 或 token，导致 dataSource 实例未能正常创建，最终传递的是 `{}`，所有请求都变成空白。\n> \n> 5. **缺少重试或 loading/error 状态提示：**\n>    - Dashboard/Widget 对 dataSource 的依赖没有 loading 或 error 状态展示，连接/初始化不成功时只表现为页面空白。\n> \n> ## 复现步骤\n> 1. 打开 https://demo.objectui.org/apps/crm_app/dashboard/crm_dashboard\n> 2. 检查 network，发现未对后端发起任何数据请求\n> 3. 控制台无明显报错，页面 widgets 全部空白。\n> \n> ## 建议修复方案\n> - 在 App.tsx/SchemaRendererProvider 层，确保只有真正初始化完成的 dataSource 被传递。\n> - DashboardView 增加 loading/error guard，确保 dataSource 可用再渲染。\n> - DashboardRenderer/SchemaRenderer 显式传递 dataSource。\n> - ObjectChart 等支持错误提示，必要时 fallback 到 loading/error UI。\n> - demo 环境加强 dataSource 的配置/联调。\n> \n> ## 任务要求\n> - 修复必须覆盖上述所有潜在问题点。\n> - 修复后务必运行 test 确认数据绑定和 widget 渲染全部正常。\n> - 更新 roadmap 标记 dashboard 数据流/容错相关改进进度。\n> \n> ## 标签\n> - bug\n> - dashboard\n> - data binding\n> - chart\n> - data-adapter\n> \n> ---\n> 请基于上述分析，严格自查所有相关代码再提交修复。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#845\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

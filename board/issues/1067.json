@@ -1,0 +1,33 @@
+{
+  "number": 1067,
+  "kind": "pull_request",
+  "title": "Unify i18n service registration across server/dev/mock environments",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-11T03:15:26Z",
+  "updated_at": "2026-03-11T03:57:18Z",
+  "closed_at": "2026-03-11T03:57:18Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1067",
+  "body": "i18n API returns 404/501 in server mode because no i18n service is registered on the kernel. MSW mock mode works but bypasses the kernel entirely via hand-written custom handlers, with duplicated `loadAppLocale()` in both `browser.ts` and `server.ts`.\n\n### Shared handler module (`i18nHandlers.ts`)\n\nSingle source of truth for locale loading and handler creation, mirroring the existing `createAuthHandlers` pattern:\n\n```ts\nimport { createI18nHandlers, createI18nService } from './i18nHandlers';\n\n// MSW mode — handler factory\ncustomHandlers: [...createI18nHandlers('/api/v1')]\n\n// Kernel service registration\nkernel.registerService('i18n', createI18nService());\n```\n\n### Kernel service registration (`createKernel.ts`)\n\n- Register `i18n` service via `kernel.registerService('i18n', ...)` alongside existing `analytics` service\n- Add `i18n.getTranslations` routing to the broker shim so the dispatcher can serve requests through the kernel mechanism\n\n### Server mode plugin (`i18nPlugin.ts`)\n\n- `I18nPlugin` class registers the i18n service during kernel bootstrap via `start(ctx)`\n- Added to `objectstack.config.ts` and `examples/crm/server.ts`\n\n### Cleanup\n\n- Removed duplicate `loadAppLocale()` from `browser.ts` and `server.ts`\n- Both now delegate to shared `createI18nHandlers()`\n\n### Tests\n\n- 11 tests covering `loadAppLocale`, `createI18nService`, and `createI18nHandlers` (unit + MSW integration)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>i18n REST API/前端 mock 行为不一致问题评估</issue_title>\n> <issue_description>### 背景\n> ObjectUI 项目存在如下 i18n 相关核心问题：\n> \n> 1. pnpm dev（后台服务端模式）下 i18n 接口直报 404/501，原因是 i18n 服务未注册。\n> 2. pnpm msw:dev（前端 MSW mock）模式下接口总是可用，因为 MSW 手写了 handler，并绕开内核机制。\n> 3. REST/Server 端与 MSW/前端 mock 数据加载路径完全不同，导致同一个前端组件实际收到不同数据结构。\n> 4. i18n 翻译数据来源不统一，服务端依赖本地文件，mock 环境依赖 example locales 导入。\n> 5. 应该使用 objectstack 提供的服务端 i18n 而不是本地加载。\n> \n> ### 建议\n> - server/dev/mock 三种环境下统一 i18n 服务注册与数据加载策略。\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1066\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

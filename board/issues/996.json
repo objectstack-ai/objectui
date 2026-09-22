@@ -1,0 +1,35 @@
+{
+  "number": 996,
+  "kind": "issue",
+  "title": "[Bug] 详情页相关子表未从元数据生成列定义，导致表格内容为空",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-03-03T07:51:27Z",
+  "updated_at": "2026-03-03T08:18:45Z",
+  "closed_at": "2026-03-03T08:18:45Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/996",
+  "body": "## 问题描述\n\n在详情页面（任何业务对象），\"相关\"tab 下的子表仅显示标题、记录数和搜索框，**表格内容（行和列）完全为空**。该问题是平台级 bug，影响所有通过元数据驱动的相关列表。\n\n<img alt=\"image1\" width=\"2732\" src=\"https://github.com/user-attachments/assets/2a8ea4a8-1483-4db9-9d21-6e09f8c84154\" />\n<img alt=\"image2\" width=\"2732\" src=\"https://github.com/user-attachments/assets/690a26c0-2c68-4651-8c5c-ff2790b2811a\" />\n\n## 根因分析\n\n整条数据流链路中，没有任何一层利用 `dataSource.getObjectSchema()` 获取子对象的字段元数据来生成 columns：\n\n1. **`RecordDetailView`** 构建 `related` 时只传了 `title`、`type`、`data`，**没有传 `columns` 也没有传子对象名称（`api`）**。\n2. **`DetailView`** 原样透传给 `RelatedList`，不做 columns 补全。\n3. **`RelatedList`** 生成 `viewSchema` 时 `columns` fallback 到 `[]`，SchemaRenderer 收到空列配置，不渲染任何内容。\n\n```\nRecordDetailView                    DetailView                        RelatedList\nrelated = [{                   →    <RelatedList                  →   viewSchema = {\n  title: 'Order Item',               data={related.data}               type: 'data-table',\n  type: 'table',                     columns={undefined}               data: [...],\n  data: [7条记录]                     api={undefined}                   columns: [] ← 空！\n}]                                  />                                }\n```\n\n## 对比主流平台做法\n\n| 平台 | 策略 |\n|---|---|\n| **Salesforce** | 读取子对象的 Object Metadata + Page Layout，自动生成列（label、type、顺序） |\n| **Retool** | 绑定查询后自动检查返回数据的 key 生成列 |\n| **Appsmith** | 类似 Retool，表格绑定数据后自动推断列定义 |\n\nObjectUI 作为元数据驱动平台，应走 **Salesforce 路线**：利用已有的 `dataSource.getObjectSchema(childObjectName)` 获取子对象字段定义来生成 columns。\n\n平台其他组件（`ObjectGrid`、`ObjectAgGrid`、`ObjectMap`）都已正确使用该方法，`RelatedList` 是唯一缺失的。\n\n## 建议修复方案\n\n### `RelatedList` 组件内自动获取元数据（推荐）\n\n在 `RelatedList` 中，当 `api`（objectName）和 `dataSource` 存在但 `columns` 为空时，调用 `dataSource.getObjectSchema(api)` 获取子对象字段定义，自动生成 columns：\n\n```tsx\n// RelatedList.tsx — 新增 objectSchema 获取逻辑\nconst [objectSchema, setObjectSchema] = React.useState<any>(null);\n\nReact.useEffect(() => {\n  if (api && dataSource?.getObjectSchema && (!columns || columns.length === 0)) {\n    dataSource.getObjectSchema(api).then(setObjectSchema).catch(() => {});\n  }\n}, [api, dataSource, columns]);\n\n// 从 objectSchema 生成 columns\nconst effectiveColumns = React.useMemo(() => {\n  if (columns && columns.length > 0) return columns;\n  if (!objectSchema?.fields) return [];\n  return Object.entries(objectSchema.fields)\n    .filter(([key]) => !key.startsWith('_'))\n    .map(([key, def]: [string, any]) => ({\n      accessorKey: key,\n      header: def.label || key,\n    }));\n}, [columns, objectSchema]);\n```\n\n## 影响范围\n\n平台级 bug，所有通过元数据驱动生成的相关子表均受影响。修复后需全面测试各类业务对象详情页。"
+}

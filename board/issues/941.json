@@ -1,0 +1,33 @@
+{
+  "number": 941,
+  "kind": "pull_request",
+  "title": "Merge stack-level actions into object definitions so action buttons render",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-01T14:06:08Z",
+  "updated_at": "2026-03-01T15:01:40Z",
+  "closed_at": "2026-03-01T14:54:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-01T14:54:33Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/941",
+  "body": "Example objects (CRM, Todo, Kitchen Sink, MSW-Todo) declared actions as flat arrays at the stack level in `defineStack()`, but nothing merged them into individual object schemas. `objectDef.actions` was always empty, so `ActionBar`/`ActionButton` never rendered anywhere.\n\n### Core fix: `mergeActionsIntoObjects()` helper\n\nMirrors the existing `mergeViewsIntoObjects()` pattern — applied post-`defineStack()` in both `objectstack.config.ts` and `apps/console/objectstack.shared.ts`.\n\nMatching strategy: longest object-name prefix wins (`order_item_adjust_quantity` → `order_item`, not `order`), with explicit `objectName` fallback for edge cases.\n\n```ts\n// project_task actions are prefixed \"task_\", not \"project_task_\"\n{\n  name: 'task_change_status',\n  objectName: 'project_task',  // explicit override\n  ...\n}\n```\n\n### New action definitions\n\n- **Todo** (`task.actions.ts`): 6 actions — complete, start, clone, defer, set_reminder, assign\n- **Kitchen Sink** (`showcase.actions.ts`): 3 actions — change_status, assign_owner, archive\n- **MSW-Todo** (`objectstack.config.ts`): 3 actions — task_complete, task_reopen, task_delete\n- **CRM**: existing 26 actions now merge correctly; added `objectName: 'project_task'` to 2 project actions\n\n### `list_toolbar` batch actions & `bulkEnabled`\n\nActions that support batch/multi-select operations now include `list_toolbar` location and `bulkEnabled: true`:\n- Todo: `todo_task_complete`, `todo_task_assign`\n- CRM: `account_assign_owner`, `contact_send_email`, `opportunity_change_stage`\n- Kitchen Sink: `showcase_change_status`, `showcase_assign_owner`\n- MSW-Todo: `task_complete`, `task_delete`\n\n### `visible` conditional expressions\n\nActions now include `visible` expressions for context-aware rendering:\n- Opportunity: `stage !== 'closed_won' && stage !== 'closed_lost'` (all 3 actions)\n- Contact: `type !== 'Customer'` (convert action)\n- Todo: `is_completed === false` (complete), `status === 'Backlog' || status === 'Todo'` (start), `status !== 'Done'` (defer)\n- Showcase: `status !== 'archived'` (change_status, archive)\n- MSW-Todo: `is_completed === false` (complete), `is_completed === true` (reopen)\n\n### Wiring\n\n- `examples/todo/objectstack.config.ts` — imports + `actions: [...TodoTaskActions]`\n- `examples/kitchen-sink/objectstack.config.ts` — imports + `actions: [...ShowcaseActions]`\n- `examples/msw-todo/objectstack.config.ts` — inline `TaskActions` + `actions: [...TaskActions]`\n- Root config and console shared config apply `mergeActionsIntoObjects()` after `mergeViewsIntoObjects()`\n\n### Result\n\nAll 4 examples now have actions: CRM (26 actions across 10 objects), Todo (6), Kitchen Sink (3), MSW-Todo (3) — 35 total actions across 13 objects. `kitchen_sink` intentionally has none (field-types demo). All actions include complete metadata: locations, icons, params, confirmText, successMessage, refreshAfter, visible expressions, and bulkEnabled where appropriate.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>examples/todo、crm等示例object缺少actions字段，导致Action按钮永远不显示（需补充actions并确保API流通）</issue_title>\n> <issue_description>### 问题描述\n> 示例仓库（如examples/todo、examples/crm等）的对象定义（object.object.ts/config）均未包含actions（纯fields）。actions均以栈顶层单独数组声明，没有自动merge，导致Console、Studio、低代码设计器、app-demo-console、PWA等所有界面业务Action按钮/批量Action菜单全部不可见。\n> \n> ### 预期行为\n> - 每个对象（task/contact等）都需有明确的actions字段（内联定义或通过插件注册自动合并）\n> - actions需带locations（record_header/list_toolbar/list_item等）和完整metadata（图标、visible/disabled表达式、成功消息、批量/单条等）\n> - /api/v1/meta/objects/:name 获取到的schema含actions字段，Console/Studio能实时渲染\n> \n> ### 实现建议\n> - 参照examples/crm/src/actions/*.actions.ts里的结构，每个对象都补充actions声明\n> - 要么内联到objectSchema，要么在config里actions并配合AppPlugin自动merge机制\n> - Todo示例应补全[完整按钮清单](https://github.com/objectstack-ai/objectui/issues/840#issuecomment)和handler（如completeTask, startTask, cloneTask, deferTask, setReminder等）\n> - 保证API返回对象元数据含actions属性，前端无需任何手工merge\n> \n> ### 价值\n> - 完整支持可视ActionBar、ActionButton、ActionMenu所有位置批量/单条操作及二次开发使用\n> - 对齐ServiceNow/Salesforce/Power Platform等主流SaaS一体化行为\n> \n> fixes objectstack-ai/objectui#840\n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#940\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💬 We'd love your input! Share your thoughts on Copilot coding agent in our [2 minute survey](https://gh.io/copilot-coding-agent-survey).\n"
+}

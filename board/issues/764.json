@@ -1,0 +1,35 @@
+{
+  "number": 764,
+  "kind": "issue",
+  "title": "接入 DefineApp API：将 AppCreationWizard 结果保存到元数据",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-23T06:17:24Z",
+  "updated_at": "2026-02-23T08:11:44Z",
+  "closed_at": "2026-02-23T08:11:44Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/764",
+  "body": "## 问题梳理\n目前 App 创建/编辑成功后（无论是在 `/apps/console/src/pages/CreateAppPage.tsx` 还是 EditAppPage），仅执行了 `wizardDraftToAppSchema()` 进行 schema 转换，并没有通过 `client.meta.saveItem('app', name, appSchema)` 保存到后端元数据。\n\n> 参考：DefineApp API、@objectstack/client 协议和官方代码实践，API 已在 runtime、spec 层 100% Ready。\n\n## 理想行为\n- 创建/编辑应用成功后，应使用 `client.meta.saveItem('app', draft.name, appSchema)` 调用，将 app 元数据持久化。\n- Mock/dev 模式下可通过 MSW mock handler 拦截 `/meta/app/:name` 路由并保存到 memory/localStorage 等。\n- 保存成功后，refresh metadata，并导航到 `/apps/:name`。\n\n## 建议改动（参考最佳实践）\n1. 在 `handleComplete`/`onComplete` 中：\n   ```ts\n   const appSchema = wizardDraftToAppSchema(draft);\n   await client.meta.saveItem('app', draft.name, appSchema);\n   ```\n2. EditAppPage 完全相同，持久化已存在 app 的编辑内容。\n3. 开发模式下补齐 MSW handler。\n\n## 影响面\n- 新建、编辑 App 都不落地（刷新后即消失，开发环境尤为明显）\n- 影响 metadata 变更后刷新列表\n\n## 预期产出\n- 新建/编辑 App 成功，metadata 永久保存，可持久刷新/重启浏览器\n- Mock 环境有见效的保存结果\n- Console UX & QA 路径全流程 Unblocked\n\n## 相关引用\n- [DefineApp API 协议实现](https://github.com/objectstack-ai/spec/blob/main/packages/spec/src/api/protocol.zod.ts#L165-L202)\n- [client.meta.saveItem 文档与用法](https://github.com/objectstack-ai/spec/blob/main/packages/client/README.md)\n\n## 优先级\nP0 —— 阻断高优用例\n\n/cc @objectstack-ai/core"
+}

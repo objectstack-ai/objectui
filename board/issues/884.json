@@ -1,0 +1,33 @@
+{
+  "number": 884,
+  "kind": "pull_request",
+  "title": "fix(fields): resolve lookup/user/status/text renderer display bugs — raw IDs, primitive values, registry gaps, null consistency",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-27T04:45:13Z",
+  "updated_at": "2026-02-27T05:22:07Z",
+  "closed_at": "2026-02-27T05:18:00Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-27T05:18:00Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/884",
+  "body": "Lookup (`customer`, `account`) and user fields were rendering raw integer IDs instead of resolved labels across all grid views. Five distinct defects in `packages/fields/src/index.tsx`:\n\n## Defects fixed\n\n- **`LookupCellRenderer` — primitive ID not resolved** (root cause of screenshot)  \n  Only destructured `value`, never touched `field`. When the API returns `customer: 2` (unexpanded FK), fell through to `String(value)`. Now reads `field.options` and resolves via `String(opt.value) === String(val)`, covering both single primitives and arrays of IDs.\n\n  ```tsx\n  // Before: value=2 → \"2\"\n  // After:  value=2, field.options=[{value:2, label:'Acme'}] → \"Acme\"\n  export function LookupCellRenderer({ value, field }: CellRendererProps) {\n    const options = (field as { options?: Array<{ value: unknown; label: string }> }).options || [];\n    const resolveLabel = (val: unknown) =>\n      options.find(o => String(o.value) === String(val))?.label ?? String(val);\n    // ...\n  }\n  ```\n\n- **`UserCellRenderer` — silent fallback for primitive IDs**  \n  Accessing `.name` on a number is `undefined`; fell through to generic `\"User\"` avatar. Now returns a plain `<span>` for any non-object value. Array items that are primitives are also guarded.\n\n- **`getCellRenderer` standardMap — wrong fallback for `lookup`/`master_detail`**  \n  Both were mapped to `SelectCellRenderer` instead of `LookupCellRenderer`. Dead code (shadowed by `fieldRegistry`), but semantically wrong.\n\n- **`fieldRegistry` — missing explicit registrations**  \n  `status`, `user`, and `owner` were never pre-registered; only reachable via the `standardMap` fallback. Now explicitly registered alongside `lookup`/`master_detail`/`select`.\n\n- **`TextCellRenderer` — falsy null guard swallowed numeric zero**  \n  Used `value || '-'` which incorrectly rendered `'-'` for a value of `0`. Updated to `(value != null && value !== '') ? String(value) : '-'` for consistent null-only suppression, matching the pattern used by all other renderers.\n\n## Tests\n\n36 new unit tests in `cell-renderers.test.tsx` covering: registry identity assertions for all 5 types; `TextCellRenderer` with null, undefined, empty string, numeric zero (`0` renders `\"0\"` not `\"-\"`), and boolean false; `LookupCellRenderer` with null, empty string, primitive number/string ID, unresolved primitive, object (`name`/`label`/`_id` fallback chain), array of objects, array of primitive IDs resolved via options; `UserCellRenderer` with null, primitive number, primitive string, object with name/username, array of user objects.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>字段类型显示问题全面排查与修复</issue_title>\n> <issue_description>### 问题描述\n> \n> 在列表、详情、报表等各类视图中，部分字段类型的数据显示存在异常，典型表现如 lookup/关联型字段仅显示 ID 而未显示名称；select 字段未正确映射 label；部分类型在值为 null/空时显示不一致。详见反馈截图：\n> \n> <img alt=\"Order字段显示异常\" width=\"2732\" src=\"https://github.com/user-attachments/assets/14d8ecdf-4f92-4509-85cf-cb70cfd5290d\" />\n> \n> ### 排查目标\n> 1. **全面梳理所有支持的字段类型**，包括但不限于：\n>    - text, textarea\n>    - number, currency, percent\n>    - date, datetime, time\n>    - lookup, master_detail\n>    - select, status\n>    - boolean\n>    - user, owner\n>    - file, image\n>    - object, vector, grid、formula\n>    - 其它���定义/派生类��\n> 2. **验证每种字段类型在主流显示位置的表现**（如 ObjectGrid、Detail、AgGrid、ReportViewer 等），包括：\n>    - 空值/无值/null 时显示\n>    - 关联型字段是否未映射 ID\n>    - select/lookup/options 能否正确显示 label\n>    - 数值型/百分比/货币格式是否合理\n>    - user/owner 等是否能显示头像/姓名等\n>    - 其它自定义渲染逻辑是否有缺陷\n> 3. **梳理现有 cell renderer 的 fallback 逻辑与 options 解析（如 lookup）**，全面修复所有已知和潜在的字段展示 bug。\n> \n> ### 预期修复方向\n> - 优化 Lookup/Select 等字段渲染器，确保即便 value 为原始 ID 也能通过 options 查找 label。\n> - 明确各字段类型的空值展示策略，风格统一。\n> - 核查注册表与 fallback，确保所有类型优先匹配专用 renderer。\n> - 检查和完善数据处理层，增补 API 返回的数据格式及必要的 populate/expand。\n> - 为每个主流字段类型补充分支 UT，测试各种显示场景。\n> \n> ### 备注\n> - 建议修复同时补充 snapshot/单元测试。\n> - **修复完成后必须运行相应 test，并且检查其它潜在相关问题，任务完成后更新 roadmap。**\n> \n> ---\n> 如需细分子任务，可按字段类型或显示视图再做拆分。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#883\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

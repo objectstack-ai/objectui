@@ -1,0 +1,33 @@
+{
+  "number": 892,
+  "kind": "pull_request",
+  "title": "Auto-inject $expand for lookup/master_detail fields in all data-fetching plugins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-02-27T09:00:25Z",
+  "updated_at": "2026-02-27T10:29:25Z",
+  "closed_at": "2026-02-27T10:20:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-02-27T10:20:41Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/892",
+  "body": "All data views display raw foreign-key IDs for lookup/master_detail fields because the API requests never include `$expand`. This adds automatic `$expand` injection by scanning schema field metadata before each fetch across all 10 data-fetching plugins.\n\n### Core utility\n\nNew `buildExpandFields()` in `@object-ui/core` — extracts lookup/master_detail field names from schema, optionally scoped to visible columns:\n\n```ts\nimport { buildExpandFields } from '@object-ui/core';\n\nconst fields = {\n  name: { type: 'text' },\n  account: { type: 'lookup', reference_to: 'accounts' },\n  parent: { type: 'master_detail', reference_to: 'contacts' },\n};\n\nbuildExpandFields(fields);                    // → ['account', 'parent']\nbuildExpandFields(fields, ['name', 'account']); // → ['account']\n```\n\n### Integration points\n\nAll 10 data-fetching plugins now auto-inject `$expand`:\n\n- **ListView** — memoizes expand fields from `objectDef`, injects into `dataSource.find()` params. Covers all sub-views when rendered through ListView.\n- **ObjectGrid** — computes from `resolvedSchema.fields` after schema resolution, scoped to configured columns.\n- **ObjectKanban** — computes from `objectDef.fields` in standalone fetch path.\n- **ObjectCalendar** — computes from `objectSchema.fields`, injected in standalone fetch path.\n- **ObjectGantt** — computes from `objectSchema.fields`, injected in standalone fetch path.\n- **ObjectMap** — computes from `objectSchema.fields`, injected in standalone fetch path.\n- **ObjectView** — computes from `objectSchema.fields`, injected in standalone fetch path.\n- **ObjectAgGrid** — computes from `objectSchema.fields` (already waits for schema before fetch).\n- **ObjectGallery** — newly added schema fetch via `getObjectSchema()` + `$expand` injection.\n- **ObjectTimeline** — newly added schema fetch via `getObjectSchema()` + `$expand` injection.\n\nAll plugins inject `$expand` only when lookup fields are detected; no-op when schema has none. Backends that don't support `$expand` ignore the param — existing fallback (display raw ID) preserved. The `$expand` format (`string[]`) is compatible with multi-level nesting paths (e.g. `'account.owner'`); the objectql backend handles recursive expansion.\n\n### Tests\n\n14 unit tests covering: field type detection, column scoping, mixed column formats, null/malformed inputs. 1031 existing plugin tests verified passing across all affected components.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>[跨仓库] 支持自动注入 $expand 以解决动态 lookup 字段展示问题（配合 objectql engine）</issue_title>\n> <issue_description>## 任务背景\n> 在 ObjectUI 的 Grid/List/Kanban 等数据视图中，遇到 lookup/master_detail 字段为动态引用时，往往无法显示 label，只能显示 ID。即使 renderer 层已修复，如 LookupCellRenderer 可用 options 或对象自动 resolve，但 API 返回的数据若没有展开（expand），仍会出现原始 ID。\n> \n> ## 任务目标\n> 1. 前端自动梳理 schema，识别所有 type: 'lookup' 与 type: 'master_detail' 字段\n> 2. 在请求 data 时，自动将这些字段名作为 $expand 注入到 QueryParams\n> 3. 若 columns 为 ListColumn[] 显式配置，也需兼容其 dynamic lookup 需求\n> 4. 必须和 objectql 后端的 expand 实现协同，允许多级嵌套\n> 5. 保留现有 fallback（不支持 expand 时降级显示 ID）\n> \n> ## 实现理由\n> - 只有注入 $expand 后，objectql 才能返回 lookup 对象而不是原始外键\n> - 前端统一注���，避免每个 renderer/视图重复处理\n> - 符合协议规范，提升体验，与 Airtable 等主流 UX 保持一致\n> \n> ## 参考\n> - 需同步 objectql engine 完善 expand（见 cross-repo 任务）\n> \n> ---\n> 实现完成后运行 tests、更新相关 issues，并补充 ROADMAP.md。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#888\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n🔒 GitHub Advanced Security automatically protects Copilot coding agent pull requests. You can protect all pull requests by enabling Advanced Security for your repositories. [Learn more about Advanced Security.](https://gh.io/cca-advanced-security)"
+}

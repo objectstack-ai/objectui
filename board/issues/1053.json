@@ -1,0 +1,33 @@
+{
+  "number": 1053,
+  "kind": "pull_request",
+  "title": "[WIP] Fix MSW mockServiceWorker.js 404 error in dev",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-09T08:03:51Z",
+  "updated_at": "2026-03-09T09:36:44Z",
+  "closed_at": "2026-03-09T08:15:57Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-09T08:15:57Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1053",
+  "body": "- [x] Investigate the issue: MSW service worker 404 due to Vite base path `/console/`\n- [x] Fix `apps/console/src/mocks/browser.ts`: Use `enableBrowser: false` and manually start MSW worker with `serviceWorker.url` set to `${import.meta.env.BASE_URL}mockServiceWorker.js`\n- [x] Verify no new type errors introduced\n- [x] Verify existing MSW tests still pass (7/7)\n- [x] Address code review feedback (empty handler warning, cleanup order)\n- [x] Run security checks (CodeQL: 0 alerts)\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>MSW mockServiceWorker.js 404 error in dev due to Vite base path mismatch</issue_title>\n> <issue_description>### 问题描述\n> 在运行 `pnpm msw:dev` 时，浏览器控制台报错：\n> \n> ```\n> [MSW] Failed to register a Service Worker for scope ('http://localhost:5173/') with script ('http://localhost:5173/mockServiceWorker.js'): Service Worker script does not exist at the given path.\n> Did you forget to run \"npx msw init <PUBLIC_DIR>\"?\n> ```\n> \n> 分析代码后发现：\n> - 项目使用了 Vite，其中 `base path` 设置为 `/console/`\n> - MSW 默认会尝试从根路径 `/mockServiceWorker.js` 注册 Service Worker\n> - 实际 `mockServiceWorker.js` 文件被 Vite 放在 `/console/mockServiceWorker.js`\n> - 导致请求 `/mockServiceWorker.js` 返回 404\n> \n> ### 复现步骤\n> 1. 运行 `pnpm msw:dev`\n> 2. 浏览器访问控制台出现上述 404 和启动失败报错\n> \n> ### 具体原因\n> - MSW 注册 Service Worker 的路径未考虑 Vite 的 `base path` 配置\n> - 生产环境与开发环境的 base path 不一致，导致本地 dev 环境不能正常 mock\n> \n> ---\n> \n> ### 建议的修复方法\n> 1. 在 MSW 初始化代码中，将 service worker 的路径动态设置为 `${import.meta.env.BASE_URL}mockServiceWorker.js`，确保 base path 一致。\n> 2. 检查 `index.html` 等静态资源引用，确保都使用 `/console/` 前缀。\n> 3. 检查 Vercel 配置，移除不必要的 base path 覆盖。\n> \n> ---\n> \n> ### 检查点\n> - [ ] msw:dev 能正常启动 mock 服务，不再报 404\n> - [ ] 代码和环境生产/开发一致，mockServiceWorker.js 路径正确\n> \n> ---\n> 如 MSW 插件不支持动态 serviceWorker 路径配置，请同步到 @objectstack/plugin-msw 仓库补充。</issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1052\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n✨ Let Copilot coding agent [set things up for you](https://github.com/objectstack-ai/objectui/issues/new?title=✨+Set+up+Copilot+instructions&body=Configure%20instructions%20for%20this%20repository%20as%20documented%20in%20%5BBest%20practices%20for%20Copilot%20coding%20agent%20in%20your%20repository%5D%28https://gh.io/copilot-coding-agent-tips%29%2E%0A%0A%3COnboard%20this%20repo%3E&assignees=copilot) — coding agent works faster and does higher quality work when set up for your repo.\n"
+}

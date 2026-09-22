@@ -1,0 +1,33 @@
+{
+  "number": 1027,
+  "kind": "pull_request",
+  "title": "Unify composeStacks to @objectstack/spec, remove @object-ui/core implementation",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "Copilot",
+    "id": 198982749,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "Copilot",
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-03-04T05:31:49Z",
+  "updated_at": "2026-03-04T06:59:36Z",
+  "closed_at": "2026-03-04T06:59:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-03-04T06:59:36Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1027",
+  "body": "Eliminates the duplicate `composeStacks` in `@object-ui/core`, switching all usage to the canonical `@objectstack/spec` implementation.\n\n### Removed\n- `packages/core/src/utils/compose-stacks.ts` and its 15-test suite\n\n### Switched to `@objectstack/spec`\n- `objectstack.config.ts` and `apps/console/objectstack.shared.ts` now import from `@objectstack/spec`\n- A deprecated re-export of `composeStacks` is kept in `@object-ui/core` for backward compatibility, forwarding to `@objectstack/spec` with a JSDoc migration note\n\n### Adapter logic for behavioral gaps\nTwo things the spec version doesn't do that the core version did:\n\n- **`manifest.data` aggregation** — spec selects one manifest (`'last'` by default), so seed data is now collected manually before composing:\n  ```ts\n  const allData = allConfigs.flatMap((c: any) => c.manifest?.data || c.data || []);\n  ```\n- **`views[].listViews` → objects merge** — runtime expects `listViews` on each object, but spec doesn't do this mapping. Extracted to `@object-ui/core/utils/merge-views-into-objects.ts` as a shared adapter with MIT license header, applied post-composition at both call sites. Includes 6 unit tests covering merging, preserving existing listViews, ignoring views without `data.object`, empty/missing views, and multi-object merging. This remains temporary per ROADMAP (planned move to runtime/provider layer).\n\n### ROADMAP\nUpdated to reflect unified composeStacks, clarified that the removed 15-test suite coverage now lives upstream in `@objectstack/spec`, and corrected historical references from `@object-ui/core` to `@objectstack/spec`.\n\n<!-- START COPILOT ORIGINAL PROMPT -->\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n> \n> ----\n> \n> *This section details on the original issue you should resolve*\n> \n> <issue_title>统一使用 @objectstack/spec composeStacks，删除 @object-ui/core 实现</issue_title>\n> <issue_description>## 目标\n> 将所有 ObjectStack 配置和插件聚合统一使用 @objectstack/spec 中定义的 composeStacks 方法，彻底删除 packages/core/src/utils/compose-stacks.ts（@object-ui/core）中的 composeStacks 实现，避免工具重复和协议分叉。\n> \n> ## 任务明细\n> 1. **彻底删除 @object-ui/core 的 composeStacks**\n>     - 移除 packages/core/src/utils/compose-stacks.ts 及其相关的 test 文件。\n>     - 移除对 `@object-ui/core/composeStacks` 的所有引用。\n> 2. **切换为 @objectstack/spec composeStacks**\n>     - 所有配置聚合（objectstack.config.ts、objectstack.shared.ts）等改为 `import { composeStacks } from '@objectstack/spec'`。\n>     - 如有额外的视图/actions贴合需求，补充适配逻辑，但不要重新封装 composeStacks itself。\n> 3. **依赖清理**\n>     - 如果其他包（例如 console/demo/test）引用到 core 版 composeStacks，全部调整为 spec 版。\n>     - package.json、tsconfig 路径别名等不再包含 core composeStacks。\n> 4. **测试**\n>     - 保证所有 example、console、main config 合并逻辑和之前结果一致，旧测试全部移除或迁移。\n> \n> ---\n> 如有特殊 runtime 需求无法用 spec 层覆盖，可以提出新的 cross-repo spec/protocol 需求。\n> \n> </issue_description>\n> \n> ## Comments on the Issue (you are @copilot in this section)\n> \n> <comments>\n> </comments>\n> \n\n\n</details>\n\n\n\n<!-- START COPILOT CODING AGENT SUFFIX -->\n\n- Fixes objectstack-ai/objectui#1026\n\n<!-- START COPILOT CODING AGENT TIPS -->\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs."
+}

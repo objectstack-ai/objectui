@@ -118,7 +118,14 @@ interface RowProps {
   isActive: boolean;
   Icon: ComponentType<{ className?: string }>;
   isRenaming: boolean;
-  onStartRename: (id: string) => void;
+  /**
+   * Undefined when the host wired no `onRename` — the commit path would then
+   * be `onRename?.(…)`, i.e. a no-op, so the entry that starts a rename (and
+   * the label's double-click) must not be offered at all. Optional for the
+   * same reason every other row action is: the row offers what the host can
+   * actually carry out (objectui#10209).
+   */
+  onStartRename?: (id: string) => void;
   onCommitRename: (id: string, name: string) => void;
   onCancelRename: () => void;
   onRowClick?: (id: string) => void;
@@ -166,6 +173,30 @@ const SortableRow: React.FC<RowProps> = ({
   // default, pin, edit configuration, delete). Duplicate is preserved
   // because it produces a fresh override that *is* mutable.
   const isReadonly = !!view.readonly;
+
+  /**
+   * Which overflow-menu entries this row will ACTUALLY render — decided once
+   * and read by the entry, by the separator above it, and by the `…` trigger
+   * that opens the menu.
+   *
+   * The trigger used to ask a different question from the entries beneath it:
+   * it rendered whenever a CALLBACK was wired, while every entry is also
+   * gated on `!isReadonly`. On a read-only row — and the console wires no
+   * `onDuplicate` (objectui#1520), which is the one entry `isReadonly` does
+   * not suppress — every entry therefore dropped out and the trigger opened a
+   * popover with NOTHING in it: a 180×10px strip of empty `bg-popover`
+   * hanging under the row, which reads as a clipped or occluded menu rather
+   * than as an empty one (objectui#10209). Deriving both from the same flags
+   * is what keeps the trigger and its contents from disagreeing again.
+   */
+  const canRename = !isReadonly && !!onStartRename;
+  const canDuplicate = !!onDuplicate;
+  const canConfig = !!onConfigView && !isReadonly;
+  const canSetDefaultEntry = !!onSetDefault && !view.isDefault && !isReadonly;
+  const canPinEntry = !!onSetPinned && !isReadonly;
+  const canDeleteEntry = !!onDelete && !isReadonly;
+  const entriesBeforeDelete = canRename || canDuplicate || canConfig || canSetDefaultEntry || canPinEntry;
+  const hasMenuEntries = entriesBeforeDelete || canDeleteEntry;
 
   useEffect(() => {
     if (isRenaming) {
@@ -244,17 +275,33 @@ const SortableRow: React.FC<RowProps> = ({
             className="w-full text-left text-sm font-medium truncate cursor-pointer flex items-center gap-1.5"
             onDoubleClick={(e) => {
               e.stopPropagation();
-              if (!isReadonly) onStartRename(view.id);
+              if (canRename) onStartRename?.(view.id);
             }}
             title={view.label}
           >
             <span className="truncate">{view.label}</span>
             {isReadonly && (
-              <Lock
-                aria-label={vt('view.readonlyAriaLabel', 'Read-only view')}
-                data-testid={`manage-views-readonly-${view.id}`}
-                className="h-3 w-3 text-muted-foreground shrink-0"
-              />
+              /* The lock is the ONLY thing left explaining a read-only row —
+                 its `…` menu is withheld because every entry in it is. So it
+                 carries the reason on hover, as the tab bar's lock does,
+                 rather than only in an aria-label no sighted user reaches. */
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex shrink-0">
+                      <Lock
+                        aria-label={vt('view.readonlyAriaLabel', 'Read-only view')}
+                        data-testid={`manage-views-readonly-${view.id}`}
+                        className="h-3 w-3 text-muted-foreground"
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {view.readonlyReason
+                      || vt('view.readonlyTooltip', 'System view — defined in code, read-only.')}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             {view.isDefault && (
               <span
@@ -320,7 +367,7 @@ const SortableRow: React.FC<RowProps> = ({
       )}
 
       {/* Overflow menu */}
-      {!isRenaming && (onDelete || onDuplicate || onConfigView || onSetDefault) && (
+      {!isRenaming && hasMenuEntries && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -334,15 +381,15 @@ const SortableRow: React.FC<RowProps> = ({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[180px]">
-            {!isReadonly && (
+            {canRename && (
               <DropdownMenuItem
                 data-testid={`manage-views-action-rename-${view.id}`}
-                onClick={() => onStartRename(view.id)}
+                onClick={() => onStartRename?.(view.id)}
               >
                 <Pencil className="h-4 w-4 mr-2" /> {vt('view.rename', 'Rename')}
               </DropdownMenuItem>
             )}
-            {onDuplicate && (
+            {canDuplicate && onDuplicate && (
               <DropdownMenuItem
                 data-testid={`manage-views-action-duplicate-${view.id}`}
                 onClick={() => onDuplicate(view.id)}
@@ -350,7 +397,7 @@ const SortableRow: React.FC<RowProps> = ({
                 <Copy className="h-4 w-4 mr-2" /> {vt('view.duplicateView', 'Duplicate View')}
               </DropdownMenuItem>
             )}
-            {onConfigView && !isReadonly && (
+            {canConfig && onConfigView && (
               <DropdownMenuItem
                 data-testid={`manage-views-action-config-${view.id}`}
                 onClick={() => onConfigView(view.id)}
@@ -358,7 +405,7 @@ const SortableRow: React.FC<RowProps> = ({
                 <Pencil className="h-4 w-4 mr-2" /> {vt('view.editViewConfig', 'Edit view config')}
               </DropdownMenuItem>
             )}
-            {onSetDefault && !view.isDefault && !isReadonly && (
+            {canSetDefaultEntry && onSetDefault && (
               <DropdownMenuItem
                 data-testid={`manage-views-action-default-${view.id}`}
                 onClick={() => onSetDefault(view.id)}
@@ -366,7 +413,7 @@ const SortableRow: React.FC<RowProps> = ({
                 <Star className="h-4 w-4 mr-2" /> {vt('view.setAsDefault', 'Set as Default')}
               </DropdownMenuItem>
             )}
-            {onSetPinned && !isReadonly && (
+            {canPinEntry && onSetPinned && (
               <DropdownMenuItem
                 data-testid={`manage-views-action-pin-${view.id}`}
                 onClick={() => onSetPinned(view.id, !view.isPinned)}
@@ -376,9 +423,9 @@ const SortableRow: React.FC<RowProps> = ({
                   : <><Pin className="h-4 w-4 mr-2" /> {vt('view.pinView', 'Pin View')}</>}
               </DropdownMenuItem>
             )}
-            {onDelete && !isReadonly && (
+            {canDeleteEntry && onDelete && (
               <>
-                <DropdownMenuSeparator />
+                {entriesBeforeDelete && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   data-testid={`manage-views-action-delete-${view.id}`}
                   onClick={() => onDelete(view.id)}
@@ -540,7 +587,7 @@ export const ManageViewsDialog: React.FC<ManageViewsDialogProps> = ({
                         Icon={Icon}
                         isActive={view.id === activeViewId}
                         isRenaming={renamingId === view.id}
-                        onStartRename={(id) => setRenamingId(id)}
+                        onStartRename={onRename ? (id) => setRenamingId(id) : undefined}
                         onCancelRename={() => setRenamingId(null)}
                         onCommitRename={(id, name) => {
                           setRenamingId(null);

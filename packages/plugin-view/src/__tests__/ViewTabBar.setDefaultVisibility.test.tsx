@@ -61,6 +61,18 @@ function renderBar(views: ViewTabItem[], onSetDefaultView = vi.fn()) {
       onSetDefaultView={onSetDefaultView}
       onRenameView={vi.fn()}
       onDeleteView={vi.fn()}
+      // `onManageViews` is wired for a mechanical reason, not a behavioural
+      // one: since objectui#10209 the tab's trigger is withheld when NOTHING
+      // would render inside it, and on the SYSTEM tab every entry above is
+      // suppressed by `readonly`. Without one surviving entry the menu this
+      // file's assertions read never opens at all — and "no menu" would pass
+      // the `queryByTestId(...)).toBeNull()` checks below for the wrong
+      // reason, turning them into assertions about the trigger instead of
+      // about the entries. Manage-all-views is the entry `readonly` does not
+      // touch, so it keeps the menu open and the question intact. The
+      // withheld-trigger case is pinned in its own file,
+      // `readonlyViewMenus.emptyPopover-10209.test.tsx`.
+      onManageViews={vi.fn()}
       config={{ reorderable: false, showAddButton: false }}
     />,
   );

@@ -60,11 +60,11 @@ Most of the orchestration now lives in `@object-ui/app-shell`. `apps/console/src
                   ├── /accept-invitation/:id                 → DefaultAcceptInvitationPage
                   ├── /create-app                            → plugin-designer.CreateAppPage (lazy)
                   ├── /apps/:appName/*                       → AppContent (per-app router)
-                  └── /                                      → ConnectedShell + RootRedirect
+                  └── /                                      → ProtectedRoute + RootLandingRedirect
 ```
 
 Key building blocks imported from `@object-ui/app-shell`:
-`ConsoleShell`, `ConnectedShell`, `AuthenticatedRoute`, `RootRedirect`, `SystemRedirect`,
+`ConsoleShell`, `ConnectedShell`, `AuthenticatedRoute`, `SystemRedirect`,
 `LoadingFallback`, `ConsoleToaster`, `ConditionalAuthWrapper`, plus the `Default*Page` /
 `Default*Layout` defaults for login, register, home, organizations, members, invitations,
 settings and invitation acceptance.

@@ -1,0 +1,32 @@
+{
+  "number": 1983,
+  "kind": "pull_request",
+  "title": "feat(studio): package lifecycle UI — Duplicate / Adopt loose items / structure-only delete (ADR-0070 D4/D5/D6)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T16:07:38Z",
+  "updated_at": "2026-06-24T16:15:08Z",
+  "closed_at": "2026-06-24T16:15:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T16:15:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1983",
+  "body": "## What\nThe Studio user-facing affordances for ADR-0070 D4/D5/D6, wired to the kernel/API shipped in [framework#2299](https://github.com/objectstack-ai/framework/pull/2299) (duplicate) and [framework#2301](https://github.com/objectstack-ai/framework/pull/2301) (adopt-orphans).\n\n`PackageDetailSheet`:\n- **Duplicate** → `POST /packages/:id/duplicate` (clone a base into a new writable package — D4).\n- **Adopt loose items** → `POST /packages/:id/adopt-orphans` (migrate package-less orphans into this base — D5).\n- **Delete** now asks whether to also drop records (`?keepData`) — structure-only vs everything (D4 Q3).\n- **D6** guardrail test: the scope selector never defaults to the package-less `Local / Custom` sentinel.\n\n## Tests\n`@object-ui/app-shell`: 500 metadata-admin tests green (incl. new D6 guardrail); `tsc` clean. (Browser verification of the new buttons is a light follow-up.)\n\nCompletes the ADR-0070 D4/D5/D6 surface. Phase 6 (automated dogfood gate) is the last item.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

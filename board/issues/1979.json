@@ -1,0 +1,32 @@
+{
+  "number": 1979,
+  "kind": "pull_request",
+  "title": "feat(studio): multi-hop relationship fields in the dataset designer (ADR-0071 P2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T15:51:13Z",
+  "updated_at": "2026-06-24T16:11:34Z",
+  "closed_at": "2026-06-24T16:11:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T16:11:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1979",
+  "body": "## Summary\nADR-0071 **P2** (objectui side). The framework now supports multi-hop dataset joins ([framework#2296](https://github.com/objectstack-ai/framework/pull/2296), merged); this brings the **Studio dataset designer** along so an author can actually build them — pick a field two or three to-one relationships deep (`account.owner.region`) and declare the path.\n\n## Changes\n- **`useDatasetFields.ts`**\n  - New `resolvePath(base, path, objectsByName)` — walks a dotted relationship path through the already-fetched objects, returning the end object + each hop's label (or `undefined` if a hop can't resolve).\n  - `buildFieldOptions` now resolves **multi-hop** `path.field` options, grouped under a chained heading (`Account → Owner → User`). Single-hop output is unchanged.\n  - `useDatasetFieldCatalog` walks each included path **hop-by-hop**, fetching every object along the chain (memoized by name — hops can't be parallelized), and offers **deeper include paths** in the relationship combo (drill `account` → `account.owner`), capped at the 3-hop ADR-0071 limit.\n- **`DatasetDefaultInspector.tsx`** — `missingRelationship` flags the full relationship path (`account.owner`) instead of just the first segment, so the author-time \"not in Included\" warning + one-click \"Add it\" works for deep fields.\n\n## Tests\n- 6 new unit tests (resolvePath single/multi-hop/unresolved + multi-hop `buildFieldOptions` heading + not-fully-loaded skip).\n- `useDatasetFields` 24/24; metadata-admin inspectors sweep **170/170**; app-shell `type-check` clean.\n\nSingle-hop datasets are byte-for-byte unchanged. Pairs with the framework ADR-0071 join support already merged.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

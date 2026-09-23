@@ -1,0 +1,33 @@
+{
+  "number": 1547,
+  "kind": "issue",
+  "title": "[SDUI][P2] App & Utility page types (pageType app/utility)",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "sdui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T21:54:09Z",
+  "updated_at": "2026-06-27T12:18:07Z",
+  "closed_at": "2026-06-27T12:18:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1547",
+  "body": "## Context\n`pageType: 'app'` and `pageType: 'utility'` are defined in the schema but **not implemented** — no synthesis, no assignment, no renderer wiring. Cross-page navigation is not schema-driven.\n\n## Goal\nSupport app-level and utility pages as assignable, schema-rendered surfaces, enabling schema-driven cross-page navigation.\n\n## Scope\n- Assignment + render wiring for `pageType: 'app'` and `'utility'`.\n- Minimal default synthesis or blank-canvas authoring.\n- Hook into the (schema-driven) navigation tree so these pages are reachable.\n\n## Acceptance\n- [ ] An authored `app`/`utility` page renders via `SchemaRenderer`\n- [ ] Reachable from schema-driven navigation\n- [ ] Editable via PageDesigner (depends on page persistence)\n"
+}

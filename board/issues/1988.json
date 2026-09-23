@@ -1,0 +1,30 @@
+{
+  "number": 1988,
+  "kind": "pull_request",
+  "title": "fix(ai): stop AI composer placeholder doubling to 'Ask Ask…' for the Ask agent",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T17:04:08Z",
+  "updated_at": "2026-06-24T17:11:38Z",
+  "closed_at": "2026-06-24T17:11:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T17:11:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1988",
+  "body": "## Problem (found dogfooding AI Ask)\n\nThe AI composer placeholder is `Ask {agent}…`. For most agents that reads fine (\"Ask Build…\"), but for the data-query agent — whose label is literally **\"Ask\"** — it doubles to **\"Ask Ask…\"**.\n\n## Fix\n\nRoute the ask agent (`agentRouteName(activeAgent) === 'ask'`) to its purpose-built placeholder `console.ai.askAnything` (\"Ask anything…\", already present in every locale) instead of the generic `Ask {agent}…`. Keyed off the normalized agent route, not the localized label, so it holds across locales. Other agents are unchanged.\n\n## Verification\n\n- `tsc --noEmit` on `@object-ui/app-shell` → 0 errors.\n- Browser-reproduced the \"Ask Ask…\" placeholder in the Ask composer before the fix.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

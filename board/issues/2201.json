@@ -1,0 +1,30 @@
+{
+  "number": 2201,
+  "kind": "pull_request",
+  "title": "fix(fields): stop inline \"create related\" flashing / dismissing the parent form",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T01:03:52Z",
+  "updated_at": "2026-07-04T01:06:54Z",
+  "closed_at": "2026-07-04T01:04:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T01:04:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2201",
+  "body": "Follow-up to #2192. Two nested-modal bugs surfaced by live testing (a lookup's **\"+ create\"** opening the referenced object's create form from inside a create/edit form):\n\n1. **First click flashed** the create dialog open then shut (worked on the 2nd click). Mounted in the same tick as the triggering click and the picker popover's dismiss, the dialog treated that click's release as an outside interaction and closed itself.\n2. **Cancelling the nested dialog also closed the PARENT form's dialog.** With the picker popover already gone, the \"+ create\" button Radix returns focus to was unmounted → focus leaked to `<body>` and dismissed the parent dialog too.\n\n**Fix:** after closing the picker popover, defer opening the create dialog to the next macrotask — which runs after Radix's focus-return layout effects, so focus is back on the still-mounted field trigger before the dialog opens. Only the ActionProvider (open-a-real-modal) path changes; the no-provider inline-create fallback is untouched.\n\n`@object-ui/fields` suite green (41).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

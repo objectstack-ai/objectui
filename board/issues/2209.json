@@ -1,0 +1,33 @@
+{
+  "number": 2209,
+  "kind": "pull_request",
+  "title": "fix(console): unwrap ExpandedViewItem envelope in FormPage internal loader",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T03:34:15Z",
+  "updated_at": "2026-07-04T04:51:14Z",
+  "closed_at": "2026-07-04T04:51:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T04:51:11Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2209",
+  "body": "Closes #2208\n\n## 问题(HMR console 5181 + framework 3777 实测)\n\n内部表单路由 `/forms/<view>` 全部渲染成**零字段 + 裸 Submit**,且点击 Submit 会发空 `POST /data/<object>` 并误报成功。\n\n根因:`GET /meta/view/<name>` 返回的是展平 ExpandedViewItem 信封 —— `{ name, object, viewKind, label, config: { type, data, sections } }`,真正的表单 spec 在 `config` 里;但 `loadInternalForm` 读的是 `item?.spec ?? item` 顶层的 `sections`/`label`(信封上没有)→ `buildSections` 得到空数组。label 同理显示裸视图名。\n\n另外无 `viewKind` 校验:list 视图进这条路由照样渲染空表单(framework#2554 key 冲突把 action target 解析到 list 视图时的表现)。\n\n## 修复\n\n- 提取纯函数 `resolveInternalForm(name, viewBody)`:\n  - 依次解包 `{ item }` 包装、ExpandedViewItem 信封(`config` 才是 FormViewSpec)、legacy `{ item: { spec } }` / 裸 spec 三种形状;\n  - label 回退链:信封 label → config.label → 视图名;\n  - object 解析:信封顶层 `object` → `config.data.object` → spec.object(裸 legacy spec 以前拿不到 object 直接报错,现在从 data 绑定解析);\n  - `viewKind` 存在且非 `'form'` 时抛出可操作的错误(\"View X is a list view, not a form view — check the action or link that targets it\"),不再空表单假成功。\n- `loadInternalForm` 改用该函数,其余(objectSchema 拉取、提交)不变。\n\n## 测试\n\n- [FormPage.test.ts](apps/console/src/components/FormPage.test.ts) 新增 6 个 `resolveInternalForm` 用例(payload 取自 live server 实测响应):信封解包、`{item}` 包装、label 回退、list 视图报错、裸 legacy spec、`{item:{spec}}` 包装。\n- `@object-ui/console` 套件:5129 pass;唯一失败是 `packages/core` 的 DATEFORMAT 时区敏感测试,干净 main 上同样失败(本地非 UTC 时区所致),与本 PR 无关。\n- `pnpm --filter \"@object-ui/console...\" build` 全绿(含 tsc)。\n\nCo-Authored-By: Claude <noreply@anthropic.com>"
+}

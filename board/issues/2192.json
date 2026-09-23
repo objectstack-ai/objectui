@@ -1,0 +1,32 @@
+{
+  "number": 2192,
+  "kind": "pull_request",
+  "title": "feat(fields): default relation pickers to inline \"create related record\"",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T15:10:56Z",
+  "updated_at": "2026-07-03T15:18:12Z",
+  "closed_at": "2026-07-03T15:18:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T15:18:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2192",
+  "body": "## Why\nA freshly-built app is a **dead end** at its first record: a Create form with a REQUIRED relation (an appointment's Customer*/Pet*, a loan's Book*/Member*) opens an **empty** picker — with zero records to select, a brand-new user is stuck. Inline \"create the referenced record\" already existed in `LookupField` but was **opt-in (off)**, and its create path blindly wrote the typed text to a field named `name`, so it failed validation for any object whose title field isn't literally `name` (AI-built objects name theirs `book_name`, `customer_name`, …).\n\n## What\nMake inline create a **standard capability** of the relation picker (a platform/objectui behavior, not an AI-authoring one — every app gets it regardless of how its schema was authored):\n\n- **`LookupField`** — default `allowCreate` **ON** for user-facing relations. References to platform/system objects (`sys_`/`cloud_`/`ai_` + the `user`/`users` directory) are excluded (they're pre-populated and must not be inline-created from a picker); an explicit `allowCreate:false` still opts a field out. Choosing **\"+ create &lt;text&gt;\"** now opens the referenced object's **OWN create form** (via the `ActionProvider` modal handler) and selects the record you create — so you fill every required field, instead of the old one-field create that failed validation. Falls back to the legacy inline create when no modal host is in scope.\n- **`ConsoleShell`** — provide the modal handler at the console **root** (`GlobalCreateModalProvider`) so it reaches every field widget, including a relation field inside a create/edit form rendered in a Radix Dialog portal (which sits above the lower per-view `ActionProvider`s).\n\n## Tests\n`packages/fields/src/complex-widgets.test.tsx` — added coverage for: default-ON for a user-facing relation (no `allow_create` needed), the system/user-directory exclusion, and the explicit `allow_create:false` opt-out. Full `@object-ui/fields` suite green.\n\n> Note: the create-form modal layout (compactLayout) is being finalized separately; this PR ships the picker capability + the root modal host.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

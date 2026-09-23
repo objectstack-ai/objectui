@@ -1,0 +1,30 @@
+{
+  "number": 2262,
+  "kind": "issue",
+  "title": "Studio: offer to scaffold navigation from existing objects when creating an app",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-07-05T06:47:08Z",
+  "updated_at": "2026-07-05T08:25:24Z",
+  "closed_at": "2026-07-05T08:25:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2262",
+  "body": "Mirror of framework#2615 (P2 — highest-ROI item there), found by the Studio package-create UX dogfood (framework#2609). Reproduced against the pinned console build `7782698`.\n\n## What happens\n\n\"Create app\" produces an app with **zero nav items**. The object the user just built isn't offered anywhere; they must discover Interfaces → Edit → Add nav item → set Label → Link to object. In the dogfood run this manual wiring was the single biggest discontinuity in an otherwise smooth create-package → publish loop.\n\n## Expected\n\nThe create-app popover gains an *\"Add existing objects as menu items\"* option (checked by default when the package has objects). Each generated nav item is pre-labeled with the object's label and linked to its record list — exactly what the manual flow produces today.\n\n## Notes\n\nSmall surface: the nav editor and object→nav-item binding already exist; this only pre-populates them at app creation.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01DHQc5BdGhTzPfazex3vWdt"
+}

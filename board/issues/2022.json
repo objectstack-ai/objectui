@@ -1,0 +1,30 @@
+{
+  "number": 2022,
+  "kind": "pull_request",
+  "title": "feat(app-shell): discoverable org/member management — direct-to-members, header workspace switcher, single-org trim",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T08:13:45Z",
+  "updated_at": "2026-06-27T09:24:24Z",
+  "closed_at": "2026-06-27T09:24:22Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T09:24:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2022",
+  "body": "## What\nMakes organization/member management discoverable and friction-free in the console (the \"how do I add users?\" path).\n\n1. **Deep-link single-org users straight to member management** — `/organizations?manage=1` (avatar menu + the Cloud app's new \"Members\" nav) showed a pointless one-item picker for single-org users; now it redirects straight to `/organizations/<slug>/members`. Multi-org users still get the picker.\n2. **Header workspace switcher** (`WorkspaceSwitcher`) in `AppHeader` — single-org → static org name (no dropdown); multi-org → dropdown to switch orgs (full reload so active-org context refreshes), plus \"Manage members\" and \"Create workspace\" (gated on `multiOrgEnabled`).\n3. **Trim single-org chrome** — hide \"Back to organizations\" in `OrganizationLayout` for single-org users (no list to return to → it only dead-ended on home). Drop the now-redundant \"My Organizations\" avatar entry (the switcher replaces it); keep \"Create workspace\".\n\n## Why\nThe org/member/invitation backend (better-auth organization plugin) and UI already existed, but member management was only reachable via the avatar dropdown, and the single-org experience (the vast majority on cloud) was cluttered with multi-org affordances that have no meaning when you have one org.\n\n## Verified (local rig)\nSingle-org: header shows static org name, members page has no back button, \"Members\" lands directly on the members page. Multi-org: switcher dropdown lists orgs + switches, back button reappears.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

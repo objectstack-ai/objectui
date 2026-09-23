@@ -1,0 +1,33 @@
+{
+  "number": 2161,
+  "kind": "pull_request",
+  "title": "fix(grid): refresh list after a string bulk / row action succeeds (#2159)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T14:16:40Z",
+  "updated_at": "2026-07-02T15:06:31Z",
+  "closed_at": "2026-07-02T15:06:29Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T15:06:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2161",
+  "body": "## Problem (#2159)\n\nAfter selecting rows and running a bulk action, the grid could keep showing **stale data** once the server mutation completed, and the selection toolbar stayed stuck.\n\n## Scope — which paths were actually broken\n\nI traced every bulk/row path in `ObjectGrid`, and (by decompiling the shipped `@objectstack/console@11.5.0` bundle) confirmed the same in production:\n\n| Path | Refreshed before? |\n|------|-------------------|\n| Rich `bulkActionDefs` dialog (`handleBulkDialogClose`) | ✅ already refreshed (since defs were introduced in `9e4657d1b`) |\n| Bulk **delete** (`onBulkDelete`) | ✅ already reset selection |\n| **String** bulk actions (`batchActions` / `bulkActions`, e.g. 下推 / 派工 when modeled as strings) | ❌ **no refresh** |\n| **Row** action menu (`onAction` / `onActionDef`) | ❌ **no refresh** |\n\nThe string bulk path fired `executeAction({type, params:{records}})` and stopped — no `refreshKey` bump, no selection reset. The row actions did the same. `ObjectGrid` self-fetches on `refreshKey` and has no `onMutation` subscription, and custom bulk/row APIs bypass `dataSource.update`, so nothing else signaled a refetch.\n\n> Note: the os-tianshun-ehr 排班计划 下推/派工 use the **rich `bulkActionDefs`** path, which already refreshes in 11.5.0 — so this PR does **not** by itself change that tenant's behavior. This is a defensive fix for the genuinely-unrefreshed string + row paths.\n\n## Fix\n\nOn a **successful** action (`res?.success`), reset the selection and bump `refreshKey` so the list reflects server state — mirroring the delete + dialog branches. Failures leave the selection intact (so the user can retry) and trigger no phantom refetch.\n\n## Tests\n\n`bulkActionRefresh.test.tsx` drives the full paths against an in-memory fake server:\n- string bulk action → asserts a refetch + selection reset on success\n- string bulk action failure → asserts **no** refetch and selection preserved\n- rich `bulkActionDefs` (operation:`update`, `batchSize:1`) through the dialog → asserts per-row `update` + refetch on Done (regression guard so the def path never silently regresses to the string-path bug)\n\nAll 3 pass on latest `main`."
+}

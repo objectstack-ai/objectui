@@ -1,0 +1,30 @@
+{
+  "number": 2145,
+  "kind": "issue",
+  "title": "console 产物打包了旧版 @objectstack/client(11.2.0),导致异步导入报 does not support async import jobs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T04:14:12Z",
+  "updated_at": "2026-07-02T12:30:14Z",
+  "closed_at": "2026-07-02T12:30:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2145",
+  "body": "## 问题\n\n已发布的 `@objectstack/console@11.5.0`(vendored objectui SHA `1432efe81`)包含新的导入 UI(后台导入、导入历史),但打包进产物的 `@objectstack/client` 是 **11.2.0**——该版本没有 `data.createImportJob` 等异步导入 API(整个 dist 中 `import/jobs` 出现 0 次)。\n\ndata adapter 探测 `client.data.createImportJob` 不是函数后抛错:\n\n> The connected @objectstack/client does not support async import jobs.\n\n实际项目(os-tianshun-ehr,全套依赖已升级到 11.5.0)打开导入历史/后台导入即复现。\n\n## 原因\n\nobjectui 中 `@objectstack/client` 依赖钉在 `^11.2.0`:\n- `packages/data-objectstack/package.json`\n- `apps/console/package.json`\n\nlockfile 因此解析到 11.2.0,构建 console SPA 时旧 client 被打进 bundle。而 `import/jobs` API 只有 client 11.5.0 才有。\n\n## 解决方案\n\n1. 两处 `@objectstack/client` 升到 `^11.5.0`,更新 lockfile。\n2. 重建 console,**验证 dist 产物中出现 `import/jobs` 路由字符串**。\n3. framework 侧重新 vendor console 并发布 `@objectstack/console@11.5.1`。"
+}

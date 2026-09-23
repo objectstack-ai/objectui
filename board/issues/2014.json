@@ -1,0 +1,30 @@
+{
+  "number": 2014,
+  "kind": "pull_request",
+  "title": "feat(fields): wire the `user` field picker to a real `sys_user` search",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-26T16:26:06Z",
+  "updated_at": "2026-06-26T16:29:39Z",
+  "closed_at": "2026-06-26T16:27:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-26T16:27:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2014",
+  "body": "## What\n\nMakes the `user`/`owner` field widgets actually pick a person. Previously `UserField` rendered a placeholder (\"User selection component requires integration with user management system\") and `mapFieldTypeToFormType` fell through to `field:text`, so a `user` field rendered as a plain text input.\n\n## How\n\n- `UserField` now **delegates to the shared `LookupField`** with the reference fixed to `sys_user` — reusing the existing debounced candidate search, the `RecordPickerDialog`, and id resolution. Selecting a person works the same way as any lookup, with zero bespoke data plumbing.\n- `mapFieldTypeToFormType` maps `user`/`owner` → `field:user`/`field:owner`.\n\n## Closes a latent red regression guard\n\n`field-type-coverage.test.ts` already listed `user`/`owner` as required form widgets, but no mapping was ever wired — the widget map and cell renderers were registered, the **form-type map was the missing link**, so that guard was red on `main`. This closes it.\n\nTable-cell display continues to use `UserCellRenderer` (avatars / initials).\n\n## Tests\n\n- `field-type-coverage` regression guard now green for `user`/`owner`.\n- Full `@object-ui/fields` suite: 4652 pass.\n\n## Paired backend\n\nframework [#2351](https://github.com/objectstack-ai/framework/pull/2351) adds the `user` field type (a lookup specialized to `sys_user`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

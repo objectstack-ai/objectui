@@ -1,0 +1,32 @@
+{
+  "number": 1968,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): re-base a dataset when its base object changes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T10:01:08Z",
+  "updated_at": "2026-06-24T10:39:36Z",
+  "closed_at": "2026-06-24T10:39:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T10:39:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1968",
+  "body": "Found by **dogfooding** (G1): a dataset's joins (`include`), dimensions, measures, and `filter` all reference the base object's fields. Changing the base object left them pointing at the **old** object — stale refs that silently produce broken/ambiguous queries (e.g. a scope filter on a field that no longer exists).\n\n**Fix:** a real object change now re-bases the dataset, clearing `include`/`dimensions`/`measures`/`filter` (selecting the **same** object is a no-op). A heads-up note shows while there's config a change would clear. Logic is a pure `objectChangePatch()` (+2 unit tests; 15 pass).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

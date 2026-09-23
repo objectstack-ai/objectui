@@ -1,0 +1,34 @@
+{
+  "number": 2132,
+  "kind": "pull_request",
+  "title": "fix(fields): 数值字段详情页显示大量末尾多余的 0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T06:10:24Z",
+  "updated_at": "2026-07-01T13:52:39Z",
+  "closed_at": "2026-07-01T13:52:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-01T13:52:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2132",
+  "body": "## 问题\n\n详情页(以及网格)里,数值(number)字段显示出一大串末尾的 0,例如 `版本号` 显示为 `1.0000000000`、`定额工时` 显示为 `16.00000000`。期望是 `1` / `16`。\n\nCloses #2131\n\n## 根因\n\n拿错了字段属性。服务端 spec(`framework/packages/spec/src/data/field.zod.ts`)对 `decimal(p, s)` 列的定义是:\n\n- `precision` = **总位数**(`p`)\n- `scale` = **小数位**(`s`)\n\n但前端 `NumberCellRenderer` 把 `precision`(总位数)当成小数位,并用 `minimumFractionDigits` 强制补零:\n\n```ts\nconst precision = numField.precision ?? 0;\nnew Intl.NumberFormat('en-US', { minimumFractionDigits: precision, maximumFractionDigits: precision })\n```\n\n于是 `decimal(10, 0)` 列里的整数 `1` 被补成了 `1.0000000000`——0 的个数正好等于该字段的总位数。\n\n## 改动\n\n- **`NumberCellRenderer`**:小数位改用 `scale`。\n  - `scale` 有值 → 固定补零(金额 `scale=2` → `16.00`,`scale=3` → `3.140`)\n  - `scale` 无值 → `minimumFractionDigits: 0`,裁掉末尾 0,只用 `maximumFractionDigits` 保留自然精度\n  - 不再用 `precision`(总位数)当小数位\n- 把 `scale` 透传到渲染器:`DetailSection` / `HeaderHighlight` / `RecordDetailDrawer` / `RelatedList` / `ObjectGrid` 的 field metadata\n- `NumberFieldMetadata` 增加 `scale` 字段(并标注 `precision`/`scale` 语义)\n- `NumberField` 编辑控件的 `step` 改用 `scale`\n- 新增 `NumberCellRenderer` 单测(8 例)\n\n> `percent` / `currency` 各有独立的显示配置(currency 走 `currencyConfig.precision`),不在本次范围。\n\n## 验证\n\n- 新增 `NumberCellRenderer.test.tsx`:8 例全过\n- `packages/fields` + `plugin-detail`:361 例全过\n- `plugin-grid` + `types`:280 例全过"
+}

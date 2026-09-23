@@ -1,0 +1,33 @@
+{
+  "number": 2137,
+  "kind": "pull_request",
+  "title": "fix(list): inline-edit toggle, reference-cell [object Object], and i18n",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T07:34:20Z",
+  "updated_at": "2026-07-01T13:51:56Z",
+  "closed_at": "2026-07-01T13:51:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-01T13:51:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2137",
+  "body": "Closes #2136\n\n## 问题\n列表页(grid 视图)行内编辑存在三个问题:\n\n1. **点击 \"Edit inline\" 无反应** —— 工具栏切换按钮点了没效果,必须刷新页面才生效。\n2. **引用字段行内编辑显示 `[object Object]`** —— 例如「营销人员」列(读模式正常显示 \"Dev Admin\"),进入行内编辑后输入框里是 `[object Object]`。\n3. **\"Edit inline\" 按钮没有国际化** —— 中文界面下按钮仍是英文。\n\n## 原因\n1. `ListView` 直接读 `schema.inlineEdit`,而父组件 `onInlineEditChange` 只做了 debounced 持久化,不会同步更新 `inlineEdit` prop,所以按钮看起来\"死了\"。\n2. `data-table` 的兜底文本编辑器把展开的引用对象(`{ id, name }`)直接绑到 `<input>`,渲染成 `[object Object]`;而且失焦 `saveEdit` 会把对象覆盖成这个字符串,存在数据损坏风险。\n3. `list.inlineEditShort` / `inlineEditLabel` / `recordEditingTitle` 三个 i18n key 缺失。\n\n## 修复\n- **plugin-list**:把 `inlineEdit` 提为本地 state(参照 `hiddenFields` 的写法),工具栏切换即时翻转表格;仍通过 `onInlineEditChange` 通知父组件持久化。\n- **components/data-table**:对象/数组类型的单元格值改用 `safeObjectLabel` 提取的只读标签展示(不再出现 `[object Object]`),并在失焦时 **cancel 而非 save**,彻底避免把对象覆盖成字符串。此类字段仍从记录表单 / 专用选择器编辑。\n- **i18n**:补齐 `inlineEditShort` / `inlineEditLabel` / `recordEditingTitle`(en + zh)。\n\n## 验证\n- `@object-ui/components`、`@object-ui/plugin-list`、`@object-ui/i18n` 三个包 `type-check` 均 **0 error**;对 `data-table.tsx` 做了 stash 前后对比,新增代码 **未引入任何新的类型错误**。\n- Bug 1 已在实现过程中由用户截图确认修复。"
+}

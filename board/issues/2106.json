@@ -1,0 +1,33 @@
+{
+  "number": 2106,
+  "kind": "pull_request",
+  "title": "fix(data-table): surface inline-edit save failures instead of swallowing them",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T05:21:28Z",
+  "updated_at": "2026-06-30T06:32:09Z",
+  "closed_at": "2026-06-30T06:32:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T06:32:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2106",
+  "body": "## What\n\nWhen an inline-edit save is rejected by the server (e.g. a **400 validation failure** — an invalid status transition), the data-table caught it with only `console.error`. The author saw **no feedback**: the save bar stayed stuck, and the cell kept the unsaved value as if it had saved.\n\n## Repro (live)\n\nFound while verifying the `editInline` work end-to-end on the showcase Studio. Editing a task's status `Done → In Review` fires `PATCH /api/v1/data/showcase_task/<id>` → the server correctly rejects it (`{\"message\":\"Invalid task status transition.\"}`), but the UI gave no sign anything failed.\n\n## Fix\n\n- **Surface the reason** — `saveRow` / `saveBatch` now extract the server's message (the ObjectStack adapter decorates thrown errors with the parsed body on `details`) and show it in the toolbar with an alert icon, instead of failing silently. The pending edit is kept so the author can fix and retry.\n- **Flag the failed row(s)** — `erroredRows` tints them destructive, so it's unambiguous which rows didn't persist (no phantom \"looks saved\").\n- **Clear** the error on a successful save (per-row or batch) and on cancel.\n- `table.saveFailed` added across all 10 locales.\n\nApplies to both the runtime list grid and the Studio design preview (one code path).\n\n## Before / After\n\n| | Before | After |\n|---|---|---|\n| Save rejected (400) | silent — bar stuck, value kept | toolbar shows **\"Save failed: \\<server reason\\>\"** + alert icon |\n| Failed row | looks unchanged | tinted destructive |\n| Pending edit | kept (no feedback) | kept + flagged for retry |\n\n## Verification\n\n- `packages/components` + `packages/i18n` `tsc --noEmit` → clean; ESLint → 0 errors.\n- `data-table-inline-edit.test.tsx`: +2 tests (failed save surfaces the reason & keeps the change; successful save shows no failure message). 8/8 pass.\n- i18n parity tests (42) pass.\n- Browser-verified live on the showcase: error banner + red row render and clear on cancel.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

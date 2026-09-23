@@ -1,0 +1,30 @@
+{
+  "number": 2001,
+  "kind": "pull_request",
+  "title": "fix(console): let single-org users reach \"New organization\" (manage mode)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T10:50:30Z",
+  "updated_at": "2026-06-25T11:34:04Z",
+  "closed_at": "2026-06-25T11:34:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T11:34:03Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2001",
+  "body": "## Problem\n\nA user who belongs to exactly one organization can't reach the **\"New organization\"** button. The Organizations page (`/organizations`) auto-skips the picker for single-org users and redirects to `/home` (`OrganizationsPage.tsx` — `willAutoSelect` when `orgList.length === 1`). So clicking the avatar menu's **\"My Organizations\"** bounces them straight back to home — no UI path to create a second org.\n\nDiscovered while enabling cloud multi-org self-service (cloud#507 / framework#2323): the backend now lists a user's orgs and births each org with a production env, but a single-org user still had no way to *create* their 2nd org from the UI.\n\n## Fix\n\nDistinguish the two purposes of `/organizations`:\n- **Post-login picker** (no param) — keep auto-skipping for single-org users (zero friction).\n- **Explicit management** (avatar → \"My Organizations\") — never auto-skip, so the user can switch *or* create.\n\nThe avatar menu now navigates to `/organizations?manage=1`; `OrganizationsPage` suppresses the auto-skip when `manage=1` is present.\n\n## Verification\n\nRoot cause + fix confirmed by reading the redirect logic; a contained, low-risk param check (10 lines). **Not yet browser-verified against the live console** — the cloud serves a prebuilt console bundle, so the faithful verify needs a pass after the cloud bumps the objectui SHA (`scripts/bump-objectui.sh`). The backend half of multi-org (org listing + born-with-env) is browser-verified separately.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

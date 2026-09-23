@@ -1,0 +1,32 @@
+{
+  "number": 2109,
+  "kind": "pull_request",
+  "title": "fix(studio): edit kind:'html'/'react' pages as source (no more crash)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T06:56:06Z",
+  "updated_at": "2026-06-30T07:20:47Z",
+  "closed_at": "2026-06-30T07:20:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T07:20:44Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2109",
+  "body": "**Problem:** opening a `kind:'html'`/`kind:'react'` page in the Studio metadata editor crashes. These pages ARE a `source` string (JSX/HTML or real React) with **no** `regions`/`children`, so the structured design canvas (which assumes a region tree) chokes on them.\n\n**Fix:** `PagePreview` now detects `kind` html/react and renders a new **`SourcePageEditor`** instead of the canvas — a code editor for the `source` field (Monaco, JSX/TSX language, with a textarea fallback) beside a **live preview** rendered through the real runtime `SchemaRenderer`. Edits patch `draft.source`. This is exactly the \"just let me edit the source\" behavior these pages need.\n\nVerified via `dev/sdui-source-editor-preview` (mounts the real `PagePreview` with a `kind:'react'` draft): no crash, code editor + live interactive preview render side by side.\n\nAlso (dev harness): adds **Task Desk** (drawer + modal popup-edit) to `dev/sdui-scenarios-preview` with `showcase_task` schema/data — pairs with framework #2475.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

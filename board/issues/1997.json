@@ -1,0 +1,32 @@
+{
+  "number": 1997,
+  "kind": "pull_request",
+  "title": "feat(console): entitlement- & state-aware environment create actions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T09:33:09Z",
+  "updated_at": "2026-06-25T11:48:40Z",
+  "closed_at": "2026-06-25T11:48:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T11:48:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1997",
+  "body": "## What\n\nMakes the Cloud Control console's `sys_environment` list actions **entitlement- and state-aware** so a user never hits a confusing error when clicking \"Create Environment\".\n\n## The bug\n\nEvery org is born with exactly one production environment. On a **free** org that already has it, the generic `create_environment` toolbar action opened a name modal and, on confirm, POSTed and surfaced the `403 DEV_ENV_PLAN_LOCKED` as a **red error toast** — confusing for a user who has one environment, clicked \"create\", and filled in a form.\n\n## What changed\n\n**1. State-aware create affordance** (`EnvironmentListToolbar`, driven by `useEnvironmentEntitlements`):\n\n| Org state | Affordance | Behaviour |\n|---|---|---|\n| No production env (historical / failed provisioning) | **\"Set up your production environment\"** (primary) | create POST provisions the org's one production env — never errors |\n| Has prod env, **paid** plan | **\"Add development environment\"** | create POST makes a dev env |\n| Has prod env, **free** plan | **\"Add environment\"** | opens an **upgrade prompt** (CTA → billing) — no POST |\n\n**2. Entitlement-error safety net** (`useConsoleActionRuntime` `apiHandler`): any env-create that still comes back with `DEV_ENV_PLAN_LOCKED` / `DEV_ENV_LIMIT` / `PRODUCTION_ENV_LIMIT` is now shown as a friendly upgrade/limit **dialog with a CTA** instead of a red error toast. Returning `{ success: false }` without an `error` suppresses the runner's toast; the shared dialog owns the messaging. This covers every path (stale state, multi-org, or an older control plane).\n\n## Signal source\n\nState is resolved from the new org-scoped `GET /api/v1/cloud/environment-entitlements` summary ([cloud#512](https://github.com/objectstack-ai/cloud/pull/512)), with a **row-derived `hasProductionEnv` fallback** (the control-plane data API is org-scoped) so the critical production-setup path works even before the cloud change ships. born-with-env is preserved — there is no generic \"create production environment\" affordance for an org that already has one.\n\n## Tests\n\n- `environment/__tests__/entitlements.test.ts` — error→dialog mapping, CTA decision for all states, upgrade-prompt builder.\n- `environment/__tests__/EnvironmentListToolbar.test.tsx` — the 3 states + loading; the free state renders the upgrade button (no create POST) and fires `onUpgrade`.\n- `environment/__tests__/EnvironmentEntitlementDialog.test.tsx` — renders the spec + a CTA anchor resolved against the API base.\n- `hooks/__tests__/useConsoleActionRuntime.test.tsx` — a coded 403 opens the dialog and returns `{ success:false }` (no toast); an uncoded 403 still toasts (unchanged).\n- Full `@object-ui/app-shell` suite green (909 tests); `turbo run build` clean.\n\n## Coordination\n\nDepends on the companion cloud PR ([cloud#512](https://github.com/objectstack-ai/cloud/pull/512)) for the authoritative summary, but degrades gracefully without it (row-derived state + the error-dialog safety net). Safe to merge in either order.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

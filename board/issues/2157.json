@@ -1,0 +1,33 @@
+{
+  "number": 2157,
+  "kind": "pull_request",
+  "title": "fix(components): dropdown-closing click no longer dismisses the whole modal/drawer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T12:28:50Z",
+  "updated_at": "2026-07-02T13:20:50Z",
+  "closed_at": "2026-07-02T13:20:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T13:20:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2157",
+  "body": "Closes #2156\n\n## 问题\n\n弹窗表单(新建/编辑)中打开下拉字段的选项列表后,不选择而点击其他位置,下拉和整个弹窗会被**同一次点击**一起关闭。\n\n## 根因(实测事件时间线定位)\n\n- `@radix-ui/react-dialog@1.1.17` modal content 传 `deferPointerDownOutside: true`,把 outside-pointerdown 判定推迟到 click 阶段;\n- `@radix-ui/react-select@2.3.1` 在 pointerdown 当场 dismiss 并从共享 dismissable-layer 注册表注销;\n- 同一次点击:pointerdown → Select 关闭并注销 → Dialog 重渲染后成为最高层 → click 阶段 Dialog 的延迟判定把这次点击当成自己的外部点击 → 弹窗关闭。\n\n## 修复\n\n新增 `usePopperAwareInteractOutside`(components/custom/mobile-dialog-content.tsx):\n\n- document **捕获阶段**监听 pointerdown(先于 Radix 冒泡阶段卸载浮层),快照“按下瞬间是否有 popper 浮层打开”;\n- 随后到来的 pointer 型 interact-outside 若命中该快照 → `preventDefault()`(这次点击的职责是关下拉);\n- 保留既有 `isInsidePopperLayer` 目标判定;focus 型 interact-outside(Tab 移出)与常规遮罩点击不受影响;第二次点击仍正常关闭弹窗。\n\n接线:`MobileDialogContent`(ModalForm 的新建/编辑弹窗)+ `NavigationOverlay` 的 drawer(Sheet)/modal(Dialog)模式(抽屉内联编辑下拉同病)。\n\n## 验证\n\n- 单测:`mobile-dialog-content.test.tsx` 9 个用例(含 5 个新增:浮层开→吞掉、无浮层→放行、第二次点击→正常关闭、目标在已卸载浮层内、focus 路径不受影响);\n- 真实环境(console dev :5180 + hotcrm 后端 :4001,crm_lead 新建弹窗)复现→修复验证:修复前一次外部点击同时关掉下拉+弹窗;修复后第一次只关下拉、弹窗保留,第二次正常关弹窗;报告人手测确认正常;\n- `tsc --noEmit` 通过,components 包构建通过。"
+}

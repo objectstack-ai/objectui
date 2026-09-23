@@ -1,0 +1,30 @@
+{
+  "number": 2004,
+  "kind": "pull_request",
+  "title": "fix(console): route org-less users into guided org creation (multi-org)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T15:24:44Z",
+  "updated_at": "2026-06-25T15:28:36Z",
+  "closed_at": "2026-06-25T15:28:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T15:28:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2004",
+  "body": "## Problem\n\n`RequireOrganization` treated an **empty** organizations list as single-tenant and rendered through to `/home`. So on a **multi-org (cloud)** deployment, a brand-new, org-less user landed on a dead `/home` (a \"Cloud\" app with no org/env behind it) instead of being guided to create their workspace.\n\n## Fix\n\nWhen the runtime config has `features.multiOrgEnabled !== false` **and** the user has no orgs (and no active org), redirect to `/organizations` — the \"Create your first organization\" screen. Single-tenant self-host (`multiOrgEnabled === false`) still renders through unchanged. The config flag is read via the existing `getAuthConfig()` (same one OrganizationsPage/CreateWorkspaceDialog use); we wait for it before deciding so we don't flash `/home` then redirect.\n\n## Why\n\nPairs with cloud's **guided org creation** (signup no longer auto-provisions a personal org with an auto-derived name). The new-user flow becomes: signup → org-less → **guided \"Create your workspace\"** (user picks name + slug) → `createOrganization` → born-with-env. Unifies the first org with \"+ New organization\".\n\n## Verification\n\nBrowser-E2E'd on the live cloud control plane: fresh signup (0 orgs) → navigating into the console redirects to `/organizations` (\"No organizations yet / Create your first organization\") → created \"Acme Corp\" (slug auto-derived `acme-corp`) → switched in → org born with its `os-…` production env.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

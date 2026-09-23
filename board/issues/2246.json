@@ -1,0 +1,32 @@
+{
+  "number": 2246,
+  "kind": "pull_request",
+  "title": "fix(app-shell): show authored draft flows in the Studio Automations rail",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T01:22:45Z",
+  "updated_at": "2026-07-05T01:36:51Z",
+  "closed_at": "2026-07-05T01:36:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-05T01:36:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2246",
+  "body": "## What this fixes\n\nThe Studio **Automations** rail hid **authored-but-unpublished (draft) flows**. A flow authored via the pillar (or into a writable-base package) and saved as a draft — but not yet published — did not appear in the rail, even though the header's \"Changes · N\" counter correctly showed a pending draft existed.\n\nRoot cause: `AutomationsPillar` loaded its rail with `client.list('flow', …)` **only**, which returns published/active metadata. Every sibling pillar already merges `client.listDrafts` (published ∪ draft):\n\n| Pillar | Rail source | Shows drafts? |\n|---|---|---|\n| Interfaces | `list` + `listDrafts` | ✅ |\n| Data | `list` + `listDrafts` | ✅ |\n| Access | `list` + `listDrafts` (+ re-read on publish) | ✅ |\n| **Automations** | `list` **only** | ❌ → **fixed here** |\n\n## Investigation note (the original report)\n\nThis started from a report that `MetadataClient.list('flow', { packageId })` / its server route *excludes published items* for an unregistered writable-base package. That **data-layer bug does not reproduce** — verified end-to-end (curl against the framework server + full browser run): `GET /meta/flow?package=<pkg>` and `client.list` both correctly return **published** flows for such packages, and the rail shows them. The earlier \"empty rail\" observations trace to a client/server target mismatch in dev (the console's `VITE_SERVER_URL` pointing at a different backend than where the publish landed).\n\nThe genuine, reproducible bug surfaced while verifying: the Automations rail hides **draft** flows. That is what this PR fixes.\n\n## The change\n\n- Extract the published ∪ draft merge into a shared, unit-tested helper `loadPackageSurfaces(client, type, packageId)` (`packageSurfaces.ts`).\n- Adopt it in `AutomationsPillar`, and add `publishNonce` to the list effect's deps so drafts that go live collapse back into the published rail after a package publish (matching `AccessPillar`).\n- `listDrafts` failures are tolerated — the rail still renders the published set.\n\n## Verification\n\n- Unit: `packageSurfaces.test.ts` (5 tests) — draft-only inclusion, package/type scoping, dedupe (published wins), `listDrafts`-failure tolerance, label fallback.\n- Browser (writable-base package `fttest_pkg`, console → framework dev server):\n  - **Before:** rail showed only the published `ft_hello_flow`; the draft `ft_draft_only` was hidden.\n  - **After:** rail lists **both**; the draft-only flow is badged \"Unpublished draft\", is selectable, and loads its draft body for editing.\n- `eslint` clean on touched files (0 new warnings); app-shell studio/i18n tests green (21).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

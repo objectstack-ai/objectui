@@ -1,0 +1,32 @@
+{
+  "number": 2107,
+  "kind": "pull_request",
+  "title": "chore(dev): react business-scenario verification harness (+ drop redundant PoC)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T06:06:19Z",
+  "updated_at": "2026-06-30T06:15:41Z",
+  "closed_at": "2026-06-30T06:15:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T06:15:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2107",
+  "body": "Adds `apps/console/dev/sdui-scenarios-preview` — a dev harness that renders the three new `kind:'react'` business-scenario showcase pages (inquiry-triage / account-cockpit / invoice-console, framework side) through the REAL PageRenderer against a small in-memory multi-object adapter (schema + data + $filter + CRUD), with a scenario switcher.\n\nBrowser-verified end to end: tab-filtered ListView + live counts, status workflow actions, live search, master-detail ObjectForm edit, cross-object roll-ups, KPI aggregation + re-query.\n\nAlso removes the now-redundant raw `react-page-preview` PoC (superseded by the PageRenderer-based harnesses).\n\nPairs with framework PR adding the scenario pages.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

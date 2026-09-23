@@ -1,0 +1,32 @@
+{
+  "number": 2102,
+  "kind": "pull_request",
+  "title": "feat(list): inline editing is a configurable view property + runtime toggle",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T16:02:58Z",
+  "updated_at": "2026-06-29T16:07:04Z",
+  "closed_at": "2026-06-29T16:03:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T16:03:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2102",
+  "body": "Follow-up to #2100 (which made inline editing use the dedicated field widgets). This makes inline editing a **first-class, per-view property** with UI to flip it, instead of being hardcoded per render path.\n\n## Changes\n- **ViewSettingsPopover**: a 'Record editing' toggle (mobile/compact settings).\n- **ListView**: a desktop toolbar toggle button (✎) for grid views + an `onInlineEditChange` callback + popover wiring. (`schema.inlineEdit → editable` already existed.)\n- **app-shell ObjectView** (object saved views): persist the toggle to `viewDef.inlineEdit` via `persistViewPatch`, alongside sort/filter/hiddenFields.\n- **InterfaceListPage** (page lists): read `inlineEdit` from the page block's `userActions.editInline` instead of hardcoding `false` — inline editing becomes a page-authored property.\n\nWhen on, cells edit with the dedicated `@object-ui/fields` widgets.\n\n## Honest scope note\nThe runtime toggle UI (popover + button) is wired on the **object-saved-view** path. The showcase example's pages all render via **InterfaceListPage** (page-lists), which now *reads* `editInline` (configurable) but doesn't surface the runtime toggle button yet. Two clean follow-ups to fully cover authored pages: (a) declare `editInline` on the page-list block schema so the **metadata editor** shows the toggle, or (b) pass `onInlineEditChange` from InterfaceListPage for a runtime toggle there too.\n\ntype-check clean; the one ListView rules-of-hooks warning is pre-existing (`useObjectLabel` try/catch).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

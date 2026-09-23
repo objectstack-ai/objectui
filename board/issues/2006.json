@@ -1,0 +1,32 @@
+{
+  "number": 2006,
+  "kind": "pull_request",
+  "title": "fix(auth): server-gate the \"Sign in with SSO\" button on features.sso",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T15:58:48Z",
+  "updated_at": "2026-06-25T16:20:13Z",
+  "closed_at": "2026-06-25T16:20:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T16:20:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2006",
+  "body": "## Problem\n\nOn the console login page, the **\"Sign in with SSO\"** button renders **unconditionally**. On any deployment where enterprise SSO isn't wired (the default for self-hosted and `os dev` local runs), `@better-auth/sso` isn't mounted, so `POST /sign-in/sso` 404s. The user only discovers SSO is unavailable **after clicking**, via the misleading banner:\n\n> No SSO provider is configured for this email domain.\n\nThe button should be driven by server config, exactly like social providers already are 60 lines up in the same file (`SocialSignInButtons` queries `/auth/config` and renders nothing when empty).\n\n## Fix\n\n`LoginForm` now fetches `GET /auth/config` and gates the SSO button on `features.sso`:\n\n- Defaults to **hidden** — a failed config fetch or an older server that doesn't report the flag simply omits the button rather than offering a dead end.\n- Mirrors the existing `SocialSignInButtons` pattern (same `getAuthConfig()` seam).\n- Adds `features.sso?: boolean` to the `AuthPublicConfig` type.\n\n## Tests\n\nNew `LoginForm.test.tsx` covers: flag off → hidden, `features` absent → hidden, flag on → shown, config fetch fails → hidden. Full `@object-ui/auth` suite green (111 tests), type-check clean.\n\n## Pairs with\n\nRequires the framework change that surfaces `features.sso`: objectstack-ai/framework#2330\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

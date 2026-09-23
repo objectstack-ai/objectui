@@ -1,0 +1,32 @@
+{
+  "number": 2090,
+  "kind": "pull_request",
+  "title": "feat(components,app-shell): Studio 表格字段管理 — 选中字段改属性 + 完整类型(Airtable 式)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T09:35:53Z",
+  "updated_at": "2026-06-29T09:36:16Z",
+  "closed_at": "2026-06-29T09:36:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T09:36:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2090",
+  "body": "按用户方向(**listview 集成暂缓**,先把**基于表格的字段管理**做完善;并先对照了 Airtable 的加字段/字段属性 UX)。\n\n## 之前的问题\n\n加字段只有 6 个硬编码类型,且无法**选中字段后设置属性**。\n\n## 现在(复用现成 `ObjectFieldInspector`,零新编辑器)\n\nData 支柱里:\n- **「+ 添加字段」**(头部按钮 / 网格末尾「+」)→ 新建字段并打开右侧**字段属性编辑器**。\n- **每个列头 hover 出「编辑字段」笔形**(给 `GridFieldAuthoring` context 加 `onEditColumn`,跳过非字段列如 Actions)→ 打开同一个编辑器。\n- 编辑器 = `ObjectFieldInspector`:**完整 38 类型(按 文本/数值/日期/逻辑/选择/关系/媒体/计算/高级 9 类分组)** + **每类专属配置**(文本 min/max、数值精度、货币、单选选项、lookup 目标、公式…)+ 必填/唯一/默认值/描述 + 高级(只读/隐藏/索引)+ 删除。\n- 编辑累积进对象 draft;`保存草稿` + `发布` 写 env overlay,再 `adapter.clearCache()` + 网格重挂 → 新/改的列免刷新即现。\n\n## 验证(浏览器实测,showcase_account,`OS_METADATA_WRITABLE=object`)\n\n点列头笔形 → 编辑器开(name 字段:类型\"文本·单行文本\"、min/max 长度);类型下拉列出全部分组类型。加字段 → 改显示名\"客户分级\" → 保存草稿 → 发布:\n\n| 层 | 字段 |\n|---|---|\n| `code` | 16(包源不动) |\n| `overlay`/`effective` | **19**,含 `{name:field_19, type:text, label:客户分级}`(`overlayScope:env`) |\n\n新列**免刷新**即现网格。`eslint .` 0 error / `tsc` 0 error。\n\n## 设计取舍 / 后续\n- 字段属性用**右侧面板**(非 Airtable 的列头锚定 popover)——更贴 Studio 既有设计语言、实现更稳;类型选择是**分组下拉**(非 Airtable 的可搜索图标网格)——类型已全,可搜索图标版作为后续 polish。\n- Airtable 的 **AI「field agents」按用户要求不做**。\n- 同 #8 的 gate:对象 schema 默认锁,需 `OS_METADATA_WRITABLE=object`(Studio/设计环境开)。\n- 仅 objectui main,未 live。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

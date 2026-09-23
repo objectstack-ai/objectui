@@ -1,0 +1,30 @@
+{
+  "number": 2228,
+  "kind": "pull_request",
+  "title": "feat(console): pass workspace name as production env displayName (IA PR-5)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T14:26:37Z",
+  "updated_at": "2026-07-04T14:30:39Z",
+  "closed_at": "2026-07-04T14:27:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T14:27:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2228",
+  "body": "Companion to cloud [#739](https://github.com/objectstack-ai/cloud/pull/739) (IA PR-5 naming collapse).\n\n`CreateWorkspaceDialog` now passes the **workspace name** to `provisionProductionEnvironment` as `displayName`, so the born-with-env production environment inherits the workspace name instead of the generic `\"Production\"` default.\n\nBefore: `provisionProductionEnvironment({ organizationId })` → the control plane's per-request path had no name to inherit → fell back to `\"Production\"`. A workspace \"李娜的客户管理\" ended up with an unrelated environment \"Production\".\n\nAfter: `provisionProductionEnvironment({ organizationId, displayName: name.trim() })` → env inherits the workspace name.\n\nPairs with cloud `environment-lifecycle` (`envDisplayName = displayName`) and `auto-default-environment-plugin` (org-name fallback). 6-line change, one file.\n\n⚠️ End-to-end verified in a clean env via the cloud-side follow-up card — local dev-stack build/overlay caching kept serving stale console dist so the local walkthrough couldn't confirm it (see #739 for detail).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

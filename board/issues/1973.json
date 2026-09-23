@@ -1,0 +1,32 @@
+{
+  "number": 1973,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): variable data-picker for flow expression/template fields (#1934)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T15:04:52Z",
+  "updated_at": "2026-06-24T15:08:40Z",
+  "closed_at": "2026-06-24T15:05:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T15:05:27Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1973",
+  "body": "Closes #1934.\n\n## What\n\nBusiness users authored CEL expressions and `{var}` templates in the Studio **flow builder** by typing reference names from memory — there was no way to discover or insert the references actually in scope. This adds a **`{x}` data-picker** (like Power Automate \"Dynamic content\" / Salesforce's resource picker) to every expression / template config surface.\n\nA trigger button on the field opens a searchable, grouped popover of the references **in scope at that node**, and picking one inserts the correctly-braced token at the cursor.\n\n## In scope (graph-aware)\n\nResolved by walking the flow graph back from the current node, so only what's reachable is offered:\n\n- **Flow variables** — `draft.variables[]`.\n- **Upstream outputs** — each *ancestor* node's `outputVariable(s)` / collected screen `fields[].name` / `assignments` keys / `idVariable`. A node's own and any **downstream** output is excluded — a downstream output is never offered upstream.\n- **Loop / map item** — the enclosing `iteratorVariable`.\n- **Trigger record** — on a record-triggered flow, the start node's `objectName` schema is fetched and expanded: bare `<field>` on the start node's own entry condition, `record.<field>` (+ `record` / `previous`) downstream — matching how the showcase flows and the engine reference the record.\n\n## Brace handling (ADR-0032)\n\nInsertion handles the recurring `{record.x}` brace-in-CEL trap **for** the author:\n\n- **`expression` fields** → bare CEL (`record.name`)\n- **template fields** (text / textarea / key-value values) → `{record.company}`\n\nFree-text typing is untouched, and an empty scope degrades to a plain input.\n\n## Surfaces\n\ndecision **Branches** (`expression`), edge **Condition**, **Assignment** / CRUD / subflow values, screen **description**, and `http` fields — via one shared `VariableTextInput`.\n\n## Code\n\n- `inspectors/flow-scope.ts` — pure, framework-free graph-walk + ref resolution (unit-tested).\n- `inspectors/useFlowScope.ts` — React adapter; lazily fetches + expands the trigger object's fields.\n- `inspectors/VariableTextInput.tsx` — input/textarea + cmdk popover; cursor insertion + brace rule.\n- Wiring in `FlowNodeConfigField`, `FlowNodeInspector`, `FlowObjectListField`, `FlowKeyValueField`, `FlowEdgeInspector`.\n\n## Tests / verification\n\n- `flow-scope.test.ts` — 24 unit tests for the scope-resolution graph-walk (ancestors, downstream-not-upstream, trigger prefix, de-dup, loop iterator, non-record trigger).\n- `pnpm build` (tsc) clean; full `metadata-admin` suite green (442 tests).\n- Browser-verified against the CRM showcase `lead_qualification_conversion` flow: picker lists flow variables + `record.<field>` (from `crm_lead`); bare insertion in the decision Branches expression and `{record.company}` in the http URL field; graph-aware trigger scoping.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

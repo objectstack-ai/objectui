@@ -1,0 +1,30 @@
+{
+  "number": 2259,
+  "kind": "issue",
+  "title": "Studio: read-only packages accept edit gestures client-side, fail only at server write",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-07-05T06:46:32Z",
+  "updated_at": "2026-07-05T08:25:23Z",
+  "closed_at": "2026-07-05T08:25:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2259",
+  "body": "Mirror of framework#2615 (P1), found by the Studio package-create UX dogfood (framework#2609, audit doc `docs/audits/2026-07-studio-package-create-ux-dogfood.md`). Reproduced against the pinned console build `7782698` at `/_console/studio/com.example.showcase/data` (source-loaded, Read-only badge shown).\n\n## What happens\n\nOn a **read-only** package:\n\n- **\"+ Add field\" actually mutates the canvas** — header count goes 16 → 17 fields and the Field properties panel opens on the new `field_17`.\n- **\"New object\"** opens the inline create form and lets the user fill it out.\n- \"Save draft\" / \"Publish\" remain visible (Publish styled enabled).\n\nOnly when the eventual server write fires does the user learn the whole edit was futile — a 422 `writable_package_required` toast (whose copy is being fixed framework-side in framework#2625).\n\n## Expected\n\nClient-side courtesy gating per ADR-0057 D10: when the active package is read-only, disable/hide `Add field`, `New object`, `Save draft`, `Publish`, and field-property inputs, with a tooltip like *\"Read-only package — create or switch to a writable package to edit\"*. The server remains the authoritative gate; the client just shouldn't let users build up doomed local state.\n\n## Notes\n\n- The read-only signal is already available to the client — the package switcher and Studio landing both badge Read-only correctly.\n- Related polish: the read-only toast can fire twice for a single gesture.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01DHQc5BdGhTzPfazex3vWdt"
+}

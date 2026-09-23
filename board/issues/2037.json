@@ -1,0 +1,30 @@
+{
+  "number": 2037,
+  "kind": "pull_request",
+  "title": "feat(auth): remediation overlay for the ADR-0069 session gate (enforced MFA / password expiry)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T17:00:35Z",
+  "updated_at": "2026-06-27T17:08:57Z",
+  "closed_at": "2026-06-27T17:08:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T17:08:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2037",
+  "body": "Adds the Console-side remediation flow for the ADR-0069 authentication session gate. The ObjectStack backend now returns `403 { error: { code: 'MFA_REQUIRED' | 'PASSWORD_EXPIRED' } }` from protected endpoints when a logged-in user must enrol an authenticator or change an expired password (framework PRs objectstack-ai/framework#2388, #2390). Without this, flipping `mfa_required` on just shows the user failing requests — this PR makes it usable.\n\n## What\n- **`@object-ui/auth`**\n  - `createAuthenticatedFetch` detects the gate (403 + recognised code) on every API response and broadcasts it via a tiny module-level emitter (`auth-gate-events.ts`).\n  - `AuthProvider` exposes `remediationRequired` + `setRemediationRequired` and subscribes to the emitter.\n  - The `twoFactorClient` plugin is enabled; `enrollTotp(password)` / `verifyTotp(code)` are added to the auth client (mirrors the existing `changePassword` cast pattern).\n- **`@object-ui/app-shell`**\n  - `RemediationOverlay` (mounted in `ConsoleShell`, above all routes) renders the guided flow:\n    - `PASSWORD_EXPIRED` → change-password form.\n    - `MFA_REQUIRED` → confirm password → QR (rendered client-side via `qrcode`) + backup codes → verify a 6-digit TOTP.\n  - On success it clears the gate and reloads so the app re-fetches cleanly.\n\nAuth, metadata and `me/*` reads stay reachable (server allow-list), so the overlay renders above a normally-loading shell — it never has to block itself from rendering.\n\n## Verification\n- **Unit**: `@object-ui/auth` 122 tests pass; `@object-ui/auth` + `@object-ui/app-shell` build (`tsc`) green; lint 0 errors.\n- **Browser, end-to-end** (Console dev server proxied to a backend with `mfa_required` on, grace 0):\n  1. Un-enrolled user signs in → data calls return `403 MFA_REQUIRED` → full-screen overlay appears (auth/meta/`me` calls stay `200`).\n  2. Confirm password → `/two-factor/enable` → real QR + backup codes render.\n  3. Enter a real TOTP code → `/two-factor/verify-totp` → gate clears → reload → the app loads fully (data table renders).\n\nScreenshots of all three steps were captured during verification.\n\n## Notes\n- Requires the framework gate (objectstack-ai/framework#2388 / #2390). Default-off there, so no behavior change until an admin enables the policy.\n- Follow-ups (tracked in objectstack-ai/framework#2375): per-org `require_mfa`, the dispatcher/MCP gate path.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

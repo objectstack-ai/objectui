@@ -1,0 +1,30 @@
+{
+  "number": 2196,
+  "kind": "pull_request",
+  "title": "feat(studio): Access pillar — fourth content pillar (permission matrix)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T15:29:56Z",
+  "updated_at": "2026-07-03T15:34:25Z",
+  "closed_at": "2026-07-03T15:30:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T15:30:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2196",
+  "body": "Roadmap ③ — the last designed-but-unbuilt pillar from builder-ui §7 / ADR-0084 lands: **Data · Automations · Interfaces · Access**.\n\n## What\n\n- **4th pillar tab (Access)**: left rail = the environment's permission sets / profiles (search + inline create, same rail pattern as Data's object creator); main = the existing Salesforce-style `PermissionMatrixEditPage` embedded **unchanged** — objects × CRUD/VAMA/lifecycle up top, per-object field-level R/W below, its own Save + destructive-change guard.\n- **Reuse, never rebuild** (builder-ui §1.4): zero new editor code — the pillar is a rail + an embed.\n\n## Deliberate v1 semantics (stated in the UI banner)\n\nPermissions are **platform-level** authorization objects, not package content: the matrix saves the ACTIVE item directly (no draft, no package binding), so the shell's 变更/发布 does not apply. The banner says 「保存即生效 · 不走包草稿」 instead of pretending otherwise. Draft-izing permissions is a possible follow-up, tracked in the design doc.\n\n## Browser-verified (fresh stack)\n\n4th tab renders ✓ matrix loads `showcase_contributor` (84 objects, granted counts) ✓ toggle Account **Create** + Save → API shows `allowCreate:true` persisted ✓ inline 新建权限集 (销售权限/sales_perms) → appears in rail, opens an empty matrix ✓. `type-check`: 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

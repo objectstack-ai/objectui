@@ -1,0 +1,33 @@
+{
+  "number": 1998,
+  "kind": "pull_request",
+  "title": "feat(console): born-with-env eager provisioning for multi-org workspace create",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T09:54:53Z",
+  "updated_at": "2026-06-25T11:55:50Z",
+  "closed_at": "2026-06-25T11:53:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T11:53:12Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1998",
+  "body": "## Why\n\nObjectStack moved to a **1-production-environment-per-organization** model: a user who wants another production space creates another **organization (workspace)**, and each org is *born with* its production environment. This polishes the self-service \"create workspace\" flow so the user lands in a ready workspace — **no onboarding-wizard detour** (the dialog already collected the name; the wizard would redundantly re-ask name + slug).\n\n## What changed\n\n- **`CreateWorkspaceDialog`** (the live app-shell copy): after `createOrganization` succeeds — which already `refreshOrganizations()` + `switchOrganization()` so the new org is active — eagerly `POST /api/v1/cloud/environments` with the new org as target. The org's **first** environment is provisioned as **PRODUCTION** (allowed on every plan incl. free). Then it hands off to the caller's existing `onCreated → handleSelect` path, which switches (idempotent) and `window.location.href = resolveHomeUrl()` to land in the new org's control plane.\n- **Best-effort by contract:** if eager provisioning throws (e.g. non-cloud deployment, transient error), the dialog swallows it and still calls `onCreated`, so the **onboarding gate provisions the env lazily on first navigation** — multi-org still works.\n- **New `provisionEnvironment.ts` helper** — `createAuthenticatedFetch()` (Bearer + active-org `X-Tenant-ID`) + `getCloudBase()`, mirroring how `marketplaceApi` targets `/api/v1/cloud/*`. `organizationId` is sent explicitly so the target is unambiguous.\n- **Deleted the unreferenced `apps/console/src/components/CreateWorkspaceDialog.tsx` duplicate.** It was byte-identical dead code with zero imports; the live component is the app-shell copy used by `OrganizationsPage`.\n\n## Multi-org enable signal — already wired (no change needed)\n\nThe `multiOrgEnabled` gate is real and end-to-end today:\n- **Backend** (framework `plugin-auth/auth-manager.ts` `getPublicConfig()`) emits `features.multiOrgEnabled`, driven by `OS_MULTI_ORG_ENABLED` / `OS_MULTI_TENANT`; the same flag gates the `beforeCreateOrganization` create hook.\n- **Frontend** consumes `getAuthConfig().features.multiOrgEnabled` in `CreateWorkspaceDialog`, `OrganizationsPage`, and `AppContent → ExpressionProvider`.\n\nSo the create-workspace entry point already appears when multi-org is enabled; no cloud PR was required for the signal.\n\n## Coordination — \"Entitlement-aware environment actions\" card\n\n- objectui `feat/env-entitlement-aware-actions` modifies `createAuthenticatedFetch` (adds `platformScope=all`); this PR only **uses** that helper — zero file overlap.\n- cloud `feat/environment-entitlements-summary` adds `GET /api/v1/cloud/environment-entitlements`, consumed by the env-list card. A brand-new org always has no production env, so eager provisioning is unconditionally correct here and does not need that endpoint.\n\n## Tests\n\n`packages/app-shell/src/console/organizations/__tests__/CreateWorkspaceDialog.test.tsx`:\n1. **enable gate** — `multiOrgEnabled: false` blocks submit client-side; org/env APIs never called.\n2. **provision flow** — `createOrganization({name,slug})` → `provisionProductionEnvironment({displayName, organizationId})` → `onCreated`, asserting the env is provisioned **before** the hand-off.\n3. **best-effort fallback** — provisioning rejects ⇒ `onCreated` still fires, no user-facing error (lazy gate covers it).\n\nVerified: new tests + `organizations` suite green (11/11); app-shell `type-check` clean via `turbo run type-check` (deps resolved).\n\n## Runtime dependency\n\nRequires the cloud control plane to have `OS_MULTI_ORG_ENABLED=true` and `POST /api/v1/cloud/environments` implementing born-with-prod-env (cloud `feat/org-born-with-prod-env`, already verified on the worker).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

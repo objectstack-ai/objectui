@@ -1,0 +1,33 @@
+{
+  "number": 2103,
+  "kind": "pull_request",
+  "title": "feat(list): make inline record editing a configurable, author-controlled property",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T16:44:28Z",
+  "updated_at": "2026-06-29T18:05:07Z",
+  "closed_at": "2026-06-29T18:05:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T18:05:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2103",
+  "body": "## What\n\nMake inline cell editing a **first-class, per-view property** with UI to flip it — instead of being effectively hardcoded per render path.\n\n- **ViewSettingsPopover** — a \"Record editing\" toggle (mobile/compact settings).\n- **ListView** — a desktop toolbar toggle button (Pencil) for grid views, plus an `onInlineEditChange` callback; reads `schema.inlineEdit → editable`.\n- **ObjectView** (object saved views) — persists the toggle to `viewDef.inlineEdit` via `persistViewPatch`, alongside sort/filter/hiddenFields.\n- **InterfaceListPage** (page lists) — reads inline editing from the page block's `userActions.editInline` (default off) → inline editing becomes a page-authored property.\n- **types** — declares `userActions.editInline?: boolean` on `ListViewSchema`, mirroring the framework spec (`UserActionsConfigSchema.editInline`).\n\nWhen on, cells edit with the dedicated `@object-ui/fields` widgets (#2100) — the same controls the form uses, so select→dropdown, boolean→checkbox, date→picker, etc.\n\n## Companion\n\nFramework spec: objectstack-ai/framework#2468 adds `editInline` to `UserActionsConfigSchema`, so the metadata-admin \"Interface (list pages)\" panel auto-renders the **\"Edit Inline\"** checkbox. Lands via the normal spec pin.\n\n## Verification\n\n- `packages/types` + `packages/app-shell` `tsc --noEmit` → clean.\n- Framework spec unit test (`UserActionsConfigSchema`) → green.\n- Type-aware editor injection (data-table ← ObjectGrid `renderCellEditor` → `FieldEditWidget`) verified end-to-end in a prior pass (PATCH 200, value persisted).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

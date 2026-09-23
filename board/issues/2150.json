@@ -1,0 +1,30 @@
+{
+  "number": 2150,
+  "kind": "issue",
+  "title": "fix(grid): lookup 字段行内编辑选中值在点击其他行后丢失",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T09:21:35Z",
+  "updated_at": "2026-07-02T15:04:12Z",
+  "closed_at": "2026-07-02T15:04:11Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2150",
+  "body": "## 问题\n\n在网格(ObjectGrid)行内编辑模式下,对 **lookup / 引用字段**(如「管理责任人」)行内编辑并选中一个值后:\n\n1. 选中值能正确显示;\n2. **但一旦点击其他行,刚选中的值就会丢失** —— 单元格退回显示原始外键 id(如 `u1`),而不是显示名(如 `Dev Admin`)。\n\n## 根因(已查明两处独立缺陷)\n\n**缺陷 1 —— `startEdit` 重入清空刚暂存的值**\n`packages/components/src/renderers/complex/data-table.tsx` 的 `startEdit` 没有「已在编辑本单元格」的护栏。lookup 选项渲染在 Portal 弹层里,但 React 合成事件仍会沿**组件树**冒泡回到单元格的 `onClick`,再次触发 `startEdit(同一行,同一列)`;重入时 `setEditValue` 会从 `pendingChanges` 读取一个**尚未 flush 的旧值**,把刚选中的值覆盖掉。\n\n**缺陷 2 —— 列元数据丢失 `reference_to`,只读态无法把 id 解析成名称**\n`packages/plugin-grid/src/ObjectGrid.tsx` 的多条列构建路径(object 列、字符串数组列、内联数据列)在拼 `fieldMeta` 时只拷贝了 `label/currency/precision/scale/format/options`,**没有拷贝 `reference_to` 等关系型元数据**。于是只读单元格的 `LookupCellRenderer` / `useLookupName` 拿不到 `reference_to`,无法把暂存的裸 id 通过 `dataSource.findOne` 解析成显示名,只能回显原始 id。\n\n> 复现关键:值本身并没有从 `pendingChanges` 丢失;丢的是①编辑态被冒泡点击重入清空,②只读态缺 `reference_to` 无法解析 id → 名称。\n\n## 解决方案\n\n1. **`data-table.tsx` `startEdit`**:加重入护栏 —— 当 `editingCell` 已是同一 `{rowIndex, columnKey}` 时直接 return,避免冒泡点击重置 `editValue`。\n2. **`ObjectGrid.tsx` 列构建**:抽出 `applyRelationalMeta(fieldMeta, fieldDef)` 助手,在三条构建路径统一把关系型元数据(`reference_to`、`reference`、`reference_to_field`、`display_field`、`id_field`、`description_field`、`lookup_filters`/`lookupFilters`、`titleFormat`)拷进 `fieldMeta`,让只读 lookup 单元格能解析 id、行内选择器也能查询引用对象。\n\n## 验证\n\n新增复现测试 `packages/plugin-grid/src/__tests__/inlineEditLookupRepro.test.tsx`:进入 lookup 行内编辑 → 选中 → 点其他行 → 断言原行仍显示所选名称。两处修复各自都是必需的(单独移除任一处测试即失败)。回归:plugin-grid / data-table / fields 共 401 测试全绿。\n"
+}

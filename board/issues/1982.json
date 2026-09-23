@@ -1,0 +1,32 @@
+{
+  "number": 1982,
+  "kind": "pull_request",
+  "title": "docs(readme): show what Object UI renders + slim and reposition",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T16:07:32Z",
+  "updated_at": "2026-06-24T16:08:15Z",
+  "closed_at": "2026-06-24T16:08:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T16:08:13Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1982",
+  "body": "## What\n\nObject UI is a UI engine whose README had **no screenshots** (the only images were badges), plus a few inconsistencies. This shows what it renders and tightens the page.\n\n- **Positioning** — a \"What is Object UI?\" section places it as the **View layer** of the ObjectStack ecosystem (`describe → ObjectStack` / `render → Object UI` / `run → ObjectOS`), usable standalone with any backend like Amis/Formily.\n- **Screenshots** — a JSON-schema → rendered-UI hero, plus a gallery of rendered views (dashboard, Gantt, kanban, calendar) and the visual designers.\n- **Accuracy** — fixes the \"39 packages published\" vs \"not yet published to NPM\" contradiction; removes the duplicate Quick Start and unverifiable marketing claims (3x/6x/85%); drops the version-specific \"What's New\" changelog block.\n- 607 → 521 lines.\n\nDocs-only.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

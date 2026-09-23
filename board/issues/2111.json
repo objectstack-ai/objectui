@@ -1,0 +1,33 @@
+{
+  "number": 2111,
+  "kind": "issue",
+  "title": "列表导出:补齐 ListView 服务端导出(支持 XLSX)+ 强制对象级导出权限 operations.export",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T07:46:42Z",
+  "updated_at": "2026-06-30T14:31:52Z",
+  "closed_at": "2026-06-30T14:31:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2111",
+  "body": "## 问题\n\n列表/表格视图(`plugin-list` 的 ListView、`plugin-grid` 的 ObjectGrid)已有导出按钮(`exportOptions`),但当前实现只是 P1 合规级的客户端 CSV/JSON stub,存在三类问题:\n\n### 1. 不支持 Excel(XLSX)\n- 客户端只实现了 CSV / JSON;XLSX/PDF 仅在 schema 里声明为可选格式。\n- 仅 ObjectGrid 接了服务端 `createExportJob`(spec v4)流式路径;**ListView 完全没有服务端路径**。\n- 结果:在 ListView 选 \"Export as XLSX\" 实际不可用。\n\n### 2. 导出的是「原始存储值」,可读性差(本次由服务端解决)\n客户端 stub 直接序列化 `record[field]`,不做类型感知:lookup/user 导出 id 或对象、select 导出 value 代码、date 导出 ISO 串、boolean 导出 `true/false`。\n> 走服务端 `createExportJob` 后,类型格式化与字段名解析由服务端负责,本仓库不再自建客户端格式化器。\n\n### 3. 权限缺口\n- **对象级导出权限 `operations.export` 未强制**:导出按钮/handleExport 只看 `exportOptions` + `allowExport`,即使禁止导出也能导出。\n> 字段级/行级权限由服务端 `createExportJob` 权威强制(客户端导出本质是客户端信任)。\n\n## 方案(纯服务端,最小改动)\n\n参考有后端的平台型产品(Salesforce / Google Sheets / Notion / Airtable 均服务端生成)的做法,导出统一走服务端 `createExportJob`,UI 层只负责入口、权限门禁与进度反馈。**不引入客户端 xlsx 库、不自建客户端类型格式化器。**\n\n### A. 导出走服务端 `createExportJob`(csv / xlsx / json)\n- 为 **ListView 补上服务端导出路径**:接入 `useExportJob` + `ExportProgressDialog`,与 ObjectGrid 对齐;XLSX 经此可用。\n- ObjectGrid 已有服务端路径,保持不变。\n- 服务端不可用时(dataSource 未实现 `createExportJob`):保留现有客户端 CSV/JSON 兜底(原样,不扩展),XLSX 视为服务端专属。\n\n### B. 强制对象级导出权限 `operations.export`\n- `operations.export === false` 时:隐藏导出按钮,并在 `handleExport` 拦截。\n- **默认放行**:`operations.export` 省略/`undefined` 时导出保持开启,避免误伤已配 `exportOptions` 但未显式声明 `operations.export` 的现有视图。\n- 为 `ListViewSchema` 补上 `operations` 字段(含 `export`),与 `ObjectGridSchema` 对齐。\n\n### 本次明确不做(后续可单独跟进)\n- 客户端类型感知格式化器、客户端 xlsx 生成。\n- 客户端 JSON 导出按列裁剪(仍为兜底降级路径)。\n- PDF 导出(`createExportJob` 的 `ExportJobFormat` 不含 pdf)。\n\n## 影响范围\n- `packages/plugin-list/src/ListView.tsx`(接入服务端导出 + 权限门禁)\n- `packages/plugin-grid/src/ObjectGrid.tsx`(权限门禁)\n- `packages/types/src/objectql.ts`(`ListViewSchema.operations`)\n- 相应单测\n"
+}

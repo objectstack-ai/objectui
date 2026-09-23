@@ -1,0 +1,30 @@
+{
+  "number": 2094,
+  "kind": "pull_request",
+  "title": "polish(app-shell): Studio UI 一致性 + 美观度(浏览器实测优化)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T11:23:39Z",
+  "updated_at": "2026-06-29T11:41:49Z",
+  "closed_at": "2026-06-29T11:38:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T11:38:20Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2094",
+  "body": "按用户「继续用浏览器测试,优化界面美观度和用户体验」做的一轮 polish。\n\n## 改了什么(浏览器实测驱动)\n\n- **顶部支柱 tab 加图标**(Data/Automations/Interfaces 各配 Database/Workflow/LayoutDashboard)+ hover 过渡,更易扫读、更精致。\n- **Interfaces 工具条补左侧上下文**(`{label} · {type} · {name}`),与 Data/Automations 对齐 —— 三支柱工具条现在统一「左上下文 + 右操作」。\n- **三支柱 inspector 头统一**:都做成 **sticky 图标 + 标题 + 取消选择(✕)**(原来 Data 不 sticky、Interfaces/Automations 没✕);去掉**冗余的选中项 chip**(复用的 inspector 自己已经显示选中项名字 + 自带控件,我那个 chip 是重复)。\n\n实测三支柱:工具条上下文、tab 图标、inspector 头清爽一致(截图你已看到)。`eslint .` 0 / `tsc` 0。仅 objectui main,未 live。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

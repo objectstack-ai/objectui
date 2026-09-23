@@ -1,0 +1,35 @@
+{
+  "number": 2214,
+  "kind": "pull_request",
+  "title": "fix(form): evaluate view-level FormField.visibleOn with the canonical CEL engine",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T05:16:05Z",
+  "updated_at": "2026-07-04T09:20:20Z",
+  "closed_at": "2026-07-04T09:20:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T09:20:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2214",
+  "body": "Fixes #2212 — view-level `FormField.visibleOn` (CEL) never took effect anywhere in the form chain, while field-level `visibleWhen` worked.\n\n## Root causes (all confirmed by source scan, file:line in #2212)\n\n1. **Expression-object wire shape discarded** — the server ships `visibleOn` as `{ dialect: 'cel', source }` (what the spec `P` template emits). `sectionFields.ts` `attachVisibility` and `ObjectForm.tsx` `normalizeVisibility` only accepted `typeof expr === 'string'`, so the object shape was silently dropped.\n2. **Dead closure, wrong engine** — even for strings, the old code attached a `visible()` closure built on `evaluateCondition`, which is not a CEL evaluator (it only understands `{field, operator, value}` legacy objects and defaults unknown input to `true`) — and no renderer ever called that closure anyway. The form renderer destructured `visibleOn` out of the field config and dropped it.\n3. **Page mode lost sections entirely** — `RecordFormPage` only forwarded `sections` for `tabbed/wizard/split`, so a `simple` form view's authored field selection, grouping, and `visibleOn` predicates were all discarded in page-mode create/edit, while the New/Edit modal honored the same view via `resolveFormViewLayout`.\n4. **Grouped-sections path dropped per-field overrides** — `ObjectForm`'s simple-sections branch matched section fields by name only, losing the section field def's `visibleOn`.\n\n## Fix\n\n- `visibleOn` flows through normalization verbatim (both wire shapes) and the form renderer evaluates it **reactively** with `evalFieldPredicate` — the same canonical engine, record scope, and fail-open semantics as field-level `visibleWhen` (ADR-0036). When both `visibleOn` and `visibleWhen` are present, both must allow the field.\n- `RecordFormPage` now forwards curated `sections` for every layout family, aligned with the modal path.\n- Sectioned (`fromObjectSchema`) and `ModalForm` flat normalization now also copy field-level `visibleWhen`/`readonlyWhen`/`requiredWhen` rules they previously lost.\n\n## Tests\n\n- New `form-visibleon.test.tsx` (4): object shape hides/shows reactively, bare-string shape, broken-CEL fail-open, `visibleOn` × `visibleWhen` combination.\n- `sectionFields.test.ts` +5: both wire shapes survive normalization (no dead closure), runtime FormField shape, field-level rule copying.\n- Suites: plugin-form 165/165, app-shell 969/969, components (5131 pass; the single DATEFORMAT failure is a pre-existing timezone flake also failing on unmodified main).\n\n## Browser verification (examples/app-showcase, `showcase_task.notes` with `visibleOn: record.priority == 'urgent'`)\n\n- Page-mode edit: `priority = Low` → 备注 hidden; switching to `Urgent` shows it live; back to `Low` hides it again. Sections (Task group header, authored 7-field selection) now render in page mode.\n- New-record modal: 备注 hidden by default, appears when priority is set to `Urgent`.\n\nCo-Authored-By: Claude <noreply@anthropic.com>"
+}

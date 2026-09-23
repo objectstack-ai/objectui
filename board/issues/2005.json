@@ -1,0 +1,32 @@
+{
+  "number": 2005,
+  "kind": "pull_request",
+  "title": "feat(chatbot): frame extend builds in the plan card (Adding to existing app X)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T15:51:22Z",
+  "updated_at": "2026-06-25T15:55:04Z",
+  "closed_at": "2026-06-25T15:51:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T15:51:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2005",
+  "body": "When `propose_blueprint` returns a `targetApp` (extend / follow-up build), the plan card now shows a small badge — **\"Adding to existing app 「X」\"** — so the user sees the build is **additive** (growing an existing app), not a new one. The exact moment to catch \"wait, why is it making a *new* app?\".\n\n`targetApp` was already plumbed end-to-end (cloud emits it in the `blueprint_proposed` envelope; `detectProposedPlan` lifts it) but was never rendered. This adds the render + a `planExtendLabel` prop (English default).\n\nCompletes the \"extend-diff framing\" item from the confirm-before-change work (#521 / #2003). Built clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

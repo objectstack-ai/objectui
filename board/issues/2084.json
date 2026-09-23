@@ -1,0 +1,37 @@
+{
+  "number": 2084,
+  "kind": "pull_request",
+  "title": "chore(deps): bump lucide-react from 1.21.0 to 1.22.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "plugin",
+    "plugin: charts",
+    "plugin: kanban"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T08:02:19Z",
+  "updated_at": "2026-06-29T11:41:00Z",
+  "closed_at": "2026-06-29T11:37:22Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-29T11:37:22Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2084",
+  "body": "Bumps [lucide-react](https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react) from 1.21.0 to 1.22.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/lucide-icons/lucide/releases\">lucide-react's releases</a>.</em></p>\n<blockquote>\n<h2>Version 1.22.0</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>feat(icons): add 6 database variant icons by <a href=\"https://github.com/Barakudum\"><code>@​Barakudum</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4336\">lucide-icons/lucide#4336</a></li>\n<li>ci(release.yml): Remove concurrency field to prevent release mess by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4485\">lucide-icons/lucide#4485</a></li>\n<li>fix(docs): fix color input clipping by <a href=\"https://github.com/Hsiii\"><code>@​Hsiii</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4488\">lucide-icons/lucide#4488</a></li>\n<li>docs(site): add Deno to installation instructions by <a href=\"https://github.com/bartlomieju\"><code>@​bartlomieju</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4486\">lucide-icons/lucide#4486</a></li>\n<li>chore(deps): bump esbuild from 0.25.12 to 0.28.1 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4459\">lucide-icons/lucide#4459</a></li>\n<li>fix(docs): prevent private analytics token from blocking local dev by <a href=\"https://github.com/Hsiii\"><code>@​Hsiii</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4481\">lucide-icons/lucide#4481</a></li>\n<li>docs(installation.md): Remove outdate next tag in installation by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4495\">lucide-icons/lucide#4495</a></li>\n<li>fix(lucide-react-native): Fix context provider export by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4497\">lucide-icons/lucide#4497</a></li>\n<li>fix(astro): add Astro v7 compatibility by <a href=\"https://github.com/iseraph-dev\"><code>@​iseraph-dev</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4491\">lucide-icons/lucide#4491</a></li>\n<li>fix(icons): changed <code>carrot</code> icon by <a href=\"https://github.com/jguddas\"><code>@​jguddas</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4010\">lucide-icons/lucide#4010</a></li>\n<li>fix(icons): changed <code>ungroup</code> icon by <a href=\"https://github.com/jguddas\"><code>@​jguddas</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/3969\">lucide-icons/lucide#3969</a></li>\n<li>feat(icons): added <code>phi</code> icon also used as <code>golden-ratio</code> by <a href=\"https://github.com/whoisBugsbunny\"><code>@​whoisBugsbunny</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4218\">lucide-icons/lucide#4218</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/bartlomieju\"><code>@​bartlomieju</code></a> made their first contribution in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4486\">lucide-icons/lucide#4486</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/lucide-icons/lucide/compare/1.21.0...1.22.0\">https://github.com/lucide-icons/lucide/compare/1.21.0...1.22.0</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a href=\"https://github.com/lucide-icons/lucide/commits/1.22.0/packages/lucide-react\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2221,
+  "kind": "issue",
+  "title": "[P0][security] Access 矩阵按 { packageId } 限定作用域 + 保存切片合并(ADR-0086 P0,生产上线阻断)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T07:06:15Z",
+  "updated_at": "2026-07-04T07:57:15Z",
+  "closed_at": "2026-07-04T07:57:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2221",
+  "body": "**上线阻断项**,来自 framework 授权全生命周期缺口地图 objectstack-ai/framework#2561(2026-07-04 优先级重排中由 P1 升 P0)。决策归属:framework `docs/adr/0086-*`(framework PR #2559)——**本 issue 不重新决策,按 ADR-0086 P0 执行**。\n\n## 问题(两个真实事故面)\n\n#2196 落地的 Access 支柱把现有 `PermissionMatrixEditPage` 原样嵌入,当前行为(#2196 自己的验证记录可证:「matrix loads `showcase_contributor` (**84 objects**, granted counts)」):\n\n1. **「84 对象泄漏」**:包上下文中打开的 Access 面板列出的是**全环境所有对象**的权限矩阵,而非本包声明的对象——管理员在包 A 的面板里能看到并误改不属于包 A 的授权(越权数据暴露面);\n2. **跨包授权数据丢失**:保存把权限集**整体覆写**,其他包贡献的授权切片被一起冲掉(静默数据丢失陷阱)。\n\n## 要做的(ADR-0086 P0 范围,勿扩)\n\n- Access 矩阵按 **`{ packageId }` 限定作用域**:包上下文里只列当前包声明的对象;\n- 保存改为**切片合并**(slice-merge):只写回本包切片,不触碰其他包贡献的行;\n- 两个方向都要证明:本包编辑生效 **且** 其他包切片在保存后原样保留。\n\n## 验收标准\n\n- [ ] 打开包 A 的 Access 面板只见包 A 声明的对象(不再是 84 个全环境对象);\n- [ ] 在包 A 的矩阵编辑并保存后,包 B 此前的授权行**逐字节不变**(写回归测试);\n- [ ] 浏览器实测完整闭环:打开 → 编辑 → 保存 → 重开,含对照另一包的切片留存检查;\n- [ ] `type-check` 0 errors,现有测试不回归。\n\n## 协调点(重要)\n\nframework 侧的 `PermissionSetSchema.packageId` + 每记录 `managedBy` 是 ADR-0086 **P1**(尚未落地,见 framework#2561)。若 UI 切片合并依赖记录级 `packageId` 才能实现,先确认能否用**包 manifest 声明的对象清单**做作用域(P0 最小实现);记录级来源轴等 framework P1 落地后再收紧。不确定时在本 issue 提问,**不要自行改 framework 侧 schema**。\n\n## 关联\n\n- 上线定义:objectstack-ai/framework#2561(P0 清单)\n- 决策:framework ADR-0086(PR objectstack-ai/framework#2559);对齐 #2197\n- 现状引入:#2196(Access 支柱,已合并)\n- framework 侧 P0 姊妹项(已落地):objectstack-ai/framework#2562(requireAuth 翻转 + #1883 门)\n"
+}

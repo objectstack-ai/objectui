@@ -1,0 +1,33 @@
+{
+  "number": 2116,
+  "kind": "pull_request",
+  "title": "fix(user-state): upsert sys_user_preference by (user_id, key)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T14:21:14Z",
+  "updated_at": "2026-06-30T14:29:30Z",
+  "closed_at": "2026-06-30T14:29:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T14:29:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2116",
+  "body": "## Problem\n\nIn cloud local dev, navigating logs a server-side error on every other navigation:\n\n```\nERROR Insert operation failed {\"object\":\"sys_user_preference\", ...\nUNIQUE constraint failed: sys_user_preference.user_id, sys_user_preference.key\n```\n\n`key='ui.recent'`, and `(user_id, key)` is unique. It doesn't break rendering — just floods the logs.\n\n## Root cause\n\n`createObjectStackUserStateAdapter().save()` (the `ui.recent` / `ui.favorites` persistence adapter) already did find-then-insert, but two gaps let the constraint trip:\n\n1. **Concurrent saves race.** A fresh `recent` adapter is created whenever `dataSource`/user changes (`UserStateBridge`), so `cachedRowId` starts `null`. Rapid navigations fire overlapping debounced `save()` flushes that both `findExisting()`→`null`→`create()`. The first insert wins; the second hits the UNIQUE constraint.\n2. **No recovery on insert failure.** When the row already existed but wasn't found (race window, or a backend that dropped the find predicate), `create()` threw with no fallback to update.\n\n## Fix\n\n- Extract an `upsert()` helper. On `create()` failure (UNIQUE violation), re-find and update in place — a true `(user_id, key)` upsert.\n- Serialize overlapping `save()` calls via a `saveChain` so the second save sees the `cachedRowId` the first one set and updates instead of inserting.\n- `save()` still swallows errors (provider falls back to localStorage).\n\n## Tests\n\n`packages/data-objectstack/src/userState.test.ts` — added:\n- insert-failure recovery → update in place\n- concurrent saves → only one insert, second updates\n\nAll 13 tests pass.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

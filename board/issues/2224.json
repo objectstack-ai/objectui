@@ -1,0 +1,33 @@
+{
+  "number": 2224,
+  "kind": "pull_request",
+  "title": "fix(console): non-ASCII workspace slug + full chart category labels",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T08:23:33Z",
+  "updated_at": "2026-07-04T08:27:44Z",
+  "closed_at": "2026-07-04T08:27:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T08:27:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2224",
+  "body": "Two front-end defects found in a **real Chinese-user magic-flow walkthrough** (browser E2E on the local full stack), both blocking the Airtable-replacement target audience.\n\n## 1. Non-ASCII workspace name → onboarding dead-end 🚫 (blocker)\n\n`CreateWorkspaceDialog.nameToSlug()` strips everything outside `[a-z0-9 _-]`. A name written entirely in **中文 / 日本語 / 한국어** yields an **empty slug**, and the \"Create workspace\" button is `disabled={!slug.trim()}` → **permanently disabled**. A Chinese-named user literally cannot create their first workspace — they're stuck on step one of onboarding.\n\n**Fix:** when the ASCII pass yields empty (and the name is non-empty), fall back to a deterministic `workspace-<hash>` slug the user can still edit. Empty name still yields empty slug (button stays correctly disabled). Deterministic (name-derived hash) so the slug doesn't jitter per keystroke while typing a CJK name.\n\n**Verified end-to-end in the browser** (local stack, real registration): `李娜的客户管理` → slug `workspace-er6yfk`, button **enabled**, workspace **created**, landed in the console. Also: empty→disabled, `한국어`→`workspace-w3mf7`, `Acme 商贸`→`acme` (ASCII part wins).\n\n## 2. Bar-chart X axis drops middle category labels 📊\n\nThe non-angled branch of `ChartImpl` used `interval='preserveStartEnd'`, which keeps **only the first + last tick**. A short 3–5 category chart — e.g. an AI-built \"count by status\" dashboard — renders all its bars but labels only the first and last; the middle bars have **no axis label**. First observed on a customer-management dashboard: 4 bars, only 2 labels.\n\n**Fix:** `interval={0}` (render every tick). Non-angled means ≤4 short categories where horizontal space is ample, and the angled branch already prevents overlap on crowded axes, so `0` is safe for both. (`interval={0}` showing every category tick is recharts' documented behavior.)\n\n## Verification notes\n\n- **bug #1**: full browser E2E (screenshotted), plus a determinism table across zh/ja/ko/mixed/empty.\n- **bug #2**: code + build verified (fix compiled into the console bundle, overlaid onto the env serve path, backend dashboard valid with a 5-category `order_status` dimension). Pixel-level confirmation of the 5 labels was blocked by an **unrelated** app-publish propagation issue (the AI-built app showed \"not available yet\" on its app route and wasn't listed in the launcher — filed separately), not by the chart fix.\n\n## Consumer\n\nCloud pins objectui via `.objectui-sha`; a follow-up cloud PR will bump the pin once this merges."
+}

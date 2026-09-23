@@ -1,0 +1,32 @@
+{
+  "number": 2273,
+  "kind": "pull_request",
+  "title": "feat(app-shell,layout): nav active-state inverse resolver + designer deep-links (#2272) and AppNavInspector four-landing-mode rework (#2245)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T08:21:59Z",
+  "updated_at": "2026-07-05T08:38:56Z",
+  "closed_at": "2026-07-05T08:38:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-05T08:38:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2273",
+  "body": "Implements #2272 and #2245 in three commits (they share the `resolveHref`/`resolveActiveNavItem` pair and the nav-id contract).\n\n## Commit 1 — `resolveActiveNavItem`: the inverse of `resolveHref` (#2272)\n\nThe nav tree now elects **exactly one** active item per location. The resolver parses the URL into a typed target and ranks matches by specificity — record deep-link > filters slice (search-param set equality, template-resolved) > named view (tolerates qualified `<object>.<key>` ids) > exact > object sub-route weak claim > boundary prefix — ties breaking to tree order. `NavigationRenderer` computes the winner once (context-provided); per-item active state and group auto-expansion are id comparisons. The old per-item `computeIsActive` prefix heuristics and their accreted special cases are deleted.\n\n- **Fixes the #2255 gap**: a `filters` item's href carries `?filter[...]`, which pathname-only matching could never see — the item never highlighted while its bare-object sibling wrongly claimed `/data`.\n- Behavior improvements: bare object items weak-claim `/view/*` and `/data` when no more-specific sibling is registered (orientation kept instead of nothing highlighting).\n- `resolveHref` ↔ `resolveActiveNavItem` round-trip tested for every leaf shape (11 new cases; layout suite 55/55).\n\n## Commit 2 — nav-id designer deep-links (#2272)\n\n`?sel=nav:<id>` (the spec-required snake_case id — stable across reorders) is now the external contract for \"open the designer at this menu\"; positional selection ids stay in-memory:\n\n- `nav-selection.ts` translates id ↔ positional path at the designer boundary\n- metadata-admin app editor (`ResourceEditPage`) applies the param on load (implies edit mode) and mirrors nav selections back to the URL (replace; ADR-0047 convention) — shareable, reload-safe\n- `StudioDesignSurface` (Interfaces pillar) gets the same wiring\n- `AppSidebar` gains an **Edit Navigation** app-switcher item that resolves the currently-active menu via `resolveActiveNavItem` and deep-links to `/metadata/app/:name?sel=nav:<id>` — runtime → designer jumps land on the menu you were looking at\n\n## Commit 3 — AppNavInspector rework (#2245)\n\nOff-spec `path`/`kind` editing (ignored by the runtime, rejected at save) replaced with contract-first target editing:\n\n- `type` selector over the spec union; page/dashboard/report targets are `client.list`-backed comboboxes; url is free text + target select\n- `object` items expose the **four landing modes** in `resolveHref` precedence order (ADR-0055): default view / named view (picker scoped to the object's views) / record deep-link / `filters` slice (key-value editor with object-field picker)\n- mode is **derived from field presence, never persisted**; switching type/mode clears the other targets plus every legacy key — editing a legacy item IS its migration, and a stale `recordId` can no longer hijack precedence\n- every write ensures a snake_case `id` and explicit `type`; live **Resolved link** preview renders the real runtime landing via `resolveHref` (template vars kept visible) — the original \"declared ≠ enforced\" complaint becomes observable at edit time\n- pure logic in `nav-target.ts` (+12 unit tests); `AppNavCanvas.addItem` creates `{id, type:'object', label}` instead of the save-invalid `{label, path:''}`; empty-app fallback root key is now `navigation` (the only spec'd write target)\n- i18n `engine.inspector.appNav.*` reworked (en, zh)\n\n## Verification\n\n- `turbo build` (tsc) app-shell/layout/i18n + deps: pass\n- Tests: app-shell + layout + i18n **1140/1140** (incl. 23 resolver + 12 nav-target new cases)\n- ESLint on all touched files: **0 new errors** (5 pre-existing errors reproduce via stash-baseline on the same file set)\n\n## Follow-ups (out of scope)\n\n- `StudioNavItemInspector` convergence onto the four-mode editor (#2245 item 6) — Studio's object-only picker remains correct\n- Breadcrumbs/recents consuming `resolveActiveNavItem` (mentioned in #2272 as follow-on consumers)\n\nCloses #2272. Closes #2245.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_018m3GX7EMKNPDZuee152EKK\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_018m3GX7EMKNPDZuee152EKK)_"
+}

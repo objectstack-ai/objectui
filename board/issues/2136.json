@@ -1,0 +1,30 @@
+{
+  "number": 2136,
+  "kind": "issue",
+  "title": "fix(grid): 行内编辑无法开启、引用字段显示 [object Object]、Edit inline 缺少国际化",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T07:26:46Z",
+  "updated_at": "2026-07-01T13:51:55Z",
+  "closed_at": "2026-07-01T13:51:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2136",
+  "body": "## 问题\n\n列表页(grid 视图)工具栏的 **Edit inline** 行内编辑存在三个问题:\n\n1. **点击 Edit inline 没反应**\n   `ListView` 里 `inlineEdit` 没有本地状态,按钮点击只调用 `onInlineEditChange`,而上层 `ObjectView.persistViewPatch` 只做后端防抖持久化、不更新本地 React 状态,导致 `schema.inlineEdit` prop 不会同步翻转 —— 表格不进入编辑态,要整页刷新才可能生效。其它开关(隐藏字段、密度、排序、筛选)都在 `ListView` 内维护本地状态,唯独 `inlineEdit` 漏了。\n\n2. **行内编辑引用/对象类字段显示 `[object Object]`**\n   营销人员等字段的值是展开后的引用对象(如 `{ id, name: 'Dev Admin' }`)。读态经 `coerceToSafeValue` 优雅地显示为 \"Dev Admin\";但编辑态里,若字段类型没有对应的行内编辑控件(不在 `EDIT_WIDGETS` 中),`ObjectGrid.renderCellEditor` 返回 `null`,`data-table` 回退到普通文本 `<input>`,把对象直接绑到 `value` 上渲染成 `[object Object]`。更严重的是失焦 `handleEditBlur` 会 `saveEdit(true)`,把对象覆盖成字符串,造成数据损坏。\n\n3. **Edit inline 按钮缺少国际化**\n   `t('list.inlineEditShort')` / `t('list.inlineEditLabel')` 在 `packages/i18n` 的 `en`/`zh` locale 的 `list` 段里都没有对应 key,中文界面下只能显示英文 defaultValue \"Edit inline\"。\n\n## 方案\n\n1. 在 `ListView` 为 `inlineEdit` 增加本地 state(照 `hiddenFields` 的写法:`useState` 初始化自 `schema.inlineEdit` + `useEffect` 同步 prop + `updateInlineEdit` setter 兼顾本地生效与上报持久化),按钮/`editable`/`ViewSettingsPopover` 全部改读本地 state。\n2. 在 `data-table` 的文本回退编辑器中,当值为非空对象/数组时,渲染只读的、经安全 coerce 的标签(而非可编辑文本框),失焦走 cancel 不 save —— 既不再出现 `[object Object]`,也杜绝把引用对象覆盖成字符串。此类字段应通过表单/专用选择器编辑。\n3. 在 `packages/i18n` 的 `en.ts` / `zh.ts` 的 `list` 段补上 `inlineEditShort`、`inlineEditLabel` 两个 key 的中英文文案。\n"
+}

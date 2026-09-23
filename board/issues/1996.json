@@ -1,0 +1,32 @@
+{
+  "number": 1996,
+  "kind": "pull_request",
+  "title": "feat(auth): Cloud Admin sends platformScope=all for cross-org list views",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T08:41:33Z",
+  "updated_at": "2026-06-25T09:15:59Z",
+  "closed_at": "2026-06-25T09:06:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1996",
+  "body": "## What\n\nCompanion to **objectstack-ai/cloud** — the cloud control-plane change that lets a **verified platform super-admin** read control-plane objects across **all orgs** in the Cloud Admin (`cloud_control`), instead of only their own org's.\n\nWhen the `cloud_control` app is active, the authenticated-fetch middleware appends `?platformScope=all` to `GET /api/v1/data/<object>` requests for the org-owned control-plane objects (`sys_environment`, `sys_environment_member`, `sys_app`, `sys_team`, `sys_invitation`, `sys_organization`). This mirrors the existing `X-Tenant-ID` injection in the same middleware.\n\n## Why this is safe (strictly scoped)\n\nThe server-side org-scope hook **recognizes and strips** this signal for exactly these objects, and only **honors** it for a verified super-admin (and audits it). So:\n\n- **Gated on the active app** being `cloud_control` — read from the route (`/apps/cloud_control/…`, basename-agnostic), so this non-React middleware needs no context plumbing.\n- **Whitelisted to the exact objects** the server strips — never attached to any other object (whose query the unrecognized param would otherwise corrupt). The server has no stripper for non-whitelisted objects, hence the strict list.\n- **Exact-segment match** (`sys_environment` ≠ `sys_environment_log`), and **never double-appended**.\n- For a non-super-admin who somehow sends it, the server strips it and the read stays org-scoped — so attaching it is always safe.\n\n## Tests\n\n`packages/auth/src/__tests__/createAuthenticatedFetch.test.tsx` — 8 new cases: append + `&`-join when a query already exists + basename prefix + non-whitelisted object skipped + partial-name skipped + `sys_environment_member` matched + other app skipped + no double-append. **15/15 pass.**\n\n## Companion\n\nServer change (the actual scope bypass + super-admin gate + audit): objectstack-ai/cloud `fix/cloud-admin-cross-org-env-read`. This UI change is a no-op without it."
+}

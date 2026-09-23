@@ -1,0 +1,32 @@
+{
+  "number": 1972,
+  "kind": "pull_request",
+  "title": "feat(studio): on-canvas validation badges + Problems panel for the flow builder",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T14:47:55Z",
+  "updated_at": "2026-06-24T14:51:24Z",
+  "closed_at": "2026-06-24T14:48:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T14:48:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1972",
+  "body": "Implements #1945 — on-canvas validation badges + a Problems panel for the Studio flow builder.\n\n## Problem\nFlow validation surfaced only as a top banner (\"…N error(s)\") that didn't point to the offending node/edge. Detection already existed in the simulator's `validateFlowDraft`; this was a **surfacing** gap, not a detection one.\n\n## What's in this PR\n- **Per-node / per-edge badges** — an error/warning icon on each offending element, with the issue message(s) in its tooltip.\n- **Problems panel** — lists every issue; clicking a row selects + reveals (pans to) the node/edge.\n- **Two sources, one list** — structural (`validateFlowDraft`) + the server `_diagnostics` already attached to the layered record.\n- Badges + rows derive from the live draft, so they **clear as issues are resolved**.\n\n## Changes\n- `flow-sim-validate.ts` — dangling-edge errors now carry their endpoints so they key to the offending edge (per-element, not flow-level).\n- `flow-problems.ts` (new) — maps both sources onto node/edge/flow targets; `indexProblemBadges` folds per-element badges (errors dominate warnings). Unit-tested (`flow-problems.test.ts`, 12 cases).\n- `FlowCanvas.tsx` / `flow-canvas-parts.tsx` — per-element badges + a reveal-to-element pan driven by the panel.\n- `ProblemsPanel.tsx` (new) — the panel.\n- `FlowPreview.tsx` — live problems memo, Problems toggle (with count), reveal handshake.\n- `preview-registry.ts` / `ResourceEditPage.tsx` — new optional `diagnostics` prop threads the server `_diagnostics` (errors track live client Zod issues; warnings server-sourced).\n- Restored the `MockResults` type accidentally dropped from `flow-sim-types.ts` (build fix — it's imported by `flow-simulator.ts`).\n\n## Verification\n- `pnpm --filter @object-ui/app-shell build` (tsc) — clean.\n- `vitest` — 12 new + 183 existing previews/simulator tests pass.\n- Changeset included (`@object-ui/app-shell` patch).\n\nCloses #1945\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

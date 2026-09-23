@@ -1,0 +1,30 @@
+{
+  "number": 2002,
+  "kind": "pull_request",
+  "title": "fix(console): polished, localized 'Assigned Users' management (real-user UX pass)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T11:17:59Z",
+  "updated_at": "2026-06-25T11:21:55Z",
+  "closed_at": "2026-06-25T11:19:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T11:19:04Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2002",
+  "body": "A UX review (from a real admin's POV) of the just-shipped permission-set \"Assigned Users\" found it **not understandable**: it showed a raw `user_id` (couldn't tell who held a seat), English text in a Chinese UI, and a dev-flavored `[ObjectStack] AI-seat cap reached…` banner.\n\nRewrites `AssignedUsersSection` as a **people-first, localized** widget over `sys_user_permission_set`:\n- **resolves each user → name + email** (fetch+join `sys_user`; no lookup-timing dependence) → you can see WHO holds a seat\n- **localized** (zh/en via `detectLocale`): title, count, Add, Remove, empty state\n- **friendly inline cap message** (amber, no `[Tag]` prefix): maps the server cap error → \"AI 席位已用完(N/N)…\"\n- people rows (avatar + name + email) with a **visible remove (×)**; \"添加用户\" opens the reusable `RecordPickerDialog`\n\n**Browser-verified** (objectos-ee, cap=1): the `ai_seat` set shows \"已分配用户 1人\" + Dev Admin/admin@objectos.ai; adding at cap → the amber localized message; remove (×) + add → the new user gains the seat and shows with name/email.\n\nThe generic add-by-picker engine (objectstack-ai/objectui#1999 + framework#2324) still ships as the platform capability; this is the polished surface for the high-value case. Follow-ups (separate): hide the irrelevant CRUD matrix for seat-type sets, a friendly label for `ai_seat`, and a dedicated AI-seat page.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

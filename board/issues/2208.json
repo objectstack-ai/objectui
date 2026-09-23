@@ -1,0 +1,30 @@
+{
+  "number": 2208,
+  "kind": "issue",
+  "title": "FormPage internal mode renders zero fields: ExpandedViewItem config not unwrapped, no viewKind guard (forms route black screen)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T02:59:40Z",
+  "updated_at": "2026-07-04T04:51:12Z",
+  "closed_at": "2026-07-04T04:51:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2208",
+  "body": "## 现象(P0-8/P0-20,HMR console + objectstack dev 实测,非旧 bundle 假象)\n\n`/forms/showcase_task.tabbed`(authed internal mode)渲染:标题为裸名 \"showcase_task.tabbed\"、**零字段**、裸 Submit 按钮。所有 form 视图(simple/tabbed/wizard)一致。若 target 误指 list 视图(如 `showcase_task.default`),同样黑屏渲染且提交还会误报成功。\n\n## 根因(扫码 apps/console/src/components/FormPage.tsx)\n\n服务端 `GET /api/v1/meta/view/<name>` 对展平视图返回 **ExpandedViewItem** 形状:\n\n```json\n{ \"name\": \"showcase_task.tabbed\", \"object\": \"showcase_task\", \"viewKind\": \"form\",\n  \"label\": \"showcase_task.tabbed\", \"config\": { \"type\": \"tabbed\", \"data\": {...}, \"sections\": [...] } }\n```\n\n`loadInternalForm`(FormPage.tsx:232-269)读的是 `item?.spec ?? item` 的**顶层** `sections`/`label`:\n\n1. `spec.object` 有值 → 不抛错、正常进渲染;\n2. `spec.sections` 为 undefined(实际在 `config.sections`)→ `buildSections` 返回空 → 零字段 + 裸 Submit;\n3. `spec.label` 是裸名 → 标题错误;\n4. 无 `viewKind` 校验 → target 解析到 list 视图时照样渲染空表单,提交 POST /data/:object 还成功(误报)。\n\n## 修复方案\n\n- `loadInternalForm` 解包 `config`:`const form = record.config ?? record`;object 取 `record.object ?? form.data?.object`;label 取 `form.label ?? (record.label !== name ? record.label : objectSchema.label)`。\n- `record.viewKind === 'list'` 时抛出明确错误(\"target 是 list 视图,不是 form\"),不再渲染空表单。\n- `tabbed`/`wizard` 的 `config.sections` 解包后即可退化渲染为顺序 sections(可用性 > 完美 tab UI)。"
+}

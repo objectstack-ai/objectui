@@ -1,0 +1,30 @@
+{
+  "number": 1990,
+  "kind": "pull_request",
+  "title": "feat(identity): align client user-context with ADR-0068",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T01:40:15Z",
+  "updated_at": "2026-06-25T05:09:22Z",
+  "closed_at": "2026-06-25T05:09:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T05:09:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1990",
+  "body": "## Summary\nClient counterpart to **ADR-0068**. Mirrors the framework unified `EvalUser` contract on the client so a predicate evaluates identically across **client**, **server-formula**, and **server-RLS**.\n\n## Changes\n- **`ExpressionProvider`**: expose the canonical **`current_user`** plus the back-compat **`user`** alias and the server-RLS-parity **`ctx.user`** alias — all pointing at the same user object (both the predicate scope and the evaluator context).\n- **`useIsWorkspaceAdmin`**: accept the canonical `org_owner` / `org_admin` role names now emitted into `user.roles[]` by the server `customSession`, so admin detection survives the removal of the `user.role='admin'` overwrite footgun.\n\n## Not publish-gated\nNo new `@objectstack/spec` npm exports are consumed (inline-compatible), so this can merge independently of the framework release (objectstack-ai/framework#2312).\n\n## Verification\n- app-shell: build + **766** tests\n- auth: build + **107** tests\n- console: build **33/33**\n- Playwright **chromium e2e 10/10** against the production build (real-browser render, meaningful text, **no JS runtime errors**).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

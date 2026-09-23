@@ -1,0 +1,32 @@
+{
+  "number": 2207,
+  "kind": "pull_request",
+  "title": "test(app-shell): stub listDrafts in ObjectFieldInspector tests (fix main CI)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T02:18:12Z",
+  "updated_at": "2026-07-04T02:22:19Z",
+  "closed_at": "2026-07-04T02:18:45Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T02:18:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2207",
+  "body": "## Problem\n\n`main` CI has been red since run [28682411708](https://github.com/objectstack-ai/objectui/actions/runs/28682411708) (every push after #2199): all **16 tests** in `packages/app-shell/src/views/metadata-admin/inspectors/ObjectFieldInspector.test.tsx` fail with\n\n```\nTypeError: client.listDrafts is not a function\n  at ObjectFieldInspector.tsx:1043\n```\n\n#2199 taught the inspector's `useObjectOptions` to also call `client.listDrafts({type:'object'})` (so a lookup can target sibling draft objects), but the test file's `useMetadataClient` mock only stubbed `list` — the component now throws in its mount effect on every render.\n\n## Fix\n\nStub `listDrafts` alongside `list` in the mock. Test-only change, no changeset needed.\n\n## Testing\n\n`vitest run …/ObjectFieldInspector.test.tsx` → **16/16 pass** (was 16/16 fail on `origin/main` 638bbd90f).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

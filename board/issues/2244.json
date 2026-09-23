@@ -1,0 +1,32 @@
+{
+  "number": 2244,
+  "kind": "pull_request",
+  "title": "feat(studio): pick a connector action from the chosen connector (no hand-typed action ids)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T18:39:38Z",
+  "updated_at": "2026-07-04T18:43:42Z",
+  "closed_at": "2026-07-04T18:40:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T18:40:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2244",
+  "body": "## Why (UX eval #5 — picker-first, no hand-typed identifiers)\n\nIn a flow's **Connector Action** node, `actionId` was a **free-text box** (`sendMessage · send` placeholder) — a typo silently produces a node that fails at run time. It was left as text because a connector's actions have \"no flat catalog\"… but each connector already advertises its actions in the runtime descriptors: `GET /api/v1/automation/connectors` → `{ name, actions: [{ key, label }] }`.\n\nThis is the **last critical** hand-typed-identifier gap in flow-node config — object / field / flow / role / connector / email-template references are already pickers.\n\n## What\n\n`actionId` is now a **picker of the chosen connector's actions**, resolved from the sibling `connectorId` — mirroring how `object-field` lists the fields of its resolved object:\n\n- new reference kind **`connector-action`** + `connectorSource` on `FlowReferenceSpec`;\n- `useConnectorActionOptions(connectorName)` fetches the descriptors and maps `actions[]` → options;\n- `resolveConnectorName` reads the chosen connector from the node's `connectorConfig` block.\n\nLike every reference in the designer it stays an **editable combobox** — with no connector chosen (or none installed) it degrades to free text with a hint (*\"Choose a Connector above to list its actions\"* / *\"Actions of &lt;connector&gt;.\"*).\n\n## Verification\n\nUnit-tested — `resolveConnectorName` (reads `connectorConfig.connectorId`, custom source, undefined cases) and `connectorActionsToOptions` (maps `{key,label}`, drops malformed, tolerates non-arrays). app-shell type-check clean (29/29). The fetch + combobox glue is a thin mirror of the already-shipped `object-field` picker.\n\n> Note: the remaining two lower-priority #5 gaps — app-nav `path` (kind-aware picker) and lookup `dependsOn` (multi-select) — are follow-ups.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

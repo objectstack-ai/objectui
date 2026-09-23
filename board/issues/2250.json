@@ -1,0 +1,32 @@
+{
+  "number": 2250,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): polish the detail-header highlight strip (#2249)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T04:18:15Z",
+  "updated_at": "2026-07-05T06:36:20Z",
+  "closed_at": "2026-07-05T06:36:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-05T06:36:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2250",
+  "body": "Closes #2249\n\n## 背景\n\n对象详情页顶部的高亮字段条(`HeaderHighlight`)显示效果不够理想:金额 KPI 一枝独大导致基线不齐、中文标签被英文式 `uppercase`/宽字距拉散、关联客户等长引用被拦腰截断、列间缺乏边界。详见 #2249。\n\n## 改动(`packages/plugin-detail/src/HeaderHighlight.tsx`)\n\n参考 Salesforce Highlights Panel / Stripe 明细头范式,纯样式调整:\n\n- **统一值字号** — 取消 KPI 的 `text-xl md:text-2xl`,所有值 `text-sm font-semibold`,数字保留 `tabular-nums`,整排基线对齐。\n- **矫正中文标签** — 去掉 `uppercase tracking-wide`。\n- **成列分隔** — 每列 `border-l px-5`,首列 `first:border-l-0 first:pl-0`。\n- **放宽引用字段 + 悬停全称** — reference/lookup/master_detail 纳入 `isWide`,值加 `title`。\n- **修 basis 隐患** — 列容器 `basis`/`max-w` 改为互斥输出,避免两个 `flex-basis` 让 Tailwind CSS 顺序决定胜负、wide 列塌回窄宽度。\n\n不改取字段与数据渲染逻辑。\n\n## 验证\n\n真机详情页需 console + 带数据后端(本 worktree 无),用组件改动后**实际输出的 DOM + 相同 Tailwind 类**搭自包含页面(真实 Tailwind 编译 + 主题变量)截图核对:\n\n- 前:金额 24px 独大、中文标签松散、关联客户截断为「国家电投江苏…」、无列分隔。\n- 后:所有值统一字号基线对齐、竖线成列、标签正常、金额 `tabular-nums`、关联客户完整显示「国家电投江苏海上风电有限公司」。\n\n改动文件类型检查无新增报错(仅 worktree 依赖未构建 dist 导致的 `Cannot find module @object-ui/*` 通病)。"
+}

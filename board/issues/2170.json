@@ -1,0 +1,33 @@
+{
+  "number": 2170,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): readable import preview — wider columns + friendlier validation errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T02:00:45Z",
+  "updated_at": "2026-07-03T03:39:31Z",
+  "closed_at": "2026-07-03T03:39:29Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T03:39:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2170",
+  "body": "## 背景\n\n导入向导「预览」步骤有两处影响可读性的问题(见截图):\n\n1. **预览表格太挤** —— 映射了很多列时,所有列被压进固定的弹窗宽度里,中文表头被压成一列一个字(`关联排班计划` 竖着排),看不清。\n2. **校验报错难读** —— 引用字段解析失败时显示成:\n   > 第 1 行: **product: product:** no os_tianshun_ehr_product matches \"导管架\"\n\n   字段名重复、内部对象 API 名(`os_tianshun_ehr_product`)泄露给用户、且全是英文。\n\n## 改动\n\n- **表格**:给映射列加 `min-w-[140px]` 且表头 `whitespace-nowrap`,列太多时预览区横向滚动,而不是把每列压扁。\n- **报错文案**:服务端结果本就带结构化 `code`(`reference_not_found` / `reference_ambiguous`),客户端又有该行的单元格值。于是**按 `code` 本地化**渲染中文 + 用字段标签(而非 API 名),**完全不解析英文句子**(仅在拿不到单元格值时,从消息里抠出引号里的值兜底)。不认识的 `code` 才退回服务端原文,并去掉重复的 `字段名:` 前缀。\n\n效果:\n\n| | |\n|---|---|\n| 之前 | `第 1 行: product: product: no os_tianshun_ehr_product matches \"导管架\"` |\n| 之后 | `第 1 行: 产品:找不到匹配 \"导管架\" 的记录` |\n\n## 为什么不改 framework\n\n那句英文产在 framework 的 `import-coerce.ts:316`,但它已经吐了结构化 `code`。据 `code` 在前端本地化更稳:不跨仓库、不受服务端 locale 限制、i18n 友好。framework 端唯一可选的改进是去掉消息里重复的 `${field}:` 前缀(重复根源),但客户端已兜住,非必需。\n\n## 测试\n\n- `formatDryRunError` 新增 5 个单测(标签解析、按 code 渲染、值兜底、ambiguous、未知 code 去前缀),`importDryRun.test.ts` 共 9 个用例全绿。\n- `@object-ui/plugin-grid`、`@object-ui/i18n` 构建通过(exit 0,0 TS 错误)。\n- ⚠️ **未做浏览器实测**:这屏要走完整「上传 → 映射 → 点校验数据 → 服务端返回引用错误」才触发,本地不好复现真实 dry-run 报错,故仅逻辑 + 单测层面验证。\n"
+}

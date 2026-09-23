@@ -1,0 +1,32 @@
+{
+  "number": 2012,
+  "kind": "pull_request",
+  "title": "feat(auth): SSO-only (\"enforced\") login UI + break-glass fallback (ADR-0024 D5.2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-26T14:19:08Z",
+  "updated_at": "2026-06-26T14:42:29Z",
+  "closed_at": "2026-06-26T14:42:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-26T14:42:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2012",
+  "body": "Consumes the framework's new `/auth/config` `features.ssoEnforced` signal ([framework#2349](https://github.com/objectstack-ai/framework/pull/2349)). When the server locks the team login to the IdP, **LoginForm** now:\n\n- hides the local email/password form + the sign-up link,\n- shows the federated button(s) only (`SocialSignInButtons` — e.g. \"Continue with ObjectStack\" for cloud-as-IdP, or an external OIDC/SAML provider),\n- offers an understated **break-glass** \"Use a password instead\" link that reveals the password form for the env owner / local admin (e.g. during an IdP outage), with a \"Back to single sign-on\" toggle.\n\n`emailPassword.enabled === false` is honored as a belt-and-suspenders enforced signal for older servers. **Default-off**: a failed `/auth/config` fetch never hides the form (an enhancement, not a gate).\n\n## Open-core\nThe mechanism is framework-driven (the cloud sets `ssoOnlyMode` per-env / self-host via `OS_AUTH_SSO_ONLY`). This PR is the console UI that reacts to the signal.\n\n## Verify\n`tsc` clean; `@object-ui/auth` suite green — **115 tests** incl. 4 new enforced-mode cases (hide form/signup, break-glass reveals form + \"back to SSO\", non-enforced unchanged, `emailPassword.enabled===false` honored). Browser E2E lands with the cloud wiring.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2264,
+  "kind": "issue",
+  "title": "Studio design surface: ~88 hardcoded Chinese strings bypass the existing i18n layer (mixed-language screens)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-07-05T06:48:48Z",
+  "updated_at": "2026-07-05T08:25:24Z",
+  "closed_at": "2026-07-05T08:25:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2264",
+  "body": "Mirror of framework#2615 (P2 mixed-language item), found by the Studio package-create UX dogfood (framework#2609) and scoped by a source scan at `4fbf910`.\n\n## Symptom\n\nSingle screens render half-English, half-Chinese regardless of locale: the Studio landing is fully Chinese (应用构建 / 新建软件包) next to an English Home; the builder shows English chrome with embedded Chinese (添加字段 / 未分组 / 请选择… / 拖动字段排序…); the record form shows a 请选择… placeholder inside an otherwise-English dialog.\n\n## Root cause (scan result)\n\n`packages/app-shell/src/views/studio-design/` hardcodes user-visible Chinese directly in JSX/string literals instead of using the i18n layer that **already exists and is partially used in the same files** (e.g. `StudioDesignSurface.tsx` calls `tFormat('engine.studio.pkg.created', locale, …)`, and `metadata-admin/i18n.ts` already defines keys like `engine.packages.new: '新建软件包'` and `engine.form.addFieldPlain: '添加字段'`).\n\nNon-comment CJK string lines per file:\n\n| File | lines |\n| --- | --- |\n| `BuilderLanding.tsx` | 23 |\n| `ObjectValidationsPanel.tsx` | 18 |\n| `StudioDesignSurface.tsx` | 16 |\n| `ObjectFormDesigner.tsx` | 16 |\n| `ObjectSettingsPanel.tsx` | 13 |\n| `metadataError.ts`, `packages-io.ts` | 1 each |\n\n≈88 lines total — a bounded, mechanical fix: hoist each literal into the existing key table (several keys already exist) and render through the same `tFormat`/locale path the rest of the console uses, with English defaults.\n\n## Acceptance\n\nWith locale=en every studio-design string renders English; with locale=zh-CN, Chinese. No screen mixes both (except user data).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01DHQc5BdGhTzPfazex3vWdt"
+}

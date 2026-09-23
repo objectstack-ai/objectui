@@ -1,0 +1,30 @@
+{
+  "number": 2062,
+  "kind": "pull_request",
+  "title": "feat(app-shell): detail.hidePath opt-out for the auto record:path stepper",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T02:28:55Z",
+  "updated_at": "2026-06-29T03:13:46Z",
+  "closed_at": "2026-06-29T03:13:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2062",
+  "body": "## What\n\nSurface the synth's existing `hidePath` option through `objectDef.detail.hidePath`:\n\n```ts\ndetail: { hidePath: true }   // suppress the top status stepper for this object\n```\n\nOne-line wiring in `RecordDetailView.tsx`, mirroring the existing `detail.hideRelatedTab` / `detail.relatedLayout` mappings. Default (unset) keeps the stepper — **zero regression**.\n\n## Why\n\nThe record detail page auto-detects a \"status/stage\" field (`detectStatusField`) and renders it as a Salesforce Lightning Path-style stepper at the top, marking every option *before* the current value as \"completed ✓\" — purely by list position.\n\nThat's correct for a genuine linear pipeline, but wrong when the picklist isn't one. Real-world example: a `任务状态` field that folds a **risk gradient** into the status —\n\n> 已完成 / 进行中-正常 / 进行中-低风险 / 进行中-中风险 / 进行中-高风险 / 进行中-特高风险 / 已逾期\n\nThe stepper then checks off `已完成` and every lower-risk state as \"done\" just because they sort earlier, which misrepresents the record. Until the data model is split (status vs. risk), authors need a config-level off switch. `detail.hidePath` is that switch.\n\nThis is the opt-out half; a follow-up may tighten auto-detection (only emit a path for an explicit `stage`-typed field / `stageField`), but that changes a global default and is out of scope here.\n\n## Scope\n\n- `packages/app-shell/src/views/RecordDetailView.tsx` — pass `hidePath` from `objectDef.detail.hidePath`.\n- Changeset: `@object-ui/app-shell` minor.\n- No synth change — `hidePath` (option + `buildHeaderRegion` consumption + unit tests) already exists.\n\n## Verification\n\n- `turbo type-check --filter=@object-ui/app-shell` → 28 tasks pass\n- synth tests `buildDefaultPageSchema.test.ts` → 54 pass (incl. `hidePath` cases)\n- eslint on the changed file → only the preexisting line-191 `no-empty` error (unrelated) + repo-wide `any` warnings"
+}

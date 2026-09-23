@@ -1,0 +1,30 @@
+{
+  "number": 2128,
+  "kind": "issue",
+  "title": "fix(form): 分组表单右侧永远空着 —— section 的多列 grid 套在整个表单外面而非字段上",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T03:25:07Z",
+  "updated_at": "2026-07-01T04:53:02Z",
+  "closed_at": "2026-07-01T04:53:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2128",
+  "body": "## 问题现象\n\n在对象「新建/编辑」弹窗表单里,当字段被分到某个**分组(section / 字段组)**下时,分组右侧永远空着——所有字段都挤在左边一列(或左半区),右半区是一片空白(见截图红框)。用户把它当成「平台 bug」,反馈说「分组下的字段右边始终空着」。\n\n只有**分组的表单**会这样;不分组的「扁平字段」表单(走 auto-layout)多列布局是正常的。\n\n## 根因(已用 DOM 复现确认)\n\n分组表单的每个 section 是这样渲染的(以 `ModalForm` 为例,`SplitForm` / `TabbedForm` / `WizardForm` / `DrawerForm` 同款写法):\n\n```tsx\n<FormSection columns={section.columns || 1} gridClassName={CONTAINER_GRID_COLS[...]}>\n  <SchemaRenderer schema={{ ...baseFormSchema, fields: buildSectionFields(section) }} />\n</FormSection>\n```\n\n`FormSection` 把 `columns`/`gridClassName` 应用在**外层容器 div** 上(`packages/plugin-form/src/FormSection.tsx:154-158`):\n\n```tsx\n<div className={cn('grid gap-4', gridClassName || gridCols[columns])}>\n  {children}\n</div>\n```\n\n但这个 grid 的 **children 只有一个** —— 整个 `<SchemaRenderer>` 表单元素。也就是说:\n\n- **多列 grid 被套在了「整个表单」外面**,而不是套在「字段」外面。一个 grid 里只有 1 个 grid item(表单),它占据第 1 格,其余列永远空着 → **这就是右边那片空白**。\n- 与此同时,内层 `<SchemaRenderer>` 表单**没有**收到 `columns` / `fieldContainerClass`,于是它按默认 `columns=1` 走 `space-y-4`,把字段单列竖排。\n\n用一个最小 `ModalForm`(section `columns: 2`,4 个字段)渲染后 dump DOM,可稳定复现:\n\n```\nGRID class= grid gap-4 grid-cols-1 @md:grid-cols-2 | directChildren= 1   ← 2 列 grid 只有 1 个子节点\nFORM fieldWrap class= space-y-4 | fields= 4                              ← 内层表单单列竖排 4 个字段\n```\n\n对比:**扁平字段路径是对的**(`ModalForm.tsx:555-563`)——它把 `columns` 和 `fieldContainerClass` 传进内层表单 schema,让字段容器自己变成多列 grid。分组路径的 `renderBody` 漏了这一步。\n\n## 涉及文件\n\n多列 grid 都错误地套在了单个表单外面,内层表单没拿到 `columns`:\n\n- `packages/plugin-form/src/ModalForm.tsx:493-501`(`renderBody`)、`:518-524`、`:534-543`\n- `packages/plugin-form/src/SplitForm.tsx:234-250`\n- `packages/plugin-form/src/TabbedForm.tsx:346-353`\n- `packages/plugin-form/src/WizardForm.tsx:457-463`\n- `packages/plugin-form/src/DrawerForm.tsx`(同款写法)\n- `packages/plugin-form/src/FormSection.tsx:154-158`(grid 应用点)\n\n## 建议方案\n\n让**字段容器**变成多列 grid,而不是把整表单套进 grid:\n\n1. 在各变体的 `renderBody` / section `SchemaRenderer` 里,把 section 的列数传进内层表单 schema —— 复用扁平路径已有的做法:传 `columns: section.columns` 和 `fieldContainerClass: CONTAINER_GRID_COLS[section.columns]`(容器查询 class,让布局跟随弹窗宽度而非视口)。\n2. 相应地,`FormSection` 外层不要再套多列 grid(传 `columns={1}` / 不传 `gridClassName`),避免「双重套壳」。`FormSection` 只负责标题 / Card 外框 / 折叠。\n3. 五个变体(Modal / Split / Tabbed / Wizard / Drawer)统一修,并补一个回归测试:section `columns: 2` 时,字段容器 class 含 `@md:grid-cols-2` 且**字段本身**是该 grid 的直接子节点(而不是「grid 只有 1 个 form 子节点」)。\n\n## 复现步骤\n\n1. 任一对象配置一个带**分组**、且分组 `columns >= 2` 的新建/编辑表单;\n2. 打开「新建」弹窗;\n3. 观察:字段全挤在左侧,分组右半区空白。\n"
+}

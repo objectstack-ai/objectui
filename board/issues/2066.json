@@ -1,0 +1,33 @@
+{
+  "number": 2066,
+  "kind": "pull_request",
+  "title": "feat(detail): detail.stageField:false 关闭自动状态进度条",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T03:24:48Z",
+  "updated_at": "2026-06-29T14:04:44Z",
+  "closed_at": "2026-06-29T14:04:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2066",
+  "body": "## 问题\n\n详情/记录页 synth 会**自动**在记录顶部渲染有序状态进度条(`record:path`)。判定逻辑 `detectStatusField()` 在没有显式 stage 提示时,会按名(`status`/`stage`/`state`/`phase`)或按类型自动命中一个字段。\n\n很多对象的 `status` 其实是**非线性 picklist**(正常 / 暂停 / 作废),被强行渲染成有序进度条,语义与视觉都不对,且用户**无法关闭**。\n\n## 方案(已修正承载位置)\n\n> ⚠️ 初版把开关读在**顶层** `def.stageField`,但 spec 的 `ObjectSchema.create()` **拒绝未知顶层键**(`NoExcessObjectKeys` → `never` + build 报错),作者根本设不上去,对真实对象不可达。已改为读 spec 现成的 `detail` 块。\n\nspec 的 `object.zod.ts` 有一个 `.passthrough()` 的 `detail` 块,描述就是 \"Detail-page UI hints consumed by @object-ui/plugin-detail synth\"(已有 `renderViaSchema` / `hideReferenceRail` / `hideRelatedTab`)。它是**作者可达**的 UI 提示落点。\n\n- `detectStatusField()` 改读 `def.detail?.stageField`,顶层 `def.stageField` 保留为裸对象/单测的 **back-compat 回退**。\n- 作者用法:\n  - `detail: { stageField: false }`(或 `null`)→ 不渲染进度条,跳过自动探测;\n  - `detail: { stageField: 'my_field' }` → 指定进度条字段。\n- **仅改 objectui**:`detail` 块本身就是 `.passthrough()`,该键无需进 framework spec 即可合法通过校验并透传到客户端。默认行为零回归。\n\n## 测试\n\n- `type-check`:通过\n- 单测:**60 passed**(新增 `detail.stageField` opt-out / 选字段、`detail` 优先于顶层、顶层 back-compat、`detail` 无 stageField 时回退等用例)\n\nCloses #2065\n"
+}

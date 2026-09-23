@@ -1,0 +1,32 @@
+{
+  "number": 2141,
+  "kind": "pull_request",
+  "title": "docs(agents): per-agent isolated test stack (own-port backend + console + e2e)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T16:58:20Z",
+  "updated_at": "2026-07-01T16:59:58Z",
+  "closed_at": "2026-07-01T16:59:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-01T16:59:55Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2141",
+  "body": "## Why\n\nMultiple agents work this repo (and `../framework`) in parallel, but AGENTS.md only documented a **single-stack** convention — backend on `:3000`, console on `:5180`. That forces everyone onto the same two ports, so agents collide (and the doc even said *\"don't rely on the `DEV_PROXY_TARGET` env override\"*). This adds a **verified** recipe for each agent to run its **own** isolated stack on its own ports.\n\n## What\n\nNew AGENTS.md subsection **「每个 agent 独立测试栈」** documenting:\n\n1. **Backend** (`../framework`): `objectstack dev --seed-admin --fresh -p <port>` — fresh **ephemeral tempdir sqlite** DB (auto-deleted on `SIGINT/SIGTERM`, never touches the shared `.objectstack/data/dev.db`), auto-seeded showcase + admin (`admin@objectos.ai`/`admin123`). Persistent variant via `--database file:…` / `OS_DATABASE_URL`.\n2. **Console** (your worktree): `cd apps/console && DEV_PROXY_TARGET=http://localhost:<port> pnpm exec vite --port <port> --strictPort`. Must `cd` into `apps/console` so the env reaches vite directly; `--strictPort` prevents silent port drift onto someone else's port.\n3. **Live E2E**: `LIVE_APP_URL` / `LIVE_API_URL` (+ `LIVE_EMAIL` / `LIVE_PASSWORD`) point `playwright.live.config.ts` at your ports.\n4. **Preview**: add your own `.claude/launch.json` console entry (mirrors the existing `console-build-test`).\n\nAlso corrects the stale claim that `DEV_PROXY_TARGET` doesn't propagate — it's reliable from `cd apps/console` (the `pnpm --filter` path is the unreliable one).\n\n## Verification (actually run, not theoretical)\n\n- Booted an **isolated showcase backend** on `:4010` with `--fresh` → tempdir DB `…/T/objectstack-dev-*/data/dev.db`, seeded admin, served `showcase_account` (Northwind) + `showcase_field_zoo`.\n- Started a **console** on `:5190` with `DEV_PROXY_TARGET=http://localhost:4010 … --port 5190 --strictPort`; signed in **through the console proxy** and fetched `showcase_account` → `['Northwind','Contoso']`.\n- Confirmed the console `--port` override and the proxy target both take effect (`/api` → `:4010`, not the default `:3000`).\n- Tore both down by PID; the shared `:3000` instance stayed up (`302`) and the tempdir auto-cleaned.\n\nDocs-only change (no package src, no changeset). `scripts/check-doc-links.mjs` passes.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

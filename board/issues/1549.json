@@ -1,0 +1,33 @@
+{
+  "number": 1549,
+  "kind": "issue",
+  "title": "[SDUI] Epic: complete the Server-Driven UI runtime",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "sdui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T21:54:34Z",
+  "updated_at": "2026-06-27T12:19:02Z",
+  "closed_at": "2026-06-27T12:19:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1549",
+  "body": "Tracking issue for completing the **Server-Driven UI (SDUI) runtime** — the original north star: *every UI surface is described by a schema, rendered generically by `SchemaRenderer`, visually editable at runtime, and persisted via draft→publish.*\n\n## ✅ Done\n- Rendering engine: `SchemaRenderer` + component registry (~140 types, lazy-loaded)\n- Record **detail** pages: schema-driven (default synthesis `buildDefaultPageSchema` + author assignment + slotted overrides); legacy DetailView retained behind a kill-switch\n- **Dashboards** & **reports**: schema-driven **and** visually editable + draft/publish\n- Runtime metadata persistence seam (ADR-0034) for view/report/dashboard\n- Master-detail vertical (atomic write `inlineEdit`, read-side `relatedList`, server roll-ups) — the worked SDUI sample for the record surface\n- Metadata-generation **lint + eval** rubric (`objectstack lint --score/--eval`)\n\n## 🔴 P0 — close the write-side loop\n- [ ] #1541 Wire PageDesigner → record page persistence (draft/publish)\n- [ ] #1542 RuntimeDraftBar for record pages & forms\n- [ ] #1543 Form layout designer (slot overrides + visual editor)\n\n## 🟠 P1 — unify list & navigation under schema\n- [ ] #1544 Unify list/grid views under PageSchema + viewType synthesis\n- [ ] #1545 Schema-driven app navigation (NavigationDesigner runtime wiring)\n\n## 🟡 P2 — remaining page types & configurability\n- [ ] #1546 Home page rendering + assignment + default synthesis\n- [ ] #1547 App & Utility page types (pageType app/utility)\n- [ ] #1548 Schema configurability for charts & alt list views\n\n## Suggested sequencing\nP0-#1541 → #1542 first (rendering + synthesis + persistence seam are already in place; this makes \"edit a record page in the browser and publish\" real and reuses the existing live e2e harness), then #1543 (forms), then P1, then P2.\n"
+}

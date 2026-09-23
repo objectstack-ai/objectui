@@ -1,0 +1,37 @@
+{
+  "number": 2105,
+  "kind": "pull_request",
+  "title": "feat(page): kind:'html' (full HTML tags) + trusted kind:'react' tier",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "package: components",
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T04:00:40Z",
+  "updated_at": "2026-06-30T05:25:57Z",
+  "closed_at": "2026-06-30T05:25:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T05:25:55Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2105",
+  "body": "## Summary\n\nImplements the **three-tier** AI page-authoring model (ADR-0081, framework side in a paired PR):\n\n| tier | source | processing | safety | default |\n|---|---|---|---|---|\n| `kind:'html'` (was `'jsx'`) | constrained JSX = HTML + Tailwind + registered components | **parsed**, never executed → SDUI tree | safe by construction | OSS ON |\n| **`kind:'react'`** (new) | real React/JSX: `useState`/`.map`/`onClick`/expressions | transpiled + **executed** in the main React tree | **trust** (capability + review), no sandbox | enterprise only, **OFF** |\n\n### What's here\n- **`@object-ui/react-runtime`** (new package, prior commit) — vendored react-runner (Sucrase transpile + scope-eval, error boundary). The trusted executor; lazy-loaded.\n- **`@object-ui/core`** — runtime capability gate: `enableCapability`/`isCapabilityEnabled` + `CAP_REACT_PAGES`. Default-closed, host-only — structurally impossible to flip from authored metadata.\n- **`@object-ui/components`**:\n  - PageRenderer routes `kind:'react'` (capability-gated, lazy-imports the runtime, injects `React` + public data blocks + page `data`) and renders `kind:'html'` — the former `kind:'jsx'`, kept as a **deprecated alias**.\n  - Registers the **full safe native HTML tag set** (`h1–h6, p, a, ul/ol/li, img, blockquote, pre, strong/em, …`) so the `html` tier lives up to its name (previously only `div/span/table/code/label` + semantic tags → everything else was `unknown-component`).\n- **dev**: `apps/console/sdui-tiers-preview` exercises both tiers through the **real** PageRenderer.\n\n### Verification (browser, through the real PageRenderer)\n- `kind:'html'`: renders real `<h1>/<ul>/<li>/<a href>/<blockquote>/<img>` + Tailwind. 0 error blocks.\n- `kind:'react'` (capability on): `useState`/`reduce`/`sort`/`map`/`onClick` all execute — button increments (\"Clicked 2 times\"), \"sort by name\" re-sorts the table live, `Total: $465,000` computed from injected `data`.\n- New unit test: `capabilities` default-closed + enable/disable. sdui-parser (83) + core public-tier green.\n\nPairs with framework PR adding `kind` enum `'html'`/`'react'`, the lint split, the renamed showcase example, and ADR-0081.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

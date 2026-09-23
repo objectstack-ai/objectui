@@ -1,0 +1,30 @@
+{
+  "number": 2167,
+  "kind": "pull_request",
+  "title": "fix(studio): label the Form sub-modes' data source — draft vs published",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T17:43:00Z",
+  "updated_at": "2026-07-02T17:47:24Z",
+  "closed_at": "2026-07-02T17:43:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T17:43:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2167",
+  "body": "Implements the settled draft/preview semantics for the Data pillar's Form view (companion doc: framework#2523).\n\n**预览 renders the published definition on purpose** — a draft with structural changes has no physical columns until publish, so a data-bound draft preview would break. But the UI never said so: after arranging a draft in 布局, switching to 预览 silently showed the old shape, reading as \"my changes are lost\".\n\n- Captions now state each sub-mode's source: **布局 = 草稿(含未发布改动)** / **预览 = 已发布定义**; the view-level badge follows the sub-mode (设计态 vs 运行态).\n- With unpublished changes (dirty or saved draft), 预览 shows an amber note: 「有未发布改动 — 此预览为发布前(已发布)的效果;草稿确认用「布局」,看发布后效果请先点顶栏「发布」」. **Publishing stays a deliberate user action** — nothing auto-publishes.\n- No rendering-logic changes; text + one conditional only.\n\n**Verified in-browser** (worktree vite :5181 → fresh showcase backend :3005): 布局/预览 captions ✓ · clean state shows no hint ✓ · after adding a section (dirty) the amber hint appears in 预览 and the form correctly still shows the published shape ✓ · badge follows sub-mode ✓. `type-check`: 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

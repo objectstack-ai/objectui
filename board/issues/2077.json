@@ -1,0 +1,33 @@
+{
+  "number": 2077,
+  "kind": "pull_request",
+  "title": "chore(deps): bump shiki from 4.2.0 to 4.3.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T07:55:51Z",
+  "updated_at": "2026-06-29T07:59:23Z",
+  "closed_at": "2026-06-29T07:56:12Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-29T07:56:12Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2077",
+  "body": "Bumps [shiki](https://github.com/shikijs/shiki/tree/HEAD/packages/shiki) from 4.2.0 to 4.3.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/shikijs/shiki/releases\">shiki's releases</a>.</em></p>\n<blockquote>\n<h2>v4.3.0</h2>\n<h3>   🚀 Features</h3>\n<ul>\n<li><strong>stream</strong>: Add svelte renderer  -  by <a href=\"https://github.com/CNSeniorious000\"><code>@​CNSeniorious000</code></a> and <strong>Anthony Fu (via agent)</strong> in <a href=\"https://redirect.github.com/shikijs/shiki/issues/1291\">shikijs/shiki#1291</a> <a href=\"https://github.com/shikijs/shiki/commit/2d18a662\"><!-- raw HTML omitted -->(2d18a)<!-- raw HTML omitted --></a></li>\n</ul>\n<h5>    <a href=\"https://github.com/shikijs/shiki/compare/v4.2.0...v4.3.0\">View changes on GitHub</a></h5>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/shikijs/shiki/commit/e3cf080bb21c5b96a391f76f45b3ff3bc22158f0\"><code>e3cf080</code></a> chore: release v4.3.0</li>\n<li>See full diff in <a href=\"https://github.com/shikijs/shiki/commits/v4.3.0/packages/shiki\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=shiki&package-manager=npm_and_yarn&previous-version=4.2.0&new-version=4.3.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

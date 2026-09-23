@@ -1,0 +1,35 @@
+{
+  "number": 2044,
+  "kind": "pull_request",
+  "title": "fix(actions): first-class openIn for url actions (new-tab) (#2043)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T04:15:59Z",
+  "updated_at": "2026-06-28T07:23:47Z",
+  "closed_at": "2026-06-28T07:23:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T07:23:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2044",
+  "body": "Closes #2043.\n\n## 问题确认\n\nIssue #2043 的描述准确(已逐条核对):\n- `packages/types/src/ui-action.ts` 的公开 `ActionSchema.params` 确为 `ActionParam[]`(L178)。\n- `ActionRunner.ts` 靠 `Array.isArray` 把 `params` 重载分流为「输入收集弹框」vs「静态选项对象」(L432-435)。\n- `executeUrl` 仅有 `const newTab = action.params?.newTab ?? isExternal`(L731),无一等开关。\n- 内部 `ActionDef` 有 `opensInNewTab`/`newTabUrl`(L148/L154),但从未提升到公开 schema —— 且这两者是给 **异步 handler 预开 about:blank**(SSO 跳转)用的,语义和「静态 target 开新标签」不同,复用会导致开两个标签页。\n\n> 注:`@objectstack/spec` 的 zod 校验在 framework 仓库(downstream pinned),本 PR 只改 objectui 控制的 **运行时 + 公开 TS 类型**。spec 侧补 `openIn` 字段 + skill 文档已另开任务跟进(否则 spec 会在 build 时 strip 掉未知 key)。\n\n## 改动\n\n采纳 issue 推荐方案二:新增一等字段 `openIn?: 'self' | 'new-tab'`,与 `params`(仅用于用户输入收集)彻底分开。\n\n- `packages/types/src/ui-action.ts` — 公开 `ActionSchema` 增 `openIn`;并收紧 `params` 文档为「专用于输入收集」。\n- `packages/core/src/actions/ActionRunner.ts` — `ActionDef` 增 `openIn`;`executeUrl` 优先读 `openIn`,回退到旧的 `params.newTab ?? isExternal`。\n- 五个渲染器转发白名单补 `openIn`:action-button / action-icon / action-menu / action-group / basic/elements。\n\n用法:\n\n```ts\ndefineAction({ name: 'print_a3', label: '打印总表(A3)', type: 'url',\n  target: '/print/a3?id=${record.id}', openIn: 'new-tab' });\n```\n\n## 验证\n\n- `ActionRunner.test.ts` 新增 2 个用例(相对 URL + `openIn:'new-tab'` 强制开新标签;外链 + `openIn:'self'` 强制原页导航),全套 60 passed。\n- `@object-ui/types` / `core` / `components` 构建通过。"
+}

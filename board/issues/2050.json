@@ -1,0 +1,32 @@
+{
+  "number": 2050,
+  "kind": "pull_request",
+  "title": "fix(ai-build): deliver the empty-state first message instead of dropping it on the conversation-id remount",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T08:39:30Z",
+  "updated_at": "2026-06-28T10:40:06Z",
+  "closed_at": "2026-06-28T10:40:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T10:40:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2050",
+  "body": "## The bug\n\nIn a **brand-new** AI Build session (the empty \"Build with AI\" placeholder), sending the **first** message silently fails:\n\n- **Network:** `POST /api/v1/ai/conversations → 201` (conversation created), but **no** `POST /api/v1/ai/agents/build/chat` (the message is never sent).\n- **UI:** the input is cleared (looks sent), but the thread stays empty — no bubble, no agent response, **no error/toast**.\n- **Recovery:** the **second** send works normally. The user loses their very first action at the magic moment.\n\n## Root cause — a conversation-id remount race\n\nOn a fresh `/ai/build` the composer (and its suggestion chips) go live the instant the agent resolves — **before** `POST /conversations` has minted the conversation id. [`AiChatPage.tsx`](packages/app-shell/src/console/ai/AiChatPage.tsx) keys `<ChatPane>` on that id:\n\n```tsx\n<ChatPane key={`${chatApi ?? 'local'}:${conversationId ?? 'pending'}`} … />\n```\n\nSo the moment the id resolves (`…:pending` → `…:<id>`), React **unmounts the pane and mounts a fresh one**. A first message submitted in that window lives inside the doomed pane:\n\n- its optimistic user bubble is discarded with the unmount, and\n- the just-started `…/agents/build/chat` request is **aborted before it reaches the wire** (the AI SDK's `useChat` aborts on unmount).\n\nThe abort is silent (no `onError`), so nothing is restored and the new composer is simply empty → the message vanishes. The second send works because the key is now stable (no remount).\n\n### Why this is **not** #2047\n[#2047](https://github.com/objectstack-ai/objectui/pull/2047) fixed the case where `…/chat` **was** sent and then **failed** (429/5xx/network): it tags the request `notSent`, rolls back the optimistic bubble, and restores the composer. Here `…/chat` **never happens**, so there is no failure to recover from and that path never triggers. Different bug, same surface.\n\n## The fix\n\nA small, focused `useDeferredFirstSend` guard (exported from `AiChatPage.tsx`, mirroring the file's existing exported test-helpers):\n\n- When the pane is **server-backed but has no id yet**, a send is **stashed in a ref the _page_ owns** — so it survives the keyed `<ChatPane>` remount — instead of being fired into the void.\n- The instant a conversation id exists, an effect **replays** the stashed message **in the freshly-mounted pane**, so `…/chat` is reliably called **with** the conversation id and the message enters the thread.\n- A send made once the id is present (the normal path, and every send after the first) goes **straight through**. Local/echo mode (no `chatApi`) also sends immediately, so the offline-demo bot still responds.\n- If the replayed send then fails, it follows the existing #2047 recovery path rather than vanishing.\n\nNet effect: `…/chat` is **always** called before the first message can be considered \"sent\" — the message is never silently dropped.\n\n## Changes\n- `packages/app-shell/src/console/ai/AiChatPage.tsx` — add `useDeferredFirstSend` + `PendingFirstMessage`; page owns `pendingFirstMessageRef`; `ChatPane` routes its send through the guard (splitting the old `handleSend` into a reusable `doSend` + the guard).\n- `packages/app-shell/src/console/ai/__tests__/useDeferredFirstSend.test.tsx` — new regression suite.\n\n## Verification\n- ✅ **New tests reproduce the exact race**, including a **keyed-remount harness** that proves the deferred first message is replayed in the *new* pane (`doSend`, which fires `…/chat`) and is **not** dropped; plus defer→replay-once, immediate-send-when-id-present, file-attachment carry, and local/echo passthrough.\n- ✅ All **243** existing ai-chat / `plugin-chatbot` tests stay green (21 files).\n- ✅ `@object-ui/app-shell` **type-check clean** (`tsc --noEmit`, exit 0) against built deps; **lint clean** (0 errors; the one `react-refresh/only-export-components` warning matches the file's existing exported-helper pattern).\n- ⚠️ **Not** verified in a live browser against a real AI backend: that requires the cloud magic-flow rig (`service-ai` + the build agent + an LLM key; the `scripts/dev-local/MAGIC-FLOW-TEST-RUNBOOK.md` runbook lives in the **cloud** repo), which the objectui Vite preview can't exercise. The integration test is the faithful reproduction of the remount mechanism at the React-tree layer; a live magic-flow repro is the remaining manual check.\n\n## Rollout note\nThis lives in objectui; it reaches the running stack only after a cloud `.objectui-sha` bump. **Not bumped here** — that's a follow-up after merge.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

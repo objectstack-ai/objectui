@@ -1,0 +1,33 @@
+{
+  "number": 2235,
+  "kind": "pull_request",
+  "title": "feat: related-list 'primary' tabs, multi-FK & self-ref, unified picker columns (framework #2579)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T16:13:28Z",
+  "updated_at": "2026-07-04T16:25:02Z",
+  "closed_at": "2026-07-04T16:25:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T16:25:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2235",
+  "body": "## What\n\nRenderer + derivation for detail-page related-list tabs — companion to the spec change in **objectstack-ai/framework#2594**, for framework issue **objectstack-ai/framework#2579**.\n\n- **`buildDefaultTabs` (plugin-detail):** the default related-list layout is now the ADR-0085 *prominence* rule — lists whose FK declares `relatedList: 'primary'` each get their **own tab**; every other related list collapses into a single \"Related\" tab. With no `'primary'` anywhere this is **byte-for-byte the previous stacked default** (opt-in per relationship). `relatedLayout: 'tabs' | 'stack'` remain app-level overrides (force all-own-tabs / all-stacked).\n- **`deriveRelatedLists` (app-shell):** emits **one related list per eligible FK** — a child referencing the parent through several relationships (e.g. `primary_account` + `partner_account`) now surfaces each, disambiguated by the FK label; includes **self-referential** relationships (hierarchies → a \"child\" list); and carries the `isPrimary` flag through. `RecordDetailView` threads it into the synthesized page.\n- **`RelatedList` + `deriveLookupColumns`:** auto-derived columns prefer the object's `highlightFields` — the same \"how to list this object\" source — so a related list and a lookup picker of the same object agree with zero per-surface config.\n\n## Companion PR\n\nSpec (tri-state `relatedList`, optional related-list `columns`): **objectstack-ai/framework#2594**.\n\n## Verification\n\n- **plugin-detail:** 150 tests pass (incl. `buildDefaultTabs` rule Z + `RelatedList` column derivation).\n- **fields:** 5180 tests pass (incl. `deriveLookupColumns` highlightFields priority).\n- **app-shell `deriveRelatedLists`:** 15 tests pass (multi-FK, self-ref, primary).\n\nRefs objectstack-ai/framework#2579.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2100,
+  "kind": "pull_request",
+  "title": "refactor(grid): inline cell editor reuses the @object-ui/fields widgets (not hand-rolled)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T15:04:31Z",
+  "updated_at": "2026-06-29T15:08:54Z",
+  "closed_at": "2026-06-29T15:04:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T15:04:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2100",
+  "body": "## Why\nReview feedback: the inline editor shouldn't hand-roll controls — the system already has dedicated field widgets (the form renders through them). This **supersedes #2097's hand-rolled select/checkbox** with the real widgets.\n\n## Changes\n- **@object-ui/fields**: add `FieldEditWidget` — a type→widget resolver that renders the dedicated widget (`SelectField`/`BooleanField`/`DateField`/`MultiSelectField`/…) as a controlled `{value,onChange,field}` input. Plus `hasFieldEditWidget` + `DISCRETE_EDIT_TYPES`.\n- **data-table**: add a `renderCellEditor` injection point; drop the hand-rolled select/checkbox; `stageEdit` stages into `pendingChanges` without closing (multi-value/free-text). The (fields-free) component layer no longer reimplements controls.\n- **ObjectGrid** (depends on `@object-ui/fields`): provide `renderCellEditor` rendering `FieldEditWidget` by field type — discrete pickers commit-on-choose, others stage. **Exact same controls as the form.**\n- **Studio**: wrap the grid in `SchemaRendererProvider` so the object-grid has a write-capable `dataSource` (the ListView only fetches + passes data inline).\n\n## Verified (framework app-showcase backend, admin)\n- 行业 (select) cell edits via the dedicated `SelectField` dropdown\n- data-API write **persists** (admin, PATCH 200 + re-GET confirms)\n- type-check + lint clean on fields / components / plugin-grid / app-shell\n\n## CI note\nBundle Analysis is red from the **pre-existing** `@objectstack/spec` 11.2.0 breakage (`clientValidation.ts`/`PolicySchema`), unrelated to this PR.\n\n## Follow-ups\n- View-settings toggle for `inlineEdit` + Studio reads `viewDef.inlineEdit` (separate PR)\n- Clean end-to-end UI persistence smoke (the Radix combobox is fiddly to drive headless)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

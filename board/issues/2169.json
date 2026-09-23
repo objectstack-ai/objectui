@@ -1,0 +1,30 @@
+{
+  "number": 2169,
+  "kind": "pull_request",
+  "title": "feat(studio): Data rail search + inline new-object (draft into the package)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T01:26:07Z",
+  "updated_at": "2026-07-03T01:30:35Z",
+  "closed_at": "2026-07-03T01:26:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T01:26:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2169",
+  "body": "Closes the two remaining v1 rail gaps from the builder design (§4).\n\n## What\n\n- **Search** filter on the objects rail (label/name).\n- Inline **新建对象** creator: 显示名 + auto-derived snake_case **标识符** (hand-editable — CJK labels can't derive one). Creates the object as a **draft in the current package** (the classic editor's runtime-create path), seeded with one text field, and lands in **表单 · 布局** (the metadata-level designer).\n- **Draft-only objects get honest placeholders** instead of broken surfaces: the Records grid explains data arrives after publish (no SQL fired at a table that doesn't exist yet), 预览 explains there's no published definition yet. Both turn live automatically after the package publish (publishNonce).\n\n## Verified in-browser (fresh backend, worktree vite)\n\n- Search: \"inv\" → rail filters to Invoice / Invoice Line ✓\n- Creating into the **read-only code package** (com.example.showcase) surfaces the ADR-0070 `writable_package_required` error clearly ✓ (correct gate, correct message)\n- Creating **报修工单/repair_ticket** into a writable base (`POST /packages` → com.example.workbench): lands in 布局 with the seeded field, header shows 未发布草稿, top bar **变更 · 1** ✓\n- Draft-only: Records → \"未发布的新对象\" placeholder ✓ · 预览 → \"尚无已发布定义\" ✓\n- Top-bar **发布** → scoped `_drafts` = 0, **`GET /data/repair_ticket` = 200** (physical table created), grid placeholder gone + Create live, 预览 renders the published form ✓\n\n`type-check`: 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

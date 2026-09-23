@@ -1,0 +1,32 @@
+{
+  "number": 1993,
+  "kind": "pull_request",
+  "title": "fix(console): gate AI surface on the access-filtered agent catalog, not discovery (per-user AI seat)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T07:45:14Z",
+  "updated_at": "2026-06-25T07:48:47Z",
+  "closed_at": "2026-06-25T07:48:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T07:48:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1993",
+  "body": "Reverts #1992. `useAiSurfaceEnabled` keys off `GET /api/v1/ai/agents` again (≥1 agent → AI shows). That route is now access-filtered server-side (framework ADR-0049/ADR-0068): it returns only the agents the **caller** may chat, so a user without the per-user AI seat (`ai_seat`) gets an empty catalog and the **entire** AI surface — FAB, `/ai` routes, top-bar + designer \"Ask AI\" — hides for them, instead of a control that 403s on click.\n\n#1992 had moved the gate to the deployment-wide discovery `services.ai` capability, identical for every user → can't express per-user seating. CE gating unaffected (no service-ai → no agents → empty → hidden). Added a \"do NOT flip back to discovery\" doc note.\n\napp-shell builds clean; `useAiSurface` tests (4) green. Pairs with framework#2320 and the cloud env-side gate (ADR-0068).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

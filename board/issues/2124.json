@@ -1,0 +1,32 @@
+{
+  "number": 2124,
+  "kind": "pull_request",
+  "title": "feat(fields): inline-edit structured-value fields (color/address/location/code/…)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T21:28:45Z",
+  "updated_at": "2026-06-30T21:37:23Z",
+  "closed_at": "2026-06-30T21:37:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T21:37:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2124",
+  "body": "## What\n\nThe six structured field types that already had **lightweight form widgets** — `color`, `address`, `location`, `geolocation`, `code`, `qrcode` — now edit **inline** with those same widgets, instead of being deferred to the exclusion list. Finishes the inline ↔ form parity started by #2122 (relational) and #2121 (read-only gating).\n\n## Why safe\n\nAll six are **dependency-light** (no Leaflet/Mapbox/Monaco/CodeMirror — GeolocationField uses a `MapPin` *icon*, CodeField is a textarea, ColorField an `<input type=color>`) and use the standard `FieldWidgetProps`, so they drop into a cell like select/lookup.\n\n## Verified inline (:5417 field-zoo)\n\n- **Color → `input[color]` + hex `input[text]`** and **Code → `textarea`** — unambiguously the real widgets (the text fallback can *only* produce `input[text]`).\n- Address / Location / Geolocation / QR → their value editors.\n\n## Result\n\n`INLINE_EXCLUDED_FIELD_TYPES` now contains **only** the genuinely-non-inline types (computed, binary, heavy full-editors, containers). The drift-guard test keeps the two widget maps in lockstep. `+1` regression test (5/5 in file).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

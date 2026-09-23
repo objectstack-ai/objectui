@@ -1,0 +1,32 @@
+{
+  "number": 2019,
+  "kind": "pull_request",
+  "title": "fix(app-shell): retarget better-auth empty-state copy off unreachable identity workflows",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T02:14:31Z",
+  "updated_at": "2026-06-27T02:48:25Z",
+  "closed_at": "2026-06-27T02:48:23Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T02:48:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2019",
+  "body": "Fixes the copy half of [objectstack-ai/cloud#580](https://github.com/objectstack-ai/cloud/issues/580).\n\n## Problem\n\nOn a **fresh (single-org) env**, Setup → People & Organization → **Users** (`sys_user`) → **All Users** shows an empty state that points at workflows the admin **cannot reach**:\n\n> No identity records. Identity rows are managed by the authentication provider. Use the dedicated identity workflows (**Invite User**, **Reset Password**, …) to create new entries.\n\n- env-level **`invite_user`** is deliberately **multi-org-gated** (`features.multiOrgEnabled != false`) → hidden in single-org.\n- **\"Reset Password\"** by that name **does not exist** (the closest are row-menu / self-service actions, unreachable on an empty list).\n\nSo the empty state advertises dead ends during onboarding.\n\n## Decision (option (b), per ADR-0024 — Accepted)\n\nADR-0024 **D9** / **D5.2** settle this: org membership + invites live at the **org level** (better-auth `organization` plugin) and env users arrive via **SSO just-in-time provisioning**; there is **intentionally no env-level invite affordance in single-org**. The defect is therefore the **copy**, not a missing button. Framework's `invite_user` multi-org gate is correct and left **unchanged** — this PR is objectui-only.\n\n## Change\n\nThe single `better-auth` empty state is shared by ~18 identity tables (`sys_user`, `sys_session`, `sys_account`, `sys_api_key`, `sys_jwks`, the oauth_* tables, …), so the rewrite stays accurate across all of them and only `sys_user` gets an actionable CTA:\n\n| | Before | After |\n|---|---|---|\n| **`sys_user`** empty state | \"No identity records\" · *\"…dedicated identity workflows (Invite User, Reset Password, …)\"* | **\"No users yet\"** · *\"User accounts are provisioned by the authentication provider, not created here. Invite teammates to your organization and they appear automatically on first sign-in (SSO just-in-time provisioning). App end-users arrive when they sign up through your app.\"* |\n| **other identity tables** | same misleading copy | **\"No identity records\"** · *\"These records are created by the authentication provider — through sign-in, provisioning, and security flows — not added by hand here.\"* (no invite/signup CTA — that would be wrong on a token/session list) |\n| **ManagedByBadge** tooltip | *\"…Use the dedicated identity workflows instead (Invite User, Reset Password, Revoke Session, Rotate Key, …).\"* | *\"…Manage these records through your authentication provider's sign-in, invitation, and security flows instead.\"* (keeps the why-direct-edits-are-unsafe explanation) |\n\n`resolveManagedByEmptyState()` gains an optional `objectName` arg; `ObjectView` passes `objectDef.name`. i18n `en`/`zh` reworded + a new `betterAuthUser` bundle.\n\n## Test / verification\n\n- New unit test `managedByEmptyState.test.ts` — asserts the sys_user vs generic split and a **cloud#580 regression guard** (never names \"Invite User\"/\"Reset Password\"). `vitest run` → **5 passed**.\n- `@object-ui/i18n` `tsc --noEmit` clean (en/zh valid against `TranslationKeys`).\n- All edited files parse clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

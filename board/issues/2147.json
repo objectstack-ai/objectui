@@ -1,0 +1,30 @@
+{
+  "number": 2147,
+  "kind": "pull_request",
+  "title": "feat(studio): package-level draft publish (not per-item)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T07:14:28Z",
+  "updated_at": "2026-07-02T07:18:54Z",
+  "closed_at": "2026-07-02T07:14:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T07:14:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2147",
+  "body": "## Why\n\nPublishing is a formal draft→live switch, so it should confirm & release the **whole package's** drafts at once — not object-by-object. The pillar Studio was doing per-item `client.publish(...)` (and the Data grid even **auto-published** on every column drag), which the platform already models better.\n\n## What\n\nReuses the platform's existing package-publish machinery (`usePublishAllDrafts` → `POST /packages/:id/publish-drafts`, structure-before-seeds + ADR-0038 L3 probes; orphans by-reference) and moves publish to the shell top bar:\n\n- **Top bar**: pending-draft **count** + **变更** (Changes review = `DraftChangesPanel`) + one **发布** that publishes all pending drafts in one governed pass.\n- **Per-pillar 发布 buttons removed**; **保存草稿** stays — edits accumulate as drafts.\n- **Data grid drag-reorder no longer auto-publishes** — it saves a draft like every other edit.\n- After publish, pillars re-read the fresh published baseline (publish nonce); a draft-save refreshes the count.\n\n## Verified in-browser (`/studio/com.example.showcase`)\n\nVerified via a **flow** (object drafts are gated by `OS_METADATA_WRITABLE` on this backend): 保存草稿 → **变更 · 1** + Publish enabled → **发布** → `/api/v1/meta/_drafts` = **0**. Per-item 发布 gone from all three pillars. `type-check`: 0 errors in the changed file.\n\n## Note\n\nDrafts carry no reliable `packageId` (flow overlay reports `null`), so we count/publish **all** pending — in the single-package Studio that is exactly this app's build. Server-side per-package scoping is a follow-up.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

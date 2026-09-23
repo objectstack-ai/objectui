@@ -1,0 +1,35 @@
+{
+  "number": 2114,
+  "kind": "pull_request",
+  "title": "feat(list): 列表服务端导出 (csv/xlsx/json) + 导出按钮 + 对象级权限门",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T13:53:16Z",
+  "updated_at": "2026-06-30T14:31:53Z",
+  "closed_at": "2026-06-30T14:31:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T14:31:50Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2114",
+  "body": "## 背景\nCloses #2111\n\n补齐 ListView / ObjectGrid 的服务端导出能力,配合后端导出路由。\n\n## 改了什么\n- **导出按钮**:视图通过 `exportOptions`(`['csv','xlsx','pdf','json']`)开启后,ObjectGrid/ListView 渲染「导出」菜单;选格式后从后端 `GET /data/:object/export` 流式下载文件(`data-objectstack` 导出下载),大结果集在服务端格式化为可读、类型感知的单元格,表头随 locale。\n- **权限门**:导出受对象级 `operations.export` 约束,视图不能暴露对象本身禁止导出的数据。\n- **类型**:`types` 增补导出相关字段(`exportOptions` / `operations.export` 等)。\n- 测试:`exportDownload.test.ts`、`exportGate.test.tsx`、`exportServer.test.tsx`,以及 ListView 测试补充。\n\n## 验证\n- `pnpm --filter @object-ui/plugin-grid --filter @object-ui/data-objectstack --filter @object-ui/plugin-list test` → **plugin-grid 100 / data-objectstack 220 / plugin-list 136 passed**。\n- 真实控制台 UI:商机列表点「导出」→「导出为 XLSX」,下载到真实 `crm_opportunity.xlsx`(正确 MIME),表头中文、与列头一致。\n\n## 配套后端\nobjectstack-ai/framework#2487(导出路由 + 类型感知格式化 + 表头本地化)。"
+}

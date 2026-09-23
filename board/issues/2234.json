@@ -1,0 +1,33 @@
+{
+  "number": 2234,
+  "kind": "pull_request",
+  "title": "fix(studio): surface spec-validation failures on the field at save/publish",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T16:12:11Z",
+  "updated_at": "2026-07-04T16:16:18Z",
+  "closed_at": "2026-07-04T16:12:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T16:12:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2234",
+  "body": "## Why (UX eval #4 — validation up-front + inline errors)\n\nWhen a Studio metadata draft failed spec validation, the designer got a single **opaque banner** — and on a *partial* publish, a false **\"published!\"** toast. The server was already computing field-anchored issues (and, on the REST path, already returning them as `body.issues`), but the client threw them away. This is the #1 \"silent failure\" UX theme: you save, something's wrong, and the UI won't tell you *which field* or *why*.\n\nCompanion to framework #2589 (which carries `issues` through the HTTP-dispatcher error path); this PR is the client half and also handles the REST server's existing `body.issues` shape.\n\n## What\n\n**`parseError` (`data-objectstack`)**\n- Read `String(body.error)` → `\"[object Object]\"` for the dispatcher's object-shaped error. Now reads `.message` from either shape (string *or* `{ message }`).\n- Ignored the validation issues. Now exposes `MetadataError.issues`, accepting **all live server shapes**: top-level `body.issues` (REST server) and `error.details.issues` (HTTP dispatcher).\n\n**Studio save/publish (`app-shell`)**\n- New `formatMetadataError(e)` turns a caught error into **one line per offending field** — `• fields.amount.type — Invalid option: …`; the three pillar save banners render it with `whitespace-pre-line`.\n- `doPublish` no longer claims success when the response carries `data.failed[]` (the server returns **200** with the failures buried, so the UI used to swallow them). It lists which drafts failed and why; `formatPublishFailures` formats those per-draft.\n\n## Verification\n\n**Unit** — `parseError` on the dispatcher error shape (message + code + `issues`, no more `[object Object]`); `formatMetadataError` (issues → field lines, empty path → `(root)`, no issues → plain message) and `formatPublishFailures`. `@object-ui/data-objectstack` (20) + studio-design (11) suites green; app-shell type-check clean (29/29).\n\n**Live browser** — console proxied to a real backend. An invalid object draft (`{ fields: { amount: { type: 'not_a_type' } } }`) returns **422**, the client extracts the issues from the real response, and the banner text resolves to:\n\n```\n• fields.amount.type — Invalid option: expected one of \"text\"|\"textarea\"|… |\"user\"\n```\n\n— pointing at the exact field, where the old code showed a generic line (or `[object Object]`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

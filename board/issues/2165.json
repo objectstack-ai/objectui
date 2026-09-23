@@ -1,0 +1,32 @@
+{
+  "number": 2165,
+  "kind": "pull_request",
+  "title": "feat(app-shell): zero-org first-run lands straight on the create-workspace form",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T15:40:52Z",
+  "updated_at": "2026-07-02T15:45:05Z",
+  "closed_at": "2026-07-02T15:41:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T15:41:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2165",
+  "body": "## What\nA brand-new user with **no organizations** was routed to the org **picker** (`/organizations`), whose empty *\"No organizations yet\"* state is pure friction — there is nothing to pick (one extra hop before they can start). Now the page **auto-opens the existing `CreateWorkspaceDialog`** when the org list is empty, so a first-run user lands **directly on the \"name your workspace\" form**.\n\n- Users who already have orgs still see the picker.\n- The `?create=1` entry (avatar menu \"Create workspace\") is unchanged.\n- The empty-state (with its own \"New organization\" button) remains the backdrop if the dialog is dismissed.\n- A spinner covers the first frame so the empty picker never flashes.\n\n## Why here (platform, not cloud)\n\"Create your workspace\" is a generic need of **any** multi-org ObjectOS app. The mechanism (form + `createOrganization`) is open/platform; the provisioning side-effect (born-with production env) stays in cloud's `onOrganizationCreated` hook — \"open mechanism, closed orchestration\" (ADR-0002 / ADR-0024). `CreateWorkspaceDialog` already creates the org from the user's chosen name and eagerly provisions its Production env, so this completes the workspace-first onboarding: **name your workspace → org + Production env**.\n\n## Test\nNew `OrganizationsPage.test.tsx` — 3/3 pass:\n- zero-org → dialog auto-opens\n- has orgs → dialog does NOT auto-open (picker)\n- `?create=1` → still opens (regression)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

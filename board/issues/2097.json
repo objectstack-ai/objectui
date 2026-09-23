@@ -1,0 +1,33 @@
+{
+  "number": 2097,
+  "kind": "pull_request",
+  "title": "feat(grid): type-aware inline cell editors — select dropdown + boolean checkbox",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T13:57:15Z",
+  "updated_at": "2026-06-29T14:00:56Z",
+  "closed_at": "2026-06-29T13:57:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T13:57:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2097",
+  "body": "## What\nThe data-table's inline cell editor used a plain text box for **every** field. Now it renders the field-type-appropriate control, matching the form's controls.\n\n## Changes\n- **ObjectGrid**: forward each column's field `type` + select `options` — a single enrichment over the finalized columns, read from `objectSchema`. Additive; never overrides a `type`/`options` a column path already set.\n- **data-table**:\n  - `select` / `status` → a `<Select>` dropdown of the field's options (opens on edit, commits on pick)\n  - `boolean` → a `<Checkbox>`\n  - `saveEdit` takes an explicit value so discrete pickers commit the chosen value without waiting for `setEditValue` to flush\n  - (date / datetime / number editors already existed)\n\nBenefits **all** editable grids (runtime + Studio), not just the Studio.\n\n## Verified\n- Live: the Studio grid's **行业** (select) cell opens a dropdown of its options, ✓ on the current value\n- `type-check` + lint clean on `@object-ui/components` and `@object-ui/plugin-grid`\n\n## CI note\nBundle Analysis will be red — that's the **pre-existing** `@objectstack/spec` 11.2.0 breakage (`clientValidation.ts` / `PolicySchema`), unrelated to this change. Build & E2E + Test cover this PR.\n\n## Follow-ups\n- multi-select / lookup / reference editors (this does single-select + boolean)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

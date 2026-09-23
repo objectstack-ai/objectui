@@ -1,0 +1,32 @@
+{
+  "number": 2010,
+  "kind": "pull_request",
+  "title": "feat(chatbot): wire AI model picker to /api/v1/ai/models (ADR-0028)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-26T08:55:34Z",
+  "updated_at": "2026-06-26T11:32:51Z",
+  "closed_at": "2026-06-26T11:32:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-26T11:32:49Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2010",
+  "body": "## What\n\nWires the **AI model picker** (ADR-0028) into the console chat: paid-tier users pick the model from a dropdown in build/ask.\n\n- New `useAiModels` hook (`plugin-chatbot`) — fetches the env's plan-filtered allowlist from `GET /api/v1/ai/models` (mirrors `useAgents`)\n- `ConsoleFloatingChatbot` holds the selected model, sends it with each turn (`useObjectChat` already forwards `body.model`), and passes `models` / `selectedModelId` / `onModelChange` to `FloatingChatbot`\n\n`ChatbotEnhanced` **already** renders the footer `<select>` (it appears only for 2+ models) — so free / single-model envs see no picker, automatically. Minimal surface: 1 new hook + prop wiring.\n\n## Depends on\n\nobjectstack-ai/cloud#560 (the `/api/v1/ai/models` endpoint + plan-filtered allowlist + per-request routing).\n\n## Verification\n\nThe picker UI is the existing `ChatbotEnhanced` footer select; this PR is the wiring. The backend it consumes is verified live in cloud#560 (resolve-hostname plan-filtering across free/team/business/enterprise + real-Vercel-AI-Gateway per-request routing). Full browser click-through pending a real provisioned env + `--with-ui`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2055,
+  "kind": "pull_request",
+  "title": "feat(cloud): state-aware onboarding next-step widget for the Welcome page",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T15:03:03Z",
+  "updated_at": "2026-06-28T15:06:37Z",
+  "closed_at": "2026-06-28T15:03:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T15:03:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2055",
+  "body": "## Why\n\nThe Cloud control-plane Welcome page (`cloud#632`) is static SDUI. The single most useful thing it can show — \"what do I do next?\" — depends on **live state the metadata can't carry**: does the caller's org already have its production environment? New signups are auto-provisioned one, so the static \"Step 1: create an environment\" strip is wrong for most first-time users (they already have an env; the real next step is *open it and build*).\n\n## What\n\nAdds `cloud:onboarding-next`, a registered SDUI widget (`packages/app-shell/src/console/home/CloudOnboardingNext.tsx`) that resolves `hasProductionEnv` from the same org-scoped `GET /cloud/environment-entitlements` summary the environment list uses (`useEnvironmentEntitlements`), and renders the right primary action:\n\n- **no production env** → \"Create your environment\" (the real first step)\n- **has production env** → \"Open Production\" (full-page nav that follows the SSO 302 into the env) + \"Manage environments\"\n- **loading** → a neutral skeleton (no CTA flash / layout jump)\n- **unknown / error** → degrades to the open-production actions, so the button always works\n\nRoutes and the SSO endpoint are passed in via page metadata (`properties.openProductionUrl`, `properties.environmentsRoute`), so the Cloud app owns its URLs and copy; the widget owns only the state logic. Registered via `ComponentRegistry.register` + side-effect import in `app-shell/index.ts`, mirroring `marketplace:installed-list`.\n\nThe companion cloud PR wires the Welcome page (`welcome.page.ts`) to reference this widget and bumps `.objectui-sha`.\n\n## Test\n\n`packages/app-shell/src/console/home/__tests__/CloudOnboardingNext.test.tsx` — 4 cases (create vs open vs degraded-fallback vs loading-skeleton), all green. `tsc --noEmit` clean for the new file.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

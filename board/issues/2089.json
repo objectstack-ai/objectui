@@ -1,0 +1,33 @@
+{
+  "number": 2089,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @ai-sdk/react from 3.0.216 to 4.0.5",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T08:07:39Z",
+  "updated_at": "2026-06-29T15:28:38Z",
+  "closed_at": "2026-06-29T15:28:36Z",
+  "closed_by": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2089",
+  "body": "Bumps [@ai-sdk/react](https://github.com/vercel/ai/tree/HEAD/packages/react) from 3.0.216 to 4.0.5.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/vercel/ai/releases\">@​ai-sdk/react's releases</a>.</em></p>\n<blockquote>\n<h2><code>@​ai-sdk/react</code><a href=\"https://github.com/4\"><code>@​4</code></a>.0.5</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [6a436e3]</li>\n<li>Updated dependencies [68a739a]\n<ul>\n<li><code>@​ai-sdk/provider-utils</code><a href=\"https://github.com/5\"><code>@​5</code></a>.0.1</li>\n<li><code>@​ai-sdk/mcp</code><a href=\"https://github.com/2\"><code>@​2</code></a>.0.3</li>\n<li>ai@7.0.4</li>\n</ul>\n</li>\n</ul>\n<h2><code>@​ai-sdk/react</code><a href=\"https://github.com/4\"><code>@​4</code></a>.0.4</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [ba6d510]\n<ul>\n<li><code>@​ai-sdk/mcp</code><a href=\"https://github.com/2\"><code>@​2</code></a>.0.2</li>\n<li>ai@7.0.3</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/vercel/ai/blob/main/packages/react/CHANGELOG.md\">@​ai-sdk/react's changelog</a>.</em></p>\n<blockquote>\n<h2>4.0.5</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [6a436e3]</li>\n<li>Updated dependencies [68a739a]\n<ul>\n<li><code>@​ai-sdk/provider-utils</code><a href=\"https://github.com/5\"><code>@​5</code></a>.0.1</li>\n<li><code>@​ai-sdk/mcp</code><a href=\"https://github.com/2\"><code>@​2</code></a>.0.3</li>\n<li>ai@7.0.4</li>\n</ul>\n</li>\n</ul>\n<h2>4.0.4</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [ba6d510]\n<ul>\n<li><code>@​ai-sdk/mcp</code><a href=\"https://github.com/2\"><code>@​2</code></a>.0.2</li>\n<li>ai@7.0.3</li>\n</ul>\n</li>\n</ul>\n<h2>4.0.3</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [241a8c5]\n<ul>\n<li><code>@​ai-sdk/mcp</code><a href=\"https://github.com/2\"><code>@​2</code></a>.0.1</li>\n</ul>\n</li>\n</ul>\n<h2>4.0.2</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>ai@7.0.2</li>\n</ul>\n<h2>4.0.1</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>ai@7.0.1</li>\n</ul>\n<h2>4.0.0</h2>\n<h3>Major Changes</h3>\n<ul>\n<li>ef992f8: Remove CommonJS exports from all packages. All packages are now ESM-only (<code>&quot;type&quot;: &quot;module&quot;</code>). Consumers using <code>require()</code> must switch to ESM <code>import</code> syntax.</li>\n<li>8359612: Start v7 pre-release</li>\n</ul>\n<h3>Patch Changes</h3>\n<ul>\n<li>b567a6c: dependency updates</li>\n<li>9f0e36c: trigger release for all packages after provenance setup</li>\n<li>555c5de: fix(react): deny MCP App tool calls by default when allowedTools is omitted</li>\n</ul>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/vercel/ai/commit/62fc7d6c0d4a6683259a2e1fb2a3dc84bb3eda1d\"><code>62fc7d6</code></a> Version Packages (<a href=\"https://github.com/vercel/ai/tree/HEAD/packages/react/issues/16443\">#16443</a>)</li>\n<li><a href=\"https://github.com/vercel/ai/commit/53dfdc3bb4303e582596a0e5f53d415d30e4210b\"><code>53dfdc3</code></a> Version Packages (<a href=\"https://github.com/vercel/ai/tree/HEAD/packages/react/issues/16425\">#16425</a>)</li>\n<li><a href=\"https://github.com/vercel/ai/commit/0f72e7893e040b0f811646fb3a9added69d4d488\"><code>0f72e78</code></a> Version Packages (<a href=\"https://github.com/vercel/ai/tree/HEAD/packages/react/issues/16418\">#16418</a>)</li>\n<li><a href=\"https://github.com/vercel/ai/commit/ead601b29cb0db2da7785bd2202a8e7677d9a229\"><code>ead601b</code></a> Version Packages (<a href=\"https://github.com/vercel/ai/tree/HEAD/packages/react/issues/16390\">#16390</a>)</li>\n<li><a href=\"https://github.com/vercel/ai/commit/389f7f6830469df12710786f67c9a0c41e126be8\"><code>389f7f6</code></a> Version Packages (<a href=\"https://github.com/vercel/ai/tree/HEAD/packages/react/issues/16370\">#16370</a>)</li>\n<li><a href=\"https://github.com/vercel/ai/commit/77c6abb5e64d5d6ab1f4ca08cc8ea57199d5382f\"><code>77c6abb</code></a> v7 release (<a href=\"https://github.com/vercel/ai/tree/HEAD/packages/react/issues/16357\">#16357</a>)</li>\n<li><a href=\"https://github.com/vercel/ai/commit/b4f04e4b9cc54325c28370ab8f0e676d40928f80\"><code>b4f04e4</code></a> Version Packages (beta) (<a href=\"https://github.com/vercel/ai/tree/HEAD/packages/react/issues/16360\">#16360</a>)</li>\n<li><a href=\"https://github.com/vercel/ai/commit/2dc2e7640fdec9f00c8c55b8622b22890f4e3e2e\"><code>2dc2e76</code></a> Version Packages (beta) (<a href=\"https://github.com/vercel/ai/tree/HEAD/packages/react/issues/16345\">#16345</a>)</li>\n<li><a href=\"https://github.com/vercel/ai/commit/b0353a95a19f49b957d421c557ba2c04a64fa24b\"><code>b0353a9</code></a> Version Packages (beta) (<a href=\"https://github.com/vercel/ai/tree/HEAD/packages/react/issues/16344\">#16344</a>)</li>\n<li><a href=\"https://github.com/vercel/ai/commit/207d63aa32bad129649f26588b5c4957b1520957\"><code>207d63a</code></a> Version Packages (beta) (<a href=\"https://github.com/vercel/ai/tree/HEAD/packages/react/issues/16309\">#16309</a>)</li>\n<li>Additional commits viewable in <a href=\"https://github.com/vercel/ai/commits/@ai-sdk/react@4.0.5/packages/react\">compare view</a></li>\n</ul>\n</details>\n<br />"
+}

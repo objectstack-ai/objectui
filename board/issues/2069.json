@@ -1,0 +1,32 @@
+{
+  "number": 2069,
+  "kind": "pull_request",
+  "title": "feat(components,app-shell): Studio Data 网格列头「+ 添加字段」(Airtable 式)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T04:11:42Z",
+  "updated_at": "2026-06-29T04:15:06Z",
+  "closed_at": "2026-06-29T04:12:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T04:12:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2069",
+  "body": "## 什么\n\nStudio Data 支柱的对象网格现在支持 **Airtable 式「列头末尾 + 添加字段」**(#8,用户点名的下一步优化重点)。\n\n## 机制 — 不耦合运行时网格(零回归)\n\n网格是 3 层 SDUI 间接(`object-view` → `object-grid` → `data-table`),每层 schema 都序列化,所以\"列头上的 + 回调\"既不能走 schema,也不该把设计态焊进共享 `data-table`。方案:**opt-in React context**。\n\n- 新增 `@object-ui/components` 的 `GridFieldAuthoring` context(`useGridFieldAuthoring` / `GridFieldAuthoringProvider`)。\n- `data-table` 读它:**有 provider 才**渲染末尾「+」列头(+ 行内占位 cell + 两处 colSpan +1);**无 provider 时每个运行时表格字节级不变**。\n- Studio `DataPillar` 用 provider 包住对象网格,「+」打开加字段表单(名称 + 类型)→ 写对象 `fields` → `save(draft)` + `publish` 到 env overlay → `adapter.clearCache()` 冲数据层 schema 缓存 + 重挂网格 → **新列免刷新即现**。\n\n## ⚠️ 对象默认锁定(平台策略)\n\n打包对象 schema 默认 `allowOrgOverride: false`(对象/字段改动 = 迁移,刻意锁)。加字段需运行时经 **`OS_METADATA_WRITABLE`** 放开 object 覆盖 —— 这是 Studio/设计环境该开的开关。未放开时,后端清晰的 `not_overridable` 错误会直接显示在表单里(含修复提示)。\n\n## 验证(浏览器实测,showcase_account,`OS_METADATA_WRITABLE=object`)\n\n「+」→ 表单(客户备注/text、回访日期/date)→ 添加并发布:\n\n| 层 | 字段数 |\n|---|---|\n| `code`(包源) | 16 未动 |\n| `overlay`(发布) / `effective` | **18**(+2 新字段,`overlayScope:env`) |\n\n新列**免整页刷新**即出现(`clearCache` + 重挂);非拉丁标签 slug 成 `field_N`(如 `field_18`)。`eslint .` 0 error / `tsc` 0 error(`@object-ui/components` 那个 `sdui-parser` 报错是 main 上既有、与本 PR 无关)。\n\n## 限制 / 后续\n- 「+」目前总是显示;理想应按运行时对象可写性(`allowOrgOverride`/`OS_METADATA_WRITABLE`)门控,避免在锁定环境点了报错(后续可加)。\n- 类型限 text/textarea/number/boolean/date/datetime(无需额外配置);select/lookup 等需选项的留后续。\n- 仍只在 `/studio/:packageId/data`,未进产品 nav,仅 objectui main 未 live(需 `.objectui-sha` bump + cloud pin)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

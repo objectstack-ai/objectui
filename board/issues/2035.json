@@ -1,0 +1,32 @@
+{
+  "number": 2035,
+  "kind": "pull_request",
+  "title": "fix(first-run): page-load race (blank body) + skip redundant launcher hop",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T16:49:01Z",
+  "updated_at": "2026-06-27T16:57:00Z",
+  "closed_at": "2026-06-27T16:56:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T16:56:58Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2035",
+  "body": "Two first-time-user friction fixes found by walking a full ObjectOS Cloud signup end-to-end.\n\n## 1. Page-load race → blank landing\nAn app whose landing is a `type:'page'` SDUI page (e.g. the Cloud app's Welcome home) flashed a **false \"page not found\" / blank body** on the very first render right after signup. `PageView` treated the lazily-loading (still-empty) `pages` array as \"this page doesn't exist\".\n\n**Fix:** guard on the existing `getTypeStatus('page')` signal — show a loading state until the `page` type is resolved, then trust the not-found. (`getTypeStatus` absent = hand-rolled context = always ready, so no regression.)\n\n## 2. Redundant launcher hop\nAfter creating or switching a workspace, the user was hard-reloaded to `/home` (the workspace launcher) **even when the workspace has a single app** — a contentless extra layer before they reach the only app.\n\n**Fix:** `OrganizationsPage` and `WorkspaceSwitcher` now reload to the console **root** (`resolveRootUrl`), so `RootLandingRedirect` resolves the landing — a single-app workspace lands straight IN that app; multi-app workspaces still fall back to `/home`. Consistent with the normal post-login path.\n\n## Verified\n- Full multiOrg signup walkthrough: signup → \"Create workspace\" → (was: `/home` launcher) → now resolves into the app; production env auto-provisioned (Active).\n- Typecheck clean; `resolveRootUrl` unit tests added.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

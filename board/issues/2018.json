@@ -1,0 +1,32 @@
+{
+  "number": 2018,
+  "kind": "pull_request",
+  "title": "feat(console): \"Edit with AI\" — open the build agent pre-scoped to an app's package",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-26T20:13:19Z",
+  "updated_at": "2026-06-26T20:21:58Z",
+  "closed_at": "2026-06-26T20:21:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-26T20:21:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2018",
+  "body": "## What\nAdds an **\"Edit with AI\"** action to each app in **App Management** that opens the build agent in a fresh conversation **pre-scoped to that app's package**.\n\n- `AppManagementPage` — a `Sparkles` \"Edit with AI\" button beside \"Edit app\", shown for apps that have a package id. It navigates to `/ai/build?package=<packageId>&new=1`.\n- `AiChatPage` — reads the `?package=` query param and forwards it to the build agent as `context.packageId` (threaded into `ChatPane`, the component that builds the chat request context).\n\n## Why\nADR-0070 made the conversation's active package load-bearing (scoping + the keystone). Resuming a conversation already keeps editing the same app, but opening an **existing** app to edit in a **new** conversation had no signal — so the AI wasn't scoped to that app, and a granular edit could scatter into a fresh package unless the model remembered to call `set_active_package`. This supplies the signal: the cloud agent **seeds `context.packageId` as the conversation's active package**, so the AI's reads scope to THIS app and edits bind to it **from the first message**.\n\n## Pairs with\nThe cloud seeding mechanism: **objectstack-ai/cloud#590** (already merged). `context.packageId` is optional and backward-compatible.\n\n## Verification\n- Type-check clean: `@object-ui/app-shell` (0 errors) + `apps/console` (0 errors).\n- Tests: app-shell **927** + console **4656** pass, 0 regressions.\n- (Caught + fixed in review: the forwarded value had to be threaded as a `ChatPane` prop — the chat context is built in the child component, not the page.)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

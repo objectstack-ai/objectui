@@ -1,0 +1,32 @@
+{
+  "number": 2220,
+  "kind": "pull_request",
+  "title": "fix(app-shell): warn when userFilters on an object list view is suppressed",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T06:46:20Z",
+  "updated_at": "2026-07-04T13:43:56Z",
+  "closed_at": "2026-07-04T13:43:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T13:43:54Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2220",
+  "body": "Fixes #2219\n\n## Problem\n\nADR-0053 (views mode vs filters mode) correctly suppresses `userFilters` / `quickFilters` on the object default list — `packages/app-shell/src/views/ObjectView.tsx` hardcodes them to `undefined` in `renderListView`. But the suppression is **completely silent**, and the ADR's phase-4 guardrail (zod `refine` + `check` rule rejecting the wrong-context field) never landed: `packages/types/src/zod/objectql.zod.ts` still accepts `userFilters` on any list view with no context check.\n\nNet effect: an author (human or AI) who puts `userFilters` on an object list view gets a schema that validates, a build that passes, and a toolbar with nothing where the filter dropdowns should be — zero signal at any layer. Found while dogfooding `app-showcase` (`showcase_task.tabular` carries exactly this wrong-context block).\n\n## Fix\n\nNew `warnSuppressedListNav()` util, called from `renderListView` right before the suppression: when the view def or base list schema actually carries `userFilters`/`quickFilters`, log a one-shot warning (per object/view) naming the offending fields, the ADR, and where the fields belong (InterfaceListPage \"filters\" mode). Same \"never swallow silently\" treatment as #2217/#2218.\n\nThe suppression itself is untouched; the phase-4 schema-level rejection can supersede this warning when it lands.\n\n## Testing\n\n- 4 new unit tests (view-def hit, base-schema hit, once-per-view dedupe, clean view stays silent) — all pass.\n- `pnpm --filter @object-ui/app-shell... build` passes.\n- Browser-verified (HMR console against the framework `app-showcase` backend): opening `showcase_task.tabular` — whose metadata carries a wrong-context `userFilters` block — now logs\n  `[ObjectView] View \"showcase_task.tabular\" on object \"showcase_task\" defines userFilters, which are ignored on an object list view (ADR-0053 \"views\" mode …)`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

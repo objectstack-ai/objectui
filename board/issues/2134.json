@@ -1,0 +1,30 @@
+{
+  "number": 2134,
+  "kind": "issue",
+  "title": "网格汇总 / Dashboard 指标把 precision(总位数)当小数位,显示多余末尾 0",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T06:51:04Z",
+  "updated_at": "2026-07-01T13:51:31Z",
+  "closed_at": "2026-07-01T13:51:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2134",
+  "body": "## 问题\n\n与 #2131 同源。网格列汇总(SUM/AVG 等)和 Dashboard 指标/记录字段在格式化数值时,把字段的 `precision` **优先**当成小数位来补零。\n\n按服务端 spec(`framework/packages/spec/src/data/field.zod.ts`),`decimal(p, s)` 里:\n- `precision` = **总位数**(`p`)\n- `scale` = **小数位**(`s`)\n\n所以对一个 `decimal(10, 0)` 列,汇总值会被显示成 `100.0000000000` 之类。\n\n## 涉及位置\n\n- `packages/plugin-grid/src/useColumnSummary.ts:88` — `column?.precision ?? column?.scale ?? 0`\n- `packages/plugin-dashboard/src/ObjectMetricWidget.tsx:169` — `valueFieldDef.precision ?? valueFieldDef.scale ?? 0`\n- `packages/plugin-dashboard/src/recordFields.tsx:146` — `... ?? meta?.precision ?? meta?.scale`\n\n## 方案\n\n小数位改以 `scale` 为准,不再回退到 `precision`(总位数)。即 `scale ?? 0`(dashboard 记录字段保留显式 `decimals` 覆盖优先级)。\n\n> `percent` / `currency` 各有独立显示配置,不在本次范围。"
+}

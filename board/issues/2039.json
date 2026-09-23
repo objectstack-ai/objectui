@@ -1,0 +1,33 @@
+{
+  "number": 2039,
+  "kind": "pull_request",
+  "title": "feat(ai-build): deferred-rule card section + richer propose wait hints",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T18:06:37Z",
+  "updated_at": "2026-06-27T18:10:46Z",
+  "closed_at": "2026-06-27T18:10:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T18:10:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2039",
+  "body": "Two magic-flow confirm-step polish items from live testing (follow-ups to #2036).\n\n## 1. Deferred rules get a distinct \"Not yet built\" section\nThe Proposed-plan card listed all `assumptions` together, mixing **design notes** (\"设备通过所属客户建立归属关系\") with **deferred business rules** (\"技师只看自己的工单 — 需要后续单独补权限/流程配置\"). Users could mistake a deferred rule for one that was built. `classifyAssumptions` now keyword-splits them, and the card renders deferred ones under a distinct **「待补 / Not yet built」** section. (Pairs with cloud-side honesty prompt + the trim-prose change.)\n\n## 2. Richer wait hints\nThe \"Designing your app…\" rotating hint pool (added in #2036) was small enough to visibly repeat during long (minutes, under load) propose/apply waits. Expanded the pool (relationships, forms, defaults, dashboard, review) so the wait keeps showing fresh, concrete progress.\n\nBoth presentational + i18n (zh+en).\n\n## Tests\n`plugin-chatbot` **156** (+14: `classifyAssumptions` split, deferred-section render, hint pool), `app-shell` **941**, plugin-chatbot builds clean (incl. DTS). (DOM/unit verified; the live AI-build chat isn't reproducible in app-showcase — same E2E caveat as #2036.)\n\nAfter merge: needs framework `.objectui-sha` bump + cloud pin to reach the running stack.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2193,
+  "kind": "pull_request",
+  "title": "feat(studio): duplicate-base (复制) on writable packages in the builder landing",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T15:20:28Z",
+  "updated_at": "2026-07-03T15:24:58Z",
+  "closed_at": "2026-07-03T15:20:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T15:20:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2193",
+  "body": "Roadmap ② — the Airtable **duplicate base** gesture in the builder landing.\n\n## What\n\n- Writable base cards gain **复制**: an inline name/id form (defaults `<名称> 副本` / `<id>-copy`) → `POST /packages/:id/duplicate` (ADR-0070 D4: re-namespaced clone, references rewritten) → navigates straight into the copy's builder.\n- Read-only code packages stay **browse-only** — duplication copies `sys_metadata` rows, which code packages don't have; their customization path is template/marketplace install. (First draft had the button on read-only cards; live probing showed `copied: 0` and the semantics corrected to D4's actual contract.)\n- `packages-io.ts` gains the shared `duplicatePackage()` helper.\n\n## Depends on framework#2540\n\nBrowser-probing found the server side was doubly broken; fixed there:\n- `dispatcher-plugin` never **mounted** `/packages/:id/duplicate` (nor adopt-orphans / commits / rollback / discard-drafts) — hono 404 on every serve stack despite working handler code.\n- `duplicatePackage` copied the source manifest **verbatim incl. `scope`**, branding copies read-only; now scope-less.\n\n## Browser-verified (fresh stack)\n\n订单中心 (published `order_ticket`) → **复制** → `/studio/com.example.orders-copy/data`: object in the rail ✓ no 只读 badge ✓ manifest scope-less ✓ durable `sys_packages` row ✓ `GET /data/order_ticket` 200 ✓ toast 已复制 ✓. `type-check` 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

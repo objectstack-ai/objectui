@@ -1,0 +1,32 @@
+{
+  "number": 2218,
+  "kind": "pull_request",
+  "title": "fix(app-shell): resolve short view names in /view/<name> routes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T06:20:59Z",
+  "updated_at": "2026-07-04T09:21:47Z",
+  "closed_at": "2026-07-04T09:21:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T09:21:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2218",
+  "body": "Fixes #2217\n\n## Problem\n\nA nav item with `viewName: 'tabular'` produces the route `/view/tabular`, but canonical view ids are fully qualified (`showcase_task.tabular`), so `ObjectView`'s exact-id lookup missed and `|| views[0]` **silently** rendered the default view. Every nav-generated view link was broken, with zero signal.\n\n- Generators emit the short name verbatim: `packages/layout/src/NavigationRenderer.tsx` (object nav href) and `packages/layout/src/AppSchemaRenderer.tsx` (mobile bottom nav).\n- Resolver did exact match + silent fallback: `packages/app-shell/src/views/ObjectView.tsx`.\n\n## Fix\n\nNew `resolveViewId()` util resolves the URL-requested name (route param or `?view=`) in both directions:\n\n1. exact id match;\n2. short name (no `.`) → `<objectName>.<name>` — covers nav-generated links;\n3. qualified name → bare key with the `<objectName>.` prefix stripped — covers legacy embedded listViews (incl. the `'all'` fallback view).\n\nWhen nothing matches, a `console.warn` lists the known view ids before falling back — no more silent swallowing. The generators are intentionally left untouched: they can't see the target object's view list, so the resolver is the only place that can pick the right form for both id schemes.\n\n## Testing\n\n- 6 new unit tests for `resolveViewId` (exact / qualify / strip / miss / empty / no double-qualify) — all pass.\n- `pnpm --filter @object-ui/app-shell... build` passes.\n- Browser-verified against the framework `app-showcase` backend (HMR console):\n  - `/view/tabular` (nav short name) now renders the **Task List (tabular)** view — pre-fix it rendered the default grid;\n  - `/view/showcase_task.tabular` still works;\n  - `/view/nonexistent_view` falls back to the default view and warns with the full known-view list.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

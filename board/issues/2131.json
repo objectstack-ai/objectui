@@ -1,0 +1,30 @@
+{
+  "number": 2131,
+  "kind": "issue",
+  "title": "fix(fields): 数值字段详情页显示大量末尾多余的 0(1 → 1.0000000000)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T05:47:00Z",
+  "updated_at": "2026-07-01T13:52:37Z",
+  "closed_at": "2026-07-01T13:52:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2131",
+  "body": "## 问题\n\n在记录详情页(DetailSection)中,数值(number)类型字段显示出大量末尾的 0,例如:\n\n- 定额工时:`16.00000000`\n- 版本号:`1.0000000000`\n- 标准配员合计:`2.0000000000`\n- 顺序号:`10.0000000000`\n\n期望显示的应是 `16` / `1` / `2` / `10`。\n\n## 原因\n\n数值字段的小数位(`precision`/`scale`)通常来自后端 DB 列定义(如 `decimal(18,10)`),表示的是**存储精度上限**,而不是**必须展示的固定小数位数**。\n\n但 `packages/fields/src/index.tsx` 中的 `NumberCellRenderer` 把它当成固定小数位来渲染:\n\n```ts\nconst precision = numField.precision ?? 0;\nnew Intl.NumberFormat('en-US', {\n  minimumFractionDigits: precision,   // ← 强制补零\n  maximumFractionDigits: precision,\n}).format(num)\n```\n\n`minimumFractionDigits` 被设成了 `precision`,于是一个 `decimal(18,10)` 列里的整数 `1` 就被补成了 `1.0000000000`。\n\n## 方案\n\n把小数位当作**最大值(上限)**而非固定值:`minimumFractionDigits` 固定为 0,末尾多余的 0 会被自动裁掉,`maximumFractionDigits` 用 `precision ?? scale` 作为上限。这样:\n\n- `1`（decimal(18,10)) → `1`\n- `16.5` → `16.5`\n- `3.14159`（precision 2) → `3.14`\n\n同时补齐 `DetailSection` 等处只透传 `precision`、未透传 `scale` 的问题。"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 2172,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): keep row selection in sync when bulk-action dialog closes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T02:27:34Z",
+  "updated_at": "2026-07-03T03:40:02Z",
+  "closed_at": "2026-07-03T03:40:00Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T03:40:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2172",
+  "body": "## 问题\n\n在列表里勾选若干行、跑一个批量动作(派工 / 下推)后,点结果弹窗的 **Done**:\n\n- **成功时脱同步**:批处理工具条消失了,但每行的勾选框仍然是选中的 —— 因为勾选状态是 DataTable 内部 state,ObjectGrid 只清了自己的 `selectedRows`(工具条数据源),没碰到勾选框。\n- **全部失败时丢选择**:当所有行都失败(0 成功,比如前置条件不满足),工具条照样消失,用户失去了\"用同一批行重试\"的入口。\n\n截图里的现象:点 Done 后批处理按钮消失、但选择没有被清空,两个选择来源(工具条 vs 勾选框)对不上。\n\n## 改动\n\n- `handleBulkDialogClose` 现在按 `result.succeeded > 0` 门控:**全部失败**时保留选择 + 工具条,并跳过那次无意义的刷新,用户可以修好原因后重试原来那批行。\n- 需要清空时,新增 `selectionResetKey` prop 让 DataTable 与工具条**同步**丢掉内部勾选状态,两者不再漂移。\n\n`refreshKey` 只是取数 effect 的依赖(不会重挂 DataTable),所以刷新本身不会清勾选框 —— `selectionResetKey` 是真正需要的。\n\n## 影响的包\n\n- `@object-ui/types` — `DataTableSchema.selectionResetKey?`\n- `@object-ui/components` — DataTable 响应 `selectionResetKey` 清空内部勾选\n- `@object-ui/plugin-grid` — ObjectGrid 按成功与否门控 reset,并推进 key\n\n## 测试\n\n`packages/plugin-grid/src/__tests__/bulkActionRefresh.test.tsx` 新增 2 个用例(共 5 个通过):\n\n- 成功后勾选框(不只工具条)被清空\n- 全部失败时保留选择 + 工具条,且不触发 refetch\n\n## 说明\n\n改动经单元测试 + 构建验证(build 退出码 0;仅剩既有的 dts rootDir 噪声,与本次改动无关)。未做浏览器端手动验证 —— 复现该状态需要跑完整的多步批量动作失败流程,本地不易稳定重现。"
+}

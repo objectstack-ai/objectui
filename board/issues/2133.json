@@ -1,0 +1,38 @@
+{
+  "number": 2133,
+  "kind": "pull_request",
+  "title": "feat(import): route list import through server /import (write-mode UI + special-value coercion)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T06:13:58Z",
+  "updated_at": "2026-07-01T14:17:00Z",
+  "closed_at": "2026-07-01T14:16:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-01T14:16:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2133",
+  "body": "## 背景 / Problem\n\n列表导入向导原来是逐行 `create`,并在客户端猜测特殊值(布尔/日期/select/lookup)。这既重复又不可靠 —— lookup 名称→id 根本没法在前端解析。\n\n## 方案 / Solution\n\n改走单次服务端导入 `POST /data/:object/import`,前端只发**原始映射后的行**,由服务端统一强转特殊值并按 writeMode 路由每行。**依赖框架侧 [objectstack-ai/framework#2505](https://github.com/objectstack-ai/framework/pull/2505)**(服务端 coercion + `client.data.import`)。\n\n### 改动\n\n- **types**:`DataSource.importRecords` + `ImportRequestOptions` / `ImportRecordsResult` / `ImportRowResult` / `ImportWriteMode` / `ImportFieldMappingEntry`(镜像服务端 spec)\n- **data-objectstack**:`ObjectStackAdapter.importRecords()` —— 把原始行转发到 `/data/:object/import`;当连接的 `@objectstack/client` 没有 `data.import` 时抛 `UNSUPPORTED_OPERATION`\n- **plugin-grid `ImportWizard`**:\n  - 发送**原始**映射行给服务端强转(不再客户端猜特殊值)\n  - 写入模式 UI:insert / update / upsert + `matchFields` 勾选 + `createMissingOptions` / `runAutomations` / `skipBlankMatchKey` 开关\n  - 逐行结果 → created/updated 报告;失败行 CSV 再导出(带 `_error` 列 + BOM)\n  - 优雅降级:client 不支持 import 时回退到旧的逐行 `create`;真实服务端错误直接上报,不静默重试(避免重复导入)\n- **app-shell `ObjectView`**:只把**可写字段**作为导入目标(剔除 formula/summary/autonumber、readonly、`permissions.write:false`)\n- **测试**:`isUnsupportedImport` + `buildFailedRowsCsv` 单元覆盖(7)\n\n### 兼容性\n\nobjectui 当前锁定已发布的 `@objectstack/client ^11.2.0`(尚无 `data.import`),因此在框架 PR 发布新 client 之前,向导会自动走**逐行 create 回退**,不会报错。等 client 升级后自动切到服务端 `/import`。\n\n## 验证 / Verification\n\n- `pnpm --filter @object-ui/plugin-grid exec vitest run` → **102 passed**(含 7 个新增)\n- `pnpm --filter '@object-ui/app-shell...' build` → tsc 通过(ObjectView 改动编译干净)\n- console dev server 启动编译通过(验证 app-shell 改动在真实构建图中有效);完整浏览器点通需要框架后端起服务并有种子对象 + 登录,超出本 PR 范围,导入逻辑已由上面单测/集成测覆盖\n\n### 未做(后续 P1/P2)\n\n大文件异步任务 + 进度 + 5万上限、导入历史、真正的钩子开关落地;任务级 undo、字段类型自动探测、xlsx 优化。"
+}

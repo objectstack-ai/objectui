@@ -1,0 +1,33 @@
+{
+  "number": 2233,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): strip computed fields from form submit payloads",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T16:04:46Z",
+  "updated_at": "2026-07-04T16:17:33Z",
+  "closed_at": "2026-07-04T16:17:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T16:17:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2233",
+  "body": "## Problem\n\nEditing a `showcase_project` record and saving failed with:\n\n> `[ObjectStack] INVALID_FIELD: Unknown field 'budget_remaining' on object 'showcase_project'`\n\nThe showcase fixture was **already correct** — `budget_remaining` is a `Field.formula` and is excluded from the form view's sections. The bug was entirely in the console's submit path.\n\n## Root cause\n\nThe page-route edit form (`/apps/:app/:object/record/:id/edit` → `RecordFormPage` → `ObjectForm`/`SimpleObjectForm`) seeds react-hook-form `defaultValues` from a full record read (`findOne`), which includes backend-computed columns (`budget_remaining`, and the `task_count`/`total_estimate` summaries). RHF (no `shouldUnregister`, `reset(defaultValues)`) **retains and round-trips unregistered default values on submit** — so computed columns the form never rendered leaked into `dataSource.update()`, and the backend rejected them.\n\n`SimpleObjectForm.handleSubmit` only stripped by field-level **write permission** — unlike `ModalForm`/`DrawerForm` it never called `sanitizeFormData`.\n\n## Changes\n\n**Commit 1 — parent / page-route form (`e83537ee`)**\n- `ObjectForm.tsx`: `handleSubmit` now calls `sanitizeFormData(payload, hasInlineFields ? null : objectSchema)` before the write-permission strip (mirrors ModalForm/DrawerForm). Inline forms pass `null` so only server-managed keys are dropped.\n- `sanitize.ts`: added `'summary'` to `COMPUTED_FIELD_TYPES` — it was missing, so summary roll-ups (`task_count`/`total_estimate`) would be the *next* rejected field even on the already-sanitizing modal path. Aligns with the ImportWizard filter (`['formula','summary','autonumber']`).\n\n**Commit 2 — master-detail child write path (`6cff60d8`)**\n- Extends the same guard to `masterDetailTx.ts` (shared by `MasterDetailForm` **and** `LineItemsPanel`). `buildMasterDetailBatch`/`buildMasterDetailEditBatch`/`applyDetail` sanitize each child op's `data` when an optional `childSchema` is supplied — **gated**, so existing callers/tests are byte-identical. `idOf()` is read before sanitize so update routing survives id-stripping.\n- `MasterDetailForm`/`LineItemsPanel` fetch + cache child schemas and pass them through (a `ref` in MasterDetailForm so a late fetch never resets the header form — #1581).\n- **Canary preserved:** a *stored* client-computed column (`type: currency` + `expression`, e.g. a line `amount` the server persists as-is) is **not** stripped — sanitize only drops true computed *types* / `readonly` / `computed` / unknown keys. The opportunity/invoice line-item flows are unaffected. No current fixture triggers the child leak (examples use the stored-computed pattern); this half is defensive.\n\n## Testing\n- `sanitize.test.ts` (new): strip contract incl. `summary` + inline null-schema.\n- `ObjectForm.test.tsx`: edit-mode payload test — **verified to fail without the fix** (`budget_remaining`/`id` leaked), passes with it.\n- `masterDetailTx.test.ts`: child create/update sanitize, the `amount`-preservation canary, and a no-schema backward-compat assertion.\n- Full `plugin-form` suite: **175 passing**. `vite build` green (`.d.ts` complete).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

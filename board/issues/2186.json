@@ -1,0 +1,34 @@
+{
+  "number": 2186,
+  "kind": "pull_request",
+  "title": "fix(grid): 批量编辑弹窗补齐多选/日期控件 + 确认展示与必填校验 (#2185)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T10:09:16Z",
+  "updated_at": "2026-07-03T11:55:48Z",
+  "closed_at": "2026-07-03T11:55:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T11:55:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2186",
+  "body": "Closes #2185\n\n## 背景\n\ngrid/list 批量操作弹窗(`BulkActionDialog`)的参数控件(`ParamField`)是个 MVP,只实现了 6 种单值控件。真实场景下会踩到:\n\n- **多选人员/关联字段无法批量设置**:如\"执行责任人 executors\"(多选,数组),弹窗只能选 1 个,且写回会把数组**覆盖成单值**。\n- `date` / `datetime`:类型声明了,但 switch 无分支 → 退化成**纯文本框**,只能手打字符串。\n- 数组/多值在确认页显示成 `a,b` 或 `[object Object]`。\n- 空数组 `[]` 能通过必填校验。\n\n数据链路层本就 OK:`useBulkExecutor.buildPatch` 直接 spread params,数组值 `{ executors: [id1,id2] }` 天然能写进 patch。缺口纯在 UI 控件层。\n\n## 改动(向后兼容 — 不设 `multiple` 时行为完全不变)\n\n- `BulkActionParam` 新增 `multiple?: boolean` 与 `labelField?: string`。\n- `select` / `lookup` 支持**多选**:`multiple` 时渲染 Popover + Command 多选控件(带本地搜索、Badge 展示已选),值为字符串数组;`buildPatch` 无需改动。\n- 补 `date` / `datetime` 控件(原生日期选择器),替代退化文本框。\n- 确认页用选项 label 解析并 join 数组值(不再是裸 id / `[object Object]`),并显示 param.label。\n- `paramsValid`:空数组视为未填,多选必填能拦住。\n- lookup 选项 label 可经 `labelField` 配置(此前写死 name/full_name/email/id)。\n- 移除已被替代的 `formatValue` 辅助函数。\n\n## 后续(单独 issue,本 PR 不含)\n\n- lookup 的 **200 条硬上限 + 远程搜索 + 分页**:需要服务端 search API、防抖、分页,是独立工程。本 PR 仅在多选控件内提供**已加载集合内的本地搜索**,不改 200 上限。\n\n## 用法示例\n\n```ts\nbulkActionDefs: [\n  {\n    name: 'set_executors',\n    label: '批量设置执行责任人',\n    operation: 'update',\n    params: [\n      { name: 'executors', label: '执行责任人', type: 'lookup',\n        object: 'users', multiple: true, required: true },\n    ],\n  },\n]\n```\n\n## 验证\n\n- 新增 `bulkActionDialogParams.test.tsx`:多选 select 端到端(必填空数组拦截 → 选多项 → 确认页显示 label → Run 断言 patch 为数组 `{ tags: ['red','blue'] }`)+ date 控件渲染。\n- `@object-ui/plugin-grid` 全量测试:**22 files / 171 passed**。\n- 影响面仅 `packages/plugin-grid`(`BulkActionDialog.tsx`)+ `packages/types`(`BulkActionParam`)。\n"
+}

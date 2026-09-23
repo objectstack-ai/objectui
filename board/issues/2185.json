@@ -1,0 +1,30 @@
+{
+  "number": 2185,
+  "kind": "issue",
+  "title": "fix(grid): 批量编辑弹窗字段控件补齐(多选 lookup/select + date/datetime + 确认展示/校验)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T09:54:00Z",
+  "updated_at": "2026-07-03T11:55:46Z",
+  "closed_at": "2026-07-03T11:55:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2185",
+  "body": "## 背景 / Problem\n\ngrid/list 批量操作弹窗(`BulkActionDialog`)的参数控件(`BulkActionParam`)是个 MVP,`ParamField` 的 switch 只实现了 6 种控件,导致下面这些字段类型在**批量编辑**场景下不可用或退化:\n\n代码位置:`packages/plugin-grid/src/components/BulkActionDialog.tsx`(`ParamField`,约 429–502 行)。\n\n| `param.type` | 现状 | 问题 |\n|---|---|---|\n| `lookup` / `select` | 单选 `<Select>` | **不支持多选**。多选人员字段(如\"执行责任人 executors\",数组)只能选 1 个,且写回会把数组**覆盖成单值**。 |\n| `date` / `datetime` | 类型注释里声明了,但 switch **无分支** → 落到 `default` 纯文本框 | 没有日期选择器,只能手打字符串,易错。 |\n| 数组/多值确认展示 | `formatValue` 就是 `String(v)`(第 405 行) | 数组显示成 `a,b`,对象显示成 `[object Object]`。 |\n| 必填校验 | `paramsValid` 只判 `undefined/null/''`(第 139 行) | 空数组 `[]` 被当成\"已填\",多选必填拦不住。 |\n| lookup 选项加载 | `find(object, { $top: 200 })`(第 121 行),label 写死 `name/full_name/email/id` | 硬上限 200 静默截断、无远程搜索/分页、显示字段不可配。 |\n\n数据链路层没问题:`useBulkExecutor` 的 `buildPatch` 直接 spread params(第 136 行),数组值 `{ executors: [id1,id2] }` 本就能正确写进 patch。**缺口纯在 UI 控件层。**\n\n## 方案 / Solution\n\n### 本次 PR 范围(自包含、无需服务端改动)\n1. `BulkActionParam` 增加 `multiple?: boolean`,以及 `labelField?: string`(lookup 显示字段可配)。\n2. `lookup` / `select` 支持**多选**:`multiple` 时渲染多选控件(Popover + Command + Checkbox,带本地搜索),值为字符串数组;`buildPatch` 无需改。\n3. 补 `date` / `datetime` 控件(原生日期选择器),替代退化文本框。\n4. 修 `formatValue`:数组/多值在确认页正确显示(用选项 label,而非 `String(v)`)。\n5. 修 `paramsValid`:空数组视为未填,多选必填能拦住。\n6. 补测试:多选 lookup 产出数组、date 渲染、空数组必填拦截、formatValue 数组。\n\n### 后续单独处理(改动大,依赖服务端 search API)\n- lookup 的 **200 条硬上限 + 远程搜索 + 分页**:需要服务端搜索接口、防抖、分页,单独立项。本 PR 仅在多选控件内提供**已加载集合内的本地搜索**,不改 200 上限。\n\n## 影响面\n- 仅 `packages/plugin-grid`(`BulkActionDialog.tsx`)+ `packages/types`(`BulkActionParam`)。\n- 向后兼容:不设 `multiple` 时行为不变。\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2058,
+  "kind": "pull_request",
+  "title": "feat(core): curated PUBLIC block contract (ADR-0080 M5)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T18:22:36Z",
+  "updated_at": "2026-06-28T18:32:53Z",
+  "closed_at": "2026-06-28T18:32:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T18:32:51Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2058",
+  "body": "ADR-0080 **M5** — capability ≠ contract.\n\nAdds `PUBLIC_BLOCKS` (packages/core/src/registry/public-blocks.ts): a single, reviewable list of the ~36 object-aware + layout/content blocks that form the platform's contract / AI-authoring vocabulary — Salesforce-App-Builder-shaped. `getPublicConfigs()` returns the curated set (plus any registration that opts in via `tier:'public'`), keyed by the bare tag and deduped across the registry's dual-key registrations. The full ~244 registered types remain a rendering *capability* (`getAllConfigs`).\n\nChose a central curated list over scattering `tier` flags across ~36 registration sites — one place to review the public surface. All 36 entries verified to match real `register()` tags (3 corrected: `divider`→`element:divider`, `record:line_items`→`line_items`, dropped non-existent `heading`).\n\nVerified: unit test (curated + opt-in, deduped, bare-keyed, aspirational-safe) green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

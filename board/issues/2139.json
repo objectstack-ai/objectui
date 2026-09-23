@@ -1,0 +1,35 @@
+{
+  "number": 2139,
+  "kind": "pull_request",
+  "title": "fix(grid): bulk-action bar — un-clip + drop orphaned selection count, single i18n'd indicator",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T16:06:43Z",
+  "updated_at": "2026-07-02T02:08:15Z",
+  "closed_at": "2026-07-02T02:08:14Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T02:08:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2139",
+  "body": "## 问题\n\n勾选列表记录后,选择反馈的展示有两处问题:\n\n1. **批量动作条被裁切**(已修):底部的 BulkActionBar 渲染在 `overflow-hidden` 容器之外,整条被裁掉,用户看不见也点不到。\n2. **顶部出现\"孤儿\"选中计数**:内嵌的 data-table 会自绘一条 \"N selected\" 工具栏。在 ObjectGrid 里它变成右上角一坨**无样式、悬空**的灰字(如\"已选择 100 项\"),既丑又与底部动作条重复。\n\n## 改动\n\n- `DataTableSchema` 新增 `showSelectionCount`(默认 `true`);ObjectGrid 设为 `false`,让 data-table 不再自绘选中计数工具栏。\n- `BulkActionBar` 改为**只要有勾选就渲染**(即使没有批量动作也显示\"计数 + 清除\"),成为**唯一**、有样式、锚定在底部的选择指示器。\n- `BulkActionBar` 全面 i18n(计数 / 清除 / 跨页横幅),新增 `grid.bulk*` 文案(en + zh),中文控制台正确显示\"已选择 N 项 / 清除\"。\n- 保持底部动作条留在 `overflow-hidden` 容器内(不再被裁)。\n\n## 验证\n\n- 单元测试:`plugin-grid` 全量 152 通过;`BulkActionBar` 7 例(含 render-on-any-selection、跨页横幅、i18n 插值)。\n- 浏览器实测(ObjectGrid + 内存数据源,1280×900 桌面表格视图):\n  - 顶部工具栏**只剩搜索框**,\"已选择 N 项\"孤儿计数消失。\n  - 底部单一动作条:`已选择 3 项 / Delete / Export / 清除`(zh);`2 selected / Delete / Export / Clear`(en),`{{count}}` 正确插值。\n"
+}

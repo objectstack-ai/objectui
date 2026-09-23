@@ -1,0 +1,33 @@
+{
+  "number": 2272,
+  "kind": "issue",
+  "title": "导航活动态与设计器选中是「硬猜」的:缺 resolveHref 的逆函数 + nav id 深链契约(filters 项永不高亮)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "designer"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T07:48:27Z",
+  "updated_at": "2026-07-05T08:38:55Z",
+  "closed_at": "2026-07-05T08:38:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2272",
+  "body": "## 背景\n\n来源:#2245 / #2251 设计讨论的后续。两个相关缺口:运行期需要知道**当前选中的是哪个菜单**(高亮/面包屑/最近访问),从应用跳转到设计器时应该**落到对应菜单的选中态**。目前两个方向都没有契约,靠字符串猜。\n\n## 现状 / 根因\n\n**正向(高亮)= 前缀启发式,且不认识 `/data`**\n\n`packages/layout/src/NavigationRenderer.tsx:531-557` 的 `computeIsActive` 是逐案补丁:精确匹配 → `componentRef` directory 特判 → 裸 object 项认领子路径但让出 `/view/*` → `viewName` 项只精确匹配 → 其余前缀匹配。每出现一次「两个菜单同时亮」就加一个特判。\n\n**已知真实缺陷(#2255 引入)**:`filters` 项的 href 带查询串(`/task/data?filter[status]=open`),而 `pathname === href` 永不成立(pathname 不含 search)→ **filters 菜单项永远不高亮**;其裸 object 兄弟项反而认领 `/data` 子路径而亮起(`:550-553` 的 rest 检查只排除 `view/`)。\n\n**反向(跳设计器)= 无契约**\n\n设计器选中态是内存态 + 位置索引(`StudioDesignSurface` 的 `setSelection`;metadata-admin 选择 id 形如 `navigation[2].children[0]`)。不进 URL → 无法以链接表达「打开设计器并选中该菜单」;位置索引在 nav 重排后漂移。\n\n## 建议修复\n\n**1. 语义化逆解析器(正向)**\n\n新增纯函数 `resolveActiveNavItem(items, pathname, searchParams, basePath, templateContext)`,与 `resolveHref` 同模块共存(`NavigationRenderer.tsx`),作为「URL → 菜单项」的唯一事实源:\n\n- 按保留段文法解析 URL 为 typed 目标:`/:objectName`、`/view/:viewId`、`/record/:id`、`/data`(+`filter[...]` 参数)、`/dashboard/:name`、`/page/:name`、`/report/:name`、`/component/:ns/:name`。\n- 按**特异性**匹配并排序,全树唯一赢家:\n  1. 记录深链(objectName + 模板解析后的 recordId 相等)\n  2. `filters` 切面(`/data` 且 URL `filter[...]` 参数集合 == 项的 `filters` 模板解析结果)\n  3. 具名视图(viewName 精确)\n  4. 裸 object(认领该对象一切子路由,含 `/data`、`/record`,除非被 1-3 抢走)\n  5. dashboard/page/report/url/component:精确或 `/` 边界前缀\n  - 同分取树序第一个。\n- `computeIsActive` 退化为 `resolveActiveNavItem(...)?.id === item.id`,现有全部特判删除——「双亮」类问题结构性消灭。\n- **round-trip 属性测试**:对每种项形态断言 `resolveActiveNavItem(resolveHref(item).href) === item`。\n\n**2. nav `id` 深链契约(反向)**\n\n- `id` 是 spec 必填 snake_case 稳定键——设计器(metadata-admin app 编辑器 + `StudioDesignSurface` Interfaces pillar)接受 `?sel=nav:<id>` URL 参数;加载时按 id 树查找 → 转内部位置选择。位置索引仅内存态。\n- 选中态镜像进 URL(replace,不刷历史,同 ADR-0047 `uf_*` 惯例)→ 设计器选中可分享、刷新不丢。\n- 运行期入口:管理员在对象/页面 chrome 上的「Edit navigation in studio」affordance,取第 1 步的活动项 id 拼 `/apps/:app/metadata/app/:appName?sel=nav:<id>`。\n\n**3. 顺带收敛**:面包屑 origin 标签、最近访问、移动端标题当前各自推断「我在哪个菜单」,统一改为消费 `resolveActiveNavItem` 的结果。\n\n## 验收标准\n\n- `filters` 菜单项在其 `/data?filter[...]` URL 上正确高亮,且裸 object 兄弟项不同时亮。\n- 任意 URL 至多一个菜单项 active;`resolveHref` ↔ `resolveActiveNavItem` round-trip 测试全绿(每种目标形态)。\n- 现有高亮行为回归:`/view/:viewId` 亮具名视图项、`/record/:id` 亮裸 object 项、metadata directory 特判语义保留(转为特异性规则表达)。\n- 设计器 URL 带 `?sel=nav:<id>` 时加载即选中对应菜单;nav 重排后同一链接仍选中同一项(id 稳定,非位置)。\n- 运行期「Edit navigation in studio」入口跳转后落在当前活动菜单的选中态。\n\n## 关联\n\n- #2251 / ADR-0055(`/data` 表面;本 issue 修复其高亮缺口)\n- #2245(inspector 改造——其 URL 预览与本 issue 的逆解析器共享同一对函数)\n- `resolveHref`:`packages/layout/src/NavigationRenderer.tsx:377`(正向唯一事实源,本 issue 补其逆向)"
+}

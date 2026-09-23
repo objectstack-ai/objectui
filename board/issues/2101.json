@@ -1,0 +1,33 @@
+{
+  "number": 2101,
+  "kind": "pull_request",
+  "title": "chore(chatbot): upgrade to Vercel AI SDK v7 / @ai-sdk/react v4",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T15:15:05Z",
+  "updated_at": "2026-06-29T15:26:30Z",
+  "closed_at": "2026-06-29T15:26:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T15:26:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2101",
+  "body": "## 背景\n全组 AI SDK 大版本升级的第三块(配合 [framework#2464](https://github.com/objectstack-ai/framework/pull/2464) 已合并、[cloud#710](https://github.com/objectstack-ai/cloud/pull/710))。\n\n## 改动\n- `@object-ui/plugin-chatbot`:`ai` `^6→^7`、`@ai-sdk/react` `^3→^4`。\n- **无代码改动** —— chatbot 的 `useChat`、`DefaultChatTransport`、`UIMessage`/`ChatStatus`、`mapMessages` parts 适配器在 v7 下**源码级兼容**。\n\n## 验证(本地完整,plugin-chatbot 不依赖 framework)\n- `type-check`(tsc --noEmit)**0 错误** ✅\n- `build`(vite + dts)**绿** ✅\n- 单测 **183/183 通过** ✅\n\n印证了官方\"v6→v7 摩擦很小\":这块只需 bump 版本号。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

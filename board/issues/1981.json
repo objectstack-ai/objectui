@@ -1,0 +1,32 @@
+{
+  "number": 1981,
+  "kind": "pull_request",
+  "title": "test(metadata-admin): unit-test the flow data-picker token insertion (#1934)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T15:57:22Z",
+  "updated_at": "2026-06-24T16:01:02Z",
+  "closed_at": "2026-06-24T15:57:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T15:57:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1981",
+  "body": "Hardening for the flow data-picker ([#1973](https://github.com/objectstack-ai/objectui/pull/1973)+).\n\nExtracts the cursor-splice math from `VariableTextInput` into a pure **`insertToken`** helper and unit-tests it (and `formatToken`) directly — the picker's core UX contract, previously only exercised manually / in the browser:\n- bare CEL (`record.amount`) in `expression` fields vs `{record.amount}` in template fields;\n- append at caret, mid-string insert, selection-replace;\n- clamping a reversed or out-of-range selection so it can never corrupt the value.\n\nPure refactor — no behavior change; the DOM focus/caret restore stays in the component. `pnpm build` (tsc) clean; inspectors suite green (172).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

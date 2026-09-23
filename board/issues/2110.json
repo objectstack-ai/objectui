@@ -1,0 +1,33 @@
+{
+  "number": 2110,
+  "kind": "pull_request",
+  "title": "feat(grid): inline select editor only offers valid state-machine transitions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T06:58:04Z",
+  "updated_at": "2026-06-30T14:22:45Z",
+  "closed_at": "2026-06-30T14:22:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T14:22:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2110",
+  "body": "## What\n\nWhen a field is governed by a **`state_machine`** validation, the inline cell editor now filters its dropdown to the values reachable from the **current** state (the current value + its declared transitions) — so you can't even stage an edit the server is bound to reject.\n\n> Example: a task already **Done** only offers **Done** and **In Progress**, not In Review / To Do / Backlog.\n\n## Why\n\nFollow-up to #2106. While verifying the inline-edit work I changed a task's status `Done → In Review` and the server (correctly) rejected it with a state-machine validation. #2106 made that failure *visible*; this PR prevents the invalid choice from being offered in the first place — the Airtable-grade behavior.\n\n## How\n\n- `stateMachineNextValues(objectSchema, field, value)` reads the object's `validations` — the **same metadata the server enforces** — and returns the reachable set, or `null` = \"don't constrain\" when there's no state machine for the field or its current state is undeclared (mirrors the client validation engine's lenient allow).\n- `ObjectGrid.renderCellEditor` filters the field's `options` by that set before handing the field to `FieldEditWidget`. Non-select / non-state-machine fields are untouched.\n\n## Not inert — data path verified\n\nVerified the full chain on the live showcase: backend serves the transitions on `GET /api/v1/meta/object/showcase_task` (`done: [\"in_progress\"]`, …); the adapter's `getObjectSchema` hits that endpoint and returns it **unmodified**; so `ObjectGrid.objectSchema.validations` is populated and the filter activates.\n\n## Tests\n\n`inline-edit-options.test.ts` — 8 cases incl. the live bug (`done` → only `[done, in_progress]`, never `in_review`), terminal states, undeclared-state leniency, no-state-machine pass-through, numeric coercion. Full plugin-grid suite: 103/103 green. ESLint clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

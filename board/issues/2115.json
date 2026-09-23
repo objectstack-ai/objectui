@@ -1,0 +1,32 @@
+{
+  "number": 2115,
+  "kind": "pull_request",
+  "title": "chore(console): remove drifting SDUI dev preview scaffolding",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T14:07:21Z",
+  "updated_at": "2026-06-30T14:16:39Z",
+  "closed_at": "2026-06-30T14:16:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T14:16:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2115",
+  "body": "## What\n\nRemoves three manual dev preview file-groups under `apps/console/dev/`:\n- `scenario-sources.ts`\n- `sdui-scenarios-preview.{html,tsx}`\n- `sdui-source-editor-preview.{html,tsx}`\n\n## Why\n\nThese were throwaway preview harnesses built while developing the react-tier showcase pages and the Studio source editor. They **inline-copy** the real showcase page sources and aren't referenced by any build, test, or CI — so they silently **drift** from the authoritative pages in framework `examples/app-showcase`. The real coverage now lives in:\n- the `showcase-smoke` e2e (white-screen / empty-chart / leaked-placeholder sweep),\n- the spec↔frontend conformance ratchet (framework #2485/#2488),\n- the react-prop gate (framework #2482).\n\nThese copies only rot.\n\n## Kept\n\n- `manifest-dump.{html,tsx}` — **load-bearing**: `scripts/dump-public-manifest.mjs` → framework `build-console.sh` produces `sdui.manifest.json` from it.\n- `__tests__/`.\n\nVerified no `.ts/.tsx/.json/.mjs/.config` references the removed files outside themselves.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

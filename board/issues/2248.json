@@ -1,0 +1,33 @@
+{
+  "number": 2248,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): 修复点击相关列表子表 name 字段导致 record:details 崩溃 (React #310)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T03:29:43Z",
+  "updated_at": "2026-07-05T06:35:54Z",
+  "closed_at": "2026-07-05T06:35:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-05T06:35:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2248",
+  "body": "## 问题\n\n记录详情页点击「相关」下子表的 **name** 字段时,整块详情崩溃:\n\n> Component \"record:details\" failed to render — Minified React error #310\n\n## 根因\n\n`RecordDetailsRenderer` 违反了 React 的 rules of hooks:先调用 `useRecordContext()`,然后在 `!ctx`(设计器占位)和权限拒绝两个提前 `return` **之后**才调用其余约 10 个 hook(`usePermissions`、`useFieldPermissions`、`useSafeFieldLabel`、`useHighlightFieldNames`、两个 `useState`、五个 `useCallback`)。\n\n点子表 name 字段 → 触发子表 data-table 的 `onRowClick` → 翻转仍挂载的 `record:details` 下的 RecordContext / 权限状态 → 该次重渲染走了不同的提前 `return` 分支、执行的 hook 数量比上次少 → React 抛出 #310(\"Rendered fewer hooks than expected\"),整个详情块崩溃。\n\n## 修复\n\n把所有 hook 上提到组件顶部无条件执行,再把条件 `return` 与非 hook 的计算全部下移。回调体和依赖数组改用 `ctx?.` 可选链(定义时 ctx 可能为 null)。**纯顺序调整,无行为改动。**\n\n## 测试\n\n新增回归测试 `record-details.test.tsx`,覆盖 row-click 触发的三种状态切换:解绑(`ctx → null`)、权限翻转(允许 → 拒绝)、重新绑定(`null → ctx`)。每个被 mock 的 hook 都消费一个真实 React hook 槽位(`React.useRef(0)`),确保 hook-count 不变式被真正触发——已确认该测试对修复前代码会 fail、对修复后会 pass。\n\n- plugin-detail 全套:**159/159 通过**"
+}

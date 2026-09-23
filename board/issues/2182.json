@@ -1,0 +1,30 @@
+{
+  "number": 2182,
+  "kind": "issue",
+  "title": "feat(studio): Fields form designer for the Data pillar — DEFERRED, scope + revisit criteria",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T07:00:01Z",
+  "updated_at": "2026-07-03T14:01:03Z",
+  "closed_at": "2026-07-03T14:01:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2182",
+  "body": "## What (deferred)\nA WYSIWYG **field-level form designer** inside the Studio Data pillar — the one Data v1 capability deliberately left out of Phase B (objectui#2180). Today the pillar covers: 记录 (runtime grid) / 表单 (section layout designer + preview, #2142) / 验证 (validation rules, #2180) / 设置 (object basics + ADR-0085 semantic roles, #2180). Field CREATION/EDITING flows through the ObjectFieldInspector side panel — functional, but not a drag-first designer for composing a form field-by-field (palette of field types → drop on canvas → configure inline).\n\n## Why deferred (decision record from the builder-ui pillars gap analysis)\n- No existing component to compose: the form-layout designer (#2142) reuses `object-fields-io` + fieldGroups semantics, but a palette-driven field composer would be a NEW ~500+ line surface with its own DnD model — not a reuse job.\n- The inspector-based flow already covers the 90% (add field → configure type/props in the right panel), and the #2142 layout designer covers arrangement.\n- ADR-0085 deliberately keeps grouping/arrangement semantics in `fieldGroups` — a field composer must build on that, not invent a parallel layout model.\n\n## Revisit criteria (any of)\n- Dogfood/user feedback that the add-field → inspector round-trip is a measurable friction point for non-technical builders\n- The Interfaces pillar grows a page/form composer whose DnD infrastructure can be shared\n- AI-authoring flows need a visual confirm surface for generated fields beyond the current layout designer\n\n## Scope sketch when picked up\n- Field-type palette (reuse the ObjectFieldInspector type list) + drop-to-create into a fieldGroups section\n- Inline rename/required toggles on the canvas; deep config still delegates to ObjectFieldInspector\n- Same draft/save/publish flow as the rest of the pillar (one `objDraft`, `client.save(..., {mode:'draft'})`)\n\nRelated: builder-ui pillars plan (framework docs), #2142 (layout designer), #2180 (Phase B)."
+}

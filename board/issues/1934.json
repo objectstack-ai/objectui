@@ -1,0 +1,30 @@
+{
+  "number": 1934,
+  "kind": "issue",
+  "title": "Flow builder: variable data-picker (autocomplete) for expression / template fields",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T02:47:36Z",
+  "updated_at": "2026-06-24T15:05:29Z",
+  "closed_at": "2026-06-24T15:05:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1934",
+  "body": "## Problem\n\nIn the Studio **Flow Builder**, business users author CEL expressions and `{var}` templates by **typing variable names from memory**. There's no way to discover or insert the references that are actually available in scope:\n\n- flow variables declared in the **Variables** panel,\n- upstream nodes' `outputVariable` / collected screen fields,\n- the trigger record (`record` / `previous` / `$record.<field>`) on record-triggered flows,\n- loop / map iterator variables.\n\nThis affects every expression / template surface: decision **Branches** (`expression`), edge **Condition**, **Assignment** values, **Screen** `description` + field defaults, CRUD **Field values** / **Filter**, `subflow`/`script` inputs, etc. Getting a name slightly wrong fails silently at runtime (or trips the `{record.x}` brace-in-CEL trap). This is the single biggest gap vs. Power Automate (\"Dynamic content\") and Salesforce Flow (\"resource picker\"), where you **pick** a reference from a list instead of typing it.\n\nSurfaced while dogfooding the flow builder as a business user (context: #1927, #1930).\n\n## Proposal\n\nA **data-picker** on `expression` / `text-with-template` config fields (and the edge Condition):\n\n1. A trigger (e.g. a `{x}` button or `/`) opens a searchable list of **in-scope references**, grouped:\n   - **Flow variables** — from the draft's `variables[]`.\n   - **Upstream outputs** — each prior node's `outputVariable` / `outputVariables` / screen `fields[].name`, resolved by walking the graph back from the current node.\n   - **Trigger record** — `record`, `previous`, and `record.<field>` (from the start node's `objectName` schema) on record-triggered flows.\n   - **Loop/map** — the enclosing `iteratorVariable`.\n2. Picking inserts the correct token at the cursor — bare CEL (`discount_pct`) in `expression` fields, `{discount_pct}` in template fields — so the brace rules are handled for the user (ADR-0032).\n3. Inline CEL validation already exists (`validateExpressionClient`); pair the picker with it so an unknown reference is flagged.\n\n## Acceptance criteria\n\n- [ ] Expression/template fields show a reference picker listing flow variables + upstream node outputs + (where applicable) trigger record fields and loop iterators.\n- [ ] Picking inserts the correctly-braced token at the cursor.\n- [ ] Scope resolution is graph-aware (only references reachable at this node are offered).\n- [ ] Degrades gracefully (free-text typing still works; empty scope = plain input).\n- [ ] Unit tests for the scope-resolution helper.\n\n## Notes / pointers\n\n- Config fields render via `packages/app-shell/src/views/metadata-admin/inspectors/FlowNodeConfigField.tsx` (kinds `expression` / `text` / `textarea` / `keyValue`); the field schema is `flow-node-config.ts`.\n- Edge condition is in `FlowEdgeInspector.tsx`.\n- Flow variables live on `draft.variables[]`; node outputs on `config.outputVariable(s)` / screen `config.fields[].name`.\n- Bare CEL on edges / `{var}` in config strings — see ADR-0032; the brace-in-CEL trap (`{record.x}`) is exactly what this prevents."
+}

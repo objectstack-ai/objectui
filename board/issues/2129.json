@@ -1,0 +1,33 @@
+{
+  "number": 2129,
+  "kind": "pull_request",
+  "title": "fix(form): 分组表单多列布局套错层级导致右侧列永远空着 (#2128)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T04:00:25Z",
+  "updated_at": "2026-07-01T04:53:03Z",
+  "closed_at": "2026-07-01T04:53:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-01T04:53:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2129",
+  "body": "Fixes #2128\n\n## 问题\n\n分组(section/字段组)的新建/编辑弹窗表单里,分组右侧永远空着——字段全挤在左边,右半区一片空白(见 issue 截图红框)。只有**分组的表单**这样,扁平字段表单正常。\n\n## 根因\n\n每个分组用 `<FormSection columns={n}>` 把**整个内层 `<SchemaRenderer>` 表单**包起来,于是多列 grid 套在了「整个表单」外面,而不是「字段」上:\n\n```tsx\n<FormSection columns={2} gridClassName=\"… @md:grid-cols-2\">\n  <SchemaRenderer … />   {/* grid 里唯一的子节点 = 整个表单 */}\n</FormSection>\n```\n\n一个 grid 里只有 1 个 grid item(表单),它占第 1 格,其余列永远空着。DOM 实测:\n\n```\nGRID  grid … @md:grid-cols-2   directChildren= 1   ← 2 列却只有 1 个子节点\nFORM  fieldWrap space-y-4       fields= 4           ← 内层表单单列竖排\n```\n\n对比扁平路径是对的:它把 `columns` + `fieldContainerClass` 透传进内层表单,让**字段容器**变多列 grid。分组路径漏了这步。\n\n## 改动\n\n- 新增共享的 `sectionFormLayout()`(`autoLayout.ts`):把 section 的 `columns` + 容器查询 `fieldContainerClass` 透传进内层表单 schema(并对 wide 字段套用 auto colSpan),多列 grid 落到**字段容器**上,与扁平路径一致。\n- `FormSection` 只保留标题 / Card 外框(`columns={1}`,不再套多列 grid),避免双重套壳。\n- 统一修复四个走该模式的变体:**ModalForm**(stacked + tabbed)、**SplitForm**、**TabbedForm**、**WizardForm**。\n- 顺手把 ModalForm 里本地的 `CONTAINER_GRID_COLS` 提取到 `autoLayout.ts` 共享。\n\n### 关于 DrawerForm\n\nDrawerForm **不走**这个模式——它把所有分组拍平进**单个**表单,用 `section-divider` 伪字段分隔,因此不会出现「右侧空列」这个 bug(只是分组渲染为单列,属另一个独立的增强点)。本次不改动,以免牵动 divider 的 colSpan 逻辑。\n\n## 验证\n\n- 新增回归测试 `sectionColumns.test.tsx`:\n  - 纯函数 `sectionFormLayout`:2 列 → `fieldContainerClass` 含 `@md:grid-cols-2`;1 列 → 无 grid class;超界 clamp 到 4 列。\n  - ModalForm DOM:2 列分组的字段容器带 `@md:grid-cols-2`,且**字段本身**是该 grid 的直接子节点(4 个),而非「grid 只有 1 个 form 子节点」。\n- `plugin-form` 全量测试:**152 passed**。\n- `turbo run type-check --filter=@object-ui/plugin-form`:通过。\n"
+}

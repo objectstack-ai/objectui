@@ -1,0 +1,33 @@
+{
+  "number": 2144,
+  "kind": "pull_request",
+  "title": "feat(fields): search-first PeoplePicker for user fields (#2112)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T03:02:44Z",
+  "updated_at": "2026-07-02T10:33:06Z",
+  "closed_at": "2026-07-02T10:33:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T10:33:04Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2144",
+  "body": "## Summary\n\nSearch-first **PeoplePicker** for `user`/`owner` fields (#2112). Delivers **v1 = a tenant-scoped, search-first multi-select picker**. Strong search (server-side pinyin + name/email) plus rich rows (avatar + department · email) stand in for an org tree by making same-named people easy to disambiguate inline — zero org structure required, zero burden on customers who don't use org features.\n\nTwo commits:\n1. `refactor(fields)` — extract a shared **`useRecordQuery`** kernel (params/fetch/pagination/search-debounce/sort) and migrate `RecordPickerDialog` onto it. Pure refactor, name-preserving aliases, zero regression.\n2. `feat(fields)` — the PeoplePicker + wiring.\n\n## What's included\n\n- **`useRecordQuery`** — reusable query kernel behind record pickers (dialog, popover, PeoplePicker; a future org-tree tier reuses it too).\n- **`personDisplay.ts` / `PersonRow` / `SelectionTray`** — CJK-aware display helpers, rich candidate row, removable-chip selection tray (穿梭框式已选区).\n- **`PeoplePicker`** — Tier 0 dialog: search + recent contacts + rich rows + selection tray + confirm. Auto-derives `$expand` from relation subtitles; one seed query resolves recents + the current value; single & multi modes.\n- **Wiring** — `LookupField` mounts PeoplePicker when `picker: 'search'`; `UserField` defaults `user`/`owner` fields to it (department·email subtitle, avatar, `banned != true` candidate filter). `UserFieldMetadata` extended (`picker` / `subtitle` / `avatar_field` / `lookup_filters`).\n- **`UserCellRenderer`** now loads avatar images (`image` field, initials fallback).\n\n## Scope / deferred\n\n- v1 is tenant-scoped + search-first. **Deferred**: org tree / cross-company (framework#2483); employee-id / phone search (needs `sys_user.phone` / `employee_no`).\n- **Pinyin** search is server-side and transparent (framework#2486) — no client code.\n\n## Verification\n\n- **274 fields tests pass** (32 new: hook 10, helpers 12, components 6, PeoplePicker 5).\n- `vite build` type-clean for all new files (remaining `TS6059` are the known leaf-package rootDir false-positives).\n- No new i18n keys (reused existing `table.*` / `lookup.*`).\n\n## Not yet done\n\n- Browser E2E on the framework-showcase stack.\n- Optional dedup: migrate `LookupField.fetchLookupData` popover onto `useRecordQuery`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

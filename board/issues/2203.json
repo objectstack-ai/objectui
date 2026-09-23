@@ -1,0 +1,32 @@
+{
+  "number": 2203,
+  "kind": "pull_request",
+  "title": "fix(studio): pillars follow the active locale instead of hardcoded zh-CN",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T01:25:10Z",
+  "updated_at": "2026-07-04T03:18:35Z",
+  "closed_at": "2026-07-04T03:18:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T03:18:33Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2203",
+  "body": "## Problem (F1)\n\nThe pillar Studio (`StudioDesignSurface`) pinned `const locale = 'zh-CN'` in its\nInterfaces / Data / Automations pillars, so the WYSIWYG builder **always rendered\nChinese** — even when the console ran in English. The Home page and the rest of\nthe app follow the user's active locale; the Studio did not. Found dogfooding the\npillar Studio end-to-end (building a recruitment app) after the blocking\ndead-ends were fixed in #2198 / #2199. Non-blocking, but a real UX rough edge.\n\n`AppNavCanvas` compounded it with hardcoded **English** strings (\"NAVIGATION\",\n\"Add nav item\", \"Remove nav item\", empty-state) sitting amid the otherwise-Chinese\nStudio.\n\n## Fix\n\n1. **Thread the real active locale.** New `useMetadataLocale()` in\n   `metadata-admin/i18n.ts` derives the Studio locale from the live\n   `useObjectTranslation().language` — the same source the `LocaleSwitcher`\n   drives — rather than `navigator.language` (which never changes on an in-app\n   switch, so `detectLocale()` would have been a latent half-fix). The 3\n   hardcoded `'zh-CN'` are replaced, and `locale` is threaded into every\n   component that had inline strings (PackageSwitcher, the publish/app-bridge\n   header, StudioNavItemInspector, and all four pillars).\n\n2. **Extract the inline strings.** `StudioDesignSurface` had **zero** i18n — ~130\n   inline Chinese UI strings. All are now `engine.studio.*` keys with English +\n   Chinese entries in the metadata-admin catalog (the Studio's real i18n home,\n   where sibling panels like `RuntimeDraftBar` already resolve `engine.*` keys —\n   not `packages/i18n/src/locales`). Pillar tab labels localize too.\n\n3. **Localize `AppNavCanvas`** via `engine.appNav.*`. It renders in both the\n   Chinese Studio and the English metadata-admin App preview, so it now follows\n   the active locale in both. The `'New item'` default is localized with a\n   placeholder check kept back-compatible with the legacy sentinel.\n\n## Verification\n\n- `pnpm --filter @object-ui/app-shell type-check` — clean.\n- Full app-shell test suite: no new failures (16 pre-existing `ObjectFieldInspector`\n  failures are a `client.listDrafts` mock gap on `main`, confirmed via `git stash`).\n- New `studio-locale.i18n.test.tsx` pins EN/ZH catalog resolution and asserts\n  `AppNavCanvas` renders **English under an English provider and Chinese under a\n  Chinese one** (the shared pillar wiring) — the exact \"switch locale → Studio\n  follows\" behavior, as a permanent regression guard.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 2048,
+  "kind": "pull_request",
+  "title": "fix(data-table): commit inline cell edit on blur so switching cells keeps the value",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T06:15:06Z",
+  "updated_at": "2026-06-28T07:23:21Z",
+  "closed_at": "2026-06-28T07:23:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T07:23:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2048",
+  "body": "## 问题\n\n列表行内编辑(`editable` data-table)时,编辑完一个单元格的值后**点击其他单元格,上一个单元格刚输入的值丢失**。\n\n例如「生产报工」里逐行录入「实际开始时间」:填好一行的日期,鼠标去点下一行,刚填的值没了。\n\n## 原因\n\n行内编辑器之前**只有按回车(Enter)/Esc 才会提交**。用鼠标点别的单元格时,会直接触发新单元格的 `startEdit()`,把 `editingCell`/`editValue` 覆盖掉,而上一个单元格的值**从未写入** `pendingChanges`,于是被静默丢弃。data-table.tsx 的四个内联输入框都缺少 `onBlur` 提交。\n\n## 修复\n\n失焦即提交(符合表格录入的直觉):\n\n- 新增 `handleEditBlur()`:编辑器失去焦点(点其他单元格 / 点表格外)时调用 `saveEdit()` 提交当前值。\n- 给四种内联编辑器(`date` / `datetime` / `number` / 文本兜底)都挂上 `onBlur={handleEditBlur}`。\n- 新增 `skipBlurSaveRef` 守卫:Enter(已保存)和 Esc(已取消)之后也会触发 blur,用该标记避免**重复提交**(Enter)或**把已取消的值又存回来**(Esc)。\n\n## 测试\n\n- `packages/components` `data-table-inline-edit.test.tsx`\n  - C) 编辑后失焦 → 值被正确提交(`onCellChange` 带新值触发)\n  - C2) 按 Esc 取消 → 值被丢弃,随后的 blur 不会再把它存回来\n- `packages/plugin-grid` `inlineEditPersistence.test.tsx`(新增)\n  - 完整链路:编辑 → 回车 → 点「全部保存」→ `dataSource.update(object, id, changes)` → 刷新,值端到端落库\n\n两个套件本地全部通过(6 + 1)。\n\n## 说明\n\n> 注:用户最初一并报告了「保存后刷新值丢失」,经排查 PATCH 返回 200 且字段已落库,该记录因「录入实际开始时间=完成报工」自动从「待报工」流转到「已报工」而从当前 tab 消失,属业务设计行为,**非框架 bug**,本 PR 不涉及。"
+}

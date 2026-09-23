@@ -1,0 +1,30 @@
+{
+  "number": 2232,
+  "kind": "issue",
+  "title": "PageHeaderRenderer record title ignores objectSchema.nameField — console record page header falls back to hardcoded field probing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T15:52:42Z",
+  "updated_at": "2026-07-04T17:03:41Z",
+  "closed_at": "2026-07-04T17:03:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2232",
+  "body": "## Symptom\n\nOn the console record detail page, the page header title does not resolve the object's declared `nameField`. An object that declares e.g. `nameField: 'subject'` (and has no field literally named `name`/`title`, no `titleFormat`) renders its header as `<ObjectLabel> <id-prefix>` instead of the record's subject value. If the object *also* has a `name` field, the header always shows `name` even when `nameField` points at a different field.\n\nThis is the record-page-header sibling of objectstack-ai/framework#1295 (LookupCellRenderer, fixed): the framework serves `nameField` correctly (spec `object.zod.ts`, ADR-0079/0085; `displayNameField` alias normalized), and `@object-ui/core#getRecordDisplayName` already treats `nameField` as the top-priority declared title pointer — but the page header renderer never calls it.\n\n## Root cause\n\nTwo spots, both bypass the unified ADR-0079 resolver:\n\n1. **`packages/components/src/renderers/layout/containers.tsx` ~970-982 (`PageHeaderRenderer` record chip)** — title chain is:\n   `explicitTitle → objSchema.primaryField → titleFormat → data.name/full_name/title/subject/display_name/label → objectLabel+id`.\n   `primaryField` does not exist on the spec ObjectSchema (the canonical property is `nameField`), so it is always undefined for stack-defined objects, and the chain never consults `objSchema.nameField`/`displayNameField` nor `getRecordDisplayName()`.\n   This is the header every default record detail page renders: `RecordDetailView` synthesizes the page via `buildDefaultPageSchema()` (renderViaSchema default-on) which emits a `page:header` node.\n\n2. **`packages/app-shell/src/views/RecordDetailView.tsx` ~1222** — `primaryField` derivation is `objectDef.primaryField || fields.find(k => k === 'name' || k === 'title')`, again ignoring `objectDef.nameField`. This value feeds `detailSchema.primaryField` (DetailView title priority 1) and `buildDefaultPageSchema`'s highlight-strip dedup, so a `nameField`-titled record also gets its title field duplicated in the highlight strip.\n\nNote `DetailView.resolveDisplayTitle` (plugin-detail) *does* call `getRecordDisplayName` — but that header is suppressed under the synthesized page (`page:header` renders instead), so the correct path is dead on the default console record page.\n\n## Expected\n\n`page:header` resolves the record title through `getRecordDisplayName(objSchema, data, { deriveFromRecordKeys: false })` (mirroring `DetailView.resolveDisplayTitle`), so `nameField → displayNameField → titleFormat → type-aware derivation` applies uniformly, matching gallery / kanban / calendar / gantt / lookup which already use the unified resolver. `RecordDetailView`'s `primaryField` derivation should prefer `objectDef.nameField` over the literal `name`/`title` probe.\n\n## Repro\n\n1. Define an object with `nameField: 'subject'`, fields `subject` (text) + others; no `name` field, no `titleFormat`.\n2. Open a record in the console (default record page, no assigned Page).\n3. Header shows `<ObjectLabel> <first-8-chars-of-id>` instead of the subject value.\n\nVerified present at objectui `main` (36ee9bbec) and at `7a53249d865f` (the SHA bundled into @objectstack/framework's console)."
+}

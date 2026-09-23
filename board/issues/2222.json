@@ -1,0 +1,33 @@
+{
+  "number": 2222,
+  "kind": "pull_request",
+  "title": "fix(studio): scope Access matrix by { packageId } + slice-merge on save (ADR-0086 P0)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T07:29:36Z",
+  "updated_at": "2026-07-04T07:57:16Z",
+  "closed_at": "2026-07-04T07:57:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T07:57:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2222",
+  "body": "Closes #2221.\n\n## Problem\n\nThe Access pillar (#2196) embedded the permission matrix at **environment scope**, producing two real security/safety issues:\n\n1. **\"84-object leak\"** — opening the Access panel in a package listed the permission matrix for **every object in the environment**, not just the ones the package declares. An admin editing package A could see (and mis-edit) authorization for objects belonging to other packages.\n2. **Cross-package data loss** — Save **overwrote the whole permission set**, silently clobbering authorization rows other packages had contributed.\n\nPer ADR-0086 (framework #2559) — this PR executes, it does not re-decide.\n\n## What changed\n\nOpened inside a package, `PermissionMatrixEditPage` now:\n\n- **Scopes the object list by `{ packageId }`** — `list('object', { packageId })`, so the panel lists only the objects that package declares (the package's manifest-declared object set, discovered via the existing server-side `?package=` filter).\n- **Slice-merges on Save** — it re-reads the record and writes back **only this package's slice** via `mergePermissionSlice`, leaving every row contributed by other packages **byte-for-byte** intact. The post-save refresh re-narrows to the slice too.\n\nThe Access **rail** also scopes to permission sets this package owns (`scopePermissionSetList`): environment-owned platform defaults (`admin_full_access`, `member_default`, …) are hidden once the backend tags sets with a record-level `package_id` (framework ADR-0086 P1, framework#2566). A **mid-migration guard** keeps the rail populated on backends that predate the P1 provenance seeding — if no set carries a `package_id` yet, all are shown, so the rail never collapses to empty. (Follows the coordination update on #2221.)\n\nWhen `PermissionMatrixEditPage` is rendered without a `packageId` (e.g. the generic metadata-resource editor), behavior is unchanged: full object list, whole-record save.\n\nThe scope/merge logic is a pure, dependency-free helper — `packages/app-shell/src/views/metadata-admin/permission-slice.ts` (`scopePermissionSet`, `mergePermissionSlice`, `scopePermissionSetList`).\n\n## Acceptance criteria\n\n- [x] Opening package A's Access panel shows only package A's declared objects (no 84-object environment list).\n- [x] After editing + saving package A's matrix, package B's prior authorization rows are preserved **byte-for-byte** (write-back regression test).\n- [x] Closed loop open → edit → save → reopen, with a cross-package slice-retention check.\n- [x] Platform-default permission sets (no `package_id`) are hidden from a package's rail once provenance is tagged.\n- [x] `type-check` 0 errors; existing tests do not regress (516 app-shell tests green).\n\n## Testing\n\n- **`permission-slice.test.ts`** — unit tests for object scoping, slice-merge (other-package rows survive as the same reference, both directions), and rail scoping incl. the mid-migration guard.\n- **`PermissionMatrixEditor.scope.test.tsx`** — component integration test that drives the **real** editor through load → edit (clear a package-A object) → save → reopen against a fake client that behaves like the server, asserting: only package A's objects render (`b_order` never appears), and the saved payload preserves package B's `objects`/`fields` rows verbatim.\n\n> Note on the browser closed-loop: the live backend that provides `?package=` scoping and permission persistence lives in the `framework` repo, which is not present in this environment. The component integration test exercises the same load→edit→save→reopen path against a server-faithful fake client as the closest achievable substitute.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01QWcZRYnJXN3YXFTbm3PLg5"
+}

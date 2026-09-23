@@ -1,0 +1,34 @@
+{
+  "number": 2046,
+  "kind": "pull_request",
+  "title": "fix(dashboard): loading skeletons (not empty/0 states) while dataset & chart queries are pending",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T05:44:33Z",
+  "updated_at": "2026-06-28T06:18:08Z",
+  "closed_at": "2026-06-28T06:15:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T06:15:54Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2046",
+  "body": "## Symptom (live, ObjectOS tenant app)\n\nOpening an app's home dashboard, for the ~seconds a `dataset` query is in flight:\n- the bar chart shows an **all-zero / empty axis**, then snaps to real data once the query returns;\n- a table/list widget shows **blank**, then fills.\n\nThere was **no loading affordance**, so the first paint reads as *broken / empty* before it self-heals — it erodes first-impression trust. (This transient \"0-then-fill\" state previously got misread as a value/label counting bug — see cloud#667 close notes. The real issue is just the missing loading placeholder.)\n\n## Root cause — which component's loading state wasn't (properly) consumed\n\nThe three states *were* distinguished already, but the **loading placeholder was too weak to read as \"loading\"** inside a tall dashboard card:\n\n| Path | File | Before | Problem |\n|------|------|--------|---------|\n| Dataset-bound dashboard widgets (chart / table / pivot / metric) | [`DatasetWidget.tsx`](packages/plugin-dashboard/src/DatasetWidget.tsx) | a bare centered `Loader2` **16px spinner** for every widget type | a tiny spinner in a 220px+ card reads as empty/broken |\n| Object-bound (non-dataset) chart, incl. the chart view | [`ObjectChart.tsx`](packages/plugin-charts/src/ObjectChart.tsx) | a one-line **\"Loading chart data…\" text** | thin text, not a chart shape |\n\n> Note: the standalone **list/grid view** ([`ListView.tsx`](packages/plugin-list/src/ListView.tsx)) already renders a proper three-state row skeleton (`data-testid=\"list-loading\"`) on initial load — **left unchanged**. On the dashboard, the \"list/table\" is the `DatasetWidget` table branch, which this PR fixes.\n\n## Change\n\nRender a **shape-matched skeleton** during the pending state, reusing the existing skeletons from `@object-ui/components` (`ChartSkeleton`, `GridSkeleton`, `Skeleton`) — no new primitives:\n\n- **`DatasetWidget`**: `ChartSkeleton` (placeholder bars) for charts · `GridSkeleton` (header + rows) for table/pivot · a KPI skeleton (value + label bars) for metrics. Removed the now-unused `Loader2` import.\n- **`ObjectChart`**: `ChartSkeleton` for the object-bound chart path (preserves `data-testid=\"chart-loading\"`).\n\nThree states stay distinct and explicit:\n- **loading** → skeleton\n- **query done but empty** (`status === 'ok' && rows.length === 0`) → \"No rows\" / KPI `0` (unchanged)\n- **data** → render\n\na11y: the loading wrappers carry `role=\"status\"`, `aria-busy`, `aria-live`, and an `sr-only` label.\n\n## Verification\n\n- ✅ **objectui full vitest suite green**: `4726 passed | 24 skipped | 0 failed` (354 test files) — no regressions.\n- ✅ **4 new `DatasetWidget` tests** (38/38 in that file pass): a never-resolving `queryDataset` holds the widget in `loading` and asserts the **skeleton renders, not the empty/0 state**, for chart / table / metric; plus a loading→data transition once the query resolves.\n- ✅ **Build green**: `pnpm --filter \"@object-ui/plugin-dashboard...\" --filter \"@object-ui/plugin-charts...\" build` exits 0 (the `TS6059 rootDir` lines are pre-existing dts noise in the unmodified `fields` package).\n- ⚠️ **Not done — live browser visual confirmation.** The real loading window on a localhost backend is sub-second, so observing the skeleton \"live\" would need an artificially slowed dataset query (a framework-side change) plus standing up the `:3000` backend + console. Verification is at the **build + component/unit level**, which exercises the exact pending state deterministically. Honestly flagged rather than half-done.\n\n## After merge\n\nRequires a cloud `.objectui-sha` bump to reach the runtime stack — **not bumped here**.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

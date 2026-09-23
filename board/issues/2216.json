@@ -1,0 +1,33 @@
+{
+  "number": 2216,
+  "kind": "pull_request",
+  "title": "fix(fields): unlock dependent lookups on parent selection and enforce the cascade on every picker",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T05:53:21Z",
+  "updated_at": "2026-07-04T09:20:49Z",
+  "closed_at": "2026-07-04T09:20:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T09:20:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2216",
+  "body": "Fixes #2215.\n\n## The two breaks\n\n**1. The `depends_on` gate never unlocked in create mode.**\n`LookupField` resolved dependent values as `dependentValues ?? ctx.formValues ?? ctx.data`, but `SchemaRendererContext` has no `formValues` member (dead fallback) and nothing ever injected the `dependentValues` prop. With a fresh record (`ctx.data = {}`) the child lookup stayed disabled forever, no matter what the user picked in the parent field.\n\n**2. The Level-2 table picker bypassed the cascade.**\nThe `depends_on` chain only reached the quick-select popover's filter. `RecordPickerDialog` (and the search-first `PeoplePicker`) received just `lookup_filters`, so \"Browse all records\" listed the full unfiltered set (121 contacts across 13 pages in the showcase repro).\n\n## The fix\n\n- **`form.tsx`** injects the live form values (the same reactive `ruleRecord` snapshot that drives field rules) as `dependentValues`, forwarded to data-source field types only (`stripRegisteredFieldProps` already scoped that).\n- **`RecordPickerDialog` / `PeoplePicker`** gain a `baseFilter` prop — a hard `$filter` constraint merged **after** `lookupFilters` and user filter-bar input, so filter-bar edits on the same field can never widen it back out.\n- **`LookupField`** derives one `dependentFilter` from the `depends_on` chain and shares it across all three candidate surfaces (popover query, table picker, PeoplePicker), and disables the browse-all button while dependencies are missing (same gate + hint as the trigger).\n\n## Verification\n\n- 7 new unit tests: gating/unlock + popover `$filter` scoping (shorthand and `{field, param}` shapes), `baseFilter` wins over `lookupFilters` and over filter-bar input on the same field, `PeoplePicker` merge order, and live `dependentValues` injection by the form renderer.\n- Browser repro on the app-showcase invoice form (`contact depends_on account`): contact unlocks after picking Northwind; popover and table picker both list only Northwind's 2 contacts (previously 121/13 pages); browse-all disabled while gated with the \"select account first\" hint.\n- `pnpm --filter @object-ui/fields --filter @object-ui/components build` clean; full test suite run — only pre-existing failure is the known `DATEFORMAT` timezone flake in core (fails on main too, TZ-dependent).\n\nCo-Authored-By: Claude <noreply@anthropic.com>"
+}

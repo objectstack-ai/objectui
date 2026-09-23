@@ -1,0 +1,30 @@
+{
+  "number": 2179,
+  "kind": "pull_request",
+  "title": "fix(packages): Setup list + creator agree with the builder on writability",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T06:00:01Z",
+  "updated_at": "2026-07-03T06:04:27Z",
+  "closed_at": "2026-07-03T06:00:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T06:00:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2179",
+  "body": "Second PR from the UX review: Setup › Packages and the application builder disagreed about the same package's nature.\n\n- **Display**: `ScopeBadge` defaulted a missing scope to `project` — writable DB bases wore the identical badge as read-only code packages. Now: scope-less → **可写/Writable** (emerald), `project` → **只读 · 代码包 / Read-only · code** — same language as the builder's switcher/landing.\n- **Semantics (real bug)**: the New Package dialog hardcoded `scope: 'project'` onto runtime-created bases, so packages created in Setup were mislabeled **read-only** by the builder. New bases are now created scope-less, identical to the builder's own creator.\n\n**Browser-verified**: showcase → Read-only·code, builder-created 库存中心 → Writable; a package created through Setup's dialog (com.example.warehouse) lands **scope-less** (writable). `type-check`: 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

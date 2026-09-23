@@ -1,0 +1,30 @@
+{
+  "number": 2215,
+  "kind": "issue",
+  "title": "Cascading lookup (dependsOn) broken in forms: stays gated after parent is chosen; table picker bypasses the dependent filter",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T05:31:36Z",
+  "updated_at": "2026-07-04T09:20:48Z",
+  "closed_at": "2026-07-04T09:20:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2215",
+  "body": "Found while dogfooding `examples/app-showcase` in the framework repo (showcase_invoice: `contact` is `Field.lookup('showcase_contact', { dependsOn: ['account'] })`). Two independent breaks, both confirmed by source scan + browser repro against a source build.\n\n## Symptom 1 — dependent lookup stays gated forever after the parent is selected\n\nRepro: New Invoice modal → pick an Account (chip \"Northwind\" shows) → the Contact lookup still renders the gated trigger \"请先选择account\" (`data-testid=\"lookup-trigger-gated\"`, disabled).\n\nRoot cause — the dependent values the gate reads are never the live form values:\n\n- `packages/fields/src/widgets/LookupField.tsx:287-290` — `resolvedDependentValues = dependentValuesProp ?? ctx.formValues ?? ctx.data`.\n- `SchemaRendererContext` has **no `formValues` member at all** (`packages/react/src/context/SchemaRendererContext.tsx` — zero hits), so `ctx.formValues` is always `undefined` — dead code.\n- The form renderer never injects the `dependentValues` prop: `packages/components/src/renderers/form/form.tsx:719-730` passes `dataSource: contextDataSource` to the field widget but no `dependentValues`; `stripRegisteredFieldProps` (form.tsx:135-153) merely *forwards* the prop for `lookup`/`master_detail`/`tree` if someone upstream set it — nobody does.\n- Net: the gate falls back to `ctx.data` (static record scope). In create mode that's `{}`, so `dependenciesMissing` (LookupField.tsx:295-301) is permanently `true` → the field can never be filled. In edit mode it's the *saved* record, so changing the parent in-form doesn't re-scope the child.\n\nThe form renderer already maintains a live watched snapshot for CEL rules (`ruleRecord`, form.tsx:275-288) — it just never hands it to lookup widgets.\n\n## Symptom 2 — the Level-2 table picker (browse-all) bypasses the cascade entirely\n\nRepro: same modal, Account = Northwind already chosen → click the browse-all button next to Contact → dialog lists **121 records, page 1/13**: Contoso/Fabrikam contacts, pagination-test contacts — everything. (It also opens fine while the field is still gated.)\n\nRoot cause:\n\n- The dependent filter chain is only applied to the quick-select popover query (`popoverFilter`, LookupField.tsx:375-394).\n- `RecordPickerDialog` gets only the static `lookupFilters` (LookupField.tsx:1098-1116) — the `dependsOn` chain is never merged in.\n- The browse-all button (LookupField.tsx:1080-1091) has no `disabled={dependenciesMissing}`, unlike the main trigger (:807).\n\n## Fix direction\n\n1. `form.tsx`: pass the live watched record (`ruleRecord`) as `dependentValues` to data-source field widgets, so the gate and the popover re-scope reactively.\n2. `LookupField.tsx`: merge the `dependsOn` chain (param → value as `eq` filters) into what `RecordPickerDialog` receives, and gate the browse-all button on `dependenciesMissing` like the main trigger."
+}

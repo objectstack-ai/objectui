@@ -1,0 +1,33 @@
+{
+  "number": 1999,
+  "kind": "pull_request",
+  "title": "feat(detail): related-list add-by-picker + generic 'Assigned Users' for permission sets",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T10:41:08Z",
+  "updated_at": "2026-06-25T10:46:50Z",
+  "closed_at": "2026-06-25T10:44:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T10:44:21Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1999",
+  "body": "Implements the SDUI side of spec `RecordRelatedListProps.add` (objectstack-ai/framework#2324): the related-list primitive now LINKS existing records via a picker, declaratively via metadata — instead of hand-coding a bespoke editor for each case.\n\n- **plugin-detail `RelatedList`**: an \"Add\" button opens the reusable `RecordPickerDialog` over the far object; selections create link rows (junction) or re-parent (1:m) via `dataSource`; the list refreshes after add/remove; server insert errors (e.g. the AI-seat cap) surface inline. Lookup labels gain an `email` fallback.\n- **`record-related-list` renderer**: passes `add` + wires a generic remove.\n- **types**: `RecordRelatedListComponentProps.add`.\n- **app-shell `AssignedUsersSection`**: reuses the generic `RelatedList` over `sys_user_permission_set`, embedded in the permission-set editor → **every role (incl. `ai_seat`) gets a \"Manage Assignments\" UI with zero bespoke CRUD**. This is the previously-missing RBAC assignment surface.\n\n**Browser-E2E'd** (objectos-ee, licensed, cap=1): open the `ai_seat` permission set → \"Assigned Users\" + \"Add user\" → picker lists users → add while at cap → inline \"AI-seat cap reached: 1 of 1\" → free a seat → add a user → they gain AI (`/ai/agents` = [build,ask]).\n\nWhy this shape: the founder's call — enhance the SDUI to express custom record-detail sections via METADATA, don't hard-code each one.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

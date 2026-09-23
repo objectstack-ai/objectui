@@ -1,0 +1,30 @@
+{
+  "number": 2200,
+  "kind": "pull_request",
+  "title": "feat(app-shell): pre-warm the prod env from the Cloud onboarding widget",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T00:52:16Z",
+  "updated_at": "2026-07-04T00:56:44Z",
+  "closed_at": "2026-07-04T00:52:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T00:52:19Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2200",
+  "body": "Part of the ObjectOS Cloud **console IA program** (app-first landing). Companion cloud PR adds the backend warm route + wires the Welcome page.\n\n## What\n\n`CloudOnboardingNext` (the `cloud:onboarding-next` SDUI widget on the Cloud Welcome page) already fetches whether the caller has a production env, to choose Open-vs-Create. This PR: when the env exists **and the page passes a new `warmUrl`**, fire a best-effort `GET warmUrl` the instant we know — pre-warming a possibly-asleep container while the user reads the hint, so the \"Open Production\" click seconds later lands in an already-waking env instead of the full cold-start.\n\n- Folded into the existing entitlements effect — no extra decision round-trip.\n- Fire-and-forget, best-effort, once per resolve; the sso-open click warms again anyway, so a failed warm here costs nothing.\n- **No-op when `warmUrl` is unset** → safe to merge ahead of the cloud page metadata + backend route.\n\n## Why\n\nThe IA program turns the Welcome page into a workspace landing pad whose primary action is \"enter your workspace\". Cold-start is the wait behind that action (CF containers + kernel TTL sleep); pre-warming on landing removes it for the common case.\n\n## Verify\n\n`turbo build --filter=@object-ui/app-shell` green (tsc). Behavior is exercised end-to-end once the cloud PR bumps `.objectui-sha` and passes `warmUrl` — no visible change until then (no-op path).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

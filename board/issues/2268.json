@@ -1,0 +1,30 @@
+{
+  "number": 2268,
+  "kind": "issue",
+  "title": "Verification of #2254: B1 (wizard submitBehavior) and D (chart width/labels) still broken",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T07:10:47Z",
+  "updated_at": "2026-07-05T09:15:12Z",
+  "closed_at": "2026-07-05T09:15:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2268",
+  "body": "## Context\n\n`objectstack-ai/objectui#2254` claimed to resolve the objectui-side follow-ups tracked in `objectstack-ai/framework#2620` (from the framework#2616 Showcase UX pass). I bumped framework's `.objectui-sha` to the merged commit (`6c1ad9e206249735e8ebf7b77fca75313da28070`), rebuilt `@object-ui/console` from it, and browser-verified all 8 items live against a fresh seeded backend (`examples/app-showcase`). 5 of 7 testable items are genuinely fixed (A1, A3, B2, C2, E). Two are not — filing this so they don't get silently marked done.\n\n## B1 — Wizard `submitBehavior` still allows duplicate creation\n\nRepro: `page/showcase_new_project_wizard`, fill all 3 steps, click **Create**.\n\n- The `submitBehavior: {kind:'thank-you', title, message}` text **does** now surface correctly in a toast (\"Your new project is ready — find it in Projects, or reopen this wizard to start another.\") — confirms the spec-bridge fix (dropping `submitBehavior` before it reached the renderer) landed.\n- But the step-3 form **stays fully filled and the \"Create\" button stays enabled/clickable**. No confirmation panel replaces the form; no reset; no redirect.\n- Clicking **Create** a second time immediately after actually creates a **second duplicate record**. Verified via API:\n  ```\n  GET /api/v1/data/showcase_project?fields=id,name&filters=[[\"name\",\"=\",\"Verification Project 2620-dup-test\"]]\n  → {\"records\":[\n      {\"id\":\"6QhngFqWIp4UN544\",\"name\":\"Verification Project 2620-dup-test\"},\n      {\"id\":\"BVBRBgZbFDwK182e\",\"name\":\"Verification Project 2620-dup-test\"}\n    ],\"total\":2}\n  ```\n- So whatever `WizardForm`/`ObjectForm` change implemented `submitBehavior` for simple/non-wizard forms doesn't carry through for `formType:'wizard'` specifically — the last step doesn't unmount/replace itself the way a plain form's `thank-you` panel presumably does.\n\n## D — Command Center: chart width still collapsed + raw field name still leaks\n\nPage: `page/showcase_command_center`, 1440×900 viewport, row A (3 side-by-side chart panels: 任务状态分布 / 项目健康度 / 优先级分布).\n\n**Width** — measured the actual `<svg>` bounding boxes via `page.locator('.recharts-wrapper svg, .recharts-surface').boundingBox()`, not eyeballed from a screenshot:\n```json\n[\n  { \"x\": 324, \"y\": 393.27, \"width\": 100, \"height\": 350 },\n  { \"x\": 475.53, \"y\": 393.27, \"width\": 100, \"height\": 350 },\n  { \"x\": 627.06, \"y\": 393.27, \"width\": 100, \"height\": 350 }\n]\n```\nAll three row-A charts render at **exactly 100px wide** — same collapse class as the original #2616 report (~130px), not better. (Row B's charts, which get more per-panel space, measured 376px/162px — so the collapse is specific to the 3-up equal-width band, consistent with the original hypothesis that the SDUI `type:'flex'` + `responsiveStyles:{display:'grid'}` override isn't reliably beating the component's own layout, or that `ResponsiveContainer` isn't getting a measurable parent width in that specific band.)\n\n**Labels** — x-axis category ticks are now correctly humanized (\"To Do\", \"Urgent\" instead of raw `todo`/`urgent`) — that part of the #2254 fix works. But the measure/series name is still leaking as a raw field name in two places:\n- A literal `task_count` caption directly under each single-series chart (not a CSS variable — confirmed via a `TreeWalker` text-node scan, distinct from the expected `--color-task_count` CSS custom property).\n- The hover tooltip shows `task_count` as the row label instead of the dataset's configured `label: 'Tasks'` (`chart-gallery.dataset.ts`: `{ name:'task_count', label:'Tasks', aggregate:'count' }`).\n\nSo `#2254`'s claim (\"Chart axis ticks now honor a resolved `config[value].label`\") fixed the axis-tick lookup specifically, but a separate legend/caption/tooltip code path still reads the raw measure field name.\n\n## Repro app\n\n`examples/app-showcase` in `objectstack-ai/framework` (main), console built via `pnpm objectui:refresh` against this repo's current main (`6c1ad9e2`). Happy to share screenshots/HAR if useful — this issue captures the authoritative DOM measurements and API before/after diffs instead since those are more actionable than pixels.\n\nRef: framework#2620, framework#2616, objectui#2254.\n"
+}

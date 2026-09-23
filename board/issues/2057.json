@@ -1,0 +1,33 @@
+{
+  "number": 2057,
+  "kind": "pull_request",
+  "title": "fix(build): resolve @object-ui/sdui-parser in CI (alias to src)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T17:49:40Z",
+  "updated_at": "2026-06-28T18:09:26Z",
+  "closed_at": "2026-06-28T18:09:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T18:09:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2057",
+  "body": "**Hotfix for main.** #2056 (auto-)merged while Build/E2E + Test were red — those checks aren't required by branch protection, so auto-merge didn't gate on them. Root cause: `packages/components/src/renderers/layout/page.tsx` imports `@object-ui/sdui-parser`, but the new package wasn't added to the workspace `src` alias maps, so vitest and the console vite build couldn't resolve it (364 suites + E2E failed).\n\nAdds `@object-ui/sdui-parser → packages/sdui-parser/src` to `vitest.config.mts`, `apps/console/vite.config.ts`, and `tsconfig.json` — mirroring `@object-ui/core`. Verified: a previously-failing console suite now passes locally.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

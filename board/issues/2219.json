@@ -1,0 +1,30 @@
+{
+  "number": 2219,
+  "kind": "issue",
+  "title": "userFilters on an object list view is silently dropped — warn until the ADR-0053 phase-4 guardrail lands",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T06:40:55Z",
+  "updated_at": "2026-07-04T13:43:55Z",
+  "closed_at": "2026-07-04T13:43:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2219",
+  "body": "## Context\n\nPer ADR-0053 (`docs/adr/0053-list-view-navigation-modes.md`), an object's default list (`ObjectView`, \"views\" mode) has exactly one nav control — the `ViewTabBar` — and `userFilters` belongs to page lists (`InterfaceListPage`, \"filters\" mode) only. Phase 1 (suppress in-list rows) landed in PR #1801:\n\n- `packages/app-shell/src/views/ObjectView.tsx:1299-1304` — `renderListView` hardcodes `quickFilters: undefined, userFilters: undefined`.\n\nThat suppression is correct. The problem is that it is **completely silent**, and the phase-4 guardrail that was supposed to catch the wrong-context authoring error never landed:\n\n- `packages/types/src/zod/objectql.zod.ts:287` — `userFilters: UserFiltersSchema.optional()` is accepted on the list-view schema with no context `refine`, no `check`/`doctor` rule.\n\nSo an author (human or AI) who writes `userFilters` on an object list view gets a schema that validates, a build that passes, and a page that renders **nothing** where they expect filter dropdowns — zero signal at any layer. Found while dogfooding `app-showcase` (its `showcase_task.tabular` view carries exactly this wrong-context block, with a stale ADR-0047 comment).\n\n## Ask\n\nUntil the full phase-4 guardrail (zod `refine` + `check` rule) is implemented:\n\n- In `ObjectView.tsx` `renderListView`, when the incoming view def / list schema actually carries `userFilters` (or `quickFilters`), emit a `console.warn` explaining that the field is ignored in views mode and belongs to page lists — same \"never swallow silently\" treatment as #2217.\n\nPhase 4 proper (schema-level rejection) can then supersede the warning."
+}

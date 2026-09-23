@@ -1,0 +1,30 @@
+{
+  "number": 2188,
+  "kind": "issue",
+  "title": "主从表单:手写 subform columns(只有 field/label)时,子表格全部渲染成文本框",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T14:12:43Z",
+  "updated_at": "2026-07-03T14:22:14Z",
+  "closed_at": "2026-07-03T14:22:14Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2188",
+  "body": "## 问题\n\n新建/编辑记录时,主从表单(`MasterDetailForm`)内嵌的子表格(产品明细一类的 line-items)里,`select` / `lookup` / `date` / `number` 字段全都渲染成了普通文本框。\n\n例如天顺(tianshun-mtc)的 `mtc_lead`:子对象 `mtc_lead_product` 的字段类型定义完全正确(`product_type` 是 `select`、`contract_time` 是 `date`、`weight`/`contract_qty` 是 `number`),但录入时每一列都是文本框。\n\n## 根因\n\n视图里子表列常用最省事的写法 `{ field, label }`,不带 `type`。而框架的解析逻辑:\n\n- `MasterDetailForm` 里 `if (d.relationshipField && d.columns?.length) return d;` —— 只要作者给了 `relationshipField` + `columns`,就认为「配全了」,**跳过 `deriveDetail()`**(那一步本会去子对象 schema 补 `type`),只检查了 columns 有没有,没检查每列有没有 `type`。\n- `deriveDetail()` 里 `override.columns?.length ? override.columns : deriveColumns(...)` —— 作者给了 columns 也是原样透传,同样不补 `type`。\n- 结果 columns 带着 `type=undefined` 进 `GridField`,兜底逻辑「不是 date、不是 number 就当 text」→ 全变文本框。\n\n## 方案\n\n新增共享助手 `hydrateColumns()`:对「没写 `type`」的作者列,从子对象 schema 补出 `type`(以及 `options` / `reference` / `displayField` / 计算列 `expr`),逻辑与 `deriveColumns` 一致;已显式写了 `type` 的列不动(作者优先),列的集合/顺序/标签全部保留。`deriveDetail` 与 `MasterDetailForm` 两处解析路径都改用它;`needsDerive` 增加「有列但缺 type」的判定。\n\n修好后,像 `mtc_lead` 这种对象定义无需改动,子表格会按字段类型自动渲染下拉/引用选择器/日期选择器/数字输入。"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2060,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Studio 设计面 MVP (ADR-0080 slice-1) — 三支柱 + 真实元数据 + 开源 AI slot",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T02:12:36Z",
+  "updated_at": "2026-06-29T02:16:09Z",
+  "closed_at": "2026-06-29T02:13:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T02:13:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2060",
+  "body": "## 什么\n\nStudio 从「通用元数据 CRUD admin」重构为**预览优先的 WYSIWYG 设计面**的 slice-1（ADR-0080，决策与深度设计文档已合并 cloud#697）。新增 `packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx`，从 `@object-ui/app-shell` 导出，挂在 `apps/console` 的 `/studio/:packageId/:tab` 路由。\n\n**核心理念：设计态 = 运行态**——同一个 objectui 渲染器，给每次编辑一条不依赖 AI 的兜底（补 Airtable 拆解暴露的「阶段二迭代面」缺口）。\n\n## 三支柱（全真实数据，零新渲染器，复用现成 preview/inspector 注册表）\n\n- **Interfaces** — `/studio/:packageId/interfaces`：左侧导航树镜像**真实 App** 的多级菜单（Workspace / Data Model / Analytics / Pages），菜单项绑定到对象 / 看板 / 报表 / 页面；点选 leaf 进画布，用同一渲染器预览（\"预览即运行 · 同一渲染器\"）；画布点选积木 → 右侧 inspector 直接改属性 → `保存草稿` / `发布`。\n- **Data** — `/studio/:packageId/data`：用**我们的视图模型**（object-view 列表视图，非 Airtable 裸 grid），整版主视图；**按当前软件包过滤**对象。\n- **Automations** — `/studio/:packageId/automations`：flow 列表 + FlowPreview 流程图；**按当前软件包过滤**。\n\n## 开源/闭源边界\n\nAI 副驾是注入式 `aiSlot` prop——开源版留空，cloud 版填左栏聊天。开放机制、闭源智能，沿用 ai-studio open-core 模式。\n\n## 不进产品 nav\n\n只挂 `/studio` 路由，**暂不进控制台导航**——MVP，opt-in，零回归面。\n\n## 验证\n\n- ✅ `eslint .` — 0 errors（5 个 warning，CI 不拦）\n- ✅ `tsc --noEmit`（app-shell，依赖已构建）— 0 errors\n- ✅ **edit→save→publish→落盘 实测**（本地全栈，真实后端）：inspector 改 grid `Columns` 3→2 → 画布即时回流（onPatch→同一渲染器重渲）→ 保存草稿（\"未发布草稿\" badge）→ 发布 → 元数据 overlay 层持久化 `columns:2`（`overlayScope:env`），effective 解析为 2，draft 已清。\n\n| layer | columns |\n|---|---|\n| code（包源） | 3 |\n| overlay（发布写入） | **2** |\n| effective（运行态） | **2** |\n\n## 后续 PR（已记 TODO，不在本 PR）\n\n- Data 列表接全功能 object 视图宿主（视图切换 tab + 添加视图）\n- Interface 导航左栏拖拽编辑（复用 AppNavCanvas）\n- grid 列头动态加字段（用户点名的下一步优化重点）\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

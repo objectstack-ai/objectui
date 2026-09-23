@@ -1,0 +1,30 @@
+{
+  "number": 2155,
+  "kind": "pull_request",
+  "title": "fix(studio): stamp packageId on draft saves → true package-scoped publish",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T10:46:04Z",
+  "updated_at": "2026-07-02T10:58:20Z",
+  "closed_at": "2026-07-02T10:54:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T10:54:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2155",
+  "body": "Follow-up to #2147. Answers the root cause behind that PR's \"publish all pending\" fallback.\n\n## Root cause\n\nThe draft store (ADR-0048) keys overlay rows by `(org, type, name, package_id)`, and the save path stamps `package_id` from the request's `?package=<id>`. The **classic editor** passes it; the **pillar Studio** `doSave` did not — so pillar drafts landed with `package_id = null`. Then `POST /packages/:id/publish-drafts` (which matches `WHERE package_id = X`) silently skipped them, and `_drafts?packageId=` couldn't filter them.\n\n## Fix\n\nPillar draft-saves now pass the active `packageId` (the pillar already has it) — one option added at all five save sites (`MetadataClient.save` already forwards it as `?package=`). With drafts stamped, the shell switches from the publish-all fallback to **true package scope**:\n\n- count + Changes review → `GET /meta/_drafts?packageId=<id>` (server-filtered)\n- Publish → `POST /packages/:id/publish-drafts` (promotes exactly this package's drafts, one pass)\n\n## Verified in-browser (`/studio/com.example.showcase`, flow — object drafts are gated by `OS_METADATA_WRITABLE`)\n\nBefore the fix the flow draft reported `packageId: null` and `publish-drafts` left it (before=after=1). After:\n- draft now carries `packageId` ✓\n- `GET /meta/_drafts?packageId=com.example.showcase` returns it ✓\n- `POST /packages/…/publish-drafts` → **after = 0** ✓\n- UI: 保存草稿 → **变更 · 1** → 发布 → count 0.\n\n`type-check`: 0 errors in the changed files.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

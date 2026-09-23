@@ -1,0 +1,30 @@
+{
+  "number": 2204,
+  "kind": "issue",
+  "title": "BulkActionDialog params are schema-blind: a multi-value field param without explicit multiple:true renders single-select and patches a scalar",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T01:28:13Z",
+  "updated_at": "2026-07-04T02:51:06Z",
+  "closed_at": "2026-07-04T02:51:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2204",
+  "body": "## 问题\n\n批量编辑对话框的参数控件形态与写入 patch **完全不参照目标对象 schema**,单/多值语义只取决于 `BulkActionParam.multiple` 这个手写标志:\n\n- `packages/plugin-grid/src/components/BulkActionDialog.tsx:475-497`(select)与 `:498-525`(lookup):`param.multiple ? <MultiSelectControl/> : <Select/>`——只看 param 声明,不看 grid 已持有的对象 schema 里目标字段是否为多值(multiselect/tags/checkboxes/lookup multiple)。\n- `packages/plugin-grid/src/hooks/useBulkExecutor.ts:136-139`:\n  ```ts\n  const buildPatch = (): Record<string, unknown> => ({ ...(def.patch ?? {}), ...params });\n  ```\n  参数值原样进 patch,没有任何 schema 对照/归一化。\n\n**后果**:视图作者给多值字段定义批量参数时漏写 `multiple: true`(极易发生,#2185 的 showcase 早期版本就踩过),UI 渲染成单选、patch 写出标量。在 framework objectstack-ai/framework#2552 落地之前,标量会被服务端原样落库,**静默写坏整列多值数据**(实测 PATCH `{\"labels\":\"frontend\"}` 返回 200 并按标量存储);#2552 之后服务端会兜底包装成单元素数组,但 UI 仍然把多值字段呈现为\"只能选一个\",语义错误依旧。\n\n## 建议修复\n\n1. BulkActionDialog 拿到 grid 的对象 schema 后,对 `operation: 'update'` 的参数按 `param.name` 对应的目标字段推导 `multiple`(param 显式声明优先,未声明时回退 schema:`multiselect`/`checkboxes`/`tags`/`select|lookup + multiple` → 多值)。\n2. `buildPatch` 在合并 params 时按 schema 做形状归一化:目标字段为多值而值是标量 → 包装数组(与服务端 #2552 行为一致,双保险)。\n"
+}

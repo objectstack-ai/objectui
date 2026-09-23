@@ -1,0 +1,33 @@
+{
+  "number": 2072,
+  "kind": "pull_request",
+  "title": "fix(components):弹窗内下拉点空白处不再误关整个弹窗",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T06:19:24Z",
+  "updated_at": "2026-06-29T06:36:14Z",
+  "closed_at": "2026-06-29T06:36:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T06:36:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2072",
+  "body": "## 问题\n\n新建 / 编辑记录弹窗里点开下拉字段(适用对象、触发类型等)的选项后,**不选项、点到别处**,整个弹窗会直接关闭消失,而不是只收起下拉。\n\n## 根因\n\n`ModalForm` → `MobileDialogContent` → Radix `DialogPrimitive.Content` 没处理 `onInteractOutside`。Radix `Select` / `Popover` 的弹层内容是 **portal 到 `document.body`**(position=popper),物理上在 `DialogContent` 的 DOM 之外。点这个 portal 弹层区域(下拉很大,盖住半个弹窗)时,Dialog 的 DismissableLayer 判定为\"点击弹窗外部\",触发 `onOpenChange(false)` 关掉整个弹窗。\n\n## 改动\n\n`packages/components/src/custom/mobile-dialog-content.tsx`:给 `DialogPrimitive.Content` 加 `onInteractOutside` 守卫——当本次外部交互的真实目标落在 Radix 弹层内(`[data-radix-popper-content-wrapper]` / select content / viewport)时 `preventDefault()` 抑制误关,弹层照常自行收起;真正点遮罩仍走原 `onOpenChange` 关闭逻辑。判定逻辑抽成导出的 `isInsidePopperLayer` 并配单测。\n\n- 与调用方自带的 `onInteractOutside` 组合(先守卫,放行后再调用方处理)。\n- 修复对所有用 `MobileDialogContent` 的弹窗生效。\n\n## 自测\n\n- `type-check` ✅\n- 新增 `mobile-dialog-content.test.tsx`:4 passed(弹层内目标 → 拦截;遮罩 / 弹层外 → 放行;null/undefined 安全)\n- changeset:`@object-ui/components` patch\n\nCloses #2071"
+}

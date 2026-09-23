@@ -1,0 +1,33 @@
+{
+  "number": 2036,
+  "kind": "pull_request",
+  "title": "feat(ai-build): always show a \"Build it\" button after propose + friendlier design wait",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T16:52:23Z",
+  "updated_at": "2026-06-27T17:24:18Z",
+  "closed_at": "2026-06-27T17:24:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T17:24:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2036",
+  "body": "## What\n\nTwo UX fixes for the **AI Build** chat (the magic flow: describe an app → AI proposes a plan → you confirm → AI builds & publishes). Changes live in `plugin-chatbot` (the chat component) plus the two surfaces that drive it: the full-page `AiChatPage` and the floating `ConsoleFloatingChatbot`.\n\n### 1 · `propose_blueprint` now ALWAYS gives an explicit \"Build it\" button\n\n**Before (the bug):** the \"Proposed plan\" card — with its one-click **Build it** / **Adjust** gate — only renders when the tool result parses into a structured `proposedPlan` (i.e. `detectProposedPlan()` finds `status:'blueprint_proposed'` **and** at least one nameable object). When `propose_blueprint` *finished* but returned a thin / oddly-shaped envelope, or the model proposed in prose, `detectProposedPlan` returned `undefined`, so:\n\n- `shouldRenderDetailedTool()` was false → the step collapsed into a **\"Propose blueprint · Completed\" summary chip**, and\n- the user was left with only the assistant's text telling them to *\"reply 确认 or 直接搭建\"* — **no button, guess-the-phrase.** Inconsistent and confusing, exactly the reported symptom.\n\n**Fix:** a *finished-but-unstructured* `propose_blueprint` (`isUnstructuredBuildProposal`) now routes to the detailed body and renders a **fallback confirm card** with the same explicit **Build it** / **Adjust** buttons, the same approve/adjust handlers, and the same #432 built-state collapse (turns into an inert \"Built\" badge once `apply_blueprint` runs). The **rich** plan card still wins whenever the plan parses — no double card. When the host hasn't wired `onSendMessage`, it degrades to the same static hint the rich card uses.\n\n### 2 · A friendlier \"we're designing\" wait during `propose_blueprint`\n\n`propose_blueprint` is a single long, **atomic** LLM call (no token stream / partial results), so the previous bare elapsed timer made the UI look stuck for tens of seconds. While it runs, the activity summary strip (and the detailed-tool header, for parity) now show a **\"Designing your app…\"** lead-in plus a hint that **rotates every 3.5s** — *Mapping out the data → Shaping objects and their fields → Connecting related records → Planning the screens and views → Pulling the plan together* — beside the live count-up timer. So the wait visibly **moves**.\n\nThis is the pragmatic option from the brief: the rotation is **presentational reassurance only** (it does **not** claim real sub-step progress — there's no partial stream to show), it's fully localizable, and an empty hints array disables it. No backend/protocol changes.\n\n## Why #1 used to degrade to plain text\n\nThe card↔chip routing is gated entirely on `tool.proposedPlan` being truthy, and that field is only populated by `detectProposedPlan()`, which is strict (needs the exact envelope status + ≥1 parseable object). Any propose result the detector can't lift — a lean envelope, a differently-shaped `blueprint`, or a model that answered in prose instead of the tool — fell through to the generic \"Completed\" chip with no confirm affordance. The fix decouples \"show a confirm gate\" from \"did the rich plan parse\": a completed build-proposal step always earns at least the minimal gate.\n\n## Copy / i18n\n\nAll strings are label-driven. English defaults live in `plugin-chatbot`; both surfaces wire zh + en (`AiChatPage` via `t()` per-string, `ConsoleFloatingChatbot` via its locale object). Note: the floating-chat fallback button still **sends** the existing `确认`-anchored approve message, so it matches the cloud confirm-gate regex (`service-ai-studio` `confirm-gate.ts`) and isn't inert.\n\n## Verification\n\n- **Unit / DOM (real component, jsdom + Testing Library):** `plugin-chatbot` **133 → 142** tests. New tests cover, for #1: fallback card renders (not just prose), \"Build it\" sends the plain approve message, static-hint fallback with no `onSendMessage`, collapse to \"Built\" after `apply_blueprint`, **not** shown while still running, and the rich card preferred when the plan parses; for #2: the designing indicator (lead-in + rotating hint + timer) shows for a running proposal, rotates on the interval, and a non-proposal running tool keeps the plain timer.\n- **Rendered-DOM spot check** of the real component confirmed the produced markup: fallback card = `\"Proposed plan\"` + `\"The plan is ready. Build it now, or tell me what to adjust.\"` + **Build it** + **Adjust**; running hint cycled `Mapping… → Shaping… → Connecting…` with `0:00 / 0:03 / 0:07`.\n- **app-shell:** full suite **938 tests green**.\n- **Build / type-check:** `plugin-chatbot` and `app-shell` both `tsc --noEmit` clean and build (incl. DTS) clean. (Pre-existing, unrelated `plugin-view` DTS `rootDir` warnings were present on the baseline and are untouched by this change.)\n- **NOT done — live UI in a real AI-build session.** `examples/app-showcase` is a framework data/back-end example and does **not** mount `plugin-chatbot` or run the AI build flow, so these two surfaces can't be reproduced there. Reproducing them live needs the full cloud + objectos stack (an AI-enabled tenant env), which is out of scope here. Verification is therefore code + compile + unit/DOM (real component render), not a screenshotted end-to-end session.\n\n## Deploy note (for a human, later)\n\nThis is objectui-only. To reach the running stack it needs a framework `.objectui-sha` bump + a cloud pin bump after merge — **intentionally not bumped here**; leave the timing to a human.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1986,
+  "kind": "pull_request",
+  "title": "fix(preview): draft-preview bar drops redundant Publish when nothing is pending",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T16:44:23Z",
+  "updated_at": "2026-06-24T16:52:38Z",
+  "closed_at": "2026-06-24T16:52:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T16:52:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1986",
+  "body": "## Problem (found verifying the ADR-0070 auto-publish flow in the browser)\n\nUnder the environment's **auto-publish posture** (cloud V1 \\\"develop = publish\\\"), an AI build auto-publishes in-turn — `GET /api/v1/meta/_drafts` returns **0** afterward. But opening a draft preview (`?preview=draft`) still rendered `DraftPreviewBar` as:\n\n> ⚠️ **Draft preview — you are seeing unpublished changes. Nothing here is live until you publish.**  · **Changes (0)** · **[Publish]** · [Exit preview]\n\nThat's self-contradicting (says nothing is live, but everything *is* live and **Changes (0)**) and the Publish button is a no-op. Browser-reproduced on a freshly-built app with all 12 records live and `draftCount: 0`.\n\n## Fix\n\n`DraftPreviewBar` now reflects the **real** pending-draft count it already fetches:\n\n- **Known-zero** count → neutral (slate) preview indicator, message *\\\"Draft preview — no unpublished changes; everything here is already live.\\\"*, and the **Publish + Changes affordances are dropped** (only the preview indicator + Exit remain).\n- **> 0 or unknown** (still loading / fetch failed) → unchanged amber bar with Publish + `Changes (N)`. We only relax when we *know* the count is zero (safe default).\n\nThis aligns the third surface with the two that already gate correctly: `HomePage` (`if (count <= 0) return null`) and `RuntimeDraftBar` (gates on `hasDraft`).\n\n## Verification\n\n- **Browser**: reproduced the contradictory bar on the live env (`draftCount: 0`, bar still showed Publish + \\\"nothing is live\\\").\n- **Unit**: new `DraftPreviewBar.test.tsx` — 0 drafts ⇒ no Publish/Changes + clean copy; N drafts ⇒ Publish + `Changes (N)` + warning copy; unknown ⇒ Publish kept. `pnpm --filter @object-ui/app-shell exec vitest run src/preview` → 8/8.\n- **Typecheck**: app-shell `tsc --noEmit` → 0 errors (after building the dep graph); i18n clean.\n\ni18n: added `preview.draftBar.messageClean` to en + zh; other locales fall back to the English default.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

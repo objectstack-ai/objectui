@@ -1,0 +1,32 @@
+{
+  "number": 1976,
+  "kind": "pull_request",
+  "title": "feat(studio): make the flow-canvas error banner clickable (reveal on click)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T15:37:53Z",
+  "updated_at": "2026-06-24T15:41:42Z",
+  "closed_at": "2026-06-24T15:37:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T15:37:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1976",
+  "body": "## What & why\n\nThe inline structural-error banner on the flow canvas (ADR-0044 cycle surfacing, #1958) was **display-only**. Since then a full **Problems panel** landed — clickable rows that select + pan-to-reveal the offending node/edge — but the always-visible canvas banner still just showed text via a separate `validationErrors: string[]`, duplicating the panel's data.\n\n## Change\n\n- **Clickable banner** — drive the banner from the unified `problems` list and make each row with a concrete target a button. Clicking it calls the **same `onSelectProblem`/reveal handler the Problems panel uses** (`onRevealProblem`), so it selects and pans-to-center the offending node/edge. Flow-level problems (no specific element) stay non-clickable.\n- **Dedup** — remove the redundant `validationErrors` prop and its duplicate `validateFlowDraft` message-mapping in `FlowPreview`. The banner, Problems panel, and on-canvas badges now share **one source** (`buildFlowProblems`). The red edge/node highlighting (its own `invalidNodeIds`/`invalidEdges`) is unchanged.\n\n## Verification\n\n- `FlowCanvas` tests **4 passing** (banner renders from `problems`; **click → `onRevealProblem` called with the problem**; warnings excluded from the banner; clean flow → no banner/markers).\n- Full metadata-admin suite **463 passing** (no regression).\n- `type-check` 0 errors; `eslint` 0 errors (3 pre-existing warnings untouched).\n\n> Note: the click-to-reveal capability already existed in the side **Problems panel**; this makes the *always-visible* banner equally actionable and removes the duplicate data path. Completes the #3 UX-polish follow-up to #1958.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

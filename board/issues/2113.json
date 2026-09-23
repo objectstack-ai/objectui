@@ -1,0 +1,32 @@
+{
+  "number": 2113,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): declare designer inputs for record:* blocks (spec conformance)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T10:14:12Z",
+  "updated_at": "2026-06-30T10:25:34Z",
+  "closed_at": "2026-06-30T10:25:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T10:25:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2113",
+  "body": "Conformance follow-up (B): the `record:details` / `related_list` / `highlights` / `path` blocks registered **zero inputs** — the visual designer couldn't configure them, and the spec↔frontend conformance check (framework #2480) flagged **17 spec-only divergences** for these blocks.\n\nNow each block's `inputs` mirror its `@objectstack/spec` schema (RecordDetailsProps: columns/layout/sections/fields; RecordRelatedListProps: objectName/relationshipField/columns/sort/limit/filter/title/showViewAll/actions; RecordHighlightsProps: fields/layout; RecordPathProps: statusField/stages).\n\n**Verified** via a live manifest dump from this branch: record:* now **17 matched / 0 spec-only** (was 0 matched / 17 spec-only). Aligns the frontend with the protocol and makes the panels configurable in Studio.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

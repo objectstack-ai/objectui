@@ -1,0 +1,30 @@
+{
+  "number": 1520,
+  "kind": "issue",
+  "title": "ADR-0034 (v2/未来): 仅视图的 per-user 个性化(user 覆盖 scope)",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T09:34:22Z",
+  "updated_at": "2026-06-27T12:16:03Z",
+  "closed_at": "2026-06-27T12:16:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1520",
+  "body": "Part of **ADR-0034**(总览 #1516)。**明确属 v2 / 范围外**,有真实需求时再做。需后端配合。\n\n## ✅ 已开发(铺垫)\n- v1 已把运行时编辑统一为\"管理员编辑共享定义\"(经 `/meta` 草稿/发布),前端面板已产出 spec 原形 draft,inspector 引擎统一。\n- v1 **不含**任何 per-user 个性化(终端用户暂不能存自己的视图)。\n\n## 🛠 本任务(后续/未来开发)\n给覆盖层增加一层最低优先级、**按用户**的 scope —— **仅视图**用:\n```\n代码工件(package) ← org/env 覆盖(管理员/草稿发布) ← 用户覆盖(runtime,即时,无发布)  ← 新增\n```\n- **后端**:`/meta` 读写支持 `scope:'user'`;叠加解析 `artifact ← org ← user`;user-scope 轻量写(默认不留历史/不走发布);新增\"编辑自己的个性化\"权限(区别于发布权限)。\n- **前端**:视图面板增加\"个人视图/个性化\"入口,`onSave` 走 `scope:'user'`;运行时读 effective(含 user 覆盖)。\n- 把 `sys_view` 时代的记录式属性(归属人、共享、pin、排序)建模成 user-scope 字段。\n\n## 范围边界(来自 ADR)\n- **报表/仪表盘**不做 per-user 覆盖 —— 走\"归属 + 可见性\",默认共享。\n- **页面**仅共享,无个性化。\n- 参考先例:Airtable 个人/协作视图、Dataverse `userquery`、Salesforce 个人列表视图。\n\n## 🔍 待验证\n- 用户个性化对其他用户不可见;不污染应用包;可与\"应用默认\"做 diff;写性能可接受。\n\n## 验收\n- 终端用户可创建/保存仅自己可见的视图;管理员共享定义不受影响;报表/仪表盘/页面行为不变。"
+}

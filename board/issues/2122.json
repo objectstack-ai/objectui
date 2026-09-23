@@ -1,0 +1,32 @@
+{
+  "number": 2122,
+  "kind": "pull_request",
+  "title": "fix(fields): inline-edit relational fields with the standard picker (not a text box)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T21:01:31Z",
+  "updated_at": "2026-06-30T21:10:34Z",
+  "closed_at": "2026-06-30T21:10:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T21:10:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2122",
+  "body": "## What\n\n**lookup / master_detail / user / owner** fields now edit inline with the **standard record picker** — the same `LookupField` / `UserField` the form uses — instead of falling back to a plain text box.\n\n## Why (caught in review)\n\nInline editing reuses the form's widgets, but the inline map (`EDIT_WIDGETS`) was a **hand-maintained subset** of the form's (`fieldWidgetMap`) and had **drifted** — relational types had perfectly good form pickers, but nobody wired them into the inline map, so they degraded to a text box (you'd type a raw record id). The form already supported them; this just reuses them.\n\n## How\n\n- `lookup` / `master_detail` → `LookupField`, `user` / `owner` → `UserField`. They read the related-object dataSource from `SchemaRendererContext`, which the grid already provides — drop-in, same `FieldWidgetProps` interface.\n\n## Verified live (:5417 field-zoo)\n\nClicking a **Lookup → Account** cell opens the record picker (\"选择…\") with a search box and **13 fetched Account records** (Northwind, Contoso, Fabrikam, Initech…) — not a text box, not empty. master_detail / user / owner likewise render the picker.\n\n## Drift-guard (so this can't recur)\n\n`index` now exports `FORM_FIELD_TYPES`; a test pins that **every** form widget type has an explicit inline decision — an editor in `EDIT_WIDGETS`, or an entry in the new `INLINE_EXCLUDED_FIELD_TYPES` (computed / binary / heavy-editor / container types, each documented). A future form widget can no longer silently become a text box or a missing editor in the grid.\n\n`+4` drift-guard tests; full `@object-ui/fields` suite (4918) green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

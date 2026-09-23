@@ -1,0 +1,32 @@
+{
+  "number": 2017,
+  "kind": "pull_request",
+  "title": "fix(console): show real error state when verification resend fails",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-26T18:16:06Z",
+  "updated_at": "2026-06-26T18:19:39Z",
+  "closed_at": "2026-06-26T18:18:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-26T18:18:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2017",
+  "body": "## What\nThe verify-email prompt always showed a \"Verification email sent!\" success toast on resend, even when the server failed to send.\n\n## Changes\nNow that the server surfaces send failures (see the `plugin-auth` PR), render a **persistent error alert** on the verify screen (and keep the toast) when resend fails, so the user understands why no email arrives instead of being left stuck. Falls back to a clear \"email delivery may not be configured\" message when the server returns no detail.\n\n## Cross-repo\nPart of the email-verification fix set with `objectstack-ai/framework` (loud send failures) and `objectstack-ai/cloud` (control-plane email wiring).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

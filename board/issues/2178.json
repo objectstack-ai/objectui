@@ -1,0 +1,32 @@
+{
+  "number": 2178,
+  "kind": "pull_request",
+  "title": "fix(studio): close the three journey dead-ends from UX review",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T05:51:11Z",
+  "updated_at": "2026-07-03T05:55:35Z",
+  "closed_at": "2026-07-03T05:51:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T05:51:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2178",
+  "body": "Implements the P1 items from the browser UX review of the merged journey (Home cover → /studio → app).\n\n## Fixes\n\n1. **Navigation dead ends**: the standalone `/studio` landing gains a slim frame with an ObjectOS wordmark → Home; the builder top bar gains a **Home** button. Previously both were browser-back-only.\n2. **Fresh-package empty state**: an empty writable package showed an endless 加载中… and an unhelpful 「选择一个对象」. Now: rail reads 还没有对象, the object creator **auto-opens**, and the main pane explains the first act (从第一个对象开始 + what objects are).\n3. **创建应用 on-ramp**: a package with no app had no path to a published front-end. The bridge slot now offers **创建应用** (draft `app` via a name/identifier popover) → 「应用「…」待发布」 → flips to **打开应用** after the package publish.\n\n## Browser-verified (fresh backend :3013)\n\nLanding frame + Home button ✓ · new package 库存中心: empty states + auto-opened creator ✓ · 创建应用 库存中心/inventory_app → draft (变更·1) → 发布 → **打开应用** targets `/apps/inventory_app` ✓ · Home icon returns to /home ✓. `type-check`: 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

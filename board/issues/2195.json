@@ -1,0 +1,32 @@
+{
+  "number": 2195,
+  "kind": "pull_request",
+  "title": "fix(fields): 内嵌子表行操作(删除/复制)常显,不再靠 hover",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T15:28:29Z",
+  "updated_at": "2026-07-03T15:38:21Z",
+  "closed_at": "2026-07-03T15:38:20Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T15:38:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2195",
+  "body": "Closes #2194\n\n## 问题\n\n主从表单内嵌子表格(line-items,grid 模式)每行的 🗑 删除、复制按钮默认 `opacity-0`,只有鼠标悬停到该行才浮现。导致:\n\n1. **不好发现**——用户普遍以为「子表不支持删除行」;\n2. **触屏/平板无 hover**——按钮基本点不到,等于删不了行。\n\n## 改动\n\n`packages/fields/src/widgets/GridField.tsx`:去掉删除、复制按钮在 grid 模式下的 `opacity-0 ... group-hover:opacity-100` 门控,改为常显。图标仍用 `text-muted-foreground` 弱化,操作列宽度本就预留,**无布局跳动**。\n\n拖拽排序手柄(reorder grip)不在本次范围,维持悬停显示。`allow_delete: false` / `readonly` / `disabled` / 到 `min_rows` 下限禁用等既有门控不变。\n\n## 测试\n\n- 新增用例:grid 模式下删除/复制按钮的 className 不含 `opacity-0`(防回归)。\n- `GridField.test.tsx` **26 项全过**;`@object-ui/fields` type-check 通过。"
+}

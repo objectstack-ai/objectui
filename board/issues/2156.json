@@ -1,0 +1,30 @@
+{
+  "number": 2156,
+  "kind": "issue",
+  "title": "弹窗内打开下拉后点击其他位置,整个新建/编辑弹窗被一并关闭",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T12:12:21Z",
+  "updated_at": "2026-07-02T13:20:50Z",
+  "closed_at": "2026-07-02T13:20:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2156",
+  "body": "## 问题\n\n在弹窗表单(新建/编辑,`ModalForm`)中:\n\n1. 打开任意下拉字段(Radix Select)的选项列表;\n2. **不选择选项**,直接点击其他位置(遮罩、或下拉浮层外任意处);\n3. 预期:只关闭下拉;实际:**下拉和整个弹窗一起被关闭**,已填写的内容随弹窗丢失(有未保存守卫时会先弹确认,但行为仍然错误)。\n\n已在真实环境复现(console dev :5180 + hotcrm 后端 :4001,crm_lead 新建弹窗)。\n\n## 根因(已定位,基于实测事件时间线)\n\n版本组合回归:\n\n- `@radix-ui/react-dialog@1.1.17` 的 modal content 传入 `deferPointerDownOutside: true`——Dialog 把 outside-pointerdown 的判定**推迟到 click 阶段**执行;\n- `@radix-ui/react-select@2.3.1` 不延迟:pointerdown 当场 dismiss 并从共享层注册表(dismissable-layer)注销;\n- 同一次物理点击的时间线(实测抓取):pointerdown → Select 层立刻派发 `pointerDownOutside` 并卸载注销 → Dialog 重渲染后自己成为最高层(`isPointerEventsEnabled` 变 true)→ click 阶段 Dialog 的延迟判定执行,认为这是打在自己外面的点击 → `onDismiss` 关闭弹窗。\n\n即:本该被下拉层消费掉的一次点击,穿透关掉了下层弹窗。\n\n## 影响面\n\n- `ModalForm`(经 `MobileDialogContent`)——本次报告的场景;\n- `NavigationOverlay` 的 drawer(Sheet)/modal(Dialog)模式——记录详情右侧抽屉内联编辑下拉同理;\n- 现有的 `isInsidePopperLayer` 守卫只覆盖“点击落在下拉浮层内部空白”的情况,覆盖不了“点击浮层外任意处”。\n\n## 方案\n\n在 `packages/components` 增加 popper-aware 的 interact-outside 守卫:\n\n- document 捕获阶段监听 pointerdown,记录“按下瞬间是否有 popper 浮层(`[data-radix-popper-content-wrapper]` 等)处于打开状态”;\n- `onInteractOutside` 时,若 originalEvent 是 pointerdown 且按下瞬间有浮层打开 → `event.preventDefault()`(该次点击的职责是关下拉,不关弹窗);\n- 保留现有 `isInsidePopperLayer` 目标判定;focus 型 interact-outside 不受影响;\n- 应用到 `MobileDialogContent`,并透传给 `NavigationOverlay` 的 Sheet/Dialog 内容。\n\n## 风险\n\n很小:守卫只在“pointerdown 瞬间存在打开的 popper 浮层”这一窗口内抑制关闭;普通遮罩点击(无下拉打开)行为不变;再点一次仍可正常关闭弹窗。"
+}

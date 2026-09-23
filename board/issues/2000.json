@@ -1,0 +1,30 @@
+{
+  "number": 2000,
+  "kind": "pull_request",
+  "title": "feat(auth): \"Sign in with SSO\" entry on the login page (PR-2 UI for per-env SSO)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T10:47:53Z",
+  "updated_at": "2026-06-25T10:57:27Z",
+  "closed_at": "2026-06-25T10:57:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T10:57:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2000",
+  "body": "Adds the customer-facing **\"Sign in with SSO\"** entry to the console login page (`LoginForm`).\n\nOn click it routes the entered email to its configured IdP (better-auth's `@better-auth/sso`, by email domain) via `POST /api/v1/auth/sign-in/sso` and redirects to the provider's authorization endpoint; shows an inline error when no provider matches the domain. The label is i18n-configurable (`labels.ssoButton`), and the post-login callback is derived from the login path (works under any console base path).\n\nThis is the **UI half (PR-2)** of the per-env external-IdP SSO mechanism:\n- **Backend (PR-1):** the `@better-auth/sso` integration + adapter field/table bridging — objectstack-ai/framework#2322\n- **Design:** ADR-0024 — objectstack-ai/cloud#502\n\n**Verified end-to-end in a real browser** (two federated objectos instances — one OIDC provider, one client): login page → click \"Sign in with SSO\" → IdP login page → consent → JIT federated session (logged in as the IdP user).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

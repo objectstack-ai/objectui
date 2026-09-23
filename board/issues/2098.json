@@ -1,0 +1,30 @@
+{
+  "number": 2098,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): drop policy client-validator (PolicySchema removed in spec 11.2.0)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T14:01:07Z",
+  "updated_at": "2026-06-29T14:04:41Z",
+  "closed_at": "2026-06-29T14:04:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T14:04:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2098",
+  "body": "## Problem\n\n`@object-ui/app-shell`'s build (`tsc`) fails on `main` after the `@objectstack/spec` 11.0.0 → 11.2.0 bump (#2078):\n\n```\nsrc/views/metadata-admin/clientValidation.ts(92,68): error TS2339:\nProperty 'PolicySchema' does not exist on type\n'typeof import(\"@objectstack/spec@11.2.0/.../security/index\")'\n```\n\nThis breaks the **Bundle Analysis** CI check on every PR. (Build & E2E / Test use vite/esbuild, which don't type-check, so they don't catch it.)\n\n## Root cause\n\nSpec 11.2.0 **removed the entire generic org-policy family** from `@objectstack/spec/security` — `PolicySchema`, `PolicyInput`, `definePolicy`, plus `Password`/`Network`/`Session`/`AuditPolicySchema`. It wasn't moved or renamed; it's gone from every subpath and the root export. `clientValidation.ts` mapped the `policy` metadata type to that now-removed schema.\n\n## Why not swap to `RowLevelSecurityPolicySchema`\n\nThey model different things:\n\n| | old `PolicySchema` (removed) | `RowLevelSecurityPolicySchema` (kept) |\n|---|---|---|\n| shape | org-wide policy: `password`, `network`, `session`, `audit`, `assignedProfiles` | per-object RLS rule: `object`, `operation`, `using`, `check`, `roles` |\n\nThe framework's canonical `metadata-type-schemas.ts` registry (now on 11.2.0) has **no `policy` entry at all**, so there is no client schema for the `policy` metadata type. Substituting the RLS schema would wrongly reject valid drafts.\n\n## Fix\n\nDrop the `policy` loader so it falls through to **server-side validation** — the file's documented pattern for unschematized types (`trigger`, `sharing_rule`, …). Also corrected a stale adjacent comment that claimed `profile` falls through (it actually maps to `PermissionSetSchema`).\n\n`policy` is not an authorable resource in the console registry, so the loader was effectively defensive/dead code → **zero user-facing impact**.\n\n## Verification\n\n- ✅ Reproduced the exact CI error on spec 11.2.0, then `turbo run build --filter=@object-ui/app-shell` → **28/28 tasks pass**, app-shell `tsc` clean.\n- ✅ Every other loader resolves in 11.2.0 (`PermissionSetSchema`, `RoleSchema`, `MappingSchema`, `CubeSchema`, `ThemeSchema`, `WebhookSchema`, `EmailTemplateSchema`, `ApiEndpointSchema`, …) — `PolicySchema` was the only break.\n- ✅ Repo-wide sweep: no other code consumed any removed Policy-family export.\n- ✅ `createConformance.test.ts` → 11/11 pass.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

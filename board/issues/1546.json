@@ -1,0 +1,33 @@
+{
+  "number": 1546,
+  "kind": "issue",
+  "title": "[SDUI][P2] Home page rendering + assignment + default synthesis",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "sdui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T21:54:06Z",
+  "updated_at": "2026-06-27T12:17:44Z",
+  "closed_at": "2026-06-27T12:17:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1546",
+  "body": "## Context\nThe `home` page type is registered in the component registry but has **no renderer wiring, no default synthesis, and no assignment logic** — it's effectively a stub.\n\n## Goal\nMake the Home page a first-class SDUI surface: synthesized default + author-assignable + rendered via `SchemaRenderer`.\n\n## Scope\n- `usePageAssignment` support for `pageType: 'home'`.\n- A `buildDefaultHomePageSchema` (recent items, favorites, KPI widgets, quick actions).\n- Render via `PageRenderer`/`SchemaRenderer`; assignable + editable via PageDesigner (depends on page persistence).\n\n## Acceptance\n- [ ] Home renders a synthesized default when none assigned\n- [ ] An assigned home PageSchema overrides it\n- [ ] Editable + publishable once page persistence lands\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2197,
+  "kind": "pull_request",
+  "title": "fix(studio): Interfaces designs the current package's app, not another's",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T15:31:32Z",
+  "updated_at": "2026-07-03T15:43:03Z",
+  "closed_at": "2026-07-03T15:43:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T15:43:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2197",
+  "body": "## Problem\n\nOpening `/_console/studio/<packageId>/interfaces` for a package with **no app** rendered a **different** package's navigation tree.\n\nThe Interfaces pillar resolved its app with an unscoped `list('app')` and a client-side `.find()` by package:\n\n```js\nconst apps = await client.list('app');                 // ALL apps, every package\nconst app = apps.find(a =>\n  a._packageId === packageId || a.packageId === packageId || a.name === packageId\n) ?? apps[0];                                           // ← leaks another package's app\n```\n\nList rows carry no `packageId`, so the `.find()` never matched and it fell through to `?? apps[0]` — the first app in the whole system. For `com.example.test` (which has no app) this showed `showcase_app`'s nav; a package that genuinely had no app was stuck on an endless `加载中…`. The header's own \"打开应用/创建应用\" bridge already resolved correctly via `list('app', { packageId })`, so the two disagreed.\n\n## Fix\n\n- **Scope to the package** — `list('app', { packageId })`, no cross-package fallback (matches the header's resolution).\n- **Draft apps** — a freshly-created (still-draft) app is picked up via `listDrafts({ packageId, type: 'app' })`, so it's designable before its first publish (`list()` only sees published metadata). Re-resolves on `publishNonce`/`draftNonce`.\n- **Real empty state** — when the package has no app, the nav rail and canvas show `这个软件包还没有应用` with a `创建应用` action wired to the header's existing create flow (single source of truth), instead of an endless spinner.\n- **Editable empty nav** — edit mode now renders `AppNavCanvas` even on an empty tree, so the first nav item can be added.\n\n## Verification\n\nRan the console (`apps/console`, src-aliased `@object-ui/app-shell`) against a showcase backend and drove it with chrome-devtools:\n\n- `/studio/com.example.test/interfaces` → empty state `这个软件包还没有应用` + `创建应用` (no `showcase_app` leak). ✅\n- `/studio/com.example.showcase/interfaces` → `showcase_app`'s full nav tree + header `打开应用`, Start Here page live in the canvas. ✅\n- Canvas `创建应用` opens the header's create popover (`onCreateApp → setAppCreating(true)`). ✅\n- Network trace confirms the scoped `GET /meta/app?package=…` and that `listDrafts` is skipped when a published app exists. No new errors (the `?state=draft` 404s are the pre-existing, `.catch`-handled \"no draft\" responses).\n\n`@object-ui/app-shell` builds clean via turbo (deps built).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

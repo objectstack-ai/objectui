@@ -1,0 +1,30 @@
+{
+  "number": 2173,
+  "kind": "pull_request",
+  "title": "feat(studio): package switcher + inline new-writable-package in the top bar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T02:44:05Z",
+  "updated_at": "2026-07-03T02:48:27Z",
+  "closed_at": "2026-07-03T02:44:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T02:44:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2173",
+  "body": "Completes the **create-package → develop-metadata** flow in the pillar Studio (the missing first step: authoring needs a writable base, but the UI gave no way to get or pick one — users hit `writable_package_required` blind).\n\n## What\n\n- Top-bar package name → **switcher**: lists app packages (kernel/system hidden), badges **可写** (database base) vs **只读** (code package — the ADR-0070 D4 gate refuses authoring into these), switches by navigation.\n- **新建软件包** inline form: 名称 + auto-derived (hand-editable) package id → `POST /packages {id,name}` → jumps straight into the new package's Data pillar.\n- Current read-only package shows a proactive **🔒只读** badge — expectations set *before* the save-time gate, not after.\n- Writability display is a heuristic (`scope:'project'` = code, scope-less = base); the server gate remains the authority.\n\n## Browser-verified complete journey (fresh backend)\n\n1. showcase 顶栏 **🔒只读** ✓ · switcher lists packages with correct badges, system packages hidden ✓\n2. Created **维修中心 / com.example.repairs** from the UI → auto-navigated into its empty Data pillar ✓\n3. Created **维修工单 / repair_order** (draft into the package, lands in 表单·布局) ✓\n4. **Modified metadata via the reused inspector**: renamed seeded field 名称 → **工单标题**, added field → **状态**, added a section ✓\n5. 保存草稿 → **变更 · 1** ✓ → one-click package **发布** → scoped `_drafts` = 0, `GET /data/repair_order` = 200 (physical table), published schema carries the edited labels (`name:工单标题`, `field_2:状态`) ✓\n6. Created a real record through the live runtime grid (「空调不制冷 / 待处理」→ 1 record) ✓\n\n`type-check`: 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

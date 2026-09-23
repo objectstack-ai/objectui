@@ -1,0 +1,30 @@
+{
+  "number": 2239,
+  "kind": "pull_request",
+  "title": "docs(guide): document related-list 'primary' tab default in slotted-pages (framework #2579)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T17:34:34Z",
+  "updated_at": "2026-07-04T17:35:23Z",
+  "closed_at": "2026-07-04T17:35:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T17:35:22Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2239",
+  "body": "## What\n\nDoc follow-up to #2235 (framework issue objectstack-ai/framework#2579) — documents the new default related-list tab layout in the slotted-pages guide.\n\n- **`content/docs/guide/slotted-pages.md`** — the synthesized detail page's default tab strip is now **Details → one tab per `relatedList: 'primary'` child → a shared \"Related\" tab for the rest → History** (the guide previously listed only \"Details / Related / History\"). Clarifies that promoting a child table to its own tab is a one-word change on the relationship (no custom page needed), and that `relatedLayout: 'tabs' | 'stack'` is an app-level override.\n\nRefs objectstack-ai/framework#2579.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2164,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): legacy 导入降级遇关联列硬报错,不再写脏数据",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T15:15:19Z",
+  "updated_at": "2026-07-02T15:33:23Z",
+  "closed_at": "2026-07-02T15:33:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T15:33:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2164",
+  "body": "Fixes #2163\n\n## 问题\n\n服务端 `/import` 不可用时(老 client / 老后端),ImportWizard **静默**退回 legacy 逐行 `create`,把 Excel 单元格文本原样写进关联字段(本应存记录 ID)。ehr 生产实证:lookup 字段里存的是 \"大唐2026\" 这类纯文本,数据损坏。\n\n降级链路:适配器检测到 client 无 `data.import` → 抛 `UNSUPPORTED_OPERATION` → `isUnsupportedImport` 命中 → 一声不吭走 `legacyImport()` → 脏数据入库。\n\n## 修复\n\nlegacy 降级路径在写任何行**之前**检查映射:若有列映射到关联类型字段(lookup / master_detail / user / reference / tree,与服务端 import-coerce 的 REFERENCE_TYPES 一致),直接以清晰错误中止,零写入;提示升级后端/客户端或取消这些列的映射。\n\n- 错误文案 i18n:内嵌英文 fallback + en + zh 三处同步\n- 不含关联列的映射不受影响,legacy 路径照常可用\n- 结果面板对无行号的全局错误不再渲染 \"Row 0:\" 前缀\n\n## 测试\n\n- 纯函数单测:`mappedReferenceFields` 5 种关联类型全覆盖、未映射不误报、混合映射只报关联列\n- 组件级端到端(新增 `importLegacyReferenceGuard.test.tsx`):真渲染向导 → 粘贴 TSV → 走到导入\n  - 映射含 lookup 列:`create` **零调用**,onComplete 报 0 导入 + 阻止文案\n  - 不含关联列:照常导入,`create` 恰好一次\n- plugin-grid 162/162 通过;i18n 165/165 通过;plugin-grid + i18n 构建通过\n\n宁可导不进去,也不能把错的数据写进去。\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1992,
+  "kind": "pull_request",
+  "title": "fix(console): gate the AI surface on the service-ai capability (discovery), not the agent catalog",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T04:23:09Z",
+  "updated_at": "2026-06-25T04:31:46Z",
+  "closed_at": "2026-06-25T04:31:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T04:31:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1992",
+  "body": "## Why\n\nFollow-up to #1987 (and the framework's [#2311](https://github.com/objectstack-ai/framework/pull/2311)).\n\n`@objectstack/service-ai` is an **enterprise capability** — the Community Edition does not depend on it. So the console's AI gate should key off **whether `service-ai` is present** (discovery's `services.ai`), not the agent catalog.\n\n#1987 gated on a non-empty agent catalog as a workaround: at the time, a CE-shaped runtime still loaded the headless AI service and reported `services.ai: available` with no agents, so a discovery-based gate would have shown AI with nothing behind it. The framework now (#2311) only registers the AI service when the host app **declares** `@objectstack/service-ai`, so discovery is an honest edition signal:\n\n- **CE** (no `service-ai`) → `services.ai: { enabled: false, status: \"unavailable\" }` → AI surface hides.\n- **Enterprise** (`service-ai` present) → `services.ai: available` → AI shows — even if no specific agent is configured yet (the *capability* is what matters; AiChatPage degrades gracefully on an empty catalog).\n\n## What changed\n\nOnly `useAiSurfaceEnabled`:\n\n```ts\n// before (#1987): catalog-based\nconst { agents } = useAgents({ apiBase: resolveAiApiBase() });\nreturn { enabled: agents.length > 0, ... };\n\n// after: discovery / service-ai capability\nconst { isAiEnabled, isLoading } = useDiscovery();\nif (aiBaseUrlConfigured) return { enabled: true, isLoading: false };\nreturn { enabled: isAiEnabled, isLoading };\n```\n\nEverything else from #1987 stays — the centralized hook, the `RequireAiSurface` `/ai` route guard, the gated top-bar AI link + designer \"Ask AI\" buttons, and AiChatPage's graceful \"AI unavailable\" empty state. `resolveAiApiBase` is kept (HomePage still uses it for its per-agent CTAs).\n\n## Verification\n\n- app-shell `tsc` clean; console full `tsc && vite build` clean.\n- Full app-shell suite green (**874 passing**), incl. the rewritten `useAiSurface.test.ts` (discovery on/off/loading).\n- CE correctness of the discovery signal (`services.ai: unavailable` when no `service-ai`) was established end-to-end in framework #2311.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

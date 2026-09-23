@@ -1,0 +1,33 @@
+{
+  "number": 2068,
+  "kind": "pull_request",
+  "title": "feat(console): public-tier manifest dump (ADR-0080 generation)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T03:54:06Z",
+  "updated_at": "2026-06-29T04:16:41Z",
+  "closed_at": "2026-06-29T04:16:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T04:16:38Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2068",
+  "body": "ADR-0080 — the **generation** half of the os-build manifest. Adds:\n- `apps/console/manifest-dump.html` + `src/manifest-dump.tsx`: registers everything the console does, then exposes `window.__MANIFEST = manifestFromConfigs(ComponentRegistry.getPublicConfigs())`.\n- `scripts/dump-public-manifest.mjs`: loads that page in headless chromium and writes `sdui.manifest.json`.\n\nThe registry is a browser app (plugin-map / plugin-charts pull browser-only deps), so it's enumerated in a real browser rather than headless node.\n\n**Verified end-to-end** (manually, via the same browser path the script uses): the live registry produced **35 public blocks with full contracts** (e.g. `object-grid` → `objectName` required + `columns`/`filters`; `list-view` → `viewType` enum of grid/kanban/…/map; `object-form` → 19 typed props), and `@objectstack/sdui-parser`'s `compile()` against the dumped manifest catches missing-required (`objectName`), bad enum (`flex.direction`), and unknown components.\n\n**Consumed by:** framework's `os build` JSX gate (objectstack-ai/framework #2446 reads `sdui.manifest.json`). The framework `build-console.sh` will run this extractor and copy the result into `@objectstack/console/dist/` (next PR + an `.objectui-sha` bump to a commit that includes this).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

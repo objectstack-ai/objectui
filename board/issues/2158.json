@@ -1,0 +1,32 @@
+{
+  "number": 2158,
+  "kind": "pull_request",
+  "title": "feat(fields): inline combobox for search-first user fields",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T12:42:13Z",
+  "updated_at": "2026-07-02T12:46:21Z",
+  "closed_at": "2026-07-02T12:45:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T12:45:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2158",
+  "body": "Make the search-first user picker a true inline combobox (follow-up to #2144): clicking a user/owner field opens an anchored Popover dropdown below it on desktop (bottom Sheet on mobile), and multi-select commits live on each toggle — the field avatar chips are the selection, no staging tray or confirm. All gated on picker:'search' (classic lookups unchanged). PeoplePicker gains inline+trigger props; LookupField search variant renders <PeoplePicker inline trigger={field}>. Verified: 293 fields tests (3 new inline: anchored-popover-not-dialog, live-commit multi, single commit+close), vite build type-clean, and browser-verified (dropdown anchors below the field, value updates live to a new chip with no confirm button). Desktop = anchored dropdown, mobile = bottom sheet; replaces the modal Dialog #2144 shipped for search fields.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

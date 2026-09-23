@@ -1,0 +1,32 @@
+{
+  "number": 2040,
+  "kind": "pull_request",
+  "title": "fix(ai-build): name the empty draft preview + elevate Publish CTA (cloud#654)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T18:52:33Z",
+  "updated_at": "2026-06-27T19:00:29Z",
+  "closed_at": "2026-06-27T19:00:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T19:00:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2040",
+  "body": "## Problem (cloud#654)\n\nIn ObjectStack's **AI Build** magic flow, the chat opens a **Live preview** of the freshly-built app (`?preview=draft`). When **auto-publish is OFF (draft mode)**, that preview renders **empty** — dashboards show `0`, lists show *\"Nothing here yet\"* — because **seed/sample rows load only on Publish**. So the user describes their app → the AI says it's built → the preview looks like a **hollow, broken shell**. That's the biggest emotional drop in the whole magic moment, right after *\"I built it for you.\"*\n\nThis is a **objectui UX problem, not a cloud auto-publish change.** cloud defaults to auto-publish (so the default deployment doesn't reproduce this); only with the kill-switch off does the draft preview come up empty. The kill-switch semantics are deliberate and must not change — the fix belongs in the preview chrome.\n\n## Fix\n\nThe `DraftPreviewBar` (the sticky ADR-0037 preview chrome rendered directly above the previewed app content) is enhanced **only while changes are pending**:\n\n1. **Names the emptiness.** A prominent hint band — **\"Sample data appears once you publish\"** + *\"You're previewing your app's structure. Publish to load example records and make it live.\"* — so an empty preview is explained and never reads as a failed build.\n2. **Elevates Publish to the dominant CTA.** Publish becomes a primary, larger button labelled **\"Publish to see it live\"** in the hint band, instead of a low-key third button in the control strip. `Changes` / `Exit` stay as secondary outline controls.\n\nThe **auto-publish norm is untouched**: when we *know* there are zero pending drafts, the bar stays a thin neutral indicator with no Publish affordance and no hint (existing behaviour + test preserved). An unknown count (fetch failed) still keeps the helpful path.\n\n### Before → After (pending-changes state)\n\n| | |\n|---|---|\n| **Before** | `[👁 Draft preview — unpublished changes…]  [Changes (N)] [Publish] [Exit]` — one thin amber strip; Publish is the smallest, third-ranked control; nothing explains why the app is empty. |\n| **After** | Row 1 (control strip): `[👁 Draft preview — …]  [Changes (N)] [Exit]`. Row 2 (hint band): `[✨ Sample data appears once you publish / Publish to load example records and make it live]  [🚀 Publish to see it live]` — primary, prominent. |\n\ni18n added for **EN + ZH**; other locales fall back to the English `defaultValue` (the existing pattern for this bar).\n\n## What I did NOT do (deliberately)\n\n- **Did not touch cloud** — no change to auto-publish / kill-switch logic (a prior attempt to force first-build auto-publish was correctly blocked by unit tests; out of scope).\n- **Did not implement option #3** (rendering seed/draft data inside the draft preview). It would require backend work outside objectui and risks undermining the \"unpublished\" semantics. The clear copy + prominent Publish (the agreed minimum) fully address the \"looks broken\" problem; making draft data non-empty can be a follow-up if desired.\n- **Did not deepen per-view empty states** (e.g. making `plugin-list`'s \"Nothing here yet\" itself preview-aware). `plugin-list` correctly does not depend on `app-shell`, so the draft-preview signal isn't available there without new cross-package plumbing; the sticky banner sits directly above those empty views in the same viewport and carries the message prominently.\n\n## Verification\n\nApp-showcase does **not** run the AI-build flow, so this exact preview surface **cannot be reproduced end-to-end** there — verification is code + compile + unit test + real DOM render (no E2E claimed):\n\n- ✅ `pnpm --filter \"@object-ui/app-shell...\" build` — full dep chain compiles, `app-shell` `tsc` clean.\n- ✅ `@object-ui/app-shell` tests: **942 passed (121 files)**.\n- ✅ `@object-ui/i18n` tests: **165 passed (16 files)** — locale key-parity intact.\n- ✅ New/updated unit tests in `DraftPreviewBar.test.tsx`: hint band + \"Publish to see it live\" CTA appear with pending drafts; both stay hidden in the known-zero auto-publish state; both survive an unknown (fetch-failed) count.\n- ✅ Real DOM render (jsdom) confirmed: amber bar → control strip (`Changes (2)` / `Exit`, `h-9` outline) → hint band (`draft-preview-sample-hint`: Sparkles + title + body + `bg-primary h-10 shadow-sm` Publish).\n\n## Rollout note\n\nThis changes only objectui. To reach the running stack, cloud's **`.objectui-sha`** must be bumped to the merged commit — **not done here** (left to the cloud-side update flow).\n\nCloses objectstack-ai/cloud#654\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

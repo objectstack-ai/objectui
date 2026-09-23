@@ -1,0 +1,32 @@
+{
+  "number": 2230,
+  "kind": "pull_request",
+  "title": "fix(studio): show a failed flow run's reason in the Runs panel (string errors)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T14:46:48Z",
+  "updated_at": "2026-07-04T14:50:46Z",
+  "closed_at": "2026-07-04T14:47:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T14:47:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2230",
+  "body": "## Why\n\nThe Studio flow **Runs** panel (`FlowRunsPanel`, shown in the flow inspector) rendered a run-level error as `run.error?.message`. But the automation engine sends `ExecutionLog.error` as a plain **string** — so `.message` was always `undefined` and the failure reason, the single most useful thing about a failed run, was **silently dropped** (only a red \"Failed\" badge showed, no \"why\").\n\nThis became important now that runs are durable (framework #2581): a failed run persists with its reason, and the Runs panel is where an author looks to find it.\n\n## What\n\nNormalize an error through a small exported `errorText()` helper that accepts **either** shape:\n- a **string** — the run-level `ExecutionLog.error`;\n- a **`{ code, message }`** object — the step-level error.\n\nUsed for both the run summary and each step row, so run-level reasons now render (step-level ones are unchanged).\n\n```\n-  {run.error?.message && (<div ...>{run.error.message}</div>)}\n+  {runErr && (<div ...>{runErr}</div>)}   // runErr = errorText(run.error)\n```\n\n## Verification\n\n- **`errorText` unit test** — string → the string; `{message}` → the message; empty/undefined/message-less → undefined.\n- **jsdom render test** — mounts `FlowRunsPanel` with a failed run whose `error` is a string, expands the row, asserts the reason reaches the DOM.\n- **Live browser** — against a real failed run (`showcase_resilient_sync`) on a #2581 backend, through the console's auth + `/api` proxy: the endpoint returns `error` as a string, `errorText()` renders `\"Node 'guarded_push' failed: try_catch… catch region failed…\"`, where the pre-fix code showed **nothing**.\n\nType-check green (`turbo run type-check --filter=@object-ui/app-shell`, 29/29).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

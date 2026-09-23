@@ -1,0 +1,30 @@
+{
+  "number": 2152,
+  "kind": "issue",
+  "title": "新建/编辑弹窗不渲染对象字段分组(fieldGroups);全页分组表单为单列且样式简陋",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T10:14:07Z",
+  "updated_at": "2026-07-02T15:06:55Z",
+  "closed_at": "2026-07-02T15:06:55Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2152",
+  "body": "## 问题\n\n对象上定义了 `fieldGroups[]` + `fields[].group`(对象设计器的字段分组元数据)后:\n\n1. **全局\"新建\"弹窗(ModalForm)完全不渲染分组**。实测(真实 console :5180 + hotcrm 后端 :4001,`crm_campaign_member` 对象声明了 `basic`/`response` 两个分组、无 form view):弹窗内是一个不分组的平铺表单,分组标题一个都没有。\n2. **全页创建/编辑(RecordFormPage → ObjectForm 分组路径)绕过了自动布局**:不过滤系统字段/自动生成字段、始终单列,分组标题是细线样式,表单又长又丑,滚动巨长(用户截图反馈\"太丑了\")。\n\n## 根因\n\n- `ModalForm` 只处理显式 `sections`(form view)与平铺字段,没有 fieldGroups 回退逻辑;字段构建时也没有把 `Field.group` 带到 FormField 上。\n- `ObjectForm` 分组路径直接拼分组字段渲染,没有走 `applyAutoLayout` 的列数推断 / 宽字段跨列 / 系统字段过滤。\n\n## 实现中发现的附加坑(本修复必须绕开)\n\nModalForm 的 sections 布局是\"每个 section 一个 SchemaRenderer\",即 **每个 section 一个独立的 react-hook-form 实例和 `<form>` 元素,且共享同一个 `formId`**。底部\"创建\"按钮 `form={formId}` 只关联第一个 form → **第 2+ 个 section 的值永远不会进提交 payload**(实测:第二组的必填 `status` 界面上已选值,POST body 里没有,后端返回 VALIDATION_FAILED)。因此 fieldGroups 回退不能复用该 sections 渲染,需采用 DrawerForm 的\"单 form + 虚拟 `section-divider` 字段\"模式。显式 sections 路径的这个存量缺陷另开 issue 跟踪。\n\n## 方案\n\n1. **ModalForm**:无显式 `sections`/`customFields` 时,从 `objectSchema.fieldGroups` + `field.group` 推导分组(复用 `deriveFieldGroupSections`),按平铺路径同等规则做自动布局(过滤系统/自动生成字段、`inferColumns` 推断列数、宽字段跨整行、按列数自动升级弹窗宽度);渲染为 **单个 form** + `section-divider` 虚拟字段(DrawerForm 同款模式),保证所有分组共享一个 react-hook-form 实例、提交收集全部值。显式 sections 永远优先,行为不变。\n2. **ObjectForm 分组路径**:补齐与平铺路径的自动布局对等(系统字段过滤、列数推断、`applyAutoColSpan`、容器查询网格类)。\n3. 分组标题走 `sectionLabel` i18n(与 ObjectForm 一致)。\n\n## 验证(真实环境)\n\n- hotcrm `crm_campaign_member`(有 fieldGroups、无 form view):弹窗渲染 \"Basic Information\"/\"Response Tracking\" 两组、两列布局;跨组填值提交成功,POST body 含全部字段,记录入库。\n- hotcrm `crm_lead`(有显式 form view):弹窗 \"Quick Lead Creation\" 渲染与提交行为不变(回归)。\n- plugin-form 单测 155/155 通过,含新增回归测试(单 form 结构 + 跨组提交 payload)。"
+}

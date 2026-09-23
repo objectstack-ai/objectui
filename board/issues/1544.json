@@ -1,0 +1,33 @@
+{
+  "number": 1544,
+  "kind": "issue",
+  "title": "[SDUI][P1] Unify list/grid views under PageSchema + viewType synthesis",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "sdui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T21:54:02Z",
+  "updated_at": "2026-06-27T12:17:01Z",
+  "closed_at": "2026-06-27T12:17:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1544",
+  "body": "## Context\nList/grid and the kanban/calendar/gantt/map view variants still use the legacy `NamedListView` model (`ObjectView` in app-shell wraps plugin-view/plugin-list). They are not unified under `PageSchema` + viewType synthesis the way record detail pages are. `ViewConfigPanel` only edits columns/filters/sort.\n\n## Goal\nBring list views into the same SDUI pipeline: a synthesized list `PageSchema` (by viewType) that can be assigned/overridden and rendered via `SchemaRenderer`.\n\n## Scope\n- A `buildDefaultListPageSchema(objectDef, viewType)` synthesizer mirroring `buildDefaultPageSchema`.\n- Route `ObjectView` through `SchemaRenderer` with a legacy fallback kill-switch.\n- Preserve existing runtime column/filter/sort edits via the draft/publish seam.\n\n## Acceptance\n- [ ] Grid + at least one alt viewtype (kanban) render via the schema path\n- [ ] Author-assigned list page overrides the synthesized default\n- [ ] Existing list-view runtime edits still persist\n- [ ] Legacy NamedListView path retained behind a flag during migration\n"
+}

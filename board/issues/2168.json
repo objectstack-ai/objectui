@@ -1,0 +1,39 @@
+{
+  "number": 2168,
+  "kind": "pull_request",
+  "title": "feat: consume ADR-0085 semantic roles from spec 11.7.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T01:22:42Z",
+  "updated_at": "2026-07-03T01:32:00Z",
+  "closed_at": "2026-07-03T01:31:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T01:31:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2168",
+  "body": "Consumer-side switch for [framework ADR-0085](https://github.com/objectstack-ai/framework/pull/2521) (spec 11.7.0). Closes the four dogfood-confirmed gaps:\n\n## What\n1. **Single-source fieldGroups derivation (§5)** — `plugin-form`'s `deriveFieldGroupSections` and `plugin-detail`'s `deriveFieldGroupDetailSections` are now thin adapters over spec's `deriveFieldGroupLayout`. Forms, the create/edit **modal** (#2152/#2154 pipeline) and detail pages render the SAME grouping from one implementation; the two near-identical local copies are gone (net **-90 lines**).\n2. **Canonical `collapse` enum honoured everywhere** — `'none' | 'expanded' | 'collapsed'`; deprecated `collapsible`/`collapsed`/`defaultExpanded` spellings still read for pre-11.7 metadata (handled inside the shared derivation).\n3. **`stageField: false` actually suppresses the stepper** — the `false` handling was wired to the removed `detail.stageField` key, so spec-authored `false` fell through to the name heuristic (browser-confirmed bug).\n4. **`highlightFields` rename consumed** — default grid columns, card compact views, detail highlight strip, child-record preview and interface-page default columns read `highlightFields` with `compactLayout` fallback for pre-11.7 metadata.\n5. **Dead reads removed** — never-authorable `objectDef.views.*` and the ADR-0085-removed `detail.*` hint block. `detail.renderViaSchema` survives only as the legacy-renderer kill-switch (dies with that path in a follow-up PR).\n\n## Verification\n- Unit: plugin-form 15 / plugin-detail 146 / app-shell 958 / plugin-grid 162 — all green.\n- Browser (app-todo + HMR console against a live worktree server):\n  - `stageField: false` → stepper GONE (was rendering pre-fix); `stageField: 'status'` → stepper renders.\n  - `collapse: 'collapsed'` group renders as a collapsed card on the detail page, expandable.\n  - Create **modal** shows the Planning group header (was flat — the main console entry surface).\n  - Default list columns / highlight strip / card views driven by `highlightFields` (new spelling) and `compactLayout` (legacy spelling) both.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

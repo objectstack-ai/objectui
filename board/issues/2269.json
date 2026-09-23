@@ -1,0 +1,32 @@
+{
+  "number": 2269,
+  "kind": "issue",
+  "title": "长期治理:客户端失效总线取代 key 重挂载(refreshKey/actionRefreshKey)+ UI 状态分类规则 + URL 参数注册表(#2257 后续)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T07:24:06Z",
+  "updated_at": "2026-07-05T08:52:13Z",
+  "closed_at": "2026-07-05T08:52:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2269",
+  "body": "## 背景:#2257 修的是实例,这里要消灭的是 bug 类\n\nframework#2604 / #2256 / #2257 / #2267 的 dogfood 过程暴露了一个结构性问题:**这套 UI 把\"数据刷新\"和\"UI 重建\"绑在一起,又没有\"什么状态该放哪\"的成文规则**。tab 重置只是它露出的角;同一根因还在持续产生:\n\n- **保存/action 后整树炸掉重来**:`AppContent` 的 `<RecordDetailView key={refreshKey}>`(每次 `crud_success` bump)、`RecordDetailView` 的 `<DetailView key={actionRefreshKey}>`(每次记录级 action bump)。语义 = \"不知道哪些数据脏了,把整页重建\"——顺带摧毁滚动位置、分组折叠态、进行中的就地编辑(**潜在数据丢失**),并触发全量重取(#2578 时代实测过一个记录页 ~50 个并发请求的教训);\n- **非受控组件状态一炸即失**:#2257 的 tab 已用 `?tab=` URL 化治好,但规则不落地,下一个非受控状态(related list 折叠、面板开合)会重演同样的 bug;\n- **URL 契约靠散落的字符串字面量野蛮生长**:`recordId` / `form` / `formObject` / `formLink` / `tab` / `palette` / …,无单点定义,撞名/语义漂移只是时间问题。\n\n现有代码里其实已经有正确模式的**先例**:`notifyRelatedChanged` 事件(#2256,子表保存只刷 related list、父详情原地不动)和 `RelatedCountStore`(模块级订阅式计数失效)。本 issue = 把先例推广成制度。\n\n## 方案(三层,按投入产出排序)\n\n### P1 — 客户端失效总线,删掉两个 key(核心工作项)\n\n把 `RelatedCountStore` / `related-changed` 的模式推广为**统一的数据失效层**:\n\n- 写路径(create/update/delete/action 成功)按 `(objectName, recordId?)` 精确发失效;\n- 数据消费方(详情主体 fetch、`RelatedList`、计数徽章、审批状态等)各自订阅、各自重取;**组件树永不因数据刷新而重建**;\n- 完成后**直接删除** `key={refreshKey}` 与 `key={actionRefreshKey}`(及其 bump 源),`crud_success` 只负责 toast + 关 overlay + 发失效;\n- 兼容期:`notifyRelatedChanged` 收敛为总线的一个别名调用,`RelatedCountStore` 接到同一总线上,消灭三套并存。\n\n收益 = 正确性(滚动/折叠/就地编辑草稿在保存后幸存)× 性能(定向重取取代全量重取)双赢。\n\n### P2 — UI 状态分类规则写进 AGENTS.md + review 检查项(半天)\n\n| 状态类别 | 判据 | 归属 |\n|---|---|---|\n| 可寻址状态 | 想分享 / 刷新后想回到 / Back 应尊重 | **URL**(`?recordId=` `?form=` `?tab=`) |\n| 用户偏好 | 跨记录、跨会话稳定 | localStorage / 服务端偏好 |\n| 真·瞬态 | 丢了没人心疼(hover、下拉开合) | 组件内部 state |\n\n一句话规则:**\"任何需要在数据刷新中幸存的用户状态,不允许只活在非受控组件里。\"** 不开新 ADR(ADR-0054 C3 已画边界),落 AGENTS.md 约定区即可。\n\n### P3 — URL 保留参数注册表(半天,趁参数还是个位数)\n\napp-shell 内建单一导出模块登记所有保留 query 参数:语义、`push` 还是 `replace`、谁读谁写;所有读写经它。TSDoc 即文档——AI 作者(北极星)将来消费 URL 契约时有单一学习点。\n\n## 非目标 / 挂账说明\n\n- ❌ 深挖 StrictMode 下 URL 变化重挂载 `RecordDetailView` 的机理(疑 lazy + Suspense + router transition 组合):dev-only 伪影(#2257 评论有 A/B 实证),P1 落地后自然无害化;保留 StrictMode——它的\"噪音\"正是提前暴露了重建不健壮。\n- ⏸ `deriveRecordSurface` / `deriveRecordFlowSurface` 的 plugin-view 本地镜像回收:等 `@objectstack/spec` 下一次发版后按代码 TODO 换回 `@objectstack/spec/data` import(机械活,别拖过两个版本)。\n\n## 验收\n\n- [ ] 仓库中不再存在 `key={refreshKey}` / `key={actionRefreshKey}`(及等价的\"数据刷新即重挂载\"模式);\n- [ ] 浏览器验证:详情页任意 tab + 滚动位置 + 分组折叠态在「顶层编辑保存」「记录 action 执行」「子表增删改」后**全部保留**,数据即时更新;\n- [ ] 保存后网络面板只见**定向**重取(被失效的 query),无全量风暴;\n- [ ] AGENTS.md 含状态分类规则;URL 参数注册表上线且现有参数全部迁入;\n- [ ] `notifyRelatedChanged` / `RelatedCountStore` 收敛到同一失效层,无三套并存。\n\nRefs #2257 · #2267 · #2256 · framework#2604 · ADR-0054 C3"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2047,
+  "kind": "pull_request",
+  "title": "fix(ai-build): recover the chat composer from a failed send instead of dropping it silently",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T06:12:42Z",
+  "updated_at": "2026-06-28T06:23:47Z",
+  "closed_at": "2026-06-28T06:23:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T06:23:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2047",
+  "body": "## Problem (live-confirmed + network capture)\n\nIn the ObjectOS console AI Build chat (`/_console/ai/build/...`), after a few iterations the `POST /api/v1/ai/agents/build/chat` returns **429 (rate-limited)**. The frontend then **silently loses the message**:\n\n- the composer **clears as if the message was sent**,\n- but **no message appears**, the agent never replies, and **no error/toast shows**,\n- a refresh confirms it was never persisted — the user's typed text is just **gone**, with no idea why.\n\nAny send failure (429 / network / 5xx) hit this silent-loss path; the 429 is just the easiest trigger.\n\n## Root cause (a chain, not one line)\n\n1. **Optimistic clear, no failure handling** — the vendored `PromptInput` clears the textarea on submit (`form.reset()` in `packages/plugin-chatbot/src/elements/prompt-input.tsx`) and the send is fire-and-forget, so nothing restores the text when the request fails.\n2. **Status is lost** — the AI SDK transport hands `onError` a bare `Error` whose message is the response body and **drops the HTTP status**, so a 429 is indistinguishable from any other error.\n3. **The failure is mis-reconciled away** — `useReconcileOnError` is meant for a *mid-stream transport drop after the turn completed*. On a 429 the server thread still ends with the **previous** assistant reply, so `isReconcilableCompletedTurn` returns `true`: it **re-hydrates the thread (wiping the optimistic bubble) and suppresses the error banner** — exactly the reported \"message vanished, no error\".\n\n## Fix\n\n- **`sendAwareFetch`** (`useObjectChat.ts`) tags a rejected chat POST with `status` + `notSent`, so a *never-sent* failure is distinguishable from a mid-stream drop (which may have completed server-side → reconcile, don't re-run). Body text is preserved so the quota guardrail's friendly JSON still parses.\n- **`useObjectChat`** rolls back the optimistic user bubble on a `notSent` failure (so a never-sent turn isn't left looking \"sent\").\n- **`useReconcileOnError`** surfaces `notSent` failures instead of suppressing them.\n- **`ChatbotEnhanced`** **restores the typed text** to the composer and shows a clear, status-aware **inline notice** — friendly \"you're sending too quickly\" wording for 429, generic otherwise — while keeping the existing upgrade CTA for quota 429s. **Only a confirmed 2xx clears the box.**\n\nBoth AI surfaces are fixed (full-page `AiChatPage` + console floating chatbot) since both share `useObjectChat` / `useReconcileOnError` / `ChatbotEnhanced`. New i18n strings (en/zh) for the notice.\n\n## Verification\n\n- **Component / unit (incl. a faithful AI-SDK integration test)** — green:\n  - `useObjectChat.sendFailure` uses the **real `@ai-sdk/react` `useChat` + real transport with a mocked `fetch`**: a 429 -> `onError` gets `{ notSent: true, status: 429 }`; the optimistic user message is rolled back; network failures tag `notSent` too; a 2xx passes through.\n  - `ChatbotEnhanced.sendError` — after a submit + 429: **input is restored**, the **rate-limit notice shows** (and the generic one for 5xx/network), the **\"Response failed/Retry\" banner does NOT show**; a clean submit leaves the box cleared.\n  - `useReconcileOnError` — `notSent` never suppresses / never re-fetches; existing completed-turn reconcile preserved.\n  - `tool-display` — classifier units (`isUnsentSendError` / `sendErrorStatus` / `isRateLimitError`).\n  - Full `plugin-chatbot` suite green (**182**); `tsc --noEmit` clean for `plugin-chatbot` + `i18n`; `app-shell` label-to-`ChatbotLabels` contract type-checked (remaining `app-shell` tsc errors are pre-existing unbuilt-workspace-dep noise, none on changed lines).\n- **NOT done:** did not stand up the full live stack to reproduce an on-demand 429 (rate limits are timing-dependent and hard to trigger deterministically). The integration test exercises the same `fetch -> 429 -> onError -> reconcile -> composer` chain through the real AI SDK, so the gap is small.\n\n## Unresolved / follow-ups\n\n- The dead `setApiInput('')` optimistic clear in `useObjectChat` is left in place (the console composer is uncontrolled, so it's harmless) to keep the diff focused.\n- `Retry-After` from a 429 is not surfaced yet (the notice says \"wait a moment\" generically).\n\n## Merge note\n\nThis is objectui-only. It reaches the runtime stack **only after** cloud bumps `.objectui-sha` — **not** bumped here.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

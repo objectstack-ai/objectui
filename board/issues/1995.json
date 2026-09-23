@@ -1,0 +1,36 @@
+{
+  "number": 1995,
+  "kind": "pull_request",
+  "title": "feat(sdui): render free-text form inputs + bridge page variables into submit actions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T08:34:25Z",
+  "updated_at": "2026-06-25T08:50:45Z",
+  "closed_at": "2026-06-25T08:50:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T08:50:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1995",
+  "body": "## Why\n\nSDUI pages could **display and navigate** but not **collect data-entry input**: the only interactive input was `element:record_picker` (picks existing records), `element:text` is display-only, and although the action runtime could POST, there was **no path** for page-variable values to reach a submit body. So you couldn't build a working form as a pure SDUI page. This closes both gaps.\n\nPairs with the spec half: **objectstack-ai/framework#2321** (adds the `element:text_input` schema + the `showcase_contact_form` demo).\n\n## What\n\n**Gap 1 — free-text input element.** `element:text_input` (`renderers/basic/text-input.tsx`, mirroring `record-picker.tsx`): a labeled input reusing the existing `Input`/`Label` primitives that writes the typed value into a page variable via `usePageVariableBinding` (`PageVariableSchema.source`). One element covers the free-text family via `inputType` (text/email/number/tel/url/password); `number` coerces to a numeric value; uncontrolled + safe outside a Page. Registered in the `ComponentRegistry`.\n\n**Gap 2 — input → submit bridge.**\n- `PageVariableActionBridge` (`react/hooks`) publishes the live page-variable snapshot into the shared `ActionRunner` context as `pageVariables` — mirroring how `ObjectGrid` publishes `selectedRecords` — mounted inside `PageVariablesProvider` in the page layout renderer.\n- `apiHandler` gains a `context` param and resolves `{{page.<var>}}` tokens in the request params/`bodyExtra` against that snapshot before the fetch (`resolvePageVarTokens`). **Whole-value tokens preserve type** (a number stays a number); embedded tokens interpolate. So a submit `element:button` (or any `api`/`onClick` action) posts the values the inputs wrote.\n- `pageVariables` added to `ActionContext` (core + types).\n\nThis resolves in the **shared** runtime, so `element:button`, `action:button`, and `onClick`-expression actions all benefit; double-brace `{{page.x}}` never collides with the existing single-brace `{field}` row-record URL interpolation.\n\n## Verification\n- **objectui tests green** (65 across the touched suites): `text_input` renderer (write / inputType / number-coercion / default-seed / no-binding); `apiHandler` token resolution + an **end-to-end input→variable→submit** loop asserting the exact POST body; `resolvePageVarTokens` unit coverage. No regression in `page-variables` / `basic-renderers`.\n- Build gate green: `tsc` across `types→core→react→components→app-shell` (27 tasks).\n- **Live E2E** against a fresh showcase backend: console renders the form; typing writes page variables (the `page.inquiryEmail`-gated hint appears live); Submit POSTs `{\"name\":\"Grace Hopper\",\"email\":\"grace@example.com\",...}` (tokens resolved, not literal) → **HTTP 201**, `showcase_inquiry` created.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

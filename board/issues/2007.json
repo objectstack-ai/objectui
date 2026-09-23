@@ -1,0 +1,32 @@
+{
+  "number": 2007,
+  "kind": "pull_request",
+  "title": "fix(form): create/edit record modal honors the object's default form view",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T15:58:52Z",
+  "updated_at": "2026-06-25T16:02:33Z",
+  "closed_at": "2026-06-25T15:59:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T15:59:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2007",
+  "body": "## Problem\nThe **\"New `<object>`\"** modal (and the modal edit form) rendered every field from the **raw object schema, in schema order** — ignoring the curated **sections + field selection/order** defined in the object's default **FORM VIEW**. Customizing the form view had no effect on the create modal.\n\nThe bug spanned **two** create-modal paths:\n- **`AppContent`'s global `ModalForm`** (the list/header **New** button: `actions.create()` → `onEdit(null)` → `handleEdit`) — only honored `tabbed` views; a `simple` view with curated sections was dropped, falling back to all fields.\n- **`useActionModal`** (action-opened forms in `RecordDetailView`) — passed no `fields`/`sections`, hitting `ModalForm`'s `Object.keys(objectSchema.fields)` fallback.\n\n## Root cause\nForm views live on the **object definition** (`objectDef.form ?? objectDef.formViews.default`, merged by `MetadataProvider`) — **not** on `dataSource.getObjectSchema()` (raw fields only) and **not** in `listViews()` (list-family only). So the modal layout must be resolved from `useMetadata().objects`.\n\n## Fix\nAdd a shared pure helper **`resolveFormViewLayout(objectDef)`** (`packages/app-shell/src/utils/recordFormNavigation.ts`) that resolves the default form view into the modal's layout props (`sections`, `contentLayout: 'tabbed'`, master-detail `subforms`), mirroring the full-screen `RecordFormPage`. Returns `{}` when there's no form view, so the modal keeps its prior flat-field behavior.\n\nWired into both paths:\n- `AppContent.tsx` — replaces the tabbed-only inline logic; `simple` sectioned views are now honored, keeping **create + edit consistent**.\n- `useActionModal.tsx` — adds `useMetadata()` and applies the resolved layout when the action descriptor didn't pass an explicit field list.\n\n`ModalForm`/`ObjectForm`/`DrawerForm` rendering and `RecordFormPage` are untouched. Frontend-only.\n\n## Tests / verification\n- **11** `resolveFormViewLayout` unit tests (simple / tabbed / wizard / split, empty sections, subforms, legacy `formViews.default` fallback, precedence).\n- **End-to-end render test** (`createModalHonorsFormView.test.tsx`): renders the real `ModalForm`; a 3-field schema with a 2-field curated view → asserts only the curated fields render (omitted field absent), plus the no-view full-schema baseline.\n- `turbo run build` + `tsc` type-check clean; **full app-shell suite green (927 tests)**.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

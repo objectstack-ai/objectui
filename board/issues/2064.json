@@ -1,0 +1,30 @@
+{
+  "number": 2064,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Studio Interfaces 导航拖拽编辑(复用 AppNavCanvas)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T03:06:19Z",
+  "updated_at": "2026-06-29T03:09:47Z",
+  "closed_at": "2026-06-29T03:06:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T03:06:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2064",
+  "body": "## 什么\n\nStudio Interfaces 支柱的左侧导航之前只读。本 PR 给它加**拖拽编辑**(ADR-0080 slice-1 的后续 #11),**复用现成的 `AppNavCanvas`**(metadata-admin 里的 DnD 导航编辑器),零新编辑器。\n\n## 交互\n\n导航头部加一个 **浏览 ↔ 编辑** 开关(`✎ 编辑` / `✓ 完成`):\n- **浏览态**(默认):原只读 `NavTree`,点菜单项 = 进画布预览(行为不变,零回归)。\n- **编辑态**:换成 `AppNavCanvas` —— 根级**拖拽排序** + 双击**重命名** + **增 / 删**;App 维度的 `保存草稿 / 发布` 钉在**置顶 sticky 头**(不再被长列表挤到底部看不见)。\n\n`navTree` 改为从单一 `appDraft` 派生,浏览态自动反映已发布的编辑。App 草稿/overlay 走和页面一致的 `client.save/publish`(env-scoped overlay)。\n\n## 验证(浏览器实测,真实后端 showcase_app)\n\n重命名 `Workspace → 工作台 ✦` + 把 `Data Model` 拖到首位 → `保存草稿` → `发布`,直接查元数据:\n\n| 层 | navigation 顺序 |\n|---|---|\n| `code`(包源) | `[Workspace, Data Model, Analytics, Pages]` 未动 |\n| `overlay`(发布) | `[`**`Data Model, 工作台 ✦`**`, Analytics, Pages]` |\n| `effective`(运行态) | 同 overlay |\n\n`overlayScope:env` 持久化,`draftStillPending:false`(发布已 promote + 清 draft),浏览态切回也反映新顺序。\n\n- ✅ `eslint .` 0 error(5 warning 不拦)\n- ✅ `tsc --noEmit`(app-shell)0 error\n\n## 限制(本 PR 不做)\n\n`AppNavCanvas` 的 DnD 刻意只在**根级**(组之间)——组内叶子重排 / 跨组移动 / 叶子绑定改写要后续扩展。叶子(dashboard 用 `dashboardName`)在编辑卡上显示为 `item` 类型徽标(纯展示;叶子在此只读)。\n\n## 路由 / nav\n\n仍只在 `/studio/:packageId/interfaces`,不进产品 nav。仅进 objectui main,未 live(需 framework `.objectui-sha` bump + cloud pin 才部署)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

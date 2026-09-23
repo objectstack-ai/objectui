@@ -1,0 +1,36 @@
+{
+  "number": 2056,
+  "kind": "pull_request",
+  "title": "feat: AI-authored UI — JSX-source pages compiled to the SDUI tree (ADR-0080)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T17:35:18Z",
+  "updated_at": "2026-06-28T17:45:52Z",
+  "closed_at": "2026-06-28T17:45:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T17:45:50Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2056",
+  "body": "Implements the runtime + tooling for **ADR-0080** (AI-authored UI pages). AI writes a constrained JSX/HTML+Tailwind **source**; it is **parsed, never executed**, into the existing `SchemaNode` tree and rendered by the normal `SchemaRenderer`.\n\n## What's here\n- **`@object-ui/sdui-parser`** (new, pure/zero-React): `parse` (bounded JSX grammar + whitelist sanitization) · `validate` (vs registry manifest: unknown/missing/enum/type + `requires` + binding sites) · `codegen` (`JSX.IntrinsicElements` `.d.ts` — the AI type surface) · `compile()` · tier-aware manifest + block-list generation.\n- **`PageRenderer`**: renders `kind:'jsx'` pages — compiles the source to a tree, renders it, surfaces compile errors as a loud banner (ADR-0078).\n- **`ComponentRegistry`**: `tier` + `getPublicConfigs()` (capability vs contract).\n- **console preview** (`sdui-jsx-preview`) used for browser verification.\n\n## Verification\n- `tsc` against the generated `.d.ts` catches missing-required / wrong-type / bad-enum / unknown-prop on real `.tsx`.\n- **vitest 83/83 green** including `render.test.tsx` through the actual `SchemaRenderer`.\n- **Browser-verified**: a polished \"Command Center\" `kind:'jsx'` page renders end-to-end via the live registry (flex/grid/card/text/badge/stack); the completeness gate forced correct authoring.\n\n## Follow-ups (per ADR staging, not in this PR)\n- Mark `tier:'public'` + complete `inputs` on the curated ~35 blocks.\n- Hoist the parser to framework `@objectstack/sdui-parser` + wire the `os build` save-gate to `compile()`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

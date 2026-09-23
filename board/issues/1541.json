@@ -1,0 +1,34 @@
+{
+  "number": 1541,
+  "kind": "issue",
+  "title": "[SDUI][P0] Wire PageDesigner → record page persistence (draft/publish)",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "enhancement",
+    "sdui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-06T21:53:55Z",
+  "updated_at": "2026-06-27T12:16:27Z",
+  "closed_at": "2026-06-27T12:16:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1541",
+  "body": "## Context\nPart of the SDUI runtime roadmap. The rendering engine (`SchemaRenderer` + registry) and record-detail synthesis (`buildDefaultPageSchema`) are done, and runtime draft→publish persistence already works for **views/reports/dashboards** via the ADR-0034 seam (`packages/app-shell/src/views/runtime-metadata-persistence.ts`). The `PageDesigner` (`packages/plugin-designer/src/PageDesigner.tsx`) can visually compose a component tree but its output is **not persisted** for record pages.\n\n## Goal\nClose the write-side loop for record pages: edit a record `PageSchema` visually in the browser and save/publish it through the same draft/publish seam.\n\n## Scope\n- Add `'page'` (record PageSchema) as an artifact type to `runtime-metadata-persistence.ts` (persist/read/discard/publish), mirroring `view`/`report`/`dashboard`.\n- Wire `PageDesigner` output → `persistRuntimeMetadata('page', ...)`.\n- Resolve the assigned page on load (`usePageAssignment`) including unpublished drafts (`readRuntimeDraft`).\n- Round-trip: assign → edit → draft → publish → re-render via `SchemaRenderer`.\n\n## Acceptance\n- [ ] Editing a record page in the browser persists a draft (invisible to others)\n- [ ] Publish promotes the draft to the active page + version bump\n- [ ] Discard reverts to the previous published/synthesized page\n- [ ] Live e2e: open a record, edit its page, publish, reload → change persists\n\n## Notes\nDashboards/reports are the working reference pattern. Pairs with #1542 (RuntimeDraftBar).\n\n"
+}

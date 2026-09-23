@@ -1,0 +1,30 @@
+{
+  "number": 2217,
+  "kind": "issue",
+  "title": "Nav item viewName generates a short-name route that silently falls back to the default view",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T06:14:04Z",
+  "updated_at": "2026-07-04T09:21:46Z",
+  "closed_at": "2026-07-04T09:21:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2217",
+  "body": "## Symptom\n\nAn app nav item with `viewName: 'tabular'` navigates to `/apps/<app>/<object>/view/tabular`, but the page renders the **default view** (first view), not the tabular view. Manually visiting the fully-qualified URL `/view/<object>.tabular` works. No warning is emitted — the fallback is completely silent, so the misconfiguration is invisible.\n\nFound while dogfooding `app-showcase` (framework repo): Analytics app → \"Task List\" nav item → renders the default grid instead of the `showcase_task.tabular` view.\n\n## Root cause (verified against source)\n\nCanonical view ids are **fully qualified** (`<object>.<viewKind>`):\n\n- `packages/app-shell/src/providers/MetadataProvider.tsx:164-174` — canonical key = `view.name || \\`${view.object}.${view.viewKind}\\``; the comment explicitly says `/view/<name>` URLs resolve directly against switcher tab ids.\n\nBut the nav-link generators emit the **short name verbatim**:\n\n- `packages/layout/src/NavigationRenderer.tsx:401` — `href: item.viewName ? \\`${objectPath}/view/${item.viewName}\\` : objectPath`\n- `packages/layout/src/AppSchemaRenderer.tsx:~216` (mobile bottom nav) — `if (item.viewName) href += \\`/view/${item.viewName}\\`;`\n\nAnd the resolver does an exact-id lookup with a **silent** fallback:\n\n- `packages/app-shell/src/views/ObjectView.tsx:660-661`\n  ```ts\n  const activeViewId = viewId || searchParams.get('view') || defaultViewId || views[0]?.id;\n  const baseView = views.find((v: any) => v.id === activeViewId) || views[0];\n  ```\n  A short name never matches a fully-qualified id → `|| views[0]` silently swallows it.\n\nIn-page tab switching is unaffected because `handleViewChange` (`ObjectView.tsx:675-690`) navigates with `matchedView.id` (already qualified).\n\n## Fix\n\nMake the resolver in `ObjectView.tsx` robust in both directions:\n\n1. exact match first;\n2. short name (no `.`) → retry as `\\`${objectName}.${name}\\`` (covers nav-generated short links);\n3. qualified name → retry with the `\\`${objectName}.\\`` prefix stripped (covers legacy embedded listViews whose keys are bare, incl. the `'all'` fallback view);\n4. if still unmatched, `console.warn` listing known view ids before falling back — no more silent swallowing.\n\nSame treatment for the `?view=` search param."
+}

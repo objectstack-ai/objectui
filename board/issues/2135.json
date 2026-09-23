@@ -1,0 +1,33 @@
+{
+  "number": 2135,
+  "kind": "pull_request",
+  "title": "fix(grid,dashboard): 汇总/指标把 precision(总位数)当小数位显示多余的 0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T06:55:05Z",
+  "updated_at": "2026-07-01T13:51:32Z",
+  "closed_at": "2026-07-01T13:51:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-01T13:51:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2135",
+  "body": "## 问题\n\n与 #2131 同源。网格列汇总(SUM/AVG…)和 Dashboard 指标/记录字段格式化数值时,把字段的 `precision`(`decimal(p, s)` 的总位数 `p`)当成了小数位,于是 `decimal(10, 0)` 的汇总值会显示成 `…0000000000`。\n\nCloses #2134\n\n## 改动\n\n小数位统一改用 `scale`,不再回退到 `precision`(总位数):\n\n- `useColumnSummary.ts`:currency 分支的 `decimals` 由 `precision ?? scale ?? 0` 改为 `scale ?? 0`\n- `ObjectMetricWidget.tsx`:currency 格式的 `decimals` 改用 `scale ?? 0`\n- `recordFields.tsx`:`decimals` 回退到 `scale`,去掉 `precision`\n\n## 说明\n\n- percent 分支([useColumnSummary.ts:108](packages/plugin-grid/src/useColumnSummary.ts#L108))仍用 `precision`——percent 字段沿用把 `precision` 当显示小数位的既有约定(与 `PercentField` 一致),故保持不动。\n- 纯 `number` 汇总本就走 `toLocaleString()`(不强制补零),不受影响。\n\n## 验证\n\n- `useColumnSummary.test.tsx` 新增 2 例回归(precision 大值不补零 / scale 生效补零)\n- `plugin-grid` summary + `plugin-dashboard` 全套:103 passed(24 skipped)"
+}

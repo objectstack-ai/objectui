@@ -1,0 +1,30 @@
+{
+  "number": 2033,
+  "kind": "pull_request",
+  "title": "fix(home): product-name the empty-state title (was hardcoded \"ObjectUI\")",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T16:20:07Z",
+  "updated_at": "2026-06-27T16:28:14Z",
+  "closed_at": "2026-06-27T16:28:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T16:28:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2033",
+  "body": "## What\nA brand-new user landing on an empty `/home` saw **\"Welcome to ObjectUI\"** — a stale brand string baked into `HomePage.tsx`, regardless of the deployment's product name. On ObjectOS Cloud it should read \"Welcome to ObjectOS Cloud\".\n\n## Fix\nRead the product name from the runtime-config branding singleton (`getRuntimeConfig().branding.productName`, server-pushed, fallback `\"ObjectOS\"`) — the exact source `LoadingScreen` already uses — and interpolate it into the title. Generic component, so it now reflects whatever product/brand each deployment configures.\n\n## Found via\nA first-time-user signup walkthrough of ObjectOS Cloud (the env-internal empty state is the first thing a new user sees once inside their environment).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

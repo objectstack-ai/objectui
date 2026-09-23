@@ -1,0 +1,30 @@
+{
+  "number": 2261,
+  "kind": "issue",
+  "title": "Studio: Publish needs a confirm step; Changes panel needs field-level detail",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-07-05T06:46:56Z",
+  "updated_at": "2026-07-05T08:25:23Z",
+  "closed_at": "2026-07-05T08:25:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2261",
+  "body": "Mirror of framework#2615 (P1), found by the Studio package-create UX dogfood (framework#2609). Reproduced against the pinned console build `7782698`.\n\n## What happens\n\n- Clicking **Publish** immediately releases **all** package drafts atomically — no confirmation, just the toast *\"Published all drafts in this package (one atomic release)\"*. One mis-click ships everything.\n- The **Changes** panel shows only one line per item (`repair_ticket · New`) — no field-level diff, no drill-in, no author/timestamp — so there's nothing substantive to review before publishing even though review-before-release is the panel's whole job (ADR-0016 §3.6 step 4).\n\n## Expected\n\n- Publish opens the pending-changes list with an explicit confirm button (the panel content already exists — reuse it as the confirm body).\n- Changes panel items expand to show what publishing will change: fields added/removed/modified for objects, and a clear \"update overwrites live version\" marker for existing items.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01DHQc5BdGhTzPfazex3vWdt"
+}

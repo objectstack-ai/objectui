@@ -1,0 +1,33 @@
+{
+  "number": 2051,
+  "kind": "pull_request",
+  "title": "feat(detail): relatedLayout 'tabs' — surface related tables as peer tabs via config",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T08:48:41Z",
+  "updated_at": "2026-06-28T13:24:04Z",
+  "closed_at": "2026-06-28T13:24:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T13:24:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2051",
+  "body": "## What\n\nRecord detail pages can now render **each related table as its own top-level tab** instead of stacking them all inside a single **Related** tab — configured purely via `detail.relatedLayout: 'tabs'` on the object. No custom page authoring required.\n\nMotivation: users with several related tables (e.g. a master plan with multiple child lists) want them surfaced as peer tabs rather than scrolling one long stacked **Related** tab. Today the only way to get tabbed related lists is to hand-author a `page:tabs` record page.\n\n## How\n\n- **`buildDefaultPageSchema`** (`@object-ui/plugin-detail`) — new `BuildPageOptions.relatedLayout?: 'stack' | 'tabs'`, threaded through `buildDefaultTabs` (the single choke point for related-tab emission):\n  - `'tabs'` → fans the related children out into **one peer tab each** (label = the related list's `title`, falling back to `objectName`; carries its `icon`), slotted between **Details** and **Activity** / **History**.\n  - `'stack'` (default) → keeps the legacy single **Related** tab. **Zero regression** when the option is omitted.\n  - Still honours `hideRelatedTab` (no related tabs emitted) in both modes.\n- **`RecordDetailView`** (`@object-ui/app-shell`) — reads `objectDef.detail.relatedLayout` per object and forwards it to the synth (mirrors how `hideRelatedTab` / `showReferenceRail` are read).\n\n## Usage\n\n```ts\n// object metadata\ndetail: {\n  relatedLayout: 'tabs',   // each related list becomes its own tab\n}\n```\n\n## Tests\n\n4 new cases in `buildDefaultPageSchema.test.ts`:\n- each related list gets its own peer tab (title fallback to objectName, icon carried)\n- defaults to the stacked **Related** tab when `relatedLayout` is omitted\n- still honours `hideRelatedTab`\n- **Activity** / **History** remain ordered after the per-table tabs\n\n`vitest run` (54 passed) + `turbo type-check` (plugin-detail + app-shell) green. The one preexisting `no-empty` lint error at `RecordDetailView.tsx:191` is unrelated to this change (present on `main`)."
+}

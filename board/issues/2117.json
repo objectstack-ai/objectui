@@ -1,0 +1,33 @@
+{
+  "number": 2117,
+  "kind": "pull_request",
+  "title": "test(data-objectstack): guard getObjectSchema's validations pass-through (inert-metadata regression)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T14:26:04Z",
+  "updated_at": "2026-06-30T14:30:27Z",
+  "closed_at": "2026-06-30T14:29:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T14:29:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2117",
+  "body": "## What\n\nA fetch-mocked seam test pinning that `ObjectStackAdapter.getObjectSchema` passes the served `validations` (incl. `state_machine` transitions) through **untouched**.\n\n## Why\n\nThe inline select editor filters its dropdown by the object's `state_machine` validation (#2110). That feature is only alive because the adapter doesn't strip `validations` from the served schema — which today is verified **only by hand** (curl the endpoint + grep the adapter).\n\nThis is the **valid-but-inert** failure mode: if a future change here started stripping or reshaping top-level metadata, the filter would silently no-op with no error, no crash — \"shipped but runtime-dead\" (the same class as several prior bugs the platform's completeness gates target). This test turns that silent failure into a red CI check.\n\nIt's the smallest, non-noisy version of \"make inert-metadata catchable\": rather than warning on every absent config (which can't tell a legitimate default from dropped data), it pins the one seam the feature depends on.\n\n## Test\n\n`getObjectSchema.test.ts` — asserts the state machine survives the adapter with its exact transition map (`done → [in_progress]`, so the editor must not offer `in_review`). 3/3 in the file pass. Test-only; no changeset.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

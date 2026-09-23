@@ -1,0 +1,30 @@
+{
+  "number": 2013,
+  "kind": "pull_request",
+  "title": "feat(chatbot): surface the AI model picker on the full-page Build/Ask surface (ADR-0028)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-26T14:39:03Z",
+  "updated_at": "2026-06-26T14:42:11Z",
+  "closed_at": "2026-06-26T14:39:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-26T14:39:19Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2013",
+  "body": "## What\nSurface the ADR-0028 AI model picker on the full-page **Build / Ask** surface (`/_console/ai/build`, `/ai/ask`).\n\n## Why\nThe picker (#2010) was only wired into the **floating** chatbot (`ConsoleFloatingChatbot`). The dedicated full-page AI surface — the primary \"Build with AI\" / \"Ask AI\" entry — rendered `ChatbotEnhanced` **without** the model props, so a paid-tier user had no way to switch models on the very surface the feature is named for (\"switch model during *build*\"). Found during live staging verification of ADR-0028.\n\n## Change\n`AiChatPage` → `ChatPane`, mirroring `ConsoleFloatingChatbot` exactly (the chat component already accepts these optional props):\n- `useAiModels({ apiBase })` → plan-filtered allowlist\n- `selectedModelId` state, `effectiveModelId = selectedModelId ?? defaultModelId`\n- pass `model: effectiveModelId` into `useObjectChat`\n- pass `models` / `selectedModelId` / `onModelChange` into `ChatbotEnhanced`\n\n`ChatbotEnhanced` renders the footer `<select>` only for **2+ models**, so free / single-model envs see nothing — no behavior change there.\n\n## Verify\nTypechecks clean against the built dep closure. Mirrors the already-tested floating-chatbot wiring; `useObjectChat` keeps the model in a ref so mid-session switches route correctly. Requires a cloud `.objectui-sha` bump to deploy.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

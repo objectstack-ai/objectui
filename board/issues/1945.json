@@ -1,0 +1,30 @@
+{
+  "number": 1945,
+  "kind": "issue",
+  "title": "Flow builder: on-canvas validation badges + a Problems panel",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T04:24:18Z",
+  "updated_at": "2026-06-24T14:48:11Z",
+  "closed_at": "2026-06-24T14:48:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1945",
+  "body": "## Problem\n\nFlow validation surfaces as a **top text banner** (\"This metadata does not match the spec — N error(s)\", e.g. `Type: Invalid input`) that does **not** point to the offending node / edge. In a non-trivial flow you can't tell *which* element is wrong. Meanwhile the simulator's `validateFlowDraft` already detects structural problems (no resolvable entry, unreachable nodes, a decision with no default branch, duplicate node ids, dangling edges) — they're just not shown on the canvas.\n\n## Proposal\n\nRender **error / warning badges directly on the offending node or edge** (icon + tooltip with the message), plus a **Problems panel** listing every issue with click-to-navigate (selects and scrolls to the node/edge). Sources: `validateFlowDraft` (structural) + the server `_diagnostics` already attached to the draft.\n\nThis is how every serious flow tool (Salesforce Flow, Power Automate) surfaces problems; here the detection mostly exists already — it's a **surfacing** gap.\n\n## Acceptance criteria\n\n- [ ] Per-node / per-edge badge on each element that has an issue, with a tooltip of the message.\n- [ ] A Problems panel listing all issues; clicking one selects + reveals the element.\n- [ ] Covers the existing `validateFlowDraft` checks and the server `_diagnostics` entries.\n- [ ] Clears as issues are resolved.\n\n## Pointers\n\n- `previews/simulator/flow-sim-validate.ts` — `validateFlowDraft()` (entry resolution, reachability, decision defaults, duplicates).\n- `previews/FlowCanvas.tsx` — node/edge rendering (where badges attach).\n- Server `_diagnostics` on the draft — today shown only in the banner and as `JsonSourceEditor` squigglies."
+}

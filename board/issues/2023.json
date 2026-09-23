@@ -1,0 +1,32 @@
+{
+  "number": 2023,
+  "kind": "pull_request",
+  "title": "fix(app-shell): make AI-build \"开始搭建\" send a gate-matching approval",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T10:04:05Z",
+  "updated_at": "2026-06-27T10:07:47Z",
+  "closed_at": "2026-06-27T10:04:30Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T10:04:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2023",
+  "body": "## Problem\n\nIn the AI build \"proposed plan\" card (shown after the agent calls `propose_blueprint`), the **开始搭建** button was inert — clicking it did nothing: no build started. Typing a \"确认…\" reply in the chat worked, which was the tell.\n\n## Root cause\n\nThe button *does* send a chat message (`onClick → handlePlanApprove → onSendMessage`), but in Chinese it sent **`就按这个方案搭建吧。`**, which the cloud confirm gate's `APPROVAL_RE` (`service-ai-studio/confirm-gate.ts`) does **not** recognize as approval — the gate anchors Chinese approval on `确认` / `直接搭建`. So the agent re-proposed instead of building, and the button looked dead. The English messages already matched (`build it as proposed` / `build it with your best`); only the Chinese ones were stale relative to the (now broadened, cloud #620) gate.\n\n## Fix\n\nAlign both zh approve messages with the gate (确认-anchored), in the two hosts that wire them:\n\n| | before | after |\n|---|---|---|\n| `planApproveMessage` | `就按这个方案搭建吧。` | `确认，开始搭建。` |\n| `planApproveDefaultsMessage` | `就按你的合理假设直接搭建，…` | `确认搭建，未决问题按你的合理假设和默认处理。` |\n\n- `packages/i18n/src/locales/zh.ts` (used by `AiChatPage`)\n- `packages/app-shell/src/layout/ConsoleFloatingChatbot.tsx` (inline zh locale)\n\nPlus an i18n test pinning both messages to the gate's `确认` anchor so a future reword can't silently re-break the button. Guard comments at both sites document the cross-repo coupling.\n\n## Verification\n\n- **Unit**: `@object-ui/i18n` (new strings + gate-anchor guard) and `@object-ui/plugin-chatbot` (`ChatbotEnhanced` button→`onSendMessage` wiring) green.\n- **Cross-repo contract**: ran the **real** cloud `userApprovedThisTurn` against the **real** objectui strings — new zh messages → approved; old zh → rejected (reproduces the bug); plain build requests stay rejected (gate stays narrow).\n- **Live e2e** on `run-stack.sh --with-ui --seed`: clicking **开始搭建** in the browser sent **`确认，开始搭建。`** (DB-confirmed) → agent ran `apply_blueprint` → created a real app + objects + views. Button no longer inert.\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

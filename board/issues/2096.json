@@ -1,0 +1,30 @@
+{
+  "number": 2096,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Studio data grid uses the rich runtime ListView (standard toolbar + inline CRUD)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T13:27:38Z",
+  "updated_at": "2026-06-29T13:31:12Z",
+  "closed_at": "2026-06-29T13:27:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T13:27:50Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2096",
+  "body": "## What\nThe Studio Data pillar's records grid rendered a bare `object-grid` — a standalone (ugly) search box, no view/filter/sort/group menus. This swaps it for the **same rich ListView the runtime list pages use**, via the plugin `ObjectView`'s `renderListView` slot (so the object-view still owns data fetching).\n\n## Changes (`StudioDesignSurface.tsx` only)\n- **Standard list toolbar**: view switcher, search, sort, filter, group, hide-fields — matches the runtime `..._all_views` page\n- **Airtable-style inline data management**: `inlineEdit` + `addDeleteRecordsInline`\n- **Columns lead with the object's own fields** (metadata order), dropping framework-managed/audit fields (`created_at`, `updated_by`, `organization_id`, …) so the grid opens on meaningful columns\n- **Field authoring preserved**: column `+` add / pencil edit / drag reorder still flow through the `GridFieldAuthoring` context\n\n## Verified live (showcase env)\n- Toolbar + 13 records + user-fields-first columns render\n- Field inspector opens on column edit\n- `type-check` + lint clean (my file: 0 errors)\n- Inline-edit write path confirmed correct — the data-API `update` is **permission-gated** (test user has `roles []`), not broken; a permissioned user persists\n\n## Follow-ups (not here)\n- Inline-edit uses staged-save (edit → per-row save) not save-on-blur; auto-save would be more Airtable-like\n- Minor: object-view Create button + DataPillar header stack above the toolbar\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

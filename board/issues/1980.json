@@ -1,0 +1,32 @@
+{
+  "number": 1980,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): surface flow expression problems in the Problems panel + canvas badges (#1934)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T15:53:44Z",
+  "updated_at": "2026-06-24T15:57:36Z",
+  "closed_at": "2026-06-24T15:53:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T15:53:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1980",
+  "body": "Builds on the inline data-picker validation ([#1975](https://github.com/objectstack-ai/objectui/pull/1975) / [#1978](https://github.com/objectstack-ai/objectui/pull/1978)) by feeding client-side **expression issues** into the unified flow-problems list ([#1972](https://github.com/objectstack-ai/objectui/pull/1972)) — so they appear as **Problems-panel rows** and **on-canvas node/edge badges**, discoverable at the flow level instead of only when a node is open.\n\n## What it scans\nNew pure `flow-expr-problems.ts` walks every CEL surface in the draft:\n- decision conditions + **branch expressions**, screen **`visibleWhen`**, loop **collection**, and **edge guards**;\n- **ADR-0032 brace / shape errors** (deterministic, scope-free → zero false positives), level **error**;\n- **scope-aware unknown-reference warnings** (a bare root not in scope at the node), level **warning**.\n\nThe **start node is skipped for the ref check**: its entry condition references the trigger record's fields *bare* (`status`), which can't be told from a typo without the object schema (an async fetch this pure pass avoids). The inline inspector check — which does fetch — still covers the start node. Template (`{var}`) values are left to the inline check (single braces are legal there).\n\n`buildFlowProblems` merges these as a third source (`'expression'`); `ProblemsPanel` labels the rows \"· expression\"; the existing canvas badge/reveal path renders them unchanged.\n\n## Tests / verification\n- New `flow-expr-problems.test.ts` (6): brace error on a branch (node target), unknown ref on a downstream condition (warning + suggestion), **start-node bare fields not flagged**, edge-guard brace error (edge target), default-edge/empty skipped, clean flow → none.\n- `flow-problems.test.ts` still green (the existing structural/server cases are unaffected). Full `metadata-admin` suite green (489), `pnpm build` (tsc) clean. Badge/panel rendering reuses the proven #1972 path; this PR only adds correctly-targeted entries to the same `FlowProblem[]`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

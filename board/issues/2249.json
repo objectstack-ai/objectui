@@ -1,0 +1,32 @@
+{
+  "number": 2249,
+  "kind": "issue",
+  "title": "详情页顶部高亮字段条排版优化(基线对齐 / 中文标签 / 成列分隔 / 引用截断)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T04:17:30Z",
+  "updated_at": "2026-07-05T06:36:19Z",
+  "closed_at": "2026-07-05T06:36:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2249",
+  "body": "## 问题\n\n对象详情页顶部的高亮字段条(`HeaderHighlight`,渲染在标题下、状态条上方)当前的显示效果不够理想:\n\n1. **数值与文本基线不齐** — KPI(number/currency)用 `text-xl md:text-2xl`,而相邻文本字段是 `text-sm`。同一行里金额字号是邻居的两倍,整排重心不稳、高低错落。\n2. **中文标签排版失效** — 标签统一加了 `uppercase tracking-wide`,这套是为英文列头设计的:`uppercase` 对中文无效,`tracking-wide`(字间距)反而把中文标签拉散、降低可读性。\n3. **引用/长文本字段被拦腰截断** — reference/lookup 类字段(如「国家电投江苏海上风电有限公司」)在窄列里被 `truncate` 切掉尾部,而尾部往往正是识别这条记录的关键信息;且截断后无悬停查看全称。\n4. **列与列缺乏视觉边界** — 仅靠 `gap-x-8` 拉开,内容宽度不一时读起来像一串连排,缺少「每个是一列」的结构感。\n5. **潜在 CSS 隐患** — 列容器同时输出两个 `flex-basis`(`basis-[10rem]` 基础 + `basis-[16rem]` wide),最终谁生效取决于 Tailwind 生成 CSS 的顺序而非源码顺序,wide 列可能悄悄塌回窄宽度并触发截断。\n\n## 方案\n\n参考 Salesforce Highlights Panel / Stripe 明细头的成熟范式,对 `packages/plugin-detail/src/HeaderHighlight.tsx` 做纯样式调整:\n\n1. **统一值字号** — 所有值统一 `text-sm font-semibold`,取消 KPI 放大;数字保留 `tabular-nums` 保证逐位对齐,整排基线齐平。\n2. **矫正中文标签** — 去掉 `uppercase tracking-wide`,标签回归常规 `text-xs text-muted-foreground`。\n3. **成列分隔** — 每列 `border-l px-5`,首列 `first:border-l-0 first:pl-0`,以竖直分隔线明确成列并保持整排左对齐。\n4. **放宽引用字段 + 悬停全称** — 将 reference/lookup/master_detail 纳入 `isWide` 放宽列宽,并给值 `<span>` 加 `title`,避免关键名称被截断。\n5. **修 basis 隐患** — 列容器的 `basis`/`max-w` 改为二选一互斥输出,不再同时出现两个 `flex-basis`。\n\n纯视觉/样式改动,不改取字段与数据渲染逻辑。"
+}

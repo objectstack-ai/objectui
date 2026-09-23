@@ -1,0 +1,32 @@
+{
+  "number": 2213,
+  "kind": "pull_request",
+  "title": "fix(components): stop a nested dialog's close from dismissing the parent dialog",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T04:48:33Z",
+  "updated_at": "2026-07-04T04:52:48Z",
+  "closed_at": "2026-07-04T04:50:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T04:50:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2213",
+  "body": "## Bug\nOpening a create/edit form from **inside another form** — e.g. a lookup field's inline **\"+ create\"** (the first-related-record unblock, objectui#2192) — and then **Cancelling / closing** the nested form also **dismissed the parent form's dialog**. So a user creating a borrow record, who inline-creates the referenced book and cancels (or even completes) it, lost the whole borrow-record form.\n\n(#2201 fixed the *open-time* half — the nested form flashing shut on first click. This is the *close-time* half.)\n\n## Root cause — the same race `MobileDialogContent` already guards for poppers (#2156)\nThe nested create form portals its own Radix `Dialog` to `<body>`. `radix-dialog` defers its outside-pointerdown verdict to the `click` phase; by then the nested dialog has unmounted, so the parent — now the top dismissable layer — treats the closing click as *its own* outside click and dismisses too. This is exactly the deferred-verdict race the existing `usePopperAwareInteractOutside` snapshots for Select/Popover flyouts.\n\n## Fix\nExtend that capture-phase guard to also cover nested **dialogs**: snapshot on `pointerdown` whether the target sits inside another open `[role=\"dialog\"]` (not just a popper flyout), and swallow the interact-outside that follows. One selector added to the snapshot + the immediate check. No API change; every dialog built on `MobileDialogContent` benefits.\n\n## Verified (live, local stack)\n- Empty book picker → **\"+ create\"** opens the book's full create form (stable, first click).\n- **Cancel** the nested form → parent 借阅记录 form **stays open**. ✅\n- **Create** the book → nested closes, parent **stays open**, and the new book is **selected** into the lookup. ✅\n\n`@object-ui/components` `mobile-dialog-content` tests green (9/9).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

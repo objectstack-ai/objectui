@@ -1,0 +1,30 @@
+{
+  "number": 2252,
+  "kind": "issue",
+  "title": "Console 记录详情页 script 动作失败时错误 toast 弹两次(删除动作同样成功/失败都重复)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T05:09:07Z",
+  "updated_at": "2026-07-05T06:36:40Z",
+  "closed_at": "2026-07-05T06:36:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2252",
+  "body": "## 现象\n\n在 console 记录详情页点击一个会失败的 **script 动作**(例如天顺 MTC 的「分配线索」在审批锁定期间触发后端 `RECORD_LOCKED`),同一条错误提示 **弹两次**。后端只抛一次错误,是纯 UI 侧重复。\n\n排查中还发现 **列表/详情的删除动作** 同类重复:删除失败弹两条(一条本地化「删除失败」+ 一条原始 error),删除**成功**也弹两条(本地化「已删除 X」+ 通用英文「Action completed successfully」)。\n\n## 根因\n\n`ActionRunner` 的 `handlePostExecution` 已经负责把结果里的 `error` 弹成 toast(成功则按 `showOnSuccess` 弹)。只要某个 handler **自己又调了 `toast.error/…`** 并且 **返回了 `{success:false, error}`(或成功时未标 `silent`)**,而其 runner 又设了 `onToast`,就会被弹第二遍。\n\n命中的两处 handler:\n\n1. **`RecordDetailView.tsx` 的 `serverActionHandler`(script 类)** — 失败分支(HTTP/inner-fail)与 catch 分支各自 `toast.error(...)` 后又 `return {success:false, error}`。#2177 只修了孪生副本 `useConsoleActionRuntime`(interface page 走它),记录详情页这份没修 → 仍双弹。这也解释了「两天前修过还在」以及「同事没 clone objectui 也复现」(大家吃的是同一份已发布的 `@objectstack/console`)。\n\n2. **`useObjectActions.ts` 的 `delete` handler** — 由 ObjectView 以 `onToast` 装配。删除失败自弹 + 返回 error → 双弹;删除成功自弹 + 返回未标 `silent` → runner 追加通用成功 toast。批量删除部分失败同理。\n\n## 期望\n\n一次动作失败/成功只出现 **一条** toast。修法与 #2177 一致:handler 不自己弹就交给 runner 弹;或 handler 自己弹(保留更友好文案)则返回不带 `error` 并在成功时标 `silent:true`,避免 runner 重复。"
+}

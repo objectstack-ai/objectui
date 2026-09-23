@@ -1,0 +1,30 @@
+{
+  "number": 2260,
+  "kind": "issue",
+  "title": "Studio: new field's API name doesn't follow the label before first save (permanent field_N columns)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-07-05T06:46:45Z",
+  "updated_at": "2026-07-05T08:25:23Z",
+  "closed_at": "2026-07-05T08:25:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2260",
+  "body": "Mirror of framework#2615 (P1), found by the Studio package-create UX dogfood (framework#2609). Reproduced against the pinned console build `7782698`.\n\n## What happens\n\n\"Add field\" creates a field with API name `field_2` / label \"New field\". Relabeling to `Status` leaves the API name `field_2`, and after publish the data column is `field_2` forever — verified: the saved record stores `\"field_2\": \"in_progress\"`.\n\n## Why it's a trap\n\nObject and app identifiers **do** auto-suggest from the display name (Repair Ticket → `repair_ticket`, Repair Center → `repair_center`), so authors expect the same for fields and never look at the API-name input. The result is data models full of meaningless `field_N` columns that leak into the REST API, formulas, and exports.\n\n## Expected\n\nSync the API name from the label while the field is new/unsaved (exactly the object-identifier behavior), lock it after first save. If the label is CJK-only and no suggestion can be derived, keep `field_N` but visually flag the API-name input so the author notices.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01DHQc5BdGhTzPfazex3vWdt"
+}

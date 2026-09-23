@@ -1,0 +1,32 @@
+{
+  "number": 2008,
+  "kind": "pull_request",
+  "title": "fix(auth): cloud login SPA follows the oauth2/authorize redirect (env→cloud SSO)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T18:38:10Z",
+  "updated_at": "2026-06-25T18:46:33Z",
+  "closed_at": "2026-06-25T18:46:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T18:46:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2008",
+  "body": "## Problem\n\n\"Continue with ObjectStack\" (env → cloud OIDC SSO, ADR-0024 D3) never completes — the cloud login lands on `/_console/login?<oidc params>` and shows **\"Signing you in…\"** forever.\n\nRoot cause: the post-login hand-off used a full-page navigation:\n\n```ts\nwindow.location.assign(`/api/v1/auth/oauth2/authorize${window.location.search}`);\n```\n\n`@better-auth/oauth-provider`'s `authorize.mjs → handleRedirect` answers a **browser-fetch-shaped** request with `200 { redirect: true, url }` and only emits a real `302` for a top-level navigation. So the SPA's request comes back as a 200-JSON body that nothing follows → the spinner loops. (Manually copying that `url` out of the loop replays a *stale single-use code* → the misleading \"redirects back to authorize\".)\n\n## Fix\n\nFetch the authorize endpoint and navigate to the `url` it returns — the same pattern `OAuthConsentPage` already uses:\n\n- New `apps/console/src/pages/auth/followAuthorize.ts` — `fetch('/oauth2/authorize'+search)` then `window.location.href = data.url` (`url` / `redirect_uri` / `redirectURI`); falls back to a top-level navigation if the response isn't the expected JSON.\n- `LoginPage.tsx` + `RegisterPage.tsx` call it behind a once-guard ref (the post-login effect re-runs as org state settles).\n\n## Verification (local, full stack)\n\n- **curl E2E**: env `/sign-in/oauth2` → cloud authorize (fetch-shape → `200 {redirect,url}`; top-level → `302`) → env `/oauth2/callback/objectstack-cloud` exchanges the code, JIT-provisions the env `sys_user` + `sys_account(provider_id='objectstack-cloud')`, mints the env session.\n- **Browser E2E**: the SPA carries the browser from `localhost:4200/_console/login?<oidc>` to the env callback host; the full flow lands authenticated on the env `/_console/home` (env DB shows a `sys_session` with a real browser UA).\n\nThe env-runtime callback itself is **not** broken — no env-side change was needed.\n\n## Companion\n\nRequires **framework#2333** (`sys_verification.value` `unique:true`→`false`) so the cloud authorize endpoint stops returning `503 UNIQUE constraint failed: sys_verification.value`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

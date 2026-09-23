@@ -1,0 +1,33 @@
+{
+  "number": 2091,
+  "kind": "pull_request",
+  "title": "perf+feat(core): ADR-0079 Phase 2 — nameField canonical + memoize derived title",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T10:08:54Z",
+  "updated_at": "2026-06-29T10:14:58Z",
+  "closed_at": "2026-06-29T10:14:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T10:14:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2091",
+  "body": "ADR-0079 follow-ups in the shared record-title resolver (`@object-ui/core`).\n\n- **`nameField` canonical, `titleFormat` de-prioritized (conservative retirement).** New precedence: view `titleField` → **`nameField`** → `displayNameField` (alias) → `titleFormat` (legacy, kept for back-compat, now *after* the declared field) → type-aware derivation → `Record #<id>`. An object that declares `nameField` resolves via it even if it carries a stale `titleFormat`. `titleFormat` is **not** removed (existing objects + pinned spec still use it; full removal is a separate breaking migration) — just marked deprecated.\n- **Perf: memoize the derived title field** per `objectDef` (WeakMap) instead of re-scanning `objectDef.fields` for every record — O(records×fields) → O(records) on large lists.\n\nTests: `@object-ui/core` record-title **66/66** (added: nameField-wins-over-stale-titleFormat, titleFormat back-compat, memoization).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

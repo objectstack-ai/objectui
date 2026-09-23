@@ -1,0 +1,30 @@
+{
+  "number": 2016,
+  "kind": "pull_request",
+  "title": "docs: update user field docs for the working sys_user picker",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-26T17:05:57Z",
+  "updated_at": "2026-06-26T17:11:39Z",
+  "closed_at": "2026-06-26T17:11:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-26T17:11:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2016",
+  "body": "Follow-up to #2014 (UserField now delegates to the lookup picker against `sys_user`). The docs still described the old placeholder state.\n\n## Changes\n- **`fields/user.mdx`** — replaced the *\"requires integration with your user management system\"* Integration section with how it actually works (delegates to the lookup picker; `dataSource` queries `sys_user`; `$expand` resolves name/avatar). Replaced the custom-backend snippet with native behavior (`defaultValue: 'current_user'` stamping, expand resolution, `owner_id`/RLS). Fixed the owner `defaultValue` token to `'current_user'`.\n- **`guide/fields.md`** — added `user` and `owner` rows to the standard field-type registry table (the page already used `getCellRenderer('user')` in an example).\n\nDocs-only. Pairs with framework [#2352](https://github.com/objectstack-ai/framework/pull/2352).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

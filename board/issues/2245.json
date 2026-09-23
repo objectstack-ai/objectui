@@ -1,0 +1,33 @@
+{
+  "number": 2245,
+  "kind": "issue",
+  "title": "AppNavInspector 编辑 off-spec 的 nav path/kind(运行期不生效)——应改为 type + 分类型目标选择器",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "designer"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T00:33:24Z",
+  "updated_at": "2026-07-05T08:38:55Z",
+  "closed_at": "2026-07-05T08:38:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2245",
+  "body": "## 背景\n\n来源:UX eval #5(picker-first / 消除手敲标识符)。审计原本把 `AppNavInspector` 的 nav `path` 列为「低复杂度:把自由文本 `InspectorTextField` 换成按 `kind` 联动的 combobox」。但深入排查后发现 **`path`/`kind` 本身是 off-spec 的、运行期不生效** —— 仅美化这个字段会产出一个「运行期忽略、且被兄弟编辑器主动删除」的键,违反本仓 contract-first 原则。据此开 issue 记录正确修法。\n\n> 注:同一批审计里的另一项 **lookup `dependsOn`** 早已在 #1937(2026-06-24)修好(选中字段渲染为可删 chip + `InspectorComboField(allowCustom={false})` over host fields),无需再做。本 issue 只针对 nav `path`。\n\n## 现象 / 根因:inspector 编辑的字段不在 spec 里,运行期也不读\n\n`AppNavInspector` 编辑 `kind` + `path`,但 App 导航的 **spec 契约** 是一个按 `type` 的**判别联合**,各类型有各自的 typed 目标字段,**根本没有 `path`、没有 `kind`**:\n\n- spec:`packages/spec/src/ui/app.zod.ts`(framework)\n  - `ObjectNavItem` → `type:'object'` + `objectName`(+ `viewName`/`recordId`)\n  - `DashboardNavItem` → `type:'dashboard'` + `dashboardName`\n  - `PageNavItem` → `type:'page'` + `pageName`(+ `params`)\n  - `ReportNavItem` → `type:'report'` + `reportName`\n  - `UrlNavItem` → `type:'url'` + `url`(+ `target`)\n  - `ComponentNavItem` → `type:'component'` + `componentRef`\n  - `GroupNavItem` → `type:'group'` + `children`\n  - `BaseNavItem` 要求 snake_case `id`\n- 运行期只认 typed 字段:`packages/layout/src/NavigationRenderer.tsx:382` 的 `resolveHref` 全程 `switch(item.type)` 读 `objectName`/`pageName`/`dashboardName`/`reportName`/`url`/`componentRef`;`packages/layout/src/AppSchemaRenderer.tsx:218-221` 同理。**从不读 `path`/`kind`。**\n- **没有任何 normalizer** 把 `path`→`pageName` 或 `kind`→`type`(objectui 与 framework 两仓均已 grep 确认)。\n\n因此:在 `AppNavInspector` 里给 object/page/dashboard/report 类型写 `path`,**导航不会生效**(`resolveHref` 拿不到 typed 字段 → `#` 或空)。这是 declared ≠ enforced 的典型(Prime Directive #10)。\n\n相关位置:\n- off-spec 编辑:`packages/app-shell/src/views/metadata-admin/inspectors/AppNavInspector.tsx:179-181`(`path` = `InspectorTextField`;`kind` = `InspectorSelectField`,`KINDS` 在 line 44)\n- canvas 新建即写 off-spec:`packages/app-shell/src/views/metadata-admin/previews/AppNavCanvas.tsx:180`(`{ label, path: '' }`,无 `type`/`id`)\n- 注册可达:`inspectors/index.ts:32` `registerMetadataInspector('app', AppNavInspector)`(泛用 metadata-admin 里编辑 `app` 时的 inspector)\n\n## 已有的「正确」先例(但只覆盖 object)\n\n`StudioDesignSurface.tsx` 的 `StudioNavItemInspector`(line 691)已经按 spec 写:\n- 绑定对象 → `patch({ id, type:'object', objectName, object:undefined, path:undefined, label })`(line 757-764)\n- 解绑 → `patch({ type:undefined, objectName:undefined, object:undefined })`(line 749)\n- 注释(line 752-756)明确:「nav 是 `type` 判别联合、BaseNavItem 需要 snake_case `id`;`object`/`path` 被清掉以免残留无效键」\n\n即:**现有代码已把 `path` 当作会导致 `navigation.0: Invalid input` 的「无效残留键」主动删除**。若再把 `path` 做成 picker 去写它,等于跟这个既有正确实现对着干。但 `StudioNavItemInspector` 只是一个对象 `<select>`,**不支持 page/dashboard/report/url/component**。\n\n## 为什么「仅把 path 变成 picker」是错的\n\n- 违反 spec-strict / contract-first(objectui AGENTS.md #0、#0.1;framework Prime Directive #12):`path`/`kind` 不是 spec 属性。\n- 违反 Prime Directive #10:会 demo 一个运行期不兑现的能力(写了 `path`,点了不跳转)。\n- 与既有 `StudioNavItemInspector` 冲突:它把 `path` 当无效键删。\n\n## 建议修复(契约正确 · 泛化 StudioNavItemInspector)\n\n把 `AppNavInspector` 的目标编辑从 `kind`+`path` 改为 **`type` + 分类型 typed-target 选择器**:\n\n1. `kind` 选择器 → `type` 选择器,选项取 spec 类型:`object` / `page` / `dashboard` / `report` / `url` / `component` / `group`(`action` 可后续)。\n2. `path` 文本 → **kind-aware typed-target 选择器**(可编辑 combobox,降级为自由文本,mirror `FlowReferenceField`/`ReferenceCombobox` + `InspectorComboField`):\n   - `object` → 写 `objectName`,选项 `client.list('object')`\n   - `page` → 写 `pageName`,选项 `client.list('page')`\n   - `dashboard` → 写 `dashboardName`,选项 `client.list('dashboard')`\n   - `report` → 写 `reportName`,选项 `client.list('report')`\n   - `url` → 写 `url`(自由文本,外链)\n   - `component` → 写 `componentRef`(已知组件列表或自由文本)\n   - `group` → 无目标(只有 `children`)\n3. 切换 `type` 时:set `type`、清除其它 typed 字段 + legacy `path`/`kind`、保证 snake_case `id`(参照 `StudioNavItemInspector`)。\n4. 读回向后兼容:显示时兼容旧的 `kind`/`path` 与 typed 字段;**任意编辑都归一化为 spec 形状**(edit 即迁移)。\n5. 抽出**纯解析逻辑** `type → { targetKey, metaType }`(哪个 typed 字段 + 拉哪个 metadata list),加单测。\n6. 收敛:让 `StudioNavItemInspector` 复用这套泛化后的 picker(或反过来),避免两套 nav 编辑器长期分叉。\n\n## 验收标准\n\n- 在 `AppNavInspector` 里编辑 object/page/dashboard/report/url 项,产出 **spec 合法**的判别联合项(过 `NavigationItemSchema`/`AppSchema` 校验),**不再出现 `path`/`kind` 键**,且带合法 `id`。\n- 运行期 `resolveHref` 能据此产出正确 href(点击真正跳转)。\n- `type→target` 解析器有单测。\n- 补齐 i18n key(en + zh-CN)。\n- `AppNavCanvas.addItem` 新建项不再只写 `{label, path:''}`(至少带 `type`/`id`,或走同一归一化)。\n\n## 备注\n\n- 影响面:泛用 metadata-admin 里对 `app` 的导航编辑;Studio Interfaces pillar 已用 `StudioNavItemInspector`(object 正确),但其余类型仍会落到本 inspector。\n- 关联:UX eval #5 picker-first;flow-node connector-action picker(#2244)、lookup dependsOn(#1937)为同族已完成项。\n"
+}

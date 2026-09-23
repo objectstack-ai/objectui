@@ -1,0 +1,33 @@
+{
+  "number": 2042,
+  "kind": "pull_request",
+  "title": "feat(ai-build): event-driven blueprint-design progress (live \"Designing…\" panel)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T02:24:40Z",
+  "updated_at": "2026-06-28T02:44:51Z",
+  "closed_at": "2026-06-28T02:44:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T02:44:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2042",
+  "body": "## What\n\nRenders the **blueprint-design streaming** half of the AI Build \"magic\" flow. cloud#657 (Refs cloud#655) ships the backend: while `propose_blueprint` drafts the plan — a tens-of-seconds, otherwise-opaque LLM call — it now emits a progressive, reconciled `data-blueprint-progress` part along the agent SSE stream. This PR is the frontend renderer: objects appear **one-by-one** in a live \"Designing…\" card instead of a spinner + rotating placeholder, then the card hands off to the authoritative \"Proposed plan\" the instant the tool result lands.\n\nBefore this PR (#2036/#2039) the wait was a purely *presentational* \"Designing your app…\" + rotating-copy placeholder. This upgrades it to real, event-driven progress, keeping that placeholder as the no-event fallback.\n\n## Event contract (same mechanism as `apply_blueprint`'s `data-build-progress`, reconciled in place by stable `id`)\n\n```jsonc\n{\n  \"type\": \"data-blueprint-progress\",\n  \"id\": \"blueprint-progress\",        // stable id → client replaces the prior frame\n  \"data\": {\n    \"phase\": \"designing\" | \"done\",\n    \"summary\": \"招聘管理系统\",          // optional, appears progressively\n    \"appLabel\": \"招聘管理\",            // optional (no appLabel in extend mode)\n    \"targetApp\": \"recruiting\",        // extend mode only\n    \"objects\": [{ \"name\": \"candidate\", \"label\": \"候选人\", \"fields\": 5 }],\n    \"counts\": { \"objects\": 3, \"views\": 2, \"dashboards\": 1 },\n    \"seq\": 7                          // monotonic liveness signal\n  }\n}\n```\n\n## How it's wired (detect → route → converter → render)\n\n- **Detect / map** — `mapMessages.ts`: `extractBlueprintProgress(parts)` lifts the latest reconciled frame; `uiMessageToChatMessage` puts it on `ChatMessage.blueprintProgress` (mirrors `extractBuildProgress`). This is the **shared streaming converter** that *both* the full-page AI Build surface (`AiChatPage` → `useObjectChat`) and the floating console chatbot already route through — so one wiring point covers both surfaces.\n- **Type** — `ChatBlueprintProgress` + `ChatMessage.blueprintProgress` in `ChatbotEnhanced.tsx`.\n- **Render** — new `BlueprintProgressPanel`: object chips (label + `fields`), summary / extend badge revealed progressively, `seq`-driven `LivenessIndicator`. Rendered at message level next to `BuildProgressPanel`.\n- **Route / hand-off** — the panel renders only while the turn has **no** structured `proposedPlan` yet; the moment the `propose_blueprint` result lands it yields to the authoritative \"Proposed plan\" card. While the panel is up, the running `propose_blueprint`'s rotating-hint row is suppressed in the activity strip (the panel supersedes the placeholder).\n- **Hydration converter unchanged (by design):** `AiChatPage.hydratedMessagesToChatMessages` only sees *persisted* history, and `data-blueprint-progress` is transient like `data-build-progress` — never persisted. On reload the persisted \"Proposed plan\" card is the record, so no synthesis is needed there (unlike `buildProgress`, whose \"Built X\" panel had no other persisted form).\n\n## Graceful degradation / zero regression\n\nNo `data-blueprint-progress` events (older cloud / non-streaming turn) → no panel, and the existing rotating-hint \"Designing your app…\" placeholder behaves exactly as before.\n\n## Tests (12 new)\n\n- `mapMessages.test.ts` (event→data): full mapping, reconcile-to-latest-frame, `phase:done` + extend target, malformed-object/field filtering, phase default, counts-drop, absence.\n- `ChatbotEnhanced.test.tsx` (event→render): chips with label+field-count + summary + counts line, chips accruing across frames, placeholder superseded when events present, placeholder fallback with no events, hand-off to the Proposed-plan card, extend-mode badge.\n- Full `plugin-chatbot` suite green (154 tests, 8 files). No new type errors / lint errors from the change.\n\n## Browser verification (recorded event stream)\n\nDrove `ChatbotEnhanced` through a scripted `data-blueprint-progress` sequence in a real browser and captured each state:\n1. **Designing (empty)** — panel header + summary + live liveness.\n2. **Designing (accruing)** — 4 chips with field counts (候选人·5, 职位·4, 面试·6, 部门·3) + \"4 objects · 3 views · 1 dashboard\".\n3. **Hand-off** — live panel gone, authoritative \"Proposed plan\" card shown (same chips carry over → seamless).\n4. **Fallback** — no events → existing rotating placeholder, unchanged.\n\n## Shipping note\n\nThis is the objectui half. To actually ship the streamed UX end-to-end it still needs the deploy-chain pins bumped: framework `.objectui-sha` pin bump → cloud re-pin (per the standard objectui deployment flow). cloud#657 is already merged.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2183,
+  "kind": "pull_request",
+  "title": "fix(app-shell): don't show recovery-password reminder on a user's first landing",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T07:01:16Z",
+  "updated_at": "2026-07-03T07:05:46Z",
+  "closed_at": "2026-07-03T07:01:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T07:01:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2183",
+  "body": "RecoveryPasswordReminder fired on the env home on a brand-new SSO user's very first screen (before they've built anything) — premature friction on the first-run magic moment. The component already intends 'not before the first session' but the code didn't honor it. Gate on a first-visit localStorage marker: record the first home landing, show the reminder only from the next visit on. Still dismissible; preserves SSO-fallback resilience for default (password-allowed) envs. Follow-up: also gate off SSO-enforced envs where the password can't be used."
+}

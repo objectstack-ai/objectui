@@ -1,0 +1,39 @@
+{
+  "number": 2029,
+  "kind": "pull_request",
+  "title": "fix(plugin-tree): annotate tree-config filter param to satisfy noImplicitAny",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T15:25:12Z",
+  "updated_at": "2026-06-27T15:28:51Z",
+  "closed_at": "2026-06-27T15:25:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T15:25:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2029",
+  "body": "## Summary\n`packages/plugin-tree/src/ObjectTree.tsx:84` failed `tsc --noEmit` with:\n\n```\nsrc/ObjectTree.tsx(84,45): error TS7006: Parameter 'f' implicitly has an 'any' type.\n```\n\n`rawFields` resolves to `any` (it comes from `schema: any`), so `.map(fieldKey)` is `any` and the filter callback param `f` was implicitly `any` under `noImplicitAny`. Annotated it as `unknown`; the `f is string` type predicate still narrows the result to `string[]`.\n\nThis error is **pre-existing on main** (CI has no `tsc --noEmit` gate, so it was never caught) and is **unrelated** to the @objectstack 11 upgrade.\n\n## Verify\n```\npnpm --filter @object-ui/plugin-tree type-check\n```\nThe `84,45` implicit-any error is gone.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2138,
+  "kind": "pull_request",
+  "title": "fix(fields): inline lookup editor shows the selected record's name (#2125)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T15:51:28Z",
+  "updated_at": "2026-07-01T16:03:25Z",
+  "closed_at": "2026-07-01T16:03:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-01T16:03:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2138",
+  "body": "Closes #2125.\n\n## Problem\n\nEditing a `lookup` / `master_detail` / `user` / `owner` field **inline in the data grid** showed the **\"选择… / Select…\" placeholder** instead of the currently-selected record's name. The value was never wrong (the correct record **id** persisted, and the read-mode cell rendered the name) — only the inline **editor trigger** failed to display it.\n\n## Root cause\n\nThe grid requests **`$expand`** for visible reference columns ([`buildExpandFields`](packages/core/src/utils/expand-fields.ts)), so a lookup cell's value arrives as the related record **object** `{ id, name, … }`, not a bare id.\n\n- The **read** cell (`LookupCellRenderer`) resolves object values via the display-name path — so it always worked.\n- The **inline editor** (`LookupField`) only matched **primitive** ids: `findOption(value)` does a strict `opt.value === value`. An object value never matches → `selectedOptions` stays empty → placeholder. The hydration effect then made it worse by calling `findOne(referenceTo, <object>)` with a bogus id (which is why waiting 2.5 s never helped).\n\nThis is exactly the \"align the editor's resolution with the read renderer's\" the issue asked for.\n\n## Fix\n\n**`LookupField.tsx`**\n- Resolve an expanded-reference **object** value directly into its display option (via `recordToOption`, mirroring the read cell) — no fetch needed.\n- Skip object values in the hydration effect so we never `findOne(<object>)`; only bare ids are fetched.\n- Normalise object values to their id for option matching, multi-select toggle, and chip removal.\n\n**`FieldEditWidget.tsx`**\n- Render the relational pickers **`compact`** inline (the same single-line, borderless trigger the line-item `GridField` uses), so the record name shows **in** the trigger — in full mode the trigger always renders \"Select\" (the name lives in a chip stacked above), which is the double-stack `compact` was built to avoid in a cell.\n\n## Tests\n\n- New regression tests in `complex-widgets.test.tsx`: expanded-object value resolves in **compact** (trigger) and **full** (badge) mode with **no bogus fetch**; the bare-id `findOne` hydration path still works; `FieldEditWidget` forwards `compact` to the relational widget.\n- Full `@object-ui/fields` suite green (**4977 passed / 24 skipped**), including the `FieldEditWidget` drift-guard, plus `turbo run build --filter=@object-ui/fields` (type gate) green.\n\n## Related\n\n- #2122 — wired relational fields into the inline editor (where this surfaced).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

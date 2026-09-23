@@ -1,0 +1,32 @@
+{
+  "number": 2003,
+  "kind": "pull_request",
+  "title": "feat(chatbot): granular 确认修改 (confirm-change) card",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T13:29:54Z",
+  "updated_at": "2026-06-25T13:43:26Z",
+  "closed_at": "2026-06-25T13:43:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T13:43:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2003",
+  "body": "Mirrors the `propose_blueprint` plan card, for **granular** metadata edits.\n\nWhen a mutating tool returns `{ status: 'changes_proposed', changes, summary }` (the cloud confirm-before-change gate's preview), `detectProposedChanges` lifts it and `ChatbotEnhanced` renders a 确认改动 card with 确认修改 / 调整 buttons. The 确认修改 click sends an approval message the cloud gate recognises; the agent then applies. **Nothing changes until confirmed.**\n\nReuses the existing plan-card pattern (icons, button styles, positional \"已确认\" badge). Built clean (42/42 workspace build).\n\nPart of a 3-repo change (coupled): cloud `feat/confirm-before-build` + framework `feat/tool-ctx-user-message`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

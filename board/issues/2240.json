@@ -1,0 +1,32 @@
+{
+  "number": 2240,
+  "kind": "pull_request",
+  "title": "feat(studio): automation enable/disable switch + live status in the Automations rail",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T17:37:26Z",
+  "updated_at": "2026-07-04T17:41:33Z",
+  "closed_at": "2026-07-04T17:38:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T17:38:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2240",
+  "body": "## Why (UX eval #6 — automation enable/disable entry + status)\n\nThe Automations pillar showed only an icon + label per flow, and **no way to turn a flow on or off**. So an author couldn't tell whether an automation was live, or stop one without deleting it — the header even said \"Off by default · review before enabling\", but nothing reflected or controlled it. Companion to framework #2597 (the engine-side status gate + `/automation/_status`).\n\n## What\n\n- **Live status dot** on every flow in the rail — a green **\"On\"** / gray **\"Off\"**, from the engine's `GET /api/v1/automation/_status`. Persisted `status` is *intent*; this is what's *actually* enabled + bound to its trigger. Refetched after a publish; degrades silently on an older backend; a never-published flow shows no dot (the amber \"unpublished draft\" chip covers that).\n- **Enable/Disable switch** in the flow header. It flips the flow's deployment `status` (`active` ↔ `obsolete`) and saves the draft immediately; the change goes live when the package is **published** — so \"review before enabling\" is preserved. Pairs with the framework engine gate (`obsolete`/`invalid` → not bound).\n- New `engine.studio.auto.*` i18n keys (en + zh).\n\n## Verification\n\n**Unit** — `FlowStatusDot`: enabled → green \"On\", disabled → \"Off\", no runtime state → renders nothing, bound-vs-unbound distinguished in the tooltip. app-shell type-check clean (29/29).\n\n**Live browser** — console proxied to a real #2597 backend. The Automations rail shows a green **\"● On\"** against every showcase flow, and the header switch reads **\"Enabled\"** (green). A flow authored + published as `status:active` shows `enabled:true, bound:true` in `/automation/_status`.\n\n![proof: green On badges on every flow + Enabled switch]\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

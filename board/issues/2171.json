@@ -1,0 +1,32 @@
+{
+  "number": 2171,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): 批量动作弹窗全流程 i18n + 报错行不再撑破弹窗宽度",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T02:06:05Z",
+  "updated_at": "2026-07-03T03:39:46Z",
+  "closed_at": "2026-07-03T03:39:44Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T03:39:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2171",
+  "body": "## 问题\n\nconsole 11.7.0 的批量动作弹窗(`plugin-grid` 的 `BulkActionDialog`)从 params → confirm → running → result 全程**硬编码英文**,组件里没有任何 `t()` 调用,所以中文语言包(以及除 en 外的任何语言)都覆盖不到这些字符串:\n\n- 确认页:`Affected records (2):`、`Cancel`、`Run`、`Next`、`… and N more`\n- 执行中:`Running…`、`N / M processed · K failed`\n- 结果页:`Succeeded 0 / 2 · Failed 2`、`Undone —`、`Retry`、`Download error CSV`、`Undo`/`Undoing…`、`Done`\n- 参数页:`Select…`、`Loading…`、布尔值 `Yes`/`No`\n\n此外结果/确认页有个布局 bug:报错消息较长时(如「[ObjectStack] 派工前请先在「派工明细」子表维护至少一行(执行责任人 + 执行岗位)。」),文字用了 `truncate`(nowrap)套在 Radix `ScrollArea` 的 viewport(`min-width:100%; display:table`)里,会把整行撑宽、连同 `Retry` 按钮**溢出到弹窗右边框外**。\n\n## 改动\n\n- **全流程接入 i18n**:每处字面量改走 `useObjectTranslation()`,并带内联 `defaultValue`(与同目录 `BulkActionBar` 一致 —— `defaultValue` 本身即英文兜底,所以 ja/ko/de/… 仍经 `fallbackLng:'en'` 正常显示英文,无需补全所有语言)。\n- **补齐词条**:`grid.bulk.*` 共 22 个 key 加入 `en.ts` + `zh.ts`(仅维护这两个语言,与仓库现有约定一致)。\n- **修横向溢出**:报错行 `truncate → break-words`,`Retry` 按钮加 `shrink-0`;确认页预览 `<li>` 同样 `truncate → break-words`。纵向滚动(`max-h-48` + `ScrollBar`)本就存在,未改。\n\n## 验证\n\n- `@object-ui/i18n`(tsc)、`@object-ui/plugin-grid`(vite)独立构建均 exit 0。\n- i18next 的 `count` + `defaultValue` 回退行为实测:带 `count` 时解析 `key_other`→缺失→回退到 base key(中文串),而非英文 `defaultValue` —— 中文正常显示。\n- 布局修复用 Radix `display:table` viewport 的 DOM 级复现确认:旧 `truncate` 溢出、新 `break-words` 收在 448px(`max-w-md`)弹窗内。\n\n> 注意:console 把 plugin-grid **打包内联**,需合并后重新构建 console 才会在租户生效。"
+}

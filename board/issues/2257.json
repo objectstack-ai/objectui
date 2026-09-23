@@ -1,0 +1,32 @@
+{
+  "number": 2257,
+  "kind": "issue",
+  "title": "Detail-page tab strip resets to \"Details\" on any URL search-param change (uncontrolled PageTabsRenderer) — make tab state URL-driven (ADR-0054 C3)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T06:20:37Z",
+  "updated_at": "2026-07-05T07:18:42Z",
+  "closed_at": "2026-07-05T07:18:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2257",
+  "body": "## 现象(浏览器实测,showcase account 详情页)\n\n在记录详情页切到任意非默认 tab(如 Related / Invoices),然后发生**任何** URL search 参数变化 —— tab 条立即重置回 **Details**,滚动位置同弃。触发源包括:\n\n- 打开/关闭 create/edit/子表 overlay 的 `?form=…` 参数(#2256 / framework#2604 引入的 URL 契约);\n- **早已存在的** `?recordId=…` 详情 drawer、`?palette=1` 命令面板等一切 useUrlOverlay 类参数;\n- 实测甚至 related list 懒加载引发的重挂载也会重置(dev StrictMode 下探针可见 DetailView 反复 UNMOUNT/MOUNT)。\n\n即:这是**既有缺陷**,#2256 只是让它更容易被撞上(其\"子表保存后父详情 tab 保留\"的验收项因此打了折扣——父路由/数据确实原地不动,但 tab 回到了 Details)。\n\n## 根因\n\ntab 条是**非受控** Radix Tabs:\n\n- schema 路径:`packages/components/src/renderers/layout/containers.tsx` `PageTabsRenderer` — `<Tabs defaultValue={itemsWithValue[0]?.value}>`;\n- legacy 路径:`packages/plugin-detail/src/DetailView.tsx` autoTabs 分支 — `<Tabs defaultValue=\"details\">`。\n\nactive tab 只活在组件实例里;URL 变化 → 上层子树重挂载 → 状态清零。\n\n## 建议修复(ADR-0054 C3:URL-addressable state)\n\n把详情页 tab 状态放进 URL(如 `?tab=<value>`,`replace` 写入不压 history):\n\n1. `PageTabsRenderer` 支持受控 `value` + `onValueChange`(components 包不依赖 router,由宿主注入);\n2. app-shell `RecordDetailView` 从 searchParams 读/写 `tab`,经 page schema(或 RecordContext)传入;\n3. autoTabs legacy 分支同样接 `schema.defaultTab` / `onTabChange`;\n4. 顺带收益:tab 可深链、刷新保留、Back/Forward 可用 —— 与 `?recordId=`/`?form=` 同一契约family。\n\n## 验收\n\n- 详情页切到 Related → 打开任意 overlay(`?form=new`、`?recordId=`、命令面板)→ 关闭 → **tab 仍是 Related**;\n- 子表新建保存(#2256 流程)→ 父详情 tab + 滚动保留;\n- `?tab=related` 深链直达。\n\nRefs framework#2604 · #2256(其 PR 描述\"已知边界\"节)"
+}

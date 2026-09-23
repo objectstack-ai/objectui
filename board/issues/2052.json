@@ -1,0 +1,32 @@
+{
+  "number": 2052,
+  "kind": "pull_request",
+  "title": "docs(agents): contract-first — fix the metadata, not the renderer (Commandment #0.1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T10:44:15Z",
+  "updated_at": "2026-06-28T10:49:03Z",
+  "closed_at": "2026-06-28T10:49:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T10:49:01Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2052",
+  "body": "Codifies the principle behind the AI-flow `create_record` fix as **Commandment #0.1** (corollary to #0 \"Strict adherence to `@objectstack/spec`\").\n\n**The rule:** this is a metadata-driven system — `@objectstack/spec` is the contract between producers and this renderer. When metadata \"doesn't render,\" ask first whether it's spec-compliant and whether the fix is the long-term-correct direction. If it's off-spec, fix the **producer** (and have it rejected at authoring/publish) — do **not** add a lenient fallback/alias in the renderer (reading both `columns` and `fields`, coercing a malformed shape, `??`-defaulting around bad input) to make non-compliant metadata \"work.\" A tolerant fallback fossilizes the wrong convention into a second de-facto contract, dilutes the spec, and hides the producer's bug. We own both ends, so Postel's law does not apply. Change the spec only when it's genuinely wrong — deliberately.\n\nOne of three sibling PRs adding the same principle to the framework / cloud / objectui AGENTS.md.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

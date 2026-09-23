@@ -1,0 +1,33 @@
+{
+  "number": 2027,
+  "kind": "pull_request",
+  "title": "feat(console): resolve post-login landing from app metadata, not a hardcode",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T13:47:42Z",
+  "updated_at": "2026-06-27T13:56:30Z",
+  "closed_at": "2026-06-27T13:56:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T13:56:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2027",
+  "body": "## What\n\nThe root route (`/`) resolved the post-login landing via a **hardcoded** `PREFERRED_APPS = ['cloud_control']` in `CloudAwareRootRedirect` — baking one product's policy (cloud) into the shared Console, with no supported way for a deployment to opt out of the `/home` launcher or land somewhere custom without forking the SPA.\n\nThis replaces it with `RootLandingRedirect`, resolving the landing **purely from app metadata** via a pure, unit-tested `resolveLandingPath`:\n\n1. the app marked `isDefault: true` → `/apps/<it>` — and that app's own `homePageId` then selects the landing page within it;\n2. else the single visible app (`active !== false && hidden !== true`) → that app (a one-app deployment shouldn't show a one-tile launcher);\n3. else `/home` — the multi-app workspace launcher (the legacy default, unchanged).\n\n## Contract change (the durable note)\n\n`isDefault` gains **routing semantics** — it was previously a display-only badge (`AppCard`). A product/ISV now declares its landing in **metadata/source at build time** (mark the app `isDefault`, set its `homePageId`), rather than via a runtime Settings-UI preference. This is deliberately *not* a per-tenant runtime setting.\n\n## Back-compat\n\n- No `isDefault` app + ≥2 visible apps → still `/home`, byte-for-byte today's behavior.\n- Cloud is unaffected: `cloud_control` is already `isDefault: true`, so it still lands there — minus the hardcode. (Cloud will drop its reliance on the hardcode and can point `cloud_control.homePageId` at a custom landing page.)\n- Migration note: a deployment that set `isDefault` purely for the badge and has exactly one such app will now land on it.\n\n## Tests\n\n`resolveLandingPath` unit-tested (7 cases: isDefault wins, single-visible-app, multi-app→/home, hidden/inactive excluded, empty/null, unnamed entries). Full `@object-ui/console` suite green (4677 passed).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

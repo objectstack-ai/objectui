@@ -1,0 +1,32 @@
+{
+  "number": 2243,
+  "kind": "pull_request",
+  "title": "test(studio): extend create-conformance gate to the inline pillar creators",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T18:09:44Z",
+  "updated_at": "2026-07-04T18:13:49Z",
+  "closed_at": "2026-07-04T18:10:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T18:10:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2243",
+  "body": "## Why (UX eval #3 — create-flow consistency gate)\n\n`createConformance.test.ts` guards that every authorable type's default create-form output passes spec validation — catching the recurring **\"the designer emits a minimal shape the spec rejects, so create→save 422s\"** dead-end family (dashboard `layout`, report anchors, action missing `body`, …).\n\nBut it read only the **metadata-admin registry**. The Studio's **inline** \"New X\" creators — Data → `object`, Automations → `flow`, Interfaces → `app`, Access → `permission` — build their skeletons **directly in `StudioDesignSurface.tsx`, bypassing the registry**, so they were **uncovered**. A future edit to one of those shapes could turn its \"New\" button into a silent dead-end with nothing to catch it. (The known `action`/etc. dead-ends are already fixed and gated; this closes the last uncovered create path.)\n\n## What\n\nExtracted the four inline skeletons into pure, exported builders (`studio-design/skeletons.ts`) consumed by **both** the pillars and a new gate block in `createConformance.test.ts` — so the test **can't drift** from what the \"New\" button actually emits.\n\n**No behavior change** — the builders return byte-identical skeletons (`object`: 1 text field; `flow`: start→end autolaunched; `app`: empty nav; `permission`: empty matrix). The gate now covers **all** create paths (registry + inline).\n\n## Verification\n\n`createConformance` suite **15 green** (11 registry + 4 new inline: object/flow/app/permission each spec-valid). app-shell type-check clean (29/29). Behavior-preserving refactor, so no runtime change to the create flows.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

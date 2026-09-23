@@ -1,0 +1,30 @@
+{
+  "number": 2041,
+  "kind": "pull_request",
+  "title": "polish(first-run): workspace jargon + non-admin/cold-start/signup copy (#2038)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T18:56:13Z",
+  "updated_at": "2026-06-27T19:04:33Z",
+  "closed_at": "2026-06-27T19:04:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T19:04:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2041",
+  "body": "Knocks out 4 of the 5 first-run polish items in objectstack-ai/objectui#2038 (copy only, en + zh).\n\n- [x] **\"Organization\" → \"Workspace\"** across the org picker (`organizations.*`). The create modal + `WorkspaceSwitcher` already say \"workspace\"; the picker (\"Your Organizations / No organizations yet\") was the lone holdout.\n- [x] **Non-admin empty state** — \"...Please contact your workspace administrator.\" → \"Your workspace is being set up — apps your admin shares with you will show up here.\"\n- [x] **Cold-start reassurance** — new `console.loadingHint` line under the LoadingScreen steps.\n- [x] **Signup value-prop** — subtitle \"Enter your information to get started\" → \"Create your account to start building.\"\n- [ ] **Recovery-password nudge prominence** — left open: it's a behavioral/product decision (how aggressively to re-surface the nudge for SSO-only users), not a clear copy fix.\n\nTypecheck clean (i18n locale en/zh consistency + LoadingScreen). Closes most of #2038.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

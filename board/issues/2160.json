@@ -1,0 +1,32 @@
+{
+  "number": 2160,
+  "kind": "pull_request",
+  "title": "chore(agents): harden worktree-first guard + add CLAUDE.md",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T13:18:28Z",
+  "updated_at": "2026-07-02T13:25:08Z",
+  "closed_at": "2026-07-02T13:25:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T13:25:06Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2160",
+  "body": "Mirrors framework#2517 to objectui. The guard had two holes agents fell through — and the multi-agent collision that motivated this happened on **objectui's** hook:\n\n1. It checked `branch != default`, so a feature branch on the **shared** checkout passed while still being switched/reset under you. Now it checks **\"is the edited file in a linked worktree\"** (branch-agnostic).\n2. It only inspected `$CLAUDE_PROJECT_DIR`, so editing a **sibling repo** (framework/cloud) on its shared checkout from a session was unguarded. Now it parses the edited file's path and checks **that repo's** checkout.\n\nAlso adds **CLAUDE.md** (auto-loaded, unlike AGENTS.md) inlining the worktree-first rule + pointing to AGENTS.md, and updates AGENTS.md's hook line.\n\nHook unit tests (5/5): primary→block, worktree→allow, cross-repo primary→block, non-repo→allow, `OS_ALLOW_MAIN_EDITS=1`→allow. Authored from a worktree.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

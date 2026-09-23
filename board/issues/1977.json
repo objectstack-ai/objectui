@@ -1,0 +1,32 @@
+{
+  "number": 1977,
+  "kind": "pull_request",
+  "title": "refactor(studio): one validateFlowDraft pass — derive red-error highlight from the unified problem list",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T15:40:50Z",
+  "updated_at": "2026-06-24T15:57:50Z",
+  "closed_at": "2026-06-24T15:54:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T15:54:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1977",
+  "body": "Follow-up to [#1972](https://github.com/objectstack-ai/objectui/pull/1972) (Problems panel + badges) and [#1976](https://github.com/objectstack-ai/objectui/pull/1976) (clickable banner).\n\n## Why\nAfter #1976 the inline banner, badges, and panel all read the unified `problems` list — but the flow preview still ran `validateFlowDraft` **twice** per render: once inside `buildFlowProblems`, and again in a separate memo that derived the red node/edge ring/stroke, with the cycle-highlight logic duplicated between them.\n\n## What\n- **One validation pass.** `buildFlowProblems` is now the single source. A new `deriveInvalidElements(problems)` produces the red error set (errors only — warnings get an amber badge, no ring).\n- **Cycle highlight centralized.** A cycle problem carries a `highlight` set (every hop node + edge) so the whole loop reads red, while its badge + click-reveal stay on the closing edge.\n- The preview **drops its second `validateFlowDraft` call**.\n- The clickable banner (#1976), badges, and panel are **unchanged** — all four surfaces derive from one list, so they cannot drift. (No banner removal — that idea was superseded by #1976 making it clickable.)\n\n## Verification\n- `pnpm --filter @object-ui/app-shell build` (tsc) — clean.\n- `vitest` — 18 pass (added `deriveInvalidElements` cases: full-cycle red set, warnings excluded).\n- **Browser** (showcase_budget_approval): injected an un-declared cycle (flipped the resubmit back-edge → normal) → clickable banner + edge badge + **full-loop red paint (4 elements)** + Problems count all in lock-step; reverting clears all.\n- Changeset included (`@object-ui/app-shell` patch).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

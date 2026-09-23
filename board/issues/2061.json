@@ -1,0 +1,36 @@
+{
+  "number": 2061,
+  "kind": "pull_request",
+  "title": "fix(core): ADR-0079 — one record-title resolver, stop rendering \"Untitled\"",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: react",
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T02:18:41Z",
+  "updated_at": "2026-06-29T02:27:27Z",
+  "closed_at": "2026-06-29T02:27:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T02:27:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2061",
+  "body": "**ADR-0079 Phase 1 (objectui side).** An object whose records carry their name in a non-`name` field (e.g. `activity_name`) and that declares no title field rendered **\"Untitled\"** on gallery cards, calendar pills, lookup chips, related-lists, breadcrumbs and search — because ~6 divergent resolvers each used a different hard-coded field list and none read the object's `displayNameField`.\n\n## What\n- One shared `getRecordDisplayName` in `@object-ui/core` (`utils/record-title.ts`). Precedence: explicit view `titleField` → `titleFormat` → `displayNameField` → **type-aware derivation** (name-ish exact > `*_name`/`*_title` affix > first text-eligible field; excludes date/number/select/lookup/…) → name-ish record keys → `Record #<id>` floor (**never bare \"Untitled\"** for an id-bearing record).\n- Re-points all 6 sites: app-shell, fields/LookupField, plugin-list/calendar/kanban/gantt, plugin-detail, react/useRecordSearch. Kills the gallery `?? 'name'` hardcode. Net **−196 lines**.\n- **2nd commit (caught by live browser testing, not unit tests):** the resolver now also scans the *record's own keys* for the `*_name`/`*_title` affix — so an `activity_name` label resolves even when the caller's `objectDef` didn't drive type-aware derivation. +4 tests reproducing the exact gallery failure.\n\n## Verification\n- `@object-ui/core` record-title: **56/56** green.\n- Live browser (local rig): the activity gallery renders **夏日城市骑行夜 / 西湖晨跑团 / …** instead of \"Untitled\".\n\nUses today's `displayNameField` (no framework dep). `titleFormat` kept working; full retirement + the `nameField` rename are later cross-repo phases (see framework ADR-0079 work).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

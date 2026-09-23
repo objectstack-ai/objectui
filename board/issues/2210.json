@@ -1,0 +1,30 @@
+{
+  "number": 2210,
+  "kind": "issue",
+  "title": "flowHandler/serverActionHandler: toolbar launch with zero rows selected triggers a record-scoped run that crashes at its first record-bound node",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T04:08:14Z",
+  "updated_at": "2026-07-04T04:51:26Z",
+  "closed_at": "2026-07-04T04:51:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2210",
+  "body": "## Repro (verified live on objectui main + framework showcase, 2026-07-04)\n\nShowcase `showcase_task` list, action `BulkReassignAction` (`type:'flow'`, target `showcase_reassign_wizard`, `locations:['list_item','list_toolbar']`):\n\n1. Select **no rows**.\n2. Click the toolbar \"Reassign…\" button → the FlowRunner screen (\"New Assignee\") opens anyway.\n3. Fill a value, Submit → red error toast:\n\n```\nNode 'apply' failed: update_record(showcase_task) failed: Update requires an ID or options.multi=true\n```\n\n## Root cause (code-verified)\n\n`packages/app-shell/src/hooks/useConsoleActionRuntime.tsx`\n\n- **flowHandler** (`recordId` fallback, ~L366-379): with no `_rowRecord` it falls back to `context.selectedRecords`; `length === 1` resolves the id, `length > 1` blocks with \"select exactly one row\" — but **`length === 0` falls through**: `recordId` stays `null`/`undefined` and the trigger POST fires anyway. A record-scoped flow then pauses at its screen node, collects user input, and dies at the first record-bound node (`update_record` filter `{id:'{recordId}'}` → \"Update requires an ID\").\n- **serverActionHandler** (~L434-442) has the identical zero-selection hole: `resolvedRecordId` stays `null` and the POST fires.\n\nThe row-level (`list_item`) invocation path works correctly (single green \"Done\" toast, record updated — verified live).\n\n## Expected\n\nA record-scoped action launched from the toolbar with nothing selected should be blocked client-side with an actionable message (\"select a row first\"), the same way the multi-selection ambiguity already is — not silently trigger a run that collects wizard input and then crashes.\n\nRecord-scoped is knowable client-side: the action declares `locations` including `list_item` (it is designed to run on a row). Pure object-level toolbar actions (`locations:['list_toolbar']` only, no record context needed) must keep working with no recordId.\n\n## Origin\n\nFound during the showcase console dogfood audit (P0-27 in the capability report). The sibling symptom P0-35 (success + error double toast on row-level launch) is already fixed on current main — verified live."
+}

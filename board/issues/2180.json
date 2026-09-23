@@ -1,0 +1,32 @@
+{
+  "number": 2180,
+  "kind": "pull_request",
+  "title": "feat(studio): Data pillar Validations + Settings views (builder-ui Phase B)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T06:37:28Z",
+  "updated_at": "2026-07-03T06:50:27Z",
+  "closed_at": "2026-07-03T06:50:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T06:50:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2180",
+  "body": "Completes the Data pillar v1 surface from the builder-ui pillars plan (Phase B): the two missing views land alongside 记录/表单, both patching the same object draft through the existing save/publish flow.\n\n## Validations view\n- No-code editing of `ObjectSchema.validations` **script** rules: name, message, CEL fail-condition (reuses the metadata-admin **ConditionBuilder**, fed the DRAFT field list so unpublished fields are pickable), severity, active, delete.\n- Non-script rule types (state_machine / format / …) stay **visible read-only** — the list is a truthful inventory of everything that runs on save; structured configs stay code-authored for now.\n- New rules default to a VALID never-firing `condition: 'false'`. Dogfood found that an empty condition 422s the entire draft save (`validations.0.condition: Invalid input`) and dead-ends the create flow — the same required-field-blocks-authoring class as dashboard `layout` / page `regions`.\n\n## Settings view\n- Object basics hosted via the shared metadata-admin **default inspector** (one implementation for both surfaces).\n- Direct editors for the **ADR-0085 semantic roles**: `nameField`, `stageField` (including the `false` \"not a linear flow\" state), ordered `highlightFields` chips — the only presentation knobs the protocol carries, now first-class in the builder.\n\n## Rail fix (blocking bug found while verifying)\nA freshly-created writable base package hung on \"加载中…\" forever: `client.list('object')` only sees published metadata, so draft-only packages rendered an eternal spinner. The rail now merges `listDrafts()` headers (dedup by name) and shows an honest empty state.\n\n## Verification\n- Browser end-to-end on a live stack: create writable base (ADR-0070 flow) → create draft object → author a validation rule → save draft → reload → full round-trip (also asserted at `/meta/object/:name?state=draft`: rule + `stageField: false` + `highlightFields` all persisted).\n- Server guardrails surface correctly in the panel error strip (`writable_package_required` on read-only code packages).\n- app-shell: **963 tests green** (5 new for the Validations panel, incl. the valid-default-condition regression).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

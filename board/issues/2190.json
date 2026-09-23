@@ -1,0 +1,32 @@
+{
+  "number": 2190,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): 批量弹窗里关掉下拉/选人组件时不再连带关掉整个弹窗 (#2185)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T14:34:49Z",
+  "updated_at": "2026-07-04T02:50:39Z",
+  "closed_at": "2026-07-04T02:50:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T02:50:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2190",
+  "body": "## 问题\n\n批量编辑弹窗(`BulkActionDialog`)里,打开 Status 单选下拉(Radix `<Select>`)或可搜索的 lookup 选人组件(ComboBox `<Popover>`)后,**不点选项、点弹窗内别处空白**,会把**整个批量弹窗**一起关掉——用户只是想收起下拉,却丢了整个弹窗。#2186(#2185)引入这些控件后暴露出来。\n\n## 根因(实测确认)\n\n下拉/popover 打开时,Radix 把弹窗主体标成 `pointer-events:none`,却把遮罩层保留为 `pointer-events:auto`。于是点在“视觉上还在的弹窗”上,点击穿透到背后的遮罩 → Radix 的 DismissableLayer 认为是“点了弹窗外面” → 拆掉整个 Dialog。\n\n无法在 Dialog 的 `onInteractOutside` 里直接检测“下拉是否开着”:加 capture/bubble 双探针验证——**同一次 pointerdown,capture 阶段 popper 还在,到 bubble 阶段 Radix 已经把它卸载了**,所以处理器里读实时 DOM 永远读到“没有 popper”。\n\n## 修法\n\n在 **capture 阶段的 pointerdown** 打一个快照(当时有没有 popper 开着),`onPointerDownOutside`/`onInteractOutside` 读这个快照而不是过时的实时 DOM:\n\n- 第一次点别处 → 只收起下拉/popover,**弹窗保留** ✓\n- 之后再点遮罩(此时没 popper 开着)→ 弹窗照常关闭,原有行为不变 ✓\n\n## 验证(真实浏览器,CDP 级点击)\n\n- 单选 `<Select>`(Reschedule 的 Status):点别处 → `dialogStillOpen: true`、下拉关闭 ✓\n- 可搜索 ComboBox `<Popover>`(Assign Team 的选人):点别处 → 弹窗保留、popover 关闭 ✓\n- 纯遮罩点击(无 popper 开着)回归:弹窗正常关闭 ✓\n- 单元测试 `bulkActionDialogParams.test.tsx` 3/3 通过\n\n注:此交互依赖 Radix 的 portal + `pointer-events` + DismissableLayer 时序,jsdom 复现不了,未加独立单测——改为真实浏览器验证 + 代码内详注原因。\n"
+}

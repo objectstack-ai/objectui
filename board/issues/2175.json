@@ -1,0 +1,32 @@
+{
+  "number": 2175,
+  "kind": "pull_request",
+  "title": "feat(studio): builder landing + studio:builder entry — join the login journey",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T03:39:36Z",
+  "updated_at": "2026-07-03T03:44:12Z",
+  "closed_at": "2026-07-03T03:39:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T03:39:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2175",
+  "body": "The pillar application builder was a **URL-only surface** — zero inbound links anywhere. This wires it into the platform journey, from the moment a user logs in (companion: framework PR adding the Studio app's **App Builder** nav entry).\n\n## The journey (now)\n\n**Login → Home → Studio app → 「App Builder」 → pick/create a writable package → full-screen pillar builder** — plus bare **`/studio`** as a bookmarkable front door.\n\n## What\n\n- **BuilderLanding**: writable bases lead (「创建并开始构建」 inline form → `POST /packages`), read-only code packages listed for browsing (🔒只读). Served standalone at `/studio` and embedded via the **`studio:builder`** component ref (registered console-side like `developer:*`).\n- `/studio/:packageId` default tab: `interfaces` → **`data`** (matches the pillar order; builders land on the data workbench).\n- Extracted `packages-io` (parse/fetch/create + writability heuristic) — shared by the landing and the top-bar package switcher (net dedupe of the switcher's inline copies).\n\n## Browser-verified from login (fresh backend, worktree build of framework nav)\n\n- Studio sidebar shows **App Builder** (Overview, first entry) ✓\n- Landing renders **inside the classic Studio chrome**: empty 可写 list + 新建 card + showcase 🔒只读 ✓\n- Creating **客服中心 / com.example.support** jumps straight into `/studio/com.example.support/data` (writable, no 只读 badge) ✓\n- Bare `/studio` is auth-guarded (redirects to login with `?redirect=/studio`) ✓\n\n`type-check`: 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

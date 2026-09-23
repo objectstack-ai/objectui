@@ -1,0 +1,30 @@
+{
+  "number": 2070,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Studio UX 加固 — Interfaces 对象=运行态网格 + 可发现的加字段入口",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T04:42:04Z",
+  "updated_at": "2026-06-29T04:45:43Z",
+  "closed_at": "2026-06-29T04:42:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T04:42:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2070",
+  "body": "对 Studio 设计面做了一轮**深度测试**(三支柱 × 各 surface 类型 × 交互 × 控制台错误),发现并修两处:\n\n## 1. Interfaces 对象菜单 → 字段表单(应是记录网格)\n\n点 Interfaces 导航里的**对象**叶子,画布渲染的是 `getMetadataPreview('object')` **字段表单**(\"18 个字段 · 3 个必填\"那种输入卡),而**同一对象在 Data 支柱是记录网格** —— 不一致,也不符合\"预览即运行\"(运行态里对象菜单 = 记录列表)。而且那个字段表单把对象元数据(`pluralLabel`/`isSystem`/`active`/`abstract`)直接 spread 到 DOM 节点 → 8 条 React 警告。\n\n**修**:对象叶子改渲染 object-view **记录网格**(与 Data + 运行态一致),排除出 `isEditable`(不再误加草稿/存草稿),底部加提示「运行态列表预览 · 改字段/结构请到 Data 支柱」。**控制台警告消失**(清 buffer 后重渲 Projects/Tasks 零警告)。\n\n## 2. 加字段入口不好发现\n\n网格末尾的「+」对宽对象在**屏幕右侧外**(要横向滚动才看到)。在 **Data 头部加可见的「+ 添加字段」按钮**(挨着\"N 字段\")作为第二入口,同一个表单。\n\n## 验证(浏览器实测)\n\n- Interfaces `Projects`/`Tasks` → 记录网格(Status/Health pill、Budget 等列),非字段表单;清空 console 后重渲零警告。\n- Data 头部「+ 添加字段」点开加字段表单。\n- `eslint .` 0 error / `tsc` 0 error。\n\n## 仍是后续(不在本 PR)\n- **对象 schema 编辑**(改字段类型/重排/删)目前只有\"加字段\";完整的字段编辑器(把那个 field-form preview 修好 DOM 警告后)可作为 Data 的「字段」模式 —— 与 #10 一道。\n- 仅 objectui main,未 live(需 `.objectui-sha` bump + cloud pin)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

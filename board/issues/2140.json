@@ -1,0 +1,32 @@
+{
+  "number": 2140,
+  "kind": "pull_request",
+  "title": "fix(fields): align inline lookup value resolution with the read cell (external-id strings, tolerant id match)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T16:23:14Z",
+  "updated_at": "2026-07-01T16:32:23Z",
+  "closed_at": "2026-07-01T16:32:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-01T16:32:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2140",
+  "body": "Follow-up to #2125. Closes the remaining gaps between the inline lookup editor (`LookupField`) and the read cell (`LookupCellRenderer`), so the editor resolves **every** value shape the read path does — never the \"Select…\" placeholder.\n\n## What was still divergent\n\nThe read cell handles value shapes the inline editor didn't:\n- **JSON-encoded external-id references** — e.g. `'{\"externalId\":\"Website Relaunch\"}'`. The read cell parses & displays these; the editor treated the whole string as an id (miss → `findOne('<json>')` → placeholder).\n- **Type-coerced ids** — the read cell compares with `String(a) === String(b)`; the editor's `findOption` used strict `===`, so a numeric cell value never matched a string-keyed option (the \"value-shape mismatch\" the #2125 analysis flagged).\n\n## Fix (`LookupField.tsx`)\n\n- `parseReferenceObjectString()` parses a JSON object-string value; `resolveSelectedOption` and `normalizeId` route it through the same object path as a `$expand`ed record, and the hydration effect excludes it from the fetch (no bogus `findOne`).\n- `recordToOption` gained an `externalId` fallback for both `value` and `label`, so an external-id object resolves to a real label instead of `\"undefined\"`.\n- `findOptionLoose()` adds a `String()`-coerced fallback, consulted **only** when the strict match misses — homogeneous option lists are unaffected.\n\n## Tests\n\n- `user` / `owner` inline editing (they delegate to `LookupField` via `UserField`) — completes coverage for the relational set wired inline in #2122.\n- JSON external-id string resolves with **no** bogus fetch.\n- Numeric cell value resolves against a string-keyed option (tolerant match).\n- Full `@object-ui/fields` suite green (**4981 passed / 24 skipped**); `turbo run build --filter=@object-ui/fields` (type gate) green.\n\n## Related\n- #2125 / #2138 — the inline lookup display fix this builds on.\n- #2122 — wired the relational fields inline.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

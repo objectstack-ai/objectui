@@ -1,0 +1,33 @@
+{
+  "number": 2054,
+  "kind": "pull_request",
+  "title": "fix(ai-chat): assistant UX pass — real New chat, ask-fresh/build-resume, Ask/Build tabs, hide single model & single-org, collapse to bottom-left, uniform chat bg",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T14:02:37Z",
+  "updated_at": "2026-06-28T15:01:20Z",
+  "closed_at": "2026-06-28T15:01:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T15:01:02Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2054",
+  "body": "## Problem\n\nThe floating FAB assistant (bottom-right) had two conversation bugs reported in prod:\n\n1. **\"New chat\" was a no-op server-side.** The button called `useObjectChat`'s `clear`, which only empties the local message array — `conversationId` never changed, so the next turn kept appending to the **same** `ai_conversations` row. Old and new messages ended up in one conversation (\"点了新聊天，记录都在一起\").\n2. **Opening the FAB always resumed the previous conversation.** It seeded `useChatConversation` with no intent → read the cached id and replayed the last thread, even for the stateless ask/data surface (\"始终显示上次的聊天记录\").\n\n## Why per-mode, not a global toggle\n\n`ask` and `build` have **opposite** conversation semantics:\n\n| | ask (data Q&A) | build (magic-flow) |\n|---|---|---|\n| shape | largely self-contained questions | stateful multi-turn workflow |\n| state carried | old answers | seeded packageId, staged drafts, awaiting-confirm plan |\n| value of resuming | ~0 (stale data answers confuse) | high — a fresh-on-reload **orphans** an in-progress build |\n\nSo: **ask opens fresh, build resumes.**\n\n## Platform constraint that shaped \"fresh\"\n\nThe conversations list endpoint does **not** filter empty conversations, and there's **no prune/TTL** (`@objectstack/service-ai`). So naive create-on-every-open would litter the `/ai` sidebar with empty rows forever. `'fresh'` therefore **reuses an untouched (zero-message) cached conversation** instead of minting another — bounding empty rows to ~1 at a time.\n\n## Changes\n\n**`useChatConversation.ts`**\n- add `resumeMode: 'resume' | 'fresh'` (default `'resume'` — full `/ai` page + build unchanged). `'fresh'` opens a clean thread but reuses an empty cached conversation; a used one stays in history and a fresh one is minted.\n- add `startNew()`: mint a fresh conversation and switch to it **without deleting** the current one (contrast `reset()`), backing the \"New chat\" button.\n\n**`ConsoleFloatingChatbot.tsx`**\n- build surface → `resumeMode: 'resume'`; ask/data + custom agents → `'fresh'`.\n- \"New chat\" button now calls `startNew()` (was local `clear`).\n\n## Tests\n\n3 new cases (reuse-empty vs mint-fresh under `'fresh'`; `startNew()` creates without deleting) — **19/19 pass**. Changed files typecheck clean.\n\n## Rollout (follow-ups, not in this PR)\n\nobjectui merge → framework `.objectui-sha` bump (rebuilds `console/dist`) → cloud pin bump → deploy.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

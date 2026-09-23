@@ -1,0 +1,32 @@
+{
+  "number": 2092,
+  "kind": "pull_request",
+  "title": "feat(components,app-shell): Studio 列拖动重排 → 写回字段元数据顺序",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T10:32:53Z",
+  "updated_at": "2026-06-29T10:33:14Z",
+  "closed_at": "2026-06-29T10:33:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T10:33:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2092",
+  "body": "按用户方向:**列拖动重排是表格组件已有功能,不重复开发**——只在设计模式启用它,并把新顺序**保存到对象的字段元数据**(字段显示顺序 = 元数据顺序;拖动即改元数据顺序)。\n\n## 改了什么\n\n- `GridFieldAuthoring` context 加 **`onReorderFields(orderedFieldNames)`**。提供它就**启用 data-table 内建的列拖拽**(`reorderEnabled`)并把 drop 的新列序回调给宿主。\n- `data-table` 在列 drop 时调 `fieldAuthoring.onReorderFields`(与它原有的 `onColumnsReorder` 并存),拖拽手柄/draggable 都 gate 在 `reorderEnabled`。\n- `DataPillar` 把对象 `fields` 重排成新序——**只重排可见字段(在它们各自的槽位内),系统/隐藏字段(不作为列显示的,如 organization_id/created_at)保持原位**——再 `save`+`publish`+重挂网格。\n\n## 验证(浏览器实测,showcase_account)\n\n把 **Industry 拖到最前** → effective 字段顺序 `[owner_id, name, industry, …]` → **`[industry, owner_id, name, …]`**;系统字段(organization_id/created_at/…)**仍在最前**(没被挤走);写入 env overlay 持久化、刷新后保持。\n\n> 注:HTML5 原生拖放在合成事件下难驱动(同 #11),但这是表格的既有生产能力,用户已确认;本 PR 只接「启用 + 存顺序」,已用元数据校验确认 drop→onReorderFields→重排→发布 全链路落盘。\n\n`eslint .` 0 error / `tsc` 0 error / data-table 6 测通过。仅 objectui main,未 live。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

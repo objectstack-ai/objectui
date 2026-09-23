@@ -1,0 +1,30 @@
+{
+  "number": 2184,
+  "kind": "pull_request",
+  "title": "fix(app-shell): don't show recovery-password reminder on SSO-enforced envs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T07:11:21Z",
+  "updated_at": "2026-07-03T07:15:57Z",
+  "closed_at": "2026-07-03T07:11:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T07:11:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2184",
+  "body": "On SSO-enforced envs password login is disabled (LoginForm hides the password field), so the recovery password can't be used — nudging for one is misleading + false security. Gate RecoveryPasswordReminder on password-login availability using the same getAuthConfig signal LoginForm uses (features.ssoEnforced || emailPassword.enabled===false). Follows #2183 (first-run gate)."
+}

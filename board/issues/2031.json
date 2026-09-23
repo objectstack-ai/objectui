@@ -1,0 +1,44 @@
+{
+  "number": 2031,
+  "kind": "pull_request",
+  "title": "chore: align objectui version to objectstack major (7.3.0 → 11.0.0)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T15:55:30Z",
+  "updated_at": "2026-06-27T16:16:17Z",
+  "closed_at": "2026-06-27T16:16:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T16:16:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2031",
+  "body": "## 背景 / 决策\n维护者决定:**objectui 的 major 与所依赖的 `@objectstack` major 保持一致**(「major 相同即兼容」),比维护两条独立版本线更好记。objectui 已在 [#2030](https://github.com/objectstack-ai/objectui/pull/2030) 依赖 `@objectstack ^11.x`,故本 PR 做一次性跳跃:把固定版本组(`.changeset/config.json` `fixed`,**39 个包一起发**)从 `7.3.0` 提到 `11.0.0`(跳过 8/9/10)。\n\n## 变更\n- 39 个 fixed-group 包 `version`:`7.3.0 → 11.0.0`(内部依赖为 `workspace:*`,无需改依赖区间;lockfile 不受影响)。\n- `AGENTS.md` §9 新增「版本号策略」:major 跟随 objectstack,minor/patch 独立演进;objectstack 跨 major 时下次发版一并提 major。\n- `@object-ui/site`(3.1.0)与 `@object-ui/example-*` 在 changeset `ignore` 列表,保持独立,不动。\n\n## 为什么没有 changeset(重要)\n本仓库 release 流程:`changeset-release.yml` 在 push main 时,**有** pending changeset → 走 `changeset version`(只能 +1,无法跳到 11);**无** changeset → 走 `changeset publish`,把 package.json 中尚未发到 npm 的版本直接发布。\n\n因此本 PR **故意手动设版本且不加 changeset**,合并后 publish 路径会把 `11.0.0` 直接发到 npm。若加 changeset 反而会从 11.0.0 再 +1(如 11.1.0),跳过预期的 11.0.0。\n\n> ⚠️ 合并即触发 39 个包以 `11.0.0` 发布到 npm。这是本次对齐的预期结果。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

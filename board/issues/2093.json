@@ -1,0 +1,30 @@
+{
+  "number": 2093,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Automations 右侧配置面板 + Studio 三支柱布局统一(UX 深度优化)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T10:57:57Z",
+  "updated_at": "2026-06-29T10:58:12Z",
+  "closed_at": "2026-06-29T10:58:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-29T10:58:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2093",
+  "body": "按用户方向:(1) **Automations 也支持右侧面板配置**,(2) 从用户体验角度对相关界面**做深度优化**(统一三支柱)。\n\n## 1. Automations 右侧配置面板(FlowInspector)\n\nAutomations 之前只读渲染 FlowPreview。现在对齐 Interfaces/Data 的模式:\n- **顶部 save/publish 工具条** + flow 画布进**设计态**(`editing:true` → 可点选节点 / 「+ 添加节点」)+ 右侧 **「配置」面板**渲染 `getMetadataInspector('flow')` = **FlowInspector**(节点→FlowNodeInspector、连线→FlowEdgeInspector)。\n- 编辑经 `onPatch` 进 flow draft;`保存草稿`+`发布` 写 env overlay。\n- 实测(showcase_task_completed):点 **Send Completion Email** 节点 → 完整节点配置(id/label/类型 + Action type=Email 的 template/recipients…);改 label → 发布 → flow overlay 带上新 label。\n\n## 2. 三支柱布局统一(深度优化)\n\nData 之前把对象 save/publish 藏在字段 inspector 里(要选中字段才够得到),与 Interfaces/Automations 的常驻顶部工具条不一致。重构 Data 对齐:\n- **顶部工具条**(对象 save/publish + 未发布 badge)+ 记录网格(一致的「**运行态列表 · 同一渲染器**」徽标 + 操作提示「列头「+」加字段 · 笔形改属性 · 拖列头重排」)+ 字段 inspector **只管配置**(save/publish 上移)。\n- **三支柱现在共用一套布局**:顶部工具条 + 左导航 + 中画布 + 右 inspector。\n- 实测:改字段 → 顶部「保存草稿」点亮;aside 不再带 save/publish。\n\n`eslint .` 0 error / `tsc` 0 error。仅 objectui main,未 live。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

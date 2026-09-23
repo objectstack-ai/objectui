@@ -1,0 +1,32 @@
+{
+  "number": 2253,
+  "kind": "pull_request",
+  "title": "fix(app-shell): stop double-firing action error/success toasts in RecordDetailView & delete handler",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T05:10:10Z",
+  "updated_at": "2026-07-05T06:36:41Z",
+  "closed_at": "2026-07-05T06:36:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-05T06:36:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2253",
+  "body": "Closes #2252\n\n## 问题\n\nConsole 记录详情页点一个会失败的 **script 动作**(如「分配线索」触发后端 `RECORD_LOCKED`)时,同一条错误 toast **弹两次**。后端只抛一次,是纯 UI 重复。排查中一并发现 **删除动作** 同类重复:失败弹两条、成功也弹两条。\n\n## 根因\n\n`ActionRunner.handlePostExecution` 已负责把结果 `error` 弹成 toast(成功则按 `showOnSuccess` 弹)。若某 handler **自己又调 `toast.*`** 且 **返回 `{success:false, error}`(成功时未标 `silent`)**,而 runner 又设了 `onToast`,就会被弹第二遍。\n\n- **`RecordDetailView.serverActionHandler`(script)**:失败分支与 catch 分支各自 `toast.error` 后又返回 error。#2177 只修了孪生副本 `useConsoleActionRuntime`(interface page),记录详情页这份没修 → 仍双弹。也解释了「两天前修过还在」「同事没 clone objectui 也复现」(都吃同一份已发布的 `@objectstack/console`)。\n- **`useObjectActions.delete`**(ObjectView 装配 `onToast`):失败自弹+返回 error → 双弹;成功自弹+未标 `silent` → runner 追加通用「Action completed successfully」;批量部分失败同理。\n\n## 改动\n\n- `RecordDetailView.tsx`:两个失败分支去掉自 `toast.error`,返回 error 交给 runner 弹一次(对齐 #2177)。\n- `useObjectActions.ts`:保留更友好的本地化文案(label+description / 批量汇总),失败返回不带 `error`、成功标 `silent:true`,避免 runner 重复。\n\n## 测试\n\n**① 单元测试** — 新增 `useObjectActions.test.tsx`,把 `onToast` 接到与真实 ObjectView 相同的 sonner sink,断言用户实际所见:\n- 删除失败 → error **恰好 1 次**(修前 2 次)\n- 删除成功 → success **恰好 1 次**(此条修前报 `got 2 times`,揪出了成功路径的第 3 处双弹)\n- 批量部分失败 → error **恰好 1 次**且带汇总\n\n`3 新增 + 83 相关回归(含 #2177 的用例)全绿`。\n\n**② 产物级证据** — 从本分支构建 console,grep 打包后的 `RecordDetailView` chunk,对照当初坐实 bug 的同一签名:\n\n| bundle | 自弹签名 `.error(X),{success:!1,error:X}` |\n|---|---|\n| 旧发布版 `@objectstack/console@12.1.0` | **2 处** |\n| 本 PR 构建 | **0 处** |\n\n发货代码里两处自弹已消失。"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2119,
+  "kind": "pull_request",
+  "title": "refactor(types): derive ListViewSchema.userActions from the spec (single-source pilot)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T14:42:34Z",
+  "updated_at": "2026-06-30T14:46:48Z",
+  "closed_at": "2026-06-30T14:44:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T14:44:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2119",
+  "body": "## What\n\n`ListViewSchema.userActions` was a **hand-maintained mirror** of the spec's `UserActionsConfig`. Replace it with a derivation:\n\n```ts\nuserActions?: Partial<UserActionsConfig> & { editInline?: boolean };\n```\n\n## Why\n\nThis file literally states the rule **\"Never Redefine Types. ALWAYS import them.\"** — and `userActions` was violating it. A hand mirror is a drift hazard: the type and the spec can silently diverge. The recent `editInline` work was exactly that pain — the same field touched by hand in three layers.\n\nThis is a small **pilot for the \"spec single-source derivation\" direction**: prove objectui types can be *derived* from the spec rather than copied, and work out how to handle the realistic wrinkles.\n\n## Details\n\n- `Partial<UserActionsConfig>` because authoring is opt-in — you write only the toggles you set, the rest fall back to the spec's defaults. This is **shape-identical** to the old hand-written type, so there are **no consumer changes** (types + app-shell type-check clean).\n- `editInline` is carried as a transitional `&`-extension **only because the pinned `@objectstack/spec` release predates it** (it's in the source via framework#2468, not yet released to npm). Once the spec dep is bumped, `Partial<UserActionsConfig>` supplies `editInline` itself and the extension is redundant. This is the **release-lag** that #1 has to design around — made explicit here rather than hidden.\n- Follows the existing precedent in this file (`ListViewGalleryConfig = GalleryConfig & { …legacy… }`).\n\n## Verification\n\n`@object-ui/types` + `@object-ui/app-shell` `tsc --noEmit` clean; ESLint clean. No behavior change; **no changeset** (shape-identical, type-only).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

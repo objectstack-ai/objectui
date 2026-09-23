@@ -1,0 +1,33 @@
+{
+  "number": 2206,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): schema-aware multi-value semantics for bulk-edit params",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T02:04:10Z",
+  "updated_at": "2026-07-04T02:51:06Z",
+  "closed_at": "2026-07-04T02:51:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T02:51:05Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2206",
+  "body": "Closes #2204\n\n## Problem\n\nBulkActionDialog was **schema-blind**: whether a bulk-edit param rendered a single- or multi-select — and whether the patch shipped a scalar or an array — depended solely on the hand-written `BulkActionParam.multiple` flag. A view author targeting a multi-value field (`multiselect`, `tags`, `checkboxes`, or `select`/`lookup`/`user`/`file`/`image` with `multiple: true`) who forgot the flag got:\n\n1. a **single-select control** (user can only pick one value), and\n2. a **scalar patch** (`{labels: \"frontend\"}`) written to an array-shaped column — silently corrupting data server-side.\n\n## Fix\n\n- **ObjectGrid** passes its `objectSchema.fields` (already held in state from server meta) into `BulkActionDialog` → `useBulkExecutor`.\n- **BulkActionDialog**: explicit `param.multiple` (boolean) still wins; otherwise `update` params derive multi-ness from the target field definition via the new `isMultiValueField` helper — same semantics as the server-side guard in framework #2552 (always-multi: `multiselect`/`checkboxes`/`tags`; multi-capable with `multiple: true`: `select`/`radio`/`lookup`/`user`/`file`/`image`).\n- **useBulkExecutor** shape-normalizes every outgoing patch (`run` **and** `retry`) with `normalizeMultiValuePatch`: a lone scalar aimed at a multi-value field is wrapped into a single-element array (copy-on-write, arrays/null pass through, no-op without a schema).\n\n## Testing\n\n- `packages/plugin-grid` vitest: **181/181 pass** including the new `bulkActionSchemaMultiple.test.tsx` (helper unit tests; schema-fallback renders multi-select + array patch; single-value non-regression; explicit `multiple: false` wins the UI but the executor still ships an array; scalar `def.patch` normalization; retry re-sends the normalized patch).\n- `turbo run build --filter=@object-ui/plugin-grid` (incl. dts): 12/12 tasks pass.\n- **Live end-to-end** (HMR console against a real objectstack dev server): a bulk action whose param *omits* `multiple` but targets a `multiselect` field now renders the multi-select control (badges + searchable checklist), and the record persists `[\"frontend\",\"design\"]` (verified via REST API) instead of a scalar.\n\nServer-side counterpart: objectstack-ai/framework#2553 (defense-in-depth — engine wraps stray scalars on write).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

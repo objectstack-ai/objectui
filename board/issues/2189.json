@@ -1,0 +1,33 @@
+{
+  "number": 2189,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): 子表格按字段类型渲染,手写 subform columns 不再全变文本框",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T14:13:32Z",
+  "updated_at": "2026-07-03T14:22:15Z",
+  "closed_at": "2026-07-03T14:22:13Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T14:22:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2189",
+  "body": "Closes #2188\n\n## 问题\n\n主从表单内嵌子表格里,`select` / `lookup` / `date` / `number` 字段全渲染成文本框——只要视图用了最省事的 `{ field, label }` 列写法(不带 `type`)。子对象 schema 类型正确也没用(如 `mtc_lead` / `mtc_lead_product`)。\n\n## 根因\n\n- `MasterDetailForm`:`if (d.relationshipField && d.columns?.length) return d;` 只要有列就跳过 `deriveDetail()`,没检查每列是否带 `type`。\n- `deriveDetail`:`override.columns` 存在就原样透传,不补 `type`。\n- 于是 `type=undefined` 的列进 `GridField`,兜底成 text。\n\n## 改动\n\n`@object-ui/plugin-form`,3 处:\n\n1. **新增 `hydrateColumns()`**(`deriveMasterDetail.ts`):对「缺 `type`」的作者列,从子对象 schema 补 `type` + `options`/`reference`/`displayField`/计算列 `expr`,逻辑与 `deriveColumns` 一致。**已写 `type` 的列不动**(作者优先);列集合/顺序/标签全保留;未知字段跳过。\n2. **`deriveDetail`** 透传列时先 hydrate。\n3. **`MasterDetailForm`**:`needsDerive` 增加「有列但缺 type」判定;解析时对「FK+列齐、但列缺 type」只补类型、不重新推导列。\n\n## 测试\n\n- `deriveMasterDetail.test.ts`:新增 6 项(类型推断 / 保留列序+标签 / 显式 type 不被覆盖 / 未知字段跳过 / 无 schema 或无列的 no-op / deriveDetail 透传列 hydrate),**共 31 项全过**。\n- `@object-ui/plugin-form` type-check 通过。\n\n> 注:该包的 `.tsx` 集成测试因本地另一 worktree 的 `tsbuildinfo` 污染导致 dist 解析失败而无法加载(报错路径指向 `objectui-dedupe-action-toast`),属既有环境问题、与本改动无关;0 断言失败。CI 全新构建不受影响。\n\n## 影响\n\n消费方(如 tianshun-mtc 的 `mtc_lead`)**无需改对象/视图**,子表格即按字段类型渲染下拉/引用选择器/日期选择器/数字输入。已写 `type` 的列行为不变,向后兼容。"
+}

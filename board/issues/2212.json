@@ -1,0 +1,30 @@
+{
+  "number": 2212,
+  "kind": "issue",
+  "title": "Form-view FormField.visibleOn (CEL) is never evaluated — conditional fields always render",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T04:44:21Z",
+  "updated_at": "2026-07-04T09:20:19Z",
+  "closed_at": "2026-07-04T09:20:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2212",
+  "body": "## Symptom\n\nA form view section field with a CEL \\`visibleOn\\` predicate is always visible. Showcase repro (framework \\`examples/app-showcase/src/views/task.view.ts\\`):\n\n\\`\\`\\`ts\n{ field: 'notes', visibleOn: P`record.priority == 'urgent'`, colSpan: 2 }\n\\`\\`\\`\n\nThe server meta correctly ships \\`\"visibleOn\": {\"dialect\":\"cel\",\"source\":\"record.priority == 'urgent'\"}\\` (verified via \\`GET /api/v1/meta/view/showcase_task\\` → \\`.formViews.default.sections[0].fields[6]\\`), but the notes field renders even when priority = Low. Field-level \\`visibleWhen\\`/\\`readonlyWhen\\`/\\`requiredWhen\\` all work — only the view-level \\`FormField.visibleOn\\` is dead.\n\n## Root cause — the chain is broken in three places\n\nConsole edit path: \\`AppContent\\` → \\`ModalForm\\` (+ \\`resolveFormViewLayout\\` sections) → \\`buildSectionFields\\` (\\`packages/plugin-form/src/sectionFields.ts\\`) → SchemaRenderer \\`type:'form'\\` → \\`packages/components/src/renderers/form/form.tsx\\`.\n\n1. **Object shape silently dropped** — \\`sectionFields.ts\\` \\`attachVisibility()\\` (line 45) and \\`ObjectForm.tsx\\` \\`normalizeVisibility()\\` (line 411) only accept \\`typeof expr === 'string'\\`. The spec \\`P\\`-template wire shape is \\`{dialect:'cel', source}\\` → predicate never attached.\n2. **The evaluator isn't CEL** — even for a string expr, the attached \\`visible(formData)\\` calls \\`evaluateCondition()\\` (\\`packages/fields/src/index.tsx:1833\\`), which only understands legacy \\`{field, operator, value}\\` objects and returns \\`true\\` for any unknown format (\"Default to true\").\n3. **Nothing consumes the predicate anyway** — no renderer in the form chain ever calls \\`FormField.visible(formData)\\`; \\`form.tsx:538\\` destructures \\`visibleOn\\` out of the field config and drops it on the floor.\n\nMeanwhile the *working* field-level rules go through the canonical engine: \\`resolveFieldRuleState\\`/\\`evalFieldPredicate\\` (\\`packages/core/src/evaluator/fieldRules.ts\\`), which already accepts \\`string | {dialect, source}\\` and binds \\`record\\` scope via \\`@objectstack/formula\\` ExpressionEngine (ADR-0036: no private expression DSL).\n\n## Fix direction\n\nRoute view-level \\`FormField.visibleOn\\` through the same canonical engine:\n- \\`form.tsx\\`: evaluate \\`visibleOn\\` with \\`evalFieldPredicate\\` against the live \\`ruleRecord\\` (fail-open), both at field render and in the stale-error-clearing effect.\n- \\`sectionFields.ts\\`: carry \\`visibleOn\\` (string **or** \\`{dialect, source}\\`) through \\`normalizeSectionField\\` instead of attaching a dead \\`visible()\\` closure; also carry field-level \\`visibleWhen\\`/\\`readonlyWhen\\`/\\`requiredWhen\\` from object-schema metadata so sectioned forms honor them like flat forms do.\n- \\`types/form.ts\\`: widen \\`FormField.visibleOn\\` to the spec Expression shape.\n\nFound while dogfooding the framework app-showcase (list/form capability audit, P0-16)."
+}

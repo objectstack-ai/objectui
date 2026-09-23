@@ -1,0 +1,32 @@
+{
+  "number": 1991,
+  "kind": "pull_request",
+  "title": "fix(grid): list column header falls back to field label, not prettified name",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-25T04:04:10Z",
+  "updated_at": "2026-06-25T04:11:38Z",
+  "closed_at": "2026-06-25T04:11:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-25T04:11:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1991",
+  "body": "## Problem (found dogfooding AI-built Chinese apps)\n\nA list view whose columns are declared as bare `{ field: 'request_title' }` (no explicit `label`) rendered **English column headers** (\"Request title\", \"Applicant\") **even though the fields had Chinese labels** (\"申请标题\", \"申请人\"). So an app that was otherwise fully localized (object/field/option/flow labels all Chinese) still showed English in the list header.\n\nRoot cause — `ObjectGrid.tsx:863`:\n```js\nconst rawHeader = resolveColumnLabel(col.label) || col.field.charAt(0)... // prettified machine name\n```\nIt fell back from the column's explicit label **straight to the prettified field name**, never consulting the **schema field's label**. The other header-resolution sites in the same file (≈1027, 1104) already use `fieldDef.label` — this `{field}`-only path was the one that didn't.\n\n## Fix\n\n```js\nconst rawHeader = resolveColumnLabel(col.label)\n  || resolveColumnLabel(objectSchema?.fields?.[col.field]?.label)\n  || col.field.charAt(0)... ;\n```\nHeader resolution is now `column.label → field label → prettified name`.\n\n## Verification\n\n- Existing ObjectGrid render tests pass (column-features + index → 32/32) — no regression.\n- The blueprint side is correct (field labels are localized, columns reference fields); this was purely the renderer's fallback. New-behavior unit test would need mocking the async `dataSource.getObjectSchema`; the fix mirrors the already-correct sibling sites and is live-verifiable on a Chinese AI-built app's list view.\n\nCompletes the i18n story (sibling: cloud blueprint label fix) — the last English text on a Chinese app.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

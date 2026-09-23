@@ -1,0 +1,39 @@
+{
+  "number": 2146,
+  "kind": "pull_request",
+  "title": "fix(deps): bump @objectstack/client 到 ^11.5.0,修复 console 产物打包旧 client 导致异步导入不可用",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T04:19:14Z",
+  "updated_at": "2026-07-02T12:30:15Z",
+  "closed_at": "2026-07-02T12:30:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T12:30:13Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2146",
+  "body": "Fixes #2145\n\n## 问题\n\n`@objectstack/console@11.5.0`(vendored objectui `1432efe81`)带了新导入 UI,但 bundle 里的 `@objectstack/client` 是 11.2.0(被 `^11.2.0` pin 锁死),没有 `data.createImportJob` 等异步导入 API。前端探测失败,运行时报:\n\n> The connected @objectstack/client does not support async import jobs.\n\n实际项目 os-tianshun-ehr(依赖全部 11.5.0)复现。已验证证据链:直接运行 ehr 里 CLI 的 `resolveConsolePath` 定位到实际 serve 的 console 目录,其 dist 中 `import/jobs` 出现 **0** 次;而 client 11.5.0 npm 包中该 API 存在(11.2–11.4 均不存在)。\n\n## 改动\n\n- `packages/data-objectstack`、`apps/console`:`@objectstack/client` `^11.2.0` → `^11.5.0`\n- 全仓 `@objectstack/spec` / `@objectstack/formula` 统一 `^11.2.0` → `^11.5.0`(避免 lockfile 冻结出双份 spec)\n- lockfile 更新:`@objectstack/client@11.2.0` 全部清除,解析为 11.5.0\n\n## 验证\n\n- `pnpm build` 44/44 成功;新 console dist 的 `vendor-objectstack-*.js` 中出现 `import/jobs` 路由字符串(修复前 0 次)\n- `@object-ui/data-objectstack` 测试 227/227 通过\n\n## 后续(framework 仓库)\n\nconsole 重新 vendor 本次 objectui SHA 并发布 `@objectstack/console@11.5.1`,ehr 升级后生效。"
+}

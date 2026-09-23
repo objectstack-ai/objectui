@@ -1,0 +1,32 @@
+{
+  "number": 1978,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): inline ref validation in flow repeater cells + previous.<field> picker refs (#1934)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T15:47:04Z",
+  "updated_at": "2026-06-24T15:50:54Z",
+  "closed_at": "2026-06-24T15:47:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T15:47:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1978",
+  "body": "Follow-ups to the flow-builder data-picker ([#1973](https://github.com/objectstack-ai/objectui/pull/1973)) and its inline validation ([#1975](https://github.com/objectstack-ai/objectui/pull/1975)).\n\n## 1. Inline validation on the repeater surfaces\n#1975 added the ADR-0032 brace error + scope-aware \"unknown reference\" warning to *single* expression/template fields and the edge condition — but the **decision Branches** expression (the headline surface), screen field **\"visible when\"**, and assignment / CRUD / subflow **key-value values** are repeater cells that carried the picker yet had **no inline validation**. They now do, via a shared `FlowExprIssue` line:\n- expression columns → CEL brace check + scope check (`predicate`);\n- key-value values → scope check on `{…}` holes (`template`; single-brace is legal there, so never brace-flagged).\n\n## 2. `previous.<field>` picker references\nThe trigger-record group now offers `previous.<field>` (not just the whole `previous`) on update / change / before-update triggers — `previous.status` is a common entry-condition pattern.\n\n## Tests / verification\n- `flow-scope.test.ts` extended for `previous.<field>` (25 tests); full `metadata-admin` suite green (165), `pnpm build` (tsc) clean. The `FlowExprIssue` line composes the already-unit-tested `validateExpressionClient` + `findUnknownRefs` / `describeUnknownRefs` and renders the same red/amber `<p>` pattern already shipped on single fields in #1975.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

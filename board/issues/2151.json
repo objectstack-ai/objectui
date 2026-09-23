@@ -1,0 +1,35 @@
+{
+  "number": 2151,
+  "kind": "pull_request",
+  "title": "fix(grid): inline-edit toggle takes effect immediately + staged editor closes on save",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T09:22:16Z",
+  "updated_at": "2026-07-02T15:04:11Z",
+  "closed_at": "2026-07-02T15:04:09Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T15:04:09Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2151",
+  "body": "## 问题\n\n在 showcase(`showcase_project` 的 Projects 表格,`account` lookup 列)实测发现两个行内编辑的 bug:\n\n### Bug A — 点了「行内编辑」列表不进编辑模式\n切换「行内编辑」后需要再点一次才真正生效。`ListView` 里生成 grid schema 的 `useMemo`(设置 `editable: inlineEdit`)漏了 `inlineEdit` 依赖,导致切换那一下用的是旧值,慢一拍。\n\n**修复**:把 `inlineEdit` 加入依赖数组,切换同一次交互即生效。\n\n### Bug B — 编辑 lookup 后点「全部保存」,单元格卡在搜索框\n行内编辑一个 lookup 单元格并点「全部保存」后,格子仍卡着显示 picker 组件,而不是解析后的展示值。关系型编辑器(lookup/master_detail/user/owner)会 `stage` 值并**故意保持编辑器打开**;而 `saveRow`/`saveBatch` 只清了 `pendingChanges`,从没清 `editingCell`,所以保存后的格子一直没退回展示态。\n\n**修复**:行/批保存后关闭任何仍打开的编辑器。\n\n### 附带\n- `ListView` 即使有外部 `refreshTrigger` 也订阅 `dataSource.onMutation` 刷新(行内编辑保存走 `dataSource.update`,只通过 `onMutation` 发信号)。\n- lookup 单元格正确推导 reference key。\n\n## 验证\n- 两个 bug 均在 framework showcase 实测修复通过(单击切换即进编辑;保存后编辑器关闭、显示解析值 `Globex`)。\n- 回归测试:`data-table-inline-edit`(E)、`ListView` toggle / `ListView.mutationRefresh`、`onMutation`、`lookupCellReferenceKey`。\n- 每个修复都验证过「去掉修复即失败」。typecheck 干净,相关测试套件全绿。"
+}

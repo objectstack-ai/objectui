@@ -1,0 +1,33 @@
+{
+  "number": 2121,
+  "kind": "pull_request",
+  "title": "fix(grid): don't inline-edit read-only / computed / binary fields",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T16:04:06Z",
+  "updated_at": "2026-06-30T16:08:35Z",
+  "closed_at": "2026-06-30T16:04:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T16:04:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2121",
+  "body": "## What\n\nInline cell editing opened a plain text box for **every** field lacking a dedicated widget — including ones you can never author a value for.\n\n## Found by browser-testing\n\nDrove the showcase **Field Zoo** (57 field types) cell-by-cell. Result:\n- The 23 mapped types all render their correct type-aware editor ✓ (text→input, number→number, date→picker, boolean→switch, select→dropdown, multiselect→popover, radio→radiogroup, …).\n- **But** `Formula`, `Roll-up`, `Auto Number` (system-computed) and `File / Image / Avatar / Video / Audio / Signature` (binary) opened an **editable `input[text]`**. Typing into a computed cell is meaningless; if the server accepted it, it would clobber the derived value.\n\n## Fix\n\n- `isFieldInlineEditable(fieldDef)` → `false` for `readonly` fields and inherently non-authorable types.\n- ObjectGrid's column enrichment marks those columns `editable: false`. The data-table already honors per-column editable (`startEdit` returns early), so the cell just doesn't enter edit mode. Ordinary types are untouched.\n\n## Verified live (:5417, re-ran the matrix)\n\n| | before | after |\n|---|---|---|\n| Formula / Roll-up / Auto Number | `input[text]` | **read-only** |\n| File / Image | `input[text]` | **read-only** |\n| Number / Currency / Date / Boolean / Select | edits | **still edits** |\n\n## Scope note\n\nRelational/structured types (lookup, master-detail, json, composite…) keep their text fallback for now — they want a proper picker, not a hard read-only lock. Not data-unsafe: the server validates and rejected saves now surface (#2106).\n\n`+6` tests (14 total in the file pass). ESLint clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

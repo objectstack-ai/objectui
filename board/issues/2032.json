@@ -1,0 +1,33 @@
+{
+  "number": 2032,
+  "kind": "pull_request",
+  "title": "fix(core): $expand user/tree reference columns in list & grid views (not just lookup/master_detail)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T16:09:51Z",
+  "updated_at": "2026-06-27T16:22:06Z",
+  "closed_at": "2026-06-27T16:22:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T16:22:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2032",
+  "body": "## The bug\n\nIn list / grid (and kanban / calendar / gallery / …) views, **reference columns of type `user` render a bare id (or a \"—\" placeholder) instead of the related record's name**. Record **detail** views render the same fields correctly.\n\nExample: a grid showing a `user`-type \"technician\"/\"owner\" column shows `VYVspo4Eb9vx9AwqV4ThlA4WNt8CeJ80` instead of `Dev Admin`.\n\n## Root cause\n\nList/grid views derive their `$expand` set from `buildExpandFields()` in `@object-ui/core` ([`packages/core/src/utils/expand-fields.ts`](packages/core/src/utils/expand-fields.ts)). It recognised **only** `lookup` and `master_detail` field types:\n\n```ts\nfieldDef.type === 'lookup' || fieldDef.type === 'master_detail'\n```\n\nSo for a `user` (or `tree`) reference column the view **never requested `$expand`** → the API returned the raw foreign-key id → the cell had no related record to read a display name from → it rendered the raw id / `—`.\n\nThe objectql backend already resolves `user` through the **same** expand path as `lookup`/`master_detail` (it carries the same `reference` + id storage). So the gap was purely on the request side, in objectui.\n\n`lookup` / `master_detail` columns were already fine (the previous fix added scoped `$expand` for them) — which is why the bug looked type-specific.\n\n## The fix\n\nExtend the expandable-type set to the full **reference-bearing** set — `lookup` / `master_detail` / `tree` / `user` — behind a single exported constant + predicate, and route the existing collection logic through it:\n\n```ts\nexport const EXPANDABLE_FIELD_TYPES = new Set(['lookup', 'master_detail', 'tree', 'user']);\nexport function isExpandableFieldType(fieldDef): boolean { /* type ∈ EXPANDABLE_FIELD_TYPES */ }\n```\n\n- **`user`** is the field type the backend can expand but the frontend wasn't requesting — this is the end-to-end fix.\n- **`tree`** matches the form layer's `DATA_SOURCE_FIELD_TYPES` (`lookup`/`master_detail`/`tree`); it's a reference too, so it belongs in the set. Requesting it is harmless and forward-compatible (see follow-up below).\n\nEvery `$expand` caller (list, grid, kanban, calendar, gallery, timeline, gantt, tree, map, detail) routes through `buildExpandFields`, so this one change fixes them uniformly.\n\n### Why only the *visible* reference columns (unchanged, but the key design point)\n\n`buildExpandFields(fields, columns)` already intersects with the view's columns, and that's preserved. A list is N rows; expanding a relation per row has a cost, and a list typically shows only 2–3 reference columns. So the default is:\n\n> `$expand` = **view columns ∩ reference-typed fields**; empty set → omit `$expand` (original behavior).\n\nWide objects never pay to expand relations no cell will show. Detail view keeps expanding all reference fields (no `columns` arg), as before.\n\nThis is a pure-function change with the type set extracted as the single source of truth (`EXPANDABLE_FIELD_TYPES` / `isExpandableFieldType`), unit-tested for: mixed columns pick out only reference types; non-reference columns never enter `$expand`; the visible-column intersection; and empty → no `$expand`.\n\n## Verification (framework `examples/app-showcase`)\n\nStood up the app-showcase backend + the objectui console against it, on the `showcase_field_zoo` object (which has one field of every type) via a small grid view exposing the relational columns. Seeded a record with a real `user` reference.\n\n| Column (type) | Before | After |\n|---|---|---|\n| `f_lookup` (lookup) | **Northwind** | **Northwind** |\n| `f_master_detail` (master_detail) | **Website Relaunch** | **Website Relaunch** |\n| `f_user` (**user**) | `VYVspo4Eb9vx9…` (raw id) | **Dev Admin** ✅ |\n| `f_owner` (**user**) | `VYVspo4Eb9vx9…` (raw id) | **Dev Admin** ✅ |\n| `f_tree` (**tree**) | `—` | `—` (see follow-up) |\n\nConfirmed at the API layer too: with `$expand=f_user` the backend returns `f_user: { name: \"Dev Admin\", … }`; without it (today's behavior) it stays a raw id.\n\n## Tests / build\n\n- `@object-ui/core` unit tests: **4683 passed** (incl. the extended `expand-fields` suite — 23 cases).\n- `@object-ui/plugin-list`: **131 passed**; `@object-ui/core` & `@object-ui/plugin-grid` build clean.\n\n## Follow-ups (intentionally NOT in this PR)\n\n- **`tree` display**: the frontend now *requests* `$expand` for `tree`, but objectql's expand resolver currently materialises only `lookup`/`master_detail`/`user`, so `tree` columns still show `—` until the backend expands `tree` too. That's a framework change.\n- **Cross-repo rollout**: no `.objectui-sha` / `.framework-sha` bumped here. After this merges, it reaches the cloud runtime via a framework `.objectui-sha` bump (then cloud's own pin) — left to a human to time.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

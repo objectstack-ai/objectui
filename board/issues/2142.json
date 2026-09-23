@@ -1,0 +1,32 @@
+{
+  "number": 2142,
+  "kind": "pull_request",
+  "title": "feat(studio): WYSIWYG form-layout designer in the Data pillar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T00:07:32Z",
+  "updated_at": "2026-07-02T00:11:01Z",
+  "closed_at": "2026-07-02T00:07:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T00:07:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2142",
+  "body": "## What\n\nAdds a **布局 (Layout)** designer to the Studio Data pillar's Form view — a WYSIWYG form-layout editor an admin uses to arrange the object's default form, on **one screen** (no Data↔Interface switch):\n\n- **Add sections** (inline rename · move up/down · delete → members fall back to Ungrouped)\n- **Drag-reorder** fields within a section\n- **Drag across** sections\n- **Select a field** → edits in the **same** protocol field inspector the grid already uses\n- Faithful field previews (label + type-appropriate control) per field\n\n## How it persists\n\nSections are the object's `fieldGroups`; membership/order are `field.group` + field order — all **object metadata**, saved via the existing **draft → publish**. No new metadata shape, no separate form entity.\n\n## Build boundary (reuse-first)\n\nThe drag/section chrome (`ObjectFormDesigner.tsx`, dnd-kit) is the only new code. The data model + every mutation reuse the existing, tested `object-fields-io` helpers (`readGroups` / `addGroup` / `renameGroup` / `removeGroup` / `moveGroup` / `clearFieldGroup` / `groupEntries`) — these were written for a form-designer canvas that had never been built. Field selection reuses the grid's field inspector.\n\n## Also fixed\n\nThe Data pillar reloaded the object baseline on every `[client, current]` change, **clobbering an in-progress draft** when the metadata-client identity churned (e.g. toggling the live preview). Now the baseline loads exactly once per selected object.\n\n## Verified (browser, `/studio/:pkg/data` → 表单 → 布局)\n\nAdd group ✓ · drag within group ✓ · drag across groups ✓ · select field → inspector ✓ · layout survives 预览↔布局 toggle ✓ (was the clobber bug). `type-check`: 0 errors.\n\n## Known follow-ups (not in this PR)\n\n- The **预览** (live form) still reads the *published* schema, so it doesn't reflect the draft layout yet.\n- Full save→publish loop needs a writable (non-package) object.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

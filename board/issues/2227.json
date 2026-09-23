@@ -1,0 +1,36 @@
+{
+  "number": 2227,
+  "kind": "pull_request",
+  "title": "feat(detail): make default related lists support CRUD, open-detail and child actions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T14:06:24Z",
+  "updated_at": "2026-07-04T14:10:33Z",
+  "closed_at": "2026-07-04T14:10:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T14:10:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2227",
+  "body": "## What\n\nOn the schema-driven record **detail page**, child collections render via `record:related_list` → `RelatedList`, but the renderer only wired a delete handler (and only for `add`/junction lists). Related lists were effectively **read-only**: no New, no Edit, no open-detail, and no way to run the child object's own actions.\n\nThis wires the full set — 增删改查 + 查看记录详情 + 子对象 action — through a small, host-provided context, with graceful read-only fallback when no host is present (Studio designer / embeds).\n\n## How\n\n- **`RelatedRecordActionsContext`** (`@object-ui/react`, new): the host resolves, per child object, the permitted `{ onView, onCreate, onEdit, onDelete, rowActions, onRowAction }`. Absent provider ⇒ read-only.\n- **`RecordRelatedListRenderer`** (`plugin-detail`): consumes it and wires `RelatedList`'s `onNew` / `onRowClick` / `onRowEdit` / `onRowDelete` + child row actions; keeps the legacy `add`/junction remove as a fallback.\n- **`RelatedRecordActionsBridge`** (`app-shell`, new; mounted inside the detail page's `ActionProvider`): object-agnostic handlers — navigate to the child's detail / new / edit routes (create pre-links the parent via `?<relationshipField>=<parentId>`), delete via `dataSource`, and run the child object's `list_item` actions against the clicked row through the page `ActionRunner`. Each affordance is gated by `resolveCrudAffordances`.\n- **`data-table`** gains optional `rowActionDefs` / `onRowActionDef`; `RelatedList` threads child actions into the row overflow menu and refetches on an `objectui:related-changed` event after a row action mutates.\n- Record-detail action handlers honor an explicit child `objectName` / `recordId` so row actions target the child row, not the master record.\n\n## Verification\n\n- `tsc` / `vite build` gate passes for types, react, components, plugin-detail, app-shell.\n- Unit tests: renderer CRUD/action wiring + `RelatedList` → `data-table` threading. 164 plugin-detail + data-table tests pass, no regressions.\n- **Live** (console against a real backend, showcase app): on an account detail page's Projects related list — New → child `/new?account=<id>` with the parent pre-filled (增), row menu Edit → child edit page (改), row click → child detail (查), row menu Delete → confirm dialog → row removed + list refreshes (删).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

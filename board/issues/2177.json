@@ -1,0 +1,32 @@
+{
+  "number": 2177,
+  "kind": "pull_request",
+  "title": "fix(app-shell): stop double-toasting failed script/modal action errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T05:43:54Z",
+  "updated_at": "2026-07-03T09:01:41Z",
+  "closed_at": "2026-07-03T09:01:39Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T09:01:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2177",
+  "body": "## 问题\n\n某项目动作 `lead_apply_convert` 校验失败时,同一条错误 toast **弹出两遍**(两个完全相同的红色 toast 叠着)。\n\n## 根因\n\n`useConsoleActionRuntime` 里的 `serverActionHandler`(`type: 'script'` / `modal` 动作)对失败**弹了一次** `toast.error(...)`,同时又 `return { success: false, error }`;而 `ActionRunner.handlePostExecution` 会**再**把 `error` 弹成一次 toast → 双弹。\n\n对照:同文件的 `apiHandler` / `flowHandler` 都**只** `return { success:false, error }`、由 runner 统一弹,所以它们只弹一次。唯独 `serverActionHandler` 多弹了。\n\n## 改动\n\n删掉 `serverActionHandler` 里两处多余的 `toast.error(...)`(失败响应分支 + catch 分支),与 `apiHandler` / `flowHandler` 对齐 —— 错误 toast 统一交给 `ActionRunner.handlePostExecution`,失败动作只弹一次。\n\n`toast` import 仍被其他地方使用(弹窗拦截提示、`toastHandler`),无未用 import。\n\n## 测试\n\n- `useConsoleActionRuntime.test.tsx` 全绿(19/19),新增回归用例:失败的 script 动作返回 `{success:false, error}` 但**不**自行 `toast.error`。\n- `@object-ui/app-shell` `tsc --noEmit` 0 error。\n\n> 配套修复:错误消息里前缀那段英文调试包装(`action '…' threw: Error:`)由 framework 侧处理:objectstack-ai/framework#2534。两者独立,各自可单独合入。"
+}

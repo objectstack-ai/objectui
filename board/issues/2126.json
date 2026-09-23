@@ -1,0 +1,30 @@
+{
+  "number": 2126,
+  "kind": "issue",
+  "title": "fix(grid): 导入向导误触关闭 —— 点击遮罩层 / 字段映射下拉选择会关闭整个导入窗口",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-01T02:02:46Z",
+  "updated_at": "2026-07-01T04:53:15Z",
+  "closed_at": "2026-07-01T04:53:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2126",
+  "body": "## 问题\n\n在数据导入向导(`ImportWizard`,标题「导入线索」,步骤 1.上传 → 2.字段映射 → 3.预览)中,窗口会被误触关闭,导致已上传的数据和映射进度丢失:\n\n1. **点击灰色遮罩层**:在向导任意步骤点击对话框外的灰色区域,整个导入窗口会立即关闭。对于有未保存进度的多步向导,这属于误触。\n2. **字段映射的下拉选择**:在「字段映射」步骤展开任一下拉框(`Select`)后,点击下拉项以外的其他地方,不仅下拉框关闭,连整个导入窗口也一起被关闭。\n\n## 根因\n\n- 问题 1 是 Radix Dialog 默认的「点击外部关闭」行为(`onInteractOutside`)。\n- 问题 2 是 Radix `Select` 的下拉内容被 portal 到 `document.body`,物理上位于 `DialogContent` 之外。因此点击下拉浮层会被 Dialog 判定为「interact outside」,从而触发关闭。\n\n仓库中已有先例:`packages/components/src/custom/mobile-dialog-content.tsx` 导出的 `isInsidePopperLayer` 用于识别 Radix 浮层;`ActionResultDialog` 通过 `onPointerDownOutside`/`onEscapeKeyDown` preventDefault 阻止外部关闭。\n\n## 方案\n\n给 `ImportWizard` 的 `DialogContent` 增加 `onInteractOutside={(e) => e.preventDefault()}`,阻止「点击遮罩层」和「点击下拉浮层」造成的关闭。用户仍可通过右上角 X、底部「取消」按钮或 Esc 显式关闭。\n\n涉及文件:`packages/plugin-grid/src/ImportWizard.tsx`"
+}

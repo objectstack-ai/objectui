@@ -1,0 +1,35 @@
+{
+  "number": 2045,
+  "kind": "pull_request",
+  "title": "fix(charts): resolve select-dimension value→label so grouped charts don't zero out (cloud#667)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T05:02:01Z",
+  "updated_at": "2026-06-28T06:04:59Z",
+  "closed_at": "2026-06-28T06:04:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-28T06:04:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2045",
+  "body": "## Problem\n\nAn ObjectStack dashboard chart that **groups a count by a `select` field** (e.g. a bar chart \"客户数量按状态\") rendered **every bar at 0**, even though the object's list clearly has rows.\n\nReal-machine root cause (DB ground truth): the `tk5f_customer.status` field stores **English values** (`active`/`lost`/`potential`) with **localized labels** (合作中/已流失/潜在). The dataset groups by the stored **value**, so the grouped rows are value-keyed with correct counts. The chart, however, expected the analytics server to have already resolved the dimension value→label — when it hasn't, the raw enum values reach the axis, and the option-keyed colour/category wiring (built from the field **labels**) no longer lines up with the value-keyed rows, so categories read empty.\n\nThis is the **default product of the AI build agent** (English value + localized label), so Chinese AI apps hit it constantly. It does not reproduce when a select's value == its label.\n\n## Root cause: chart layer, not dataset layer\n\nThe framework analytics service *does* have value→label resolution (`service-analytics/src/dimension-labels.ts`), but it silently no-ops when it can't read the field `options` (common for AI-built selects) — then `rows` arrive **value-keyed**. The objectui **dataset chart path** (`DatasetWidget` + `ObjectChart`'s dataset branch) does **no** value→label resolution of its own and assumes the server did it — unlike the **legacy aggregate path**, which already resolves labels via `resolveGroupByLabels`. So the fix belongs in the chart layer.\n\n## Fix\n\nMake the chart layer authoritative: resolve value→label from the **object field options**, keying chart data by **value** (so grouped counts always attach) and displaying the **label**.\n\n- **`@object-ui/core` `chart-series.ts`** — two new shared, pure helpers:\n  - `buildDimensionLabelMap(options)` → `{ value → label }` (mirrors `buildOptionColorMap`; drops no-op `label==value` entries).\n  - `relabelDimensions(rows, labelMaps)` → rewrites each select-dimension **value** to its **label**, leaving measures attached. Idempotent (already-resolved labels / lookup ids / free text pass through) and never mutates the input, so server-resolved labels and the raw `drillRawRows` both survive.\n- **`plugin-dashboard/DatasetWidget`** and **`plugin-charts/ObjectChart`** — build the `{value→label}` maps from the **same object-schema fetch they already run for per-category colours** (no extra request), then `relabelDimensions` before `buildChartSeries`. `chartRows` stay index-aligned with `drillRawRows`, so drill-through still filters by the raw stored value.\n\nNo framework / dataset-server changes; no new network calls.\n\n## Verification\n\nHonest about depth — verified at **code + build + unit/component** levels:\n\n- ✅ `@object-ui/core` `chart-series.test.ts` — **15 passed**, incl. new tests for `buildDimensionLabelMap`, `relabelDimensions`, and the composition with `buildChartSeries` for the exact value≠label scenario (single dimension **and** pivoted second dimension): every count lands on its label category.\n- ✅ `plugin-dashboard` `DatasetWidget` — **36 passed** (34 existing + 2 new). The new `DatasetWidget.relabel.test.tsx` drives the **real** `DatasetWidget` + `SchemaRenderer`: value-keyed rows `{active:6, lost:2, potential:4}` + object-schema options ⇒ the chart receives **label-keyed** data `{合作中:6, 已流失:2, 潜在:4}` with the raw `active` gone from the axis; and a no-options fallback that passes raw rows through without crashing.\n- ✅ `plugin-charts` — **26 passed** (no regression from the `ObjectChart` change).\n- ✅ Full objectui suite — **4756 passed / 24 skipped / 0 failed** with the source changes.\n- ✅ `@object-ui/types` + `@object-ui/core` + `plugin-dashboard` + `plugin-charts` build clean (declaration files generated, so the TSX typechecks against the new core exports).\n\n**Not done:** live browser repro against `framework/examples/app-showcase` (would need a standing backend + a value≠label seeded select + dashboard). The two new tests reproduce the bug deterministically at the component/data level instead, which is the layer the bug lives in.\n\n## Notes / follow-ups\n\n- **Runtime rollout:** this won't reach the running stack until cloud bumps its `.objectui-sha`. **Not bumped here** (separate cloud change).\n- **Related gap (not in scope):** `plugin-report`'s `DatasetReportRenderer` charts dataset dimensions the same way (`data: state.rows` straight to the chart) and would benefit from the same relabel — left out to keep this PR focused on the reported dashboard surface.\n\nCloses objectstack-ai/cloud#667\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,39 @@
+{
+  "number": 2030,
+  "kind": "pull_request",
+  "title": "chore: upgrade @objectstack/{spec,client,formula} to 11.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T15:29:57Z",
+  "updated_at": "2026-06-27T15:37:59Z",
+  "closed_at": "2026-06-27T15:37:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T15:37:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2030",
+  "body": "## 变更\n将工作区内全部 `@objectstack` 依赖从 `^10.0.0` 升级到 **`^11.0.0`**（共 14 处），并刷新 `pnpm-lock.yaml`（`spec`/`client`/`formula` 均解析到 `11.0.0`）。\n\n涉及包：root、`types`、`core`、`plugin-gantt`、`plugin-map`、`plugin-timeline`、`app-shell`、`react`、`plugin-tree`、`data-objectstack`、`apps/site`、`apps/console`。\n\n## 验证\n- **type-check**:59/60 包通过。唯一失败的 `plugin-tree` `TS7006` 在 v10 main 上同样存在(已在 v10 基线复现),与本次升级无关 —— 已另开任务单独修复。\n- **build**:`turbo run build` 全绿(43/43)。\n- **test**:`pnpm test` 全绿 —— 353 test files passed(1 skipped),4674 tests passed(24 skipped)。\n\n11.0 是 major 版本号,但在本仓库未引入任何新的类型/构建/测试错误,因此除版本号与 lockfile 外无需改动业务代码。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

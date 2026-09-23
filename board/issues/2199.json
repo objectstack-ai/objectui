@@ -1,0 +1,30 @@
+{
+  "number": 2199,
+  "kind": "pull_request",
+  "title": "fix(studio): lookup target picker shows the package's own draft objects",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T20:36:45Z",
+  "updated_at": "2026-07-03T20:41:23Z",
+  "closed_at": "2026-07-03T20:38:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T20:38:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2199",
+  "body": "## What\nThe field inspector's lookup **related-object** picker listed only *published* objects (`list('object')`), so a sibling object still in draft — the natural target when wiring a new relational model in a single authoring pass — was invisible and had to be typed as a raw API name blind.\n\nNow the picker also merges unpublished object drafts (`listDrafts({ type: 'object' })`, labelled `(草稿)`), so a lookup can target a draft sibling before the package's first publish.\n\n## Why\nFound dogfooding a new package end-to-end: building `application → candidate / job` while all three were still drafts, the picker showed only `showcase_*` / `sys_*` objects, not the objects being designed. This is the Data-pillar twin of the nav object-picker fix in #2198.\n\n## Verification\n- Created a draft object `interview` (面试), added a lookup field, and confirmed `interview` appears in the target datalist alongside the published `job` / `candidate` / `application` (89 options total).\n- `@object-ui/app-shell` type-check clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

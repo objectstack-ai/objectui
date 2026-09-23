@@ -1,0 +1,33 @@
+{
+  "number": 2043,
+  "kind": "issue",
+  "title": "URL action 无法声明式\"新标签页打开\";params 字段语义重载导致 newTab 被当成用户输入项弹框",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-28T03:59:11Z",
+  "updated_at": "2026-06-28T07:23:46Z",
+  "closed_at": "2026-06-28T07:23:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2043",
+  "body": "## 背景 / 现象\n\n给列表页自定义按钮(`type: 'url'`)配置\"在新标签页打开\",目前没有干净的声明式写法,会踩到两个坑:\n\n1. **写成对象** `params: { newTab: true }` —— runtime 能读,但 **build 被 zod 拒**:`params` 在公开 spec(`@objectstack/spec`)与 `packages/types/src/ui-action.ts:178` 里都定义为 `ActionParam[]`,对象形式报 `expected array, received object`,`defineAction` 编译不过。\n\n2. **写成数组** `params: [{ name: 'newTab', type: 'checkbox' }]` —— build 过,但运行时**弹出\"请填写以下信息\"对话框**,把 `newTab` 渲染成一个让用户勾的复选框,而不是当成执行指令。\n\n结果:作者想要的\"点击 → 直接新标签页打开 `target`\"做不到,只能依赖\"绝对/外部 URL 自动新标签\"这个隐式兜底(且 host/port 需写死,`${ctx.origin}` 会被 `encodeURIComponent` 编码)。\n\n## 根因\n\n`params` 字段语义重载,承担两个互斥角色,runtime 靠 `Array.isArray` 分流:\n\n```ts\n// packages/core/src/actions/ActionRunner.ts:432-435\nconst paramDefs =\n  action.actionParams && Array.isArray(action.actionParams) ? action.actionParams\n    : (Array.isArray(action.params) ? action.params : undefined);\nif (paramDefs && paramDefs.length > 0) { /* 自动弹 ActionParamDialog */ }\n```\n\n- **数组** → 当成\"用户输入收集清单\",弹 `ActionParamDialog`。\n- **对象** → 当成\"静态执行选项\",由 handler 读:\n\n```ts\n// packages/core/src/actions/ActionRunner.ts:731\nconst newTab = action.params?.newTab ?? isExternal;\n```\n\n注释本身已承认这是历史遗留并加了 `actionParams` 消歧(`ActionRunner.ts:428-431`、`:124`)。\n\n**关键缺口:** 内部 runner 类型 `ActionDef` 其实**有**一等字段 `opensInNewTab?: boolean`(`ActionRunner.ts:148`)和 `newTabUrl`(`:154`),但**从未提升到公开可写的 `ActionSchema`**——公开 schema 里 url 动作只有 `target?: string`(`ui-action.ts:164`),没有任何 new-tab 开关。能力在代码里存在,却没在 spec 上开口子。\n\n## 影响\n\n- 作者无法声明式表达\"URL 在新标签页打开\"。\n- 误把 `newTab` 放进 `params` 会静默变成一个用户输入弹框(UX 缺陷),对象形式还直接编译失败。\n\n## 建议\n\n给公开 `ActionSchema` 的 url 动作补一个**一等字段**,与\"输入收集\"用的 `params` 彻底分开,二选一:\n\n- 把内部已有的 `opensInNewTab?: boolean` 提升到公开 `ActionSchema`,`executeUrl` 优先读它;或\n- 新增 `openIn?: 'self' | 'new-tab'`。\n\n并在 spec 校验 / 文档里明确:`params` **仅**用于用户输入收集(`ActionParam[]`),执行选项不要走 `params`。\n\n## 复现\n\n```ts\ndefineAction({\n  name: 'print_a3', label: '打印总表(A3)', type: 'url',\n  target: '/print/a3?id=${record.id}',\n  params: { newTab: true },   // ❌ build 被 zod 拒\n  // params: [{ name:'newTab', type:'checkbox' }] // ❌ 改数组能编译,但运行时弹输入框\n});\n```\n\n> 注:`@objectstack/spec` 的 `params: z.array(...)` 校验行为基于下游 pinned 版本观察;objectui 仓库内 `packages/types/src/ui-action.ts` 同样将 `params` 声明为 `ActionParam[]`,核心结论(重载 + 缺一等 new-tab 字段)与版本无关。\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2143,
+  "kind": "pull_request",
+  "title": "fix(studio): drop unused index param in ObjectFormDesigner container map",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T02:22:15Z",
+  "updated_at": "2026-07-02T02:26:26Z",
+  "closed_at": "2026-07-02T02:22:54Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T02:22:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2143",
+  "body": "`ObjectFormDesigner.tsx` line 444 declared an unused index param `i` in `containerOrder.map((c, i) => …)`. Under `noUnusedLocals`, `tsc` fails with TS6133, which broke `@object-ui/app-shell`'s build — and therefore the vendored `@objectstack/console` build in the downstream framework release pipeline (`scripts/build-console.sh`).\n\nVerified: framework `build-console.sh` at this commit builds 35/35 tasks and produces `packages/console/dist` cleanly.\n\nOne-line fix: `(c, i)` → `(c)`."
+}

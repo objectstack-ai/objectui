@@ -1,0 +1,32 @@
+{
+  "number": 2174,
+  "kind": "pull_request",
+  "title": "fix(form): de-emphasize field labels so fieldGroups hierarchy reads",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T02:57:51Z",
+  "updated_at": "2026-07-03T03:40:15Z",
+  "closed_at": "2026-07-03T03:40:12Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T03:40:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2174",
+  "body": "## 问题\n\n创建/编辑表单里,字段 label 全部加粗、字号偏大(`text-sm` / `font-medium` 500 / 近黑),和分组的 section 头(SectionDivider)字重一致。结果 grouped 表单看着平铺、看不出字段属于哪个分组 —— 见天顺 `mtc_lead`「新建线索」表单反馈。\n\n根因:字段 label 继承了全局 `labelVariants` 的 `font-medium`([label.tsx:17](../blob/main/packages/components/src/ui/label.tsx#L17)),与组头没有视觉层级差。\n\n## 改动\n\n`packages/components/src/renderers/form/form.tsx` 里表单字段 label 一行:\n\n```diff\n- <FormLabel className=\"text-xs sm:text-sm\">\n+ <FormLabel className=\"text-xs font-normal text-muted-foreground\">\n```\n\n只覆盖表单渲染器的字段 label,**不动全局 `Label` variant**,避免波及按钮/其他控件的 label。\n\n## 效果(实测 computed style,取自真实 `mtc_lead` 表单)\n\n| | 字段 label 改前 | 字段 label 改后 | 组头(未动) |\n|---|---|---|---|\n| 字号 | 14px | 12px | 14px |\n| 字重 | 500 | 400 | 600 |\n| 颜色 | 近黑 | 灰 rgb(100,116,139) | 近黑 rgb(2,8,23) |\n\n组头保持深色加粗 + 下边框,字段 label 变小变灰,拉开明显的两级层级。\n\n## 验证\n\n在 objectui worktree 起 vite dev console,proxy 到真实天顺后端(`com.titanwind.mtc` / `mtc_lead`),打开「新建线索」grouped 表单确认层级清晰、computed style 与上表一致。"
+}

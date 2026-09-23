@@ -1,0 +1,33 @@
+{
+  "number": 2083,
+  "kind": "pull_request",
+  "title": "chore(deps): bump motion from 12.40.0 to 12.42.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-29T08:01:25Z",
+  "updated_at": "2026-06-29T08:07:38Z",
+  "closed_at": "2026-06-29T08:07:29Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-06-29T08:07:29Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2083",
+  "body": "Bumps [motion](https://github.com/motiondivision/motion) from 12.40.0 to 12.42.0.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/motiondivision/motion/blob/main/CHANGELOG.md\">motion's changelog</a>.</em></p>\n<blockquote>\n<h2>[12.42.0] 2026-06-24</h2>\n<h3>Changed</h3>\n<ul>\n<li><code>animateView</code>: Layers are automatically grouped to match their DOM-hierarchy. New <code>.group(false)</code> method opts-out.</li>\n</ul>\n<h3>Fixed</h3>\n<ul>\n<li><code>animateView</code>: Auto-crop is now aspect-ratio aware, disabling crops for matching aspect-ratios.</li>\n<li><code>animateView</code>: Disabled automatic <code>border-radius</code> animation.</li>\n</ul>\n<h2>[12.41.0] 2026-06-23</h2>\n<h3>Added</h3>\n<ul>\n<li><code>animateView</code>: Moves from Motion+ Early Access and alpha to main library.</li>\n<li><code>animateView</code>: <code>.add()</code> resolves a CSS selector or <code>Element</code> to automatically generate, apply and remove <code>view-transition-name</code>.</li>\n<li><code>animateView</code>: <code>.new()</code> and <code>.old()</code> configures values to animate on new and old layers.</li>\n<li><code>animateView</code>: <code>.layout()</code> can set a custom transition on the size/position animation of the currently selected elements.</li>\n<li><code>animateView</code>: Group layers now automatically crop with children set to <code>cover</code>, with <code>border-radius</code> animating from old radius to new. <code>.crop(false)</code> disables this behaviour.</li>\n<li><code>animateView</code>: <code>.class(name)</code> tags currently selected elements with a <code>view-transition-class</code> as a custom CSS hook.</li>\n</ul>\n<h3>Fixed</h3>\n<ul>\n<li><code>AnimatePresence</code>: Prevent stuck exit animations when children interrupt.</li>\n<li><code>drag</code>: Child <code>e.stopPropagation()</code> no longer break drag end.</li>\n<li>Fixing Next.js OOM on Windows when importing via <code>motion</code> package.</li>\n<li><code>animateLayout</code>: Improve handling of parallel/interleaved calls.</li>\n</ul>\n<h3>Changed</h3>\n<ul>\n<li><code>animateView</code>: <code>.enter()</code> and <code>.exit()</code> now refer specifically to <code>new</code> and <code>old</code> layers where there are no matching <code>old</code> or <code>new</code> layers.</li>\n<li><code>animateView</code>: Interrupted transition setups now return resolved animation rather than throwing.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/motiondivision/motion/commit/9c841455973b280c7989befd6dc918da0246a7fa\"><code>9c84145</code></a> v12.42.0</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/60d7c72bc3d8052e2453424542d102467f3ed2fc\"><code>60d7c72</code></a> Add view-transition group nesting and aspect-aware cropping</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/6437276caa543467a3bc407514ad0a4f842c37e0\"><code>6437276</code></a> Updating</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/f0f893e5e91323be124dec9ab9dc24188ccc66d4\"><code>f0f893e</code></a> v12.41.0</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/c0c53cb2e31b4bbfcd5e3181b64ade24faf8f594\"><code>c0c53cb</code></a> Updating changelog</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/18c3e3e88b310afe9c6edc960d1b1327a98928ff\"><code>18c3e3e</code></a> Removing plans</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/378fc4c0a91ba12f8ac9c4f27481830cc58d0392\"><code>378fc4c</code></a> Merge pull request <a href=\"https://redirect.github.com/motiondivision/motion/issues/3761\">#3761</a> from motiondivision/worktree-view-target</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/94ea50511889f109abffc893ab61df40c0409064\"><code>94ea505</code></a> Merge branch 'main' into worktree-view-target</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/de65f6b58f0de8103773efa0fd75a0f28b5c8d9a\"><code>de65f6b</code></a> Fade auto morph crossfades over the spring's visual duration</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/f8af23965c6da25f8273909b597666388da2d8b2\"><code>f8af239</code></a> Let an explicit duration override the inherited spring on a view layer</li>\n<li>Additional commits viewable in <a href=\"https://github.com/motiondivision/motion/compare/v12.40.0...v12.42.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

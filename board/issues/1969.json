@@ -1,0 +1,34 @@
+{
+  "number": 1969,
+  "kind": "pull_request",
+  "title": "feat(gantt): configurable 白班/夜班 shift segmentation (排班日)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T11:59:02Z",
+  "updated_at": "2026-06-24T16:18:10Z",
+  "closed_at": "2026-06-24T16:18:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T16:18:08Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1969",
+  "body": "## 概要\n\n给甘特图加上**可配置的白班/夜班(排班日)分段**能力。纯配置 DATA 驱动,默认关闭——不传 `shiftSegments` 时零回归,行为与 working-calendar `folding` 一致。\n\n## 核心设计\n\n- **排班日从 `dayStart`(如 08:00)起算,不是午夜**。「day」列跑满 24h,所以**跨午夜的夜班整段落在同一列内**。\n- **不硬编码任何 班次/白班/夜班 概念**——bands 是配置数据,按 `start`/`end`/`label`/可选 `color` 渲染。\n- **双层表头**:上层=排班日日期,下层=各 band 等宽。\n- **拖拽/拉伸吸附到 band 边界(12h)**,而非整天。\n- band 底色仅当配置了 `color` 时渲染(不配 → 无底色)。\n\n## 改动\n\n| 文件 | 内容 |\n|---|---|\n| `shifts.ts` (新) | `normalizeShiftSegments()` + 辅助函数(parseHHMM / shiftDayStart / bandAt) |\n| `GanttView.tsx` | 双层表头、band 列(连续 ms 定位)、拖拽吸附班次边界 |\n| `ObjectGantt.tsx` / `types/objectql.ts` | 透传 `shiftSegments` 配置 |\n| `demo/main.tsx` | 把班次接入 **制造排班 (4层树)** 示例(`?mfg=1`),无 band 底色;放开一条派工单(WO003)用于体验吸附 |\n| `shifts.test.ts` / `GanttView.shifts.test.tsx` (新) | 单元 + 组件测试 |\n\n## 测试\n\n`vitest run` —— **20 passed**(shifts.test.ts + GanttView.shifts.test.tsx)。\n\n浏览器验证(`?mfg=1&lang=zh&mode=day`):四层树渲染正常,白班/夜班双层表头无底色,WO002 跨午夜夜班整段落在同一排班日列内;WO003 可拖拽并吸附到 12h 班次边界。"
+}

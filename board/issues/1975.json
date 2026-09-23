@@ -1,0 +1,32 @@
+{
+  "number": 1975,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): flow data-picker — scope-aware ref validation + array assignments + script bare mode (#1934)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T15:32:58Z",
+  "updated_at": "2026-06-24T15:36:37Z",
+  "closed_at": "2026-06-24T15:33:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T15:33:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1975",
+  "body": "Follow-ups to the flow-builder variable data-picker ([#1973](https://github.com/objectstack-ai/objectui/pull/1973)), addressing #1934's \"pair the picker with inline validation\" AC plus two gaps found while dogfooding it.\n\n## 1. Scope-aware \"unknown reference\" warning\nPairs the picker with the inline validation the issue called for: a typed reference whose **root** isn't in scope at the node is flagged inline, with a nearest-match *\"did you mean?\"* hint.\n\nDeliberately conservative — a warning that cries wolf is worse than none:\n- **root-only** — `record.<anything>` is accepted when `record` is in scope (no need to enumerate fields);\n- skips **function / macro calls** (`daysFromNow(90)`, `has(...)`), **string literals**, CEL keywords, and runtime globals (`env`, `$error`, `data`, …);\n- typo hint only within **edit distance ≤ 2**;\n- **non-blocking amber** — the ADR-0032 brace error still takes precedence.\n\nCEL for `expression` fields, `{…}` holes for templates. New pure `flow-ref-check.ts` module (`findUnknownRefs` / `scopeRoots` / `describeUnknownRefs`) with 13 unit tests; wired into `FlowNodeConfigField` + `FlowEdgeInspector`.\n\n## 2. Assignment array-form values get the picker\nAssignment values authored in the array form `[{ variable, value }]` (used by the showcase `lead_qualification_conversion`) silently fell back to the Advanced-JSON block — the key/value editor only understood the object-map shape, so those values got **no picker**. The editor now reads **both** shapes and **preserves whichever was authored** on write. Round-trip unit tests (`FlowKeyValueField.shape.test.ts`).\n\n## 3. Script code inserts bare references\nA script `code` body is **JS/TS, not a `{var}` template** — `{x}` is a syntax error there. #1973 treated every `textarea` as a template, so the picker inserted `{record.x}` into script code. Added a `refMode` field-schema override and set the script `code` field to `'expression'` so it inserts **bare** refs. Validation is skipped for that free-form field.\n\n## Tests / verification\n- New unit tests: `flow-ref-check.test.ts` (13), `FlowKeyValueField.shape.test.ts` (6). Full `metadata-admin` suite green (161), `pnpm build` (tsc) clean.\n- The picker UI itself (render, grouped graph-aware list, cursor insertion of bare CEL vs `{var}`) was browser-verified in #1973 against the same components; these changes compose on that proven base (the amber warning mirrors the proven brace-error render; array rows reuse the proven value-cell picker; bare insertion is the proven `formatToken` path). Note: incremental browser re-verification was constrained by a contended shared browser under parallel-session load, so coverage rests on the unit tests above + the #1973 browser run.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2149,
+  "kind": "pull_request",
+  "title": "feat(detail): 详情页支持对象 fieldGroups 分组 + 详情提示迁移到 spec 可写的 detail.* 块 (#2148)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T09:01:25Z",
+  "updated_at": "2026-07-02T15:06:10Z",
+  "closed_at": "2026-07-02T15:06:08Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T15:06:08Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2149",
+  "body": "关联 #2148,同时收编 #2065(`detail.stageField: false` 关闭阶段条)。\n\n## 问题一:字段分组在详情页不生效\n\n对象上定义的 `fieldGroups[]` + `fields[].group`(设计器里的\"字段分组\")此前只有表单在用(plugin-form 的 `deriveFieldGroupSections`),默认详情页和 synth 详情页完全忽略,全部字段被自动拆成\"主要字段 + 更多详情\"两段。\n\n**改动:**\n- `plugin-detail` synth 新增导出 `deriveFieldGroupDetailSections(def)`:按 `fieldGroups` 声明顺序分桶 `fields[].group`,语义对齐 plugin-form——空的已声明分组丢弃、`collapsible`/`collapsed` 透传(`collapsed` 映射为 DetailSection 的 `defaultCollapsed`)、未分组字段进末尾无标题分区。未分组桶跳过审计/系统字段(`created_at`、`updated_by`、`tenant_id` 等,与 app-shell 的 AUDIT+HIDDEN 集合完全一致);**显式**归入某分组的审计字段保留(显式声明优先,与手写 sections 语义一致)。\n- 新增导出 `resolveDetailSections(def, sections?)` 统一优先级,`buildDefaultDetails` 接入,所以所有 synth 消费方(默认详情页、Studio 预览、metadata-admin)自动获得分组分区。\n- `RecordDetailView` 复用同一推导:命名分组标题走 `sectionLabel` i18n 约定(`{ns}.objects.{objectName}._sections.{key}.label`),未分组剩余字段仍保留 primary/\"更多详情\" 折叠拆分,不破坏现有\"更多详情\"按钮体验。\n\n**分区来源优先级:** 显式 sections(`detail.sections` ?? `views.form.sections`)> `fieldGroups` 推导 > 自动两段式兜底。\n\n## 问题二:详情提示写在 spec 不认的键上\n\nconsole 此前从 `views.detail.highlightFields`、`views.form.sections`、顶层 `stageField` 读取提示,但 `@objectstack/spec` 的 `ObjectSchema.create()` 对这些键直接抛错、`safeParse` 静默剥离——即用户按文档写了也到不了运行时。spec 里顶层 `detail` 块是 passthrough(可写),所以:\n\n- 所有详情提示优先读 `detail.*`:`detail.stageField`(string 指定 / `false` 关闭,#2065)、`detail.highlightFields`(支持 `string` 或 `{name}` 条目,畸形条目丢弃)、`detail.sections`、`detail.sectionGroups`、`detail.useFieldGroups: false`(关闭 fieldGroups 推导的逃生门)。\n- 旧键(`views.*`、顶层 `stageField`/`highlightFields`)全部保留为回退,零破坏。\n\n## ⚠️ 行为变化(release note)\n\n已声明 `fieldGroups` 的对象,详情页会从自动两段式变为按分组渲染。逃生门:`detail: { useFieldGroups: false }`。\n\n## 测试\n\n- plugin-detail synth 新增 19 个测试(detail.* 提示优先级/回退、`deriveFieldGroupDetailSections` 各分支、`resolveDetailSections` 优先级、`buildDefaultPageSchema` 集成含 `detail.stageField: false` 去掉 record:path),全部通过;synth 定向套件 73/73。\n- app-shell 全量:123 文件 / 955 用例全绿。\n- `turbo type-check`(plugin-detail + app-shell)通过;`turbo build`(两条依赖链 29 个任务)通过。\n- 本 worktree 有 7 个 plugin-detail 测试套件因 `components/dist` 解析失败——已用 `git stash` 在干净树上复现同样 7 个套件失败,属预置环境问题,与本次改动无关。\n\n## 后续(不在本 PR)\n\n- 两个抽屉(plugin-detail / plugin-dashboard 的 `RecordDetailDrawer`)的分组渲染,见 #2148。\n- 上游 spec 可考虑把 `detail.highlightFields`/`detail.stageField`/`detail.sections` 收进强类型(#2148 待确认 Q7)。\n\nCloses #2065"
+}

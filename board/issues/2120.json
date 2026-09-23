@@ -1,0 +1,33 @@
+{
+  "number": 2120,
+  "kind": "pull_request",
+  "title": "refactor(types): derive more view-configs from spec + ratchet against new hand-mirrors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "package: types"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T15:09:53Z",
+  "updated_at": "2026-06-30T15:19:49Z",
+  "closed_at": "2026-06-30T15:19:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-30T15:19:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2120",
+  "body": "## What\n\nContinues the spec single-source cleanup (after #2119's `userActions`). Two parts:\n\n**1. Convert hand-written inline mirrors → spec types** in `objectql.ts`:\n| field | before | after |\n|---|---|---|\n| `selection` | `{ type: 'none'\\|'single'\\|'multiple' }` | `SelectionConfig` |\n| `pagination` | `{ pageSize: number; pageSizeOptions?: number[] }` | `PaginationConfig` |\n| `appearance` | `{ showDescription?; allowedVisualizations?: string[] }` | `Partial<AppearanceConfig>` |\n\n`selection`/`pagination` were **provably safe** — a sibling interface in the *same file* already used the spec type and compiled; this just fixes the inconsistency. `appearance` narrows `allowedVisualizations` to the spec's visualization enum (more correct) — full workspace type-check is clean, no consumer breaks.\n\n**2. A lint ratchet** so hand-mirrors can't creep back: local rule `object-ui/no-inline-spec-config` (scoped to `objectql.ts`, error-level — same pattern as the existing `no-synthetic-event-trigger`). A spec-backed view-config field must reference its spec type; a bare inline `{ … }` is flagged. A type ref / `Partial<X>` / `Partial<X> & { ext }` (the transitional pattern) is fine.\n\n## Why\n\n`objectql.ts` literally states **\"Never Redefine Types. ALWAYS import them.\"** — a hand mirror silently drifts from the spec, which is the bug class behind \"shipped-but-inert\" metadata. Verified the ratchet is live: a deliberate inline `appearance` errors at `object-ui/no-inline-spec-config`; the converted form lints clean.\n\n## Pending (documented in the rule, not a silent skip)\n\nStill inline — convert + add to the rule next; each likely carries objectui extensions so needs its own shape check: `kanban`, `calendar`, `gantt`, `addRecord`, `userFilters`.\n\n## Verification\n\n- `@object-ui/types`/`app-shell`/`plugin-list`/`react` `tsc` clean (the `components` errors on `main` are the pre-existing react-runtime/sucrase breakage, unrelated).\n- Rule unit test: 10/10. `eslint objectql.ts`: 0 errors.\n- No behavior change; **no changeset** (shape-identical types + repo tooling).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

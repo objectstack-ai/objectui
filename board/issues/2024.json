@@ -1,0 +1,33 @@
+{
+  "number": 2024,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): reference fields show [object Object] in inline edit",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T11:24:21Z",
+  "updated_at": "2026-06-27T12:14:36Z",
+  "closed_at": "2026-06-27T12:14:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T12:14:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2024",
+  "body": "## 问题\n\n点开右侧记录详情抽屉 → 点编辑字段进入行内编辑后,引用类字段(如**所属项目**、**制作工厂**)的值显示成了字面量 `[object Object]`。\n\n## 原因\n\n行内编辑模式(`DetailSection.tsx`)不复用表单的字段控件注册表,而是手写各类型编辑器,且只特判了 `select`/`boolean`/`date`/`number`。其余类型落到通用 `<input value={String(value)}>`。\n\n引用字段的值由服务器 `$expand` 成嵌套记录对象 `{_id, name, ...}`,`String({...})` 即渲染成 `[object Object]`。(只读模式用的是另一套能识别对象的渲染器,所以不受影响。)\n\n## 改动\n\n- **DetailSection.tsx** — 引用字段(`lookup`/`master_detail`/`tree`/`user`/`owner`,或任意带 `reference_to` 的字段)改走真正的 `LookupField`/`UserField` 选择器,通过新增的 `extractLookupId` 从(可能已展开的)值里取出 id 喂给控件;通用 `<input>` 兜底用 `coerceToSafeValue` 转换,杜绝 `[object Object]` 再泄漏。\n- **SectionGroup.tsx / DetailView.tsx** — 把 `dataSource` 透传下去,使选择器在编辑时能解析/显示关联记录名。\n- 新增 **DetailSection.inlineEdit.test.tsx** 回归测试。\n\n## 验证\n\n- `@object-ui/plugin-detail` 类型检查通过\n- 测试全过(123 个,含新增用例)"
+}

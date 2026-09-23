@@ -1,0 +1,30 @@
+{
+  "number": 2176,
+  "kind": "pull_request",
+  "title": "feat(home,studio): builder cover on Home + builder→app bridge",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T05:19:11Z",
+  "updated_at": "2026-07-03T05:23:22Z",
+  "closed_at": "2026-07-03T05:19:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T05:19:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2176",
+  "body": "Implements the settled journey model (Airtable reference): **Home is the cover, the app is the published front-end, /studio is the 设计界面**. The classic Studio app is intentionally NOT removed in this step (owner direction).\n\n## What\n\n- **Home builder cover** (admins only), above \"Your apps\": **Build an app** → `/studio` (pick/create a writable package) · **Start with a template** → marketplace. Airtable-style guided creation on the platform cover.\n- **打开应用 bridge** in the `/studio` top bar (Airtable's Launch): when the package ships an app, one click opens its published front-end `/apps/<name>` in a new tab. Resolved via `client.list('app', {packageId})`, refreshed after each package publish. App→builder reverse bridge tracked separately (needs app↔package affordance in the running shell).\n\n## Verified in-browser (fresh backend :3011, worktree vite)\n\n- Home shows the two cards; \"Build an app\" lands on `/studio` ✓\n- Opening com.example.showcase in the builder shows 「打开应用」, tooltip 「打开应用「Showcase」(发布后的前端界面)」, and the intercepted `window.open` target is **`/apps/showcase_app`** ✓\n- End-user view unchanged (cards are admin-gated) ✓\n\n`type-check`: 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

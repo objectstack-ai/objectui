@@ -1,0 +1,30 @@
+{
+  "number": 2202,
+  "kind": "pull_request",
+  "title": "fix(build): exclude node_modules from turbo tsbuildinfo outputs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T01:08:33Z",
+  "updated_at": "2026-07-04T01:26:03Z",
+  "closed_at": "2026-07-04T01:26:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T01:26:01Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2202",
+  "body": "## Problem\n\n`pnpm build` fails at `@object-ui/runner`:\n\n```\nRolldown failed to resolve import \"@object-ui/i18n\" from \".../packages/react/src/index.ts\".\n```\n\nThe pnpm workspace symlinks under `packages/*/node_modules/@object-ui/*` had degraded from proper symlinks into **empty real directories** containing only `tsconfig.tsbuildinfo` (each with an `.ignored_*` twin). With no `package.json`/`dist`, rolldown can't resolve `@object-ui/i18n` (and `@object-ui/data-objectstack`, etc.), and the runner's Vite build — which aliases `@object-ui/react` to source — dies on the first unresolved re-export.\n\n## Root cause\n\nThe build `outputs` glob `**/*.tsbuildinfo`, added in #1767 to cache composite `tsc` build info, also matches `tsconfig.tsbuildinfo` files reachable **through** the pnpm workspace symlinks — e.g. `packages/react/node_modules/@object-ui/core/node_modules/@object-ui/types/tsconfig.tsbuildinfo`. Turbo caches those paths and, on cache **restore**, recreates them as real directories, clobbering the symlinks. The corruption compounds build-over-build (cache artifacts even captured `.ignored_core` from a prior round).\n\nVerified directly from the local turbo cache artifacts — they were packed full of deeply-nested `node_modules/@object-ui/**/tsconfig.tsbuildinfo` entries.\n\n## Fix\n\nAdd `!**/node_modules/**` to the build `outputs` so turbo never captures or restores anything under `node_modules`, while still caching the package-root `tsconfig.tsbuildinfo` that #1767 relies on.\n\n## Validation\n\nCold build in a fresh worktree (healthy symlinks) with the fix:\n\n- **44/44** build tasks succeeded\n- All `@object-ui/*` workspace symlinks intact after the build (no clobbering)\n- **0** `.ignored_*` directories created\n- **0** `node_modules/**tsbuildinfo` entries across all 44 new cache artifacts (only package-root `tsconfig.tsbuildinfo` is captured, e.g. `packages/auth/tsconfig.tsbuildinfo`)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

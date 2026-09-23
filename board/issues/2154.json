@@ -1,0 +1,33 @@
+{
+  "number": 2154,
+  "kind": "pull_request",
+  "title": "fix(form): 新建/编辑弹窗渲染对象字段分组;分组表单自动布局对齐平铺路径",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T10:15:42Z",
+  "updated_at": "2026-07-02T15:06:56Z",
+  "closed_at": "2026-07-02T15:06:54Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-02T15:06:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2154",
+  "body": "Closes #2152. 相关存量缺陷:#2153。\n\n## 问题\n\n对象声明了 `fieldGroups[]` + `fields[].group` 后:\n\n1. 全局\"新建\"弹窗(ModalForm)**完全不渲染分组** —— 平铺一坨。\n2. 全页创建/编辑(ObjectForm 分组路径)绕过自动布局:不过滤系统字段、永远单列、细线标题,表单又长又丑。\n\n## 修复\n\n**ModalForm(核心)**\n- 无显式 `sections`/`customFields` 时,从 `objectSchema.fieldGroups` + `field.group` 推导分组(复用 `deriveFieldGroupSections`),并做与平铺路径完全对等的自动布局:过滤系统/自动生成字段、按字段数推断列数、宽字段(textarea/markdown 等)跨整行、多列时弹窗自动升级为 xl 宽度。显式 form view sections 永远优先,行为不变。\n- 推导出的分组渲染为**单个 form + 虚拟 `section-divider` 标题字段**(DrawerForm 同款模式),所有分组共享一个 react-hook-form 实例。不能复用现有 sections 渲染:那条路径是\"每 section 一个 `<form>`\"且共享 `formId`,提交按钮只关联第一个 form,**第 2+ 组的值静默丢失**(实测:第二组必填 `status` 界面已选值、POST body 缺失 → 后端 VALIDATION_FAILED)。该存量缺陷波及显式多 section 弹窗,另在 #2153 跟踪。\n- 平铺字段构建时带上 `Field.group`;分组标题走 `sectionLabel` i18n。\n\n**ObjectForm 分组路径**\n- 补齐自动布局对等:系统字段过滤、列数推断、`applyAutoColSpan`、容器查询网格类。\n\n## 真实环境验证(console dev :5180 + hotcrm 后端 :4001,非 app-shell)\n\n- `crm_campaign_member`(声明 basic/response 两个 fieldGroups、无 form view):\n  - 修复前:弹窗平铺无分组;(中途版本\"每组一个 form\"时)跨组提交丢 `status`,后端 400。\n  - 修复后:弹窗渲染 \"Basic Information\" / \"Response Tracking\" 两组标题、两列布局、xl 宽度,无长滚动;跨组填 Campaign + Lead + Status 后提交成功,POST body 为 `{\"crm_campaign\":…,\"crm_lead\":…,\"status\":\"sent\"}`,记录入库、列表可见、无 console 报错。\n- 回归:`crm_lead` 显式 \"Quick Lead Creation\" form view —— 渲染(卡片、双列)与提交行为均不变;单 `<form>`。\n- 全页 `:objectName/new`(ObjectForm 分组路径):分组标题 + 双列,系统字段不再出现。\n\n## 测试\n\n- 新增 `modalFieldGroups.test.tsx`:分组标题渲染、**单 `<form>` 结构断言**、**跨组提交 payload 断言**(钉死 #2153 那类丢数据回归)、显式 sections 优先。\n- plugin-form:155/155 通过;turbo type-check(--force)全绿。\n\n## 备注\n\n- 部署侧需发布新版 console 才能吃到本修复(现网跑的是已发布的 @objectstack/console)。"
+}

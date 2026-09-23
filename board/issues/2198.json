@@ -1,0 +1,30 @@
+{
+  "number": 2198,
+  "kind": "pull_request",
+  "title": "fix(studio): authorable Automations + Interfaces-nav in a fresh package",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T20:01:29Z",
+  "updated_at": "2026-07-03T20:05:58Z",
+  "closed_at": "2026-07-03T20:02:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-03T20:02:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2198",
+  "body": "## What\n\nDogfooding a brand-new package end-to-end in the browser (design objects → automations → interfaces → publish → use) surfaced two **blocking dead-ends** in the pillar Studio. Both are fixed here, plus a small i18n gap.\n\n### 1. Automations pillar couldn't create a flow\nA package with zero flows rendered an endless `加载中…` (loading conflated with empty) and had **no create affordance** — automations could never be authored.\n\n- Track a `listed` flag → real empty state `还没有自动化 — 点「新建」开始`.\n- Add a `+ 新建` inline creator (label + identifier) that saves a minimal, valid `start → end` autolaunched flow skeleton as a draft and opens it in the flow designer.\n\n### 2. Interfaces nav items couldn't be bound to a target — and silently failed to save\nSelecting a nav item showed no inspector, and the shape the editor produced (`{ label, object }`, no `id`/`type`) **failed the app spec's navigation union** (`navigation.N: Invalid input`), so the draft never persisted and the published app navigation stayed empty.\n\n- Render a `StudioNavItemInspector` in the right panel for `navSel`, with a business-friendly **object picker** populated from the package's published ∪ draft objects.\n- Emit a **spec-valid `ObjectNavItem`** `{ id (snake_case), type: 'object', objectName, label }`.\n- `doNavSave` drops still-unbound placeholders and backfills a snake_case id, so one blank item can't fail the whole save.\n\n### 3. Home builder-cover i18n\nFills in `home.build.*` / `home.template.*` (`en`/`zh`) so the \"Build an app\" / \"Start with a template\" cards resolve real strings.\n\n## Verification\n- Browser E2E: designed 3 related objects (with select + lookup fields) → created a flow → bound nav to objects → **user-initiated atomic publish** → standalone `/apps/recruiting_app` renders a 3-item sidebar (申请/职位/候选人) and the application list with **resolved lookups** (张三 / 高级前端工程师 / 投递).\n- `@object-ui/app-shell` type-check clean; 964/964 app-shell tests pass.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2020,
+  "kind": "pull_request",
+  "title": "feat(console): Build Doctor drawer — self-serve 'what actually landed?' for AI builds",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T06:22:23Z",
+  "updated_at": "2026-06-27T07:01:58Z",
+  "closed_at": "2026-06-27T07:01:57Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-06-27T07:01:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2020",
+  "body": "## Why\n\nThe AI build chat renders the agent's **self-report** (\"已搭好\"), never what actually landed. A build that silently drops a change — e.g. an approval flow proposed as a `确认修改` card that no later turn applied — reads as success while the artifact never reaches `sys_metadata`. Today, diagnosing that means a founder hand-querying two databases with production credentials.\n\nThis adds the **browser-side, self-serve** half: a **Build Doctor** drawer.\n\nPairs with the cloud server endpoint [`GET /api/v1/ai/conversations/:id/debug`](https://github.com/objectstack-ai/cloud/pull/610) (service-ai).\n\n## What\n\nA Build Doctor button (🐛) appears in the build page header **for build-agent conversations only**. It opens a right-side `Sheet` that calls the debug endpoint and renders the reconciliation:\n\n- **Verdict** — all attempted changes live, or N discrepancies.\n- **Proposed but never applied** — a `changes_proposed` confirm card that evaporated (the headline failure the chat can't show).\n- **Claimed but missing** — said applied, isn't live.\n- **Tool errors**, **de-noised verify_build** (platform `sys_*/cloud_*/ai_*` hidden from the verdict), **pending actions**, and a collapsed **timeline**.\n\nRead-only; same-origin cookie auth (mirrors `fetchConversation`); no DB credentials.\n\n> Named distinctly from `useReconcileOnError` (ADR-0013 D2 stream-failure recovery) — this reconciles the **build** against live metadata, not a transport drop.\n\n## Files\n- `buildDebugApi.ts` — typed client + report types.\n- `BuildDebugDrawer.tsx` — the drawer + rendering.\n- `AiChatPage.tsx` — Build Doctor button (`showDebug = isBuildAgent`) threaded through `ChatPane`, drawer rendered alongside `ShareDialog`.\n\n## Test\n- `type-check` clean; `app-shell` suite green (**929**), incl. 2 new drawer tests (orphaned-proposal render + endpoint-call assertion).\n\n## Rollout\n- Needs the cloud service-ai debug endpoint deployed; absent it, the drawer shows an empty/\"not available\" state (fails soft).\n- After merge: bump `.objectui-sha` in cloud to pin this commit.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

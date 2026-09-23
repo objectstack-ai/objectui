@@ -1,0 +1,33 @@
+{
+  "number": 2211,
+  "kind": "pull_request",
+  "title": "fix(app-shell): block record-scoped toolbar actions with zero rows selected",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T04:25:03Z",
+  "updated_at": "2026-07-04T04:51:27Z",
+  "closed_at": "2026-07-04T04:51:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-04T04:51:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2211",
+  "body": "Fixes #2210 — P0-27 of the showcase console dogfood audit.\n\n## Problem\n\nA flow/script action that also mounts on list rows (`locations` includes `list_item`, e.g. the showcase `BulkReassignAction`) has no record context when launched from the list toolbar with **nothing selected**. The run triggered anyway: the screen-flow wizard opened, collected user input, and died at its first record-bound node:\n\n```\nNode 'apply' failed: update_record(showcase_task) failed: Update requires an ID or options.multi=true\n```\n\n## Fix (two halves — both required)\n\n1. **`useConsoleActionRuntime`** — `flowHandler` and `serverActionHandler` now block zero-selection launches of record-scoped actions with an actionable error (\"This flow/action runs on a single record — select a row first.\"), mirroring the existing multi-selection guard. `isRecordScoped()` = the action declares a row/record location (`list_item`, `record_header`, `record_more`, `record_section`). Pure object-level toolbar actions (`locations: ['list_toolbar']` only) keep triggering with no record — unchanged.\n\n2. **Action renderers (`action-button` / `action-icon` / `action-menu` / `action-group`)** — forward the `locations` declaration in their `execute()` payloads. They build allow-list payloads that silently dropped `locations`, so the runtime had no way to tell the two shapes apart. Caught live: the handler fix alone passed unit tests but did not change browser behavior.\n\n## Verified\n\n- Unit: 4 new cases (flow + script × block/pass-through); `useConsoleActionRuntime.test.tsx` 23/23; full app-shell suite 973/973; `action-bar` 18/18; full workspace build 44/44.\n- Live (HMR console against the showcase server):\n  - 0 rows selected + toolbar \"Reassign…\" → single red toast \"select a row first\", **no wizard, no flow run** (pre-fix: wizard opened then crashed at `apply`);\n  - 1 row selected + toolbar → wizard → submit → single green \"Done\", record updated (API-verified);\n  - row-menu (`list_item`) launch → wizard → submit → single green \"Done\" — unchanged.\n\nSibling symptom P0-35 (double toast on row-level launch) was verified already fixed on current main during the same session — no change needed."
+}

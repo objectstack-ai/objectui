@@ -1,0 +1,33 @@
+{
+  "number": 1987,
+  "kind": "pull_request",
+  "title": "feat(console): hide the AI surface at runtime when the server serves no AI (Community Edition)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T17:02:09Z",
+  "updated_at": "2026-06-24T18:04:37Z",
+  "closed_at": "2026-06-24T18:04:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-06-24T18:04:35Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/1987",
+  "body": "## Why\n\nThe in-UI AI Q&A `ask` agent moved out of the open-source framework into the closed cloud package (`@objectstack/service-ai-studio`). A self-host **Community Edition** runtime = framework + this MIT console, **without** the cloud AI package → it serves **no** `ask`/`build` agent.\n\nThe console is supposed to hide its AI UI via runtime server-capability gating, but several entry points rendered **unconditionally**, and direct navigation to `/ai` could dead-end on an agent-less echo chat.\n\n**Founder decision honored:** runtime, server-pushed gating only — **no** `VITE_EDITION` build flag, **no** tree-shake, **no** relicensing. The AI code stays MIT.\n\n## Gate on the agent catalog, not discovery (the key correctness point)\n\nThe `ask`/`build` agent **personas** moved to cloud `service-ai-studio`, but the open-source framework keeps a **headless** `@objectstack/service-ai` that still `registerService('ai')`s. So a CE runtime reports `services.ai` as **available** in discovery while the **agent catalog is empty**.\n\nVerified live against a fresh framework backend:\n```\nGET /api/v1/discovery → services.ai: { enabled: true, status: \"available\" }\nGET /api/v1/ai/agents → { \"agents\": [] }\n```\n\nGating on `isAiEnabled` (discovery) would leave the FAB / \"Ask AI\" affordances **visible with nothing to talk to** — a dead end. So every AI entry point now gates on a **non-empty agent catalog** (`GET /api/v1/ai/agents`) — the real \"is there an agent to answer?\" signal, and exactly what the Home CTAs already used.\n\n## What changed\n\n| Entry point | Before | After |\n|---|---|---|\n| Floating chat FAB | gated on `isAiEnabled` (discovery), duplicated in 2 layouts | gated via shared `useAiSurfaceEnabled()` (agent catalog) |\n| `/ai*` routes | **unconditional** → echo chat | `RequireAiSurface` guard → redirect to `/home` when no agent |\n| Top-bar AI link (AppHeader) | **unconditional** dead link | hidden when no agent |\n| Designer \"Ask AI\" buttons (ObjectFormCanvas ×2) | **unconditional** → armed a hidden FAB | hidden when no agent |\n| AiChatPage with empty catalog | echo chat (`autoResponse`) | graceful \"AI unavailable\" state (Back-to-home + Retry) |\n| Home \"Build with AI\" / \"Ask AI\" CTAs | already per-agent gated | unchanged (verified) |\n\n### New shared primitives\n- `useAiSurfaceEnabled()` (+ `resolveAiApiBase()`) — single source of truth, driven by the agent catalog; handles the \"fetch not started yet\" frame so the route guard doesn't flash a redirect. De-dupes the FAB checks and HomePage's API-base resolver.\n- `RequireAiSurface` — route guard, exported from app-shell alongside `RequireOrganization` / `SystemRedirect`.\n\n## Verification\n\n**Live, against a real framework runtime** (browser):\n- **CE-shaped (services.ai *available*, empty agent catalog):** FAB hidden, top-bar AI link hidden, Home AI CTA hidden, `/ai/ask` → **redirects to `/home`** (no chat, no echo). This is the exact case `isAiEnabled`-gating would have failed.\n- **Agent served (`showcase_assistant`):** FAB shown, top-bar AI link shown, `/ai` → real chat (`/ai/showcase_assistant/conv_…`), not the unavailable state.\n\n**Build & tests:** app-shell `tsc` clean; console full `tsc && vite build` clean; full app-shell suite green (**872 passing**), incl. new tests:\n- `useAiSurface.test.ts` — catalog → enabled/loading mapping, incl. the not-yet-fetched latch and resolved-empty → redirect.\n- `RequireAiSurface.test.tsx` — renders when agents served, redirects to home when none, waits while the catalog resolves.\n- `ObjectFormCanvas.test.tsx` — both \"Ask AI\" buttons hide when no agent; still work when present.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

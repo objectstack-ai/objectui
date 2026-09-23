@@ -1,0 +1,30 @@
+{
+  "number": 2278,
+  "kind": "issue",
+  "title": "master-detail 表单新建记录:弹两条成功提示 + 取消按钮显示英文 Cancel",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T09:09:57Z",
+  "updated_at": "2026-07-05T09:53:17Z",
+  "closed_at": "2026-07-05T09:53:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2278",
+  "body": "## 问题\n\n带明细子表(master-detail / subforms)的对象(如「线索」含产品明细)在**新建记录**弹窗里,保存后有两处体验缺陷:\n\n**1. 弹出两条成功 toast**\n- 一条写死英文 `Created`\n- 一条本地化 `线索创建成功`\n\n**2. 底部操作栏的取消按钮显示英文 `Cancel`**(而提交按钮是本地化的「创建」)\n\n普通(无明细)对象走 `ModalForm` 自己的页脚,不复现;只有 master-detail 表单走 `MasterDetailForm` 自带的操作栏才暴露。\n\n## 根因\n\nmaster-detail 路径这套自带 UI 与外层 host(app-shell)的约定没对齐:\n\n- **双 toast**:flat `ObjectForm` 的契约是「有 `onSuccess` 就不自弹默认 toast,交给 host」(`ObjectForm.tsx`),而 `MasterDetailForm.handleSaved` 反过来——**既自弹 `Created`,又调 `onSuccess`**。app-shell 的 `onSuccess` 一路到 `crud_success` handler 又弹一条本地化提示 → 撞车。\n- **英文 Cancel**:`MasterDetailForm` 的底部操作栏把取消按钮文案**写死为英文 `Cancel`**,既没接 i18n 也没有 `cancelText` 参数;host 也没把取消文案传下去。提交按钮正常是因为 `submitText` 被透传了。\n\n相关位置:\n- \\`packages/plugin-form/src/MasterDetailForm.tsx\\` — \\`handleSaved\\` 的内置 toast、操作栏的 \\`Cancel\\` 字面量\n- \\`packages/plugin-form/src/{ModalForm,DrawerForm,ObjectForm}.tsx\\` — subforms 分支未透传 \\`cancelText\\`\n- \\`packages/app-shell/src/console/AppContent.tsx\\` — \\`crud_success\\` handler 弹本地化提示\n\n## 方案\n\n让 `MasterDetailForm` 与 flat `ObjectForm` 契约一致:\n\n1. **双 toast**:`handleSaved` 的内置成功 toast 加 `if (!schema.onSuccess)` 兜底——host 提供 `onSuccess` 时由 host 负责提示,组件不再重复;无 host 场景保留内置 toast,不会静默。\n2. **英文 Cancel**:给 `MasterDetailForm` schema 增加 `cancelText`,操作栏改用 `{schema.cancelText ?? 'Cancel'}`;`ModalForm`/`DrawerForm`/`ObjectForm` 的 subforms 分支像 `submitText` 一样把本地化的取消文案透传下去。\n\n补充回归测试覆盖「有 onSuccess 不双弹」与「cancelText 本地化」。\n\n## 遗留\n同操作栏的 `Saving…`(提交中短暂显示)仍硬编码英文,可后续一并本地化。"
+}

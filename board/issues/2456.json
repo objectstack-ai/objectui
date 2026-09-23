@@ -1,0 +1,30 @@
+{
+  "number": 2456,
+  "kind": "issue",
+  "title": "plugin-gantt: 删除确认弹窗未国际化;前置/后置任务候选列表过滤反了且不支持搜索",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T14:08:34Z",
+  "updated_at": "2026-07-13T14:48:19Z",
+  "closed_at": "2026-07-13T14:48:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2456",
+  "body": "## 问题(真机截图见 steedos-labs/os-project-titanwind-ehr#173 场景)\n\n### 1. 删除确认弹窗硬编码英文\n`ObjectGantt.tsx` 的删除确认 AlertDialog 全部是硬编码英文:\"Delete this task?\"、\"… will be permanently removed. This action cannot be undone.\"、\"Cancel\"、\"Delete\"、\"Deleting…\"。中文环境下整个甘特图都是中文,唯独这个弹窗是英文。抽屉兜底标题 `'Task Details'` 同病。\n\n### 2. 「添加前置任务/添加后置任务」候选列表过滤逻辑反了\n`GanttView.tsx` 的 dep picker 候选过滤只做了两条:排除自己、排除 `type === 'summary'`。这在父子层级模型下恰好全反:\n\n- **可连线的行被排除**:父行(如排班计划,`gantt_type='summary'`,可拖拽、可连线、依赖字段就落在它身上)一个都不出现在候选里;\n- **不可连线的行全在列表里**:`type='group'` 的纯树表头(项目/产品,无条形、不可排程)和 `locked` 仅查看行(历史派工单)全部被列出。锁定行的条上标题按规格是执行责任人姓名,于是列表里出现一排重复的\"Dev Admin\",完全没法用。\n\n### 3. 候选列表不支持搜索\n任务一多(几十上百条)纯滚动列表无法定位,需要顶部搜索框过滤。\n\n## 方案\n\n- 删除弹窗与抽屉兜底标题全部走 `useGanttTranslation`,新增 `gantt.delete.title/body/cancel/confirm/deleting`、`gantt.drawer.fallbackTitle` 键,`packages/i18n` en/zh 词典同步补齐。\n- 候选过滤改为:排除自己、排除 `type==='group'`、排除 `locked`、排除已存在同向连线;**纳入 summary**(汇总条本就支持拖拽/group move,依赖对它有效)。\n- picker 顶部加搜索输入框:自动聚焦、大小写不敏感按标题过滤,placeholder 走 i18n(`gantt.menu.searchTasks`),无命中显示\"无可用任务\"。\n\n真机 UI 实测截图 + 测试报告随后发本 issue。"
+}

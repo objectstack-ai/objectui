@@ -1,0 +1,30 @@
+{
+  "number": 2454,
+  "kind": "issue",
+  "title": "甘特:汇总条被子级 rollup 覆盖导致拖动后回弹;api provider 下悬浮框裸吐机器值/ISO 日期",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T13:55:23Z",
+  "updated_at": "2026-07-13T14:48:39Z",
+  "closed_at": "2026-07-13T14:48:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2454",
+  "body": "## 问题(制造排班甘特真机复现,4 层树 项目→产品→排班计划→派工单)\n\n### ① 计划(summary)条拖动后自动弹回\n- 计划行有子派工单 → 渲染为 summary 条;rows 计算对有子行的任务**无条件做 post-order rollup**(取子级 min/max 日期 + 工期加权进度),任务**自身的 start/end 被完全忽略**。\n- 拖动计划条 → PATCH 自身日期成功持久化 → 写后回读(silent reload)→ 再次 rollup 到未变的(锁定)派工单区间 → **条形弹回原位**。每次拖动都在不可见的自身日期上静默累积漂移(实测库里已漂到 09-09,条上仍显示 08-14)。\n- 对「派工单是锁定历史、计划排期以计划自身日期为准」的场景,rollup 语义整个不成立。\n\n### ② api provider 下悬浮框显示英文机器值和裸 ISO 日期\n- `ObjectGantt.formatFieldValue` 完全依赖 `objectSchema.fields` 的字段定义(select options→label、date/datetime→格式化);\n- `data.provider='api'` 时 getObjectSchema 返回空壳 → 无 def → 一律 `String(value)`:悬浮框出现 `层级 dispatch`、`状态 completed`、`2026-08-14T08:00:00.000Z`。\n\n## 方案\n1. gantt 配置新增 `summaryExtent: 'children' | 'self'`(默认 children,零破坏):`'self'` 时汇总条按记录自身日期/进度渲染;无自身日期的记录(纯分组层级,新增 `GanttTask.hasOwnDates` 标记)仍回退 rollup;self 模式下子任务拖动不再实时拉伸祖先条。注意 `getGanttConfig` 顶层挑键清单也要加(console 的 ListView 平铺传参,漏挑=静默丢失,与 #2447 的 data 透传同一类坑)。\n2. tooltip 两级兜底:无字段 def 时先查同字段 `quickFilters.options` 的 value→label 映射;仍无类型时对 ISO 日期/时间串自动走 formatDate/formatDateTime。"
+}

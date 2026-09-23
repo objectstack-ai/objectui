@@ -1,0 +1,32 @@
+{
+  "number": 2353,
+  "kind": "pull_request",
+  "title": "fix(plugin-gantt): 加高条高、进度/长度拖拽分层、点击条不再弹详情 (#2352)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T01:30:10Z",
+  "updated_at": "2026-07-10T02:16:50Z",
+  "closed_at": "2026-07-10T02:16:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-10T02:16:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2353",
+  "body": "Closes #2352\n\n## 改动(参考 dhtmlx gantt)\n\n均在 `packages/plugin-gantt/src/GanttView.tsx`:\n\n1. **条加高到 ~27px**:实测 28px(取偶数,保持 `barHeight = rowHeight − 2·barTop` 的精确居中不变量,避免依赖箭头出现半像素错位)。40px 行由 24 → 28px。\n2. **拖长度与拖进度分层**:\n   - 左右两端的宽度(resize)手柄改为只占**上半段**(`top:0, height≈14`)。\n   - 进度手柄仍在**下半段**。\n   - 上 ~14px 拖长度、下 ~14px 拖进度,进度到 0%/100% 落在条端时也不再与 resize 手柄抢同一块像素。\n3. **点击条不再弹右侧详情**:任务/汇总/里程碑三种条的单击改为**仅选中**,不再触发 `onTaskClick`。详情入口保留:左侧任务名列点击、右键菜单「查看详情」、键盘 Enter。\n\n## 验证\n\n- Showcase(`gantt-demo` @ :5199)实测:\n  - 条几何 `barH=28`;resize 手柄 `top≈1,h=14`(上段),进度手柄 `top=14,h=13`(下段)——无重叠。\n  - 点条:未触发 `onTaskClick`、无 Drawer。\n  - 点左侧任务名:仍触发 `onTaskClick` 并高亮选中。\n- `pnpm --filter @object-ui/plugin-gantt test`:**183 个可运行用例全部通过**(含 resize/拖拽、进度、树居中、只读、分组)。\n- `type-check`:`GanttView.tsx` 无类型错误。\n\n> 说明:仓库里另有 2 个 `ObjectGantt.*` 集成测试文件在本 worktree 报红,原因是未构建的 `@object-ui/permissions` 依赖链(stash 掉本改动后同样报红),与本 PR 无关。"
+}

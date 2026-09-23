@@ -1,0 +1,30 @@
+{
+  "number": 2381,
+  "kind": "issue",
+  "title": "Access pillar explain panel cannot explain ANOTHER user — the '用户' field is hardcoded to the current caller",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-10T10:23:56Z",
+  "updated_at": "2026-07-10T14:22:32Z",
+  "closed_at": "2026-07-10T14:22:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2381",
+  "body": "Dogfooding the new \"why can this user access?\" panel (#2375) as a business admin, on a live showcase boot.\n\n## What\n\nThe panel's 用户 field renders the static text 「我(当前调用者)」— there is no way to pick a different user. But the whole ADR-0090 D6 use case is the ADMIN SIMULATOR (\"view as 张三\"): framework's `GET/POST /api/v1/security/explain` accepts `userId`, and the service enforces the full D12 authorization for it (`manage_users` OR a delegated `adminScope` whose BU subtree covers the target — verified working over curl on the same boot). Today an admin debugging a user's permission problem still has to drop to curl.\n\n## Suggested shape\n\n- A user picker (search by name/email over `sys_user`, like the record-share dialog) replacing the static label; keep 「我」 as the default.\n- Pass the picked id as `userId`; surface the endpoint's 403 (`PermissionDeniedError` for a non-covering caller) as an inline explanation — that 403 path is itself D12 behavior worth showing.\n- The response's `principal` card already renders positions/permission sets, so no schema work is needed.\n\nFramework refs: rest-server `registerSecurityExplainEndpoints`, `SecurityPlugin.explainAccessForCaller`, ADR-0090 D6/D12."
+}

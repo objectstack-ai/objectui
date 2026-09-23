@@ -1,0 +1,32 @@
+{
+  "number": 2483,
+  "kind": "pull_request",
+  "title": "feat(console-ai): mobile chat sheet bridges to full-page /ai — cleanly (ADR-0057 UX #2477)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T05:26:41Z",
+  "updated_at": "2026-07-14T05:56:13Z",
+  "closed_at": "2026-07-14T05:56:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T05:56:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2483",
+  "body": "#2477 item 1. Restores the mobile path to conversation history + share, without the bug that first removed it.\n\n## What\nThe mobile chat bottom sheet gets a **maximize** button back. It opens full-page `/ai`, which on mobile **already** carries the conversation-history sidebar and share — so the sheet doesn't grow a second copy of either; it just bridges to the mobile-native full surface. This is the missing way for phone users to switch / resume threads.\n\n## Why deferred navigation\nAn earlier cut navigated straight from the click and tore the still-**open** Radix sheet down mid-close — the route change unmounts the console synchronously, so the sheet's scroll-lock / overlay never released and `/ai` landed **blank-and-frozen** (*\"tap maximize → the chat's just gone\"* — the bug that first removed this button). The fix: the click only **closes** the sheet; a `useEffect` fires the navigation once `open` has flipped `false` — after Radix released the body on that commit (its child effects run before this parent-level effect) and before the sheet unmounts — so `/ai` lands clean. Both the console sheet (→ `/ai`) and the Studio copilot sheet (→ `/ai/build?package=…`, same thread).\n\nLive Canvas on mobile `/ai` (the beside-chat split has no room on a phone) is tracked separately — #2481.\n\n## Verification\n- `tsc --noEmit` clean; app-shell + `apps/console` build green; `npx vitest run` layout/console-ai/studio: 91 tests green. New: the mobile sheet click closes-then-navigates (never navigates while open; a plain close never navigates).\n- **Live (390px phone viewport, rig):** FAB → sheet with maximize → tap maximize → lands on `/ai/ask/conv_…` (same thread), `sheetGone`, **`body { pointer-events:auto; overflow:visible }`, no leftover overlay** (the blank/frozen bug is gone). `/ai` on mobile: history sidebar opens, share present, collapse-to-dock returns to the exact console page and re-opens the sheet; closing the sheet restores the body cleanly. Screenshot in the review.\n\nRefs #2477 · ADR-0057"
+}

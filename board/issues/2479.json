@@ -1,0 +1,34 @@
+{
+  "number": 2479,
+  "kind": "pull_request",
+  "title": "fix(plugin-gantt): 详情抽屉拉取真实记录与 schema、写回失败错误 toast、锁定行连线菜单禁用",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T04:59:54Z",
+  "updated_at": "2026-07-14T05:25:30Z",
+  "closed_at": "2026-07-14T05:25:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T05:25:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2479",
+  "body": "Closes #2473\n\n## 问题\n\n在 `provider: 'api'` 模式下,甘特图的行数据是端点组合的渲染载荷(条形颜色、排序键、节点类型等),不是业务记录。由此引出三个缺陷:\n\n1. **详情抽屉展示组合行原始载荷**:字段退化为英文大写标签(如 `PLAN_TYPE`),且展示的是渲染字段而非业务字段。组件持有的 `objectSchema` 在 api 模式下是适配器的 `{fields: {}}` 桩,传给抽屉后所有字段标签为空。\n2. **写回失败静默**:拖拽/依赖/删除/行内编辑触发的写请求被服务端拒绝(如 403)时,界面无任何提示,条形回弹但用户不知道原因。`RecordDetailDrawer` 的 `onFieldSave` 还会吞掉异常,导致行内编辑失败看起来像成功。\n3. **锁定行的连线右键菜单可操作**:菜单中的改类型/移除都会改写目标(后继)记录的依赖字段,目标行锁定时服务端必然拒绝,但菜单仍然全部可点。\n\n## 修复\n\n### 1. 抽屉拉取真实记录 + 真实 schema(`ObjectGantt.tsx`)\n- 打开抽屉时,通过上下文 DataSource `findOne` 拉取真实记录,并同时 `getObjectSchema` 拉取该对象的真实元数据 schema(支持 `objectField` 跨对象行);拉取失败或无 DataSource 时回退原始行数据,保证 `value` 内联数据场景不回归。\n- 配置了 `objectField` 但该字段为空的行是端点合成的分组表头(其 id 不是真实记录 id):新增 `isSyntheticRow` 判定,此类行不再打开抽屉,与已有的二维码抑制逻辑对齐。\n- 抽屉内行内编辑的保存,路由到与拉取记录相同的 DataSource 与对象。\n\n### 2. 写回失败错误 toast(`ObjectGantt.tsx`、`RecordDetailDrawer.tsx`、i18n)\n- 新增 `extractServerMessage`:从 `ApiDataSource: HTTP 403 Forbidden — {json}` 形态的错误中解析出服务端 `message`/`error`。\n- 拖拽更新、依赖增删、删除记录的失败路径统一走 `toast.error(t('gantt.writeFailed'), { description: 服务端消息 })`;新增 i18n 键 `gantt.writeFailed`(中英)。\n- `RecordDetailDrawer.onFieldSave` 不再吞异常而是向上抛出,DetailView 得以回滚乐观值并显示失败;删除返回 `false` 也按失败处理(保持抽屉打开)。\n\n### 3. 锁定目标行的连线菜单禁用(`GanttView.tsx`)\n- 连线右键菜单在目标行 `locked` 时:显示锁定提示行(`gantt-link-menu-locked`),4 个类型项 + 移除项全部 disabled 且回调不触发。\n\n## 测试\n\n- 单元测试:plugin-gantt **303 passed**(新增 `ObjectGantt.drawerfetch.test.tsx`、`ObjectGantt.writeerror.test.tsx`、`GanttView.linkmenu.test.tsx`),plugin-detail **186 passed**(新增 `RecordDetailDrawer.capability.test.tsx` 的 rethrow 用例)。\n- 真机验证:console 构建部署到消费项目(os-tianshun-ehr)后 Playwright 实测 **6/6 通过**,含截图 —— 详见 issue 上的[测试报告](https://github.com/objectstack-ai/objectui/issues/2473#issuecomment-4965489390):\n  - 抽屉展示真实记录 + 全中文真实 schema 标签;\n  - 合成分组行不打开抽屉;跨对象行(`objectField`)抽屉正确拉取外部对象记录与 schema;\n  - 服务端 403 → toast 显示「保存失败,已恢复修改前状态 / 仅管理责任人可修改该排班计划」,条形位置回滚 Δx=0;\n  - 锁定行连线菜单提示 + 全项禁用,未发出写请求;未锁定行对照组正常。"
+}

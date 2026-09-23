@@ -1,0 +1,34 @@
+{
+  "number": 2359,
+  "kind": "issue",
+  "title": "[plugin-detail] 相关列表分区不按当前用户对子对象读权限过滤(can(read) 未接线)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T03:49:00Z",
+  "updated_at": "2026-07-16T05:11:23Z",
+  "closed_at": "2026-07-16T05:11:23Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2359",
+  "body": "## 概述\n记录详情页「相关」区对每个主从子对象渲染一个相关列表分区(表头 + grid + 新建按钮),**只看主从关系是否存在,不看当前用户对子对象的读权限**。结果:用户对某子表无任何权限(读 403),控制台仍显示该分区——数据读取被拒后显示「暂无相关记录」,点「新建」保存时 403。\n\n> 数据安全不受影响(对象级权限严格生效),纯 UI/DX 问题。\n\n## 复现(报价单分工填写)\n报价单 5 张子表按分工授权给 3 个角色。以仅授权 1 张子表的角色登录,打开报价:数据层正确隔离(无权子表读 403、0 条),但 **UI 层 5 张分区全部渲染**(含新建按钮)。\n\n## 定位\n- `packages/app-shell/src/.../deriveRelatedLists.ts:98-126` —— 派生相关列表只看 FK,**无读权限判断**。\n- `packages/plugin-detail/src/renderers/record-related-list.tsx:95-109` —— 唯一权限门是 opt-in 静态 `requiredPermissions`,无自动 `can(read)`。\n- 平台已有 `can(object,'read')`(`permissions/usePermissions.ts:47`)**未接线**到相关列表渲染。\n\n## 期望(二选一)\n1. 渲染相关分区时按当前用户对子对象的 `allowRead` 过滤:无读权限则整块不渲染;\n2. 给相关列表配置加 `visibleWhen` / 权限条件。\n\n---\n来源(项目 dogfood):steedos-labs/os-tianshun-mtc#37\n"
+}

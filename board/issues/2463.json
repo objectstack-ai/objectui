@@ -1,0 +1,34 @@
+{
+  "number": 2463,
+  "kind": "pull_request",
+  "title": "feat(plugin-gantt): #2460 交互批次——行单击定位/双击详情、按日吸附拖拽、布局含收纳+筛选、移动端二维码、锁定提示",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T16:33:31Z",
+  "updated_at": "2026-07-14T01:33:21Z",
+  "closed_at": "2026-07-14T01:33:19Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T01:33:19Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2463",
+  "body": "Closes #2460\n\n## plugin-gantt 新增能力(全部通用、由 schema 配置驱动,无任何项目硬编码)\n\n| 能力 | 配置方式 | 行为 |\n|---|---|---|\n| 行单击定位 | 默认开启 | 任务列表行单击选中(`aria-selected`)并滚动图表定位到任务条,带闪烁高亮 |\n| 双击/行内「→」打开详情 | `onTaskOpen` 回调 | 行/条双击、行内箭头、右键\"查看\"、Enter 均触发宿主的详情回调 |\n| 行级对象路由 | `objectField: '<字段名>'` | 树中不同层级的行可属于不同 object,详情/链接按行上该字段的值路由;无值的合成行自动禁用相关入口 |\n| 按日吸附拖拽 | 默认开启 | 周/月/季/年视图下拖拽、伸缩均按整天步进(`unitDelta` 记天数),提交前预览、失败回弹 |\n| 布局持久化扩展 | `persistLayout`(已有) | 保存布局新增:任务列表收纳状态、树展开状态(`collapsedIds`)、快捷筛选选中值(sibling localStorage key,mount 恢复,损坏 JSON 容错) |\n| 二维码/复制链接 | `taskUrl: (task) => string \\| null` | 右键菜单新增\"移动端二维码\"弹窗与复制链接;返回 null 的行菜单项禁用 |\n| 锁定行提示 | `locked`(已有行属性) | 锁定行悬浮显示「🚫 无编辑权限」(i18n `gantt.lockedHint`),拖拽零位移、零请求 |\n| 悬浮字段空值跳过 | `tooltipFields`(已有) | tooltip 按行取值,null/空串/空数组的字段整行不渲染(不再出现\"字段名 —\") |\n\ni18n:新增 key 中英双语齐全(`packages/i18n/src/locales/{zh,en}.ts`)。\n\n## 测试\n\n- 单测:本分支(off origin/main)`pnpm --filter @object-ui/plugin-gantt test` → **23 files / 291 tests 全绿**;新增 `GanttView.enhancements.test.tsx`、`ObjectGantt.persistfilters.test.tsx` 覆盖上述全部能力。\n- 真机 UI 实测:在一个消费本地构建 console 的下游项目里 Playwright 11/11 全绿(悬浮字段、锁定提示+拖拽零请求、行单击/双击、行级对象路由、二维码/复制链接、布局恢复、周视图整日吸附拖拽),操作截图与完整报告见 https://github.com/objectstack-ai/objectui/issues/2460#issuecomment-4960054751 。\n- 注:本地全仓 `turbo build` 中 `@object-ui/site`(经 `@object-ui/fields` 的 TS6059 rootDir 报错,均在 packages/core/fields)失败为 origin/main 既有问题,本分支未触碰这两个包;本 PR CI 全绿。"
+}

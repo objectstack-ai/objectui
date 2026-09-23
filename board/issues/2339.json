@@ -1,0 +1,32 @@
+{
+  "number": 2339,
+  "kind": "issue",
+  "title": "Record-header primary button: honour Action.order and prioritize injected Approve/Reject",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-08T01:49:23Z",
+  "updated_at": "2026-07-15T14:14:38Z",
+  "closed_at": "2026-07-15T14:14:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2339",
+  "body": "Frontend companion to **framework#2670** / **framework#2682**.\n\n## Problem\n\nWhen a record is pending approval, the console injects **Approve / Reject** decision buttons for the approver. But the record-header renders only the **first visible `record_header` action** as the primary button and pushes the rest into the `⋯` overflow menu. Since app-defined actions (e.g. \"申请关闭商机\") typically register first, they take the primary slot and the approval decision the approver most needs is buried in overflow.\n\n## Framework side (done — framework#2682)\n\n`@objectstack/spec` now has an explicit **`Action.order`** field (optional number, **lower = higher / more prominent**, default `0`), and `mergeActionsIntoObjects()` stable-sorts every action group by it (both `defineStack()` and `composeStacks()`). Backward compatible: groups where nobody sets `order` keep their exact registration order.\n\nBecause this renderer currently picks the primary by array position, that framework sort already makes `order` effective for **app-declared** record-header actions. What remains is the objectui side for the **dynamically injected** approval buttons (which never pass through framework's merge).\n\n## objectui changes needed\n\n1. **Record-header primary selection** — when choosing the primary button from the visible `record_header` actions, order them by:\n   1. `order ?? 0` (ascending, lower first)\n   2. `variant === 'primary'` preferred (tie-break)\n   3. original registration order (stable)\n\n   …then take the first as primary and route the rest to the `⋯` overflow menu — instead of the current naive `actions[0]`.\n\n2. **Injected Approve / Reject** — when synthesizing the pending-approval decision buttons, give them a low default `order` (e.g. `-100`) and an appropriate `variant` (Approve → `primary`, Reject → `secondary`/`danger`) so the decision stably holds the primary slot for approvers, with app actions ordered after it (rather than the app having to *hide* its own actions to make room).\n\n3. After merge, bump `.objectui-sha` in framework so the console build picks up the new renderer.\n\n## Acceptance\n\n- On a pending-approval record (current user is approver): **Approve** is the primary button; app actions follow in the header/overflow; non-approval records and other toolbars are unchanged.\n- Authors can set `order` on any `record_header` action to deterministically control the primary button without hiding siblings.\n\nRefs framework#2670, framework#2682"
+}

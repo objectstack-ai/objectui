@@ -1,0 +1,32 @@
+{
+  "number": 2474,
+  "kind": "pull_request",
+  "title": "fix(console-ai): A1.b switcher hides platform built-in apps (setup/account)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T03:58:18Z",
+  "updated_at": "2026-07-14T04:09:35Z",
+  "closed_at": "2026-07-14T04:09:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T04:09:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2474",
+  "body": "Follow-up to #2466 (ADR-0057 Amendment A1.b). Epic #2409.\n\n## Problem\n\nThe A1.b package switcher lists **every** app with a `_packageId`, including code-delivered platform built-ins (`setup` / `account`, `com.objectstack.*`). Selecting one deep-links `/ai/build?package=<builtin>` to a **package the build agent can't author** — a dead end. Built-ins aren't editable and shouldn't be switch targets.\n\n## Fix\n\nFilter `switchablePackages` on the reserved **`com.objectstack.*`** package namespace. This is the signal that reliably distinguishes built-ins on the `/meta/app` **LIST** response:\n\n- `_packageId` is grafted onto every list item (`getMetaItems`); AI-built / user packages use non-reserved ids (e.g. `app.xadv`), platform ones use `com.objectstack.*` (verified live: `setup`→`com.objectstack.setup`, `account`→`com.objectstack.account`, an AI-built todo app→`app.xadv`).\n- `managedBy` / `source` are **sys_metadata row columns the LIST handler does NOT copy onto the item body**, and the resolved `lock`/`editable` envelope exists only on single-GET — so neither is usable for list-time filtering.\n\nNew exported predicate `isPlatformBuiltinApp(app)` drives the filter; unit-tested (built-ins excluded; AI/user packages and no-package / non-string ids handled; no false match on a mid-string prefix).\n\n## Tests\n\n`deriveBoundPackageId.test.ts` gains 4 `isPlatformBuiltinApp` cases; 8 tests green in that file; `tsc --noEmit` clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

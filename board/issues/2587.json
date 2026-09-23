@@ -1,0 +1,33 @@
+{
+  "number": 2587,
+  "kind": "pull_request",
+  "title": "fix(detail): highlight strip lookup editor honors ObjectStack `reference` key (#2407)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T09:08:53Z",
+  "updated_at": "2026-07-16T09:27:44Z",
+  "closed_at": "2026-07-16T09:27:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T09:27:42Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2587",
+  "body": "## Problem\n\nFollow-up to #2407 P2 (#2549): the record-highlights strip's inline-edit **lookup editor is broken** when the backend object schema uses the ObjectStack-convention `reference` key instead of `reference_to` — which is what the backend actually serves (e.g. `showcase_project.account` has `\"reference\": \"showcase_account\"`).\n\nVerified live on the showcase app (Project record): entering record-level inline edit, the 客户/account highlight lookup shows the \"选择...\" placeholder instead of the current value (Northwind), and opening the picker shows \"未找到选项\" — the `LookupField` receives no reference target, so it can neither hydrate the current value nor search candidates. `team_members` (type `user`, `reference: sys_user`) is affected the same way.\n\nThe details-body path works because `DetailSection` already normalizes both keys (`objectDefField.reference_to || objectDefField.reference`).\n\n## Fix\n\nIn `HeaderHighlight.tsx`, build the enriched field's reference target the same dual-key way as `DetailSection`:\n\n- `refTarget = objectDefField?.reference_to || objectDefField?.reference`, spread as `reference_to`\n- also copy `reference_field` for parity with `DetailSection`\n\n## Tests\n\nNew regression tests in `HeaderHighlight.editable.test.tsx` (LookupField probed via partial module mock):\n\n- a lookup highlight whose schema field carries the backend `reference` key (+ `reference_field`) hands the target through to the `LookupField` editor\n- the `reference_to` spelling keeps working\n\n`pnpm exec vitest run packages/plugin-detail` → 23 files / 211 tests pass; `pnpm --filter @object-ui/plugin-detail type-check` clean.\n\nRefs #2407\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 2520,
+  "kind": "pull_request",
+  "title": "fix(build): stop TS6059 rootDir errors in dts build across 21 packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T14:21:35Z",
+  "updated_at": "2026-07-15T14:25:33Z",
+  "closed_at": "2026-07-15T14:23:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T14:23:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2520",
+  "body": "## Summary\n\nMirrors the plugin-report fix (#2334) across the remaining **21 packages** that emitted the same ~93 TS6059 \"not under rootDir\" errors during their `vite build` dts step.\n\n**Root cause:** each package's `vite.config.ts` runs `dts({ compilerOptions: { rootDir: <pkg>/src }, ... })`. The dts tsc program extends the root `tsconfig.json`, whose `paths` map `@object-ui/*` to `packages/*/src`, so tsc followed the aliases into sibling `src` trees outside `rootDir` and emitted TS6059 for every file. The emitted `.d.ts` was correct — the errors were noise.\n\n**Fix:** add `paths: {}` to the dts `compilerOptions` so `@object-ui/*` resolves to each dependency's published `dist/*.d.ts` (external). `aliasesExclude: [/^@object-ui\\//]` already keeps the specifiers unrewritten, so declarations still import from `@object-ui/*`. Also dropped the dead `skipDiagnostics: true` option where present (removed in vite-plugin-dts v4+; repo is on ^5.0.3).\n\n## Packages (21)\ncomponents, fields, layout, plugin-ai, plugin-calendar, plugin-charts, plugin-chatbot, plugin-dashboard, plugin-designer, plugin-detail, plugin-editor, plugin-form, plugin-gantt, plugin-grid, plugin-kanban, plugin-list, plugin-map, plugin-markdown, plugin-timeline, plugin-tree, plugin-view.\n\n## Verification\n`turbo run build` for all 21 packages + their dependencies (31 tasks, `--force`):\n- ✅ Exit 0, all 31 tasks successful\n- ✅ **0 occurrences of TS6059** (was ~93 per package)\n- ✅ emitted `dist/**/*.d.ts` still import from `@object-ui/*` as external specifiers, with 0 inlined sibling-`src` escapes\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

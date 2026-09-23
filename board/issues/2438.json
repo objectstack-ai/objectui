@@ -1,0 +1,33 @@
+{
+  "number": 2438,
+  "kind": "pull_request",
+  "title": "fix(plugin-gantt): 快速筛选树感知——保留命中任务的祖先链(#2436 第 4 项)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T08:46:34Z",
+  "updated_at": "2026-07-13T09:34:49Z",
+  "closed_at": "2026-07-13T09:34:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T09:34:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2438",
+  "body": "关联 #2436(第 4 项)。\n\n## 问题\n\n`displayTasks` 的快速筛选是平铺过滤:每行独立判断\"筛选字段值是否在选中集合里\"。项目/产品这类分组行本身没有可筛字段值(合成行不带业务记录),任何筛选一激活就把它们全部丢掉——命中的排班计划成了孤儿行,四级树(项目→产品→排班计划→派工单)被打散成平铺列表。\n\n## 方案\n\n标准树筛选语义:**命中的任务连同其全部祖先一起保留**。实现上先按原逻辑求命中集,再对每个命中任务沿 `parent` 链向上把祖先并入保留集(`Set` 去重,共享祖先只保留一次),最后按原顺序过滤。祖先没有任何命中下级时照常剔除,不多留。\n\n## 测试\n\n`ObjectGantt.quickfilter.test.tsx` 新增三例(三层树 fixture,分组行无 status 字段):\n- 命中叶子 → 祖先链(root、mid)一并保留,未命中的兄弟行剔除;\n- 命中集只含无子树的独立行 → 整个分组子树消失;\n- 多分支同时命中 → 共享祖先不重复。\n\n全套 `pnpm --filter @object-ui/plugin-gantt test` 19 文件 235 用例全绿;`tsc --noEmit` 干净;eslint 两个 error(`prefer-const:374`、`no-useless-assignment:770`)在 base commit 上同样报,非本 PR 引入。\n\n## 非目标\n\n按 #2436:其余项(预警描边、抽屉锁定、写后回读、刷新按钮)分 PR 提交;首刀 1+2 见 #2437。"
+}

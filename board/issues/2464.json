@@ -1,0 +1,32 @@
+{
+  "number": 2464,
+  "kind": "pull_request",
+  "title": "feat(console-ai): ChatDock — right-docked AI rail behind a default-off flag (ADR-0057 P3a)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T19:19:07Z",
+  "updated_at": "2026-07-13T19:29:33Z",
+  "closed_at": "2026-07-13T19:29:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T19:29:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2464",
+  "body": "The first slice of ADR-0057 **P3** (the docked right rail) — shipped as an **additive, default-OFF** shell so it changes nothing until an operator opts in. The FAB stays the canonical entry; this just stands up the dock so P3b/P3c can build on a proven shell.\n\n## What\n- **`@object-ui/layout` — `AppShell.rightRail`**: an optional prop rendered as a flex sibling of the main content, so the rail **reflows** the content beside it (VS Code / Cursor idiom) rather than overlaying it. Absent → identical single-pane layout.\n- **`@object-ui/app-shell` — `ChatDock`**: a collapsible, resizable right rail that reuses the shared **`ChatPane`** engine over the **P1 `(user, app, product=ask)`** conversation — the same ambient thread the FAB / `/ai` shows, so the dock is a *view*, not a new conversation. Default **collapsed** (a fixed edge launcher → zero layout cost until invoked); **⌘/Ctrl+Shift+I** toggles it. Gated on `useAiSurfaceEnabled` **AND** the flag, so OSS / no-seat runtimes render nothing.\n- **`runtime-config.chatDock`**: rollout flag, parsed **default-OFF** (opt-in only, mirroring the commercial-flag pattern).\n\n## Verification\n- **Live** (flag forced on locally): the edge launcher expands to a rail rendering the ask chat; the dashboard content **reflows narrower** beside it (confirming true flex reflow, not overlay); the collapse button restores the launcher. Screenshot in the session.\n- **Unit**: width clamp (neither pane collapses), the composer-safe shortcut matcher (⌘⇧I — no collision with the page's ⌘⇧O/⌘⇧S), and the flag's default-off / opt-in parse. `@object-ui/layout` + `@object-ui/app-shell` builds (tsc) clean.\n\n## Scope notes / follow-ups\n- The dock currently wires into **ConsoleLayout** (app views); the **home** shell doesn't mount it yet — trivial follow-up.\n- Mobile is `md:`-gated (rail hidden below `md`); a mobile sheet is a follow-up.\n- **P3b** (fold the FAB into this launcher) and **P3c** (`/ai` = maximized dock + Studio right-side reflow) come next, per the [plan](https://github.com/objectstack-ai/objectui/issues/2409#issuecomment-4958265739).\n\nRefs: epic #2409, ADR-0057 §P3 + Amendment A1 (#2457).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2460,
+  "kind": "issue",
+  "title": "甘特图规格补齐:悬浮分层字段、行级对象详情跳转、Focus/双击交互、锁定提示、布局全量保存、按日吸附、移动端二维码",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T14:50:25Z",
+  "updated_at": "2026-07-14T01:33:20Z",
+  "closed_at": "2026-07-14T01:33:20Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2460",
+  "body": "制造排程甘特(项目→产品→排班计划→派工单 四级树,api 数据源)对照产品规格 §3.4.4/§3.4.5 审计后,插件侧缺口如下(应用侧配套见 os-project-titanwind-ehr 对应 issue):\n\n## 1. 悬浮卡不支持分层字段集 + 空值不跳过\n规格要求三级(编号/任务名称/作业对象/定额工时/管理责任人/执行责任人…)与四级(派工单编号/执行责任人/任务名称/作业对象…)显示**不同字段**。插件只有一份 `tooltipFields`,且 `buildTooltipFields` 对空值也渲染一行空白。\n**方案**:值为 `null/undefined/''` 的字段跳过不渲染 → 视图配 union 字段清单、端点按层级只填相应字段,即得分层悬浮,零新增配置面。\n\n## 2. 四级「→」整页链接拼错路由\n抽屉 `fullPageHref` 用视图绑定对象(排班计划)+ 行 id 推导;四级行是 dispatch_order 真实 id,跳过去 404。\n**方案**:新 gantt 配置键 `objectField`(行级对象 API 名字段):抽屉 objectName 与整页链接按 `rec[objectField] ?? 绑定对象` 推导。⚠️ getGanttConfig 顶层挑键清单必须同步加。\n\n## 3. 行单击应为 Focus 定位,详情走双击/「→」图标\n规格:点任务列表行 → 甘特聚焦该条时间范围+高亮(不触发编辑);双击或行侧「→」图标 → 详情。现状:行单击直接开抽屉,定位要点悬停出现的定位小图标。\n**方案**:行单击=选中+定位闪烁;双击=详情抽屉(inlineEdit 场景维持行内编辑优先);行悬停新增「→」打开详情按钮。\n\n## 4. 锁定行只有 🚫 光标,缺文字提示\n规格:无编辑权限 → 🚫 光标 + 提示「无编辑权限」。现状 not-allowed 光标已有,悬浮卡无提示行。\n**方案**:锁定行悬浮卡末尾追加「无编辑权限」提示(i18n)。\n\n## 5. 保存布局不含筛选与展开状态\n规格:保存刻度/筛选/展开状态。现状只存 刻度+列宽+任务列表宽/收起。\n**方案**:GanttLayout 增 collapsedIds;快速筛选选择(ObjectGantt filterValues)随「保存布局」一并持久化并于挂载恢复。\n\n## 6. 周/月刻度拖拽按整列吸附,粒度过粗\n周视图拖一格=7 天,无法微调。主流甘特在任何缩放下拖拽按「日」吸附。\n**方案**:week/month/quarter 刻度 move/resize 以「日」为最小步进;day 刻度维持班次带(timeSegments)吸附不变。\n\n## 7. 移动端二维码/链接\n规格:四级跳转支持移动端二维码/链接。\n**方案**:右键菜单「移动端二维码」(真实记录行):对话框展示详情绝对 URL 二维码 + 复制链接(qrcode 依赖,app-shell 已在用)。\n\n不做:网络异常自动恢复(需求方确认移出范围;写失败乐观回滚已保证数据不丢)。"
+}

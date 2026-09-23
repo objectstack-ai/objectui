@@ -1,0 +1,32 @@
+{
+  "number": 2392,
+  "kind": "pull_request",
+  "title": "feat(ai-chat): Excel to App real-data import — attached sheet rows into a built object (cloud#797)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-11T03:09:41Z",
+  "updated_at": "2026-07-11T03:20:20Z",
+  "closed_at": "2026-07-11T03:20:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-11T03:20:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2392",
+  "body": "补齐「表格楔子」的后半段。AI build 面板已能把附的 Excel/CSV 解析成简报让 agent 建 schema(WS3);这个 PR 补上另一半——**把同一份文件的真实行数据两步导进已建对象**,让试用从\"一句话 → 带 demo 数据的 App\"变成\"带我自己数据的 App\"(表格难民的留存铰链)。\n\n- **plugin-grid ImportWizard**:新增 `initialFile` prop —— 传入已在内存的 File 时,内存解析、直接跳到列映射,跳过上传步(按 File 身份只消费一次)。\n- **app-shell ExcelImportBar**:轻宿主,附了表格就出现 —— 选目标对象(env 用户对象,默认=本会话刚建的 app)→ 把 File 交给 ImportWizard 做映射/dry-run/真·服务端导入。字段来自 `dataSource.getObjectSchema`;文件本体不经过 agent/LLM。\n- **AiChatPage**:发送时保留附的表格,`useAdapter` 作 dataSource,导入 bar 绝对定位浮在聊天上方(打开的向导是 modal,不扰乱布局)。\n\nplugin-grid 194/194,app-shell 1178/1178;拓扑构建干净。依赖 objectui#2386。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

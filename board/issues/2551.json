@@ -1,0 +1,33 @@
+{
+  "number": 2551,
+  "kind": "pull_request",
+  "title": "fix(fields): lookup chip resolves display name via referenced object schema, aligning with the picker (#2357)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T01:38:10Z",
+  "updated_at": "2026-07-16T02:54:19Z",
+  "closed_at": "2026-07-16T02:54:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T02:54:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2551",
+  "body": "## Problem\n\nFixes #2357.\n\nThe lookup read chip (`LookupCellRenderer` — record header highlight + detail sections) resolved display names with the local `pickRecordDisplayName` key heuristic, whose `_number`/`_code` suffix scan surfaced an autonumber (e.g. `0001`) over the record's real name whenever the referenced object declared its title via `nameField`/`titleFormat`. The picker (`LookupField`) already resolved through the unified ADR-0079 resolver (`getRecordDisplayName`), so chip and picker disagreed on the same field.\n\n## Changes\n\n- **`@object-ui/fields`**: `LookupCellRenderer` now fetches the referenced object's schema via `dataSource.getObjectSchema` (module-level cache — one metadata fetch per object, shared across cells) and resolves both $expand-ed record objects and fetch-on-demand records (`useLookupName`) through `getRecordDisplayName`, with the precedence **`displayField` → `nameField`/`displayNameField` → `titleFormat` → type-aware derivation** (which excludes autonumber). The key heuristic remains only as the no-schema fallback, so data sources without schema metadata keep their previous behavior.\n- **`@object-ui/fields`**: `useLookupName` honours the field's explicit `display_field` and includes it in the resolution cache key.\n- **`@object-ui/core`**: `NON_TITLE_TYPES` now also excludes the ObjectStack spelling `auto_number` (the field-widget registry key), so type-aware derivation can never pick an autonumber as a record title.\n\nOut of scope: the picker's internal ordering (`titleFormat` before `displayField`) is left untouched; within the nameField/titleFormat tier chip and picker now agree, which is what the issue requires.\n\n## Tests\n\n- New regression suite `packages/fields/src/__tests__/lookupCellDisplayName.test.tsx` (5 cases): nameField beats the autonumber suffix heuristic; titleFormat template resolution; explicit `display_field` wins (the issue's documented workaround); fetch-on-demand primitive-id path resolves via schema; heuristic fallback when the data source has no schema API.\n- `auto_number` added to the `isTitleEligibleField` type table in `record-title.test.ts`.\n- Full `fields` / `plugin-detail` / `core` suites: 1512 passed (the one `DATEFORMAT` failure is a pre-existing timezone-sensitive test, verified failing on a clean tree). `tsc --noEmit` clean for core and fields; eslint error count unchanged."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2571,
+  "kind": "pull_request",
+  "title": "feat(studio): CEL editor (validate + autocomplete) for field conditional rules (#1582)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T05:23:48Z",
+  "updated_at": "2026-07-16T12:25:44Z",
+  "closed_at": "2026-07-16T12:25:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T12:25:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2571",
+  "body": "## Summary\n\nCloses #1582.\n\nStudio's object-designer **field inspector** now edits the ADR-0036 B2 conditional rules — `visibleWhen` / `readonlyWhen` / `requiredWhen` — with a proper **CEL editor** (reusing `CelPredicateField` + `celAuthoring.ts` from the RLS editor, #2413) instead of a raw text input (previously only `conditionalRequired` was surfaced, unvalidated).\n\n### What changed\n\n- **`scope='record'` mode** in `celAuthoring.ts` / `CelPredicateField`, matching runtime semantics (`@object-ui/core` `evalFieldPredicate` binds `record` / `previous` / `parent` only — no bare-field flattening, no `current_user`):\n  - lint via `@objectstack/formula` `validateExpression` — a **bare field ref is an error** with the exact `record.<field>` fix; `record.`/`previous.` member refs get field-existence checks with did-you-mean;\n  - **autocomplete**: runtime-bound roots + CEL stdlib bare, and the object's own field catalog as **member completion** after `record.` / `previous.` (new `memberTokenAt` helper; the full catalog surfaces the moment the dot is typed). The RLS editor keeps its flattened behavior and gains the same member completion.\n- **Inspector wiring** (`ObjectFieldInspector`, Advanced → *Conditional rules (CEL)*): three editors with autocomplete scoped to the object's fields; values round-trip both wire shapes (bare string | `{dialect, source}` envelope — envelope extras like `meta.rationale` preserved); deprecated `conditionalRequired` reads into *Required when* and migrates to `requiredWhen` on first edit.\n- **Draft-wide validation** (`validateMetadataDraft('object', …)`): every field's rules are CEL-linted, so an invalid predicate on *any* field (not just the selected one) surfaces in the edit banner under `fields.<field>.<rule>` before save — the spec Zod only shape-checks these.\n- i18n (en/zh), README + `metadata-diagnostics` guide, changeset.\n\n### Verification\n\n- `vitest run packages/app-shell/src/views/metadata-admin` → **89 files / 715 tests green** (incl. new: record-scope lint, `memberTokenAt`, member-completion UX, inspector read/write/migration, draft-wide CEL issues vs the REAL engine).\n- Browser (preview gallery, `?only=object`, no backend): bare ref → readable self-correcting error; `record.st` → *unknown field `st` on `sales_order`*; `record.` → field-catalog popup; valid predicate → *Valid CEL* affordance; edits persist into the draft via `onPatch`.\n- Runtime honoring of the persisted shapes is the pre-existing B2 path (`resolveFieldRuleState`, already covered by its own tests) — this PR writes exactly the wire shapes it consumes (`string | {dialect, source}`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

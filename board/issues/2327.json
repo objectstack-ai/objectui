@@ -1,0 +1,32 @@
+{
+  "number": 2327,
+  "kind": "issue",
+  "title": "Dead code: trigger type registration in anchors.ts — type was retired in ADR-0088",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T12:28:48Z",
+  "updated_at": "2026-07-15T14:37:31Z",
+  "closed_at": "2026-07-15T14:37:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2327",
+  "body": "### Summary\n\nA `registerMetadataResource({ type: 'trigger', ... })` call exists but `trigger` was retired from the `MetadataType` enum in ADR-0088. This is unreachable dead code.\n\n### Root cause\n\nIn `packages/app-shell/src/views/metadata-admin/anchors.ts`, lines 271-284:\n\n```typescript\nregisterMetadataResource({\n  type: 'trigger',\n  anchors: [{ ... }],\n  createFields: ['label', 'name', 'object'],\n  createDerive: [ ... ],\n});\n```\n\nBut `spec/src/kernel/metadata-plugin.zod.ts` (lines 76-78) states: \"ADR-0088: there is no `trigger` metadata type.\" The `DEFAULT_METADATA_TYPE_REGISTRY` (lines 589-702) does not include `trigger`. This registration will never appear in any UI and the type cannot be created via API.\n\n### Expected behavior\n\nDead code should be removed. The registration misleads developers into thinking `trigger` is supported.\n\n### Fix\n\nRemove lines 271-284 from anchors.ts.\n\n### Impact\n\nCode quality — no functional impact but misleading for maintainers."
+}

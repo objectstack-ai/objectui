@@ -1,0 +1,32 @@
+{
+  "number": 2337,
+  "kind": "issue",
+  "title": "StudioDesignSurface: 'object' type bypasses Preview rendering with hardcoded SchemaRenderer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-07T13:21:47Z",
+  "updated_at": "2026-07-15T14:40:35Z",
+  "closed_at": "2026-07-15T14:40:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2337",
+  "body": "## Description\n\nIn `StudioDesignSurface.tsx` (~line 1450–1454), the `'object'` type is handled by a hardcoded special case that short-circuits the normal `Preview` rendering pipeline:\n\n```tsx\n) : current.type === 'object' ? (\n  // Object nav leaf = the records list as the running app shows it\n  // (preview = runtime). Schema editing lives in the Data pillar, so\n  // here we render the object-view grid, not the field-form preview.\n  <SchemaRenderer schema={{ type: 'object-view', objectName: current.name } as never} />\n) : /* ... other branches fall through to <Preview ... /> */\n```\n\nEvery other type goes through the generic `<Preview type={current.type} name={current.name} draft={draft} ... />` component, which allows type-specific rendering. The `'object'` type is the only one that bypasses this entirely, rendering a hardcoded `<SchemaRenderer>` instead.\n\n## Why this is a problem\n\n1. **Inconsistent behavior** — Object types cannot be customized through the `Preview` component like all other types can. If someone adds a custom `Preview` renderer for objects, it will never be invoked because the conditional catches `'object'` first.\n2. **Blocks extensibility** — Any downstream consumer that wants to customize how object records appear in the studio design surface has to fork the entire component.\n3. **The rationale in the comment (\"Schema editing lives in the Data pillar\")** conflates schema editing with record viewing. The `object-view` grid is a reasonable *default* for objects, but it should not be the *only* possible render path.\n\n## Expected behavior\n\nThe `'object'` type should fall through to the generic `<Preview>` component like every other type, with `'object-view'` as its fallback default (not as a hardcoded override). Alternatively, if the `object-view` grid truly must always be shown, it should be configured as the default `Preview` renderer for `'object'` types rather than hardcoded in the conditional.\n\n## Steps to reproduce\n\n1. Open any app in the Studio Design surface\n2. Navigate to an object in the left nav tree\n3. The object always renders as the `object-view` grid\n4. There is no way to override this rendering through the `Preview` prop\n\n## Affected code\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx`, lines 1450–1454"
+}

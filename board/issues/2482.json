@@ -1,0 +1,30 @@
+{
+  "number": 2482,
+  "kind": "issue",
+  "title": "甘特图任务行操作按钮体验:删除冗余「定位」悬停图标,「→」详情按钮改独立操作槽(现被结束列压住、热区过小)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T05:19:42Z",
+  "updated_at": "2026-07-14T06:32:56Z",
+  "closed_at": "2026-07-14T06:32:56Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2482",
+  "body": "#2460 落地「行单击=Focus 定位」后,任务列表行右缘的两个悬停图标暴露两个体验问题(消费项目真机截图见下方评论):\n\n## 1. 「定位」十字准星图标已冗余\n它是旧交互(行单击=开抽屉)时代的定位入口。现在整行任意位置单击即定位,该图标失去存在价值,却仍占据悬停位、加剧右缘拥挤。\n\n**方案**:删除该按钮及其 i18n 键(`gantt.row.locate`)。\n\n## 2. 「→」详情按钮绝对定位叠在「结束」列上,热区过小\n两个按钮 `position: absolute` 锚在行右缘(`right: 20 / 1`),悬停显示时直接压在结束日期文字上(如 `6/28 →` 挤成一团);且按钮无内边距,点击热区只有 12×12px 的裸图标,过窄难点。\n\n**方案**:「→」按钮从覆盖式绝对定位改为行 flex 布局中的**独立固定操作槽**(约 24px 宽,常驻占位不随悬停跳动):\n- 不再与任何日期列重叠;\n- 按钮 24×24px 圆角热区 + 悬停底色,图标 14px,达到可舒适点击的目标尺寸;\n- 保留悬停渐显(行悬停 60% → 按钮悬停/键盘聚焦 100%)与移动端隐藏(移动端详情入口仍为双击/长按菜单)。\n\n行内编辑态保留占位、隐藏按钮,避免布局跳动。"
+}

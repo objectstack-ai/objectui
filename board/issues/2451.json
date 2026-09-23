@@ -1,0 +1,32 @@
+{
+  "number": 2451,
+  "kind": "pull_request",
+  "title": "refactor(app-shell): Studio 四支柱统一 ?surface= 深链恢复 + URL 回写",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T12:37:55Z",
+  "updated_at": "2026-07-13T12:41:51Z",
+  "closed_at": "2026-07-13T12:38:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T12:38:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2451",
+  "body": "## 背景\n\n#2446 修复了「设计」按钮→Data 支柱的对象深链后,审计发现 `?surface=<type>:<name>` 深链契约在四个支柱间实现不一:\n\n| 支柱 | 挂载捕获 `?surface=` | 选中项回写 URL |\n|---|---|---|\n| Interfaces | ✅(手写 ref) | ✅(手写 effect) |\n| Data | ✅(#2446 手写 ref) | ❌ URL 陈旧 |\n| Automations | ❌ 弹回首个 flow | ❌ |\n| Access | ❌ 弹回首个权限集 | ❌ |\n\n## 改动\n\n1. **新增 [`useSurfaceDeepLink.ts`](../blob/feat/studio-surface-deeplink-restore/packages/app-shell/src/views/studio-design/useSurfaceDeepLink.ts)** —— 共享抽象:\n   - `useSurfaceDeepLink(current)`:挂载时捕获一次 `?surface=` 目标(ref,后续选择不重触发),并把当前选中 surface 镜像回 URL(replace,按 type/name 身份 key,列表重载不空写)。\n   - `resolveSurfaceDeepLink(items, initial, expectedType)`:纯函数,按支柱的 surface 类型 + 名称在 rail 列表中解析深链;类型不匹配或名称不存在则返回 undefined 回落首项。\n2. **四支柱统一接入**:Interfaces 删除手写 ref + mirror effect(净简化);Data 换用共享实现并补上回写;Automations(`flow:`)/Access(`permission:`)补齐捕获 + 恢复 + 回写。\n3. **行为保持**:无深链或未命中时仍默认首项;`c ??` 守卫保留,列表重载/发布后重读不会清掉用户当前选择。\n\n未扩展 `appStudioRoutePath` 生产端:控制台没有 flow/权限集的运行时路由,不存在可桥接的上下文;消费端补齐后,未来的「设计此流程/权限集」入口可直接落地。\n\n## 验证\n\n- 新增 `useSurfaceDeepLink.test.ts`(5 用例:命中/无深链/跨支柱类型不误配/名称不存在/Access 名称键形态)。\n- 回归:`packageSurfaces` + `nav-selection.surface` + `appRoute` + `studio-locale.i18n` + `FlowStatusDot` 共 **53 用例全部通过**。\n- Type-check:新文件零错误;其余报错为 fresh worktree 未构建 `@object-ui/*` 依赖的既有噪音,与本改动无关。\n- 未做实机浏览器验证(需 :3000 后端 + 管理员登录);手动确认路径:打开 `…/studio/<pkg>/data?surface=object:showcase_task` 应选中该对象,且在 rail 中切换对象后 URL 随之更新。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

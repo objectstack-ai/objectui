@@ -1,0 +1,33 @@
+{
+  "number": 2420,
+  "kind": "pull_request",
+  "title": "fix(plugin-gantt): 拖边缘调时长——整高边缘带命中判定，修复 headless 命中不稳",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T05:18:56Z",
+  "updated_at": "2026-07-13T05:46:13Z",
+  "closed_at": "2026-07-13T05:46:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T05:46:10Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2420",
+  "body": "## 问题\n\n甘特图任务条支持「拖边缘调时长」。缩放手柄原本只是**顶部半高、6px 宽**的小抓手,贴在条的最左/最右。headless 浏览器(Playwright/dogfood 验证)合成的指针坐标会做像素量化,**瞄准边缘的点击经常落到条体里** → 触发整条移动而非缩放,即「DHTMLX 缩放手柄 headless 命中不稳」。\n\n## 方案(dhtmlx 式边缘带)\n\n在任务条自身的 `pointerdown` 里,按指针相对条 rect 的水平偏移判定模式:\n\n- 落在两端 `RESIZE_EDGE_PX`(8px)带内 → 缩放对应边(`resize-left` / `resize-right`)\n- 中间 → 移动(`move`)\n\n命中带是**整条高度**,不再是原来的顶部半高小抓手,因此坐标量化差个一两像素也能稳定命中缩放。角上的可视抓手保留(直接命中 + `stopPropagation` 仍然优先),并同步加宽到 8px 让光标区与命中区一致。\n\n判定逻辑抽成纯函数 `resolveBarDragMode(clientX, rect)` 便于单测:\n- `rect.width <= 0`(jsdom/未布局)→ 回退 `move`,既有基于假坐标的用例不受影响。\n- 边缘带按 `width/3` 夹取,极短条也保留可抓的中段,两端不会重叠成歧义中心。\n\n## 测试\n\n- 新增 `resolveBarDragMode` 纯函数单测(左/右边缘、中段、零宽回退、极短条夹取)。\n- 新增「布局感知」集成测试:stub 任务条的 `getBoundingClientRect`(还原真实浏览器上报的 rect),在左/右边缘 3–4px 处按下 → 分别只改 `start` / 只改 `end`;中段按下 → 两端同移。\n- 既有 `GanttView.dnd.test.tsx` / `GanttView.interactions.test.tsx` 全绿(191 passed)。\n- 真实(headless)浏览器验证:抓左边缘内 3px 拖动 → 仅 `start` 变,抓右边缘 → 仅 `end` 变,抓中段 → 两端同移,均符合预期。\n\n## 影响面\n\n仅 `plugin-gantt` 的叶子任务条拖拽命中判定;摘要/分组条仍固定为移动,只读模式不受影响。"
+}

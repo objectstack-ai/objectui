@@ -1,0 +1,1 @@
+{"id":4971017402,"author":{"login":"yinlianghui","id":6219465,"type":"User"},"created_at":"2026-07-14T15:35:34Z","updated_at":"2026-07-16T09:38:46Z","html_url":"https://github.com/objectstack-ai/objectui/issues/2393#issuecomment-4971017402","body":"在服务端确认终态为 `cancelled` 之前，Import 向导已经报告 `cancelled`；同一个后端任务随后进入 `succeeded` 状态，并持久化全部 50,000 行，确认是前端状态报告 Bug。\n\n建议：重新打开。"}

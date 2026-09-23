@@ -1,0 +1,32 @@
+{
+  "number": 2593,
+  "kind": "pull_request",
+  "title": "fix(fields): localize relative-date humanize to the workspace locale (framework#3040)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T10:18:27Z",
+  "updated_at": "2026-07-16T13:11:12Z",
+  "closed_at": "2026-07-16T13:11:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T13:11:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2593",
+  "body": "Fixes objectstack-ai/framework#3040\n\n## Problem\n\nDate fields' ±7-day relative window (`formatRelativeDate` in `@object-ui/fields`) hardcoded English — Today / Tomorrow / Yesterday / In 3 days / 2d ago / Overdue 2d — regardless of the workspace `localization.locale` (ADR-0053). All three surfaces (list columns, detail header chips, detail body) render through the same `DateCellRenderer`.\n\n## Fix\n\n- Generic near-today phrases now come from `Intl.RelativeTimeFormat(locale, { numeric: 'auto' })` (sentence-cased) — zh-CN yields 今天/明天/昨天/3天前/3天后 with no bundle maintenance per locale. Invalid locale tags degrade to English instead of crashing the cell.\n- The tenant locale is threaded from `useLocalization()` (ADR-0053 client half) through `DateCellRenderer` into `formatDate`/`formatRelativeDate` via a new `DateDisplayOptions` bag; the absolute (>7d) path also formats with that locale.\n- \"Overdue Nd\" has no `Intl` equivalent, so it resolves through the i18n key `fields.relativeDate.overdue` (added to all 10 built-in locale files; zh: `逾期 {{count}} 天`), with the English literal as fallback when the key misses or no i18n context is mounted.\n- Intentional English change: `3d ago` → `3 days ago` (Intl output).\n\n## Tests\n\n`pnpm exec vitest run packages/fields/src/__tests__/DateCellRenderer.test.tsx` — 8/8 (new: zh-CN window phrases, overdue via t(), t-miss fallback, invalid-locale degradation).\n\nServer-side half of this issue pair (audit summary i18n, #3039): objectstack-ai/framework#3045."
+}

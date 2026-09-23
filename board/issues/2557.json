@@ -1,0 +1,33 @@
+{
+  "number": 2557,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): sniff CSV encoding in import wizard (GB18030 fallback)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T02:37:43Z",
+  "updated_at": "2026-07-16T02:47:10Z",
+  "closed_at": "2026-07-16T02:47:09Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T02:47:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2557",
+  "body": "Fixes #2556\n\n## 问题\n\n导入向导用 `file.text()` 读 CSV/TSV/TXT,固定按 UTF-8 解码。中文 Excel「另存为 CSV」默认写出 GBK(无 BOM),表头全部乱码 → 字段匹配失效 → 必填列映射不上 → 导入永远失败。实际案例:steedos-labs/os-project-titanwind-ehr#185。\n\n## 修复\n\n`parseSpreadsheetFile` 的分隔文本分支改读 `arrayBuffer`,新增 `decodeSpreadsheetText` 编码探测(零新增依赖):\n\n1. 显式 BOM 优先(UTF-8 / UTF-16 LE / UTF-16 BE);\n2. 严格 UTF-8(`fatal: true`)——合法 UTF-8 直接通过,GBK 双字节序列触发异常;\n3. 回退 `TextDecoder('gb18030')`(GBK/GB2312 超集,浏览器原生支持);无该解码器的运行时降级宽松 UTF-8。\n\n`.xlsx` 路径(ExcelJS)无编码问题,未动;模板下载本身已是 UTF-8+BOM,不涉及。\n\n## 测试\n\n- 新增 5 个单测:GBK CSV(字节取自 #185 附件表头真实编码)、无 BOM 纯 UTF-8 中文不被误判、UTF-8 BOM 模板回传、UTF-16 LE、既有 ASCII 路径。\n- plugin-grid 全量 31 文件 / 215 用例全绿;包构建(含 tsc)通过。\n- 纯 bug 修复,无 changeset;文档无涉及导入编码的陈述。"
+}

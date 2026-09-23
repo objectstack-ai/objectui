@@ -1,0 +1,32 @@
+{
+  "number": 2470,
+  "kind": "pull_request",
+  "title": "feat(console-ai): ChatDock follow-ups — mobile sheet, wide side-by-side, exact collapse landing (ADR-0057 P3)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T02:28:03Z",
+  "updated_at": "2026-07-14T02:37:27Z",
+  "closed_at": "2026-07-14T02:37:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T02:37:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2470",
+  "body": "Follow-up optimizations for the now-default-on ChatDock (#2467 P3c, #2469 go-live; epic #2409):\n\n1. **Mobile**: under `md` the dock presents as a **bottom sheet** (`ChatDockMobileSheet`, same conversation/body contract as the rail) — the console FAB opens it, and Studio gains a mobile-visible edge launcher (`ChatDockLauncher` `className` override). Previously flag-on mobile had no chat surface at all.\n2. **Wide Studio (2xl+)**: the folded layout keeps canvas AND properties **side by side** beside the chat dock (`studio-folded-inspector`); the `[Canvas | Properties]` tabs and their auto-switch only exist where width forces them (2xl chosen over xl: with the ~420px dock + nav rail, xl left the canvas under ~400px).\n3. **Source pages, folded tabs mode**: the nested Source/Props tab strip is flattened — the Properties tab body IS the code editor (the center Canvas tab already shows the live preview; the inner Props pane was only an empty state).\n4. **Exact collapse landing**: maximize handlers record their origin (`rememberDockReturnLocation`, sessionStorage, same-app-absolute-path trust boundary on read); `/ai`'s collapse-to-dock returns exactly there — console page or Studio surface — immune to in-page history churn (conversation switches push `/ai/...` entries, so blind history-back could land on a prior `/ai` URL). Fallback: history back, then `/home`. The button is now visible on mobile too (the sheet is its landing).\n5. **Default-agent unification**: the dock's conversation passes `app.defaultAgent` through `resolveSurfaceAgent` (bounded to ask/build), matching the FAB's old behavior — an app pinning `build` now gets the same product in the rail.\n\n## Tests\n- New `chatDockReturnLocation.test.tsx` (round trip + open-redirect trust boundary + `armChatDockExpanded`), `ChatDockMobileSheet` render cases, updated `resolveCollapseToDockTarget` (stored-path priority). 89 tests green across layout/console-ai/studio suites; `tsc --noEmit` clean.\n\n## Browser proof (ADR-0054, local rig, default-on — no flag override needed)\n- Desktop 1280: FAB → rail; maximize records `/apps/setup/dashboard/system_overview`; switched conversations on `/ai` (history churn), collapse landed EXACTLY back on the recorded page with the rail expanded.\n- Mobile 375: bottom sheet renders (screenshot); sheet maximize → `/ai`; collapse → back with the sheet open.\n- Studio: 1680 viewport = `[nav] [canvas] [properties] [chat]` side-by-side, no tabs; 1280 = center tabs; mobile = edge launcher opens the sheet.\n- (Dynamic viewport-resize re-evaluation relies on `matchMedia` change events, which the embedded test browser doesn't emit on viewport override — same mechanism as the existing `useIsMobile`; initial-load judgments verified at every width.)\n\nRefs #2409 · ADR-0057 §P3 follow-ups\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

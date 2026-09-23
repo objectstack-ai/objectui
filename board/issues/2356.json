@@ -1,0 +1,34 @@
+{
+  "number": 2356,
+  "kind": "pull_request",
+  "title": "Active-org nav context, related-list action bridges, first-run wizard fixes (cloud ADR-0081)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: react",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T03:29:01Z",
+  "updated_at": "2026-07-09T05:06:32Z",
+  "closed_at": "2026-07-09T05:06:30Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-09T05:06:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2356",
+  "body": "Mechanism wiring for cloud ADR-0081 (in-shell org/member management) — no business logic, all metadata plumbing + real bug fixes:\n\n- **`currentOrgId` in nav template context** (sidebars, command palette, search): `{current_org_id}` `recordId` tokens now resolve — the spec + NavigationRenderer already supported them; the shell never supplied the value.\n- **AuthProvider**: `refreshOrganizations` returns the fetched list (callers read a stale state closure); a session with no active org and exactly ONE membership auto-activates it (repairs pre-existing sessions without re-login).\n- **Related-list row actions on record pages were broken end-to-end** (pre-existing):\n  - the bridge spread the `ActionParam[]` DEFINITION array into the params object (`{0:{…}}`) → sent to the data API as a fields map → `INVALID_FIELD: Unknown field '0'`; dispatch now mirrors ObjectGrid (`actionParams` + `params:{_rowRecord}`);\n  - param dialogs resolve field-backed params against the action's OWN (child) object + prefill `defaultFromRow` from the clicked row;\n  - `RecordDetailView.apiHandler` gains the canonical absolute-HTTP branch — previously every `type:'api'` action mapped to `dataSource.update`: `remove_member` silently no-opped as fake success, `update_member_role` bypassed better-auth with a raw managed-table write.\n- **NEW: related lists bridge child `list_toolbar` actions** as header buttons (`invite_user` on an org's Invitations list) — same contract as row actions, no row context.\n- **First-run wizard (SetupPage)**: fresh org list + short retry (stale closure always fell through to `createOrganization`, FORBIDden in single-org, error swallowed); keep the existing slug when the name slugifies to `''` (CJK names); don't auto-redirect mid-submission (the navigation killed the in-flight rename).\n\n## Verification\nreact 5464 ✓ / app-shell 1135 ✓ / plugin-detail 170 ✓ / auth 130 ✓. Browser E2E against both a single-org framework stack and the full cloud stack (real signup → Team page → invite/accept/change-role/remove through better-auth).\n\nPairs with objectstack-ai/framework#2699 and objectstack-ai/cloud feat/console-team-page (cloud#738).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

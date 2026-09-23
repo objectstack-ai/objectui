@@ -1,0 +1,30 @@
+{
+  "number": 2473,
+  "kind": "issue",
+  "title": "plugin-gantt: 详情抽屉应拉取真实记录(而非甘特组合行 payload);写回失败错误信息未弹出;锁定行连线菜单未禁用",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T03:54:09Z",
+  "updated_at": "2026-07-14T05:25:29Z",
+  "closed_at": "2026-07-14T05:25:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2473",
+  "body": "#2460 交互批次真机使用中发现的三个问题(均在 console 14.7.0 复现):\n\n## 1. 详情抽屉显示英文原始字段(BAR_LABEL / NODE_TYPE / GANTT_TYPE…)\n\n`data.provider: 'api'` 的甘特视图,双击行打开的 RecordDetailDrawer 直接渲染组合端点返回的**行 payload**(`record={rec}`),而不是按 `objectField` 路由去对象 API 拉真实记录:\n\n- 组合行的键(bar_label、node_type、gantt_type、parent_node、sort_key、bar_color…)不在对象 schema 里 → 标签走 humanize 兜底,全是英文大写;\n- 行对象 ≠ 视图绑定对象时,`objectSchema` 干脆不传(`objectName === resource ? objectSchema : undefined`);\n- 用户看到的是一堆内部渲染字段(bar_color/border_color/sort_key),而不是业务记录。\n\n**期望**:抽屉打开时用 context dataSource 按行对象 `findOne(objectName, recordId)` + `getObjectSchema(objectName)` 拉真实记录渲染;行内编辑保存也走对象 API;拉取失败/无 context DS 时回退现状(inline value demo 不受影响)。\n\n## 2. 写回失败错误信息没有弹出来\n\n真机操作:在依赖连线上右键 → 修改「完成-开始」,目标行被服务端锁定,`PATCH /api/gantt/task/:id` 返回 403 `{\"error\":\"not_manager\",\"message\":\"仅管理责任人可修改该排班计划\"}`——UI 只静默回弹,**用户完全不知道为什么没生效**。\n\n`handleTaskUpdateDefault` / `persistDependencies` / 删除确认的 catch 全部只 `console.error` + revert。console 全局挂着 sonner Toaster,`ApiDataSource` 抛的 Error message 末尾带完整响应体,可解析出服务端 `message`。\n\n**期望**:所有写回失败(拖拽、连线增删改、删除、抽屉行内编辑)`toast.error`,优先展示服务端返回的 `message`,i18n 兜底「保存失败」。\n\n## 3. 锁定行的连线右键菜单未禁用\n\n依赖存在目标(后继)记录上,但连线右键菜单(类型选择 + 移除)没有检查 `target.locked`——锁定行照样能点,发出必败请求。条形上的拖拽/连线锚点已经有 locked 四道防线,菜单漏了。\n\n**期望**:目标行 locked 时,类型选择与「移除依赖」禁用,菜单内显示锁定提示(复用 `gantt.lockedHint`)。"
+}

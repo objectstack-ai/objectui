@@ -1,0 +1,32 @@
+{
+  "number": 2485,
+  "kind": "pull_request",
+  "title": "fix(console-ai): clear plaintext chat cache on logout / user switch",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T05:55:51Z",
+  "updated_at": "2026-07-14T06:07:34Z",
+  "closed_at": "2026-07-14T06:07:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T06:07:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2485",
+  "body": "Highest-ROI item from the AI-chat subsystem review (#2478, security M2). Refs epic #2409.\n\n## Problem\n\nConversation content + tool payloads are cached in localStorage **in plaintext** (`objectstack:ai-chat-conversation-id:*` pointers and `objectstack:ai-chat-messages:*` bodies) and were **never cleared on logout**. On a shared machine, the next profile user could read the prior user's AI threads — which may contain business data surfaced by the `ask` agent.\n\n## Fix\n\n`useChatConversation` now purges every `objectstack:ai-chat-*` key when the signed-in user changes:\n- `defined → undefined` (logout)\n- `u1 → u2` (a different user signs in)\n\nInitial mount never purges (no prior user). A mid-session auth flicker (userId momentarily undefined during a token refresh) would also purge, but that only forces a harmless server re-fetch — the server is the source of truth.\n\nNew exported `purgeChatCaches()` so an explicit logout path in the auth layer can also invoke it directly (follow-up).\n\n## Scope / safety\n\n- Removes only keys under the two `objectstack:ai-chat-*` prefixes; unrelated localStorage is untouched (tested).\n- No behavior change for a normal single-user session.\n\n## Tests\n\n`useChatConversation.test.tsx` +4 cases (purge scope excludes unrelated keys; no purge on initial mount; purge on logout; purge on user switch). Full hook suite green (33); `tsc --noEmit` clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

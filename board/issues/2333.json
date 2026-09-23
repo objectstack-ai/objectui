@@ -1,0 +1,32 @@
+{
+  "number": 2333,
+  "kind": "issue",
+  "title": "Navigation page selector shows record detail pages that can't work as static nav targets",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hsynetal",
+    "id": 139456920,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-07T07:30:43Z",
+  "updated_at": "2026-07-15T14:21:31Z",
+  "closed_at": "2026-07-15T14:21:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2333",
+  "body": "## Description\n\nWhen creating a navigation item and selecting type **\"page\"**, the dropdown lists **all** pages including record detail pages (pages with `type: 'record'`). Record detail pages require a specific record ID to render, but `type: 'page'` navigation items generate static URLs like `/apps/{app}/page/{pageName}` with no mechanism to pass a record ID. Linking a record detail page from navigation would always be broken at runtime.\n\n## Steps to Reproduce\n\n1. Open the App Builder → navigate to an app's navigation editor\n2. Create a new navigation item (or edit an existing one)\n3. Set type to **\"page\"**\n4. Observe the dropdown includes record detail pages (e.g., \"Record Detail\", \"Contact Detail\", etc.)\n\n"
+}

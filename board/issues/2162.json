@@ -1,0 +1,30 @@
+{
+  "number": 2162,
+  "kind": "issue",
+  "title": "kanban 卡片字段:无视图级 cardFields 时默认取对象 highlightFields(ADR-0085 follow-up)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T14:50:54Z",
+  "updated_at": "2026-07-15T16:21:28Z",
+  "closed_at": "2026-07-15T16:21:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2162",
+  "body": "[ADR-0085](https://github.com/objectstack-ai/framework/blob/main/docs/adr/0085-object-semantic-roles-over-surface-hint-blocks.md) 把 `highlightFields`(由 `compactLayout` 改名,framework#2521)确立为对象级\"最重要字段\"语义角色:默认列表列、卡片、预览、详情顶显条都消费同一份。\n\n**缺口**:kanban 卡片目前只认视图级 `cardFields`(`ObjectKanban.tsx:228`),没配置时退化到语义字段启发式(common semantic fields heuristic)——不读对象级角色。\n\n**建议**:字段选择链改为 `视图级 cardFields` > `对象 highlightFields ?? compactLayout`(别名过渡)> 现有启发式。对齐 ObjectGrid 的默认列优先级模式(`ObjectGrid.tsx:1164`),让\"AI 建一个对象、声明一次 highlightFields\"在看板卡片上也直接生效。\n\n顺带:同 ADR 的 `stageField` 也是 kanban 的自然消费者(默认分组列字段),可在同一 PR 评估。"
+}

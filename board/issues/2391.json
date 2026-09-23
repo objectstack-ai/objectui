@@ -1,0 +1,30 @@
+{
+  "number": 2391,
+  "kind": "pull_request",
+  "title": "feat(app-shell): cloud:ai-model-status panel — see the env's effective AI model in admin (cloud#797)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-11T01:46:36Z",
+  "updated_at": "2026-07-11T01:57:01Z",
+  "closed_at": "2026-07-11T01:56:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-11T01:56:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2391",
+  "body": "只读诊断 SDUI widget,在 admin 界面直接回答\"这个环境实际用哪个 AI 模型、为什么\"——无需 CF token、无需翻 sys_ai_model 表。拉 GET /api/v1/ai/effective-model(service-ai,cloud#805 已合并)的活端点真相:conversational(build/ask)+ structured(蓝图/种子)实际 model id + 各自来源(代码默认 / 被哪个 env 钉住)+ reasoning-effort + 原始 override + 一句话 summary。与 cloud:onboarding-next 同模式;组件只 fetch+渲染,不重算(端点读运行 adapter=单一真相源)。含 loading/诚实错误态,en/zh。由 Cloud/Setup 页挂载(follow-up)。app-shell 1178/1178。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

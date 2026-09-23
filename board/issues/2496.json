@@ -1,0 +1,33 @@
+{
+  "number": 2496,
+  "kind": "pull_request",
+  "title": "fix(plugin-chatbot): ask-decline shows a live pending indicator + earlier handoff card (#2458)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T14:32:10Z",
+  "updated_at": "2026-07-14T14:35:51Z",
+  "closed_at": "2026-07-14T14:32:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T14:32:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2496",
+  "body": "## What & why\n\nItem **#3** of objectstack-ai/objectui#2458 — the **ask-decline latency feel**. When the `ask` agent declines a build-shaped request, the ~20s before the \"Open in Builder →\" card is dominated by the LLM's time-to-tool-call (`gpt-4`, react planning). During that wait the chat could show dead air:\n\n- a blank bubble (whitespace-only streamed content), or\n- the static **\"执行过程\"** activity note — a *re-hydrated-history* affordance (#772) — when the backend streamed a `(called suggest_builder)` tool-call placeholder mid-stream.\n\n## Investigation\n\n- The console (`AiChatPage`) drives the **live** stream through `useObjectChat` → `mapMessages`, default `processVisibility=\"summary\"`.\n- The ask agent (cloud `ask-agent.ts`) is instructed to call `suggest_builder` **first, then one short sentence** — so the wait is LLM tool-call latency, not prose. The card can't render sooner; the win is the **pending indicator**.\n- The `builderHandoff` card (ChatbotEnhanced) already renders on `tool.builderHandoff` with **no gate on prose / stream completion** — so it surfaces at `output-available`, before the trailing sentence. Confirmed and now locked with a test.\n\n## Changes (`ChatbotEnhanced.tsx`)\n\n- Redefined `isEmptyAssistantStreaming` as \"streaming turn with nothing **visible** yet\": no real prose (whitespace-only and `(called …)` placeholders don't count), no rendered tool row (summary chip / detailed card), no *shown* reasoning (only surfaced in `debug`), no build/design panel → renders the existing **`ThinkingDots`** indicator (mirrors the existing streaming affordance, per the ticket).\n- The static **\"执行过程\"** note is now reserved for **finished** (re-hydrated) tool-call-only turns — `#772` behaviour preserved, verified by a test.\n- The typing cursor now paints only beside real streaming prose (no lone cursor during the tool phase).\n\n## Goal 3 (prose need)\n\nThe ask agent already emits just \"one short sentence\" for a decline (cloud `ask-agent.ts`) — already minimal. No prompt change made; touching the P4 handoff contract was explicitly out of scope.\n\n## Tests\n\n`packages/plugin-chatbot/src/__tests__/ChatbotEnhanced.test.tsx` (86 pass):\n- handoff card renders at `output-available` **while streaming, before prose arrives**;\n- **live dots, not 执行过程**, for a mid-stream `(called …)` placeholder;\n- **执行过程 note preserved** for a finished placeholder turn (#772).\n\n## Browser proof\n\nRendered the **real** `ChatbotEnhanced` (from source, console-default `summary` mode) through the exact ask-decline stream phases (a live `gpt-4` rig is needed to reproduce the 20s wall-clock; the harness reproduces each phase deterministically):\n\n1. **Wait / `(called …)` placeholder** → live thinking indicator (`Assistant is responding`), no blank, no 执行过程.\n2. **`suggest_builder` → `output-available`, still streaming, no prose** → full \"Open in Builder →\" card (prompt + actionable button).\n3. **One-line prose** fills in below the card afterward.\n\n## Follow-up (out of scope, flagged separately)\n\n`hydratedMessagesToChatMessages` (app-shell `AiChatPage`) lifts `draftReview`/`proposedPlan` on reload but **not** `builderHandoff`/`proposedChanges`, so a *reloaded* ask-decline loses the card. Spawned as a separate task.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

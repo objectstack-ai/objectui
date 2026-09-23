@@ -1,0 +1,30 @@
+{
+  "number": 2512,
+  "kind": "pull_request",
+  "title": "i18n: localize the AI edit-app surfaces (build canvas label + Studio edit starters)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T10:01:27Z",
+  "updated_at": "2026-07-15T11:40:51Z",
+  "closed_at": "2026-07-15T11:40:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T11:40:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2512",
+  "body": "Follow-up polish from the Studio UX teardown — strings that render **English on a Chinese UI** because their keys were never added to the locale bundles (they only carried inline `defaultValue`s, so `t()` fell back to English).\n\n## Localized\n- **AI build page right pane (LiveCanvas) header** — `console.ai.liveCanvas` / `liveCanvasUnlisted`. Was \"Live app — X (unlisted until published)\"; ZH now \"运行预览 · X（未发布 · 仅自己可见）\", which also makes clearer that this pane is the RUNNING app, not the designer (the exact confusion the teardown surfaced).\n- **Studio copilot edit-an-app empty state + starters** — `console.ai.empty.editApp.*` (\"Editing X / What would you like to change?\") and `console.ai.suggestions.editApp.*` (Add a field / object / dashboard / automation). These showed English in the Chinese Studio dock.\n\n## Nature of the change\nBundle-only. Keys added to both `en.ts` (verbatim to existing defaultValues → EN unchanged) and `zh.ts`. No component/call-site changes — the call sites already reference these keys; they just had no translation to resolve to.\n\n## Testing\ni18n suite green (94 tests / 8 files); locale files parse + structural tests pass.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2540,
+  "kind": "pull_request",
+  "title": "chore(studio): remove dead code left by the package spec-form migration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T16:05:20Z",
+  "updated_at": "2026-07-15T16:14:39Z",
+  "closed_at": "2026-07-15T16:14:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T16:14:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2540",
+  "body": "Follow-up cleanup to #2535, which replaced the three hand-rolled package forms with the spec-driven `PackageFormDialog`. These are now unreferenced in production:\n\n- **`packages-io.createBasePackage`** — the old landing/switcher create path (create now POSTs the manifest straight from `PackageFormDialog`).\n- **`PackageIdSuggestionHint`** (in `PackageIdInput.tsx`) + its test — the name→id suggestion hint for the old landing create form.\n- **10 unused i18n keys** (× en/zh): old create-form id/namespace validation messages and name/id/namespace placeholders.\n\n`PackageIdInput` itself **stays** — the landing \"duplicate package\" form still uses it, along with its `idStripped`/`idFormat` hint keys.\n\nNo behaviour change. Verified each removed symbol/key has zero production references; type-check clean and the affected tests (PackageIdInput, PackageFormDialog, EditPackageDialog, CreatePackageDialog.namespace — 15 tests) pass.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

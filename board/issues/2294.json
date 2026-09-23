@@ -1,0 +1,33 @@
+{
+  "number": 2294,
+  "kind": "issue",
+  "title": "列表过滤条件在页面切换后未保留",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T14:30:20Z",
+  "updated_at": "2026-07-06T14:25:04Z",
+  "closed_at": "2026-07-06T14:25:04Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2294",
+  "body": "## 问题\n\n在对象列表(数据模式 `ObjectView`)中,用户输入搜索词或设置高级筛选(FilterBuilder)条件后,通过侧边栏切换到其他页面,再切回该列表时,**过滤条件全部丢失**,又变回未过滤的全量列表。\n\n根因:搜索词(`searchTerm`)和高级筛选(`currentFilters`)是 `ListView` 的组件本地 state,导航离开时 `ListView` 被卸载,state 随之销毁。虽然快速筛选会写入 `uf_*` URL 参数,但 URL 参数只在**刷新 / 浏览器后退**时保留 —— 通过应用内导航链接离开(该链接不带查询串)再回来时同样会丢。\n\n## 期望\n\n用户在列表里输入的过滤条件,切换到其他页面再回到该列表时应**自动保留**。\n\n## 方案\n\n按 用户 × 对象 × 视图 维度,把运行时过滤状态(高级筛选 + 搜索词)缓存到 `localStorage`,`ListView` 挂载时读取并恢复。\n\n- 新增 `packages/app-shell/src/views/listFilterStorage.ts`:`buildListFilterKey` / `read` / `write`(300ms 防抖写入,状态为空时删除键)。\n- 存储键形如 `list-filters:<userId>:<对象>:<视图ID>`,**内嵌 userId**,避免同一浏览器切换账号时互相读到对方的过滤条件(过滤值可能敏感)。列宽 `grid-columns-*` 是纯外观、故意不按用户隔离,这里不同。\n- `ObjectView` 在 `onFilterChange` / `onSearchChange` 时写入,挂载时经新增的 `initialFilters` / `initialSearchTerm` 恢复。`ListView` 用 `key` 在视图切换时重挂载,所以懒初始化能按视图正确重读。\n- **不触碰**服务端共享视图定义(`persistViewPatch`);本永续层是纯用户个人、端末本地的附加层。\n\n先只覆盖普通对象列表(`ObjectView`);`InterfaceListPage` 后续视需要再跟进。\n"
+}

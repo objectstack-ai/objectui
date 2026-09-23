@@ -1,0 +1,34 @@
+{
+  "number": 2452,
+  "kind": "pull_request",
+  "title": "fix(console-ai): #2450 stale-scope pane swallow + capability-based rendering (cloud#816) + ADR-0057 decisions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T13:08:01Z",
+  "updated_at": "2026-07-13T14:03:46Z",
+  "closed_at": "2026-07-13T14:03:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T14:03:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2452",
+  "body": "Three related ADR-0057 items in one reviewable set (companion backend: objectstack-ai/cloud#821, merge-order independent but pair-merged):\n\n## 1. Closes #2450 — second handoff's auto-send died in the stale-scope pane\nRoot cause (sharper than the issue's hypothesis): mid ask→build transition,\n`useChatConversation` briefly still holds the OLD scope's conversation id — the\nexact window the URL-mirror already guards (`conversationScope !== chatScope`)\n— but `<ChatPane>` was fed the RAW id. A doomed pane (build chatApi + stale ask\nid, about to remount) could mount, and the deferred first-send replay consumed\nthe handoff stash into it; the send died with the unmount before reaching the\nwire. Live symptom: conversation resumes, **zero `…/chat` POST**.\n\n- **Scope-gated pane feed (structural)**: the pane now receives id/messages only\n  when `conversationScope === chatScope`; during the window it mounts as\n  `…:pending`, holds the stash, and replays once in the correctly-scoped pane.\n- **Targeted stash (defense-in-depth)**: the handoff seed is stamped\n  `targetAgentRoute:'build'`; `useDeferredFirstSend` refuses to consume a\n  targeted stash in a pane bound to another agent. Untargeted user sends keep\n  consume-anywhere behavior.\n\nPer product decision: a second handoff landing on an Awaiting-Approval blueprint\njust auto-sends; the agent sees the pending plan in context.\n\n## 2. cloud#816 consumption — render behavior by declared capability\n`AgentDescriptor.capabilities` + `agentHasCapability(agents, name, cap)`\n(declaration wins; falls back to `isBuildAgent(name)` when absent, so it works\nagainst older servers). Applied to the behavior sites: build-doctor drawer +\n`showDebug` → `'debug'`, FAB resume-vs-fresh → `'resume'`, HomePage \"Build with\nAI\" availability → `'authoring'`. Product-axis sites (P2 resolver, conversation\nscope keying, picker availability) intentionally stay name-based.\n\n## 3. ADR-0057 doc — decisions recorded, Status → Accepted\nOpen questions 1–3 decided (chat right-dock; FAB = collapsed affordance;\nexplicit handoff shipped); Status reflects P1/P2/P4 shipped + P3 planned\n([implementation plan](https://github.com/objectstack-ai/objectui/issues/2409#issuecomment-4958265739)).\n\n## Tests\n32/32 across `useDeferredFirstSend` (held-then-replayed across re-bind),\n`useObjectChat.handoffContext`, new `agentCapabilities` (declared-wins /\nfallback / alias-aware), `agentAliases`, `FloatingChatbot`; plugin-chatbot +\napp-shell package builds (tsc) clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2326,
+  "kind": "issue",
+  "title": "Flow createDefaults missing type field — save may fail server validation if type not explicitly selected",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T12:28:35Z",
+  "updated_at": "2026-07-15T14:38:29Z",
+  "closed_at": "2026-07-15T14:38:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2326",
+  "body": "### Summary\n\nFlow `createFields` asks for `type`, but `createDefaults` does not include a default value for `type`. If a user saves without selecting a type, the body may fail server validation against `FlowSchema`.\n\n### Root cause\n\nIn `packages/app-shell/src/views/metadata-admin/anchors.ts`, lines 253-267:\n\n```typescript\ncreateFields: ['label', 'name', 'type', 'description'],\ncreateDefaults: { nodes: [], edges: [] },\n```\n\nThe spec's `FlowSchema` (`spec/src/automation/flow.zod.ts`, line 253) defines `type: z.enum(['autolaunched', 'record_change', 'schedule', 'screen', 'api'])` as non-optional. The authoritative `BUILTIN_METADATA_CREATE_SEEDS` correctly seeds `type: 'autolaunched'`, but anchors.ts `createDefaults` is out of sync.\n\nThere is also no `createSchema`, so the `type` enum is not constrained client-side.\n\n### Steps to reproduce\n\n1. Create a new Flow, enter name and label\n2. Don't explicitly pick a `type` value\n3. Save — may fail server validation because `type` is missing\n\n### Expected behavior\n\n`createDefaults` should include `type: 'autolaunched'`.\n\n### Fix\n\n```diff\n- createDefaults: { nodes: [], edges: [] },\n+ createDefaults: { type: 'autolaunched', nodes: [], edges: [] },\n```\n\nAlso optionally add a `createSchema` with a `type` enum.\n\n### Impact\n\nUsers who don't explicitly select a flow type before save may encounter a server validation error."
+}

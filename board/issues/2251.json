@@ -1,0 +1,32 @@
+{
+  "number": 2251,
+  "kind": "issue",
+  "title": "新增 /:objectName/data 参数化裸数据路由:URL 过滤 + 不绑定视图,现有菜单/路由零破坏",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "designer"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T05:02:39Z",
+  "updated_at": "2026-07-16T05:32:34Z",
+  "closed_at": "2026-07-16T05:32:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2251",
+  "body": "## 背景\n\n来源:导航建模讨论(#2245、#2247 app-composition 指南的后续)。场景:需要通过 URL 传过滤条件展示对象数据,同时显示常见筛选条件栏,并复用完整列表能力(分组/过滤/排序/展示类型切换)——**此场景不应锚定到任何已保存视图**。但当前对象路由始终解析出一个「活动视图」,URL 条件只能叠在该视图自带的 filter 之上。\n\n> 设计经过三轮迭代(方案 A 严格语义 → 三表面模型 → 本版),前两版均因破坏存量菜单/深链语义被否。本版为**纯增量**方案,原「方案 A」描述作废。\n\n## 现状 / 根因\n\n已有机制(可复用,不需重建):\n\n- **`filter[<field>]=<value>` URL 参数**:`packages/app-shell/src/views/ObjectView.tsx:994-1007` 解析,`:1222-1228` 与活动视图的 filter **AND 合并**后下发查询(仅支持等值)。\n- **`uf_<field>` URL 参数**(ADR-0047,`packages/app-shell/src/views/userFilterUrlState.ts`):常见筛选栏(UserFilters)选择的 URL 镜像,可分享、刷新不丢。\n- **零视图兜底**:对象没有任何 list view 时,`ObjectView.tsx:557-564` 合成一个 All Records 网格——本方案将其泛化为可寻址表面。\n\n问题:\n\n1. URL 过滤逃不出活动视图自带的 filter(例:默认视图只显示活动记录,URL 条件永远查不到归档记录);无预置过滤的裸表面**没有任何入口可寻址**。\n2. 语义误导:URL 过滤进入时视图 Tab 仍高亮某个视图,暗示「你在视图 X 里」;后续调整可能触发视图保存流程,污染共享视图定义。\n3. 导航契约侧没有表达「带条件的对象入口」的字段(`ObjectNavItem` 无 `filters`),只能为每个条件建一个视图。\n\n## 设计:三路由模型(纯增量)\n\n| 路由 | 视图 Tab 栏 | 语义 | 状态 |\n|---|---|---|---|\n| `/:objectName` | ✅ | 工作台:默认视图 + 已保存视图切换 | **不动**(存量菜单/书签零影响) |\n| `/:objectName/view/:viewId` | ✅ | 工作台,锚定具名视图 | 不动 |\n| `/:objectName/data` ± `filter[...]`/`uf_*` | ❌ | **参数化裸数据表面**(新增) | 新增 |\n\n### `/data` 表面的行为\n\n1. **数据范围**:行级权限内全量(见安全模型),无任何已保存视图的预置过滤;URL `filter[...]`/`uf_*` 条件直接叠加其上,渲染为筛选栏中**可见、可删除的 chip**。\n2. **能力**:常见筛选栏、分组、排序、展示类型切换(grid ↔ kanban ↔ calendar,Odoo view-mode 语义)全部可用;**展示类型切换时 URL 过滤状态原样保留**(数据范围与展示类型正交)。\n3. **无视图 chrome**:不显示已保存视图 Tab 栏——心智模型是「一个 URL 定义的数据切面」,不是「在视图之间浏览」。\n4. **不回写**:任何调整不写回任何已保存视图;出口为「另存为新视图」(复用 `viewDraft` + `CreateViewDialog`),保存后跳转 `/view/<新id>` 进入工作台。\n5. **列配置**:自动生成自对象定义(经字段级权限过滤,见安全模型);常见筛选栏来源为对象级 `defaultUserFilters` 或按 filterable 字段自动生成(选型待评审)。\n6. **路由保留段**:`data` 加入 `new`/`view`/`record` 保留段清单(`packages/app-shell/src/console/AppContent.tsx` 路由表)。\n7. 无参数的 `/data` 语义明确(权限内全量、无 chrome),可作为未来嵌入/iframe 表面复用。\n\n### 导航契约(spec 侧,framework 仓)\n\n- `ObjectNavItem` 加可选 `filters`(支持 `{current_user_id}` 等模板变量,先例 `recordId`/`params`)。\n- `resolveHref`(`packages/layout/src/NavigationRenderer.tsx:377`)新增分支:带 `filters` 的 object 项 → `/:objectName/data?filter[...]`;不带 `filters` 的项行为**完全不变**。\n- 典型消费方:带条件的菜单入口、仪表盘/报表钻取链接、AI 生成的链接。\n\n### 操作符扩展(可后置)\n\n保留 `filter[field]=value` 等值简写,补富语法(如 `filter[field][gte]=...`)。\n\n## 安全模型(裸表面 ≠ 绕过授权)\n\n原则:**视图不是安全边界**。`/data` 显示的是「行级权限过滤后你有权看到的全量」,不是「所有数据」。保密性由权限层承担(`@object-ui/permissions` 三层模型:对象级 actions / `rowPermissions.filter` / `fieldPermissions`,见 `packages/permissions/src/evaluator.ts`),视图 filter 只是展示配置。\n\n1. **路由门禁**:无对象 read 权限时 `/data`(与 `/view/:viewId`)返回 403 视图,不渲染空列表。\n2. **合成列过字段级权限**:`/data` 的默认列自动生成自对象定义,必须先经 `fieldPermissions` 过滤——精选视图故意省略的敏感列不得因列合成而暴露(本方案唯一新增的暴露面)。\n3. **不可读字段禁止参与过滤/排序/分组**:防 filter-oracle 泄露(如 `filter[salary][gte]=...` 通过结果集反推数值)。服务端丢弃不可读字段上的谓词;筛选栏同样不提供这些字段。\n4. **行级过滤与入口过滤呈现区分**:行级权限 filter 是隐形底线(不出现在筛选栏、不可移除,Odoo `ir.rule` 式);URL 条件渲染为可见、可删除的 chip。\n5. **强制点在服务端**:`rowFilter` 与字段级限制由 framework 在 API 查询层注入;UI 权限包仅做同构体验裁剪,不作为防线。\n\n## 验收标准\n\n- `/:objectName/data?filter[status]=open` 展示行级权限内全量数据经 URL 条件过滤的结果,**不受任何已保存视图 filter 影响**;筛选栏/分组/排序/展示类型切换可用。\n- `/data` 表面不显示已保存视图 Tab 栏;展示类型切换(grid → kanban)后 `filter[...]`/`uf_*` 状态保留。\n- `/data` 上的调整不产生对已保存视图的写回;「另存为新视图」保存后跳转对应 `/view/:viewId`。\n- **存量行为回归**:`/:objectName` 与 `/view/:viewId` 的现有行为(默认视图解析、Tab 栏、`filter[...]` 叠加语义)不变,现有 E2E 全绿。\n- `ObjectNavItem.filters` 经 `resolveHref` 产出 `/data?filter[...]`,有单测;不带 `filters` 的项输出不变。\n- 安全:低权限角色访问 `/data?filter[...]` 不越过行级 filter;敏感字段不出现在合成列与筛选栏;对不可读字段的 URL 谓词被服务端忽略(有测试覆盖)。\n- 两份 app-composition 文档(#2247)同步更新:rule 2 补充「参数化/一次性切面走 `/data` + URL 条件,值得沉淀的切面才建具名视图」。\n\n## 关联\n\n- #2245(AppNavInspector typed-target 改造——`filters` 字段应纳入其分类型目标选择器设计)\n- #2247(app-composition 决策指南——需同步修订)\n- ADR-0047(`uf_*` URL 持久化)、ADR-0053(视图级 userFilters/quickFilters)"
+}

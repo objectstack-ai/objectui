@@ -1,0 +1,32 @@
+{
+  "number": 2410,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): authenticate console MetadataClient requests",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T04:21:37Z",
+  "updated_at": "2026-07-13T04:32:46Z",
+  "closed_at": "2026-07-13T04:32:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T04:32:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2410",
+  "body": "## Symptom\n\nOn `/_console/studio/<pkg>/data` some metadata requests 401 while others 200 in the **same logged-in browser**. Verified with the Chrome extension:\n\n| request | cookie only | + Bearer token |\n|---|---|---|\n| `GET /api/v1/meta/object` | 401 | 200 |\n| `GET /api/v1/meta/object?package=…` | 401 | 200 |\n| `GET /api/v1/meta/app?package=…`, `/meta/_drafts`, `/meta` | 401 | 200 |\n\nThe deciding variable is **the `Authorization: Bearer` header**, not the URL or a permission — `document.cookie` has no session cookie (`authCookiesPresent: []`); the console authenticates purely by the `auth-session-token` Bearer token.\n\n## Root cause\n\n`MetadataClient` (`@object-ui/data-objectstack`) defaults `config.fetch ?? globalThis.fetch` — the bare global fetch sends no `Authorization` header. Two construction sites built it **without a `fetch`**:\n\n- `views/metadata-admin/useMetadata.ts` — `useMetadataClient()` (backs ~30 Studio/metadata-admin surfaces)\n- `providers/MetadataProvider.tsx` — the draft-preview client\n\nThe runtime adapter (`AdapterProvider.tsx`) builds with `createAuthenticatedFetch()`, so its `/meta/object|view|app` reads carried the token → 200; the Studio-authoring client did not → 401. A same-origin cookie deployment masked the bug, so it regressed twice. The `MetadataProvider` comment literally said \"same cookie auth\" — the mistaken assumption.\n\n## Fix\n\nFunnel every console `MetadataClient` through a single authenticated factory `createConsoleMetadataClient` (new `metadataClientFactory.ts`) that bakes in `createAuthenticatedFetch` (Bearer + `X-Tenant-ID` + `Accept-Language`) and dedupes the copied `baseUrl` resolution. Additive for cookie deployments — `credentials` is untouched. `withEnvironment`/`withPreviewDrafts` propagate the fetch, so fixing the construction points covers all downstream clients.\n\nA `metadata-client-auth.ratchet.test.ts` guard forbids a bare `new MetadataClient(` elsewhere in app-shell so authentication can't silently regress.\n\n## Verification\n\n- HTTP-level proof (above): injecting the Bearer token flips all five 401 endpoints to 200 — exactly what the factory now does.\n- `turbo run type-check --filter=@object-ui/app-shell` → 29/29 tasks pass.\n- `data-objectstack` metadata-client tests: 20 passed (fetch injection + `withEnvironment` propagation intact).\n- `MetadataProvider` merge/extract + the new ratchet: 14 passed.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

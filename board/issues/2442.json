@@ -1,0 +1,33 @@
+{
+  "number": 2442,
+  "kind": "pull_request",
+  "title": "feat(plugin-gantt): 写后回读服务端重算字段 + 手动刷新按钮(#2436 第 6/7 项)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T09:25:20Z",
+  "updated_at": "2026-07-13T11:24:25Z",
+  "closed_at": "2026-07-13T11:24:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T11:24:23Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2442",
+  "body": "关联 #2436(第 6 项:写后不回读服务端重算字段;第 7 项:无刷新按钮)。两项共用同一套 refetch 管道,故合为一刀。\n\n## 问题\n\n1. **写后不回读**:拖拽改期 / 依赖增删 / 抽屉内联编辑 / 删除记录后,本地只保留乐观补丁——客户端写了什么就显示什么。服务端重算的字段(父级排班计划的汇总起止、预警颜色、按工作日历重算的工期)全部陈旧,直到用户整页刷新。制造场景里派工单一动、上级排班计划的汇总条必须跟着动,这是核心链路。\n2. **无手动刷新**:别人改了数据、或后台任务跑完,图上没有任何不整页刷新就能拿到新数据的入口(#2436 已明确砍掉断网监听/轮询,刷新按钮是约定的替代)。\n\n## 方案\n\n- **ObjectGantt**:数据加载 effect 重构为可复用的 \\`reload({ silent })\\`。\n  - \\`silent: true\\` 不翻 \\`loading\\`(GanttView 不卸载,滚动/折叠/布局状态全保留),只置 \\`refreshing\\`;\n  - 并发请求用递增序号守卫,慢的旧响应不能覆盖新的;\n  - 静默刷新失败只 \\`console.error\\`,屏上保留最后一份好数据(不闪错误页);\n  - 四个写路径(\\`handleTaskUpdateDefault\\`、\\`persistDependencies\\`、抽屉 \\`onFieldSave\\`、\\`confirmDelete\\`)成功后都静默回读——整表回读而非单条,因为汇总重算落在**父记录**上,单条 findOne 拿不到。\n- **GanttView**:新增 \\`onRefresh?\\` / \\`refreshing?\\` props,工具栏渲染刷新按钮(\\`data-testid=\\\"gantt-refresh\\\"\\`,刷新中禁用 + \\`aria-busy\\`)。ObjectGantt 仅对 object 数据源接线;\\`value\\` 内联数据无可回读来源,不显示按钮。i18n 走 \\`gantt.toolbar.refresh\\`(附英文兜底)。\n\n## 测试\n\n- 新增 \\`ObjectGantt.readback.test.tsx\\`(4 例):写成功 → 再次 find 且服务端版本落屏;写失败 → 回滚且**不**回读;object 数据源 → onRefresh 接线、点击后拉到新数据;value 数据 → 无 onRefresh。\n- \\`GanttView.layout.test.tsx\\` 新增 3 例:无 onRefresh 不渲染按钮;点击转发;refreshing 时禁用。\n- \\`pnpm --filter @object-ui/plugin-gantt test\\`:20 文件 239 例全绿。\n- \\`tsc --noEmit\\` 干净;eslint 仅剩 1 处 base 已有错误(ObjectGantt.tsx \\`no-useless-assignment\\`),本 PR 顺手消掉了原有的 \\`prefer-const\\` 错误(\\`let items\\` → \\`const\\`),未引入新错误。\n\n## 非目标\n\n- 断网监听 / 自动轮询(#2436 已砍)。\n- OCC/并发编辑保护(#2436 已砍)。\n- ResourceView 分支的刷新按钮(资源视图只读聚合,后续有需要再加)。\n\n## 备注\n\n与 #2441(抽屉锁定)都触碰抽屉的 \\`onFieldSave\\` 附近行,后合入的一方需小幅 rebase。"
+}

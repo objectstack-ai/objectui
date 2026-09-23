@@ -1,0 +1,32 @@
+{
+  "number": 2322,
+  "kind": "issue",
+  "title": "View createSchema: object property missing widget ref:object — renders as text input instead of object selector",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T12:28:21Z",
+  "updated_at": "2026-07-15T14:35:14Z",
+  "closed_at": "2026-07-15T14:35:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2322",
+  "body": "### Summary\n\nWhen creating a new View via the metadata admin UI, the Object field renders as a plain `<input type=\"text\">` instead of a `<Select>` dropdown that lets the user pick from existing objects.\n\n### Root cause\n\nIn `packages/app-shell/src/views/metadata-admin/anchors.ts`, lines 217-221, the View `createSchema` defines `object` as:\n\n```typescript\nobject: {\n  type: 'string',\n  title: 'Object',\n  description: 'The object this view displays.',\n}\n```\n\nIt's missing `widget: 'ref:object'`. SchemaForm interprets plain `type: 'string'` as a text input. The Page type (same file, lines 147-152) correctly includes `widget: 'ref:object'` on its `object` field — View does not.\n\n### Steps to reproduce\n\n1. Navigate to Metadata → View → Create new\n2. Observe the \"Object\" field — it's a plain text input\n3. Compare with Page → Create new — the \"Object\" field is a proper dropdown\n\n### Expected behavior\n\nThe Object field renders as a `<Select>` dropdown populated with existing objects.\n\n### Fix\n\nAdd `widget: 'ref:object'` to the `object` property in View's `createSchema` (line 220).\n\n### Impact\n\nEvery user creating a View must manually type the object name instead of picking from a dropdown. Typo-prone, bad UX."
+}

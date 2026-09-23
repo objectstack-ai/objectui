@@ -1,0 +1,30 @@
+{
+  "number": 2384,
+  "kind": "pull_request",
+  "title": "feat: consume dynamic runtime branding across the console frontend",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-10T15:00:41Z",
+  "updated_at": "2026-07-11T01:30:06Z",
+  "closed_at": "2026-07-11T01:30:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-11T01:30:05Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2384",
+  "body": "## Summary\n- Replaces all hardcoded default icons, titles, and favicon with values from the runtime config branding endpoint\n- Branding surfaces updated: header logo, auth page BrandMark, device-auth page, loading screen, PWA manifest, document title, favicon\n- Pre-React branding script in `index.html` prevents flash of unbranded content\n- `BrandingSync` React component keeps title + favicon in sync on every route change\n- Dev-only Vite plugin serves branding assets at `/runtime/assets/*` from host project directory\n- Falls back to built-in defaults when no branding is configured\n- E2E smoke test made brand-agnostic\n\n## Test plan\n- [ ] Set `OS_PRODUCT_NAME`, `OS_LOGO_URL`, `OS_FAVICON_URL` and verify all surfaces\n- [ ] Verify defaults still work when no env vars are set\n- [ ] Hard-refresh page — title should not flash old default\n- [ ] Run `pnpm --filter @object-ui/console dev` — /runtime/assets/logo.png should resolve\n\nMade with [Cursor](https://cursor.com)"
+}

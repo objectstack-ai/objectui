@@ -1,0 +1,30 @@
+{
+  "number": 2507,
+  "kind": "issue",
+  "title": "fix(components): 列表视图横向滚动条只在下拉到最后一行时才出现",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T05:29:42Z",
+  "updated_at": "2026-07-15T08:55:53Z",
+  "closed_at": "2026-07-15T08:55:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2507",
+  "body": "## 现象\n在列/网格视图列很多时(如排班计划,60+ 行 × 19 列),右侧字段看不到——**横向滚动条只有下拉到最后一行时才出现**,无法在任意滚动位置左右滚动查看右侧列。\n\n## 复现\n1. 打开一个列很多、会横向溢出的列表视图(记录数足够撑出纵向滚动)。\n2. 停在顶部,尝试横向滚动查看右侧列 → 没有横向滚动条。\n3. 一直下拉到最后一行 → 横向滚动条才在最底部出现。\n\n## 根因\nshadcn 的 `<Table>` 把 `<table>` 包在一个 `overflow-auto` 的滚动 `<div>` 里。当 `DataTable` 已经把表格放进一个**有界**的 `flex-1 min-h-0 overflow-auto` 区域时,这个默认包裹层就变成**第二个、高度无界的横向滚动容器**——它被撑到整张表的高度,横向滚动条随之落在所有行的最底部,只有滚到最后一行才够得到。\n\n## 期望\n横向滚动条钉在视口底部,任意滚动位置(包括停在首行)都能左右滚查看右侧列,无需先下拉到最后一行。\n\n## 修复\n见 PR #2506:给 `Table` 增加 `containerClassName` prop,`DataTable` 传 `overflow-visible`,让外层有界容器同时拥有横纵两轴。已在真机 console 端到端验证 + 加回归测试。\n"
+}

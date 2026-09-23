@@ -1,0 +1,33 @@
+{
+  "number": 2402,
+  "kind": "pull_request",
+  "title": "Detail view: Edit as primary CTA; enter inline edit by double-clicking a field (#2401)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-12T14:55:06Z",
+  "updated_at": "2026-07-13T00:41:04Z",
+  "closed_at": "2026-07-13T00:41:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T00:41:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2402",
+  "body": "Closes #2401.\n\n## What & why\n\nThe record header exposed **two competing edit entry points** — a prominent `Edit fields` (the inline-edit toggle) and a buried `Edit` (full form) — an inconsistent, confusing hierarchy (worse in the `page:header` synth path, where the overflow logic pushed the primary `Edit` into the `…` menu). This collapses them into one clear model (Salesforce-style):\n\n- **`Edit` is the single primary CTA** in the header (opens the full form). Share/Delete live in the `…` overflow.\n- **Inline editing moves onto the field**: hovering a field reveals a **pencil**, and **double-clicking** it (or the pencil) flips the record into inline edit — focused on that field — with the existing Save/Cancel bar. No more standalone `Edit fields` toggle.\n\nSingle-click stays for text-selection/copy (these are read-oriented display fields with selectable emails/links), so **double-click + hover-pencil** is the right trigger.\n\n## Changes\n\n| Area | Change |\n|---|---|\n| `RecordDetailView` | Drop the `sys_inline_edit` header action → `sys_edit` becomes the primary button; overflow keeps Share/Delete. |\n| `DetailView` | Remove the idle standalone toggle + the mobile inline-edit entry; Save/Cancel renders only while editing; add `handleEnterInlineEditField` + `autoFocusField`; thread `onEnterInlineEdit` to every section. |\n| `DetailSection` | Hover pencil + double-click to enter edit; gate the affordance **and** the input on field editability; auto-focus the entered field. |\n| `record-details` | Gate inline-editability by object lifecycle (`managedBy` / `userActions`) — the gate the removed `sys_inline_edit` button used to carry. |\n| `i18n` | `detail.editInlineHint` (en/zh) + `DETAIL_DEFAULT_TRANSLATIONS` fallback. |\n\n## Guardrails preserved\n\n- **Computed** (`formula` / `summary` / `rollup` / `auto_number`) and **`readonly`** fields expose no pencil and never become inputs — even in global inline-edit mode.\n- **Object-lifecycle gate**: double-click is not offered on `system` / `append-only` / `better-auth` objects (honors `userActions.edit`).\n- **Approval-locked** records and the **OCC / partial-update** save path are untouched (`{ [field]: value }` stays the de-facto sanitizer — no full-record writes).\n- **Mobile** (no hover/double-click) falls back to the primary Edit button.\n\n## Verification\n\n- `plugin-detail` (vite) build ✓, `app-shell` (tsc) build ✓, `i18n` (tsc) build ✓.\n- **New unit tests** (`DetailSection.doubleClickEdit.test.tsx`, 5 cases) + existing DetailView/record-details suites: **129 passing**.\n- Dev-server HMR clean.\n- ⏳ Visual browser pass on the showcase `Project` record pending (dev-server login).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

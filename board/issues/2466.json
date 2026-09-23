@@ -1,0 +1,33 @@
+{
+  "number": 2466,
+  "kind": "pull_request",
+  "title": "feat(console-ai): bind-on-create — build conversations re-key to app:X:build (ADR-0057 A1.b)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T20:21:33Z",
+  "updated_at": "2026-07-13T21:53:41Z",
+  "closed_at": "2026-07-13T21:53:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T21:53:39Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2466",
+  "body": "Implements **ADR-0057 Amendment A1.b** (#2457) — part of epic #2409. Follows A1.a (#2461).\n\n## The defect (reproduced live)\n\nA bare `/ai/build` visit (the magic flow) keys its conversation to the product-only scope `build`, while \"Edit with AI\" (`/ai/build?package=X`) keys `app:X:build`. When a build inside an unbound conversation mints package X, the thread that **built** X and the thread Edit-with-AI later opens for X are **different conversations** — the user's original build history is stranded where they'll never look for it (Amendment A1, defect 3).\n\n## What this does\n\n- **Bind on create** (the untitled-document idiom): the moment a product-scoped build thread's history binds to package X (latest `draftReview`/`builderHandoff` package, per A1.a's `deriveBoundPackageId`), the page calls the new `useChatConversation.rekeyScope('app:X:build')` and puts `?package=X` on the URL. A later Edit-with-AI entry for X resumes the **same** thread.\n- **`rekeyScope` is synchronous by design**: it flips `conversationScope` (ref) *before* the `?package=` navigate re-render recomputes the host scope, so the #2450 scope-match gate never opens a remount window — the mounted pane (and any in-flight stream) survives the re-key. Binding is deferred until the conversation id is mirrored into the URL (single-navigator rule: the URL-mirror effect is dormant once `/:convId` is present, so the two effects can never fight over the URL from stale closures).\n- **Legacy-scope fallback read (migration)**: an `/ai/build?package=X` visit with no `app:X:build` cache entry offers the product-only thread to a predicate — adopted **iff** its own history is bound to X, so an unrelated thread is never hijacked into an app scope. A failing fallback fetch degrades to a plain miss (fresh conversation), never a dead surface. Pre-A1.b threads therefore stay reachable.\n- **A1.a chip → switcher**: the binding chip is now a dropdown — apps (deduped by package) navigate to that app's Edit-with-AI thread; \"✨ New app\" opens a fresh unbound draft via `?new=1`. Trigger keeps `data-testid=\"ai-build-package-chip\"`.\n\n## Migration / keying semantics — read this\n\nThis mutates live conversation keying, **client-side only**:\n\n- Scope keying is a per-`(user, scope)` **localStorage** cache (`objectstack:ai-chat-conversation-id:{user}:{scope}`); `useChatConversation` never lists by scope server-side, so **no server change** is needed. Corollary (pre-existing): continuity is per-browser; a different browser has no cache and the fallback/predicate handles or re-mints there.\n- **The legacy product-only key is deliberately NOT cleared** on re-key or adoption — ChatDock/FAB and bare `/ai/build` keep resolving through it exactly as before. Zero regression for those surfaces; the bound thread is simply *also* reachable under its app scope.\n- **Latest-wins**: re-keying overwrites an existing `app:X:build` entry — the thread you most recently had open bound to X becomes X's Edit-with-AI thread (matches the chip's latest-draft-wins semantics). Older threads remain in the sidebar history.\n- Known gap deferred to **A1.c**: `useObjectChat` bakes `body.context` into the transport at first render, so turns between the bind and the next reload don't carry `context.packageId` — same as today; the server tracks the conversation's active package itself (ADR-0070).\n\n## Tests\n\n8 new cases in `useChatConversation.test.tsx` (re-key writes both keys + same id; rekeyed scope change resumes without re-resolve or create; no-op before resolve; legacy adopt on match / fresh on reject / fresh on fetch failure; predicate fed the localStorage message cache when the server returns no history; fallback never runs on a primary cache hit). Existing #2450/A1.a suites green: `useDeferredFirstSend`, `deriveBoundPackageId`, `AiChatPage.hydration`, `chatScope`, `useObjectChat.handoffContext` — 56 tests total, plus `tsc --noEmit` clean.\n\nLive browser proof of the continuity fix + legacy fallback to follow in a PR comment before merge.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

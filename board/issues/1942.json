@@ -1,0 +1,30 @@
+{
+  "number": 1942,
+  "kind": "issue",
+  "title": "Flow builder: pick the target node per branch in the Decision Branches editor",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T04:24:13Z",
+  "updated_at": "2026-07-16T12:50:36Z",
+  "closed_at": "2026-07-16T12:50:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1942",
+  "body": "## Problem\n\nDecision routing is authored in **two disconnected places**: the **Branches** editor on the decision node defines each branch (`label` + CEL `expression`), while the **target** (which node a branch routes to) is bound separately on the canvas / in `FlowEdgeInspector` (the per-edge **Branch** picker added in #1930). There's no single place to say *\"branch X → node Y\"*.\n\n## Proposal\n\nAdd a **Target** column to the decision Branches editor: for each branch, a node-reference dropdown picking the downstream node. Selecting it creates / updates the matching out-edge with the branch's `condition` + `label` (or marks `isDefault` for a `true`/empty branch). This mirrors Salesforce Flow **Decision Outcomes** (each outcome = label + condition + connector), and lets a business user define the whole decision — conditions *and* destinations — in one table.\n\nComplements #1930 (which made the binding explicit on the *edge* side); this completes it on the *node* side, which is the more intuitive entry point.\n\n## Acceptance criteria\n\n- [ ] The Decision Branches editor shows a **Target** column (node picker scoped to this flow's nodes).\n- [ ] Choosing a target creates the out-edge if missing, or updates the existing one, carrying the branch's condition/label/default.\n- [ ] Stays consistent with the `FlowEdgeInspector` Branch picker (#1930) — editing in either place round-trips.\n- [ ] Clearing a target detaches (does not silently delete a node).\n- [ ] Unit tests for the branch→edge reconciliation.\n\n## Pointers\n\n- `inspectors/flow-node-config.ts` — `decision` group; add a `FlowConfigColumn` of `kind: 'reference'` with `ref.kind: 'node'` (the picker source already supports `node`).\n- `inspectors/FlowNodeInspector.tsx` — `setField` already mirrors `config.conditions`→edges by order (#1927); extend it to honor an explicit per-branch target.\n- `inspectors/FlowEdgeInspector.tsx` — the reciprocal per-edge Branch picker (#1930)."
+}

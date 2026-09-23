@@ -1,0 +1,33 @@
+{
+  "number": 2509,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): userFilters 胶囊保留作者标签,不被 i18n 骨架翻译覆盖 (framework#2951)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T05:52:19Z",
+  "updated_at": "2026-07-15T08:56:57Z",
+  "closed_at": "2026-07-15T08:56:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T08:56:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2509",
+  "body": "## 问题\n\n对象列表视图配置 `userFilters`(`element: 'dropdown'`,ADR-0047 值胶囊)后,胶囊标签显示原始字段 key(如 `project_type`),而不是配置的 `label`(如 `项目类型`)或字段的对象级标签。\n\n对应 issue:**objectstack-ai/framework#2951**。\n\n## 根因(经完整链路排查)\n\nissue 提出三个假设,排查结论:\n\n- **② framework 编译/下发剥离 `label`** → **不成立**。已逐层核对 framework `main`:zod schema(`view.zod.ts` `UserFilterFieldSchema`,普通 `z.object`,`label` 为已声明键)→ compile → 容器展开(`structuredClone` 深拷贝)→ registry 原样存储 → `/api/v1/meta/view`(无字段投影)→ i18n translate(仅改顶层 `label`),**每一步都完整保留 `label`**。剥离不在 framework。\n- **③ console 缺 `label` 时不回退对象级标签** → **成立**。\n- **真正的线上症状**(显式写了 `label` 却显示 key)→ objectui 客户端的 i18n 覆盖:`UserFilters` 胶囊把作者写的 `f.label` 当 fallback 丢进约定式 `fieldLabel()` 解析器,而解析器会返回 bundle 中任何命中的条目 —— **包括 `os i18n extract` 生成的骨架条目 `fields.<对象>.<字段> = \"<字段名>\"`**,这条\"翻译\"把显式 label 覆盖成了 key。\n\n## 改动(均在 objectui 客户端)\n\n1. **`UserFilters.tsx` — 骨架翻译不再覆盖显式标签**(commit `387daa4`):解析结果等于原始字段 key 时视为无信息骨架,保留作者写的 label;真实翻译(值 ≠ key)仍生效,本地化能力不丢。修复线上症状。\n2. **`UserFilters.tsx` — 缺 label 时回退对象级标签**(commit `510ff7d`):`f.label` 缺失时回退到 objectDef 的字段 `label`,而非 snake_case key。对应 issue ③。\n\n## 测试\n\n`packages/plugin-list/src/__tests__/UserFilters.test.tsx` 新增用例并全绿(11 passed):\n- 显式 label 优先于对象级 label;\n- 缺 label 时回退对象级 label;\n- 二者都缺时才回退裸 key;\n- **回归**:注入骨架条目 `project_type: \"project_type\"` + 配置 `label: '项目类型'`,断言胶囊显示 `项目类型`(修复前显示 `project_type`);\n- 真实翻译仍能覆盖显式 label(本地化不回退)。\n\nRefs objectstack-ai/framework#2951\n"
+}

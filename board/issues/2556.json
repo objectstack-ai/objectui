@@ -1,0 +1,32 @@
+{
+  "number": 2556,
+  "kind": "issue",
+  "title": "【缺陷】导入向导 CSV 仅按 UTF-8 解码,GBK 编码文件(中文 Excel 默认另存格式)表头乱码、无法完成导入",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T02:36:38Z",
+  "updated_at": "2026-07-16T03:30:11Z",
+  "closed_at": "2026-07-16T02:47:10Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2556",
+  "body": "## 问题\n\n导入向导解析 CSV/TSV/TXT 时使用 `file.text()`(`packages/plugin-grid/src/importParsers.ts` 的 `parseSpreadsheetFile`),该 API 固定按 UTF-8 解码,没有任何编码探测。\n\n中文版 Excel「另存为 → CSV(逗号分隔)」默认写出 **GBK/ANSI 编码**(无 BOM)。这类文件上传后:\n\n- 中文表头全部解码为替换字符(乱码);\n- 字段自动匹配失效,乱码列只能被「跳过」;\n- 带 `*` 的必填列映射不上 → 必填校验失败 → **无论怎么修改文件内容都无法导入成功**。\n\n对中文用户而言,Excel 保存 CSV 的默认路径就会产出 GBK,等于中文场景 CSV 导入基本不可用。项目侧(schema/Hook)无法绕过,属平台能力缺陷。\n\n**实际案例**:steedos-labs/os-project-titanwind-ehr#185(已验证附件为 GBK 编码,按 GB18030 解码内容完全正常,现象与上述机制完全吻合)。\n\n## 解决方案\n\nCSV/TSV/TXT 分支改读 `arrayBuffer`,新增 `decodeSpreadsheetText` 做编码探测,零新增依赖:\n\n1. **显式 BOM 优先**:UTF-8 / UTF-16 LE / UTF-16 BE 各走对应 `TextDecoder`;\n2. **严格 UTF-8**:`TextDecoder('utf-8', { fatal: true })`,合法 UTF-8(含纯 ASCII)直接通过,GBK 双字节序列会触发异常;\n3. **回退 GB18030**(GBK/GB2312 超集,浏览器原生支持);无 gb18030 解码器的运行时降级为宽松 UTF-8。\n\n`.xlsx`(ExcelJS)路径无编码问题,不动。模板下载本身已是 UTF-8+BOM,不涉及。"
+}

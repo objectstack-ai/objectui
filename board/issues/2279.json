@@ -1,0 +1,33 @@
+{
+  "number": 2279,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): dedupe master-detail create toast + localize Cancel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T09:10:55Z",
+  "updated_at": "2026-07-05T09:53:17Z",
+  "closed_at": "2026-07-05T09:53:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-05T09:53:16Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2279",
+  "body": "Closes #2278\n\n## 问题\n带明细子表(master-detail / subforms)的对象在**新建记录**弹窗里:\n1. 保存后弹**两条**成功 toast——写死英文 `Created` + 本地化 `线索创建成功`;\n2. 底部操作栏**取消按钮显示英文 `Cancel`**(提交按钮却是本地化的「创建」)。\n\n普通(无明细)对象走 `ModalForm` 页脚,不复现;只有 master-detail 走 `MasterDetailForm` 自带操作栏才暴露。\n\n## 根因\n`MasterDetailForm` 这套自带 UI 与 host 约定没对齐:\n- flat `ObjectForm` 契约是「有 `onSuccess` 就不自弹,交给 host」;而 `MasterDetailForm.handleSaved` **既自弹 `Created` 又调 `onSuccess`**,host 的 `onSuccess` → `crud_success` handler 又弹本地化一条 → 撞车。\n- 取消按钮文案**写死英文**,组件不接受 `cancelText`,host 也没传下去。\n\n## 改动\n- `MasterDetailForm.handleSaved`:内置成功 toast 加 `if (!schema.onSuccess)` 兜底——host 负责提示时不再重复;无 host 场景保留 toast,不静默。\n- `MasterDetailForm` schema 增加 `cancelText`,操作栏用 `{schema.cancelText ?? 'Cancel'}`;`ModalForm`/`DrawerForm`/`ObjectForm` 的 subforms 分支透传本地化取消文案(console 本就传 `t('common.cancel')`)。\n- 更新/新增回归测试:有 `onSuccess` → 不双弹;无 → 兜底自弹 + 清表;`cancelText` 本地化渲染。\n\n## 验证\n- `pnpm --filter @object-ui/plugin-form test` → **191 passed**\n- `turbo run type-check --filter=@object-ui/plugin-form` → **11/11 通过**\n\n浏览器验证:该改动需完整 console + master-detail 对象 + 后端(重型环境),属纯逻辑/文案层且已被上述回归测试精确覆盖,故以单测为验证依据。\n\n## 遗留\n同操作栏的 `Saving…`(提交中短暂显示)仍硬编码英文,可后续一并本地化。"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2518,
+  "kind": "pull_request",
+  "title": "fix(plugin-report): stop TS6059 rootDir errors in dts build (#2334)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T14:16:37Z",
+  "updated_at": "2026-07-15T14:20:31Z",
+  "closed_at": "2026-07-15T14:17:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T14:17:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2518",
+  "body": "Closes #2334\n\n## Problem\n\n`vite build` in `@object-ui/plugin-report` spewed ~93 `TS6059: … is not under 'rootDir'` errors during the `vite-plugin-dts` declaration step.\n\n**Root cause:** vite-plugin-dts builds its type program from the package `tsconfig.json`, which extends the root `tsconfig.json` and inherits `paths` mapping `@object-ui/*` → `packages/*/src`. The dts program followed those aliases into sibling `src` trees (`core/src`, `types/src`, `react/src`, …); with `rootDir` pinned to `plugin-report/src`, tsc flagged every pulled-in file as outside `rootDir`. The emitted `.d.ts` was correct — the errors were pure noise.\n\n## Fix\n\n- Add `paths: {}` to the dts `compilerOptions` so `@object-ui/*` resolves to each dependency's published `dist/*.d.ts` (external, not followed into `src`). `aliasesExclude: [/^@object-ui\\//]` already keeps the specifiers unrewritten, so declarations still import from `@object-ui/*`.\n- Remove the dead `skipDiagnostics: true` — removed in vite-plugin-dts v4+ (repo is on `^5.0.3`), which is why it never suppressed the diagnostics.\n\n## Verification\n\n- `pnpm build`: **0** TS6059 (was 93), 0 other TS errors, exits 0\n- `dist/*.d.ts` still emit flat and import `ReportField` / `ReportSchema` / `ReportViewerSchema` etc. from `@object-ui/types` as external\n- `pnpm test`: 44/44 pass\n\nNote: 21 sibling packages carry the identical pattern/noise; tracked as a separate follow-up (out of scope for #2334).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

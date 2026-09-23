@@ -1,0 +1,34 @@
+{
+  "number": 2489,
+  "kind": "pull_request",
+  "title": "fix(i18n): localize profile page, inline label objects, managed-by badges and record quick actions",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T08:09:05Z",
+  "updated_at": "2026-07-14T10:52:50Z",
+  "closed_at": "2026-07-14T10:52:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T10:52:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2489",
+  "body": "## Summary\n\nFixes the account/system surfaces rendering English under a non-English browser locale. Root cause + three feature gaps:\n\n1. **`pickLocalized` base-language upgrade (root cause).** The runtime normalizes `navigator.language` (`zh-CN`) to the bare base code `zh` (`i18n.ts`), while metadata authors write inline label objects with full BCP-47 keys (`{ en, 'zh-CN', 'ja-JP', 'es-ES' }`). `pickLocalized` only supported downgrading (`zh-CN → zh`), never upgrading (`zh → zh-CN`), so every inline label object fell back to English. It now also picks any region-qualified key sharing the base. Unit tests added.\n2. **ProfilePage (`account:profile_card` / `/system/profile`)**: all hardcoded strings (title/subtitle, avatar Upload/Replace/Remove, Personal Information card, Change/Set Password card, validation + success messages) now go through `useObjectTranslation()` with a new `profile.*` namespace in all ten locale bundles.\n3. **`ManagedByBadge`** (the \"Identity\"/\"Config\"/\"System\"/\"Append-only\" chips on managed objects) now resolves through new `managedByBadge.*` keys with `{{provider}}` interpolation — all ten locales.\n4. **`record:quick_actions`** resolves action labels via the `objects.{object}._actions.{action}.label` convention + `pickLocalized`, so object action buttons (Change Password, Enable 2FA, Delete My Account, …) localize. `record:details` / `record:related_list` / `record:alert` / `ObjectTree` likewise pass inline label objects through `pickLocalized`.\n5. **Locale backfill**: `list.inlineEditShort` / `inlineEditLabel` / `recordEditingTitle` were only present in en/zh — added to ja/es/ko/de/fr/pt/ru/ar (the inbox `mine` view showed literal \"Edit inline\" under ja).\n\nCompanion PR in `framework` converts the sys_user/sys_organization/sys_position detail-page labels to inline i18n objects and routes the user Security tab through `record:quick_actions`.\n\n## Tests\n\n- `packages/i18n`: **177/177** ✅ (incl. new `pickLocalized` regional-upgrade cases + top-level key parity across all 10 locales)\n- `packages/plugin-detail`: **185/185** ✅\n- `packages/app-shell`: **1278/1278** ✅\n- `packages/plugin-tree`: **6/6** ✅\n- Pre-existing lint errors in `useObjectLabel.ts` / `record-quick-actions.tsx` / `record-related-list.tsx` (conditional-hook warnings) verified present on `main` before this change — not introduced here.\n\n## Live UI verification (real backend + console, Playwright, locales zh-CN / ja / es)\n\nBackend: framework platform-objects dist on :18742; console dev server on :5190. Screenshots below (full set on branch [gist](https://gist.github.com/baozhoutao/4a7ef9d1a7347424338b261b96e5d5cb)).\n\n### zh-CN\n| profile_card | sys_user detail | Security tab (quick actions) |\n|---|---|---|\n| ![zh profile](https://gist.githubusercontent.com/baozhoutao/4a7ef9d1a7347424338b261b96e5d5cb/raw/zh-09-profile_card.png) | ![zh user detail](https://gist.githubusercontent.com/baozhoutao/4a7ef9d1a7347424338b261b96e5d5cb/raw/zh-02-sys_user-detail.png) | ![zh security](https://gist.githubusercontent.com/baozhoutao/4a7ef9d1a7347424338b261b96e5d5cb/raw/zh-02b-sys_user-security-tab.png) |\n\n- sys_user 详情:alert「邮箱未验证 / 重新发送验证邮件」、tabs「岗位|会话|关联账号|组织|OAuth 应用|安全|API 密钥」、「分配岗位」全中文\n- 安全 tab:「修改密码|修改邮箱|启用双因素认证|重发验证邮件|删除我的账号」(record:quick_actions → actionLabel 生效)\n- 列表「身份」badge(原 \"Identity\" chip)\n\n| sys_user list | sys_organization detail | inbox mine |\n|---|---|---|\n| ![zh user list](https://gist.githubusercontent.com/baozhoutao/4a7ef9d1a7347424338b261b96e5d5cb/raw/zh-01-sys_user-list.png) | ![zh org detail](https://gist.githubusercontent.com/baozhoutao/4a7ef9d1a7347424338b261b96e5d5cb/raw/zh-04-sys_organization-detail.png) | ![zh inbox](https://gist.githubusercontent.com/baozhoutao/4a7ef9d1a7347424338b261b96e5d5cb/raw/zh-10-inbox-mine.png) |\n\n### ja / es\n| ja inbox (インライン編集) | ja sys_user detail | es sys_user detail |\n|---|---|---|\n| ![ja inbox](https://gist.githubusercontent.com/baozhoutao/4a7ef9d1a7347424338b261b96e5d5cb/raw/ja-01-inbox-mine.png) | ![ja user](https://gist.githubusercontent.com/baozhoutao/4a7ef9d1a7347424338b261b96e5d5cb/raw/ja-03-sys_user-detail.png) | ![es user](https://gist.githubusercontent.com/baozhoutao/4a7ef9d1a7347424338b261b96e5d5cb/raw/es-03-sys_user-detail.png) |\n\n## Known remaining English (out of scope)\n\n- Builder toolbar: \"Unpublished app — fully functional…\" banner + History/Publish buttons (builder chrome, separate namespace).\n- Platform role raw value `user` in the user list (field data value, not a label).\n- Activity feed entries like `Created sys_team \"…\"` (server-generated audit text).\n\n## Changeset\n\n`.changeset/profile-card-i18n.md` — patch for `@objectstack/console`, `@object-ui/i18n`, `@object-ui/app-shell`, `@object-ui/plugin-detail`, `@object-ui/plugin-tree`.\n\n"
+}

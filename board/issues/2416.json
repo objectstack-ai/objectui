@@ -1,0 +1,30 @@
+{
+  "number": 2416,
+  "kind": "issue",
+  "title": "Login page: support phone number + password sign-in",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T05:01:50Z",
+  "updated_at": "2026-07-13T05:27:31Z",
+  "closed_at": "2026-07-13T05:27:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2416",
+  "body": "## Summary\n\nThe Console login page currently supports **email + password** and **phone + verification code (OTP)**, but not **phone number + password**. The backend already implements it — this is a frontend/SDK gap.\n\n## Background / research\n\n**Backend (framework `@objectstack/plugin-auth`) — already done:**\n- better-auth's `phoneNumber` plugin exposes `POST /sign-in/phone-number` (`{ phoneNumber, password }` → session). It's registered whenever the `phoneNumber` plugin is enabled.\n- The platform does **not** set `requireVerification`, so an unverified phone can still sign in with a password (once a password is set).\n- Unlike OTP, phone+password needs **no SMS service**.\n- The capability is **already advertised**: `getPublicConfig().features.phoneNumber` = \"phoneNumber plugin enabled\" (distinct from `features.phoneNumberOtp`, which also requires a deliverable SMS service). The objectui type `AuthPublicConfig.features.phoneNumber` already exists too.\n\n**Frontend (objectui) — the gap:**\n- `LoginForm` has `mode: 'password' | 'phone-otp'`. The `password` mode's field is **Email** only and submits via `signIn(email, password)` → `/sign-in/email`. There is no path to `/sign-in/phone-number`.\n- `createAuthClient` exposes `signInWithPhoneOtp` but no `signInWithPhonePassword`.\n\n**Critical correctness note — phone normalization:**\nThe backend's `normalizePhoneNumber` just strips `[\\s\\-().]` and validates `^\\+?[0-9]{6,15}$` — it does **not** force E.164 or inject a country code. Accounts are stored in that light-stripped form. The login form therefore must normalize **identically** (strip the same characters, send as-is); adding a country code or full E.164 conversion would break lookups for numbers stored without one. So no `libphonenumber` dependency is needed — and would in fact be wrong here.\n\n## How mainstream apps handle it\n\n- **Unified identifier field** (\"Email or phone\", auto-route by format) — Google, X, Facebook, LinkedIn, Amazon. Simplest UX.\n- **Segmented / tabbed** (Email | Phone, often with a country-code selector) — WeChat, Alipay, Taobao, Meituan, DiDi. Phone-first, common in China.\n\nChosen approach: **unified identifier field** in the existing password mode — minimal UI change, coexists with the phone-OTP mode, and matches the dominant global pattern.\n\n## Scope of work\n\n- [ ] `createAuthClient`: add `signInWithPhonePassword(phoneNumber, password)` → `POST /sign-in/phone-number` (mirror `signInWithPhoneOtp` token/session handling).\n- [ ] Wire it through `AuthClient` (types), `AuthContext`, `AuthProvider`, `useAuth` default.\n- [ ] Shared `normalizePhoneIdentifier` helper mirroring the backend (strip `[\\s\\-().]`, validate `^\\+?[0-9]{6,15}$`).\n- [ ] `LoginForm`: in password mode, accept an email-or-phone identifier gated on `features.phoneNumber`; auto-route to `/sign-in/email` vs `/sign-in/phone-number` by format. Update the field label/type; keep SSO routing email-only.\n- [ ] Tests: identifier normalization/detection, client method, and LoginForm routing.\n\n## Out of scope\n\n- Country-code selector / E.164 migration (backend stores non-E.164; would be a separate, coordinated change).\n- Phone + password **self-registration** (`signUpOnVerification` is deliberately off; accounts are provisioned by admin/import).\n\n## Notes\n\nOnly works for accounts that have a phone number **and** a password set. Phone-only accounts created via import use the `invite` policy: first sign-in via OTP, then set a password — after which phone+password works."
+}

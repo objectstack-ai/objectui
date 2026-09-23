@@ -1,0 +1,33 @@
+{
+  "number": 2487,
+  "kind": "pull_request",
+  "title": "fix(plugin-gantt): 删除冗余行「定位」图标;「→」详情按钮改独立操作槽",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T06:15:12Z",
+  "updated_at": "2026-07-14T07:21:39Z",
+  "closed_at": "2026-07-14T06:32:55Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T06:32:55Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2487",
+  "body": "Closes #2482\n\n## 问题\n\n#2460 落地「行单击=Focus 定位」后,任务列表行右缘遗留两个体验问题:\n\n1. **「定位」十字准星悬停图标冗余**:它是旧交互(行单击=开抽屉)时代的定位入口,现在整行单击即定位,图标失去价值还加剧右缘拥挤。\n2. **「→」详情按钮绝对定位叠在「结束」列上、热区过小**:两个按钮 `position: absolute` 锚在行右缘,悬停显示时直接压在结束日期文字上;按钮无内边距,点击热区只有 12×12px 裸图标。\n\n## 修复(`GanttView.tsx`)\n\n- **删除定位按钮**及其 i18n 键 `gantt.row.locate`(useGanttTranslation 兜底 + zh/en locale);定位能力由行单击承担,无功能损失。\n- **「→」按钮改为行 flex 布局中的独立固定操作槽**(24px 宽、常驻占位):\n  - 与日期列零重叠,悬停不再遮字;\n  - 按钮 24×24px 圆角热区 + `hover:bg-accent` 底色,图标 14px;\n  - 保留悬停渐显(行悬停 60% → 按钮自悬停/键盘聚焦 100%)与移动端隐藏(移动端详情入口仍为双击/长按菜单);\n  - 行内编辑态保留占位、隐藏按钮,避免布局跳动。\n- **顺带修复一个真机才暴露的 CSS 特异性缺陷**:行悬停规则 `.group/task-row:hover .gantt-row-open-btn`(0,3,0)压过按钮自身 `:hover { opacity: 1 }`(0,2,0),按钮自悬停时永远停在 60% 透明度——用 `:where()` 把行悬停规则降为零特异性。\n\n## 测试\n\n- 单元测试:plugin-gantt **303 passed**(新增断言:定位按钮不渲染、「→」非 absolute 覆盖层),i18n **176 passed**,tsc 干净。\n- 真机验证:console 集成构建部署到消费项目(os-tianshun-ehr)后 Playwright 实测 **4/4 通过**,含截图——见 issue 上的[测试报告](https://github.com/objectstack-ai/objectui/issues/2482#issuecomment-4965913042):定位图标零残留;按钮 24×24、左缘 ≥ 结束列右缘(零重叠);自悬停 opacity=1 + 底色;点击开抽屉;单击定位/双击详情回归通过。"
+}

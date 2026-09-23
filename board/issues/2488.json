@@ -1,0 +1,30 @@
+{
+  "number": 2488,
+  "kind": "pull_request",
+  "title": "refactor(console-ai): type metadataApps, drop per-access _packageId casts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T07:09:53Z",
+  "updated_at": "2026-07-14T07:21:07Z",
+  "closed_at": "2026-07-14T07:21:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T07:21:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2488",
+  "body": "Batch A1 from the optimization tracking issue #2487 (review #2478).\n\n## Change\nThe AI chat switcher + bound-package derivations cast `(app as { _packageId?: string })` at every access (4 sites). This narrows `useMetadata().apps` **once** to a local `MetadataAppItem` shape at the hook boundary; call sites now read `.name` / `.label` / `._packageId` without casts.\n\n**Type-only, no runtime change.** `label` is typed as `Parameters<typeof resolveI18nLabel>[0]` so it stays compatible.\n\n## Tests\nHelper suites green (`deriveBoundPackageId`, `editModeEmptyState` — 16); `tsc --noEmit` clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

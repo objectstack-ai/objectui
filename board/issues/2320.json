@@ -1,0 +1,30 @@
+{
+  "number": 2320,
+  "kind": "issue",
+  "title": "ViewConfigPanel discard button does not close the panel in edit mode",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hsynetal",
+    "id": 139456920,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T11:44:07Z",
+  "updated_at": "2026-07-15T15:12:40Z",
+  "closed_at": "2026-07-15T15:12:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2320",
+  "body": "@os-zhuang \n\nbug\n\nWhen a user opens the View Config panel for a list view (either the default view or any alternate listViews variant like kanban/calendar), clicks the Discard button, the panel stays open. Only the local draft is reverted, but the panel itself remains visible — the user must manually click outside to dismiss it.\n\nNavigate to any object list → click the gear/settings icon to open \"Configure View\" for any view (default or a listViews variant) → click Discard in the footer. Expected: the right-rail panel closes and the list returns to its prior state. Actual: the panel stays open with the previous configuration visible; only the in-flight draft edits (if any) are reverted.\n\nRoot cause\n\nViewConfigPanel.tsx\nLines 195-202\n    const handleDiscard = useCallback(() => {\n        if (mode === 'create') {\n            onClose();\n            return;\n        }\n        setDraft(initialDraft);\n        setIsDirty(false);\n    }, [initialDraft, mode, onClose]);\nFor mode === 'create', discard calls onClose() (closes the panel). For mode === 'edit', it only resets the local draft state to initialDraft and marks isDirty = false, but never calls onClose(). The parent (ObjectView.tsx:1867) passes onClose which calls setShowViewConfigPanel(false), but this path is never entered in edit mode.\n\nExpected behavior\nClicking Discard in edit mode should both revert any unsaved draft changes and close the View Config panel, consistent with the create-mode discard behavior and with the standard UX pattern (discard = close + revert).\n\nSuggested fix\nIn ViewConfigPanel.tsx, handleDiscard for mode === 'edit' should also call onClose():\n\nconst handleDiscard = useCallback(() => {\n    setDraft(initialDraft);\n    setIsDirty(false);\n    onClose();\n}, [initialDraft, onClose]);\nThe mode branch distinction (create vs edit) is unnecessary — both paths should reset draft and close. The only scenario where discard should not close is if there is an explicit \"Cancel without closing\" affordance, which is better served by a separate button.\n\nScope\nFile: vendor/objectui/packages/app-shell/src/views/ViewConfigPanel.tsx (handleDiscard, line 195)\nMode affected: mode === 'edit' (edit-mode discard only)\nCreate mode: Already works correctly (calls onClose())\nReproduction\nOpen any object list view (e.g., GRNs, Sales Orders, Parts)\nClick the gear/settings icon on the view tab to open \"Configure View\"\nThe ViewConfigPanel slides in from the right (280px rail)\nClick the Discard button in the panel footer\nObserved: Panel stays open; draft reverted but panel does not dismiss\nExpected: Panel closes immediately\nRelated\nThe RuntimeDraftBar (ADR-0034, line 253) has its own separate discard — that handles server-side draft deletion and works correctly. This bug is in the local-panel discard, not the server-side publish/discard flow.\nView config panel close is controlled by the onClose prop from ObjectView.tsx:1867, which sets setShowViewConfigPanel(false). The prop is wired correctly; handleDiscard just never invokes it for edit mode.\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2393,
+  "kind": "issue",
+  "title": "问题（导入）：服务端未确认时，向导就报告已取消",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-11T03:16:59Z",
+  "updated_at": "2026-07-16T09:38:46Z",
+  "closed_at": "2026-07-12T03:01:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2393",
+  "body": "## 界面重现\n\n测试使用 ObjectUI `80901aad44ff3beeaf7882ec3367da934325b2f2`，对应 framework `98874656ffc50ce1531af52346228ffcdda73fba`。原始 QA 复现 2/2 次；一次新的独立复核又复现 1/1 次。\n\n1. 启动一个 50,000 行导入。当任务处于 `running` 状态、进度为 0/50,000，并且 Cancel 控件可见时，点击 Cancel。\n\n![Cancel control visible while running](https://raw.githubusercontent.com/yinlianghui/objectstack-backup/82dd18a60b6120644945c107acb9ef9a15b8b0bf/framework/issue-2678/2026-07-11/screenshots/ui-05-cancel-button-visible.png)\n\n2. 向导显示 `cancelled`，导入行数为 0。\n\n![Wizard reports cancelled](https://raw.githubusercontent.com/yinlianghui/objectstack-backup/82dd18a60b6120644945c107acb9ef9a15b8b0bf/framework/issue-2678/2026-07-11/screenshots/ui-05-cancel-confirmed.png)\n\n3. 导入历史和数据库显示，同一个任务最终以 `succeeded` 状态完成，处理了 50,000/50,000 行。\n\n![Import history shows succeeded](https://raw.githubusercontent.com/yinlianghui/objectstack-backup/82dd18a60b6120644945c107acb9ef9a15b8b0bf/framework/issue-2678/2026-07-11/screenshots/ui-05-cancelled-job-history-succeeded.png)\n\n`sys_import_job` 中记录了 `status=succeeded`、`processed_rows=50000` 和 `created_count=50000`；业务表中存在全部 50,000 条输入记录。\n\n## 实际结果\n\n尽管服务端任务最终以 `succeeded` 状态结束，并写入全部 50,000 行，向导仍显示 `cancelled`，导入行数为 0。\n\n## 判定依据\n\n- 发出取消请求不等于取消已经成功；只有服务端确认任务进入 `cancelled` 状态后，界面才能显示取消成功。\n- 本次服务端最终状态为 `succeeded`，并实际写入全部 50,000 行，但向导显示 `cancelled`、导入 0 行，界面结果与实际结果直接矛盾。\n- 前端应显示服务端确认的最终状态，不能在取消结果尚未确认时自行报告成功。\n\n因此，这是一个已确认的前端状态报告 Bug。后端任务未能停止的问题由 objectstack-ai/framework#2824 单独跟踪。\n"
+}

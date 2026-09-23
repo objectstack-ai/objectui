@@ -1,0 +1,32 @@
+{
+  "number": 2515,
+  "kind": "pull_request",
+  "title": "feat(flow-designer): add 'position' xRef picker kind for approval approvers / escalateTo (#2778)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T13:39:46Z",
+  "updated_at": "2026-07-15T13:49:19Z",
+  "closed_at": "2026-07-15T13:49:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T13:49:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2515",
+  "body": "Closes #2778.\n\n## What\nImplements the `position` xRef picker kind in the Studio flow designer's approval-node inspector, matching the framework `@objectstack/spec` contract after ADR-0090 D3 (org roles renamed to *positions*; holders resolve via `sys_user_position`).\n\nThe framework spec (PRs framework#2738, framework#2767) added `position` to the approval approver type enum, to the `approvers[].value` polymorphic xRef map, and switched `escalation.escalateTo`'s xRef from `role` to `position`. This wires the designer to that contract.\n\n## Changes\n- **flow-node-config.ts** — add `position` to `ReferenceKind`; add a **Position** option to the approvers `type` select and `position: 'position'` to the value picker map; switch `escalateTo` from `role` → `position` (placeholder updated).\n- **FlowReferenceField.tsx** — map `position` → the `position` metadata list, so the combobox suggests known positions (degrades to free text when the catalog is empty).\n- **json-schema-to-fields.ts** — recognize `position` so an engine-published xRef isn't degraded to free text.\n- **tests** — mirror the current published schema (position in enum/map, `escalateTo` kind `position`) and add a static+polymorphic `position` regression test.\n\n## Verification\n- **28/28 unit tests pass** across `json-schema-to-fields.test.ts`, `flow-node-config.test.ts`, `FlowReferenceField.connector.test.ts`.\n- **Browser-verified end-to-end** against a live app-showcase backend + console dev server: the approvers `value` picker for a `position` row lists real backend positions (`contributor, manager, exec, auditor, ops, field_ops_delegate, client_portal_user`), and the `escalateTo` field renders a position picker listing the same. Both driven by the running engine's published config schema.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

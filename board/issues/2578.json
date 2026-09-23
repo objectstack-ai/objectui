@@ -1,0 +1,30 @@
+{
+  "number": 2578,
+  "kind": "issue",
+  "title": "Dashboard-level filters follow-ups: showcase, more examples, docs, spec pairing (#2576 / framework#2501)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T07:18:59Z",
+  "updated_at": "2026-07-16T11:36:06Z",
+  "closed_at": "2026-07-16T11:36:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2578",
+  "body": "#2576(dashboard 级过滤器,framework#2501 的 objectui 侧)已合并。本 issue 汇总合并时明确留下的后续任务,可按条目拆分认领。\n\n## 1. 完善 showcase / 增加示例\n\n- [ ] schema-catalog 目前只有一个 `plugin-dashboard/filtered-dashboard` 示例;补充更多形态:\n  - `optionsFrom` 动态选项(从对象记录取 distinct 值)的示例;\n  - `text` / `number` / `lookup` 过滤器示例;\n  - dataset 部件(`dataset` + `runtimeFilter`)与 inline 部件混排的示例;\n  - `targetWidgets` 白名单兼容语义的示例;\n  - 自定义日期区间(`allowCustomRange`)+ 各日期预设的演示。\n- [ ] 在 console/app-shell 的演示环境(有真实 dataSource)里加一个可交互的 filtered dashboard showcase,验证跨对象图表联动的真实取数路径。\n- [ ] 示例数据:为 showcase 准备两个不同对象(如 `invoices` / `accounts`)的种子数据,让\"各图表绑定各自字段\"肉眼可见。\n\n## 2. 更新文档\n\n- [ ] `content/docs` 的 dashboard 指南页(guide 侧)补一节完整教程:从零配置 `dateRange` + `globalFilters` + `filterBindings`,含截图;\n- [ ] 补充 `page.<name>` 表达式在 widget 内引用过滤值的用法示例;\n- [ ] 文档化已知限制并给出规避方式:\n  - 嵌入带自有 variables 的 Page 时,dashboard 内层 `PageVariablesProvider` 会遮蔽外层(合并上下文为候选方案);\n  - 静态数据部件(inline `data`)不受过滤;\n  - 缺省绑定命中对象上不存在的字段时部件会空/报错 → 用 `filterBindings: false` 退出。\n- [ ] i18n:`DashboardFilterBar` 文案目前走 `useSafeTranslate` 英文兜底,补 `dashboard.filters.*` 的 en / zh-CN 词条。\n\n## 3. Spec 配对(framework 仓)\n\n- [ ] 在 `@objectstack/spec` 落地 `GlobalFilterSchema.name` 与 `DashboardWidgetSchema.filterBindings`(objectui 本地类型已按 `dataset`/`categoryGranularity` 先例以 \"Pending alignment\" JSDoc 标注);落地后移除标注。\n- [ ] spec 落地后确认 metadata-admin 检查器(`dashboard-schema.ts`,直接从 spec 派生)自动出现新属性。\n\n## 4. Studio / 设计器\n\n- [ ] Studio 部件检查器增加 `filterBindings` 可视化编辑(每个 dashboard 过滤器 → 本部件字段的下拉映射 + 退出开关);当前仅可通过 JSON 元数据配置。\n\n## 5. 增强项(低优先)\n\n- [ ] `optionsFrom` 目前客户端取 top 200 去重;改为服务端 distinct 查询;\n- [ ] 缺省绑定做 metadata 感知:字段在对象上不存在时自动跳过并告警,而不是发出无效查询;\n- [ ] 嵌套 Page variables 的上下文合并(解除遮蔽限制)。\n\nRefs: #2576, objectstack-ai/framework#2501"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2579,
+  "kind": "issue",
+  "title": "Failed action's error envelope object reaches toast.error() → React #31 full-page crash",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T08:02:38Z",
+  "updated_at": "2026-07-16T13:10:14Z",
+  "closed_at": "2026-07-16T13:10:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2579",
+  "body": "## Problem\n\nWhen an `api` / `flow` / `server-action` action fails with an ObjectStack error envelope — e.g. `POST /api/v1/auth/admin/create-user` returning\n\n```json\n{\"success\": false, \"error\": {\"code\": \"invalid_request\", \"message\": \"Provide either password or generatePassword, not both\"}}\n```\n\n— the console doesn't show an error toast: the **whole page crashes** with *Minified React error #31* (\"Objects are not valid as a React child\").\n\nReported from the Setup app Create User dialog (see objectstack-ai/framework#3031 for the server-side half of that incident), but any enveloped action failure triggers it.\n\n## Root cause\n\n`packages/app-shell/src/hooks/useConsoleActionRuntime.tsx` builds the failure result with `(body as any)?.error || ...` in three handlers (apiHandler, flowHandler, serverActionHandler). For an enveloped response `body.error` is the **object** `{ code, message }`, which rides `result.error` into `ActionRunner.handlePostExecution` (`packages/core/src/actions/ActionRunner.ts`), which calls `toastHandler(message, { type: 'error' })` → `toast.error(object)` → sonner renders the object as a React child → React #31, and the uncaught render error (inside `flushSync`) takes down the page.\n\n## Fix\n\nTwo layers, so no single handler bug can crash the page again:\n\n1. **Sources** — a shared `errorDetail(body, fallback)` helper in `useConsoleActionRuntime.tsx` flattens the envelope to a string (`error` string → `error.message` → `message` → HTTP-status fallback); applied to all three handlers.\n2. **Sink** — `ActionRunner`'s error-toast sink defensively coerces a non-string `result.error` to its `.message` (or a generic string) before calling the toast handler."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2366,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): 筛选记录面板忽略空值条件 (#2364)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T09:20:07Z",
+  "updated_at": "2026-07-10T02:17:03Z",
+  "closed_at": "2026-07-10T02:17:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-10T02:17:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2366",
+  "body": "## 问题\n\n列表视图的「筛选记录」弹窗中,添加一条筛选(如「项目类型 等于 [选择值]」)但**不选任何值**时,该空条件仍被下发到后端,变成 `字段 = ''`,匹配不到任何记录,**列表数据全部消失**。\n\n## 根因\n\n一个列表页有三个独立的「条件 → 查询 AST」代码路径,互不共享:\n\n| 筛选入口 | 空值跳过 | 状态 |\n|---|---|---|\n| 顶部快捷筛选(`UserFilters.emitFilters`) | 一直有 `.filter(v.length > 0)` | ✅ |\n| 数据集/报表(`datasetFilterCondition.groupToCondition`) | #1964 已加 | ✅ |\n| **列表「筛选记录」弹窗**(`ListView.convertFilterGroupToAST`) | **从未有过** | ❌ |\n\n`convertFilterGroupToAST` 直接把 `{operator:'equals', value:''}` 映射成 `[field, '=', '']`,`normalizeFilters` 只丢弃长度为 0 的数组,该三元组存活并下发。这不是回归——该面板(2026-02-04 加入)从来没有这层保护,此前也无任何单测拦截。\n\n## 改动\n\n- `convertFilterGroupToAST`:跳过 `value` 为 `null`/`undefined`/`''`/`[]` 的未完成条件(`isEmpty`/`isNotEmpty` 本身不带值,保留),与另外两条路径对齐。\n- 导出 `convertFilterGroupToAST` 并新增 `convertFilterGroupToAST.test.ts`(8 项),覆盖此前零测试的列表路径。\n\n## 验证\n\n- 新单测 8 项通过;现有 `UserFilters.test.tsx` 5 项通过。\n- Showcase 端到端视觉测试:在 Projects 列表「筛选记录」加一条空值条件(`Organization 等于 [空]`),数据保持 5 条不变;数据请求确认无 `$filter` 下发。\n\nCloses #2364"
+}

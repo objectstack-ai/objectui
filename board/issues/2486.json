@@ -1,0 +1,34 @@
+{
+  "number": 2486,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): pin the row-actions column right so it survives horizontal scroll",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T05:57:14Z",
+  "updated_at": "2026-07-14T06:01:08Z",
+  "closed_at": "2026-07-14T05:57:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T05:57:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2486",
+  "body": "Follow-up to #2484 (which fixed the **cell-level clip**). This addresses the deferred **wide-table horizontal-scroll** case: when a list has enough columns to overflow the grid's own scroll container, the actions column sat past the scroll extent and was hidden until you scrolled fully right.\n\n## Fix\n\n- **Auto-pin `_actions` right** (`pinned:'right'`, reusing the existing sticky `rightPinnedClasses`). The actions column now sticks to the right edge and stays reachable during horizontal scroll.\n- **Decouple the auto-pin from the freeze decision.** The existing `hasPinnedColumns ? pinnedLeftCols.length : frozenColumns` logic disables the implicit first-column left-freeze whenever *any* column is pinned. Auto-pinning actions would therefore unfreeze every list's first column. The freeze decision now considers **user-declared pins only** (excludes `_actions`), so the auto-pin *composes with* rather than *cancels* the default left-freeze.\n\n## Verification\n\nConsole preview (`/row-actions-preview.html`, new \"narrow / horizontal scroll\" section). Under a real `scrollLeft=300` on the grid's scroller (scrollWidth 1063 > clientWidth 446):\n\n| column | computed | result |\n|---|---|---|\n| actions (`_actions`) | `position:sticky; right:0px` | pinned to the right edge ✓ |\n| first column | `position:sticky; left:0px` | frozen at the left edge ✓ |\n\nBoth edges hold simultaneously — the middle columns scroll between them. Clean browser console.\n\n## Tests\n\n`row-action-sticky.test.tsx` (3): actions column is sticky-right; first column keeps its left-freeze despite the auto-pin; inline buttons still render. Existing pinned-column + row-action suites green (plugin-grid **108**, data-table **15**).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

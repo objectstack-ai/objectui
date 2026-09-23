@@ -1,0 +1,30 @@
+{
+  "number": 2409,
+  "kind": "issue",
+  "title": "Unify console AI chat surfaces — one conversation, docked (ADR-0057)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T04:21:13Z",
+  "updated_at": "2026-07-14T04:08:58Z",
+  "closed_at": "2026-07-14T04:08:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2409",
+  "body": "Implements **objectui ADR-0057** — *Console AI chat is one system, docked (retire the FAB)*.\n\nToday the console renders AI chat through **3 parallel shells** over one backend (`ConsoleFloatingChatbot` FAB / `AiChatPage` full-page / `StudioAiCopilot` left panel), and the shells **fork the conversation** — the *same app's* build chat can exist as two disjoint threads (an empty \"Build with AI\" copilot next to an active full-page build conversation). This epic collapses them into **one chat system**:\n\n> **surface = view · conversation = model · product (`ask` / `build`) = the binding axis.**\n\nThis is **not** a merge of `ask` and `build` — cloud ADR-0063 already fixed that (two products, bound by surface, no roster). This is console-layer consolidation only.\n\n## Phases (each reversible; one ADR-0054 browser proof per phase)\n\n- [ ] **P1 — one conversation context + one gate** (no visible change)\n  - `ChatSessionProvider` owns agent resolution / conversation binding / list / streaming / pending / reconcile; all 3 shells read it\n  - Key conversations on `(user, app, product)` — **drop the `studio:` scope prefix**\n  - Delete `isAiEnabled` / `discovery.services.ai`; `useAiSurface` everywhere\n  - ✔ same thread visible in full-page ↔ Studio copilot for one app\n- [ ] **P2 — declarative surface→agent resolver (B)**\n  - `resolveSurfaceAgent(surface, ctx)` + `SURFACE_DEFAULT` table; all call sites migrated\n  - Fold the `ConsoleLayout` aiStudio-downgrade special case into the resolver\n  - ✔ unit table for ADR-0063 (Studio→build, console/app→ask, downgrade, `app.defaultAgent` bounded to ask/build)\n- [ ] **P3 — docked rail + Studio right-side reflow; retire the FAB**\n  - `ChatDock`: shared panel as a collapsible/resizable **right** rail; FAB → launcher / ⌘I\n  - Studio → `[left: nav] [center: canvas + properties] [right: chat]`\n  - `/ai` = maximized dock, **same thread**; runtime SDUI **bubble unchanged**\n  - ✔ chat location identical across console pages; expand/collapse preserves thread\n  - depends on: objectstack-ai/cloud#816 (render behavior by declared capability, optional)\n- [ ] **P4 — ask→build explicit handoff**\n  - build-shaped request in `ask` → **\"Open in Builder →\"** carrying context via `assistantBus`\n  - ✔ Builder opens with context; no authoring on the ask surface\n  - depends on: objectstack-ai/cloud#817 (handoff context contract)\n\n## Cloud dependencies (separate, non-blocking)\n- objectstack-ai/cloud#816 — agent catalog returns `capabilities` (B+)\n- objectstack-ai/cloud#817 — ask→build handoff context contract\n\n## Open questions (see ADR-0057)\nDock side under Studio (chat vs properties on the right) · FAB hard-retire vs collapsed-affordance · handoff explicit vs seamless · `app.defaultAgent` rejection post-ADR-0063 · focus-mode deep-link.\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2591,
+  "kind": "issue",
+  "title": "【缺陷】data-table 固定列横向滚动时露出下层内容(sticky 偏移写死导致遮挡缝隙)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T10:12:31Z",
+  "updated_at": "2026-07-16T13:10:50Z",
+  "closed_at": "2026-07-16T13:10:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2591",
+  "body": "## 问题\n\n下游反馈:steedos-labs/os-project-titanwind-ehr#418 —— 列表视图(grid)开启固定列后,横向拖动滚动条时,左侧固定区(复选框 / 行号 / 冻结列)没有完全遮住下层内容,滚过去的单元格会从固定单元格之间的缝隙里透出来。\n\n## 根因\n\n`packages/components/src/renderers/complex/data-table.tsx` 的前导固定单元格 sticky 偏移是**写死的**:复选框列按 `w-10`(40px)假设,行号列 `left: 40px`,冻结数据列按 40px + 150px 估算累加。\n\n但 HTML 表格自动布局并不保证这些宽度:shadcn 表格原语对含 checkbox 的单元格有 `[&:has([role=checkbox])]:pr-0` 规则,实测复选框列坍缩到 **28px**;行号列实际渲染也不是 40px。于是:\n\n- 复选框(实宽 28px)↔ 行号(吸附在写死的 40px)之间留下 **12px 未遮挡竖条**;\n- 行号 ↔ 冻结列之间同理(showcase 实测 8.45px 缝);\n- 横向滚动时下层单元格从缝里透出,即下游截图里的现象。\n\n## 方案\n\n不再写死偏移,改为在 `useLayoutEffect` 里用 `getBoundingClientRect` **实测表头单元格宽度**,按累计实测宽度给每个前导固定单元格设置 `left`;挂 `ResizeObserver` 应对列宽拖拽、密度切换等 React 之外的宽度变化;实测值就绪前保留原硬编码值兜底。\n\n## 验证\n\n- app-showcase 真机对照(同环境只换 console dist):修复前表头+全部行都有 12px / 8.45px 缝;修复后 `left` 为实测 `0 / 28 / 59.55px`,scrollLeft 0 / 中 / 满滚三个位置 + 视口重排后全程零缝隙;\n- 新增回归测试 `data-table-sticky-offsets.test.tsx`,相关 data-table 测试 67 个全绿,`tsc --noEmit` 干净。"
+}

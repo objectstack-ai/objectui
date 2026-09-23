@@ -1,0 +1,33 @@
+{
+  "number": 2329,
+  "kind": "pull_request",
+  "title": "fix(components,fields): localize form validation, toast client-side failures, fix dark-mode date icon",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T15:26:58Z",
+  "updated_at": "2026-07-06T15:46:39Z",
+  "closed_at": "2026-07-06T15:46:35Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-06T15:46:35Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2329",
+  "body": "## 问题\n\n1. **校验消息未国际化**:记录表单的校验提示始终是英文,即便字段标签是中文。截图里中文字段「计划开始日期」却弹出 `计划开始日期 is required`。根因是 `buildValidationRules`(`packages/fields/src/index.tsx`)把英文串写死进 rule,表单渲染器里的 `t()` 兜底分支因此永远命中不到。\n2. **校验消息在折叠区域外看不到**:长表单(modal/drawer)里,出错字段可能被滚动条挡住,用户点「创建」后没有任何可见反馈。\n3. **暗色模式日期图标看不清**:原生 `input[type=date]` 的日历图标在暗色背景下几乎不可见,因为没有声明 `color-scheme`。\n\n## 改动\n\n- **`packages/fields/src/index.tsx` — `buildValidationRules`**:required 现在发 `required: true`;min/maxLength、min/max、pattern、email、url 改为 `{ value, message: <自定义或undefined>, messageKey: 'validation.*' }`。字段作者自定义的 `*_message` 依旧保留并优先生效。\n- **`packages/components/src/renderers/form/form.tsx`**:\n  - `useSafeFormTranslation` 补齐 `validation.*` 英文兜底;新增 `localizeRule` 助手,用 `t(messageKey, { field, min/max })` 本地化 rule。\n  - 给 `form.handleSubmit` 传入 `onInvalid`:客户端校验失败时 `toast.error` 弹出出错字段名(最多 3 个 + 省略号),无论滚动位置都能看到。对应已有的服务端错误 toast(#2311)。\n- **`packages/i18n/src/locales/*.ts`**:新增 `validation.formInvalid`(10 个 locale 全覆盖)。\n- **`packages/components/src/index.css` + `apps/console/src/index.css`**:`:root{color-scheme:light}`、`.dark{color-scheme:dark}`,让原生控件内建图标在暗色下 light-on-dark 渲染。\n\n## 验证(framework app-showcase dogfood 控制台,暗色)\n\n在 showcase_task 新建表单提交空值:\n\n- 必填提示为中文:**标题不能为空 / 项目不能为空 / 状态不能为空**(此前为英文 `X is required`)。\n- 右下角同时弹出 toast:**请检查表单中标记的字段:标题、项目、状态**。\n- **截止日期** 日期字段的日历图标在暗色背景下清晰可见;`getComputedStyle(input[type=date]).colorScheme === 'dark'`。\n\n`@object-ui/fields`、`@object-ui/components`、`@object-ui/i18n` 均 `type-check` 通过;已附 changeset。\n\n> 未覆盖(非交互 RHF 表单路径,后续单独处理):`packages/react` `FieldFactory.tsx`(spec FormView)、`components/custom/action-param-dialog.tsx`、`fields/widgets/GridField.tsx`、以及编程式 `core/src/validation/validation-engine.ts`。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

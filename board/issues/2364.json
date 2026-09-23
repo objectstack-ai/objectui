@@ -1,0 +1,30 @@
+{
+  "number": 2364,
+  "kind": "issue",
+  "title": "列表「筛选记录」面板:空值条件被当成筛选下发,导致数据全部消失",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T07:58:34Z",
+  "updated_at": "2026-07-10T02:17:03Z",
+  "closed_at": "2026-07-10T02:17:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2364",
+  "body": "## 问题\n\n在列表视图的「筛选记录」弹窗中添加一条筛选(如「项目类型 等于 [选择值]」),但**不选任何值**(value 为空)时,该条件仍被下发到后端,变成 \\`字段 = ''\\`,匹配不到任何记录,列表数据全部消失。\n\n预期行为:值为空的未完成条件应被**忽略**(等同于「没有这条筛选」),而不是当成「只匹配空值」下发。\n\n## 根因\n\n一个列表页有三个独立的筛选入口,各走各的「条件 → 查询 AST」代码,互不共享:\n\n1. 顶部快捷筛选(下拉/标签,`UserFilters.emitFilters`)—— 一直有 \\`.filter(v.length > 0)\\` 空值跳过 ✅\n2. 数据集/报表筛选(metadata-admin,\\`datasetFilterCondition.groupToCondition`)—— #1964 已加空值跳过 ✅\n3. **列表「筛选记录」弹窗**(`FilterBuilder` → `ListView.convertFilterGroupToAST`)—— **从未有过空值跳过守卫**(面板 2026-02-04 加入,git 历史确认从无该保护)❌\n\n`ListView.convertFilterGroupToAST` 直接把 \\`{operator:'equals', value:''}\\` 映射成 \\`[field, '=', '']\\`,\\`normalizeFilters\\` 只丢弃长度为 0 的数组,该三元组存活并下发。\n\n## 解决方案\n\n在 \\`packages/plugin-list/src/ListView.tsx\\` 的 \\`convertFilterGroupToAST\\` 中,对值为 \\`null\\`/\\`undefined\\`/\\`''\\`/\\`[]\\` 的未完成条件做跳过(\\`isEmpty\\`/\\`isNotEmpty\\` 本身不带值,保留),与另外两条路径对齐;导出该函数并补单测覆盖(此前列表路径零测试,正是回归未被拦截的原因)。"
+}

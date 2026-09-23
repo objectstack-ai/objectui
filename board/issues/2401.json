@@ -1,0 +1,30 @@
+{
+  "number": 2401,
+  "kind": "issue",
+  "title": "Detail view: make Edit the primary CTA and move inline editing onto the field (hover pencil + double-click)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-12T14:14:49Z",
+  "updated_at": "2026-07-13T00:41:04Z",
+  "closed_at": "2026-07-13T00:41:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2401",
+  "body": "## Problem\n\nOn the record detail page the header exposes **two competing edit entry points** whose labels and hierarchy confuse users:\n\n- **\\`Edit fields\\`** (i18n \\`detail.editFieldsInline\\`) — actually the **inline-edit toggle**: flips every field into an input, then becomes *Save changes*.\n- **\\`Edit\\`** (i18n \\`detail.edit\\`) — opens the **full form** (ModalForm) for the whole record.\n\nIn the \\`RecordDetailView\\` synth / \\`page:header\\` path the overflow logic inverts the intended hierarchy: **\\`Edit fields\\` renders as the visible button while the primary \\`Edit\\` gets buried in the \\`…\\` overflow** (alongside Share / Delete). This is inconsistent with the monolithic \\`DetailView\\` header, where \\`Edit\\` is the primary CTA and inline is a secondary \\`outline\\` button.\n\nTwo parallel \"edit\" buttons is itself the smell — best-in-class products (Linear / Notion / Attio, and Salesforce for the enterprise-form case) collapse this to **one clear model**.\n\n## Proposal (Salesforce-style: one primary CTA + field-level inline edit)\n\n1. **\\`Edit\\` is the single primary CTA**, always visible in the header (desktop + mobile).\n2. **Remove the standalone \\`Edit fields\\` / inline-edit toggle button** from the header. The capability is *not* dropped — its trigger moves onto the fields themselves.\n3. **Inline editing is triggered from the field row:**\n   - **hover a field → reveal a pencil affordance** (discoverable primary path),\n   - **double-click a field → enter inline edit** (power-user accelerator).\n4. Keep a floating **Save / Cancel** bar while inline editing (reuse the existing inline-edit state machine).\n5. **Unify** the \\`DetailView\\` header and the \\`RecordDetailView\\` synth (\\`page:header\\`) path so both behave identically.\n\n### Why not single-click\nThese are display fields containing selectable text / links (e.g. owner email). Single-click-to-edit conflicts with text selection and link activation, so **double-click + hover-pencil** is the right trigger on a read-oriented detail page (mirrors Salesforce/Airtable).\n\n## Guardrails to preserve\n\n- Respect \\`userActions.edit\\` per field — don't blanket-enable/disable (ADR-0092 D4 / #2395).\n- **Computed / read-only fields** show no edit affordance and must be stripped from the update payload (\\`sanitizeFormData\\`) to avoid \\`INVALID_FIELD\\`.\n- **Approval-locked** records (\\`approval_status\\` = \\`pending\\`/\\`in_approval\\`) stay non-editable (existing \\`isLocked\\` handling).\n- Mobile / touch has no hover or double-click → the header \\`Edit\\` button remains the fallback.\n\n## Acceptance criteria\n\n- [ ] Header shows a single primary **Edit** button; no standalone *Edit fields* toggle.\n- [ ] Hovering a field row reveals a pencil; double-clicking a field enters inline edit with a Save/Cancel bar.\n- [ ] Read-only/computed fields expose no pencil and are not editable.\n- [ ] Behaviour is identical in \\`DetailView\\` and \\`RecordDetailView\\` (page:header) paths.\n- [ ] Verified in the browser against the showcase \\`Project\\` record."
+}

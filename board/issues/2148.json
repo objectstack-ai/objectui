@@ -1,0 +1,30 @@
+{
+  "number": 2148,
+  "kind": "issue",
+  "title": "详情侧字段分组(对象 fieldGroups)未接线 + 详情 UI hints 读取键与 spec 校验层不一致",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T08:09:18Z",
+  "updated_at": "2026-07-15T14:04:11Z",
+  "closed_at": "2026-07-15T14:04:11Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2148",
+  "body": "> **范围澄清**:本 issue 说的\"字段分组\"专指**对象定义顶层的 `fieldGroups` 属性**(配合字段级 `field.group` 引用,#1441 设计器引入,spec 中已类型化、可正常写入),**不是** `views.form.sections`,也不是 `sectionGroups`。后两者只作为优先级对比时提及。\n\n## 问题一:详情侧不渲染对象 fieldGroups\n\n对象元数据里的 `fieldGroups`(#1441 设计器引入,#1789 接入运行时表单)目前**只有 ObjectForm 一个消费者**。整个详情侧都没有接线:\n\n- **默认详情页**([RecordDetailView.tsx:1228](https://github.com/objectstack-ai/objectui/blob/main/packages/app-shell/src/views/RecordDetailView.tsx)):sections 只有两级来源——`objectDef.views.form.sections`,否则走自动分组(主区 + 可折叠\"更多详情\"区)。不读 `fieldGroups`。\n- **合成详情页(assignedPage 路径)**(`packages/plugin-detail/src/synth/buildDefaultPageSchema.ts` 的 `buildDefaultDetails`):只透传 spec 里显式写的 `options.sections`,不从 `fieldGroups` 推导。\n- **详情抽屉**(`packages/plugin-detail/src/RecordDetailDrawer.tsx:214`):提取字段时不读 `field.group`,只给 DetailView 传平铺 `fields`,不传 `sections`。\n- **仪表盘下钻抽屉**(`packages/plugin-dashboard/src/RecordDetailDrawer.tsx:84`):直接 `<dl>` 平铺,无分组概念。\n\n结果:用户在对象设计器里精心分好的字段组,只在表单里可见;详情页和右侧抽屉全部平铺(或按启发式自动拆),体验不一致。这是功能分阶段推进的遗留缺口,不是有意设计(#1789 的 PR 说明里明确写了当时只覆盖简单表单)。\n\n而渲染能力其实齐备:`DetailView` 支持 `sections`/`sectionGroups`,`DetailSection` 支持 `collapsible` 折叠卡片,`plugin-form/src/fieldGroups.ts` 的 `deriveFieldGroupSections()` 已实现\"声明顺序、空组丢弃、未分组字段归入末尾无标题区\"的推导语义。\n\n## 问题二:console 读取的详情 UI hints 键与 spec 校验层不一致\n\n排查过程中发现一个同区域的关联问题:console 详情侧读取的若干元数据键,在 `@objectstack/spec` 的 `ObjectSchema` 里**根本不存在**。实测(spec 11.2.0,objectui 锁定版本)分两层:\n\n- **`ObjectSchema.create()`(作者入口)直接抛错**:`unknown key(s) — views, stageField … \"views\" is not an ObjectSchema field`(错误信息引 ADR-0032 \"no silent failure\" / #1535;11.5.0 用户实测同样报错);\n- **裸 `ObjectSchema.safeParse` 静默剥离**:parse 通过,但输出对象里 `views` / 顶层 `stageField` 被丢弃。\n\n两种情况下这些键都**到不了 console**——对\"经过 spec 校验的元数据包\"来说,下列读取路径是死代码,作者无法声明:\n\n| console 读取路径 | 位置 | spec 能否写入 |\n|---|---|---|\n| `views.detail.highlightFields`(顶显字段) | RecordDetailView.tsx:1389 | ❌ ObjectSchema 无 `views` 键 |\n| `views.form.sections`(详情分区第一优先级来源) | RecordDetailView.tsx:1229 | ❌ 同上 |\n| `views.*.sectionGroups` | RecordDetailView.tsx:1393 | ❌ 同上 |\n| 顶层 `stageField`(状态进度条,`detectStatusField`) | buildDefaultPageSchema.ts:198 | ❌ spec 无此键 |\n\n后果:\n- **顶显字段无法覆盖**——自动挑选(`deriveHighlightFields`)成了唯一生效路径;\n- **stageField 无法显式指定/关闭**(启发式 status/stage/state/phase 兜底通常能出进度条,关闭那半已有 #2065 在跟);\n- **`views.form.sections` 对 spec 包永远不可能存在**——即本 issue 方案里的第一优先级来源,今天在 spec 包上必然落空,`fieldGroups` 因此是 spec 包目前唯一可行的详情分区声明方式(这也让问题一的价值更大)。\n\n而正确的逃生通道已经存在:spec 的顶层 **`detail` 块是 passthrough(`$loose`)**——实测 `detail: { highlightFields: [...], stageField: '...', sections: [] }` 通过校验且**原样保留**;`fieldGroups` 是类型化键,同样保留。console 也已经在用 `detail` 块读 `detail.hideReferenceRail` / `detail.relatedLayout` 等 opt-out(RecordDetailView.tsx:1742)。\n\n## 方案\n\n在详情侧引入 sections 的三级优先级:**显式 sections(`views.form.sections` / synth `options.sections`)> `fieldGroups` 推导 > 现有自动分组(\"更多详情\")**。\n\n1. **共享推导逻辑**:把 `deriveFieldGroupSections` / `readObjectFieldGroups` 从 plugin-form 下沉到共享位置(或提供 detail 侧的等价轻量实现),让 app-shell / plugin-detail 复用同一套语义。\n2. **RecordDetailView**:无显式 sections 时,先尝试从 `objectDef.fieldGroups` + `field.group` 推导分区(`collapsible`/`collapsed` 透传给 DetailSection);**未分组的剩余字段仍套用现有 primary/\"更多详情\" 拆分**,保证长文本/次要字段的收纳效果不因分组而丢失(两套机制叠加,而非互斥)。\n3. **buildDefaultPageSchema / buildDefaultDetails**:`options.sections` 缺省时从 `def.fieldGroups` 推导,使 assignedPage 合成的详情页与默认详情页一致。\n4. **详情抽屉 RecordDetailDrawer**:同样推导 sections 传给 DetailView(抽屉窄,组默认可考虑单列);仪表盘下钻抽屉改为按组分段渲染。\n5. 分区标题走既有 i18n 约定(`{ns}.objects.{objectName}._sections.{name}.label`),group key 作为 section `name`。\n6. **修复问题二(hints 读取键)**:console 侧把详情 hints 改为**优先读 spec 可写的 `objectDef.detail.*` passthrough 块**,保留 `views.*` / 顶层键作为兼容回退:\n   - 顶显字段:`detail.highlightFields` ?? `views.detail.highlightFields`;\n   - 状态进度条:`detail.stageField` ?? 顶层 `stageField` ?? 启发式(与 #2065 的 `detail.stageField: false` 关闭语义合并实现);\n   - 显式分区:`detail.sections` ?? `views.form.sections`;\n   - spec 侧长期应把这些键类型化(objectstack 仓库,另行上游 issue)。\n\n## 风险\n\n1. **已声明 fieldGroups 的对象,详情页外观一夜变样**:这些分组原本只影响表单,落地后详情页会变成多张分组卡片,\"更多详情\"自动区对这些对象消失。属预期效果,但是可见的行为变更,需要在 release note 里说明。\n2. **组内混排导致收纳失效**:某个组里混着主要+次要字段时全部展开,自动收纳效果减弱。缓解:仅对未分组字段保留 primary/\"更多详情\" 拆分(见方案第 2 点)。\n3. **空组观感**:某组字段值全为空时,会渲染成只有标题 + \"显示 N 个空字段\"按钮的空卡片(详情区默认隐藏空字段)。建议:全空组默认折叠或跳过。\n4. **与高亮条/标题的去重交互**:`record:details` 会从正文剔除 highlight 字段和 H1 标题字段,可能把某个组剔空,同样归入第 3 点处理。\n5. **抽屉密度**:抽屉是\"快速查看\"定位,多张分组卡片可能显得重;可以用更轻的分组样式(仅分节标题,不带 Card 边框)。\n6. **hints 双读的优先级冲突**:同时写了 `detail.highlightFields` 和(非 spec 环境下的)`views.detail.highlightFields` 时需要确定谁赢;建议 `detail.*` 恒定优先,语义为\"作者显式声明\"。\n\n不受影响:每个分区内的\"显示 N 个空字段\"切换是 DetailSection 级别的,行为照旧;未声明 fieldGroups 的对象完全不变(继续走自动分组)。\n\n## 待确认的问题\n\n1. **优先级顺序**:显式 sections(`detail.sections` / `views.form.sections`)是否应继续压过 `fieldGroups`?(现表单侧就是显式 sections 优先,建议保持一致。)\n2. **未分组字段的归宿**:是按方案 2 继续拆 primary/\"更多详情\",还是简单归入一个末尾无标题区(与表单行为字面一致)?\n3. **全空组的处理**:默认折叠、直接隐藏、还是照常渲染(带\"显示 N 个空字段\"按钮)?\n4. **抽屉是否纳入本期**:详情页两条路径 + 两个抽屉一起做,还是抽屉拆成后续 issue?抽屉里分组用 Card 还是轻量分节标题?\n5. **是否需要对象级开关**:比如 `detail.useFieldGroups: false` 让个别对象的详情页退回平铺/自动分组,以缓解风险 1(注意开关要放在 spec 可写的 `detail` 块,不能放 `views` 下)?\n6. **问题二的修复范围**:hints 键改造(方案第 6 点)与 fieldGroups 接线放同一个 PR,还是拆开先修 hints(改动小、独立可验)?\n7. **spec 上游**:是否需要在 objectstack 仓库开对应 issue,把 `detail.highlightFields` / `detail.stageField` / `detail.sections` 类型化?\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2362,
+  "kind": "pull_request",
+  "title": "fix(ai-chat): confirm-card header reads Awaiting Approval, not Completed (cloud#772)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T04:07:52Z",
+  "updated_at": "2026-07-09T04:11:48Z",
+  "closed_at": "2026-07-09T04:08:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-09T04:08:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2362",
+  "body": "接 #2355:getToolState 修的是紧凑活动 chip;展开确认卡折叠头仍把原始 state（output-available）传给 ToolHeader，故未应用的 granular 编辑显示 Completed。此处仅头徽章在 proposal 预览时重映射为 approval-requested（Awaiting Approval），不动本地 state。/ai/build 迭代实测。Refs objectstack-ai/cloud#772"
+}

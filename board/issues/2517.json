@@ -1,0 +1,32 @@
+{
+  "number": 2517,
+  "kind": "pull_request",
+  "title": "fix(app-nav): exclude record-detail pages from the 'page' nav picker (#2333)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T14:15:21Z",
+  "updated_at": "2026-07-15T14:21:32Z",
+  "closed_at": "2026-07-15T14:21:30Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T14:21:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2517",
+  "body": "Closes #2333\n\n## Problem\n\nWhen creating a navigation item of type **\"page\"**, the target dropdown listed **all** pages — including record-detail pages (`type: 'record'`). A `type: 'page'` nav item resolves to a static `/apps/{app}/page/{name}` URL with no mechanism to pass a record id, so selecting a record-detail page always produces a broken target at runtime.\n\n## Fix\n\nAdded a pure `isStaticPageOption` predicate in `nav-target.ts` and threaded an optional `rowFilter` through `useMetadataOptions`, applied **only** for the `page` metaType. Record-detail pages are excluded; every other page kind (`list`, `home`, `app`, `utility`) is kept.\n\n- Mirrors `usePageAssignment`'s record discriminator — `pageType` wins over bare `type`.\n- Rows missing both discriminators are kept, so **only confirmed record pages** are dropped (safe default).\n- The filter reference is stable (module-level or `undefined`), so it doesn't retrigger the fetch effect.\n- Object/dashboard/report/view pickers are unaffected.\n\n## Testing\n\n- Added `isStaticPageOption` unit tests to `nav-target.test.ts` (record exclusion, static-kind retention, `pageType`-over-`type` precedence, missing-discriminator retention). Full file: **16 passed**.\n- `pnpm turbo run type-check --filter=@object-ui/app-shell` passes (29/29).\n\nNot visually verified in the browser — the change is a scoped metadata-list filter with direct unit coverage over the exact predicate, and standing up the console + backend + seeded record pages would be disproportionate for a one-dropdown filter.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

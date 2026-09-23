@@ -1,0 +1,32 @@
+{
+  "number": 2319,
+  "kind": "pull_request",
+  "title": "fix(components): don't guess US$ for a currency metric with no currency",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T08:42:20Z",
+  "updated_at": "2026-07-06T08:51:01Z",
+  "closed_at": "2026-07-06T08:50:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-06T08:50:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2319",
+  "body": "## Problem\n\n没有指定货币类型时，`element:number` 仍然显示 `US$`。\n\nThe dashboard `element:number` renderer, when given `format: 'currency'`, fell back to a hard-coded `'USD'` whenever neither a field currency nor a tenant default currency was resolved. So a currency metric in an org that hasn't configured a currency rendered amounts as `US$1,234`, mis-displaying non-USD orgs (e.g. RMB amounts shown as US\\$).\n\n## Fix\n\nRender a plain number when no currency is known — matching the codebase-wide convention already followed by `CurrencyCellRenderer`, grid summaries, `CurrencyField`, and `formatCurrency` in `packages/fields`:\n\n```js\nopts = currency ? { ...FORMAT_OPTS.currency, currency } : FORMAT_OPTS.number;\n```\n\n`MetricWidget.tsx` was reviewed and left unchanged — it only enters the currency branch when a currency is explicitly given (via prop or a `$`/`¥`/`€`/`£` symbol), so it never shows `US$` for an unspecified currency.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

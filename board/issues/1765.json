@@ -1,0 +1,30 @@
+{
+  "number": 1765,
+  "kind": "issue",
+  "title": "ADR-0050 implementation: finish layout-forwarding (DrawerForm + entries) + narrow FormView.type (breaking)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T14:39:35Z",
+  "updated_at": "2026-07-15T15:45:14Z",
+  "closed_at": "2026-07-15T15:45:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1765",
+  "body": "Tracks the remaining ADR-0050 (form layout ⊥ presentation) implementation after the additive first step landed.\n\n**Done (additive, non-breaking):**\n- Full-page record form honours layout — objectstack-ai/objectui#1762.\n- Modal forms can host a tabbed layout — objectstack-ai/objectui#1764 (`ModalForm.contentLayout` + `AppContent` forwarding; browser-verified modal+tabbed).\n\n**Remaining A (additive, non-breaking) — consistency:**\n- `DrawerForm`: add `contentLayout` (tabbed) like `ModalForm`.\n- Forward layout from the other modal entry points: `useActionModal`, `DashboardView` (and any list `addRecord` modal path) so every container honours the form view's layout.\n\n**Remaining B (BREAKING, spec-major — needs architect sign-off, ADR-0050):**\n- Narrow `FormViewSchema.type` to layout-only (`simple`/`tabbed`/`wizard`); drop `drawer`/`modal` (caller-supplied containers) and `split` (covered by `subforms` + list split-detail).\n- `ObjectForm`: remove the retired `drawer`/`modal`/`split` branches.\n- Migrate the 5 demo named views (showcase task split/quick; hotcrm lead split/drawer/modal) to layout demos + open-mode demos.\n- spec-major changeset + downstream (hotcrm/templates) coordination. Bundle into the next spec-major batch rather than a standalone major bump.\n\nSee ADR-0050 (`docs/adr/0050-form-layout-vs-presentation.md`). Refs #1890.\n"
+}

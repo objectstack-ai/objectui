@@ -1,0 +1,30 @@
+{
+  "number": 2480,
+  "kind": "pull_request",
+  "title": "polish(console-ai): ease dock canvas-maximize + per-surface chat width (ADR-0057 UX #2477)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T05:01:06Z",
+  "updated_at": "2026-07-14T05:12:22Z",
+  "closed_at": "2026-07-14T05:12:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T05:12:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2480",
+  "body": "The two smaller UX follow-ups from #2477 (ADR-0057), after #2478.\n\n## #4 — Ease the canvas auto-maximize\nWhen a `build` session opens the Live Canvas, the rail auto-maximizes; it used to **snap** to full width. Now it eases over 200ms (and eases back on tuck). The transition is suppressed while a manual resize drag is in progress, so dragging still tracks the pointer 1:1 (a transition there would lag the handle).\n\n## #6 — Studio dock keeps its own width\nThe rail width used one shared localStorage key across surfaces, so a wide console chat squeezed the Studio design canvas (and vice-versa). `useChatDockState` now takes an optional `persistWidthKey`; the Studio dock passes its own (`ai-chat-studio-dock-width`). Each surface remembers the width that suits it. Mirrors the per-surface expanded key added in #2478.\n\n## Verification\n- `tsc --noEmit` clean; `npx vitest run` layout + studio-design: 5 files / 26 tests green (the stored-flag round-trip + folded-tab suites; the width-key wiring mirrors the already-tested expanded-key pattern).\n- #4 is visual polish (best seen live — the rail glides instead of jumping when a build opens the canvas); #6 is a storage-key scoping change.\n\nRefs #2477 · ADR-0057"
+}

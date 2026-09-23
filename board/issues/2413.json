@@ -1,0 +1,34 @@
+{
+  "number": 2413,
+  "kind": "issue",
+  "title": "feat(app-shell): CEL authoring safety for RLS policies — lint, field autocomplete, test-run",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T04:49:00Z",
+  "updated_at": "2026-07-15T15:16:11Z",
+  "closed_at": "2026-07-15T15:16:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2413",
+  "body": "## Context\n\nThe permission-set Studio editor (`PermissionAdvancedFacets` — the Row-Level Security section) lets admins author RLS policies as hand-typed CEL **`USING`** (read filter) and **`CHECK`** (write filter) expressions. A rich set is edited entirely by hand — e.g. `member_default` has **17 policies**, each with per-operation `USING`/`CHECK` editors.\n\n## Problem\n\nThe CEL editors today have **no syntax validation, no field-name autocomplete, and no way to test a policy**.\n\nRLS is a **security-critical** surface: a typo in a `USING`/`CHECK` predicate silently produces the wrong row scope, and some evaluation paths **fail open** — so a mistake *widens* access with no visible error. This is the highest-risk, most error-prone authoring surface in the permission model, yet it has the least authoring support.\n\n## Proposed work\n\n1. **Client-side CEL syntax lint** — surface parse errors inline before save (reuse the framework CEL parser rather than maintaining a second grammar).\n2. **Field-name autocomplete** — while typing, offer the target object's fields plus the scope vars (`current_user`, `record`, `ctx`, `app`, …) to prevent silent typos on unknown identifiers.\n3. **Test-run affordance** — \"evaluate this policy against a sample record\" so the author sees allow/deny before shipping.\n4. Optionally, **flag where a policy fails open vs. fails closed** so authors understand the blast radius of a malformed predicate.\n\n## Acceptance criteria\n\n- [ ] Malformed CEL is flagged inline and (optionally) blocks save.\n- [ ] Autocomplete suggests valid field/scope identifiers for the policy's object.\n- [ ] An author can dry-run a `USING`/`CHECK` predicate against a sample record and see the result.\n\n## References\n\n- Editor: `packages/app-shell/src/views/metadata-admin/PermissionAdvancedFacets.tsx` (RLS section)\n- CEL evaluation: `ExpressionEvaluator` (`@object-ui/core`); framework CEL parser\n- Part of the permission-set pure-model work — epic #2398\n\n_Surfaced during go-live UAT while verifying the Studio RLS editor (P3)._\n"
+}

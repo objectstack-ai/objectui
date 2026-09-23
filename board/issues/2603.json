@@ -1,0 +1,34 @@
+{
+  "number": 2603,
+  "kind": "pull_request",
+  "title": "fix(app-shell+kanban+list): row-predicate CEL authoring advertises runtime-bound roots; kanban binds host scope (#2571 follow-up)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T13:13:17Z",
+  "updated_at": "2026-07-16T13:22:27Z",
+  "closed_at": "2026-07-16T13:22:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T13:22:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2603",
+  "body": "## Problem\n\n#2571 added `scope`/`roots` to `CelPredicateField` and wired the **field conditional rules** editors to `scope=\"record\"`. The remaining CEL call site — `ConditionalFormattingEditor` (hosted by `ViewVariantInspector`) — still authored row-predicate `condition`s with the engine-default advertisement, which has two traps:\n\n1. **Autocomplete suggests roots the runtime never binds.** The engine's default catalog advertises `previous` / `input` / `os` / `vars`, but the ADR-0058 row-predicate evaluator (`evalRowPredicate` — list rows, grid rows, kanban cards) binds none of them. Accepting one of those suggestions authors a condition that lints clean and **silently never matches**.\n2. **The actually-bound global roots were missing** from the catalog (`features` / `app` / `data` / `ctx`).\n\n## Runtime audit (why NOT `scope=\"record\"`)\n\nThe task hypothesis was that these predicates evaluate with the record bound only under the `record` namespace. Auditing `@object-ui/core`'s `evalRowPredicate` shows otherwise: it binds the row **bare** (`status`), under **`record.*`**, and under **`data.*`** (documented as the three authoring conventions), plus the host's global predicate scope (`current_user` / `user` / `ctx` / `app` / `features` — `ExpressionProvider`, #1583/ADR-0068), and `@objectstack/formula`'s `buildScope` merges the extra scope top-level. So a bare `status == 'overdue'` **does** match at runtime, and `scope=\"record\"` (bare ref ⇒ hard lint error) would false-flag valid, documented predicates. Lint therefore stays `'flattened'`; only the advertised **roots** are pinned to the runtime-bound set (`ROW_PREDICATE_ROOTS`).\n\n## Runtime gap closed alongside\n\nGrid rows already bound the ambient predicate scope (`ObjectGrid` → `usePredicateScope`), but **kanban cards did not** — a `features.*` / `current_user.*` formatting condition worked on the grid and silently never matched on kanban, contradicting the \"identical verdict\" comments in both boards. Both `KanbanEnhanced` and `KanbanImpl` now bind `usePredicateScope()`; `ListView`'s exported `evaluateConditionalFormatting` accepts the optional host scope for parity. Without this, advertising the global roots in the editor would have re-created the same authoring trap on kanban.\n\n## Changes\n\n- `ConditionalFormattingEditor`: pass `scope=\"flattened\"` + `roots={ROW_PREDICATE_ROOTS}` (`record`, `current_user`, `user`, `features`, `app`, `data`, `ctx`) to `CelPredicateField`.\n- `KanbanEnhanced` / `KanbanImpl`: bind the ambient predicate scope in card conditional formatting.\n- `ListView.evaluateConditionalFormatting`: optional `scope` param.\n\n## Tests\n\n- Bare-field condition lints **clean** against the real engine (guards against flipping this surface to `scope=\"record\"`).\n- Unknown `record.<field>` still errors with did-you-mean.\n- Roots override: advertises `features`, withholds `vars` even when the engine advertises it.\n- **Contract test**: every `ROW_PREDICATE_ROOTS` entry resolves through `evalRowPredicate` with an ExpressionProvider-shaped scope; `previous`/`input`/`os`/`vars` provably don't (and must stay unadvertised).\n- Kanban: both boards style a features-gated card inside `PredicateScopeProvider`, fail soft outside; bare-field conditions keep working.\n\n`vitest`: 225 tests green across the touched files; `tsc --noEmit` clean for app-shell / plugin-kanban / plugin-list (after workspace build). Pure bug fix — no changeset per AGENTS.md §9.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

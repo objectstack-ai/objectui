@@ -1,0 +1,35 @@
+{
+  "number": 2598,
+  "kind": "pull_request",
+  "title": "fix(core+data-objectstack+app-shell): canonicalize reference/reference_to at the schema chokepoints",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T12:32:17Z",
+  "updated_at": "2026-07-16T12:43:23Z",
+  "closed_at": "2026-07-16T12:43:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T12:43:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2598",
+  "body": "## Context\n\n#2407 / PR #2587 fixed `HeaderHighlight.tsx`, which read only `reference_to` from object schemas while the backend serves the ObjectStack-convention key `reference`. This PR closes the whole class of bug at the chokepoints instead of consumer-by-consumer.\n\n**Confirmed against a live showcase backend** (`GET /api/v1/meta/object/...`):\n\n- `showcase_project.account` → `{\"type\":\"lookup\",\"reference\":\"showcase_account\"}`\n- `showcase_project.team_members` → `{\"type\":\"user\",\"reference\":\"sys_user\"}`\n- `showcase_task.project` → `{\"type\":\"master_detail\",\"reference\":\"showcase_project\"}`\n\nNo served relational field carries `reference_to` at all.\n\n## Audit result\n\nTraced every `reference_to`/`referenceTo`/`.reference` field-def read in the repo. Most sites named in the original report were already dual-key on main (`ObjectGrid` copies both via `RELATIONAL_META_KEYS`, `expand-fields` gates on `type` only, `UserFilters`/`LookupField`/`ObjectGallery` fall back). The audit found **3 confirmed live bugs** and **2 mirror-direction bugs** that were still open:\n\n| Site | Bug |\n|---|---|\n| `ObjectGantt.tsx` quick-filters | lookup/master_detail option domain never fetched (`refObject` undefined on served schemas) |\n| `RecordDetailDrawer.tsx` | lookup cells lost `reference_to` → id never resolved to a display name |\n| `ReportView.tsx` column hydration | read `referenceTo`/`reference?.to`/`target` — none exist on store object defs |\n| `attachInlineSubforms` (mirror) | parent resolved only from `reference`, missing `reference_to`-keyed defs |\n| `sectionFields.ts` spec override (mirror) | author-supplied `reference_to` on a form-field spec silently dropped |\n\n## Fix — normalize at the chokepoints\n\nNew `normalizeFieldReferenceKeys` / `normalizeSchemaReferenceKeys` in `@object-ui/core`: stamps **both** snake_case keys whenever either (or legacy camelCase `referenceTo`) is present. In-place, idempotent, never overwrites existing keys. Applied at both places object schemas enter the client:\n\n1. **`ObjectStackAdapter.getObjectSchema`** — same seam as `applyFieldWidgetOverrides`; covers every `dataSource.getObjectSchema()` consumer (grid, gantt, list, gallery, detail, drawer, forms…).\n2. **app-shell `MetadataProvider`** — `object`-type items at ingestion; covers every `useMetadata().objects` consumer (ReportView, deriveRelatedLists, attachInlineSubforms…).\n\nThe five sites above additionally got the dual-key fallback, because they can receive schemas that bypass the chokepoints (standalone/mock/api data sources, spec-authored view configs). `metadataConverters.toFieldDefinition` (currently uncalled) also falls back to `reference` so the designer shape can't regress.\n\n## Tests\n\n- `packages/core` — new `reference-keys.test.ts` (11 cases: both directions, camelCase source, no-overwrite, idempotency, map + array field containers, non-object tolerance)\n- `packages/data-objectstack` — `getObjectSchema` canonicalization round-trip (served `reference` → `reference_to`, and mirror)\n- `packages/plugin-gantt` — quick-filter option domain loads from a `reference`-keyed schema\n- `packages/app-shell` — `attachInlineSubforms` resolves a `reference_to`-keyed parent\n- `packages/plugin-form` — spec override accepted under either key, both keys stamped\n\nScoped runs: 22 + 183 (full data-objectstack) + 22 (gantt/drawer) + 12 (sectionFields) + 24 (lookup-cell/expand-fields regression) — all green. `turbo run type-check` green on all six touched packages. The 6 eslint errors on touched files are pre-existing in untouched regions.\n\nRefs #2407, PR #2587.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

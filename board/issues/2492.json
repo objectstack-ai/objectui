@@ -1,0 +1,30 @@
+{
+  "number": 2492,
+  "kind": "pull_request",
+  "title": "fix(console-ai): Live Canvas is a full-screen opt-in preview on mobile, not a broken split (#2481)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T11:23:23Z",
+  "updated_at": "2026-07-14T12:01:23Z",
+  "closed_at": "2026-07-14T12:01:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T12:01:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2492",
+  "body": "Closes #2481. Reproduced and fixed the mobile Live Canvas from the follow-up list.\n\n## The bug (reproduced)\nOn a phone `/ai/build`, when the canvas opened it used the desktop **beside-chat split** verbatim: the chat column is a fixed min-width (360px, `shrink-0`), the preview is `flex-1`, and the resize handle is `md:block` (hidden on mobile). Measured at a phone viewport: chat 360 + canvas 349 = **709 > viewport → horizontal overflow**, the app preview clipped off the right edge, and no handle to fix it. (Screenshots in the review — before/after.)\n\n## The fix (Option A, opt-in full-screen)\nUnder `md` the split is gone. The canvas is opt-in and full-screen:\n- **Full-width chat, no split** — the build streams in the chat as before, uninterrupted.\n- **`Preview app` pill** (floating, above the composer) appears once a preview is available; tapping it — or a **Preview** button on a draft card — takes the canvas **full-screen over the chat**. Closing returns to the chat with the pill still there. An auto-drafted canvas never covers the streaming chat unprompted (a phone can't show both, so the build messages win until the user asks to preview).\n\nDesktop is unchanged — the resizable beside-chat split. New string `console.ai.previewApp` (en `Preview app` / zh `预览应用`).\n\n## Verification (live, local rig)\n- **Reproduced** the broken split on a phone viewport (chat 360 + canvas 349, overflow, handle hidden).\n- **Fixed:** built a real todo app on mobile `/ai/build` → chat stays full-width, **no split handle / no beside-canvas / no overflow from the canvas**; tap Preview → **full-screen** app preview (renders full-width, usable); close → back to chat + `预览应用` pill; tap pill → re-opens full-screen. \n- **Desktop (1400px) unchanged:** beside-chat split renders (chat 480 + canvas 865, resize handle present).\n- `tsc --noEmit` clean; `npx vitest run` console-ai + layout: 88 tests green (the pure `clampChatPaneWidth` — the only split-related test — is untouched).\n\n## Noted separately (not in this PR)\nWhile reproducing I found a **pre-existing** horizontal overflow in the build-result card: a `truncate` span (`built N artifact(s)…`) lacks a `min-w-0` flex ancestor, so its `white-space:nowrap` pushes the chat column wide on mobile. It lives in `plugin-chatbot` (the build-tree card), is unrelated to the canvas split, and predates this change — I'll file it separately rather than risk a cross-package/desktop regression here.\n\nRefs #2481 · ADR-0037"
+}

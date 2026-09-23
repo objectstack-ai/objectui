@@ -1,0 +1,33 @@
+{
+  "number": 2440,
+  "kind": "pull_request",
+  "title": "feat(plugin-gantt): 逐任务预警描边 borderColorField(#2436 第 3 项)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T08:55:46Z",
+  "updated_at": "2026-07-13T09:35:21Z",
+  "closed_at": "2026-07-13T09:35:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T09:35:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2440",
+  "body": "关联 #2436(第 3 项)。\n\n## 问题\n\n排班场景要求\"超期红框、临期橙框\"这类逐任务预警提示,但条形只有整体填充色(`colorField`),没有独立的描边通道——预警信息要么挤占填充色语义,要么无处可放。\n\n## 方案\n\n- `GanttTask` 新增 `borderColor`:设置后条形保留原填充色,以该颜色描边并加 2px 光晕(同关键路径的视觉语言)。任务条、里程碑菱形、汇总条三处渲染均生效;关键路径高亮开启时在其标记行上优先(用户显式切换的分析视图不被业务描边盖掉)。\n- `ObjectGantt` 新增视图配置 `borderColorField`:指向记录上的预警颜色字段(典型为服务端计算的超期/临期字段)。语义色名(red/orange/…)经 `getSemanticHex` 映射为调色板 hex,其余 CSS 颜色原样透传,空/null 不描边。\n\n## 测试\n\n- `GanttView.layout.test.tsx`:任务条描边 + 光晕、填充色不动、无预警兄弟行无光晕;里程碑;汇总条。\n- `ObjectGantt.test.tsx`:`borderColorField` 映射——语义名 `red` → `#ef4444`、hex 透传、null → 无描边。\n\n全套 `pnpm --filter @object-ui/plugin-gantt test` 19 文件 236 用例全绿;`tsc --noEmit` 干净;eslint 仅 base commit 上已有的 2 个存量 error,非本 PR 引入。\n\n## 非目标\n\n按 #2436:预警等级的计算属于项目侧(服务端字段),组件只消费颜色值。其余项分 PR:#2437(依赖校验)、#2438(树感知筛选)已提。"
+}

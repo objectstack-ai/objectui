@@ -1,0 +1,32 @@
+{
+  "number": 2223,
+  "kind": "issue",
+  "title": "[follow-up] Access 矩阵:待 framework#2566 上线后收紧作用域 + 活栈实测",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T08:21:26Z",
+  "updated_at": "2026-07-16T04:32:49Z",
+  "closed_at": "2026-07-16T04:32:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2223",
+  "body": "#2222(已合并,closes #2221)按 ADR-0086 **P0** 落地了 Access 矩阵的按包作用域 + 保存切片合并 + 左栏权限集按包过滤。其中若干项**依赖 framework ADR-0086 P1**(objectstack-ai/framework#2566)。P1 现已合并,收尾进展见下。\n\n## 待办\n\n- [x] **左栏权限集作用域收紧** —— 由 **#2229** 完成(比原计划「去护栏」更正确)。\n  活栈实测发现:provenance(`package_id`/`managed_by`)只落在**数据行** `sys_permission_set` 上,元数据列表 `meta/permission` **不回传**这两列,所以原先的**客户端**过滤(`scopePermissionSetList` 的 `anyTagged` 护栏)在真后端下永远命不中,平台默认集并未被隐藏。改为**服务端作用域** `client.list('permission', { packageId })`,由后端按 `package_id` provenance 过滤;删除了失效的客户端 helper。实测:左栏 `?package=showcase` 从 6 → **2** 个(只剩 `showcase_contributor` / `showcase_member_default`),平台默认集被排除。\n\n- [ ] **活栈浏览器可视化闭环** —— 已完成 **API/链路级**活栈实测(#2229):真 framework showcase `--fresh` 后端 + console dev,验证左栏 6→2、对象矩阵 84→20、provenance 落库对照。**纯浏览器渲染截图**这一步仍未做:本会话 chrome-devtools MCP 找不到 Chrome 可执行文件(只装了 Playwright 的 Chromium)。留待有可用浏览器的环境补一次可视化过场。\n\n- [x] **新建权限集自动打包归属** —— 由 **#2225**(ADR-0086 P2)完成:`AccessPillar` 新建集 creator 改为 `client.save('permission', …, { mode:'draft', packageId })`,草稿由框架盖上包归属。\n\n## 关联\n\n- 落地 PR:#2222(P0)· #2225(P2)· #2229(P1 收尾) · 决策:framework ADR-0086 · 依赖:objectstack-ai/framework#2566(P1,已合并)\n- 源 issue:#2221(P0,已闭环)"
+}

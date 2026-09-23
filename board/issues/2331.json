@@ -1,0 +1,32 @@
+{
+  "number": 2331,
+  "kind": "pull_request",
+  "title": "feat(dashboard): retire in-page Edit; Studio icon deep-links to the dashboard design page",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-07T01:12:40Z",
+  "updated_at": "2026-07-07T06:21:44Z",
+  "closed_at": "2026-07-07T06:21:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-07T06:21:41Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2331",
+  "body": "## What & why\n\nDashboard authoring moves entirely into Studio, and the top-bar \"Design in Studio\" icon becomes context-aware so it opens the *current* dashboard's design page.\n\n- The in-page dashboard **Edit** button + inline `DashboardConfigPanel` are removed — `DashboardView` is now a pure viewer. Authoring lives in one place: Studio's Interfaces pillar.\n- The top bar's **Design in Studio** icon deep-links, on a dashboard route, straight to that dashboard's design page (`/studio/:packageId/interfaces?surface=dashboard:<name>`) via the existing `?surface=` restore mechanism; it falls back to the package's Data tab elsewhere.\n\n## Scope note — the \"US$\" currency report is handled separately (server-side)\n\nThe original report (\"KPI shows `US$…` although nothing named a currency\") was traced end-to-end against the live HotCRM executive dashboard. That KPI is a **dataset** measure, not an object aggregate: the backend's `/api/v1/analytics/dataset/query` stamps `currency: \"USD\"` on the `total_amount` measure because HotCRM's `amount` field is `Field.currency()` with **no code of its own**, so it inherits the **workspace default currency**, which the platform defaults to `USD` (ADR-0053 localization). `DatasetWidget` then renders it faithfully. This never goes through `ObjectMetricWidget`, so an earlier client-side currency tweak here didn't fix it and only made object-bound KPIs inconsistent with dataset KPIs / field cells — it has been **reverted** in this PR. The currency default is being addressed at the platform layer (framework localization) in a separate change.\n\n## Changes\n\n- `app-shell/utils/appRoute.ts` — new `appStudioSurfacePath()` helper building the Interfaces-pillar deep-link (+ shared `studioPackageId` guard); exported from the utils barrel.\n- `app-shell/layout/AppHeader.tsx` — the \"Design in Studio\" icon deep-links to the dashboard surface on a `dashboard` route, else the Data tab.\n- `app-shell/views/DashboardView.tsx` — reduced to a pure viewer (removed Edit button, add-widget toolbar, inline config panel wiring, save/draft plumbing).\n- `app-shell/views/DashboardConfigPanel.tsx` — **deleted** (orphaned after the above); stale reference in `RuntimeDraftBar.tsx` header comment updated.\n- Docs: `content/docs/guide/console.md` \"Design in Studio\" row updated.\n- Changeset: `@object-ui/app-shell` minor.\n\n## Testing\n\n- **End-to-end against the real HotCRM app** (framework backend + this console dev server): confirmed the dashboard header no longer renders the Edit button, and the Studio icon lands on `/studio/app.objectstack.hotcrm/interfaces?surface=dashboard:executive_dashboard` (the dashboard's design surface, with its properties + widgets + live preview).\n- `pnpm --filter @object-ui/app-shell test` → `appRoute.test.ts` 17 passed (incl. new `appStudioSurfacePath` cases).\n- `turbo run build --filter=@object-ui/app-shell --filter=@object-ui/plugin-dashboard` → all packages build (full `tsc` typecheck green).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01VWr8Sgey8LY5nbWYPaYH6z"
+}

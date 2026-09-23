@@ -1,0 +1,32 @@
+{
+  "number": 2311,
+  "kind": "pull_request",
+  "title": "fix(components): also toast form submit errors so they're visible past the fold",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T07:40:47Z",
+  "updated_at": "2026-07-06T14:19:51Z",
+  "closed_at": "2026-07-06T14:19:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-06T14:19:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2311",
+  "body": "## 问题\n\n新建/编辑记录时，服务端校验错误（如「设备编号「EQ-00001」已存在，不能重复」）以红色横幅渲染在**表单顶部**。当表单较长、在 Modal/Drawer 里滚动后，从底部点「创建」提交，横幅已滚出可视区，用户看不到任何反馈。\n\n![scroll issue](https://user-images.githubusercontent.com/placeholder)\n\n## 改动\n\n在共用表单渲染器 `packages/components/src/renderers/form/form.tsx` 的**两条错误路径**里，`setSubmitError()` 的同时追加 `toast.error()`：\n\n- 返回式错误 `result.error`\n- 抛出式错误 `catch` 分支（Modal/Drawer 表单的 submit 错误都经此路径）\n\n顶部横幅保持不变，只是额外多一个不受滚动位置影响的 toast。\n\n## 为什么可行\n\n- `ConsoleToaster` 已挂载在控制台右下角（`apps/console/src/App.tsx`），toast 无需额外接线即可弹出。\n- `ModalForm` / `DrawerForm` 的 submit 错误都会抛出并由本渲染器捕获，改一处即可覆盖新建与编辑。\n\n## 测试\n\n- 类型检查：改动文件无新增类型错误（`../../ui/sonner` 正常解析）。\n- 未做浏览器实测（需起 console + 后端并造重复记录）；改动小且局限于单一渲染器。"
+}

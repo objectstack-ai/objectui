@@ -1,0 +1,32 @@
+{
+  "number": 2527,
+  "kind": "pull_request",
+  "title": "fix(studio-design): make object canvas overridable via studio-canvas-preview registry (#2337)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T14:29:37Z",
+  "updated_at": "2026-07-15T14:40:36Z",
+  "closed_at": "2026-07-15T14:40:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T14:40:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2527",
+  "body": "Closes #2337.\n\n## Problem\n\n`StudioDesignSurface` hardcoded `current.type === 'object'` to render the object-view records grid via `<SchemaRenderer … as never>`, short-circuiting the generic `<Preview>` pipeline every other type goes through. That blocked extensibility — a downstream consumer couldn't customize the object canvas without forking the whole component.\n\n## Why the issue's literal fix is wrong\n\nThe issue proposes letting `object` \"fall through to `<Preview>`\". But `getMetadataPreview('object')` already returns `ObjectPreview` — the **field-form designer** (`ObjectFormCanvas`), which is the primary authoring surface in the Data pillar (metadata-admin). Falling through would render the field designer in the Studio canvas, breaking the product invariant that *schema editing lives in the Data pillar; the app-builder canvas shows objects as the running app does* (the records grid).\n\n## Root cause\n\n`MetadataPreviewRegistry` is keyed only by `type`, but the **same** type must render differently per **surface**:\n\n| surface | `object` renders as |\n|---|---|\n| Data pillar (metadata-admin) | field-form designer (`ObjectPreview`) |\n| Studio design canvas | runtime records grid (`object-view`) |\n\nA single type-keyed registry can't express that `(type, surface)` split — which is exactly why the object branch was hardcoded.\n\n## Fix (approach A — surface-scoped override)\n\nAdd a small surface-scoped registry, `studio-canvas-preview`, that supplies the missing dimension:\n\n- `object` ships a **built-in default** (`StudioObjectRecordsCanvas`) — the records grid, moved out of the hardcode.\n- Downstream overrides it via `registerStudioCanvasPreview('object', …)` — last-write-wins, no fork.\n- Types with **no** override resolve to `undefined` and fall back to the generic `MetadataPreview` pipeline like every other type, so this is purely additive.\n- `isEditable` is now driven by the registry (`!StudioCanvas`) instead of a hardcoded `!== 'object'` string.\n- Removed the now-unused bare `SchemaRenderer` import.\n\nThe default render output is byte-identical to before, so no behavior change for existing usage; the grid is now a **replaceable default** rather than an un-overridable hardcode. The field-form designer stays out of the Studio canvas.\n\nRegistry API is exported from `@object-ui/app-shell` (`registerStudioCanvasPreview` / `getStudioCanvasPreview` / `listStudioCanvasPreviewTypes` / `StudioObjectRecordsCanvas` + types).\n\n### Long-term note\nOnly `object` needs a surface override today, so this is deliberately a small scoped registry (YAGNI over a full `(type, surface)` refactor of MetadataPreviewRegistry). If a second surface ever needs per-type overrides, fold this into a `(type, surface)`-keyed lookup on the existing registry rather than growing a third parallel one — the module doc-comment records this.\n\n## Verification\n- `pnpm --filter @object-ui/app-shell type-check` — clean\n- studio-design suite — **81 tests / 13 files pass**, incl. new `studio-canvas-preview.test.tsx` (built-in default present, unknown → undefined fallback, last-write-wins override)\n- Default output unchanged (still the `object-view` grid), so no browser regression expected; full-stack e2e not run (disproportionate for an extensibility refactor with identical default rendering).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

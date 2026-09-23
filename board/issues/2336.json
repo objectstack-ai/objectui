@@ -1,0 +1,33 @@
+{
+  "number": 2336,
+  "kind": "pull_request",
+  "title": "fix(components,fields): 日期/时间字段点框内任意处即可打开选择器 (#2335)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-07T11:24:36Z",
+  "updated_at": "2026-07-08T05:50:13Z",
+  "closed_at": "2026-07-08T05:50:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-08T05:50:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2336",
+  "body": "Closes #2335\n\n## 问题\n\n日期/日期时间/时间字段是原生 `<input type=\"date|datetime-local|time\">`,浏览器默认只有点右侧那个小日历/时钟图标才弹出选择器,点框内其它区域无反应,与其它字段\"点框即编辑\"的交互不一致。\n\n## 改动\n\n点击框内任意位置即调用原生 `showPicker()` 打开选择器。覆盖两条渲染路径:\n\n- **表单弹窗**:`packages/components` 表单渲染器的 `FieldControl`(`input` 与 `default` 分支)\n- **列表行内联编辑**:`packages/fields` 的 `FieldEditWidget → DateField / DateTimeField / TimeField`,抽出共享辅助 `openNativePicker.ts`\n\n约束:\n- 仅对 `date` / `datetime-local` / `time` / `month` / `week` 生效,普通文本框不受影响\n- `disabled` / `readonly` 不触发\n- 老浏览器 `showPicker()` 抛错时 try/catch 兜底,静默回退到\"点图标\"的原生行为,无回归\n- 与已有 `onClick` 组合调用,不覆盖\n\n## 验证\n\n- ✅ 新增回归测试 `form-date-picker-click.test.tsx`,走真实 registry 渲染路径:点击 datetime 字段触发 `showPicker()`、普通文本字段不触发;`packages/components` 表单测试全绿\n- ✅ 真实 console(dev server 连本地后端)实测:表单弹窗与列表行内联编辑两条路径,点击输入框文本区(非图标)均成功弹出原生选择器"
+}

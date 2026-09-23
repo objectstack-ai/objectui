@@ -1,0 +1,33 @@
+{
+  "number": 2355,
+  "kind": "pull_request",
+  "title": "fix(ai-chat): proposed-preview reads as awaiting; AiChatPage follows conversation language (cloud#772)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T03:24:43Z",
+  "updated_at": "2026-07-09T03:28:40Z",
+  "closed_at": "2026-07-09T03:25:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-09T03:25:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2355",
+  "body": "## Summary\n\n2026-07-09 魔法流程验收剩余的两个信任修复(objectstack-ai/cloud#772):\n\n1. **确认卡状态词**:granular 变更工具返回 confirm 预览(`changes_proposed` / `blueprint_proposed` / `awaiting_confirmation`)时,活动 chip 仍显示 \"Completed\"——实际什么都没应用,是在**等用户确认**。`getToolState()` 现在把 proposal envelope 判为 `awaiting`,chip 显示 \"Awaiting approval\",直到用户下一轮确认。\n2. **AiChatPage 会话语言**:全页 /ai 路由的确认卡 canned 消息(\"Looks good — build it as proposed.\")跟 UI locale——中文会话在英文 UI 下被塞英文。现在跟**会话语言**(共享 `detectConversationLanguage` util,从 ConsoleFloatingChatbot 提出,两个 surface 共用一份实现)。\n\n## 测试\n- 新增 7 个 getToolState/isProposalResult 用例\n- app-shell + plugin-chatbot 全量 1264 ✓\n- 英文会话与已应用工具行为不变\n\n配对 cloud 侧 objectstack-ai/cloud#782(重复文本)。\n\nRefs objectstack-ai/cloud#772\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

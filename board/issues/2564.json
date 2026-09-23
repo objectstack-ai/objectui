@@ -1,0 +1,30 @@
+{
+  "number": 2564,
+  "kind": "issue",
+  "title": "[liveness] @object-ui/tenant 包 + types/tenant.ts 零消费者 — 按 enforce-or-remove 处置(同 framework#2763 教义)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T04:33:00Z",
+  "updated_at": "2026-07-16T05:25:15Z",
+  "closed_at": "2026-07-16T05:25:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2564",
+  "body": "## 发现(来自 framework#2763 收口时的下游 grep)\n\nframework#2763 的 owner 决策(2026-07-10)已确认:**对象级 tenancy 隔离策略没有需求**,平台只有两种多租户模式(每租户独立数据库 = 环境级部署;共享库行级隔离 = `tenancy.enabled` + `tenantField`)。spec 侧的 `tenancy.strategy` / `crossTenantAccess` 已随 framework#2962 移除,tenancy 块 strict 化。\n\n本仓库存在同教义的 aspirational 死表面:\n\n| 表面 | 现实 |\n|---|---|\n| `packages/tenant/`(`@object-ui/tenant`:`TenantProvider` / `TenantGuard` / `TenantScopedQuery` / `createTenantResolver` / `useTenant` / `useTenantBranding`) | **零消费者** —— 没有任何 workspace 包在 `package.json` 里依赖它,apps/packages 无一处 import |\n| `packages/types/src/tenant.ts`(`TenantConfig`、`TenantIsolationStrategy = 'database' \\| 'schema' \\| 'row' \\| 'hybrid'`、`TenantProviderConfig` 等) | 仅被 types barrel(`packages/types/src/index.ts:531-541`)re-export,无实际读者;`isolation` 策略枚举正是 spec 侧刚移除的 `tenancy.strategy` 概念的 UI 镜像 |\n\n(注:`@object-ui/collaboration` 的 `useTenantPresence` 是无关的在线状态功能,不在本 issue 范围。)\n\n## 建议处置\n\n同 framework#2763 的 enforce-or-remove:UI 侧的租户上下文/品牌化如果有真实需求,应由 owner 重新立项对齐平台的两种真实模式;否则整包移除(先例:ADR-0056 D8 \"compliance-grade config must never merely look live\")。**处置为 owner 决策,本 issue 只登记事实。**\n\n顺带:#2334 列出的 plugin-report DTS 报错文件清单里也有 `tenant.ts` —— barrel re-export 是它被拖进构建的唯一原因,移除后该文件从清单消失。\n\n来源:framework#2763 / framework#2962 落地时的下游确认 grep。"
+}

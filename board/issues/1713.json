@@ -1,0 +1,30 @@
+{
+  "number": 1713,
+  "kind": "issue",
+  "title": "View inspector renders spec-form section labels in English under non-English locales (i18n gap)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-13T21:34:43Z",
+  "updated_at": "2026-07-15T15:43:55Z",
+  "closed_at": "2026-07-15T15:43:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1713",
+  "body": "## Summary\n\nIn the metadata-admin **view** editor, under a non-English locale (e.g. `zh`), the spec-form section labels render in **English** (`Basics`, `Columns`) while the rest of the inspector and the page/flow editors are fully localized (`基础信息`, `数据上下文`, …).\n\n## Repro\n\n1. Run the console against a backend with localized metadata (locale `zh`).\n2. Open a view editor, e.g. `apps/showcase_app/metadata/view/showcase_task.board` (a kanban view).\n3. Right inspector → scroll to the bottom: section label shows **`Basics`** / *\"Identity and primary surface\"* and the field manager header shows **`Columns`** (English), amid otherwise-Chinese UI.\n\nBy contrast, the **page** and **flow** editors show translated section labels (`基础信息`, `数据上下文`, `布局`, `画布`, …).\n\n## Root cause\n\n`ViewVariantInspector` renders its embedded `SchemaForm` from the **client-bundled** view form rather than the server-localized form:\n\n- `packages/app-shell/src/views/metadata-admin/inspectors/ViewVariantInspector.tsx:211-221` — `mergeServerFields({ bundledForm: getViewForm(), … })`. The bundled `getViewForm()` carries English section labels.\n- The page/flow editors instead render the server-localized `entry.form` (from `GET /api/v1/meta`), whose section labels ARE localized.\n\nVerified the backend localizes view-form section labels when asked: `GET /api/v1/meta` with `Accept-Language: zh-CN` returns view sections `基础信息`, `列与筛选`, `表格选项`, `看板配置`, … — so the localized strings exist server-side; the view inspector just isn't using them.\n\nThe bundled form is used intentionally as a schema-skew \"root-cure\" (so new server fields stay editable when the bundled spec lags). The fix should preserve that while localizing labels.\n\n## Suggested fix\n\nPrefer the server form's localized **section labels/descriptions** when present, merging them onto the bundled form's layout (e.g. have `mergeServerFields` overlay localized `label`/`description` from `serverForm` onto matching bundled sections), or localize the bundled form's section labels via the i18n catalog. Field labels are already localized via the schema `title`; only section `label`/`description` are affected.\n\n## Severity\n\nCosmetic / i18n polish — no functional impact. Found during ADR-0047 follow-up editor verification (view/report/page/flow/app all otherwise render correctly with no console errors)."
+}

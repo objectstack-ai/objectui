@@ -1,0 +1,34 @@
+{
+  "number": 2577,
+  "kind": "pull_request",
+  "title": "fix(detail+fields+app-shell): ADR-0085 #2548 follow-ups — strip title dedupe, group icon/description, currency channel, approvals Bearer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T07:08:59Z",
+  "updated_at": "2026-07-16T07:49:16Z",
+  "closed_at": "2026-07-16T07:49:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T07:49:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2577",
+  "body": "## What\n\nUX follow-ups surfaced by the framework#2548 real-backend browser pass (companion framework PR bumps `.objectui-sha` and adds a permanent detail-shapes e2e). Every fix below was re-verified in a live browser — new-source console against a running showcase backend, **14/14 assertions green** — screenshots in the framework PR thread.\n\n### Highlight strip no longer repeats the record title\nA declared `highlightFields` list containing the title field rendered it as the first chip — truncated (\"Zoo Group…\") — directly under the identical page H1. `deriveHighlightFields` now resolves the title via the new exported **`resolveTitleField`** (`primaryField` / `nameField` / deprecated `displayNameField`, else the conventional display-field names — mirroring `record-details`' titleCandidates) and filters it from declared lists **before** the 4-chip cap. The heuristic branch always skipped it; both branches now agree. app-shell's `RecordDetailView` synthParts — which pre-computes the list and bypasses the derivation — applies the same filter.\n\n### `fieldGroups[].icon` / `description` reach detail pages\nThe shared derivation (ADR-0085 §5, `deriveFieldGroupLayout`) already passed them through; the detail synth dropped them — the spec keys were **silently inert** on detail pages (the exact ADR-0078 class). `deriveFieldGroupDetailSections` now maps both onto section descriptors, and `DetailSection` renders identifier-shaped icon names as real Lucide icons via the existing `LazyIcon` (emoji/CJK text values keep the historical text rendering).\n\n### Per-field currency reaches the renderers\nThe **spec** channel for a per-field currency is `currencyConfig.defaultCurrency` (a bare `currency` key is designer/DB-only and stripped at parse) — but the highlight-strip and detail-section field enrichment dropped `currencyConfig`, so a spec-authored currency field could never show its symbol (\"25,000,000\" instead of \"$25,000,000\"). Both enrich sites now pass it through; `resolveFieldCurrency` reads it second in its existing precedence.\n\n### Record meta footer stops dangling without an actor\nSeeded/system rows with `created_by: null` rendered **\"Created by · 10m ago\"**. The footer now falls back to actor-less labels (\"Created\" / \"Updated\"); new `detail.created`/`detail.updated` keys in the plugin defaults and all six locales — and the zh `createdBy`/`updatedBy` mistranslation is fixed (创建人/更新人, the old 创建于/更新于 now correctly serve the actor-less variants).\n\n### Select badges ellipsize instead of clipping mid-glyph\nIn bounded containers (highlight-strip columns, grid cells) an overlong option label was cut at the container edge (\"Technolog…\"). Badges now shrink (`max-w-full min-w-0`) with an inner `truncate` span and expose the full label as a hover title; the highlight strip's hover title also prefers the option **label** over the raw stored value.\n\n### All approvals fetches send the Bearer token (split-origin fix)\nThe header badge poll (`AppHeader`), home-inbox count (`useHomeInbox`), record approvals panel (`useRecordApprovals`), and the console `approvalsApi` were **cookie-only** — on split-origin deployments (custom-domain console ↔ API) where the SameSite cookie doesn't flow, the whole approvals surface silently 401'd while every dataSource call (Bearer) worked. New shared `app-shell/utils/authToken.ts` (`bearerAuthHeaders()`, reading `@object-ui/auth` TokenStorage) wired into all four sites. Verified live: the approvals polls return 200 under a token-only session.\n\n## Verification\n\n- vitest: plugin-detail **212** ✓ · synth+fields **419** ✓ · i18n ✓ · app-shell hooks/views/utils **304** ✓ (new cases: declared-list title filter incl. `primaryField` precedence and cap interaction; icon/description section mapping)\n- `turbo run type-check` (app-shell, plugin-detail, fields, i18n, console) ✓\n- eslint: **0 errors** on all touched files\n- Live-browser re-verify (HMR console → real showcase backend): **14/14** — strip dedupe, $ symbols in strip + body, Money icon + description, label-based feed summary, approvals 200, no dangling footer, green option badge, `stageField:false` suppression intact\n\nRefs framework#2548 (follow-up plan + audit note update in the companion framework PR).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_016wpaFMPowSn4nAWsjeGZib\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_016wpaFMPowSn4nAWsjeGZib)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 1583,
+  "kind": "issue",
+  "title": "B3: dynamic field options / cascading selects (option.visibleWhen) — remaining: server enforcement, live e2e, ADR",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T14:52:44Z",
+  "updated_at": "2026-07-16T04:41:50Z",
+  "closed_at": "2026-07-16T04:41:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1583",
+  "body": "> **Rewritten 2026-07-15.** The core of B3 was designed and shipped via #2284 (per-option `visibleWhen` — design + client implementation) and #2215 (dependent query-backed lookups), landing in objectui **v12.0.0** (`226fde9`). This issue now tracks the **remaining dual-side scope**, including the items left unshipped when #2284 was closed. Original framing (`optionsWhen` as an open question) is superseded — see *Decided* below.\n\n## Context\n\nFollow-on to B2 (conditional rules, ADR-0036). Enterprise-form need: a select/lookup whose **available options depend on another field** (country → state) or on context (role/tenant/time), with the same dual-side philosophy as B2 — client UX + server enforcement, one CEL dialect.\n\n## Decided (was \"Open questions\")\n\n- **Authoring shape: per-option `SelectOption.visibleWhen` (CEL) + field-level `dependsOn`** — *not* a field-level `optionsWhen` predicate, *not* Salesforce-style `validFor`/dependency matrices. Rationale (#2284): reuses the existing primitives (`dependsOn` already declares lookup cascades; `visibleWhen` is already the field-level CEL predicate, same engine/env), is strictly more expressive (role/tenant/time gating via `current_user`, not just sibling-field cascades), and is AI-authoring-friendly (`\"record.country == 'cn'\"` reads as prose).\n- **Static vs query-backed: both paths exist.** Small stable dictionaries → static options + `option.visibleWhen`. Large/changing datasets (country/state as data, org trees, catalogs) → `lookup + dependsOn` with the dependency folded into the query filter (#2215). Decision rule documented in `skills/objectui/guides/schema-expressions.md`.\n\n## Shipped\n\n- **Spec** (framework): `SelectOption.visibleWhen` on `@objectstack/spec` — shared by data `Field.options` and view `FormField.options`.\n- **objectui client** (#2284, v12.0.0):\n  - `@object-ui/core` evaluator: `resolveVisibleOptions` / `isOptionGroupGated` / `resolveDependsOnFields` / `isValueStillOffered` (`packages/core/src/evaluator/optionRules.ts`), reusing the canonical `evalFieldPredicate` against the live record + `current_user`.\n  - Form renderer: reactively narrows a dependent select's option list, gates with a \"Select {parent} first\" hint while a `dependsOn` field is empty, and clears a now-invalid child value when the parent changes.\n  - Standalone `SelectField` widget: same resolution via `dependentValues` + global predicate scope. Options pass through `ObjectForm`/`sectionFields` untouched, so spec-authored predicates reach the widget.\n- **Dependent (query-backed) lookups**: #2215 — gate unlocks on parent selection; the cascade filter is enforced on every candidate surface (popover + table picker).\n- **Showcase example**: `examples/schema-catalog/src/schemas/fields-select/cascading-options.json` (country → province cascading pair).\n- **Authoring guidance**: `skills/objectui/guides/schema-expressions.md` § \"Cascading & role-gated select options\" (decision rule + security line).\n- **Unit tests**: `optionRules.test.ts`, `SelectField.cascade.test.tsx`, `form-cascading-select.test.tsx`.\n\n## Remaining\n\n> ⚠️ Security line (unchanged from #2284): hiding an option client-side is **UX, not a security boundary**. When an option is gated for authorization reasons, the server must also reject writes of its value — today nothing server-side blocks an out-of-set picklist value.\n\n- [ ] **framework — server-side enforcement**: on write, evaluate the submitted value's option `visibleWhen` against the record (+ actor) in the `@objectstack/objectql` rule path and reject when FALSE — alongside `requiredWhen`/`readonlyWhen`, mirroring `stripReadonlyWhenFields`. *(Cross-repo: status unverified from objectui — needs a framework-repo issue / verification.)*\n- [ ] **objectui — live e2e**: cascading pair driven end-to-end (change parent → child options re-filter → stale child value cleared), extending the `e2e/live/field-conditional-rules.spec.ts` pattern; add the out-of-set submit-rejection case once server enforcement lands.\n- [ ] **ADR**: record the B3 decision (per-option `visibleWhen` + `dependsOn` over `optionsWhen`/`validFor`; dual-side enforcement) as a companion to ADR-0036 (B2).\n- [ ] **Role-gated option demo** *(carried from #2284)*: showcase `visibleWhen: \"'admin' in current_user.roles\"` with the matching server-side rejection.\n- [ ] **Build-time CEL guardrail** *(carried from #2284)*: statically check option-predicate field refs/literals against the referenced field's value domain to catch authoring typos (`country == 'chna'`).\n\n## References\n\n- #2284 — design decision + client implementation (closed)\n- #2215 — dependent lookups: gate + query-filter on all surfaces (closed)\n- ADR-0036 — B2 field conditional rules (`docs/adr/0036-field-conditional-rules.md`)\n- objectui v12.0.0 changelog (`packages/core/CHANGELOG.md`, `packages/fields/CHANGELOG.md`, entry `226fde9`)"
+}

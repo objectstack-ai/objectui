@@ -1,0 +1,30 @@
+{
+  "number": 2447,
+  "kind": "issue",
+  "title": "甘特对接组合数据源的两个缺口:view.data(provider:'api') 未透传;group move 会提交 locked 子孙(403)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T12:07:35Z",
+  "updated_at": "2026-07-13T13:42:16Z",
+  "closed_at": "2026-07-13T13:42:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2447",
+  "body": "## 背景\n\n制造排班甘特(os-tianshun-ehr #173)按「组合 API 读时现算 + 实时写回」架构落地时,在真机联调中发现 objectui 侧两个缺口。均已在 ehr 项目真机(Playwright 真实鼠标 + 网络层断言)验证修复有效。\n\n## 缺口 1:视图 `data(provider:'api')` 没有透传到甘特渲染器\n\n对象视图声明:\n\n```yaml\ntype: gantt\ndata:\n  provider: api\n  url: /api/gantt/tree\n```\n\nListView 组装甘特渲染器时丢弃了 `view.data`,甘特永远走对象表直查,无法消费组合接口(多对象拼树的场景必须走组合接口)。\n\n**修复**:`view.data` 透传到甘特渲染器;甘特声明了 api 数据源时由其自管数据(`ganttOwnsData`),ListView 不再重复取数。\n\n## 缺口 2:group move(拖 summary bar)会提交 locked 子孙\n\n带子行的任务渲染为 summary bar,拖动时整棵子树平移——包括 `locked: true`(仅查看)的子孙行,导致:\n\n- 每个 locked 子行各发一个写请求,服务端逐个 403(真机网络抓包证实:拖 1 条计划 → 1 个 200 + 2 个 403);\n- locked 语义被破坏:仅查看的行绝不应被任何路径改写。\n\n**修复**(三处 + 中央兜底):\n\n1. 位移计算跳过 locked 子孙(它们原地不动);\n2. 拖拽预览不高亮 locked 子孙(不预览它不会发生的移动);\n3. `commitTaskUpdates` 中央过滤:无论来自 group shift、冲突重排还是未来任何调用方,locked 行一律不提交;\n4. `beginDrag` 对 locked 行直接拒绝。\n\n新增单测:summary 拖动 +2 列,locked 子行既不预览也不提交,仅其余 3 行各收到一次 onTaskUpdate。\n\n## 验证\n\n- plugin-gantt 261/261、plugin-list 149/149 单测通过;\n- ehr 真机:拖计划 summary bar 一列 → 网络层仅 1 个 PATCH 200、locked 派工子行 0 个 403、日期 +7 天持久化、子行日期未动(报告与截图:steedos-labs/os-project-titanwind-ehr#173)。\n"
+}

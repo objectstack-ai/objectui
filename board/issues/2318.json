@@ -1,0 +1,34 @@
+{
+  "number": 2318,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/client from 12.2.0 to 12.3.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "data-adapter",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T08:28:17Z",
+  "updated_at": "2026-07-06T08:37:57Z",
+  "closed_at": "2026-07-06T08:34:32Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-07-06T08:34:32Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2318",
+  "body": "Bumps [@objectstack/client](https://github.com/objectstack-ai/framework/tree/HEAD/packages/client) from 12.2.0 to 12.3.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/framework/releases\">@​objectstack/client's releases</a>.</em></p>\n<blockquote>\n<h2><code>@​objectstack/service-datasource</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [e7eceec]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n<li><code>@​objectstack/core</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n</ul>\n</li>\n</ul>\n<h2><code>@​objectstack/types</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [e7eceec]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n</ul>\n</li>\n</ul>\n<h2>objectstack-vscode@12.3.0</h2>\n<p>No release notes provided.</p>\n<h2><code>@​objectstack/service-settings</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [e7eceec]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n<li><code>@​objectstack/core</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n<li><code>@​objectstack/platform-objects</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n<li><code>@​objectstack/types</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n</ul>\n</li>\n</ul>\n<h2><code>@​objectstack/trigger-schedule</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [e7eceec]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n<li><code>@​objectstack/core</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n</ul>\n</li>\n</ul>\n<h2><code>@​objectstack/trigger-record-change</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [e7eceec]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n<li><code>@​objectstack/core</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n</ul>\n</li>\n</ul>\n<h2><code>@​objectstack/service-messaging</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [e7eceec]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n<li><code>@​objectstack/core</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n</ul>\n</li>\n</ul>\n<h2><code>@​objectstack/trigger-api</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [e7eceec]</li>\n</ul>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/framework/blob/main/packages/client/CHANGELOG.md\">@​objectstack/client's changelog</a>.</em></p>\n<blockquote>\n<h2>12.3.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [e7eceec]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n<li><code>@​objectstack/core</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/7ff8a67556300a013082f86f6293a694d84ad9e7\"><code>7ff8a67</code></a> chore: version packages (<a href=\"https://github.com/objectstack-ai/framework/tree/HEAD/packages/client/issues/2639\">#2639</a>)</li>\n<li>See full diff in <a href=\"https://github.com/objectstack-ai/framework/commits/@objectstack/client@12.3.0/packages/client\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

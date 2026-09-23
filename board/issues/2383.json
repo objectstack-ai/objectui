@@ -1,0 +1,32 @@
+{
+  "number": 2383,
+  "kind": "pull_request",
+  "title": "fix(access): effective-holders list for permission sets + explain user-picker discoverability",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-10T11:47:38Z",
+  "updated_at": "2026-07-10T14:22:33Z",
+  "closed_at": "2026-07-10T14:22:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-10T14:22:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2383",
+  "body": "Closes #2382. Closes #2381. Both filed while dogfooding the Access pillar as a business admin against a live showcase boot.\n\n## #2382 — 已分配用户 now shows EFFECTIVE holders\n\nThe section listed `sys_user_permission_set` rows only — in the ADR-0090 model positions are THE distribution channel, so any normally-administered set showed **0 人** exactly where an admin decides whether to edit or delete it. Now:\n\n- holders = direct grants ∪ holders of every bound position (`sys_position_permission_set` → `sys_position` → `sys_user_position`), deduped per user;\n- per-row attribution badges: 直授 / 经岗位 X (a user holding both shows both);\n- position-held rows have no remove button (removal lives on the position's assignments — hint on hover);\n- an `everyone`-anchor binding renders as a note (\"every signed-in member holds this set\") instead of enumerating the tenant;\n- position expansion is additive and fail-soft — direct grants still render if any lookup errors.\n\n## #2381 — explain user picker was there; now it's discoverable\n\nThe picker existed all along (RecordPickerDialog over `sys_user`) but the trigger rendered as static text 「我(当前调用者)」 — reported as missing by our own dogfood. A `ChevronsUpDown` affordance fixes the discoverability; no behavior change.\n\n## Verification\n\n- 3 new tests (`AssignedUsersSection.test.tsx`: merged holders + count, everyone note, remove-only-on-direct); app-shell suite **153 files / 1181 tests green**.\n- Live browser (Vite console :5180 → fresh framework backend): the set bound to `contributor` with one position-held user renders 「已分配用户 1 人 · Held Henry · 经岗位 contributor · —」; explain panel: picking Held Henry returns HIS decision (principal card shows `contributor`/`everyone` + `showcase_member_default`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

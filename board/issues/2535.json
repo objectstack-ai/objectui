@@ -1,0 +1,32 @@
+{
+  "number": 2535,
+  "kind": "pull_request",
+  "title": "feat(studio): spec-driven package create/edit/view form in a modal",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T14:54:17Z",
+  "updated_at": "2026-07-15T15:48:11Z",
+  "closed_at": "2026-07-15T15:48:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T15:48:09Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2535",
+  "body": "## Why\nPackage **create / edit / view** were three hand-rolled forms — `CreatePackageDialog`, `EditPackageDialog`, and `BuilderLanding`'s inline form — with **two different id-validation regexes**. A package created on one surface was rejected by another (`myapp` allowed in the dialog, rejected by the landing form), and neither matched what the server accepts. Surfaced during a Studio package-create dogfood.\n\n## What\nOne modal, **`PackageFormDialog`** (`create | edit | view`), rendering the package manifest form from the spec — `ManifestSchema` (`@objectstack/spec/kernel`) → `z.toJSONSchema` → `SchemaForm` — mirroring the existing `page-schema.ts` / `view-schema.ts` pattern. No framework change needed for the form.\n\n- **`package-schema.ts`** — spec-derived JSONSchema + a curated FormView (Basics: name/id/version/type/description; collapsible Advanced: namespace/defaultDatasource/scope/dependencies). `id`/`type`/`namespace`/`scope` are `immutable` → editable on create, locked on edit (the REST `PATCH /packages/:id` only persists name/description/version).\n- **`PackageFormDialog`** — create → POST, edit → PATCH, view → `readOnly`. A duplicate-id 409 maps to a friendly \"already exists\" message. Create sends **no `scope`**, so a runtime-created base stays writable (not 只读).\n- `CreatePackageDialog` / `EditPackageDialog` kept as thin wrappers so existing call sites (`ResourceListPage`, the Studio package switcher) are untouched; `BuilderLanding`'s inline form now opens the dialog; `PackageDetailSheet` gains a **\"View info\"** (readOnly spec form) action.\n\nNet **−254 lines** — three forms collapse into one spec-driven component.\n\n## Verified (browser, live app-showcase backend)\n- **Create** → spec form modal, new package is **writable** (caught & fixed a `scope:'project'` default that made new packages read-only).\n- **View info** → \"软件包信息\" readOnly modal, all inputs `readOnly`.\n- **Edit** → \"编辑软件包\" modal, name/version/description editable, **id locked**.\n\n## Tests\n- `PackageFormDialog.test.tsx` — create POST contract + 409 → \"already exists\".\n- `EditPackageDialog.test.tsx` rewritten — PATCH sends only name/description/version + error handling.\n\n## Related\nPairs with framework objectstack-ai/framework#2971 (POST /packages 409 duplicate detection). No hard dependency — this PR compiles/works against current framework `main`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

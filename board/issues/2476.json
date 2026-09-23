@@ -1,0 +1,32 @@
+{
+  "number": 2476,
+  "kind": "pull_request",
+  "title": "feat(console-ai): edit-mode empty state distinct from magic-flow build (ADR-0057 A1.b)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T04:32:37Z",
+  "updated_at": "2026-07-14T04:43:35Z",
+  "closed_at": "2026-07-14T04:43:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T04:43:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2476",
+  "body": "Follow-up to #2466 / #2474 (ADR-0057 Amendment A1.b). Epic #2409.\n\n## Problem\n\nThe build surface has one empty state — the magic-flow \"Build with AI / describe an app\" copy + from-scratch starters (\"Build a sales CRM…\"). But when it's opened to **edit an existing app** (`?package=X`, via the switcher or Edit-with-AI), that guidance is wrong: the user isn't building from scratch, they're changing a bound app.\n\n## Fix\n\nThe build surface now has **two empty states, keyed on `editPackageId`**:\n\n- **Magic flow** (no `?package=`): unchanged — \"Build with AI\" + build-a-CRM/tracker/support-desk starters.\n- **Edit mode** (`?package=X`): **\"Editing \"<app>\"\"** + \"What would you like to change? I'll modify this app in place — add a field, object, view or automation, or adjust what's already there.\" + change-oriented starters (add a field / add an object & relate it / add a dashboard / add an automation).\n\nDetails:\n- App name comes from metadata (`editAppLabel`); until it resolves, the title falls back to a generic **\"Edit this app\"** — a raw package id (`app.xadv`) never flashes.\n- `agentEmptyState` + `buildAgentSuggestions` gain the edit branch, are exported, and unit-tested (8 cases: magic vs edit title, named vs generic, ask-agent unaffected, edit vs magic starters, default-false).\n- Signal is `editPackageId` (URL-explicit), which can't collide with A1.b bind-on-create: re-key adds `?package=` only after the build lands (conversation non-empty), when the empty state is already gone.\n- Empty state stays string-props into `ChatbotEnhanced` — **no plugin-chatbot change**. (A richer context-chip slot could come later; this keeps the first version in objectui.)\n\nOut of scope (noted for later): referencing the app's real object names in starters (\"Add a field to *Customer*\"), and the composer placeholder.\n\n## Tests\n\nNew `editModeEmptyState.test.ts` (8 cases); related suites green (`deriveBoundPackageId`, `AiChatPage.hydration`, `useDeferredFirstSend` — 29 total); `tsc --noEmit` clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

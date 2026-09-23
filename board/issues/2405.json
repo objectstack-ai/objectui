@@ -1,0 +1,35 @@
+{
+  "number": 2405,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump postcss from 8.5.16 to 8.5.17",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "examples",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T02:55:47Z",
+  "updated_at": "2026-07-13T02:58:49Z",
+  "closed_at": "2026-07-13T02:56:04Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-07-13T02:56:04Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2405",
+  "body": "Bumps [postcss](https://github.com/postcss/postcss) from 8.5.16 to 8.5.17.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/releases\">postcss's releases</a>.</em></p>\n<blockquote>\n<h2>8.5.17</h2>\n<ul>\n<li>Fixed <code>Maximum call stack size exceeded</code> error.</li>\n<li>Fixed Prototype hijacking for <code>postcss.fromJSON()</code>.</li>\n<li>Fixed <code>Input#origin()</code> for unmapped end position (by <a href=\"https://github.com/chatman-media\"><code>@​chatman-media</code></a>).</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/blob/main/CHANGELOG.md\">postcss's changelog</a>.</em></p>\n<blockquote>\n<h2>8.5.17</h2>\n<ul>\n<li>Fixed <code>Maximum call stack size exceeded</code> error.</li>\n<li>Fixed Prototype hijacking for <code>postcss.fromJSON()</code>.</li>\n<li>Fixed <code>Input#origin()</code> for unmapped end position (by <a href=\"https://github.com/chatman-media\"><code>@​chatman-media</code></a>).</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/postcss/postcss/commit/74e25ae9f4efaa56a41a449064a655d7da78072c\"><code>74e25ae</code></a> Release 8.5.17 version</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/d1518afd5a88f42728b30b87f8917210f363f9f1\"><code>d1518af</code></a> Fix Maximum call stack size exceeded error</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/2421312ffea96ba77b35ce24a1b2d9c2e22b5e83\"><code>2421312</code></a> Fix linter</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/a50352c583df991710f92ccac25b36304695161a\"><code>a50352c</code></a> Fix CI</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/33948f0969bb858acdd52c9692e3a785a3ed0a73\"><code>33948f0</code></a> Prevent prototype hijacking in fromJSON</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/2131909351161cd2c5fc2be58b14919a873ea824\"><code>2131909</code></a> Update dependencies</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/93440abcca92793b31c5d1fdf5f2da7b58b27599\"><code>93440ab</code></a> Fix non-closed <code>\\&lt;div align=&quot;center&quot;&gt;</code> in README (<a href=\"https://redirect.github.com/postcss/postcss/issues/2110\">#2110</a>)</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/1bf9076867e70f5a01776aebebee5aacbf9771ce\"><code>1bf9076</code></a> Remove old sponsors</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/2d44be0923873ea6af2c3a1a191148e2ce9d733f\"><code>2d44be0</code></a> docs: fix invalid JS in writing-a-plugin examples (<a href=\"https://redirect.github.com/postcss/postcss/issues/2107\">#2107</a>)</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/3298727755a676beced3cbe67015d42e70396e4f\"><code>3298727</code></a> Fix <code>Input#origin()</code> mixing null and undefined for unmapped end position (<a href=\"https://redirect.github.com/postcss/postcss/issues/2106\">#2106</a>)</li>\n<li>See full diff in <a href=\"https://github.com/postcss/postcss/compare/8.5.16...8.5.17\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=postcss&package-manager=npm_and_yarn&previous-version=8.5.16&new-version=8.5.17)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

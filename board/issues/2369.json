@@ -1,0 +1,39 @@
+{
+  "number": 2369,
+  "kind": "pull_request",
+  "title": "feat(app-shell,console,types)!: adopt @objectstack/spec 13 — Permission Model v2 (ADR-0090) UI fallout",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "dependencies",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-10T03:17:52Z",
+  "updated_at": "2026-07-10T04:46:19Z",
+  "closed_at": "2026-07-10T04:46:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-10T04:46:17Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2369",
+  "body": "## What\n\nBumps every workspace `@objectstack/spec` dependency `^12.3.0` → `^13.0.0` (the ADR-0090 Permission Model v2 major, already on npm) and fixes all UI fallout in one sweep. Closes #2365; resolves the objectui follow-ups tracked in objectstack-ai/framework#2696.\n\n## Why\n\nobjectui only passed CI because its dependency tree still resolved spec 12.3.0 (`^12.x` can't reach the v2 major). Anything vendoring framework HEAD (proaero-erp, the framework console build) hit `RoleSchema does not exist` at build time. The rename wave is deliberate and alias-free (launch window), so the fix is adoption, not compat.\n\n## Changes\n\n- **clientValidation.ts** — `role` loader → `position` → `PositionSchema` (#2365); dead `profile` loader removed (D2)\n- **Studio previews** — `RolePreview` → flat `PositionPreview` (no hierarchy breadcrumb — positions are deliberately flat; no Profile copy). Legacy `role`/`profile` keys stay registered so pre-v2 backends still render\n- **OWD control** — dead `read`/`read_write`/`full` alias normalization removed (D4: spec rejects at authoring); amber \"records are fully public\" unset warning replaced — unset now defaults to **Private** (D1) and the copy (en/zh) says so\n- **default-schemas / anchors / preview-samples** — hierarchical `role` fallback schema → flat `position`; `isProfile` dropped from the permission create-anchor (would 422 against spec 13 authoring) and samples; permission viewer profile badge removed\n- **Studio i18n** — `Role/角色` → `Position/岗位`; `profile` label removed; Access-pillar heading \"Permission sets / Profiles\" → \"Permission sets\"; sharing hint/desc rewritten to positions vocabulary\n- **console System hub** — `sys_role` → `sys_position` (counts + object def; the routed page was already orphaned)\n- **@object-ui/types** — export `SubmitBehavior` (defined but missing from the public surface; broke `plugin-form`'s re-export on any uncached build)\n- **Tests** — OWD panel tests updated to D1/D4 semantics (alias-normalization test removed); ObjectDefaultInspector ⑤-union feature-detect test flipped (bundled spec now exports `ObjectRequiredPermissionsSchema`, so the toggle correctly shows)\n\n**Intentionally unchanged**: flow designer approval assignee `role` kind — spec 13 keeps it as the sole D3 exception (better-auth `sys_member.role` org-membership tier, see `approval.zod.ts`).\n\n## Testing\n\n- `turbo build --filter=@object-ui/app-shell...` and `--filter=@object-ui/console --filter=@object-ui/site` green against spec 13.0.0\n- Full app-shell suite: 151 files / 1163 tests pass (the one failure was the obsolete ⑤-union premise, flipped as above); types + components suites green\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

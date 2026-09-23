@@ -1,0 +1,30 @@
+{
+  "number": 2372,
+  "kind": "pull_request",
+  "title": "feat(setup): Connect-an-agent page widget — mcp:connect-agent (#2363)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-10T03:51:49Z",
+  "updated_at": "2026-07-10T04:25:26Z",
+  "closed_at": "2026-07-10T04:25:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-10T04:25:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2372",
+  "body": "Closes #2363 (framework#2714 Phase 1).\n\nThe `mcp:connect-agent` SDUI widget — the interactive body for the \"Connect an agent\" Setup page, whose metadata ships plugin-carried with `@objectstack/mcp` (framework PR pending; page + nav appear automatically once that lands, no console rebuild needed beyond this widget).\n\n## What it does\n\n- **MCP URL** from `/api/v1/discovery` → `routes.mcp`, absolute-resolved, with copy\n- **Per-client cards**: claude.ai/Claude Desktop (paste URL + public-HTTPS reachability note), Claude Code (one-liner + official `objectstack-ai/claude-plugin` install), Cursor (one-click `Add to Cursor` deeplink with base64 config + JSON snippet), VS Code/Copilot (`.vscode/mcp.json`), Codex CLI (`config.toml` + API-key fallback note) — OAuth is the default story on every card\n- **SKILL.md download** → `GET /api/v1/mcp/skill` (framework#2728)\n- **API-key minting** (headless callers): existing `POST /api/v1/keys`, shown once with both raw and `x-api-key:` header forms\n- **Disabled empty state** when discovery doesn't advertise `routes.mcp` (`OS_MCP_SERVER_ENABLED=false`) — mirrors the server, which 404s the surface\n- **i18n**: all nine locales (the locale-parity test enforces it)\n\n## Verification\n\n- app-shell 1164 ✓, i18n 173 ✓ (incl. locale key-parity)\n- Browser-verified against a live framework dev server (showcase, port 3210): page reachable from Setup nav under Integrations, all six cards render with the real environment URL injected, **API key minted on-page then used to drive a real MCP `tools/list` → all 9 tools**, SKILL.md link serves the env-customized markdown.\n\nScreenshots in framework#2714 thread. Companion framework PR: connect-agent UI bundle (page metadata + nav, gated on the default-on MCP switch).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

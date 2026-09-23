@@ -1,0 +1,30 @@
+{
+  "number": 2352,
+  "kind": "issue",
+  "title": "甘特图:加高条高、进度/长度拖拽分层、点击条不再弹详情",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T01:28:49Z",
+  "updated_at": "2026-07-10T02:16:50Z",
+  "closed_at": "2026-07-10T02:16:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2352",
+  "body": "## 问题\n\n甘特图(`@object-ui/plugin-gantt` 的 `GanttView`)当前交互存在三个体验问题:\n\n1. **条太矮**:非窄屏行高 40px 下条高仅 24px,视觉偏细。\n2. **拖长度与拖进度重合**:左右两端的宽度(resize)手柄占满整条高度,而进度手柄在底部;当进度接近 0%/100% 落在条端时,两个热区叠在同一块像素上,极易误触。\n3. **点击条误弹详情**:单击条会从右侧弹出详情 Drawer,而条本身可拖拽,拖动前的落点点击很容易误触弹出面板。\n\n## 方案(参考 dhtmlx gantt)\n\n1. 条高加到 ~27px(取偶数 28px 以保证像素/箭头对齐)。\n2. 把条纵向分成两段:**上半段(~14px)左右两端拖长度**,**下半段(~14px)拖进度**,两者不再抢同一块像素。\n3. **单击条只做选中,不再弹详情**;详情入口保留在:左侧任务名列点击、右键菜单「查看详情」、键盘 Enter。\n\n## 验收\n\n- 条高 ~27px。\n- resize 手柄仅在上半段、进度手柄在下半段,无重叠。\n- 点击条不弹 Drawer;点左侧任务名/右键菜单/Enter 仍可打开详情。"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2038,
+  "kind": "issue",
+  "title": "First-run UX polish (P2): cold-start, signup value-prop, non-admin empty state, recovery nudge, workspace jargon",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-27T17:01:50Z",
+  "updated_at": "2026-07-15T15:48:11Z",
+  "closed_at": "2026-07-15T15:48:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2038",
+  "body": "Low-priority first-run polish surfaced by a full **ObjectOS Cloud signup walkthrough** (signup → create-workspace → land → enter env). None are bugs; the P0/P1 first-run fixes already shipped (objectui #2033, #2035; cloud #635). These are the remaining nice-to-haves, batched here for a focused pass.\n\n### Checklist\n\n- [ ] **Cold-start reassurance** — `packages/app-shell/src/chrome/LoadingScreen.tsx`. The 3-step splash (\"Connecting / Loading configuration / Preparing workspace\") has no context that a *first* environment can take longer. Add a \"first-time setups can take a moment\" line. Note: LoadingScreen uses a synchronous dict from `@object-ui/i18n` (`console.loadingSteps`) — so this needs new `en`/`zh` console-locale keys, not `useObjectTranslation`.\n\n- [ ] **Signup value-prop** — `packages/auth/src/RegisterForm.tsx` / `packages/app-shell/src/console/auth/RegisterPage.tsx`. The signup card subtitle is the generic \"Enter your information to get started.\" A first-timer gets no sense of what they're signing up for. Add one product value-prop line.\n\n- [ ] **Non-admin empty state** — `packages/app-shell/src/console/home/HomePage.tsx` (~L300–308). \"There are no applications available to you yet. Please contact your workspace administrator.\" is a dead-end. Give a clearer next step / reassurance.\n\n- [ ] **Recovery-password nudge prominence** — `packages/app-shell/src/console/home/HomePage.tsx` (`RecoveryPasswordReminder`, ~L184–224). Amber banner is low-prominence, dismiss-forever per-browser; SSO-only users who dismiss it never set a recovery password. Consider a stronger/re-surfacing placement.\n\n- [ ] **\"Organization\" ↔ \"workspace\" jargon** — `packages/app-shell/src/console/organizations/OrganizationsPage.tsx`. The picker says \"Your Organizations / No organizations yet,\" but the create modal + product say **workspace** (`CreateWorkspaceDialog`). Align to \"workspace\" (cross-check avatar \"My Organizations\" + nav so it's consistent app-wide — a product-term decision).\n\n### Why P2\nAll copy/affordance polish, no functional breakage. Several touch `@object-ui/i18n` static dicts or are product-term decisions, so they want a deliberate batched pass + live verification rather than piecemeal edits."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2572,
+  "kind": "issue",
+  "title": "Record-level inline edit polish (follow-up to #2407): expanded-value passthrough, approval-lock preflight, numeric inputs, edit-CTA state, keyboard shortcuts",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T05:23:48Z",
+  "updated_at": "2026-07-16T13:26:40Z",
+  "closed_at": "2026-07-16T13:26:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2572",
+  "body": "Follow-up polish for the record-level inline edit shipped in #2407 (step 0 #2529, P1 #2542, P2 #2549). All items below come out of a live browser verification pass on the showcase app (Project record page, `:5180` console against the app-showcase backend): the core flow verified green — shared edit session across highlights + body, ONE atomic PATCH carrying only the edited keys with `ifMatch`, cancel restores, 409 → `ConcurrentUpdateDialog` (reload/overwrite), approval-locked save surfaces the server error inline. These are the rough edges found along the way, smallest-cost-first is NOT the order — they're grouped by user impact.\n\n> The one real **bug** found in the same pass — highlight lookup editor gets no reference target because `HeaderHighlight` only reads `reference_to` while the backend serves the ObjectStack-convention `reference` key (details body already normalizes both in `DetailSection`) — is being fixed separately and is intentionally NOT part of this issue.\n\n## 1. Pass $expand-ed reference values through to the picker (avoid the extra fetch)\n\n`InlineFieldInput` collapses an already-expanded reference record to a bare id before handing it to `LookupField` / `UserField`:\n\n- `packages/plugin-detail/src/InlineFieldInput.tsx` → `value={extractLookupId(value)}`\n\nThe record page fetches with `populate=account,team_members,…`, so `data.account` often arrives as `{ id, name, … }` — which `LookupField.resolveSelectedOption` can display directly. Stripping it to an id forces the picker's hydration effect to re-fetch the referenced record via `dataSource.findOne` just to recover the display name we already had (and leaves the trigger on the placeholder when that fetch can't run). Pass the original value through; keep `extractLookupId` only for the `onChange` write-side if needed.\n\n## 2. Approval-lock preflight: don't let the user type into a locked record\n\nVerified live: saving a budget change triggered `flow:showcase_budget_approval`, which locks the record — but the page doesn't re-read approval state after `refresh()`, so the user can re-enter inline edit, fill a draft, and only learns about the lock when Save is rejected (`RECORD_LOCKED` shown inline; draft preserved — good, but late).\n\n`InlineEditSaveBar` already has `locked` / `lockedHint` props and DetailView has an approval-lock band; the missing piece is the record page re-fetching the approval state after a successful save (and ideally gating `enter()` / hiding the pencil affordances while locked).\n\n- `packages/plugin-detail/src/InlineEditSaveBar.tsx` (`locked` prop exists, currently not driven on this path)\n- app-shell `RecordDetailView` — wire approval-state refresh into the post-save `refresh()`\n\n## 3. Numeric field types fall back to `<input type=\"text\">`\n\n`InlineFieldInput`'s fallback branch only maps `editType === 'number'` to a number input:\n\n- `packages/plugin-detail/src/InlineFieldInput.tsx` → `const inputType = editType === 'number' ? 'number' : isDate ? 'date' : 'text';`\n\n`currency` / `percent` / `decimal` / `integer` all get a free-text input — verified live on Project.budget (type `currency`): arbitrary characters are accepted, no numeric keyboard, no step/min affordance (the field metadata even carries `min: 0`, unused). Extend the numeric set and consider honoring `min`/`scale`.\n\n## 4. Disable the header \"Edit\" CTA while an inline edit session is active\n\nWhile inline editing, the primary 编辑 button in the record header stays enabled; clicking it stacks the classic form-edit surface on top of a live inline draft — two competing edit sessions with no reconciliation. Disable (or hide) it while `InlineEditContext.editing` is true, mirroring how the save bar owns the session.\n\n## 5. Keyboard shortcuts for the shared edit session\n\nThe session is mouse-only today: Esc only closes open dropdowns, and there's no commit shortcut. Suggest record-level bindings on the provider/save-bar: **Esc → cancel** (when no popover is open), **Cmd/Ctrl+Enter → save**. Both should respect `saving`/`locked` state.\n\n## Verification notes (for whoever picks these up)\n\n- Showcase backend on `:3000` (`framework/examples/app-showcase`), console `pnpm --filter @object-ui/console dev` on `:5180`, record `showcase_project` \"Website Relaunch\".\n- `showcase_project` conveniently exercises the guardrails: `spent_within_budget` cross-field validation (the reason per-field save-on-blur was rejected in #2407), `project_status_flow` state machine, and the budget-approval flow for item 2.\n- Existing suites to extend: `packages/plugin-detail/src/__tests__/{InlineFieldInput,InlineEditSaveBar,HeaderHighlight.editable,DetailSection.inlineEdit}.test.tsx`.\n"
+}

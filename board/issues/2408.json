@@ -1,0 +1,33 @@
+{
+  "number": 2408,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): don't inline-edit object-readonly or system/audit fields (#2402 hardening)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T04:19:16Z",
+  "updated_at": "2026-07-13T04:28:56Z",
+  "closed_at": "2026-07-13T04:28:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T04:28:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2408",
+  "body": "Hardening of #2402 (double-click / pencil inline edit).\n\n## Gap\n\nThe inline-edit affordance gated `fieldEditable` on only the **view schema's** `readonly` + computed types (`formula`/`summary`/`rollup`/`auto_number`). It missed:\n- **Object-metadata `readonly`** — `DetailSection`'s field enrichment intentionally doesn't copy `readonly` from `objectSchema.fields[name]` into the enriched field, so a field the *object* schema marks read-only (but the view field doesn't) was treated as editable.\n- **Immutable system/audit fields by name** — e.g. a `created_at` / `id` surfaced as a section row could be double-clicked into an editor.\n\n## Fix\n\n- `DetailSection`: `fieldEditable = !isReadonly && !isComputedField && !isSystemField`, where `isReadonly` now also reads `objectDefField.readonly`, and `isSystemField` checks a new `NON_EDITABLE_SYSTEM_FIELDS` set.\n- New `packages/plugin-detail/src/systemFields.ts` — the immutable field-name set. **Deliberately narrower** than the display-oriented system-field sets in `deriveLookupColumns.ts` / `RecordDetailDrawer.tsx`: it EXCLUDES `owner_id` / `organization_id` / `tenant_id`, which are legitimately editable (e.g. reassigning owner). Only truly framework-managed bookkeeping (created_x, updated_x, modified_x, id, soft-delete, instance_state).\n- Applies to both the pencil/double-click affordance and the input gate, so it also holds in global inline-edit mode.\n\n## Verification\n\n- New unit tests (`DetailSection.doubleClickEdit.test.tsx`): object-schema-readonly field + system field are not inline-editable; a normal field still enters edit. **9/9 pass** (incl. #2402's existing cases).\n- `plugin-detail` (vite) build ✓.\n- No browser step: the showcase detail surfaces no system/readonly section field to demonstrate; the gate is unit-covered.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

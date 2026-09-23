@@ -1,0 +1,30 @@
+{
+  "number": 2365,
+  "kind": "issue",
+  "title": "[HIGH PRIORITY] fix(metadata-admin): RoleSchema → PositionSchema in clientValidation.ts (ADR-0090 D3)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T08:30:04Z",
+  "updated_at": "2026-07-10T04:46:18Z",
+  "closed_at": "2026-07-10T04:46:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2365",
+  "body": "## Problem\n\n`@object-ui/app-shell`'s `tsc` build fails when `@objectstack/spec` resolves to a version that includes ADR-0090 D3 (the `RoleSchema` → `PositionSchema` rename):\n\n```\nsrc/views/metadata-admin/clientValidation.ts:101:66 - error TS2339:\nProperty 'RoleSchema' does not exist on type\n'typeof import(\"@objectstack/spec/identity\")'.\n```\n\nThe deployment on `objectstack-ai/objectui` currently passes because its dependency tree resolves an older `@objectstack/spec` that still exports `RoleSchema`. Projects that vendor framework HEAD (like proaero-erp) hit this at build time.\n\n## Root cause\n\nADR-0090 D3 renamed `RoleSchema` to `PositionSchema` in `@objectstack/spec/identity`. The word \"role\" is now reserved-forbidden across the platform — `capability = permission_set`, `distribution = position`, `hierarchy = business_unit`. `clientValidation.ts` line 101 still references the old name:\n\n```typescript\n// current (broken)\nrole: async () => (await import('@objectstack/spec/identity')).RoleSchema as unknown as ZodLikeSchema,\n```\n\n## Fix\n\n```typescript\n// fixed\nrole: async () => (await import('@objectstack/spec/identity')).PositionSchema as unknown as ZodLikeSchema,\n```\n\nSame pattern as #2098 which dropped the `policy` loader for the exact same reason in the same file. `PositionSchema` is a drop-in replacement — same shape, same validation role, just renamed.\n\n## Verification\n\n- ✅ `PositionSchema` confirmed present in `@objectstack/spec/identity` dist\n- ✅ `RoleSchema` confirmed absent from every subpath export\n- ✅ Built locally with framework HEAD vendored → `tsc` passes clean\n- ✅ No other consumer in the repo references `RoleSchema` from `@objectstack/spec/identity`"
+}

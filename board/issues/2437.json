@@ -1,0 +1,33 @@
+{
+  "number": 2437,
+  "kind": "pull_request",
+  "title": "feat(plugin-gantt): 连线校验——锁定/分组落点拒绝、成环检测、onBeforeDependencyCreate 钩子(#2436 第 1、2 项)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T08:42:22Z",
+  "updated_at": "2026-07-13T09:31:05Z",
+  "closed_at": "2026-07-13T09:31:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T09:31:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2437",
+  "body": "关联 #2436(第 1、2 项,首刀)。\n\n## 问题\n\n1. **连线落点不拒绝锁定行/分组行**:拖连线松手时只排除自连,落到 `locked` 行(如派工单)或 `type:'group'` 合成行(项目/产品分组)照样触发 `onDependencyCreate`,写库会落到不该写的对象上。\n2. **无成环检测**:a→b 已存在时再拖 b→a(或跨层级传递回边)直接创建,后续 `computeCriticalPath` / `computeProjectReschedule` 遇环整体 bail,甘特图排程功能静默失效。\n\n## 方案\n\n按商业甘特(DHTMLX `onBeforeLinkAdd` / Syncfusion `actionBegin` cancel)的惯例,把校验收敛到一个否决点:\n\n- 新增 `canReceiveLink(sourceId, target)`,统一守卫**悬停高亮**与**松手创建**两处:自连、`locked`、`type:'group'`、成环一律拒绝。悬停即不高亮,用户拖的过程中就能看出落点非法。\n- 成环检测 `wouldCreateDependencyCycle(edges, source, target)`(`scheduling.ts` 导出):从 target 沿依赖方向 DFS,可达 source 即成环。**边集取自全量 `tasks`**,不是可见行的 links memo——折叠子树会把中段边从视图里抹掉,但环仍然是环。\n- 新增宿主钩子 `onBeforeDependencyCreate(source, target, type)`:内建校验通过后才调用,返回 `false` 否决。宿主(如排班计划页)可以再叠业务规则(如跨项目禁连)。\n\n## 测试\n\n- `scheduling.test.ts`:直接回边、传递回边、自连、菱形/顺向放行、混合 id 类型(`String()` 归一)。\n- `GanttView.interactions.test.tsx`(复用既有连线拖拽 choreography):锁定落点拒绝;成环拒绝;**折叠中段子树后传递环仍拒绝**;钩子返回 false 否决(并断言入参)、返回 true 放行。\n- 全套 `pnpm --filter @object-ui/plugin-gantt test`:19 文件 242 用例全绿;`tsc --noEmit` 干净;eslint 仅存量告警(`set-state-in-effect` 在 base commit 上同样报)。\n\n## 非目标\n\n按 #2436:断网监听、并发保护(OCC)、framework 改动均不做。后续项(树感知筛选、预警描边、抽屉锁定、写后回读、刷新按钮)分 PR 提交。"
+}

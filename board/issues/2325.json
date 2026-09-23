@@ -1,0 +1,32 @@
+{
+  "number": 2325,
+  "kind": "issue",
+  "title": "Action registration missing createSchema — objectName field renders as plain text instead of object selector",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T12:28:29Z",
+  "updated_at": "2026-07-15T15:11:27Z",
+  "closed_at": "2026-07-15T15:11:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2325",
+  "body": "### Summary\n\nWhen creating a new Action, the `objectName` field renders as a plain text input instead of a `<Select>` dropdown.\n\n### Root cause\n\nIn `packages/app-shell/src/views/metadata-admin/anchors.ts`, lines 350-375, Action has `createFields: ['label', 'name', 'objectName', 'icon']` but provides **no `createSchema`**. Without a schema, SchemaForm renders every field as plain text. The `objectName` field never receives `widget: 'ref:object'`.\n\nNote: the `ActionSchema` uses `objectName` (not `object`) as its object-binding field key.\n\n### Steps to reproduce\n\n1. Navigate to Metadata → Action → Create new\n2. Observe the Target Object field is a plain text input\n3. Compare with Page → Create new — Object field is a proper dropdown\n\n### Expected behavior\n\n`objectName` should render as a `<Select>` dropdown of existing objects.\n\n### Fix\n\nAdd a `createSchema` with `widget: 'ref:object'` on the `objectName` property.\n\n### Impact\n\nUsers must manually type the object name. Inconsistent with types that have `createSchema`."
+}

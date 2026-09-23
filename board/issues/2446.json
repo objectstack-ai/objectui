@@ -1,0 +1,32 @@
+{
+  "number": 2446,
+  "kind": "pull_request",
+  "title": "fix(app-shell): 设计按钮深链到对应对象的设计页",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T12:01:47Z",
+  "updated_at": "2026-07-13T12:05:25Z",
+  "closed_at": "2026-07-13T12:02:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T12:02:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2446",
+  "body": "## 问题\n\n对象记录页右上角的 **设计（Design in Studio）** 按钮此前恒定跳转到 `/_console/studio/<pkg>/data`，Studio 的 Data 支柱又默认选中第一个对象——导致无论查看哪个对象都落到同一页。\n\n例：`…/apps/com.example.showcase/showcase_task` 期望进入 `showcase_task` 的设计页，实际却停在 `…/studio/com.example.showcase/data`（首个对象）。\n\n## 根因\n\n`appStudioRoutePath`（`packages/app-shell/src/utils/appRoute.ts`）只对**接口**路由（dashboard/page/report）做深链；对象路由回退到 `appStudioDesignPath`，后者硬编码 `/studio/<pkg>/data`，丢弃了对象身份。\n\n## 改动\n\n1. **appRoute** — 新增 `appStudioObjectPath()`，为对象路由生成 `/studio/<pkg>/data?surface=object:<name>`（沿用 Interfaces 支柱已有的 `type:name` 参数形态）。`appStudioRoutePath` 将非接口、非 `system` 的路由类型（即对象名）走此深链；app 根与 `system` 仍回退到通用 Data 页。\n2. **StudioDesignSurface `DataPillar`** — 挂载时读取 `?surface=object:<name>`，命中已加载对象则初始选中它（复用 Interfaces 支柱既有恢复模式），否则维持选中首个对象的旧行为。\n\n## 验证\n\n- 单测 **30/30 通过**（`appRoute.test.ts`：更新对象路由断言 + 新增 `appStudioObjectPath` 用例）。\n- Type-check：改动行无新增类型错误（`@object-ui/*` 找不到模块系新建 worktree 未构建依赖所致，与本改动无关）。\n- 未做实机浏览器验证（需 `:3000` 后端 + 管理员登录）。手动确认：以工作区管理员打开某对象记录页，点击「设计」按钮，应进入 Studio 并选中该对象。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

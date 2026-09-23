@@ -1,0 +1,33 @@
+{
+  "number": 2472,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): show active search keyword on the toolbar search button",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T02:30:00Z",
+  "updated_at": "2026-07-14T05:25:13Z",
+  "closed_at": "2026-07-14T05:25:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T05:25:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2472",
+  "body": "Fixes #2471\n\n## 问题\n\n放大镜搜索的关键字持久化在 `localStorage`,离开列表再返回时仍在过滤数据,但搜索弹框收起、几乎没有可见提示,用户看不出列表正处于关键字过滤状态。\n\n## 修复\n\n搜索激活时,放大镜按钮内联显示当前关键字(对齐「排序」按钮计数徽标的设计语言,`max-w-[8rem]` 截断,`title` 提示完整关键字);点击即打开弹框预填关键字,可修改或点 X 清除。未激活时按钮保持原有 7×7 图标样式,无任何变化。\n\n## 测试\n\n- 真机 UI 实测(objectui console dev + ObjectOS 12.4 后端,admin 实登):输入 `Dev` → 切走 → 返回,弹框收起但按钮显示 `🔍 Dev`,`localStorage` 值 `{\"search\":\"Dev\"}`;点击徽标弹框预填可清除。截图见 #2471。\n- 单元测试:`plugin-list` 125 通过,新增 2 个用例(输入时徽标显示;`initialSearchTerm` 恢复且弹框关闭时徽标显示)。\n- `tsc --noEmit` 通过。\n\n含 changeset(`@object-ui/plugin-list` patch)。\n\nCo-Authored-By: Claude <noreply@anthropic.com>"
+}

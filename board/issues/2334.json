@@ -1,0 +1,32 @@
+{
+  "number": 2334,
+  "kind": "issue",
+  "title": "Build: @object-ui/plugin-report emits TS6059 rootDir errors for types/src/* re-exports",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-07T07:39:19Z",
+  "updated_at": "2026-07-15T14:17:25Z",
+  "closed_at": "2026-07-15T14:17:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2334",
+  "body": "## Description\n\nBuilding `@object-ui/plugin-report` produces approximately 20 `TS6059` errors during the DTS emit pass. The errors are all of the form:\n\n```\nTS6059: File '.../packages/types/src/<file>.ts' is not under 'rootDir'\n        '.../packages/plugin-report/src'.\n        'rootDir' is expected to contain all source files.\n```\n\nAffected files imported from `packages/types/src/`:\n- `permissions.ts`\n- `tenant.ts`\n- `mobile.ts`\n- `designer.ts`\n- `api-types.ts`\n- `reports.ts`\n- `spec-report.ts`\n- `ai.ts`\n- `blocks.ts`\n- `views.ts`\n- `registry.ts`\n- `plugin-scope.ts`\n- `ui-action.ts`\n- `widget.ts`\n- `theme.ts`\n\n## Root Cause\n\n`plugin-report`'s `tsconfig.json` has `rootDir` scoped to its own `src/`, but the `unplugin:dts` plugin pulls in files from the sibling `packages/types` package through re-exports in the types barrel file. These cross-package source files live outside `plugin-report`'s `rootDir`.\n\nThe tsup/rollup build still emits working bundles despite the tsc errors, but the output is littered with diagnostics.\n\n## Expected Behavior\n\nEither:\n1. `rootDir` should be lifted to the monorepo root (or composite project root) for the DTS emit pass, or\n2. The DTS plugin should skip re-exported declarations that originate outside `rootDir`.\n\n## Package(s) affected\n\n- `packages/plugin-report` — `tsconfig.json` `rootDir` configuration"
+}

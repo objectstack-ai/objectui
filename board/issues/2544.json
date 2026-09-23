@@ -1,0 +1,37 @@
+{
+  "number": 2544,
+  "kind": "pull_request",
+  "title": "feat(list): unify conditional formatting + row-action visibility onto the CEL engine (#1584)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "package: react",
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T16:31:07Z",
+  "updated_at": "2026-07-16T01:11:34Z",
+  "closed_at": "2026-07-16T01:11:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T01:11:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2544",
+  "body": "## Summary\n\nCloses #1584. Converges the **list-view conditional tier** — conditional formatting (list / grid / kanban) and row-action `visible` / `disabled` — onto `@objectstack/formula`'s CEL engine, the same engine the server uses (framework ADR-0058). Previously these evaluated on the legacy JS-dialect `ExpressionEvaluator`, even though `@objectstack/spec` already types them as CEL (`ListViewSchema.conditionalFormatting[].condition` and `ActionSchema.visible` are `ExpressionInputSchema`). This was a spec-compliance gap: `toPredicateInput` unwrapped a `{ dialect: 'cel', source }` envelope and fed it to the wrong dialect. Now the whole platform speaks one expression dialect.\n\n## What changed\n\n- **`@object-ui/core`** — new zero-React helpers next to `evalFieldPredicate`:\n  - `evalRowPredicate(pred, row, opts)` — one boolean predicate over a row on the canonical CEL engine; binds `record.*`, bare fields, `data.*`, and the host predicate scope (`features` / `user`).\n  - `resolveConditionalFormatting(record, rules, scope)` — the single implementation of all three historical rule shapes.\n  - **Dialect routing:** a `{ dialect: 'cel' }` envelope is always CEL; a bare string is CEL per the spec contract, *unless* it carries legacy-only syntax (`${…}`, `===`/`!==`, `?.`, `.includes()`) → routed to the legacy engine with a **one-time deprecation warning**. The native `{ field, operator, value }` form is translated to CEL.\n- **`@object-ui/react`** — new `useRowPredicate` hook (canonical CEL + ambient predicate scope).\n- **Consumers converged:** `ListView.evaluateConditionalFormatting` is now a thin wrapper (export kept); `ObjectGrid.getRowStyle`'s **inline copy deleted**; kanban card styles use the shared helper; grid + data-table row-action menus switch to the CEL path.\n- **Bug fix:** `plugin-view`'s `ObjectView` kanban branch now forwards top-level `conditionalFormatting` (it was silently dropped for kanban).\n- **Failure posture** (per ADR-0058's fail-policy matrix): formatting failure → no style + warn; row-action `visible` fails **closed** (hidden + warn, aligns with `ActionEngine`); `disabled` fails soft (not disabled + warn). Nothing silent.\n- **Legacy form `condition`** `{ field, equals/notEquals/in }` retired to a CEL translation at the `form.tsx` entry (back-compat preserved); the two `FieldDesigner` authoring sites migrated to `visibleWhen`.\n\n## Capability gain\n\nThe CEL `in` operator and list membership (`record.status in ['sent','paid']`) now work in row predicates — the legacy parser had no `in` operator and silently failed **open** on them.\n\n## Back-compat\n\nNear-zero blast radius (full-tree survey found no real authored usages of these features; only package-test fixtures). Existing conditional-formatting rules, row-action predicates, and form `condition` metadata keep working via translation / dialect routing (with deprecation warnings on legacy-dialect strings).\n\n## Naming (settled by ADR-0089)\n\nActions keep `visible` (ADR-0089 renamed only field/view/page keys; `action.zod.ts` keeps `visible`, already CEL). Spec `{ condition, style }` stays canonical for formatting; ObjectUI-local shapes are back-compat translations. `useCondition` / `useExpression` (schema/widget `${}` tier) are untouched — only row/record predicate call-sites moved.\n\n## Tests\n\n- `packages/core/.../listConditional.test.ts` — 19 tests: three rule shapes, dialect routing, `in`, legacy fallback + warn, fail-closed + warn, missing-key.\n- `packages/react/.../useExpression.test.ts` — `useRowPredicate`: boolean short-circuit, scope merge, CEL `in`, fail-closed.\n- `packages/plugin-grid/.../RowActionMenu.test.tsx` — CEL `in` show/hide end-to-end on the real menu.\n- `packages/components/.../form-legacy-condition.test.tsx` — legacy `condition` → CEL (equals / notEquals / in), reactive.\n- `e2e/live/list-row-action-cel.spec.ts` — live spec guarding the row-action-menu render path against the showcase task list's `visible: '!record.done'` action.\n\nAll touched-package suites pass (core + react 1327; grid + kanban 216; components/list/view/designer 508). `turbo type-check` green across all touched packages. No new lint errors.\n\n## Notes / follow-ups\n\n- **Live e2e** requires the running stack (backend + console dev server) and, for conditional *formatting*, showcase metadata that declares it (a framework change the issue scopes out). The added live spec targets the existing showcase row-action `visible` predicate; the gate semantics are covered deterministically by the jsdom component tests. The live stack isn't runnable in the authoring sandbox.\n- **Perf:** `@objectstack/formula`'s `celEngine.evaluate` re-parses per call (cel-js exposes no AST re-execution). Acceptable at page-size row counts; worth an upstream program cache in `@objectstack/formula` if it shows up hot.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019LwrWThBJgvcfPtqNHpstB)_"
+}

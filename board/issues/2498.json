@@ -1,0 +1,33 @@
+{
+  "number": 2498,
+  "kind": "pull_request",
+  "title": "feat(app-shell): proactive AI usage indicator in the ChatDock (ADR-0057 #8)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T15:01:35Z",
+  "updated_at": "2026-07-14T15:14:06Z",
+  "closed_at": "2026-07-14T15:14:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T15:14:04Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2498",
+  "body": "## Why\nToday a user only learns they've hit an AI quota **reactively** — the send returns a 429. This adds a proactive indicator in the ChatDock header so remaining headroom is visible **before** the wall. It's the objectui half of ADR-0057 #8; the cloud read endpoint is **objectstack-ai/cloud#824**.\n\n## What\n- **`AiUsageIndicator`** (`packages/app-shell/src/layout/AiUsageIndicator.tsx`) — two independent meters (`build` + `dataChat`) as small progress rings, mounted in both the desktop ChatDock rail header and the mobile sheet header.\n  - Near-full (≥80%) → the ring turns amber and a subtle \"Running low\" hint appears; the popover shows **\"resets tonight / next cycle\"** plus the **upgrade / top-up CTA**, reusing the existing 429 deep-link (`cloudPricingDeepLink`).\n  - **D5-safe**: renders only fractions (rings) + qualitative words — **never a token number**.\n  - **Fail-soft**: hides itself entirely when the endpoint is absent (older backend, OSS, no seat) or returns nothing — a missing endpoint degrades to no widget, never a broken one.\n- **`useAiUsage`** (`packages/app-shell/src/hooks/useAiUsage.ts`) — fetches the D5-safe per-meter fractions; **refetches on the chat engine's post-turn / 429 nudge and on tab re-focus**; inert without an `apiBase`; fails soft to `null`.\n- **`useObjectChat`** (`packages/plugin-chatbot`) — emits a decoupled `AI_USAGE_REFRESH_EVENT` on a rejected send (429) and on the loading→ready turn-finish edge, so the ring updates right after the user's action. No callback threaded through `ChatPane`.\n- **i18n**: `console.ai.usage.*` in **en** and **zh-CN**.\n\n## Tests\n- `useAiUsage.test.ts` — fetch/parse, credentials, fail-soft on 404, inert w/o apiBase, refetch on the event.\n- `AiUsageIndicator.test.tsx` — hides on null/unmetered, renders on numeric fraction, \"running low\" hint, D5 (no token numbers in output), and the CTA opening the upgrade deep-link.\n- Existing `ChatDock.test.tsx` updated to stub the indicator so its chrome tests stay focused.\n\n17 app-shell tests + the plugin-chatbot send-failure/handoff suites pass; `tsc --noEmit` clean on app-shell, plugin-chatbot, and i18n.\n\n## Dependency / sequencing\nRuntime-only dependency on cloud#824 (no compile-time import across repos). Merge **cloud#824 first**; until the endpoint is deployed the indicator stays hidden (fail-soft), so this is safe to merge independently. Live browser verification awaits the endpoint deploy.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

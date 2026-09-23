@@ -1,0 +1,30 @@
+{
+  "number": 2363,
+  "kind": "issue",
+  "title": "feat(setup): 'Connect an agent' page — MCP URL, per-client connect cards, API keys, SKILL.md download",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T06:36:14Z",
+  "updated_at": "2026-07-10T04:25:20Z",
+  "closed_at": "2026-07-10T04:25:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2363",
+  "body": "## Context\n\nframework#2698 made every deployment self-serve connectable over MCP: OAuth 2.1 with DCR shipped in framework#2709, and framework#2712 turned the MCP surface **default-on** (`/api/v1/discovery` now advertises `routes.mcp` out of the box; `OS_MCP_SERVER_ENABLED=false` opts out). What's missing is the product surface that makes this visible to a non-technical admin: today you have to read docs to learn the URL even exists.\n\n## Deliverable\n\nA **\"Connect an agent\"** page in the Setup app — an admin/user connects an AI client in under three minutes without knowing what MCP is.\n\n### Page content\n\n- [ ] **This environment's MCP URL**, prominent, with copy button (read from `/api/v1/discovery` → `routes.mcp`, resolved against the deployment origin)\n- [ ] **Per-client connect cards**, each with copy-paste-ready content:\n  - claude.ai — paste URL as a custom connector (note: requires the deployment to be publicly reachable over HTTPS)\n  - Claude Desktop — paste URL as a connector\n  - Claude Code — full `claude mcp add --transport http <name> <url>` command; link the official plugin (framework#2713) as the recommended path\n  - Cursor / generic MCP client — URL + note that OAuth discovery is automatic\n  - OAuth is the default story on every card (\"open the browser login as yourself\"); no admin-minted credentials in the happy path\n- [ ] **API key minting** for headless agents/CI: calls the existing `POST /api/v1/keys`, shows the key once, supports scopes/expiry — with copy for the `x-api-key` header form\n- [ ] **Download SKILL.md** button — serves the environment-customized generic skill (see framework dependency below)\n- [ ] Hide the page (or show an \"MCP disabled\" empty state) when discovery does not advertise `routes.mcp`\n- [ ] i18n (en + zh-CN), Setup nav registration\n\n### Framework dependency (small, can land first)\n\n`renderSkillMarkdown()` in `@objectstack/mcp` is export-only today — nothing serves it over HTTP. Add `GET /api/v1/mcp/skill` (public or session-gated) returning `renderSkillMarkdown({ mcpUrl: <this env's URL> })` as `text/markdown`. Tracked as a checklist item here; split into a framework issue if preferred.\n\n- [ ] framework: `GET /api/v1/mcp/skill` endpoint\n\n## Non-goals\n\n- No per-app skill variants (ADR-0036 Amendment C: one generic skill)\n- Connector-directory listing (cloud-side, tracked separately)\n\nRefs framework#2698.\n"
+}

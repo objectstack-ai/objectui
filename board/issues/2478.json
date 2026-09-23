@@ -1,0 +1,32 @@
+{
+  "number": 2478,
+  "kind": "pull_request",
+  "title": "fix(console-ai): Studio dock remembers a collapse; folded layout side-by-side at xl (ADR-0057 UX #2477)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T04:43:50Z",
+  "updated_at": "2026-07-14T04:55:07Z",
+  "closed_at": "2026-07-14T04:55:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T04:55:05Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2478",
+  "body": "First two of the post-cleanup UX follow-ups from #2477 (ADR-0057). Small, contained changes in already-touched files.\n\n## #2 — Studio dock remembers a collapse (per-tab)\nThe Studio right copilot still mounts expanded by default, but a user who collapses it to get the classic three-zone canvas no longer sees it re-open on every pillar / package switch or Studio re-entry.\n\nRoot cause: the stored expanded flag used **remove-on-collapse**, so on a *default-expanded* surface \"collapsed\" read back as \"unset\" → fell to the default → re-expanded. Fixed by storing an explicit `'0'`/`'1'` (`parseStoredDockExpanded` now returns `boolean | null`, callers fall back on `null`), under a **Studio-specific** sessionStorage key so it never shares state with the console dock. Console dock behavior is unchanged (default-collapsed either way).\n\n## #3 — Folded canvas + properties side by side from `xl` (was `2xl`)\nOn the common laptop (1280–1512) the folded center fell into tabs, which auto-hide the canvas the moment you select a block — breaking the WYSIWYG \"edit and watch it apply\" loop. Lowered the side-by-side breakpoint to `xl` (1280); the side-by-side inspector is slimmer at `xl` and grows at `2xl`, so the canvas keeps usable width beside the ~420px dock. Below `xl` the tabs remain (no room for three columns + chat).\n\n## Verification\n- `tsc --noEmit` clean; app-shell + `apps/console` build green.\n- `npx vitest run` layout / console-ai / studio-design: **16 files, 81 tests green**. New coverage: the stored-flag round trip proving a default-expanded surface stays collapsed after an explicit collapse (and console default-collapsed is unaffected); `parseStoredDockExpanded` tri-state.\n- Live browser proof to follow in a comment.\n\nRefs #2477 · ADR-0057"
+}

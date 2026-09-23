@@ -1,0 +1,32 @@
+{
+  "number": 2377,
+  "kind": "pull_request",
+  "title": "feat(studio): Capabilities section in the object Settings panel (framework#2707/#2727)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-10T08:29:10Z",
+  "updated_at": "2026-07-10T08:41:14Z",
+  "closed_at": "2026-07-10T08:41:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-10T08:41:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2377",
+  "body": "## 概述\n\nframework#2707/#2727 把 `enable.*` 全部接线为 live 之后,只有源码作者能设置这些开关——Studio 完全没暴露。本 PR 在 Data 支柱的对象**设置** tab(`ObjectSettingsPanel`)新增 \"能力开关(enable.*)\" 区,把开关交给业务构建者:\n\n| 开关 | 语义 | 契约 |\n|---|---|---|\n| `trackHistory` | opt-in | 记录页 History 标签页(审计采集始终开启) |\n| `files` | opt-in | 通用附件面板 + 服务端 403 `FILES_DISABLED` 闸 |\n| `feeds` | opt-out | 讨论面板 + 服务端 403 `FEEDS_DISABLED` 闸 |\n| `activities` | opt-out | sys_activity 时间线镜像(审计日志不受影响) |\n| `clone` | opt-out | 克隆端点(403 `CLONE_DISABLED`) |\n\n设计要点:\n- **只暴露 live 开关**——dead 的 `searchable`/`trash`/`mru` 不渲染(Studio 不提供不干活的开关)。\n- 复选框显示 flag 的**生效值**(opt-in `=== true`、opt-out `!== false`);切换写显式布尔进 `enable` 块并保留兄弟键;未动的开关不材料化。\n- 每个开关带一行契约描述(en + zh-CN,`engine.studio.settings.cap*` 键)。\n\n## 验证\n\n- app-shell 152 文件 / 1175 用例 ✓(新增 4 个面板测试:生效默认值、authored 值回显、保留兄弟键的 patch、opt-in patch;并断言 dead flag 不渲染)\n- **浏览器实测**(fresh 后端 + console dev,截图见 commit):新建可写包→新建对象→设置 tab,Capabilities 区本地化渲染;切 trackHistory/files 开、feeds 关→存草稿→`GET /meta/object/cap_probe?preview=draft` 返回 `enable: {trackHistory:true, files:true, feeds:false}`,未动开关未写入 ✓(发布被 #2694 命名空间前缀闸拦下属预期,与本 PR 无关)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

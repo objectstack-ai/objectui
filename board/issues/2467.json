@@ -1,0 +1,33 @@
+{
+  "number": 2467,
+  "kind": "pull_request",
+  "title": "feat(console-ai): /ai = the ChatDock maximized + Studio right-dock reflow (ADR-0057 P3c)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T20:52:24Z",
+  "updated_at": "2026-07-13T21:05:47Z",
+  "closed_at": "2026-07-13T21:05:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T21:05:44Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2467",
+  "body": "Final P3 slice of [ADR-0057](docs/adr/0057-console-ai-chat-one-conversation-docked.md) — epic #2409. Everything is behind the existing default-off `features.chatDock` rollout flag; **flag off → `/ai`, Studio, and the FAB are pixel-identical to today** (verified in the browser, below).\n\n## What\n\n1. **`/ai` ⇄ rail continuity (\"/ai = the dock maximized\")**\n   - `ChatDockPanel` header gains a **maximize** button → opens `/ai` (ConsoleLayout wires it), which resolves the same app-less `(user, product=ask)` P1 scope — the same thread the rail shows.\n   - The `/ai` page gains a flag-gated **collapse-to-dock** button → arms the rail to mount expanded (sessionStorage, `armChatDockExpanded`) and returns to the page the user came from (`resolveCollapseToDockTarget`: history back, else `/home`).\n   - Deep links `/ai/:agent/:conversationId` (ADR-0013) untouched — routing and the conversation machinery stay in `AiChatPage`; resolves ADR open question 5.\n2. **Studio right-dock reflow** (the decided grid `[left: nav/tree] [center: canvas + properties] [right: chat]`)\n   - The copilot's conversation body is extracted as `StudioCopilotConversation`; the flag-off left `w-96` panel (`StudioAiCopilot`) renders it unchanged.\n   - New `StudioChatDock`: the same package-scoped build thread hosted in the shared `ChatDockPanel` chrome on the RIGHT (default expanded; collapsed = the `ChatDockLauncher` edge button; maximize → `/ai/build?package=…`, which resumes the same `app:<pkg>:build` thread).\n   - `InterfacesPillar` gains `foldInspector`: with the dock owning the right side, the inspector folds into center **[Canvas | Properties]** tabs (`forceMount` keeps the runtime preview warm; pure `nextCenterTab` auto-switches on selection edges and never fights a manual choice). Data/Automations pillars keep their in-center inspectors. An injected `aiSlot` (cloud seam, ADR-0080) keeps the legacy left panel in all flag states.\n3. **Live Canvas (ADR-0037)**: `useChatDockState` gains a latched `maximize()/restore()` — the rail auto-maximizes while the canvas is open and tucks back on close; a manual resize drag takes over (the restore then no-ops); guards cover ChatPane's mount-time `onCanvasOpenChange(false)` and StrictMode.\n\n## Tests\n\n- Extended `chatDockState.test.ts` (`maximizedDockWidth`, `parseStoredDockExpanded`); new `resolveCollapseToDockTarget.test.ts`, `centerTab.test.ts`, `ChatDock.test.tsx` (chrome contract: children override / maximize button / collapse).\n- `npx vitest run` over `console/ai/__tests__` + `layout/__tests__` + `studio-design/__tests__`: **16 files / 82 tests green**; `tsc --noEmit` clean.\n\n## Browser proof (ADR-0054, local cloud rig, `--with-ui --prod-like --seed`)\n\nFlag ON (temporary local parse override, reverted before commit — `grep TEMP` clean):\n- **(a) rail ⇄ `/ai`, same thread**: sent \"P3c dock proof marker 8842\" in the dock → maximize → landed on `/ai/ask/conv_fcd1b6eb-…` with the marker visible; collapse-to-dock → back on the dashboard with the rail expanded showing the same thread. Deep-linking that URL re-opens the thread.\n- **(b) Studio**: `[nav tree] [Canvas|Properties center tabs] [AI copilot right dock]`; Properties reachable via the center tab; dock collapse → edge launcher → re-expand; maximize → `/ai/build/conv_504c…?package=com.objectstack.setup` (same package thread, binding chip shows *Setup*).\n- **(c) flag OFF** (rebuilt + re-overlaid): FAB opens the floating overlay, `/ai` has no dock affordance, Studio is the classic `[left w-96 copilot] [canvas] [right w-72 inspector]` — pixel-identical to today.\n\nRefs #2409 · ADR-0057 §P3 / §Decision 3 / open questions 1 & 5\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

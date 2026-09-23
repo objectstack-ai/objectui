@@ -1,0 +1,33 @@
+{
+  "number": 2448,
+  "kind": "pull_request",
+  "title": "fix(views,plugin-gantt): view.data(provider:'api') 透传甘特 + group move 跳过 locked 子孙",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T12:07:56Z",
+  "updated_at": "2026-07-13T13:42:18Z",
+  "closed_at": "2026-07-13T13:42:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T13:42:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2448",
+  "body": "Closes #2447\n\n## 做了什么\n\n两个提交,对应 issue 的两个缺口:\n\n### 1. `fix(views)`: 视图 `data(provider:'api')` 透传到甘特渲染器\n\n对象视图声明 `data: { provider: 'api', url: ... }` 时,ListView 把 `view.data` 原样传给甘特渲染器,并置 `ganttOwnsData` 让甘特自管取数(组合接口一次返回多对象拼成的扁平树),ListView 不再重复走对象表直查。未声明 api 数据源的视图行为不变。\n\n### 2. `fix(plugin-gantt)`: group move 跳过 locked 子孙——不预览、不提交、不发写请求\n\n修复前:拖 summary bar 时整棵子树(含 `locked: true` 仅查看行)一起提交,每个 locked 子行各发一个注定 403 的写请求。修复后四道防线:\n\n- 位移计算排除 locked 子孙(原地不动);\n- 拖拽预览不高亮 locked 子孙;\n- `commitTaskUpdates` 中央过滤——无论 group shift、`rescheduleOnConflict` 还是未来调用方,locked 行一律不提交;\n- `beginDrag` 对 locked 行直接返回。\n\n## 怎么测的\n\n- 单测:plugin-gantt **261/261**、plugin-list **149/149** 通过;新增用例「summary 拖动时 locked 子行既不预览也不提交,仅其余行收到 onTaskUpdate」。\n- 真机(ehr 制造排班甘特,Playwright 真实鼠标 + 网络层断言):拖计划 summary bar 一列 → **仅 1 个 PATCH 200、locked 派工子行 0 个 403、日期 +7 天持久化到业务表、子行日期未动**。修复前同操作实测为 1×200 + 2×403。完整 8 探针报告与截图:steedos-labs/os-project-titanwind-ehr#173。\n"
+}

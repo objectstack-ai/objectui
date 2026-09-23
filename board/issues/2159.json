@@ -1,0 +1,32 @@
+{
+  "number": 2159,
+  "kind": "issue",
+  "title": "fix(grid): 批量/行级自定义 action 执行成功后列表不刷新",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T12:59:01Z",
+  "updated_at": "2026-07-15T14:03:42Z",
+  "closed_at": "2026-07-15T14:03:42Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2159",
+  "body": "## 问题\n\n列表勾选多行后,点击底部 BulkActionBar 的批处理按钮(如「下推」「派工」等字符串型 \\`batchActions\\`),操作在服务端成功执行后,**列表页不刷新**,仍停留在旧数据。用户以为没生效或需要手动刷新。\n\n同样的问题也存在于**单行的自定义 action**(RowActionMenu 的 \\`onAction\\`/\\`onActionDef\\`)。\n\n## 根因\n\n\\`ObjectGrid\\` 自取数据的 effect 只依赖 \\`refreshKey\\`(`packages/plugin-grid/src/ObjectGrid.tsx:589`),且**全文没有订阅 \\`dataSource.onMutation\\`**。而批处理有三条执行路径,只有两条会触发刷新:\n\n| 路径 | 刷新? |\n|---|---|\n| 富定义批量(BulkActionDialog)→ `handleBulkDialogClose(result)` → `setRefreshKey(k+1)` | ✅ |\n| 字符串 `delete` 分支 → `onBulkDelete`(外层负责刷新) | ✅ |\n| **字符串非 delete 分支** → `executeAction({type, params:{records}})`(ObjectGrid.tsx:1629) | ❌ 不刷新、不清选中 |\n| **行级自定义 action** → `executeAction(...)`(ObjectGrid.tsx:1494 / 1507) | ❌ 不刷新 |\n\n`executeAction`(ActionRunner)执行成功后不发任何 mutation/刷新信号,且批处理常走自定义 API(不经过 \\`dataSource.update\\`),连 adapter 的 mutation 事件都不会发 → grid 永远看不到变化。\n\n## 方案(精准修复)\n\n`executeAction` 返回 \\`Promise<ActionResult>\\`(含 \\`.success\\`)。在这两条路径上 await 结果,成功后 \\`setRefreshKey(k+1)\\`(批量路径同时 \\`setSelectedRows([])\\` + \\`setSelectAllMatching(false)\\`),与现有 \\`handleBulkDialogClose\\` / delete 分支的刷新写法保持一致。\n\n不改动 ActionRunner 底层,避免对导航/导出等非写 action 造成多余 refetch。\n\n## 验证\n- objectui 加 ObjectGrid 回归测试:字符串型 batchAction 执行成功后必须 refetch 且清空选中。\n- framework app-showcase 加一个 batchAction 示例,live 复现 + 回归。"
+}

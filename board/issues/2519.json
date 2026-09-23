@@ -1,0 +1,33 @@
+{
+  "number": 2519,
+  "kind": "pull_request",
+  "title": "feat(components): add `variant === 'primary'` tie-break to action:bar ordering (#2339)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T14:21:07Z",
+  "updated_at": "2026-07-15T14:29:31Z",
+  "closed_at": "2026-07-15T14:29:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T14:29:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2519",
+  "body": "Completes the record-header primary-button ordering rule from **#2339**. Follow-up to the merged **#2340**.\n\n## Background\n\nIssue #2339 specified a three-key ordering for choosing the record-header primary button:\n\n1. `order ?? 0` ascending (lower = more prominent)\n2. `variant === 'primary'` preferred — **tie-break** within equal `order`\n3. original registration order (stable)\n\nPR #2340 shipped keys **1** and **3** but deliberately dropped the `primary` tie-break (key 2), noting the injected Approve button gets the slot via `order: -100` regardless. That left a real gap: when several **app-declared** `record_header` actions all leave `order` unset (so they tie at the default `0`) and one is styled `variant: 'primary'`, the primary action did **not** claim the primary button — the author had to also assign an explicit `order`.\n\n## Change\n\n`packages/components/src/renderers/action/action-bar.tsx` — the pre-split sort now adds `variant === 'primary'` as the secondary key:\n\n- `order` ascending (unset = `0`) stays the primary key.\n- On an `order` tie, a `primary` action outranks a non-primary sibling.\n- The sort remains **stable**, so remaining ties keep registration order.\n- The ordering gate now fires on either an explicit `order` **or** a `primary` variant, so a toolbar with **neither** is still a no-op (byte-for-byte unchanged registration order — the #2340 backward-compat guarantee holds).\n\n## Tests\n\n`packages/components/src/__tests__/action-bar.test.tsx` — +2 cases in the `order` block:\n\n- **primary tie-break wins** the primary slot when nobody sets `order` (primary action registered *last* still gets promoted).\n- **`order` outranks the tie-break** (an explicit low `order` beats a `primary` variant with default `order`).\n\nVerification (in-worktree):\n- `pnpm exec vitest run packages/components/src/__tests__/action-bar.test.tsx` — **23 passed** (21 existing + 2 new).\n- `pnpm --filter @object-ui/components type-check` — clean.\n\nRefs #2339, #2340, framework#2670, framework#2682\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

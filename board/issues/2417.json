@@ -1,0 +1,30 @@
+{
+  "number": 2417,
+  "kind": "issue",
+  "title": "(discard) created in error",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T05:11:30Z",
+  "updated_at": "2026-07-13T05:11:40Z",
+  "closed_at": "2026-07-13T05:11:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2417",
+  "body": "Created by mistake (wrong tool call). Closing — see #2416 for the phone+password login task."
+}

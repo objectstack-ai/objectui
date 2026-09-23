@@ -1,0 +1,32 @@
+{
+  "number": 2324,
+  "kind": "issue",
+  "title": "Hook registration missing createSchema — all create fields render as plain text inputs, no object dropdown",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T12:28:27Z",
+  "updated_at": "2026-07-15T14:37:53Z",
+  "closed_at": "2026-07-15T14:37:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2324",
+  "body": "### Summary\n\nWhen creating a new Hook, ALL fields (label, name, object, description) render as plain text inputs. The Object field should be a `<Select>` dropdown of existing objects.\n\n### Root cause\n\nIn `packages/app-shell/src/views/metadata-admin/anchors.ts`, lines 90-103, Hook defines `createFields: ['label', 'name', 'object', 'description']` but provides **no `createSchema` at all**. Without a schema, SchemaForm has no property type information — every field renders as plain text. The `object` field never receives `widget: 'ref:object'`.\n\nCompare with Page (lines 110-187) and Validation (lines 288-326) — they both provide `createSchema` with proper `widget: 'ref:object'`.\n\n### Steps to reproduce\n\n1. Navigate to Metadata → Hook → Create new\n2. All fields are plain text inputs with no type-aware rendering\n3. Compare with Page → Create new — fields are properly typed, Object is a dropdown\n\n### Expected behavior\n\nProper typed fields with Object as a `<Select>` dropdown.\n\n### Fix\n\nAdd a `createSchema` with `widget: 'ref:object'` on the `object` property.\n\n### Impact\n\nTypo-prone, bad UX, inconsistent with Page/View/Validation."
+}

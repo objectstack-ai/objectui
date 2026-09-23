@@ -1,0 +1,33 @@
+{
+  "number": 2414,
+  "kind": "pull_request",
+  "title": "feat(console-ai): unify AI chat — one conversation key + one surface→agent resolver (ADR-0057 P1+P2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T04:55:47Z",
+  "updated_at": "2026-07-13T05:42:18Z",
+  "closed_at": "2026-07-13T05:42:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T05:42:15Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2414",
+  "body": "Lands the two sign-off-free phases of **ADR-0057 — Console AI chat unification** (work order #2412, epic #2409). Both are reversible; the two founder-decision phases (P3 dock / P4 handoff) are follow-ups.\n\n---\n\n## P1 — key conversations on `(user, app, product)`, not surface\n\nThe console forked the AI conversation across shells: the Studio copilot scoped `studio:${packageId}:${agent}` while the full-page `/ai/build` focus view scoped on the agent alone — the same app showed an empty \"Build with AI\" copilot beside an active full-page build thread (looks like data loss).\n\n- **New `hooks/chatScope.ts`** (pure, unit-tested): `chatConversationScope({ appId, product })` + `chatProductOfAgent(name)` — the single place the scope key is formed. `product` is the ADR-0063 axis (`ask`|`build`), derived from the resolved agent, never per-surface.\n- `StudioAiCopilot` and full-page `AiChatPage` both resolve `app:${packageId}:${product}`, so the Studio copilot editing package X and `/ai/build?package=X` (\"Edit with AI\", ADR-0070) resume **one shared thread**. Legacy `studio:` prefix dropped. Generic `/ai/:agent` (no `?package=`) degrades to the product alone — unchanged.\n- AiChatPage's URL-mirror guard now compares the resolved scope against the new value.\n- Gate already consolidated on `useAiSurfaceEnabled` (ADR-0068); no change needed.\n\n## P2 — one declarative surface→agent resolver\n\n~5 divergent re-implementations of the ADR-0063 chain (and a `ConsoleLayout` downgrade special case that existed nowhere else) collapse into one pure resolver, making ADR-0063 a **structural** guarantee.\n\n- **New `hooks/surfaceAgent.ts`**: `resolveSurfaceAgent(surface, { agents, appDefaultAgent, aiStudioEnabled })` + `SURFACE_DEFAULT`. `app.defaultAgent` is **bounded** to ask/build (alias-aware) — a withdrawn tenant custom agent is rejected, so no roster is representable (open question #4). The AI-Studio-off `build→ask` downgrade is folded in **once**.\n- `StudioAiCopilot` (studio-build→build) and the console FAB (default→ask) resolve through it. The FAB preserves #771's \"prefer build when the catalog unlocks it and nothing pinned a product\" by passing that as its default *product* input — the resolver still owns bounding + the downgrade, which now **also** applies to the #771 preference (closing the leak where an authoring-disabled deployment could still open build).\n- `ConsoleLayout`'s bespoke downgrade is deleted; it passes the raw `app.defaultAgent`.\n\n## Invariants held\n- **ADR-0063**: exactly two products, bound by surface; no roster / no per-turn classifier representable.\n- **ADR-0025 (OSS)**: empty catalog → whole surface inert (`resolveSurfaceAgent` returns `undefined`; `useAiSurfaceEnabled` hides everything).\n- No cloud backend change.\n\n## Verification\n- **New unit tables**: `chatScope.test.ts` (shared-thread key invariant + product derivation incl. legacy aliases) and `surfaceAgent.test.ts` (the ADR-0063 rows: Studio→build, other→ask, AI-Studio-off downgrade, `app.defaultAgent` bounded + roster rejected, alias-aware resolution, empty catalog→inert).\n- `pnpm --filter @object-ui/app-shell`: **267** hooks/layout/studio/console tests green (incl. the two new tables).\n- `turbo type-check` clean; `turbo build --filter=@object-ui/console` clean (full-graph integration).\n- **Real-browser boot** (Chromium): app loads with **0 uncaught JS errors / 0 non-network console errors**.\n\n> ⚠️ **Browser proof limit (ADR-0054):** interactive AI-chat verification (the two surfaces sharing one live thread) needs the cloud `service-ai` stack + `AI_GATEWAY_API_KEY` + a real login (httpOnly session) — none available in the CI/sandbox. The behaviour is pinned by the unit invariants above; a maintainer login is needed for the screenshot proof.\n\n## Follow-ups\n- **P3** — docked rail; per founder decision this keeps Studio's current layout (**properties right / chat left**), so the disruptive 3-pane reflow is dropped.\n- **P4** — ask→build handoff via an explicit **\"Open in Builder →\"** (founder decision).\n- Both P3/P4 need the live AI stack for their ADR-0054 browser proof.\n\nRefs: ADR `docs/adr/0057-console-ai-chat-one-conversation-docked.md` (#2411) · work order #2412 · epic #2409."
+}

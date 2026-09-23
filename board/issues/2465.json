@@ -1,0 +1,32 @@
+{
+  "number": 2465,
+  "kind": "pull_request",
+  "title": "feat(console-ai): the FAB becomes the ChatDock launcher when the dock is on (ADR-0057 P3b)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T19:33:48Z",
+  "updated_at": "2026-07-13T19:44:19Z",
+  "closed_at": "2026-07-13T19:44:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T19:44:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2465",
+  "body": "Builds on P3a (#2464). When `features.chatDock` is enabled, the console FAB **opens the docked rail instead of the floating overlay** — the ADR's \"FAB → launcher\" step. One entry point.\n\n## What\n- `ConsoleChatbotFab` gains `onOpenDock`. When set (dock enabled): a click — and a designer \"Ask AI\" open signal (assistantBus) — opens the dock, and the **heavy floating chatbot is never mounted** (the FAB stays the lightweight button; the rail loads the chat on demand). When absent: unchanged floating-overlay behavior.\n- `ConsoleLayout` passes `dock.expand` as `onOpenDock` when the dock is enabled, and **drops P3a's edge launcher** — the dock is gated on the same `showChatbot`, so the FAB is always present to launch it.\n\nFlag OFF → the FAB is completely unchanged. Additive.\n\n## Verification\n- **Live** (flag forced on locally): on an app view the FAB is present and the P3a edge launcher is gone; clicking the FAB opens the **dock** (`chat-dock-panel` present, floating overlay **not** mounted, FAB stays lightweight) — the docked \"Assistant\" rail renders the ask chat and the content reflows beside it. Screenshot in the session.\n- **Unit**: `ConsoleChatbotFab` with `onOpenDock` → click calls it and never arms the overlay; the default (no `onOpenDock`) FAB is unchanged.\n\n## Next\nP3c — `/ai` = the dock maximized + the Studio copilot moves to the shared right dock (properties reflow). Per the [plan](https://github.com/objectstack-ai/objectui/issues/2409#issuecomment-4958265739).\n\nRefs: #2464 (P3a), epic #2409.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

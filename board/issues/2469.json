@@ -1,0 +1,33 @@
+{
+  "number": 2469,
+  "kind": "pull_request",
+  "title": "feat(console-ai): ChatDock DEFAULT ON — flag becomes a kill-switch (ADR-0057 P3 go-live)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T01:02:42Z",
+  "updated_at": "2026-07-14T01:14:31Z",
+  "closed_at": "2026-07-14T01:14:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T01:14:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2469",
+  "body": "Go-live for ADR-0057 P3 (epic #2409), following #2467: `features.chatDock` flips from **opt-in** (`=== true`) to **opt-out** (`!== false`), and the client default is `true` — the right-docked chat (FAB as launcher, `/ai` as the panel maximized, Studio right dock with center `[Canvas | Properties]` tabs) is now the console's default presentation on every runtime, with no server config needed.\n\nThe flag survives **only as a server-side kill-switch**: an operator sending `chatDock: false` restores the floating-overlay console. The kill-switch (and the overlay path it falls back to, plus the legacy left Studio copilot) will be removed by the final cleanup PR tracked on the epic.\n\n- `runtime-config.ts`: default `chatDock: true`; parse `!== false`; doc comment updated to shipped/kill-switch semantics.\n- `runtime-config.test.ts`: the P3a \"defaults OFF and is opt-in\" case becomes \"defaults ON; explicit false is the kill-switch\".\n- ADR-0057 Status line updated; changeset added.\n- Suites re-run green with the new default: 18 files / 94 tests (runtime-config, layout, console/ai, console, studio-design).\n\nThe flag-on behavior itself carries #2467's ADR-0054 browser proof (rail ⇄ `/ai` same thread, Studio grid, canvas auto-maximize), captured on the local rig with exactly this configuration.\n\nRefs #2409 · ADR-0057 §P3\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

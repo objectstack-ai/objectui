@@ -1,0 +1,32 @@
+{
+  "number": 2523,
+  "kind": "pull_request",
+  "title": "feat(metadata-admin): page variable source is a component picker (#2328)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T14:26:37Z",
+  "updated_at": "2026-07-15T14:54:32Z",
+  "closed_at": "2026-07-15T14:54:30Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T14:54:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2523",
+  "body": "## Problem\n\nWhen editing a Page in Studio, the **`source`** field under **Variables** (Data Context) rendered as a plain text `<Input>` — the author had to know and type a component `id` (e.g. `project_picker`). The sibling `object` field already renders as a dropdown (`ref:object`), establishing the expected UX.\n\nFixes #2328.\n\n## What changed\n\n**New `ref:component` widget** (`widgets.tsx`):\n- `collectPageComponentIds(draft)` — walks the page draft's `regions[].components[]` tree, including nested containers (`components` / `children`, direct or under `properties`), returning `{ id, type, label }` de-duped in document order.\n- Renders a `<Select>` of those ids. Degrades to a free-text input when the page has no components yet, and preserves a stale/renamed id (shown with a `(not in object)` tag) so it's never silently dropped.\n- Registered in `WIDGETS` and handled in the master-detail `RowCell` for parity with `ref:object`.\n\n**Context wiring**:\n- `WidgetContext` gains `componentIds`.\n- `ResourceEditPage` derives `componentIds` from the **live draft** (page type only) so components added on the canvas appear in the picker immediately.\n\n**i18n**: `selectComponent` / `noComponents` (en + zh).\n\n## Companion\n\nPairs with framework PR objectstack-ai/framework#2968, which pins `widget: 'ref:component'` on the page `variables.source` sub-field. **Merge framework first** — until it deploys, this widget is dormant (no CI coupling; the wiring is runtime via the served `/meta/types` form).\n\n## Testing\n- `RefComponentWidget.test.tsx` — 9 tests: widget rendering (available / empty / stale-value), `collectPageComponentIds` (nesting, de-dup, skip-no-id, empty), and a full `SchemaForm` integration test proving a repeater `source` sub-field with `widget: 'ref:component'` routes to the dropdown fed by `componentIds`.\n- Existing SchemaForm/widget tests green; `pnpm --filter @object-ui/app-shell type-check` clean.\n\n## Screenshot / behavior\n\nOpening a Page with an `element:record_picker` (`id=\"project_picker\"`) and adding a variable now shows a `source` dropdown listing `project_picker` and any other component ids on the page, instead of a free-text input.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

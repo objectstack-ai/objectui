@@ -1,0 +1,33 @@
+{
+  "number": 2506,
+  "kind": "pull_request",
+  "title": "fix(components): pin list-view horizontal scrollbar to viewport bottom",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T05:18:39Z",
+  "updated_at": "2026-07-15T08:55:54Z",
+  "closed_at": "2026-07-15T08:55:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T08:55:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2506",
+  "body": "Closes #2507\n\n## 问题\n列表/网格视图列很多时,横向滚动条只有**下拉到最后一行**才出现,看右侧字段很别扭。\n\n## 根因\nshadcn 的 `<Table>` 把 `<table>` 包在一个 `overflow-auto` 的滚动 `<div>` 里。当 `DataTable` 已经把表格放进一个**有界**的 `flex-1 min-h-0 overflow-auto` 区域时,这个默认包裹层就变成**第二个、高度无界的横向滚动容器**——它被撑到整张表的高度,于是横向滚动条落在所有行的最底部,只有滚到最后一行才够得到。\n\n## 改动\n- `Table` 新增可选 `containerClassName` prop,用于覆盖滚动包裹 `<div>` 的 class(默认行为不变)。\n- `DataTable` 传 `containerClassName=\"overflow-visible\"`,让外层有界容器同时拥有横纵两轴,横向滚动条钉在视口底部——任意滚动位置都能横滚,无需到最后一行。\n- 新增回归测试 `table-container-overflow.test.tsx`,断言 `overflow-visible` 覆盖经 `cn`/twMerge 正确收敛(默认 `overflow-auto` 被替换)。\n\n## 验证\n- `turbo type-check @object-ui/components` 通过。\n- 现有 data-table 测试 4 文件 20 用例 + 新增 2 用例全过。\n- 真机 console 端到端实测(data-table:60+ 行 × 19 列):横向滚动条归外层有界 `flex-1 min-h-0 overflow-auto` 容器所有(clientHeight=942,非整表 2672),底边在视口内(y=1148 < winH=1181);停在首行(scrollTop=0)也能横滚到最右。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2568,
+  "kind": "pull_request",
+  "title": "feat(flow-designer): pick the target node per branch in the Decision Branches editor (#1942)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T05:16:23Z",
+  "updated_at": "2026-07-16T12:50:36Z",
+  "closed_at": "2026-07-16T12:50:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T12:50:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2568",
+  "body": "## Summary\n\nCloses #1942.\n\nThe decision node's **Branches** editor gains a **Target** column — a node-reference picker scoped to this flow's nodes — so the whole decision (conditions *and* destinations) is authored in one table, mirroring Salesforce Flow **Decision Outcomes**. This completes #1930 (the per-edge Branch picker) from the node side.\n\n## Design: edges stay the single source of truth\n\nThe Target column is **virtual**: its displayed value is *derived* from the decision's outgoing edges (the engine and simulator route on `edge.condition` / `label` / `isDefault`), and it is **never persisted** on `config.conditions` (which keeps the spec-clean `{ label, expression }` shape). Committing the editor reconciles the chosen targets back onto the edges (`flow-decision-edges.ts`):\n\n- **create** the out-edge when the branch has a target but no edge yet, carrying its condition / label / default flag;\n- **update / retarget** the existing bound edge in place (edge identity and extra keys preserved), using three deterministic claim tiers — exact target + binding, exact target, binding alone;\n- **detach** (remove) the branch's bound edge when its target is cleared — never the node it pointed at;\n- **never touch** custom hand-written edge guards, fault/back edges, or surplus canvas wiring;\n- a commit with **no targets anywhere** (e.g. an engine-published `configSchema` form without the column) keeps the legacy #1927 **by-order mirror** byte-for-byte.\n\n\"Bound to a branch\" uses the same matching as the `FlowEdgeInspector` Branch picker (default-ish branch ↔ `isDefault` edge, else condition text, else label), so editing in either place round-trips.\n\n## Acceptance criteria\n\n- [x] Target column in the Decision Branches editor (node picker scoped to this flow's nodes — the existing `ref.kind: 'node'` picker source)\n- [x] Choosing a target creates the out-edge if missing / updates the existing one, carrying condition/label/default\n- [x] Round-trips with the `FlowEdgeInspector` Branch picker (#1930)\n- [x] Clearing a target detaches the edge, never deletes a node\n- [x] Unit tests for the branch→edge reconciliation (16 new tests)\n\n## Testing\n\n- `vitest run …/inspectors/` — 20 files, 230 tests pass (16 new in `flow-decision-edges.test.ts`)\n- `pnpm --filter @object-ui/app-shell type-check` — clean\n- Docs updated: `content/docs/guide/flow-designer.md`, `packages/app-shell/README.md`; changeset (minor) included\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

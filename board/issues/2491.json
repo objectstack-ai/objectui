@@ -1,0 +1,34 @@
+{
+  "number": 2491,
+  "kind": "pull_request",
+  "title": "feat(grid,list,core,i18n): 导出文件名本地化 + 导入模板中文化修复",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T10:50:46Z",
+  "updated_at": "2026-07-14T13:53:46Z",
+  "closed_at": "2026-07-14T13:53:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T13:53:44Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2491",
+  "body": "## 背景\n\n用户反馈:\n1. **导出功能(CSV/Excel)文件名**:下载得到 `contracts.csv` 这种裸对象名,希望优化为「对象显示名-时间戳」(如 `任务-20260714-153045.xlsx`)。\n2. **导入「下载模板」仍有英文**:示例行是 ASCII slug(如 `prepare`/`active`),模板文件名也是英文。\n\n服务端配套 PR:framework#2911(Content-Disposition 本地化 + 系统字段标签内置回退,\"Owner\"→「所有者」在那边修)。\n\n## 变更\n\n### `@object-ui/core`\n- 新增 `buildExportFileName(ext, { prefix, label, objectName }, now?)` 与 `sanitizeFileNameBase(raw)`:生成「显示名-yyyymmdd-hhmmss.扩展名」;`exportOptions.fileNamePrefix` 配置仍优先;非法文件名字符清洗但保留 Unicode(中文不丢)。\n\n### `@object-ui/plugin-grid` / `@object-ui/plugin-list`\n- ObjectGrid 与 ListView 的**所有**导出路径(服务端流式下载与前端兜底导出)统一走 `buildExportFileName`,浏览器落盘名从 `contracts.csv` 变为 `合同-20260714-153045.csv`。\n\n### 导入模板(ImportWizard)\n- 示例行 select/多选取值改为**优先取选项显示标签**(如 `准备中`)而非 slug(`prepare`);服务端导入 coercion 对 label/value 都接受,回填不受影响。\n- 模板文件名本地化:新增 i18n key `grid.import.templateFileName`(zh `{{object}}-导入模板`,en 回退 `{{object}}-import-template`),经 `sanitizeFileNameBase` 清洗。\n\n## 测试\n\n- 单测:core 新增 10 例(buildExportFileName/sanitizeFileNameBase)、plugin-grid 194 通过(含模板示例值取 label 断言)、plugin-list 149 通过、i18n 176 通过。core 套件另有 1 例 `FormulaFunctions` DATEFORMAT 时区环境性失败,与本 PR 无关(diff 未触及)。\n- **真机实测**(showcase dev 栈,中文界面,hook `a.download` 捕获真实落盘名):\n  - 导出 CSV → `任务-20260714-064550.csv`;导出 XLSX → `任务-20260714-064607.xlsx`。\n  - 导入向导「下载模板」→ 文件名 `任务-导入模板.csv`;模板内容表头「所有者,标题 *,项目 *,…,创建时间,…」,示例行 select 值为显示标签(`Backlog`/`Low`)而非 slug。\n\n## 追加(842a766eb):导出文件名带上当前视图名\n\n用户第三轮诉求「文件名称中能加上视图名称么」——同一对象不同保存视图的导出此前完全同名。\n\n- 格式升级为 `<对象显示名>-<视图名>-<时间戳>.<扩展名>`,如 `任务-In Progress-20260714-082725.csv`。\n- `buildExportFileName` 新增 `viewLabel`:`fileNamePrefix` 配置后不追加视图名;视图名与对象名重复(大小写不敏感)时省略;组合 base 截断 80 字符。\n- 根因补齐:app-shell 与 plugin-view 的 ObjectView 此前从不把 `viewDef.label` 写进传给 ListView 的 schema,现已传递(顺带让 overlay 详情标题显示视图名)。\n- 单测 export-filename 15/15、plugin-list 149、plugin-grid 194、plugin-view 28、app-shell 698;真机落盘名见 PR 评论实测报告。\n\n关联 issue:objectstack-ai/framework#2916(服务端 PR framework#2911 合并即关闭)\n"
+}

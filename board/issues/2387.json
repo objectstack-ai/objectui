@@ -1,0 +1,30 @@
+{
+  "number": 2387,
+  "kind": "pull_request",
+  "title": "feat: consume dynamic runtime branding across the console frontend",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-10T15:28:42Z",
+  "updated_at": "2026-07-10T15:42:19Z",
+  "closed_at": "2026-07-10T15:42:19Z",
+  "closed_by": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2387",
+  "body": "Replace hardcoded default icons, titles, and favicon with values from the runtime config branding endpoint. All branding surfaces (header logo, auth page BrandMark, device-auth, loading screen, PWA manifest, document title, favicon) now reflect the operator's configured brand.\r\n\r\nAdds a dev-only Vite plugin that serves branding assets at /runtime/assets/* from the host project's runtime/assets directory, so logo/favicon URLs resolve when the console dev server runs standalone. Falls back to built-in defaults when no branding is configured."
+}

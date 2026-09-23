@@ -1,0 +1,33 @@
+{
+  "number": 2580,
+  "kind": "pull_request",
+  "title": "fix(app-shell,core): keep error-envelope objects out of toast.error — React #31 page crash",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T08:05:34Z",
+  "updated_at": "2026-07-16T13:10:15Z",
+  "closed_at": "2026-07-16T13:10:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T13:10:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2580",
+  "body": "Closes #2579.\n\n## Problem\n\nA failed `api` / `flow` / `server-action` action returning the ObjectStack envelope `{ success: false, error: { code, message } }` crashed the whole console page instead of showing an error toast: the error **object** rode `result.error` into `ActionRunner.handlePostExecution` → `toast.error(object)` → sonner rendered it as a React child → Minified React error #31 inside `flushSync`, uncaught, page down. Reported from Setup → Create User's 400 (server half: objectstack-ai/framework#3031, fixed in objectstack-ai/framework#3033).\n\n## Fix — two layers\n\n1. **Sources** (`packages/app-shell/src/hooks/useConsoleActionRuntime.tsx`): new module-level `errorDetail(body, fallback)` flattens an error body to a string — `error` string → `error.message` → `message` → HTTP-status fallback — applied to the three handlers that previously did `(body as any)?.error || …` (apiHandler, flowHandler, serverActionHandler).\n2. **Sink** (`packages/core/src/actions/ActionRunner.ts`): the error-toast sink coerces a non-string `result.error` to its `.message` (or a generic `'Action failed'`) before calling the toast handler, so no future handler bug can take the page down again.\n\n## Testing\n\n- New tests: apiHandler flattens the envelope to the message string; falls back to `HTTP <status>` when the body is unusable; ActionRunner coerces a leaked object at the sink (with-message and without-message cases).\n- `vitest run` on the two touched test files: 88/88 pass.\n- Pure bug fix — no changeset per AGENTS.md.\n\nBrowser-level verification will land with the next `.objectui-sha` pin bump in framework (the console bundle is built at the pinned SHA, so an uncommitted worktree can't be smoke-tested in the dogfood console)."
+}

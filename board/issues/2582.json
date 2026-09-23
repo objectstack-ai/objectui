@@ -1,0 +1,32 @@
+{
+  "number": 2582,
+  "kind": "issue",
+  "title": "相关列表:带子表单的对象经 ModalForm 新建/编辑成功后列表与计数徽章不刷新(batchTransaction 不发 MutationEvent)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T08:22:00Z",
+  "updated_at": "2026-07-16T10:53:16Z",
+  "closed_at": "2026-07-16T10:53:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2582",
+  "body": "## 问题\n\n记录详情页「相关」tab 中,若子对象的表单**带子表单**(master-detail 行编辑,如 EHR 项目的 任务检查项 挂「检查项选项」子表),点「新建」经 ModalForm 创建成功(toast「XX创建成功」正常弹出)后:\n\n- 相关列表行**不刷新**,仍显示旧数据/「暂无相关记录」\n- 区块计数、「相关」tab 徽章**不更新**\n- 必须整页刷新才能看到新记录\n\n行菜单 → 编辑 → 更新 同样中招。无子表单的普通对象不受影响。\n\n复现环境:console 15.0.0,任务版本 detail → 任务检查项 相关列表 → 新建;已在 objectui HEAD 用真实项目 metadata 复现。\n\n## 根因\n\n带子表单的表单由 ModalForm 委托给 MasterDetailForm,后者把父记录+子行打包成**一个 `/api/v1/batch` 事务**提交(`canBatch` 分支,console 里 `dataSource.batchTransaction` 恒存在)。而 `ObjectStackAdapter.batchTransaction` 从不调用 `emitMutation`——单条 `create`/`update`/`delete` 都会发,唯独 batch 不发。#2269 失效总线(`onMutation` → `notifyDataChanged`)因此对整次写入一无所知,相关列表与计数徽章全部保持旧值。\n\n`bulk()`(`applyDetail` 回退路径给子行创建用)也有同样缺口:只发进度事件,不发 MutationEvent。\n\n## 修复方案\n\n在 `@object-ui/data-objectstack` 适配器层补发事件(与 #2269 的设计一致——凡经 dataSource 的写都应自动到达失效总线):\n\n- `batchTransaction` 事务提交成功后,按每个 op 补发一条 MutationEvent(create 用服务端回显 results 取 id/record;失败回滚时一条不发)\n- `bulk()` create/delete/update 三分支各补发一条 resource 级事件,对齐既有 `bulkUpdate`/`bulkDelete` 行为\n\n附回归测试(batch 新建/编辑/失败不发、bulk create/delete),并已在真实 EHR metadata 上真机验证新建/编辑两条路径均即时刷新。"
+}

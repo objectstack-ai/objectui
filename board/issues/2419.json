@@ -1,0 +1,32 @@
+{
+  "number": 2419,
+  "kind": "pull_request",
+  "title": "fix(app-shell): propagate action-param 'visible' through resolveActionParams (finish create-user phone fix)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T05:14:15Z",
+  "updated_at": "2026-07-13T05:25:13Z",
+  "closed_at": "2026-07-13T05:25:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T05:25:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2419",
+  "body": "## The bug\n\nCreating a user still shows a **Phone Number** field even though the default\nbackend has no `phoneNumber` auth plugin — so submitting a phone fails with\n`Phone numbers require the phoneNumber auth plugin`. The prior two-part fix was\nsupposed to hide it:\n\n- objectui #2406 — `ActionParamDialog.filterVisibleParams` hides a param whose\n  `visible` CEL predicate is false.\n- framework #2871 — serves `create_user`'s `phoneNumber` param with\n  `visible: 'features.phoneNumber == true'`.\n\nBoth landed, the backend serves the predicate, `features.phoneNumber` is\n`false` — yet the field kept rendering.\n\n## Root cause\n\nThe predicate never reached the dialog. `create_user` → `paramCollectionHandler`\n→ **`resolveActionParams`** → `ActionParamDialog`. `resolveActionParam` flattens\neach raw spec param into `ActionParamDef` field-by-field and **did not copy\n`visible`** (in any of its three return branches). So `param.visible` was\n`undefined` at the dialog, `filterVisibleParams` saw no predicate, and the phone\nfield always rendered. `RawActionParam` didn't even declare `visible`.\n\nThis is the missing plumbing between #2406 (the filter) and #2871 (the served\npredicate).\n\n## Fix\n\n- `RawActionParam` gains `visible?: string | { dialect?: string; source?: string }`.\n- `resolveActionParam` propagates `visible` in all three branches (inline /\n  field-backed / missing-field), unwrapping the spec's normalized\n  `{ dialect, source }` `ExpressionInput` envelope to a plain CEL string via a\n  small `normaliseVisible` helper.\n\n## Tests\n\n- New `resolveActionParams.test.ts` (6 cases): raw-string + `{dialect,source}`\n  envelope propagation, inline / field-backed / missing-field branches, absent\n  and empty predicates.\n- Existing `ActionParamDialog.test.tsx` (6) still green — **12 passing**.\n- Full type gate: `turbo run build --filter=@object-ui/app-shell` (29 pkgs) green.\n\n## Rollout note\n\nThe Setup console is built from a **pinned objectui SHA** (`framework/.objectui-sha`\n→ `scripts/build-console.sh`). To reach a running deployment this needs: merge\nhere → bump `framework/.objectui-sha` to the new objectui commit → rebuild the\nconsole (`scripts/build-console.sh`) → restart. A follow-up framework PR will\nbump the pin.\n\nCloses the create-user phone issue end to end.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

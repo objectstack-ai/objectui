@@ -1,0 +1,32 @@
+{
+  "number": 2513,
+  "kind": "issue",
+  "title": "fix(auth): DeviceAuthPage ignores features.deviceAuthorization (flag missing from client type, page hits endpoints unguarded)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T13:21:45Z",
+  "updated_at": "2026-07-15T15:13:09Z",
+  "closed_at": "2026-07-15T15:13:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2513",
+  "body": "## 背景\n\nframework#2874 P2② 登录面审计发现:`/api/v1/auth/config` 服务端广告 `features.deviceAuthorization`(默认 false,插件 opt-in),但 objectui 侧:\n\n1. **客户端类型缺失**:`packages/auth/src/types.ts` 的 `AuthPublicConfig.features` 根本没有 `deviceAuthorization` 键;\n2. **页面不查 flag**:`apps/console/src/pages/auth/DeviceAuthPage.tsx` 直接 fetch `${AUTH_BASE}/device`、`/device/approve`、`/device/deny`,插件关闭时用户仍能通过路由进入该页面,提交后才收到后端错误——正是 #2874 要消除的「UI 宣传 runtime 没有的能力」类缺口。\n\n## 建议修复\n\n- `types.ts` 的 `features` 补 `deviceAuthorization?: boolean`;\n- `DeviceAuthPage` 挂载时读 `getAuthConfig()`,`features.deviceAuthorization !== true` 时渲染「此部署未启用设备授权」占位(或直接跳回登录页),不再裸打端点。\n\n## 参考\n\n- framework 侧注册表:`packages/spec/src/kernel/public-auth-features.ts`(`deviceAuthorization` 条目的 exempt.reason 指向本 issue)\n- 审计出处:framework#2874(P2② 登录面核对)\n\n_后端本来就 fail-closed 拒绝,此为可用性/诚实宣传问题,非权限提升。_"
+}

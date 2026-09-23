@@ -1,0 +1,32 @@
+{
+  "number": 2351,
+  "kind": "pull_request",
+  "title": "fix(ai-chat): conversation-language locale, build-first default tab, honest publish errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-08T17:10:26Z",
+  "updated_at": "2026-07-08T17:14:34Z",
+  "closed_at": "2026-07-08T17:10:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-08T17:10:42Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2351",
+  "body": "## Summary\n\n2026-07-09 魔法流程验收(objectstack-ai/cloud#771 / cloud#772)的 UI 侧修复批:\n\n1. **聊天面跟随会话语言**:中文会话在英文控制台下不再蹦英文(canned 确认消息 / 进度文案 / 建议 chips);`detectConversationLanguage()` 读最近 user 消息(CJK→zh),UI locale 只作新会话回退。\n2. **默认 tab 偏向 Build**(目录里有 build 时):build 面板才会续接进行中的会话——默认落在 ask 会让用户以为搭建线程丢了而重新描述需求(cloud#769 的用户侧二遍开发路径)。ask-only 用户不受影响。\n3. **Build 角色文案分家**:空态介绍与 chips 换成搭建向(中英),不再套用问答角色的 \"query and analyze your data\"。\n4. **Publish 失败带真因**:原来 `throw new Error(String(failedCount))` → 用户看到 \"Publish failed — 2\";现在给出首个失败项的 type/name/error(+N more)或服务端 error.message。\n5. **浮窗发布成功后 `emitMetadataRefresh()`**(全页 /ai 路由早已有):launcher/app 切换器无需 F5 即出现新 app——\"从启动器打开\"不再说谎。\n6. **占位符折叠**:重开会话时 \"(called todo_write, propose_blueprint)\" 不再渲染为正文,折叠为本地化的\"执行过程\"注记。\n\n## 测试\n\n- turbo build(app-shell + plugin-chatbot 及依赖)✓\n- vitest 150 files / 1242 tests ✓\n- cloud 侧联动 PR:objectstack-ai/cloud#776(确认幂等)+ seed 死巷修复;合并后将做全栈浏览器复验并回帖\n\nRefs objectstack-ai/cloud#771, objectstack-ai/cloud#772\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

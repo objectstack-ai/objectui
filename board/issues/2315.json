@@ -1,0 +1,38 @@
+{
+  "number": 2315,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/spec from 12.2.0 to 12.3.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T08:25:06Z",
+  "updated_at": "2026-07-06T08:34:19Z",
+  "closed_at": "2026-07-06T08:30:38Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-07-06T08:30:38Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2315",
+  "body": "Bumps [@objectstack/spec](https://github.com/objectstack-ai/framework/tree/HEAD/packages/spec) from 12.2.0 to 12.3.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/framework/releases\">@​objectstack/spec's releases</a>.</em></p>\n<blockquote>\n<h2><code>@​objectstack/spec</code><a href=\"https://github.com/12\"><code>@​12</code></a>.3.0</h2>\n<h3>Minor Changes</h3>\n<ul>\n<li>\n<p>e7eceec: Add <code>SelectOption.visibleWhen</code> — a per-option CEL visibility predicate for\n<code>select</code>/<code>multiselect</code>/<code>radio</code> fields. The option is offered only when the\npredicate is TRUE, evaluated against the live record + <code>current_user</code> (same\nbinding environment as a field-level <code>visibleWhen</code>). This expresses cascading /\ndependent options (<code>record.country == 'cn'</code>) and role/context gating\n(<code>'admin' in current_user.roles</code>) without a bespoke dependent-picklist matrix.</p>\n<p><code>Field.dependsOn</code>'s description is generalized to be mechanism-neutral: it\ndeclares the sibling field(s) a field's available values depend on (gating +\nre-evaluation), for both lookups (candidate query scoping) and selects\n(per-option <code>visibleWhen</code> gating). The <code>{field,param}</code> form remains lookup-only.</p>\n<p>Serializable and shared by <code>Field.options</code> and view <code>FormField.options</code>.\nClient-side hiding is UX only — authorization-gated option values must also be\nrejected server-side by the rule-validator.</p>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/framework/blob/main/packages/spec/CHANGELOG.md\">@​objectstack/spec's changelog</a>.</em></p>\n<blockquote>\n<h2>12.3.0</h2>\n<h3>Minor Changes</h3>\n<ul>\n<li>\n<p>e7eceec: Add <code>SelectOption.visibleWhen</code> — a per-option CEL visibility predicate for\n<code>select</code>/<code>multiselect</code>/<code>radio</code> fields. The option is offered only when the\npredicate is TRUE, evaluated against the live record + <code>current_user</code> (same\nbinding environment as a field-level <code>visibleWhen</code>). This expresses cascading /\ndependent options (<code>record.country == 'cn'</code>) and role/context gating\n(<code>'admin' in current_user.roles</code>) without a bespoke dependent-picklist matrix.</p>\n<p><code>Field.dependsOn</code>'s description is generalized to be mechanism-neutral: it\ndeclares the sibling field(s) a field's available values depend on (gating +\nre-evaluation), for both lookups (candidate query scoping) and selects\n(per-option <code>visibleWhen</code> gating). The <code>{field,param}</code> form remains lookup-only.</p>\n<p>Serializable and shared by <code>Field.options</code> and view <code>FormField.options</code>.\nClient-side hiding is UX only — authorization-gated option values must also be\nrejected server-side by the rule-validator.</p>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/7ff8a67556300a013082f86f6293a694d84ad9e7\"><code>7ff8a67</code></a> chore: version packages (<a href=\"https://github.com/objectstack-ai/framework/tree/HEAD/packages/spec/issues/2639\">#2639</a>)</li>\n<li><a href=\"https://github.com/objectstack-ai/framework/commit/e7eceec1d5189bb95b2e2b89ba82d1acc7ab1d42\"><code>e7eceec</code></a> feat(spec): add SelectOption.visibleWhen; generalize Field.dependsOn (objectu...</li>\n<li>See full diff in <a href=\"https://github.com/objectstack-ai/framework/commits/@objectstack/spec@12.3.0/packages/spec\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

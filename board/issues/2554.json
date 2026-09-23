@@ -1,0 +1,30 @@
+{
+  "number": 2554,
+  "kind": "pull_request",
+  "title": "fix(studio): refresh builder top-bar name after a package rename",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T01:49:56Z",
+  "updated_at": "2026-07-16T01:59:38Z",
+  "closed_at": "2026-07-16T01:59:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T01:59:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2554",
+  "body": "## Problem (dogfood Finding 3)\nIn the Studio builder, `PackageSwitcher` loads the package list once (keyed on `packageId`) and derives the top-bar package name from it, but never listens for `objectui:packages-changed` — the event `PackageFormDialog` dispatches on create/edit. So after renaming the current package via **edit**, the header keeps showing the **old name until a full page reload**.\n\n## Fix\nRe-fetch the switcher list on `objectui:packages-changed` (add/remove the listener in the existing effect), so the top-bar name reflects a rename immediately.\n\n## Verified\nDispatching `objectui:packages-changed` in the running builder triggers a `GET /api/v1/packages` refetch (confirmed via a fetch counter), which re-derives the displayed `current.name`.\n\n> Note: the full edit→header chain also needs framework objectstack-ai/framework#2995 — the `PATCH /packages/:id` **route** was never mounted, so edit itself 405'd. That PR fixes the endpoint; this PR fixes the UI refresh once the edit succeeds.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

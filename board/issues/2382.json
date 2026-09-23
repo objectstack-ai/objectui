@@ -1,0 +1,30 @@
+{
+  "number": 2382,
+  "kind": "issue",
+  "title": "Access pillar '已分配用户' counts only DIRECT grants — holders via position bindings show as 0 人",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-10T10:23:57Z",
+  "updated_at": "2026-07-10T14:22:32Z",
+  "closed_at": "2026-07-10T14:22:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2382",
+  "body": "Dogfooding the Access pillar (permission matrix) as a business admin on a live showcase boot:\n\n1. Bind `showcase_contributor` to the `contributor` position (`sys_position_permission_set`, 201).\n2. Assign a user to `contributor` (`sys_user_position`, 201).\n3. Reload the pillar → the set's 已分配用户 footer still reads **0 人 /「还没有分配任何用户」**.\n\nThe count evidently reads `sys_user_permission_set` (direct grants) only. In the ADR-0090 model positions are THE distribution channel — direct grants are the exception — so for any normally-administered set the footer permanently shows 0, and an admin auditing \"who holds this?\" is told *nobody* right before they edit or delete a set that a whole position's population depends on.\n\n## Suggested shape\n\nCount (and list) effective holders = direct grants ∪ holders of every position bound to the set (`sys_position_permission_set` → `sys_user_position`), with a per-row via badge (直授 / via 岗位 X) — same attribution vocabulary the explain panel already uses. The blast-radius sentence in framework's access-matrix drift output (\"~N users\") wants the same resolution."
+}

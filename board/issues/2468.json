@@ -1,0 +1,33 @@
+{
+  "number": 2468,
+  "kind": "pull_request",
+  "title": "fix(auth): login silent-failure UX — SSO pending states, redirect-URL contract, OAuth callback error banner (#2458 item 1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T20:54:55Z",
+  "updated_at": "2026-07-13T20:58:35Z",
+  "closed_at": "2026-07-13T20:55:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T20:55:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2468",
+  "body": "Fixes item 1 (🔴 登录提交\"无声失败\") of #2458.\n\n## Ownership verdict\n\n**The login surface is objectui-owned** — the console SPA (`apps/console` + `@object-ui/auth`) serves `/_console/login` on both the cloud (:4900) and every env host; framework's better-auth server side behaves as designed with one exception (below). Live re-investigation on the run-stack rig found:\n\n- The email/password submit **already had** a pending state, inline error banner, and post-login OAuth continuation (`followOauthAuthorize`, #2008) — these were live-verified working. Part of what the three test sessions saw was a **stale served console bundle** (the rig node-resolves `@objectstack/console` to `framework/packages/console/dist`, bypassing run-stack's overlay) plus click/typing automation artifacts.\n- **One genuine silent dead-end was reproduced on current code**: when the OAuth hand-off's signed params / `state` go stale (10-min `exp`, single-use state — easy in a slow real-world session), the cloud still issues a code, the **env callback rejects with `state_mismatch`**, and better-auth's default error redirect (`/?error=state_mismatch`) loses its query on the root→console hop. The user who just typed a correct password lands on a **silent login form** — exactly the reported symptom (the env and cloud login forms are visually identical).\n- The SSO/provider buttons (\"Continue with ObjectStack\") had **no pending state**, and a provider sign-in that resolved without a redirect URL was a **silent no-op**.\n\n## Changes\n\n- `SocialSignInButtons`: pending spinner + disabled while `signInWithProvider` is in flight, double-click guard, inline failure surfacing (button re-enables only on failure — success ends in navigation).\n- `createAuthClient.signInWithProvider`: **throws** when the server response carries no redirect URL (both `oidc` and `social` paths) instead of resolving silently.\n- `LoginForm` \"Sign in with SSO\": pending state on the raw `/sign-in/sso` fetch.\n- `LoginPage`: renders `?error=` / `?error_description=` (better-auth OAuth callback failure codes) as a visible `AuthErrorBanner` — zh/en strings added (`auth.login.errors.oauthCallbackFailed`).\n- Paired framework PR (objectstack-ai/framework — plugin-auth `onAPIError.errorURL` → `/_console/login`) makes the server land callback errors where this banner is. The banner is inert until that merges; merge this UI PR first.\n\n## Verification (live browser on the run-stack rig, fixed bundle overlaid)\n\n| Proof | Result |\n|---|---|\n| (a) wrong password | inline 邮箱或密码错误 banner, button re-enabled ✅ |\n| (b) correct password, plain login | redirects to console home ✅ |\n| (c) env → Continue with ObjectStack → cloud login (signed OAuth params) → 登录 | full hand-off completes, lands signed-in on the env ✅ |\n| (d) backend stopped, submit | visible inline \"Failed to fetch\", button re-enabled — not console-only ✅ |\n| `?error=state_mismatch` on login | visible banner: 单点登录未能完成——登录链接已过期或已被使用… (state_mismatch) ✅ |\n\nScoped tests: `packages/auth` (LoginForm / SocialSignInButtons / createAuthClient) + `apps/console` LoginPage banner — 53 tests green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

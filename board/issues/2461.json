@@ -1,0 +1,33 @@
+{
+  "number": 2461,
+  "kind": "pull_request",
+  "title": "feat(console-ai): package binding chip + latest-only handoff cards + honest send hint (#2458 / ADR-0057 A1.a)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T15:01:20Z",
+  "updated_at": "2026-07-13T18:49:35Z",
+  "closed_at": "2026-07-13T18:49:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T18:49:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2461",
+  "body": "Three UX fixes from the consolidated live-testing findings (#2458), all **live-verified in the magic flow** (screenshots below). Companion backend: objectstack-ai/cloud#823.\n\n## 1. A1.a — package binding chip (ADR-0057 Amendment A1, PR #2457)\nThe build surface header now shows the package the conversation is bound to (`📦 <app>`) or **\"✨ New app\"** when unbound — the Claude-Code-shows-the-repo idiom, for display only (no gating). `deriveBoundPackageId` reads the explicit `?package=` else the latest `draftReview`/`builderHandoff` package in the thread.\n**Live-verified:** a fresh build starts \"✨ New app\" and flips to \"📦 客户管理\" the moment its build mints the package.\n\n## 2. UX#5 — only the latest handoff card is actionable\nWhen an ask thread accumulates several \"Open in Builder →\" cards, only the newest stays clickable; older (superseded) cards are disabled (tooltip \"A newer request is available\"). Derived from **message order**, not click state, so it survives the navigation the button triggers and the pane remount that follows — the reason a naive \"clicked → inert\" approach fails here.\n**Live-verified:** two handoff cards in one thread — the older greyed/disabled, the newer bright/actionable.\n\n## 3. UX#7 — honest send hint\nThe composer already sends on plain Enter (Shift+Enter = newline); dropped the misleading `⌘` glyph from the hint so it reads \"↵ 发送\" instead of implying Cmd+Enter.\n**Live-verified.**\n\n## Tests\n`deriveBoundPackageId` (5), superseded-card (in ChatbotEnhanced, 82), no regressions in handoff/deferred-send suites; plugin-chatbot + app-shell package builds (tsc) clean.\n\n## Not in this PR (deferred, tracked in #2458)\nLogin silent-failure (framework auth), ask-decline skeleton, i18n sweep, global pending-blueprint badge (P3 dock), free-tier usage indicator, bundle splitting.\n\nRefs: #2458, #2457 (Amendment A1), epic #2409.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

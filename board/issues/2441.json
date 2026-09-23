@@ -1,0 +1,33 @@
+{
+  "number": 2441,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail,plugin-gantt): 记录抽屉尊重行级锁定(#2436 第 5 项)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T09:06:49Z",
+  "updated_at": "2026-07-13T11:23:40Z",
+  "closed_at": "2026-07-13T11:23:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T11:23:39Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2441",
+  "body": "关联 #2436(第 5 项:抽屉绕过行级锁定)。\n\n## 问题\n\n行级锁定(\\`lockField\\`)和全局 \\`readOnly\\` 只挡住了时间轴上的拖拽/调整,点击任务打开的记录抽屉却不受约束:\n\n1. \\`ObjectGantt\\` 无条件向 \\`RecordDetailDrawer\\` 传 \\`onFieldSave\\` / \\`onDelete\\`,锁定的排班计划照样能从抽屉里改字段、删记录。\n2. 更深一层,\\`RecordDetailDrawer\\` 自己硬编码 \\`inlineEdit\\` 和 \\`showDelete: true\\`,并且总是往内层 \\`DetailView\\` 传包装函数——即使外层 props 是 undefined,内层看到的仍是\"有 handler\"。也就是说光靠调用方不传 handler 根本锁不住:用户能进入编辑态、点保存,而改动静默丢失(比\"禁止编辑\"更糟)。\n\n## 方案\n\n按\"能力 = handler 是否传入\"收敛(与 DHTMLX 等成熟甘特图的只读语义一致):\n\n- **plugin-detail** \\`RecordDetailDrawer\\`:\\`inlineEdit={!!onFieldSave}\\`、\\`showDelete: !!onDelete\\`;包装函数改为条件传递(handler 缺失时向下传 \\`undefined\\`)。两者都省略 → 严格只读抽屉。现有调用方(calendar / kanban / gantt)都传了 handler,行为不变;plugin-dashboard 用的是自己的独立抽屉副本,不受影响;app-shell 仅在注释中引用。\n- **plugin-gantt** \\`ObjectGantt\\`:打开抽屉前按 \\`(schema).readOnly || !!rec[lockField]\\` 判定,锁定时两个 handler 均不传。\n\n## 测试\n\n- 新增 \\`RecordDetailDrawer.capability.test.tsx\\`(plugin-detail,5 例):双 handler → 可编辑可删除;全省略 → 严格只读;单独传 save 不解锁 delete;save 透传;删除成功后关抽屉、失败不关。\n- 新增 \\`ObjectGantt.drawerlock.test.tsx\\`(plugin-gantt,3 例):未锁定行 → 抽屉收到双 handler;\\`lockField\\` 锁定行 → 双 handler 缺失;全局 \\`readOnly\\` → 全部缺失。\n- \\`pnpm --filter @object-ui/plugin-detail test\\`:18 文件 185 例全绿。\n- \\`pnpm --filter @object-ui/plugin-gantt test\\`:20 文件 235 例全绿。\n- 两包 \\`tsc --noEmit\\` 干净;eslint 仅剩 ObjectGantt.tsx 两处 base 上已存在的错误(prefer-const :374、no-useless-assignment :770,与 #2437/#2438/#2440 记录一致),本 PR 未引入新错误。\n\n## 非目标\n\n- OCC/并发保护、断网监听(#2436 已明确砍掉)。\n- plugin-dashboard 的独立抽屉副本(不在甘特链路上)。\n- DetailView 自身的 \\`inlineEdit\\`/\\`showDelete\\` 门控逻辑(已有测试覆盖,未改动)。"
+}

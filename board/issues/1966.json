@@ -1,0 +1,33 @@
+{
+  "number": 1966,
+  "kind": "issue",
+  "title": "[low-pri] Studio: curated inspector for joined-report blocks (generic SchemaForm today)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T09:55:43Z",
+  "updated_at": "2026-07-15T15:48:00Z",
+  "closed_at": "2026-07-15T15:47:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1966",
+  "body": "## Summary\nFound dogfooding report design in Studio. Authoring the **blocks** of a `joined` report uses the raw generic `SchemaForm` repeater, so it lacks the curated affordances the top-level report inspector (`ReportDefaultInspector`) has. Functional, but clunky.\n\n**Priority: Low** — `joined` is the least-used report type, and authoring is functional (you can build + save; the editor preview now renders them after #1965). This is friction, not a blocker.\n\n## Symptoms (all one root cause)\nPer joined block, the inspector shows generic fields because blocks are array items rendered by the repeater without curated widgets/layout:\n- **Dataset is a free-text input** (no `ref:dataset` dropdown) — the author must type the exact dataset name.\n- **Rows / Columns / Values are free-text tag inputs** — no dataset-aware measure/dimension pickers (no catalog, no validation against the dataset's semantic layer).\n- **The entire `ChartConfigSchema` is rendered inline** for each block's *optional* chart (Title/Subtitle, X/Y axis, Series table, Colors, Height, Annotations, Tooltips/Zoom/Brush, Aria…) — dozens of fields that bury the block's data binding and make the form very long.\n- **`*` \"required\" markers appear on the optional chart's `xAxis`/`yAxis`/`type`** even though the whole chart is optional (markers come from the nested `ReportChartSchema`; leaving the chart empty is valid, so they mislead).\n\n## Root cause\n`joined` blocks are a nested array edited via the `blocks` repeater, which renders each item from `JoinedReportBlockSchema` generically. The metadata-admin's curated inspectors operate per top-level metadata type (`ReportDefaultInspector`), not per nested array item — so blocks don't get the dataset dropdown / measure-dimension pickers / compact chart.\n\n## Suggested approach\nFollow the **dashboard-widget** precedent (scoped inspector): let a joined block emit a selection and register a scoped `BlockInspector` (via `registerMetadataInspector`) that edits the selected block with curated controls — reusing the already-exported `DatasetNamesEditor` (measures/dimensions) and the `ref:dataset` dropdown from the top-level report inspector. This generalizes to other repeater-based authoring too.\n\nCheaper partial alternatives (lower value, with caveats):\n- Give the block `dataset` a dropdown — needs repeater-item widget hints.\n- Collapse the block's chart composite by default / suppress `*` on an optional composite — touches generic `SchemaForm` rendering (affects **all** optional composites), so weigh carefully.\n\n## Context\n- Found alongside the joined-preview fix #1965 (the editor now renders joined reports instead of the \"bind a dataset\" empty state).\n- Reference files: `packages/app-shell/src/views/metadata-admin/inspectors/ReportDefaultInspector.tsx` (curated top-level — the model to mirror), the `blocks` repeater path, and `@objectstack/spec` `JoinedReportBlockSchema` / `ReportChartSchema`."
+}

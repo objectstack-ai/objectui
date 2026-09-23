@@ -1,0 +1,30 @@
+{
+  "number": 2330,
+  "kind": "pull_request",
+  "title": "feat(studio): per-object API / Hooks / Actions tabs + Data-pillar polish",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T17:17:42Z",
+  "updated_at": "2026-07-06T17:21:34Z",
+  "closed_at": "2026-07-06T17:18:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-06T17:18:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2330",
+  "body": "## What\n\nObject-centric Studio (Data pillar) gains three per-object tabs and a real-user polish pass.\n\n### New object tabs\n- **API** — the object's five auto-generated REST endpoints, derived from its draft schema, with copy-as-cURL and a schema-derived example body. Reference-only.\n- **Hooks** — read-only inventory of lifecycle hooks targeting the object (events / condition / priority / async).\n- **Actions** — master-detail: a list of the object's actions on the left, and the **real** `action` metadata form (`getMetadataDefaultInspector('action')`) on the right. Create (**+ New**) / edit / delete; edits write back into the object's inline `actions[]` and persist via Save draft (same model as Validations). Object-scoped only; global actions are out of scope.\n\nTab order: `Records · Form · Validations · Hooks · Actions · API · Settings`.\n\n### Polish (real-user lens)\n- **Object icons** — the Data rail and header now show each object's own `icon` (via `getIcon`), not a generic Database glyph.\n- **Segmented control** — the object tab layer was faint toolbar chrome; reworked to the design-system segmented idiom (recessed track + elevated active pill).\n- **Declutter** — removed internal-architecture jargon badges (\"Runtime list · same renderer\", \"Preview = runtime · same renderer\") across Data/Interfaces; softened the uppercase type tags (OBJECT/PROFILE, form field types) from filled grey chips to faint labels; de-jargoned copy; promoted the object header to a real title; dropped the API subtitle's reference to a not-yet-existent \"Developer console\".\n\n### Bugs found & fixed via browser testing\n- **Hook condition crash** — a hook `condition` may be `{ dialect, source }`, not a string; rendering it raw white-screened the tree. Coerce to `.source`. (tsc couldn't catch it.)\n- **New action unsavable** — an unseeded `type:'script'` skeleton 422s the object draft on body edit (`body.language` discriminator). Seed a runnable JS body — same class the validations panel avoids with a placeholder condition.\n\n## Test\n- `tsc --noEmit` green.\n- Scoped vitest (i18n locale parity + studio-design panels): 34 passed.\n- Browser-verified end-to-end in a writable package: create → configure an \"Archive\" action (label / script / placement) → Save draft → reload persists → delete. Empty/populated states for all three tabs verified.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

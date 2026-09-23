@@ -1,0 +1,34 @@
+{
+  "number": 2542,
+  "kind": "pull_request",
+  "title": "feat(detail): record-level inline edit — shared InlineEditContext + one atomic Save (#2407 P1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T16:11:49Z",
+  "updated_at": "2026-07-15T16:43:06Z",
+  "closed_at": "2026-07-15T16:43:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T16:43:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2542",
+  "body": "## What & why\n\n**P1 of #2407** (follow-up to #2402; builds on the merged step-0 refactor #2529). Lifts the inline-edit session out of `DetailView`'s private state into a **record-level shared context**, so a record page's surfaces share **ONE draft** and commit it in **ONE atomic, cross-field-validated write** — replacing the old per-field save loop. This isolates the riskiest plumbing; **editable highlights are P2**.\n\nPer the issue's own risk-isolation intent, this PR keeps the provider hosted by `record:details` / `RecordDetailDrawer` and **leaves app-shell untouched** (the legacy `DetailView` path in `RecordDetailView` never wired inline edit). P2 lifts the provider to the app-shell page host so the highlights strip can share the same draft.\n\n## Changes\n\n| Area | Change |\n|---|---|\n| **`InlineEditContext`** (`@object-ui/react`, new) | `InlineEditProvider` + `useInlineEdit`. Pure UI state: `editing`, `canEdit`, `draft`, `autoFocusField`, `saving`, `error` + `enter` / `setField` / `cancel` / `reset`. A *separate* context from `RecordContext` (mirrors `HighlightFieldsContext`) so per-keystroke draft churn doesn't re-render other `record:*` consumers. |\n| **`<InlineEditSaveBar>`** (`plugin-detail`, new) | Record-level sticky Save/Cancel bar. **DataSource mode:** ONE `update(obj, id, draft, { ifMatch: data.updated_at })` → `refresh()`; a `409 CONCURRENT_UPDATE` reuses `<ConcurrentUpdateDialog>` (reload / overwrite). **Callback mode:** loops the drawer's per-field `onFieldSave`. |\n| `DetailView` | Consumes `useInlineEdit()` instead of owning inline-edit state; header/inline Save-Cancel bars + per-field batch-save removed (`onFieldSave` prop dropped); approval-lock badge retained. No provider → read-only. |\n| `record:details` | `DetailView` consumes the shared context; its per-field save + own OCC dialog are replaced by `<InlineEditProvider>` (canEdit = object-lifecycle gate) + `<InlineEditSaveBar>`. |\n| `RecordDetailDrawer` | Wraps its `DetailView` in a local `<InlineEditProvider>` + `<InlineEditSaveBar>` (callback mode), preserving the plugin-gantt/calendar/kanban per-field contract. |\n\n`draft` holds only user-edited keys → computed / read-only / untouched fields are never sent.\n\n## Guardrails preserved\n\nComputed (`formula`/`summary`/`rollup`/`auto_number`) + `readonly` + system fields expose no editor; `canEdit` object-lifecycle / permission gate; OCC (`ifMatch` + `ConcurrentUpdateDialog`); atomic partial update never writes computed/read-only fields; FLS/permission field filtering unchanged.\n\n## Verification\n\n- `@object-ui/react` + `plugin-detail` **vite builds clean**; `plugin-detail` **type-check clean**.\n- **200 tests pass (21 files)** — new `InlineEditContext` suite (enter/setField/cancel/`canEdit` gate) + `InlineEditSaveBar` suite (**exactly one** `update` with only edited fields + `ifMatch`; `409 → ConcurrentUpdateDialog`; callback-mode per-field loop; Cancel discards without writing) + updated `record:details` / `RecordDetailDrawer` suites + existing `DetailSection` inline-edit suites.\n- `app-shell` type-check is clean **with respect to this change** (the `onFieldSave` prop removal produced no errors); the only remaining error is a **pre-existing, unrelated** `Cannot find module '@objectstack/formula'` in `metadata-admin/celAuthoring.ts` (missing external dep in this sandbox; resolvable in CI). This PR does not touch app-shell.\n- ⏳ Live browser pass on the showcase record page (double-click a body field → single atomic PATCH; 409 resolver) pending a running console/backend — same manual step deferred in #2402.\n\n## Acceptance criteria (P1)\n\n- [x] `InlineEditContext` / `InlineEditProvider` / `useInlineEdit` exported from `@object-ui/react`.\n- [x] Double-click / pencil on a body field enters edit via the shared context; one record-level Save/Cancel bar.\n- [x] Save issues exactly ONE `update` with only edited fields; 409 → `ConcurrentUpdateDialog`.\n- [x] Standalone `DetailView` (drawer) still edits + saves.\n- [x] Existing inline-edit tests pass; new tests for atomic save + standalone.\n\n## Next\n\n**P2** — editable highlights on the shared draft (using the `<InlineFieldInput>` from #2529 + this context); lift the `InlineEditProvider` to the app-shell page host so highlights + details share one draft and one Save.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01Y1f7TvqYMo41g9RbQ6H2od)_"
+}

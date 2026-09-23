@@ -1,0 +1,30 @@
+{
+  "number": 2338,
+  "kind": "issue",
+  "title": "feat(app-shell): 对象默认列表视图渲染 dropdown 快捷筛选胶囊(放行 ADR-0053 抑制)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-07T15:12:51Z",
+  "updated_at": "2026-07-08T05:48:20Z",
+  "closed_at": "2026-07-08T05:48:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2338",
+  "body": "## 问题\n\n对象的**默认列表视图**(\"views\" 模式)目前无法显示 Airtable 风格的快捷筛选胶囊(Status / Assignee 这类下拉)。即使后端下发了 `userFilters`,`packages/app-shell/src/views/ObjectView.tsx` 的 `renderListView` 也会在运行时硬编码 `userFilters: undefined`(ADR-0053 phase-4 的一刀切抑制),把它丢掉。\n\n而 `<ListView>` / `<UserFilters>`(`packages/plugin-list`)本身与上下文无关,早已具备渲染 dropdown 胶囊的能力——只差 app-shell 这一层放行。\n\n## 方案（ADR-0047 修订：dropdown 放行，tabs 保持页面专属）\n\n- **`ObjectView.tsx`**:把 `userFilters: undefined` 改为透传——当 `element !== 'tabs'` 且未携带 `tabs` 时传 `viewDef.userFilters ?? listSchema.userFilters`,否则 `undefined`。`tabs` 仍抑制(对象视图的 ViewTabBar 已占据 tab 栏角色),`quickFilters` 仍抑制。\n- **`warnSuppressedListNav.ts`**:只对 `quickFilters` 和 `tabs` 模式的 `userFilters` 告警;dropdown 不再视为\"被抑制\"。更新文案。\n- 更新 `warnSuppressedListNav.test.ts` 等单测。\n\n> 端到端生效还依赖 framework spec 放开对象列表视图的 `userFilters`(见 objectstack-ai/framework 配套 issue/PR)。通过 app-showcase 的 Projects 对象默认列表做 UI 验证。\n"
+}

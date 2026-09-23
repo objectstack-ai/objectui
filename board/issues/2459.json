@@ -1,0 +1,33 @@
+{
+  "number": 2459,
+  "kind": "pull_request",
+  "title": "fix(plugin-gantt): 删除弹窗 i18n;依赖候选过滤修正(排除 group/locked、纳入 summary);候选列表加搜索框",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T14:21:19Z",
+  "updated_at": "2026-07-13T14:48:21Z",
+  "closed_at": "2026-07-13T14:48:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T14:48:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2459",
+  "body": "Closes #2456\n\n## 改了什么\n\n1. **删除确认弹窗国际化**:`ObjectGantt` 的 AlertDialog(标题/正文/取消/删除/删除中)与抽屉兜底标题 `'Task Details'` 全部改走 `useGanttTranslation`,新增 `gantt.delete.*`、`gantt.drawer.fallbackTitle`、`gantt.menu.searchTasks` 键;`packages/i18n` en/zh 词典同步补齐(其余语言按既有约定走英文兜底)。正文用 `{{title}}` 插值。\n2. **依赖候选过滤修正**:原过滤只排除 `type==='summary'`,在父子层级模型(排班计划→锁定派工单)下恰好全反——可连线的计划被排除,不可连线的 group 树表头和 locked 仅查看行全在列表里(锁定行条上标题是责任人姓名,列表里一排重复的 \"Dev Admin\")。改为:排除自己、`type==='group'`、`locked`、已存在同向连线;**纳入 summary**(汇总条本就可拖拽/group move,依赖对它有效)。\n3. **候选列表搜索框**:picker 顶部新增输入框,自动聚焦、大小写不敏感按标题过滤,打开时清空上次查询;无命中显示\"无可用任务\"。\n\n## 测试\n\n- 单测:plugin-gantt 21 文件 264/264 通过(新增 4 条:候选纳入 summary 排除 group/locked、搜索过滤大小写不敏感+中文、旧查询不泄漏到下次打开、删除弹窗 i18n 插值);i18n 包 173/173 通过。\n- **真机 UI 实测**(os-tianshun-ehr 排班计划甘特,本地 console 构建,脚本 `scripts/shot-2456-i18n-picker.cjs` 随 ehr 分支提交):\n  - 右键计划条 → 添加前置任务:候选**只剩 6 条可连线的计划**(此前混着项目/产品 group 行和一排 \"Dev Admin\" 锁定派工单),搜索框 placeholder「搜索任务…」;输入「生产计划」→ 过滤到 4 条,全部命中。\n  - 删除弹窗全中文:「删除此任务?」「\"PLAN136-02 …\" 将被永久删除,此操作无法撤销。」取消/删除;点取消后记录仍在(实测未删数据)。\n\n| 候选列表(修复后) | 搜索过滤 | 删除弹窗中文 |\n|---|---|---|\n| ![候选](https://raw.githubusercontent.com/steedos-labs/os-project-titanwind-ehr/0311068733129098ae883b3299458a5b632fe6e0/docs/issue-2456-gantt-i18n-picker/01-dep-picker-candidates.png) | ![搜索](https://raw.githubusercontent.com/steedos-labs/os-project-titanwind-ehr/0311068733129098ae883b3299458a5b632fe6e0/docs/issue-2456-gantt-i18n-picker/02-dep-picker-search.png) | ![删除](https://raw.githubusercontent.com/steedos-labs/os-project-titanwind-ehr/0311068733129098ae883b3299458a5b632fe6e0/docs/issue-2456-gantt-i18n-picker/03-delete-dialog-zh.png) |"
+}

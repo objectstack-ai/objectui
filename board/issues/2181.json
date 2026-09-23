@@ -1,0 +1,30 @@
+{
+  "number": 2181,
+  "kind": "issue",
+  "title": "chore(app-shell): remove the legacy monolith detail renderer + the renderViaSchema kill-switch (ADR-0085 PR4)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-03T06:59:34Z",
+  "updated_at": "2026-07-16T01:26:54Z",
+  "closed_at": "2026-07-16T01:26:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2181",
+  "body": "## What\nDelete the legacy monolithic DetailView branch inside `packages/app-shell/src/views/RecordDetailView.tsx` (~1700-line file; the non-schema-driven path), together with its two entry points:\n- `objectDef.detail?.renderViaSchema === false` (the last surviving `detail.*` key — ADR-0085 removed the block from the spec; this key was deliberately kept ONLY as this path's kill-switch)\n- the `?renderViaSchema=0` debug URL param\n\n## Why\nThe dual render path taxes every detail-page feature twice: the fieldGroups wiring (#2149/#2168) had to be implemented in BOTH the monolith and the `buildDefaultPageSchema` synth, and the two implementations already diverged once (ungrouped-field behavior). Evidence the path is dead: schema-driven has been default-on since Track 3 Phase G, and a two-repo + examples scan found ZERO authors of `renderViaSchema: false`.\n\n## Trigger condition\nSoak: let the schema-driven path (with the ADR-0085 consumer switch, objectui#2168) ride through 1–2 release cycles with the Dogfood Gate green, then operate.\n\n## Checklist\n- [ ] Remove the legacy branch from RecordDetailView + the `renderViaSchemaFlag` plumbing\n- [ ] Drop the `detail.renderViaSchema` read (last `objectDef.detail` reference in the repo)\n- [ ] framework companion: remove `renderViaSchema` from any remaining spec typing/docs if still present\n- [ ] Browser-verify detail pages across showcase objects (grouped / ungrouped / stageField:false / related-heavy) before merging\n- [ ] Update tests that exercised the legacy branch\n\n## Context\nADR-0085 (framework docs/adr/0085) Alternatives + Consequences record the decision; the revision comment on #2149 and PR objectui#2168 both note this follow-up."
+}

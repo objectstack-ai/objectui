@@ -1,0 +1,34 @@
+{
+  "number": 2565,
+  "kind": "pull_request",
+  "title": "fix(detail): gate related lists on the current user's child-object read permission (#2359)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T05:01:48Z",
+  "updated_at": "2026-07-16T05:11:24Z",
+  "closed_at": "2026-07-16T05:11:22Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T05:11:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2565",
+  "body": "Closes #2359\n\n## Problem\n\nDetail-page related-list sections were derived purely from the relationship graph: every `master_detail`/`lookup` FK produced a section (header + grid + New button) even when the current user has **no read access** to the child object. The grid then showed \"no related records\" (the fetch 403'd server-side) and the New button 403'd on save. Data access was always enforced server-side — this was a pure UI/DX gap (issue repro: 报价单 5 张子表按分工授权给 3 个角色,仅授权 1 张子表的角色仍看到全部 5 个分区).\n\n## Fix — auto-filter by object-level `read` (issue's option 1), wired at two layers\n\n1. **`deriveRelatedLists`** (`app-shell`) gains an optional `canRead` predicate: children the user cannot read are dropped at derivation time, so neither the section, its own tab (`relatedList: 'primary'`), the shared **Related** tab entry, nor the reference-rail card is ever synthesized.\n2. **`RecordDetailView`** wires the predicate from `usePermissions().can(name, 'read')` once permissions are loaded. Fail-open while loading / with no `PermissionProvider` mounted (standalone embeds, Studio designer) — no flicker, and the server enforces data access regardless.\n3. **`record:related_list` renderer** (`plugin-detail`) additionally self-gates on `can(objectName, 'read')` (only when `perms.isLoaded`), so hand-authored pages get the same baseline without an explicit `requiredPermissions` opt-in. When denied, the whole section renders nothing — no header, no empty grid, no permission notice.\n\n## Tests & docs\n\n- `deriveRelatedLists.test.ts`: +2 cases (canRead drops children; omitted canRead keeps everything while permissions load).\n- New `RecordRelatedListRenderer.readgate.test.tsx`: 4 cases against the real `PermissionProvider` — read denied → renders nothing at all; read allowed / no config for the object / no provider mounted → renders as before.\n- Docs: `content/docs/guide/slotted-pages.md` + `packages/plugin-detail/README.md` note the automatic read gate.\n- No changeset (bug fix, per AGENTS.md).\n\n## Verification\n\n- `plugin-detail`: 23 files / 209 tests pass.\n- `app-shell`: 1379 tests pass; the one failing file (`anchors.page-seed` timeout) was verified unrelated via stash A/B — it's load-sensitive under the full parallel suite and passes standalone both with and without this change.\n- `turbo build` (app-shell + plugin-detail + all deps): 40/40 tasks green."
+}

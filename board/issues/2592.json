@@ -1,0 +1,33 @@
+{
+  "number": 2592,
+  "kind": "pull_request",
+  "title": "fix(components): pin sticky leading cells at measured header widths",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T10:12:55Z",
+  "updated_at": "2026-07-16T13:10:50Z",
+  "closed_at": "2026-07-16T13:10:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T13:10:48Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2592",
+  "body": "Closes #2591(下游报告:steedos-labs/os-project-titanwind-ehr#418)\n\n## 问题\n\ngrid 列表固定列横向滚动时,左侧固定区(复选框 / 行号 / 冻结列)遮不住下层内容:sticky 偏移写死为 40px / 150px 估算值,而表格自动布局把复选框列压到 ~28px 实宽(shadcn 原语的 `[&:has([role=checkbox])]:pr-0`),固定单元格之间留下 ~12px 未遮挡竖条,滚过去的单元格从缝里透出。\n\n## 修复\n\n`data-table.tsx`:`useLayoutEffect` 里用 `getBoundingClientRect` 实测表头单元格宽度,按累计实测宽度给每个前导固定单元格设 `left`;`ResizeObserver` 覆盖列宽拖拽、密度切换等 React 之外的宽度变化;实测值就绪前保留原硬编码值兜底。\n\n## 验证\n\n- **app-showcase 真机对照**(framework `objectstack dev`,同环境只换 console dist):修复前表头 + 5/5 行实测缝隙 12px / 8.45px(`left` 写死 0/40/80);修复后 `left` 为实测 0/28/59.55px,scrollLeft 0 / 中 / 满滚 + 900px 视口重排后全程零缝隙,无 console 报错;\n- 新增回归测试 `data-table-sticky-offsets.test.tsx`(mock 表头实宽,断言累计偏移;`frozenColumns: 0` 时不受影响);\n- 相关 data-table 测试 8 个文件 67 个用例全绿;`tsc --noEmit` 干净;\n- 纯 bug 修复,无 changeset(按 AGENTS.md)。"
+}

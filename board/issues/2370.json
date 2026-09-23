@@ -1,0 +1,30 @@
+{
+  "number": 2370,
+  "kind": "pull_request",
+  "title": "feat(detail): honor enable.feeds / enable.activities opt-out gates (framework#2707)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-10T03:33:38Z",
+  "updated_at": "2026-07-10T03:51:42Z",
+  "closed_at": "2026-07-10T03:51:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-10T03:51:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2370",
+  "body": "## 概述\n\nframework#2707 处置的 objectui 半边:RecordDetailView 此前**无条件**渲染讨论面板并合并 sys_activity timeline——对象能力 flag `enable.feeds`/`enable.activities` 在渲染层是 dead 的。本 PR 让两者按 **opt-out** 契约生效(配套 framework PR 把 spec 默认值翻成 `true`,所以缺省行为完全不变,只有显式 `false` 才关):\n\n- `feeds: false` → 隐藏讨论面板(page-schema 自动追加 + legacy `discussionSlot` 两处),并跳过 sys_comment 拉取;服务端同时 fail-closed(403 `FEEDS_DISABLED`,framework 侧)。\n- `activities: false` → 跳过 sys_activity 拉取/合并(服务端已停止镜像该对象,拉了也是空——顺带省一次请求)。\n\n另修正 1140 行错误注释(声称 writer 由 `enable.activities` **opt-in** 门控——实际此前无条件写;新契约是 opt-out)。History 标签页闸门(`enable.trackHistory === true`)保持不变。\n\n## 验证\n\n- `turbo build --filter=@object-ui/app-shell`(tsc)✓\n- `turbo test --filter=@object-ui/app-shell` ✓\n- 配套 framework 分支端到端冒烟:探针对象(两 flag 显式 false)0 条 activity 镜像、评论 403;默认对象行为不变(activity 镜像 + 评论 201)。\n\n配套:objectstack-ai/framework PR(feat/2707-enable-capability-gates 分支,含 spec 默认翻转 + writer/hook 闸门 + ledger 修正)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

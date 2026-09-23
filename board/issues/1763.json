@@ -1,0 +1,32 @@
+{
+  "number": 1763,
+  "kind": "issue",
+  "title": "viewschema key drift: bulkActions/batchActions + ObjectView form-adapter keys not in FormViewSchema",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-15T14:10:53Z",
+  "updated_at": "2026-07-15T16:12:22Z",
+  "closed_at": "2026-07-15T16:12:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1763",
+  "body": "From the viewschema liveness audit (objectstack-ai/framework#1890, recommendation #3). Two spec↔renderer key-drift problems:\n\n## 1. `bulkActions` → `batchActions` (silent no-op)\n`ListView` internally remaps the spec's `bulkActions` to ObjectGrid's real key `batchActions`. So it works **through ListView**, but a **direct `object-grid` caller using `bulkActions` silently no-ops** (bulk actions just disappear, no error).\n\n## 2. `ObjectView` form-adapter reads keys not in `FormViewSchema`\n`ObjectView`'s form adapter (`plugin-view/ObjectView.tsx` ~`buildFormSchema`) reads keys that **don't exist in `FormViewSchema`**: `layout`, `showSubmit`, `submitText`, `customFields`, `title`, `initialValues`, `className` — renderer-invented surface with no spec backing.\n\n## Fix\nNormalize at one boundary:\n- Reconcile `bulkActions`/`batchActions` to a single spec key (and make `object-grid` accept it directly, or drop the alias).\n- Reconcile the `ObjectView` form-adapter keys against `FormViewSchema` (add to spec, or stop reading them).\n\nPure technical debt; no user-facing behaviour change when done right. Refs objectstack-ai/framework#1890.\n"
+}

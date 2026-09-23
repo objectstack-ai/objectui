@@ -1,0 +1,32 @@
+{
+  "number": 2295,
+  "kind": "pull_request",
+  "title": "feat(app-shell,plugin-list): 列表过滤条件跨页面切换后按用户保留 (#2294)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T14:31:13Z",
+  "updated_at": "2026-07-06T14:25:06Z",
+  "closed_at": "2026-07-06T14:25:03Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-06T14:25:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2295",
+  "body": "Closes #2294\n\n## 问题\n\n对象列表(数据模式 `ObjectView`)中输入搜索词 / 设置高级筛选后,经侧边栏切到其他页面再切回,过滤条件全部丢失。根因:`searchTerm` / `currentFilters` 是 `ListView` 的本地 state,导航离开时随卸载销毁;`uf_*` URL 参数只在刷新 / 后退时保留,应用内导航离开再回来同样会丢。\n\n## 方案\n\n按 用户 × 对象 × 视图 把运行时过滤状态缓存到 `localStorage`,`ListView` 挂载时恢复。\n\n- **新增** `packages/app-shell/src/views/listFilterStorage.ts` —— `buildListFilterKey` / `readListFilterState` / `writeListFilterState`,300ms 防抖写入,状态为空时删除键,private-mode / 配额异常静默兜底。\n- 存储键 `list-filters:<userId>:<对象>:<视图ID>`,**内嵌 userId**,同一浏览器切换账号互不读取对方过滤值(过滤值可能敏感;列宽 `grid-columns-*` 为纯外观、故意不做用户隔离)。\n- `ObjectView` 在 `onFilterChange` / `onSearchChange` 写入,挂载时经新增的 `initialFilters` / `initialSearchTerm` 恢复。`ListView` 用 `key` 在视图切换时重挂载,懒初始化按视图正确重读。\n- **不触碰**服务端共享视图定义(`persistViewPatch`);本永续层纯用户个人、端末本地。\n- 作用域:先覆盖 `ObjectView`;`InterfaceListPage` 后续视需要跟进。\n\n## 验证(framework showcase 实测)\n\n生产管理 →「排班计划」列表,均以 SPA 导航(侧边栏离开→返回)验证:\n\n| 经路 | 设定 | 返回后 |\n|------|------|------|\n| 搜索词 | `焊接` | 搜索框恢复 `焊接`,列表已过滤 ✓ |\n| 高级筛选 | 派工类别 = `00 生产` | 「筛选 1」徽标 + 条件行恢复,80/81 条 ✓ |\n\nlocalStorage 实际写入(userId 已内嵌):\n```\nlist-filters:63ujw8...xKKW:os_tianshun_ehr_production_plan:os_tianshun_ehr_production_plan.all\n→ {\"filters\":{\"id\":\"root\",\"logic\":\"and\",\"conditions\":[{\"field\":\"category\",\"operator\":\"equals\",\"value\":\"production\"}]}}\n```\n"
+}

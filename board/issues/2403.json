@@ -1,0 +1,35 @@
+{
+  "number": 2403,
+  "kind": "pull_request",
+  "title": "feat(app-shell,plugin-detail): permission sets — Studio designs, Setup assigns (ADR-0056)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-12T15:18:21Z",
+  "updated_at": "2026-07-13T00:21:46Z",
+  "closed_at": "2026-07-13T00:21:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T00:21:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2403",
+  "body": "## What\n\nImplements the **pure separation model** for permission-set editing (ADR-0056 / epic #2398): an app developer *designs* every facet in **Studio**; a system admin *assigns users* in **Setup**, where every facet is **read-only** — no `[Object]`, no JSON. Supersedes the earlier \"capability picker in Setup\" approach (#2400).\n\nFixes the reported bug: the Setup `sys_permission_set` record page showed `对象权限 [Object]`, `字段权限 [Object]`, and raw-JSON textareas for the other four facets.\n\n## Phases (all browser-verified against the live app-showcase backend)\n\n**P1 — Setup: kill `[Object]`/JSON → summary + Studio deep-link.** The six facets (`object_permissions`, `field_permissions`, `system_permissions`, `row_level_security`, `tab_permissions`, `admin_scope`) render read-only as a compact summary (counts, or capability chips) + a **\"Design in Studio →\"** deep-link to `/apps/:appName/metadata/permission/:setName` (env scope). New `permission-facet-link` widget, stamped onto the six fields via the single `ObjectStackAdapter.getObjectSchema` choke point and honored by DetailSection (read + inline-edit) and the record form.\n- _Verified:_ `sales_rep` shows \"10 objects\" / \"4 field rules\" + deep-links; the link opens the env-scope matrix (10 objects / 4 field overrides — matching).\n\n**P1b — Setup: surface user assignment.** The add/remove-users panel (`AssignedUsersSection`, via `sys_user_permission_set`) now renders directly on the Setup record page.\n- _Verified:_ `sales_rep` record page shows the \"已分配用户\" panel with the real component.\n\n**P2 — Studio: System Capabilities editor.** The permission matrix editor gains a capability multi-select over the live `sys_capability` registry (scope-grouped, labelled chips), wired to `PermissionSetDraft.systemPermissions`.\n- _Verified:_ toggling Studio Access + Save persists across editor reload.\n\n**P3 — Studio: RLS / tab-visibility / admin-scope editors.** Structured editors for the three JSON-only facets, as collapsed-by-default sections below the object matrix: RLS per-policy rows with CEL USING/CHECK; tab visibility `visible|hidden|default_on|default_off`; delegated admin scope (business-unit + subtree, manage toggles, assignable-sets allowlist).\n- _Verified:_ `organization_admin` renders its **18 RLS policies** as structured rows with CEL predicates; `showcase_field_ops_delegate` shows businessUnit \"Field Operations\", correct toggles, and assignable sets `showcase_contributor` + `showcase_manager`; a `manageBindings` toggle + Save persisted across reload (reverted).\n\n**P4 — move assignment out of the design editor.** With assignment on the Setup record page (P1b), it's removed from the matrix editor — which is now purely a design surface.\n- _Verified:_ the editor shows matrix + capabilities + advanced facets and **no** assignment; the Setup create form shows identity fields + read-only \"Design in Studio\" facet hints (no JSON textareas).\n\n## Storage / compatibility\n\nStorage columns and field `type`s are unchanged. Editors read/write the draft's existing parsed fields (`systemPermissions`, `rowLevelSecurity`, `tabPermissions`, `adminScope`) and tolerate a JSON string on load so legacy rows survive.\n\n## Known follow-up (framework)\n\nEnv-scope metadata saves of these facets do **not** yet project onto the queryable `sys_permission_set` **data record** that the Setup read-only summary reads, so a fresh Studio edit isn't reflected in Setup's summary until the projection refreshes. Enforcement reads the authoritative metadata (ADR-0090), so this is display-freshness only — tracked as a framework companion in #2398.\n\n## Notes\n\n- Supersedes #2400 (capability picker in Setup) — its `CapabilityMultiSelectField` + widget-override plumbing are reused here, re-homed to Studio.\n- ADR #2399 is being revised from \"Option B\" to this pure model.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

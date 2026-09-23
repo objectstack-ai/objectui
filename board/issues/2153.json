@@ -1,0 +1,30 @@
+{
+  "number": 2153,
+  "kind": "issue",
+  "title": "ModalForm 显式多 section 表单:每个 section 独立 <form>,提交时丢弃第 2+ 个 section 的值",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-02T10:14:29Z",
+  "updated_at": "2026-07-15T14:04:02Z",
+  "closed_at": "2026-07-15T14:04:02Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2153",
+  "body": "## 问题(存量缺陷,与 #2152 的修复无关但由其实测发现)\n\n`ModalForm` 的显式 `sections` 布局(form view 提供 `sections` 时)为**每个 section 渲染一个独立的 SchemaRenderer**,即每个 section 一个独立的 react-hook-form 实例和 `<form>` 元素,并且它们共享同一个 `formId`(重复 DOM id)。\n\n底部提交按钮通过 `form={formId}` 关联表单,浏览器语义下只会关联**第一个**匹配 id 的 form。后果:\n\n- **只有第一个 section 的字段值进入提交 payload,其余 section 的值静默丢失。**\n- 实测证据(真实 console + hotcrm 后端):弹窗内 `document.querySelectorAll('form')` 返回 2 个 form、id 相同(`_r_6u_`),提交按钮 `associatedForm` 指向第 0 个;第二个 section 中已填的必填字段在 POST body 中缺失,后端返回 `VALIDATION_FAILED: status (required)`。\n- 波及范围:所有\"多 section 的 form view + 弹窗创建/编辑\"场景(例如 hotcrm lead 默认 form view 有 6 个 section;其快捷创建视图恰好只有 1 个 section,所以日常未暴露)。`useActionModal` 打开的表单同样走此路径。此外跨 section 的字段条件(visibleWhen 等)也因表单实例隔离而失效。\n\n## 方案(建议)\n\n与 DrawerForm / #2152 的 fieldGroups 回退一致:改为**单个 form + 虚拟 `section-divider` 字段**,所有 section 共享一个 react-hook-form 实例。需要处理:\n\n- 每个 section 的独立 `columns`(单一网格下需统一列数或用 colSpan 近似;或扩展基础 Form 支持分组容器);\n- 现有 Card 包裹的视觉样式(section-divider 是内联标题,不是卡片)——若要保留卡片外观需扩展基础 Form 渲染器;\n- `contentLayout: 'tabbed'` 分支(Tabs 内同样是每 section 一个 form,同样丢数据)。\n\n## 待确认\n\n- 是否接受多 section 弹窗从\"卡片\"变为\"内联分组标题\"(与 DrawerForm、全页 ObjectForm 一致)?\n- 或者选择在基础 Form 渲染器支持共享外部 react-hook-form 实例(改动面更大,可保留现有视觉)?"
+}

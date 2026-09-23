@@ -1,0 +1,32 @@
+{
+  "number": 2457,
+  "kind": "pull_request",
+  "title": "docs(adr-0057): Amendment A1 — build conversations bind a package (lazy binding)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T14:14:19Z",
+  "updated_at": "2026-07-13T15:01:44Z",
+  "closed_at": "2026-07-13T14:49:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T14:49:22Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2457",
+  "body": "Docs-only. Proposes **Amendment A1** to ADR-0057, distilled from the 2026-07-13 live browser-testing rounds and the follow-up design discussion.\n\n## The three live-reproduced defects it addresses\n1. **Agent ambiguity** — with a blueprint Awaiting Approval in the same thread, a second handoff made the agent ask \"which app do you mean?\" (no declarable binding to reason from).\n2. **Thread mixing** — a bare `/ai/build` (the magic flow) keys to product-only scope: ONE global build thread for every project.\n3. **Continuity break** — the thread that built app X and the `app:X:build` thread \"Edit with AI\" opens later are different conversations; the original build history is stranded.\n\n## The proposal in one line\nEvery build conversation carries a **visible, switchable, lazily-established package binding** — the Claude-Code-picks-a-repo idiom for *display*, never for *gating*: the magic flow starts as \"✨ New app\" with zero create-first friction and auto-binds + re-keys when the build mints the package.\n\nPhasing: **A1.a** read-only chip (folds into P3a's dock header) → **A1.b** bind-on-create + conversation re-key (+ legacy-scope fallback) → **A1.c** cloud prompt injection + the pending-blueprint \"default to amend\" rule.\n\nRefs: epic #2409 (ADR-0057), ADR-0070 (active package), the consolidated UX-findings issue (linked after filing).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

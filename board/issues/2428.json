@@ -1,0 +1,33 @@
+{
+  "number": 2428,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fumadocs-ui from 16.10.7 to 16.11.3",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T08:12:41Z",
+  "updated_at": "2026-07-13T08:37:23Z",
+  "closed_at": "2026-07-13T08:34:36Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-07-13T08:34:36Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2428",
+  "body": "Bumps [fumadocs-ui](https://github.com/fuma-nama/fumadocs) from 16.10.7 to 16.11.3.\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/1f9ca9a2b80be8a3403645856ca0bea0b8083fef\"><code>1f9ca9a</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3411\">#3411</a> from fuma-nama/tegami/version-packages</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/983d4e983a3ed88a3d03fad6460223abd6131669\"><code>983d4e9</code></a> fix(satteri): workspace range</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/fc69a45b4877b0d362c5b67c411b08ebdb9ead9e\"><code>fc69a45</code></a> docs: unify sponsors</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/9637b7a581cbb602ff43b327d3932fd9d2b6cd79\"><code>9637b7a</code></a> feat(ui): improve typography plugin</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/63b5fed26565a312963be589177174d8cf4c1b66\"><code>63b5fed</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3408\">#3408</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/549b2496869730e104456adf5782340e56c664d8\"><code>549b249</code></a> fix(base-ui): interaction problems</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/11e997399a599f97ba5d634adec458819fc7eb57\"><code>11e9973</code></a> chore: bump deps</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/8119e710c2c1df12baa5111f750ff1db7a5c092e\"><code>8119e71</code></a> Add Astro framework support (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3407\">#3407</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/f5e6e24433e8c967ace7a7cd6eb0081be89a0b67\"><code>f5e6e24</code></a> format</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/8364cb7ee14b4fa73f56684de6cf18fee8cd3272\"><code>8364cb7</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3399\">#3399</a> from kane50613/takumi-v2</li>\n<li>Additional commits viewable in <a href=\"https://github.com/fuma-nama/fumadocs/compare/fumadocs@16.10.7...fumadocs@16.11.3\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

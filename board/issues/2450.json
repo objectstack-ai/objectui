@@ -1,0 +1,30 @@
+{
+  "number": 2450,
+  "kind": "issue",
+  "title": "AI handoff: second handoff's auto-send doesn't fire into an existing (hydrating) build conversation",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T12:37:55Z",
+  "updated_at": "2026-07-13T14:03:44Z",
+  "closed_at": "2026-07-13T14:03:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2450",
+  "body": "Residual from #2449 (ADR-0057 P4 follow-ups). **Not a regression** — before #2449 a second handoff did nothing at all; now the context re-carries but the new prompt still needs one manual send.\n\n## Symptom (observed live, local rig)\n1. Ask agent declines request A → \"Open in Builder →\" → build conversation minted, prompt A auto-sends, blueprint proposed (**Awaiting Approval**). ✅ (fixed by #2449)\n2. Back on the ask thread, decline for a different request B → click the second \"Open in Builder →\".\n3. The route lands on the **existing** build conversation (singleton per user/app/product), `?handoffPrompt=B&parentConversationId=…` present — but **no `POST …/chat` fires**. The composer stays empty; the surface still shows blueprint A awaiting approval.\n4. A **manual** send in the build composer works and **does** carry the re-armed `context.parentConversationId` (verified on the wire) — so the #2449 re-carry is functioning; only the auto-send is lost.\n\n## Suspected mechanism\nFor an existing conversation, `conversationId` is already present at `ChatPane` mount, so `useDeferredFirstSend`'s replay fires immediately — likely before `useObjectChat`/`useChat` finishes hydrating `initialMessages` (and/or while the pane is mid-remount on the ask→build route switch). The send is issued into a hook instance that's about to be torn down or not yet ready, and is dropped. The fresh-conversation path has a natural \"pending id\" phase that orders things correctly, which is why #2449's fix works there.\n\nFiles: `packages/app-shell/src/console/ai/AiChatPage.tsx` (`useDeferredFirstSend`, the ADR-0057 P4 handoff seed effect, `pendingFirstMessageSeq`), `packages/plugin-chatbot/src/useObjectChat.ts`.\n\n## Suggested direction\nGate the deferred replay on hydration-ready for the resume case — e.g. replay only once the pane's `useObjectChat` reports messages hydrated (or defer via a `requestAnimationFrame`/effect tick after `initialMessages` are applied). Add a live-rig proof: second handoff → `POST …/chat` fires automatically with `context.parentConversationId` and prompt B.\n\n## Product question (separate but adjacent)\nWhen the second handoff lands on a conversation whose blueprint is still **Awaiting Approval**, what should happen to the pending blueprint? Today it just sits there; the new request arrives with no UI acknowledgment of the pending plan. Worth a small UX decision (banner \"你有一个待确认的方案\" / queue / supersede).\n\nRefs: #2449, #2444, #2439, cloud#819/#820, ADR-0057 §P4."
+}

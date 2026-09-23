@@ -1,0 +1,32 @@
+{
+  "number": 2588,
+  "kind": "pull_request",
+  "title": "fix(studio): Access pillar no longer silently discards unsaved permission-matrix edits on rail switch",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T09:09:00Z",
+  "updated_at": "2026-07-16T09:24:12Z",
+  "closed_at": "2026-07-16T09:24:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T09:24:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2588",
+  "body": "## Problem\n\nIn the Studio **Access** pillar, the main-panel permission matrix (`PermissionMatrixEditPage`) is keyed by the selected set (`key={current}`) and is swapped out entirely when the OWD overview opens. Clicking another permission set (or the OWD button) in the left rail therefore **remounted the matrix and silently discarded all unsaved checkbox edits** — no confirmation dialog, no `beforeunload` prompt. Reproduced on a live stack.\n\n## Fix\n\n**`PermissionMatrixEditor.tsx`**\n- Track dirty state via a JSON snapshot baseline re-anchored on load and after a successful save (same approach as `ResourceEditPage`'s `isDirty`). Every mutation funnels through `setDraft` (matrix cells, header inputs, capabilities, advanced facets), so the comparison covers them all.\n- New `onDirtyChange?: (dirty: boolean) => void` prop reporting transitions up; reset to `false` on unmount so a confirmed discard clears the host's guard.\n- Install the standard `beforeunload` guard while dirty (tab close / reload), mirroring `ResourceEditPage`.\n\n**`StudioDesignSurface.tsx` (AccessPillar)**\n- Holds the reported dirty flag and gates every rail-driven surface swap on the existing `engine.edit.unsavedLeaveConfirm` native confirm:\n  - switching to another permission set,\n  - opening the OWD overview (pinned rail button **and** the matrix's per-object OWD badge deep-link),\n  - starting the new-set creator (it ends in `setCurrent(newName)` — a remount).\n- Re-clicking the already-open set is a no-op and never prompts.\n- `AccessPillar` is now exported for tests.\n\n## Tests\n\n- `PermissionMatrixEditor.dirty.test.tsx` — `onDirtyChange` contract: clean after load, dirty on edit, clean again after save, reset to false on unmount.\n- `StudioDesignSurface.accessGuard.test.tsx` — drives the REAL `AccessPillar` + embedded matrix: cancel keeps the edits mounted and intact, confirm discards and switches, clean switches never prompt, OWD swap is gated, no-op re-clicks never prompt, and a confirmed discard clears the guard for the next switch.\n\n`packages/app-shell`: 186 test files / 1386 tests pass; `tsc --noEmit` clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -2,8 +2,8 @@
   "number": 9992,
   "kind": "issue",
   "title": "Rule conflict: objectui AGENTS.md tells a green non-governed PR author to self-land; the os-dev dispatch contract stops the dev at draft",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-tesla",
@@ -12,18 +12,19 @@
   },
   "labels": [
     "domain:skills",
-    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [
-    "huangyiirene"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-19T03:33:05Z",
-  "updated_at": "2026-09-22T09:01:59Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-23T02:55:24Z",
+  "closed_at": "2026-09-23T02:53:37Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
   "merged_at": null,
   "comments": 3,
   "locked": false,

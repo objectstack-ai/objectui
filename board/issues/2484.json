@@ -1,0 +1,35 @@
+{
+  "number": 2484,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): stop row-action buttons clipping in the list actions column",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T05:31:08Z",
+  "updated_at": "2026-07-14T05:34:56Z",
+  "closed_at": "2026-07-14T05:33:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T05:33:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2484",
+  "body": "## Problem\n\nOn the cloud **环境 / Environments** list, each row's right-side action button was clipped — `Open` (进入环境) showed only as a blue sliver behind `Upgrade Plan` (升级套餐).\n\n![before: Open clipped to a sliver]()\n\nTwo independent causes in the **shared list component** (not the action metadata — declaring two primary CTAs per row is legitimate):\n\n1. **`RowActionMenu` inlined *every* `variant:'primary'` action** with `justify-end`. `sys_environment` ships two row-level primaries (`sso_as_owner`/\"Open\" + `upgrade`/\"Upgrade Plan\"), so they overflowed the cell and the leftmost was cut off.\n2. **The data-table auto-sizer pinned the actions column to its 80px floor** (it has no string content to measure), and the cell's `overflow-hidden` + fixed `max-width` clipped whatever didn't fit.\n\n## Fix\n\n- **`RowActionMenu`**: only the first `maxInlineActions` (default **1**) primaries render inline; extra primaries fold into the `⋮` overflow menu, above the secondaries. Authors can opt into more via a view's `maxInlineRowActions`.\n- **`data-table`**: new generic **`fitContent`** column option — the column hugs its content (`width:1%` + `whitespace-nowrap`), is exempt from the char-estimate auto-sizer and the grouped-view width precompute, and drops the `overflow-hidden` clip (both the cell and its inner wrapper). Normal columns keep truncation unchanged.\n- **`ObjectGrid`**: marks the `_actions` column `fitContent` + `align:'right'`.\n\n## Verification\n\nBrowser-tested via a no-backend console preview (`/row-actions-preview.html`, new dev-only `DevRowActions` harness):\n\n- **Default grid** — one inline `Open` fully rendered + a `⋮` menu holding *Upgrade Plan / Rename / Archive*. No clip.\n- **`maxInlineRowActions: 2` grid** — both `Open` and `Upgrade Plan` inline, column grown to fit. No clip.\n\nClean browser console.\n\n## Tests\n\n- `RowActionMenu.test.tsx` — inline-cap behavior: default caps at 1, honors a higher cap, never inlines non-primaries, `0` folds all (4 tests).\n- `data-table-fit-content.test.tsx` — fitContent cell drops `overflow-hidden`, hugs content (`width:1%`, no max clamp); normal cells keep `overflow-hidden` (2 tests).\n- Existing plugin-grid + data-table suites green (50 total).\n\n## Scope note\n\nThis fixes the **cell-level clip** (the reported bug, where the table fits the viewport). The separate *wide-table horizontal-scroll* case — where enough columns push the whole actions column past the grid's own scroll edge — is **not** addressed here; pinning `_actions` sticky-right interacts with the existing `frozenColumns` default and warrants its own change. Flagged as a follow-up.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

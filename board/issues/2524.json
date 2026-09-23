@@ -1,0 +1,32 @@
+{
+  "number": 2524,
+  "kind": "pull_request",
+  "title": "feat(studio): enforce package namespace prefix at authoring time (framework#2694)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T14:27:21Z",
+  "updated_at": "2026-07-15T14:36:29Z",
+  "closed_at": "2026-07-15T14:36:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T14:36:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2524",
+  "body": "Console-side companion to **framework#2694** (publish-time namespace-prefix enforcement). Gives Studio authors the compliant object namespace at *design* time so they never build a prefix-less object and only discover it when publish rejects the batch (code `NAMESPACE_PREFIX`).\n\nReuses the two spec-owned helpers from `@objectstack/spec/kernel` (`deriveNamespaceFromPackageId`, `validateObjectNamespacePrefix`) — no re-implemented derive/validate dialect (AGENTS.md #0/#0.1).\n\n> Note: the issue was written when this was blocked on a spec publish (anticipated 12.7.0). That blocker is resolved — the repo is already on `@objectstack/spec@^14.6.0`, which ships both helpers, so no dep bump was needed.\n\n## Changes (all in `packages/app-shell`)\n\n- **packages-io**: `PkgEntry` exposes `namespace` (explicit `manifest.namespace` wins, else back-derived from the id); `createBasePackage` threads a `namespace` param into the POST manifest; adds `NAMESPACE_RE` + a `prefixObjectName()` helper built on `validateObjectNamespacePrefix`.\n- **BuilderLanding** + **PackagesPage `CreatePackageDialog`**: new `namespace` field — defaults to the id-derived value, tracks the package-id input until the user edits it (derived during render, no effect), editable, validated against `^[a-z][a-z0-9_]{1,19}$`, posted in the manifest.\n- **StudioDesignSurface \"+ new object\"**: reads the current package's namespace and auto-prefixes the identifier with `<namespace>_`, never double-prefixing an already-compliant or exempt (`sys_*`) name.\n- **i18n**: EN/ZH strings for the namespace label, hint, and invalid message.\n\nPublish-failure display already surfaces the `NAMESPACE_PREFIX` error inline via `formatPublishFailures` / `formatMetadataError` (confirmed, not rebuilt).\n\n## Acceptance\n\n- ✅ New writable package: `namespace` defaults to the id-derived value, tracks the id until touched, editable + validated.\n- ✅ New object: identifier auto-prefixed with the package namespace; already-compliant names not double-prefixed.\n- ✅ Bypassing the UI (prefix-less object via API) → publish surfaces the `NAMESPACE_PREFIX` message inline.\n- ✅ No renderer-side re-implementation of the rule — both come from `@objectstack/spec/kernel`.\n\n## Tests\n\n- Unit: `parsePackages` namespace resolution + `prefixObjectName` (against the real spec helpers).\n- RTL: `CreatePackageDialog` derive / track-until-touched / sanitize / validate-gating wiring.\n- `pnpm --filter @object-ui/app-shell type-check` clean; no new lint errors/warnings.\n\nRefs framework#2694. Closes #2349.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

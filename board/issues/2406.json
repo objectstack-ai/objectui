@@ -1,0 +1,33 @@
+{
+  "number": 2406,
+  "kind": "pull_request",
+  "title": "feat(core,app-shell): action params honor a 'visible' predicate; hide create-user phone when plugin off",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T03:30:00Z",
+  "updated_at": "2026-07-13T04:31:56Z",
+  "closed_at": "2026-07-13T04:31:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T04:31:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2406",
+  "body": "## What\n\nAction params can now carry a `visible` CEL predicate; the param dialog omits a param when it evaluates false. This makes the **create-user form follow the plugin**: the framework gates the `phoneNumber` param on `features.phoneNumber`, so the form no longer offers a Phone Number field the default backend rejects (`Phone numbers require the phoneNumber auth plugin`).\n\n## How\n\n- **`ActionParamDef`** (`@object-ui/core`) gains an optional `visible?: string`.\n- **`ActionParamDialog`** evaluates each param's `visible` against the expression scope (`usePredicateScope()` → `features`/`user`/`app`/`data`) via `ExpressionEvaluator` and filters — in render, validation, and value reset. `filterVisibleParams` is extracted + exported (pure). A param with no predicate is always kept; a predicate that throws defaults to visible (mirrors the ExpressionProvider \"config not loaded → visible\" contract). The evaluator transparently unwraps the normalized `{dialect,source}` form the spec serializes to.\n\n## Verified\n\n- **Unit — 6 tests** (`ActionParamDialog.test.tsx`): no-predicate keeps; `features.phoneNumber` false hides / true shows; absent flag hides (conservative); malformed predicate fails open; and the normalized `{dialect,source}` served form.\n- **Browser (:5180)** — the `create_user` dialog opens and renders all 6 params with no regression. (Phone still shows against the current `:3000` backend because it lacks the paired framework predicate; once that lands, `features.phoneNumber == false` hides it — the unit tests prove the filter.)\n\n## Pairs with\n\nframework **objectstack-ai/framework#2871** — adds `visible` to `ActionParamSchema` and gates `sys_user.create_user.phoneNumber` on `features.phoneNumber`. Both must land for the phone field to hide (spec adds the field; this honors it).\n\n## Answering \"why didn't earlier testing catch this\"\n\nThe prior Users-CRUD pass exercised the email happy-path (which succeeds); it never entered a phone number, so the phone-gated-by-opt-in-plugin path was untested — even though the form advertises the field. This adds the field-level coverage.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

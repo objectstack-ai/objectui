@@ -1,0 +1,32 @@
+{
+  "number": 2411,
+  "kind": "pull_request",
+  "title": "docs(adr): ADR-0057 — console AI chat is one system, docked (retire the FAB)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T04:22:48Z",
+  "updated_at": "2026-07-13T04:31:07Z",
+  "closed_at": "2026-07-13T04:31:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T04:31:05Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2411",
+  "body": "Adds **objectui ADR-0057** — a decision doc (docs-only, no code) for consolidating the console's AI chat surfaces. Requested design review; implementation is tracked separately.\n\n## Why\nThe console renders AI chat through **3 parallel shells** (`ConsoleFloatingChatbot` FAB / `AiChatPage` full-page / `StudioAiCopilot` left panel) over one backend, and the shells **fork the conversation** — the *same app's* build chat can exist as two disjoint threads. Plus two conversation-state layers, ~5 divergent surface→agent picks, and two enablement gates.\n\n## Decision (principle)\n**surface = view · conversation = model · product (`ask`/`build`) = binding axis.** Not a merge of `ask`/`build` (cloud ADR-0063 already settled that) — console-layer consolidation only:\n- one `(user, app, product)` conversation context (drop the `studio:` scope fork)\n- one declarative surface→agent resolver (enforces ADR-0063; no roster representable)\n- canonical presentation = **right-docked collapsible panel**; the **floating FAB retires** to a launcher; full-page `/ai` = the same panel maximized (same thread)\n- runtime end-user apps keep the support bubble; **presentation decoupled from state**\n- single agent-catalog gate (`useAiSurface`); OSS degrades to MCP-only (cloud ADR-0025)\n\n## Two positions flagged for review (Decision section)\n1. Dock **right** (VS Code/Cursor idiom) → Studio reflows to `[nav] [canvas+properties] [chat]`\n2. ask→build handoff is an **explicit \"Open in Builder →\"** carrying context (not a silent re-route)\n\n## Tracking\n- Epic: #2409\n- Cloud deps: objectstack-ai/cloud#816 (agent `capabilities`), objectstack-ai/cloud#817 (handoff contract)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

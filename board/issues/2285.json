@@ -1,0 +1,30 @@
+{
+  "number": 2285,
+  "kind": "issue",
+  "title": "Studio UX audit: canvas whitespace, mobile layout, source-code page panel, and 2 rendering bugs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T11:13:52Z",
+  "updated_at": "2026-07-05T13:02:38Z",
+  "closed_at": "2026-07-05T13:02:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2285",
+  "body": "## Summary\n\nBrowser walkthrough of the Studio design surface (`/studio/:packageId/*`) against the `com.example.showcase` fixture — desktop 1440×900 + mobile 390×844, light + dark. Tracking issue for the findings below; each will be fixed and checked off as the work lands.\n\nScreenshots / full writeup: see session artifact (not linked here since it's a private Claude Code artifact — ping me if you want it re-shared).\n\n## Findings\n\n- [ ] **Bug — mobile card view renders `[object Object]` for lookup fields.** `Data pillar → Account → Records`, narrow viewport, card layout. The Owner lookup renders correctly (\"Dev Admin\") in the desktop grid but shows literal `[object Obje…]` in the mobile card view — the card formatter doesn't resolve the lookup's display value the way the grid formatter does.\n- [ ] **Studio has no responsive/mobile layout.** At 390px the Objects tree stays fully expanded (not collapsed into a drawer), squeezing content into ~190px; the Data/Automations/Interfaces/Access pillar tabs get clipped off-screen with no way to reach the other three pillars.\n- [ ] **Records tab has a ~100px empty band** between the sub-tab row (Records/Form/Validations/Settings) and the toolbar (Hide fields/Filter/Group/Sort), present on every object, every time. Worse on mobile — pushes the record list below the fold.\n- [ ] **Validations tab doesn't default-select the first rule.** Even when rules exist, the detail pane shows \"Select a rule on the left, or click 'New'...\". Inconsistent with the Access pillar's Permission Set list, which does default-select the first item.\n- [ ] **App Builder landing page (`/studio`) has a lot of dead space.** Content is confined to the top-left ~720×300 area; no card treatment for \"create a package\" the way Home's \"Build an app / Start with a template\" cards do it.\n- [ ] **Automations flow canvas is mostly empty, and \"fit view\" doesn't fill it.** Every flow tested (including a \"Parallel\" one) is a 2–3 node single-column chain occupying a small corner of the canvas frame; there's also a large blank band below the frame unrelated to node content. The fit-view control only recenters/resets zoom (100%→96%) rather than scaling to fill.\n- [ ] **HTML/React \"source\" authoring pages leave the right Properties panel permanently empty.** `Interfaces pillar → Authoring · HTML → Command Center` — since these pages are raw JSX/HTML (no selectable \"block\"), clicking the canvas never populates Properties; it's stuck on \"Click a block on the canvas...\". Suggestion: show a read-only, syntax-highlighted source view there instead for `Authoring · HTML` / `Authoring · React` page types.\n- [ ] **Permission matrix column headers (C R U D Tr Re Pu VA MA) have no legend/tooltip** on the Access pillar, making the less obvious abbreviations (Tr/Re/Pu/VA/MA) hard to decode for first-time users.\n\n## Bonus (found incidentally, same Command Center page)\n\n- [ ] \"Weekly Throughput\" widget is permanently stuck on \"Loading…\".\n- [ ] KPI cards (Open Tasks / Completed / Cycle Time) are too narrow — labels and numbers get clipped/wrapped (\"Completed\" → \"Complete\", \"1,902\" wraps mid-number).\n\n## What's already good (no action needed)\n\nDark mode is consistent throughout; the inline \"new package\" creation form is low-friction; Automations canvas and Interfaces WYSIWYG are otherwise polished. The `#2283` \"Open app\" 404 fix was also re-verified end-to-end during this pass.\n"
+}

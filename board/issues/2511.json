@@ -1,0 +1,32 @@
+{
+  "number": 2511,
+  "kind": "pull_request",
+  "title": "feat(studio): Design-in-Studio bridge from the AI build canvas",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T09:19:02Z",
+  "updated_at": "2026-07-15T11:40:44Z",
+  "closed_at": "2026-07-15T11:40:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T11:40:42Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2511",
+  "body": "Follow-up to the Studio UX teardown (#2504), grounded by **actually driving the full build flow**.\n\n## What the flow test surfaced\nHome → **用 AI 搭建** opens a *full-screen* chat page (`/_console/ai/build/conv…`); after **开始搭建**, its right pane is the **live RUNNING app** (点新建 = real record) — not the designer. That pane's only control was **close**, so a builder who wanted to keep editing (tweak a field/view/layout) had **no way to reach the Studio design surface** from here. This is a big part of why the three surfaces — AI build / Studio designer / running app — feel disconnected.\n\n## Change\nAdd a **\"Design in Studio\"** control to the `LiveCanvas` header that navigates to the package's design surface (`/studio/<pkg>/interfaces`), gated on an addressable package segment. It mirrors the running app's own AppHeader bridge — same already-localized `topbar.designInStudio` label and `Hammer` icon — closing the build → designer loop.\n\n## Testing\n- `type-check` green; behavioral test (`LiveCanvas.test.tsx`): the control renders + navigates to the right route, is omitted without a package segment, and the close control is preserved.\n- ⚠️ Not pixel-verified in a browser — the local rig serves framework's console, not this objectui; the change follows the proven AppHeader bridge pattern.\n\nPart of the \"one app, one workbench\" direction from the teardown (surfaces should be summonable tools over one persistent app preview, not three separate full-screen destinations).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

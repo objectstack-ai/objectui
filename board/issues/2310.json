@@ -1,0 +1,32 @@
+{
+  "number": 2310,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): fix React #300 crash on master-detail drill-in (hoist DetailSection early return below hooks)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T04:25:03Z",
+  "updated_at": "2026-07-06T06:29:09Z",
+  "closed_at": "2026-07-06T06:29:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-06T06:29:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2310",
+  "body": "## Problem\n\nDrilling from a master record's related sub-table into a child record crashed with a minified **React error #300** (\\\"rendered more hooks than during the previous render\\\"). The record detail page showed the orange error boundary, and refreshing bounced the user away.\n\nRepro (showcase): **Accounts list → open Northwind detail → Projects tab → click a project row** → the child project detail page crashes.\n\n## Root cause\n\n`DetailSection` had its all-empty early return placed **before** a hook:\n\n```tsx\n// BEFORE\nif (visibleFields.length === 0 && emptyCount === section.fields.length) return null; // ← early return\n...\nReact.useEffect(() => { /* virtual-scroll batching */ }, [vsEnabled, layoutFields.length, vsBatchSize]); // ← hook AFTER the return\n```\n\nWhen the **same reconciled fiber** rendered all-empty on one pass (early return → effect skipped → N hooks) and populated on the next (no early return → effect runs → N+1 hooks), the hook count changed between renders — the classic Rules-of-Hooks violation React reports as #300.\n\nThe master-detail drill-in reuses the `RecordDetailView` / `DetailSection` fiber (only `objectName`/`recordId` change via the router), and the sections flip from empty to populated, so it trips reliably.\n\n## Fix\n\nMove the all-empty guard to run **after every hook** (including the `useEffect`), so the hook count is invariant to field/data/`visibleCount`. Render output is unchanged.\n\n## Verification (showcase console)\n\n- ✅ Accounts → Northwind detail → Projects tab → **Website Relaunch** drill-in now renders (客户/状态/健康度/预算/负责人/已花费/日期 all show), **no crash, zero console errors**.\n- ✅ Back-nav via breadcrumb (project → account) works, no crash.\n- ✅ Inline edit + field validation (\\\"Tax ID must look like…\\\") + save round-trip all work.\n\nFixes the master-detail browse/edit/return flow reported as broken."
+}

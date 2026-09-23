@@ -1,0 +1,32 @@
+{
+  "number": 2112,
+  "kind": "issue",
+  "title": "选人组件升级:能力探测的分层 PeoplePicker(搜索优先默认 + 组织树/人群渐进增强)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-30T09:06:14Z",
+  "updated_at": "2026-07-15T14:09:57Z",
+  "closed_at": "2026-07-15T14:09:51Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2112",
+  "body": "## 背景 / 问题\n\n当前的「选人」能力是把通用 `LookupField` 套在 `sys_user` 上实现的(`UserField` 只是把 `reference` 锁死为 `sys_user`、`display_field` 设为 `name` 的薄包装,见 `packages/fields/src/widgets/UserField.tsx`)。也就是说——**选的时候和普通 lookup 没区别**(同一个搜索弹窗 + `RecordPickerDialog`),只有表格只读单元格用 `UserCellRenderer` 渲染成头像。\n\n这套在小团队够用,但面向真实组织(几百~上千人)时体验明显不足:\n\n1. **只有\"搜索 + 平铺列表\",没有组织维度**——用户记不全名字就抓瞎,缺部门/团队这个导航入口。\n2. **多选体验弱**——逐个勾选,没有\"已选区\"实时回显、不能整组选、勾错要回列表里找。\n3. **消歧信息不足**——同名的人在列表里只有名字,缺部门/邮箱等二级标识。\n4. **头像依赖 `$expand`**——拿不到展开对象时 `UserCellRenderer` 退化成纯 ID 文本(见 `packages/fields/src/index.tsx` 的 `UserCellRenderer`)。\n5. **无人事语义**——离职/停用过滤、\"最近联系人\"\"我的下属\"等都没有。\n\n### 模式调研结论\n\n- **左组织树 + 右成员 + 穿梭框** 是钉钉/企业微信/飞书等「组织通讯录」产品的中国特色形态。\n- **西方企业软件(Salesforce / Workday / ServiceNow)几乎不用树浏览**,而是 `搜索优先 + 声明式候选过滤(Lookup Filter) + 命名人群(Public Group / Queue / Team)`——用抽象让你\"几乎不需要从几千人里手挑个人\"。\n- 关键约束:**ObjectUI 是通用开发工具,不是每个客户都启用组织结构**,因此选人器**不能硬依赖** `sys_business_unit` 被启用/填充。\n\n## 方案:能力探测的分层选人器(PeoplePicker)\n\n把\"搜索优先\"作为**默认主形态**,组织树和选人群作为 **capability-detected 的渐进增强**,运行时探测对象是否启用,没启用就根本不渲染对应 UI——对未开组织功能的客户零负担。\n\n| 档位 | 触发条件 | 形态 | 对标 |\n|---|---|---|---|\n| **Tier 0 搜索版(默认)** | 永远可用,零配置 | type-ahead + 最近联系人 + 富信息行(头像/部门/邮箱)+ 已选区 chips | Salesforce lookup |\n| **Tier 1 + 组织树** | 探测到 `sys_business_unit` 存在且有数据 | 左树点亮(`SplitPaneGrid` + `ObjectTree`),点节点过滤右列表 | 钉钉/飞书 |\n| **Tier 2 + 选人群** | 探测到 `sys_team` 启用 | 可直接选 Team/Group,不展开成员 | SF Public Group/Queue |\n\n### 复用现有积木(不重造轮子)\n\n- 分栏 + 拖拽:`packages/plugin-grid` `SplitPaneGrid`\n- 左树:`packages/plugin-tree` `ObjectTree`(`sys_business_unit` 已自带 `org_chart` 的 `type:'tree'` 视图,`parentField: 'parent_business_unit_id'`,可直接复用)\n- 右列表查询/分页/多选内核:从 `packages/fields/src/widgets/RecordPickerDialog.tsx` 抽出复用\n- 最近联系人:已有的 `recentLookups`\n\n### 数据模型(已确认,平台对象)\n\n源自 `framework-stagefield-typed/packages/platform-objects/src/identity/`:\n\n- `sys_business_unit` — 部门/组织树,父字段 `parent_business_unit_id`,带 `kind`/`active`/`manager_user_id`。\n- `sys_business_unit_member` — 用户↔部门**多对多** junction(`is_primary`、`role_in_business_unit`、effective-dated,支持矩阵组织)。\n- `sys_user.primary_business_unit_id` — **平台已为本场景冗余的字段**,注释原文:\"Lets a user-lookup filter candidates by business unit without traversing the membership junction\"。→ 右列表按部门筛人走它即可,无需碰 junction。\n- `sys_team` / `sys_team_member` — 扁平协作分组(= SF Public Group),Tier 2 的人群来源。\n- `sys_user` 可用展示字段:`name`(searchable)、`email`(searchable)、`image`(头像)、`manager_id`;**无 job_title** → 富信息行副标题用 `email + 部门名`;离职过滤用 `banned`。\n\n### 作者侧 opt-in(草案)\n\n```ts\nField.user({\n  multiple: true,\n  picker: 'org-tree',          // 缺省 'search' = 现状;探测不到组织对象时自动降级回搜索\n  org: { object: 'sys_business_unit', userOrgField: 'primary_business_unit_id', cascade: false },\n  display: { subtitle: ['primary_business_unit_id.name', 'email'], avatarField: 'image' },\n  filters: { banned: { $ne: true } },\n})\n```\n\n## 待定决策\n\n- **右列表显示\"主属成员\"还是\"全部成员(含矩阵)\"?** 建议**默认主属**(走 `primary_business_unit_id`,简单快),`cascade`(选父含子)+ 矩阵全成员(走 junction)作为 P2 开关。\n\n## 落地顺序\n\n- [ ] **Step 1** 从 `RecordPickerDialog` 抽出 `useRecordQuery`(查询/分页/多选状态),现有 dialog 切过去验证不回归。\n- [ ] **Step 2** `SelectionTray` + 富信息行 → 单栏多选选人器(= **Tier 0**,零依赖、可独立上线)。\n- [ ] **Step 3** 加能力探测 + 左树(`ObjectTree` + `SplitPaneGrid`)→ **Tier 1**,仅对启用组织的客户点亮。\n- [ ] **Step 4** 字段接线:`picker` 元数据 → widget registry,`user`/`owner` 按配置切换。\n- [ ] **Step 5(可选)** 选 Team/Group → **Tier 2**。\n\n> 建议先交付 Step 1–2(Tier 0):老外也认、对所有客户都有价值、不依赖组织功能;组织树纯加分。\n"
+}

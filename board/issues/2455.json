@@ -1,0 +1,33 @@
+{
+  "number": 2455,
+  "kind": "pull_request",
+  "title": "feat(plugin-gantt): summaryExtent 'self' 修复汇总条拖动回弹 + 无 schema 时 tooltip 兜底格式化",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T13:56:18Z",
+  "updated_at": "2026-07-13T14:48:40Z",
+  "closed_at": "2026-07-13T14:48:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T14:48:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2455",
+  "body": "Closes #2454\n\n## 改动\n### ① `summaryExtent: 'children' | 'self'`(默认 children,行为零变化)\n- `'self'`:汇总条按记录**自身** start/end/progress 渲染;记录无日期(`hasOwnDates: false`,ObjectGantt 对无日期记录打标,如纯分组的项目/产品层)时仍回退子级 rollup。\n- self 模式下,拖动子任务不再实时拉伸祖先条(祖先区间已不依赖子级)。\n- `getGanttConfig` 顶层挑键清单补上 `summaryExtent`——console 的 ListView 把 view.gantt 平铺到顶层再逐键重挑,漏挑即静默丢失(与 #2448 的 data 透传同类坑,已加顶层路径回归测试)。\n\n### ② tooltip 无 schema 兜底(api provider)\n- 无字段 def 时:先查同字段 `quickFilters.options` 的 value→label 映射(dispatch→派工单、completed→已完成);\n- 仍无类型时 ISO 日期/时间串自动走 formatDate/formatDateTime(不再裸吐 `2026-08-14T08:00:00.000Z`)。\n\n## 修复的用户可见 bug(制造排班甘特真机)\n- 计划条拖动 → PATCH 已持久化,但刷新后被锁定派工单的 rollup 拉回原位(自身日期静默漂移);\n- 悬浮框:`层级 dispatch`、`状态 completed`、裸 ISO UTC 日期。\n\n## 测试\n- plugin-gantt 单测 21 文件 / 267 用例全绿(新增:self 自身区间/进度、hasOwnDates 回退、默认 children 不变、顶层挑键透传、quickFilters/ISO tooltip 兜底)。\n- 下游真机(os-tianshun-ehr,本仓 console 构建产物):周视图拖计划条 +110px(1 列=7 天)→ PATCH 200 → 静默刷新后条形停在 +110px,服务端 08-14→08-21;派工单悬浮框全中文 + 本地化日期。截图与报告见 steedos-labs/os-project-titanwind-ehr#173。"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2389,
+  "kind": "pull_request",
+  "title": "fix(ai-chat): allow spreadsheet attachments in composer accept list (cloud#797 WS3)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-11T01:03:25Z",
+  "updated_at": "2026-07-11T01:10:19Z",
+  "closed_at": "2026-07-11T01:10:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-11T01:10:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2389",
+  "body": "#2386 让 AI build 面板本地解析 .xlsx/.csv 附件并简报给 agent,但 composer 默认 `acceptedFileTypes = 'image/*,.pdf,.doc,.docx,.txt'` —— 类型过滤在解析之前就把表格拒了(活体确认:把 CSV 塞进 input 不出 chip)。补上 `.csv/.tsv/.xlsx/.xlsm`,整条 WS3 流程才从 UI 够得着。chatbot 192/192。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

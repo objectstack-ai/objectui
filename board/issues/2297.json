@@ -1,0 +1,30 @@
+{
+  "number": 2297,
+  "kind": "pull_request",
+  "title": "feat(studio): standard dialogs for package/create management (+ fix clipped switcher dropdown)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T15:43:43Z",
+  "updated_at": "2026-07-05T16:28:46Z",
+  "closed_at": "2026-07-05T16:28:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-05T16:28:45Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2297",
+  "body": "Addresses the Studio package-UX review: the clipped top-bar dropdown, plus consolidating Studio's ad-hoc create/manage mini-forms onto the standard `Dialog`/`Sheet` forms.\n\n## 1. Fix: package switcher dropdown was clipped\n\nThe Studio top bar (`<header>`) uses `overflow-x-auto` so pillars/Publish never clip off a narrow viewport. CSS forces the *other* axis to `auto` too, so the switcher's `absolute` dropdown was clipped by the header instead of overlaying the canvas. Converted it to a Radix **`Popover`** (portals to `<body>`, escaping the overflow). The app-create dropdown had the identical bug — it's gone too (now a dialog, below).\n\n## 2. Standard create dialogs (`如何弹出标准表单`)\n\nStudio had **five** bespoke two-input mini-forms (package / app / object / flow / permission) — two clipped dropdowns, three cramped rail blocks, none matching the standard forms.\n\n- New **`CreateItemDialog`**: one standard `Dialog` — display-name auto-slugs the identifier, optional `extra` slot (e.g. app's \"scaffold nav\" checkbox), inline error, busy-aware submit. **App / object / flow / permission** creates now open it; each keeps its own skeleton + draft-save logic, so behaviour (draft-only, navigate-to-designer, etc.) is preserved.\n- **Package** create now opens the existing standard **`CreatePackageDialog`**.\n\n## 3. View info + advanced ops (`查看软件包信息` / `停用 / 复制 / 删除`)\n\n- Package switcher gains a **\"Package info & settings\"** entry that opens the standard **`PackageDetailSheet`** — manifest info + disable / duplicate / delete / publish / revert / export. These already existed on the admin page; now they're reachable from Studio.\n- Exported `PackageDetailSheet` + `InstalledPackage`; made its `appBase` **optional** (Studio has no console-app base, so the metadata-browse / per-draft links are hidden there — every lifecycle action still works without it).\n\n## Known gap: editing a package\n\nAdding a package uses a standard form; **editing** a manifest (name/description/version) has **no backend endpoint** (only `POST /packages` + lifecycle sub-routes exist in the framework REST surface). So package *edit* is not wired here — it needs a `PATCH /packages/:id` in the framework repo first.\n\n## Verification\n\n- `tsc --noEmit` on `@object-ui/app-shell`: **0 errors**\n- `eslint` on changed files: **0 errors** (only pre-existing style warnings)\n- `vitest` app-shell studio-design + metadata-admin: **581 tests pass**\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01DxVTSDSXrdnfqHNBkHB6yi"
+}

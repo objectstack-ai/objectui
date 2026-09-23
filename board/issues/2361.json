@@ -1,0 +1,34 @@
+{
+  "number": 2361,
+  "kind": "issue",
+  "title": "[components] 记录详情页头只允许一个主按钮(INLINE_MAX=1),无法并排多主按钮",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T03:49:08Z",
+  "updated_at": "2026-07-16T07:13:23Z",
+  "closed_at": "2026-07-16T07:13:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2361",
+  "body": "## 概述\n记录详情页头**只渲染一个主按钮**。同一对象注册多个 `locations:['record_header']` 的 Action 时,只有「注册顺序里第一个 visible 的」占主按钮槽位,其余全部折叠进 ⋯「更多操作」溢出菜单。多操作型对象(如线索:转商机/分配/退回…)无法把常用操作都做成一眼可见的按钮。\n\n## 定位\n- `packages/components/src/renderers/layout/containers.tsx:859-862` —— 硬编码 `INLINE_MAX=1`(≥3 折叠进 ⋯;实测 2 个仍并排,原 issue 需此边界修正)。\n\n## 期望\n- 记录详情页头支持渲染**多个主按钮**(并排);\n- 最好可控:哪些 Action 直接露出、哪些进 ⋯ 菜单,按 metadata 声明(如显式优先级 / `variant`)。\n\n## 附带约束\n`visible` CEL 不能引用 `hidden:true` 字段(payload 剥离致 fail-closed),进一步限制了用可见性规则「变相摆多个按钮」的绕法。见 #26。\n\n---\n来源(项目 dogfood):steedos-labs/os-tianshun-mtc#40 · 相关 #26\n"
+}

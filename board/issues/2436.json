@@ -1,0 +1,32 @@
+{
+  "number": 2436,
+  "kind": "issue",
+  "title": "甘特图产品化补齐:依赖校验、行级只读完整性、预警描边、树筛选、写后回读、刷新按钮(7 项)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T08:28:20Z",
+  "updated_at": "2026-07-15T14:01:54Z",
+  "closed_at": "2026-07-15T14:01:54Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2436",
+  "body": "## 背景\n\n排产项目基于甘特图落地客户需求(项目→产品→排班计划→派工单四层树,拖拽排产实时回写)。逐条核对代码后,组件已覆盖大部分需求,但存在 7 个具体缺口。数据架构问题(快照表+定时重建覆盖用户数据)不在本 issue 范围——正确做法是项目侧提供只读组合接口 + 直接写业务对象,组件侧经 #2423 已支持 api 数据源读写。\n\n## 缺口清单(均已核实代码位置)\n\n1. **连线落点不拒绝锁定行/分组行**:GanttView 连线拖拽的落点登记(captureLinkTarget)只排除\"自己连自己\";锁定行(如派工单)不能作为连线起点,却能作为落点。依赖应仅在可编辑任务行之间创建。\n2. **创建依赖无环检测**:松手提交(linkDrag onUp)直接创建,A→B→C→A 能连出来;scheduling.ts 的 toposort 仅在调度时跳过环,不阻止创建。\n3. **无逐任务预警描边**:borderColor 仅在关键路径高亮时使用,无法按行数据(预警等级)给任务条描黄/红边。\n4. **快速筛选打散树**:筛选为平面过滤(ObjectGantt displayTasks),激活筛选后无筛选字段的祖先行(项目/产品分组行)被滤掉,树结构断裂。应保留命中行的祖先链。\n5. **抽屉绕过行级锁定**:锁定行点击打开 RecordDetailDrawer 时仍无条件传入 onFieldSave/onDelete,拖不动的行在抽屉里却能改能删。锁定行应以纯查看方式打开抽屉。\n6. **写后不回读**:拖拽回写成功后仅本地乐观补丁,不重新拉取,服务端重算的字段(汇总实际时间、预警等级、自动顺延连锁结果)带不回来。\n7. **无刷新按钮**:工具栏无手动刷新入口,数据变化(新建计划、派工单报工)只能整页刷新。\n\n## 方案要点\n\n- 1+2 收口到同一个否决点:创建依赖提交前内置策略校验(锁定/分组落点拒绝、DFS 环检测),悬停登记同步过滤(不给可落高亮);并新增 `onBeforeDependencyCreate` 否决钩子,供宿主叠加业务规则(对齐 DHTMLX onBeforeLinkAdd / Bryntum 校验回调的业界惯例)。\n- 3:新增 borderColorField 类映射,行数据驱动描边色。\n- 4:树感知筛选,命中行自动保留祖先链。\n- 5:记录 locked 时不传 onFieldSave/onDelete。\n- 6:update 成功后 refetch。\n- 7:工具栏刷新按钮。\n\n## 明确不做\n\n- 断网自动恢复监听(有刷新按钮即可)\n- 并发编辑保护(需求未要求,且服务端无对应能力)\n- framework 侧改动:无需要\n\n分 PR 提交,首刀为 1+2(依赖创建校验)。"
+}

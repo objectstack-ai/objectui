@@ -1,0 +1,33 @@
+{
+  "number": 2423,
+  "kind": "pull_request",
+  "title": "feat(plugin-gantt): api 数据源支持读取 + 全部回写",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T07:26:07Z",
+  "updated_at": "2026-07-13T09:30:38Z",
+  "closed_at": "2026-07-13T09:30:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T09:30:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2423",
+  "body": "## 问题\n\n甘特图(`ObjectGantt`)的数据源此前只有 `object` / `value` 两条路真正可用。`provider: 'api'` 是空壳:\n\n- **读**: 命中 api 分支只 `console.warn('API provider not yet implemented')` 并 `setData([])`,渲染空。\n- **写**: 四类回写(拖拽改期 / 依赖增删 / 删除 / 抽屉内联编辑)全部硬绑到从 props 传入的上下文 ObjectQL `dataSource` + `objectName`,`ViewData` 的 api `write`(HttpRequest)配置**从没被读过**。\n\n也就是\"回写只能绑顶层对象,不能走接口\"。\n\n## 方案\n\n仓库其实已有完整的适配器层(`ApiDataSource` / `ValueDataSource` / `resolveDataSource`),只是甘特图没接。本 PR 把 gantt 的读和**全部写回写**统一走 `resolveDataSource(schema.data, dataSource)` 解析出的单一适配器:\n\n| provider | 解析结果 | 行为 |\n|---|---|---|\n| `object` | 上下文 DataSource | 不变 |\n| `api` | `ApiDataSource` | 执行 read/write HttpRequest 配置 |\n| `value` | 内存 `ValueDataSource` | 内联数据 |\n\n要点:\n\n- 纯 api 视图**无需 `objectName`、无需上下文 `dataSource` prop**(`ApiDataSource` 忽略 resource,URL 自带端点)。\n- object 视图行为保持不变(`effectiveDataSource === 上下文 dataSource`)。\n- 快筛的引用对象选项(lookup/master_detail)仍走上下文对象后端;api 场景无对象后端时降级为\"已加载行的去重值\"。\n- api 无对象元数据:`getObjectSchema` 返回空字段 stub,`$expand` 自动关闭,字段格式化优雅降级。\n\n## 改动点(均在 `ObjectGantt.tsx`)\n\n- 新增 `effectiveDataSource` = `resolveDataSource(dataConfig, dataSource)` 与统一 `resource`。\n- 读 effect:去掉 api warning + object 分支收敛为一条 `effectiveDataSource.find(resource, …)`。\n- object schema effect:改用 `effectiveDataSource`。\n- 四类回写:`handleTaskUpdateDefault` / `persistDependencies` / `confirmDelete` / 抽屉 `onFieldSave`+`onDelete` 全部改用 `effectiveDataSource` + `resource`,并放宽 `!objectName` 守卫(api 下不需要)。\n\n## 测试\n\n- 新增 `api provider: reads via fetch and persists a drag update via write config`:纯 api schema(无 objectName、无 dataSource prop),mock `fetch`,验证 GET 读取渲染 + 拖拽触发 PATCH 到 write url 且 body 携带改期日期。\n- 全量 `pnpm vitest run` **233 passed**;`tsc --noEmit` 无错;`turbo build` 通过;无新增 eslint error(既有 1 处 `no-useless-assignment` 在 HEAD 上已存在)。\n\n> 注:同款 api stub 也存在于 `plugin-calendar`,本 PR 按范围只改 gantt。"
+}

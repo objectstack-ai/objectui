@@ -1,0 +1,34 @@
+{
+  "number": 2357,
+  "kind": "issue",
+  "title": "[fields] Lookup chip 显示值走 autonumber 启发式,与 picker(nameField/titleFormat)解析不一致",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T03:48:50Z",
+  "updated_at": "2026-07-16T02:54:18Z",
+  "closed_at": "2026-07-16T02:54:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2357",
+  "body": "## 概述\n`Field.lookup(obj)`,目标对象已声明 `nameField` + `titleFormat`,但**目标对象另有 autonumber 字段**时,记录页头/明细里的 lookup **chip 显示成 autonumber 编号**(如 `0001`),而非名称。对照:目标对象无 autonumber 时正常显示名称;**且同一字段在新建表单选择器里显示名称** —— chip 与 picker 两处解析不一致。\n\n## 定位\n- chip 走本地启发式 `pickRecordDisplayName`(`packages/fields/src/index.tsx:30, 70-77`),`_number` / `_code` 后缀命中 autonumber,盖过 nameField/titleFormat。\n- picker 走正确的 `getRecordDisplayName`(nameField/titleFormat)。\n→ 两路解析不一致导致显示错误。\n\n## 期望\nlookup 显示值解析优先级统一为 `displayField > nameField/titleFormat > primaryField/autonumber`;至少保证记录页头 chip 与选择器一致。\n\n## 规避\nlookup 显式指定 `displayField`。\n\n---\n来源(项目 dogfood):steedos-labs/os-tianshun-mtc#32\n"
+}

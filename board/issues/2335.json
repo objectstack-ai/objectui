@@ -1,0 +1,30 @@
+{
+  "number": 2335,
+  "kind": "issue",
+  "title": "日期/时间字段需点准日历图标才能打开选择器,应点框内任意处即可",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-07T11:21:10Z",
+  "updated_at": "2026-07-08T05:50:13Z",
+  "closed_at": "2026-07-08T05:50:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2335",
+  "body": "## 问题\n\n表单里的日期/日期时间/时间字段是原生 `<input type=\"date|datetime-local|time\">`。浏览器默认只有点击右侧那个很小的日历/时钟图标才会弹出选择器,点输入框其它区域没有任何反应。\n\n这与其它字段(下拉、查找等)\"点框内任意处即可进入编辑\"的交互不一致,用户需要精准点中小图标,体验割裂。\n\n覆盖面:\n- 新建/编辑表单弹窗中的日期字段(`packages/components` 表单渲染器)\n- 列表行内联编辑中的日期字段(`packages/fields` 的 `FieldEditWidget → DateField/DateTimeField/TimeField`)\n\n## 方案\n\n在这些原生日期/时间输入上,点击框内任意位置即调用原生 `showPicker()` 打开选择器,使其与其它字段\"点框即编辑\"的行为一致。\n\n- 仅对 `date` / `datetime-local` / `time` / `month` / `week` 生效,普通文本框不受影响\n- `disabled` / `readonly` 时不触发\n- `showPicker()` 在不支持的老浏览器会抛异常,已用 try/catch 兜底,静默回退到\"点图标\"的原生行为,无回归\n- 与已有的 `onClick` 组合调用,不覆盖\n\n## 验证\n\n- 新增回归测试,走真实 registry 渲染路径,断言点击 datetime 字段触发 `showPicker()`、普通文本字段不触发\n- 在真实 console(dev server 连本地后端)中实测:表单弹窗与列表行内联编辑两条路径,点击输入框文本区(非图标)均成功弹出原生选择器"
+}

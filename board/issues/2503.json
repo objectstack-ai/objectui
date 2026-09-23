@@ -1,0 +1,32 @@
+{
+  "number": 2503,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): default ImportWizard 'run automations & triggers' to ON (framework#2922)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T01:45:48Z",
+  "updated_at": "2026-07-15T02:40:46Z",
+  "closed_at": "2026-07-15T02:40:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T02:40:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2503",
+  "body": "## Summary\n\nCompanion to objectstack-ai/framework#2941 (fixes objectstack-ai/framework#2922).\n\nAutomations always ran on import before the server honored the `runAutomations` flag, so preserving behavior means **opt-out rather than opt-in**: the ImportWizard \"Run automations & triggers\" checkbox now defaults to checked (`useState(true)`), and the wizard reset path restores the same default.\n\nServer-side, the framework PR makes the flag actually effective (`skipAutomations` suppresses metadata-bound automation hooks + flow dispatch while audit/security system hooks still run) and flips the REST default to `runAutomations !== false` — this PR aligns the UI default with that contract.\n\n## Tests\n- `@object-ui/plugin-grid`: 27 files / 194 tests pass. Existing import request-builder tests pass explicit `runAutomations` values, so they are unaffected by the state default.\n\nChangeset included (patch: plugin-grid)."
+}

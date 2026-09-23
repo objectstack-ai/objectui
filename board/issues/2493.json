@@ -1,0 +1,30 @@
+{
+  "number": 2493,
+  "kind": "issue",
+  "title": "Build-result card overflows horizontally on mobile — truncate span lacks a min-w-0 flex ancestor",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T11:23:51Z",
+  "updated_at": "2026-07-14T14:07:01Z",
+  "closed_at": "2026-07-14T14:07:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2493",
+  "body": "Found while fixing #2481 (mobile Live Canvas). Independent, pre-existing, and in a different package.\n\nOn mobile `/ai/build`, the chat column overflows the viewport horizontally (measured ~672–2128px vs a ~500px viewport). The widest element is:\n\n```\n<span class=\"truncate text-xs text-muted-foreground\">built N artifact(s) — live in your new app, grouped under app.…</span>  // scrollWidth ~2128\n```\n\n`truncate` sets `white-space:nowrap; overflow:hidden; text-overflow:ellipsis`, but for the ellipsis to constrain layout, a flex ancestor needs `min-w-0` (flex items default to `min-width:auto`, which refuses to shrink below content width). Without it, the nowrap span forces its flex row to content width → the whole chat column grows → the mobile chat scrolls sideways.\n\n- Location: the build-result / build-tree card in `@object-ui/plugin-chatbot` (rendered by `ChatbotEnhanced`). The `built N artifact(s)…` summary line.\n- Fix: add `min-w-0` to the appropriate flex ancestor(s) of that truncate span (and audit sibling truncate lines in the same card). Verify on both mobile and desktop — desktop has more width so it's latent there.\n- Not bundled into #2481/#2492 (the Live Canvas split fix) to avoid a cross-package change with desktop-regression risk.\n\nRefs #2481"
+}

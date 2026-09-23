@@ -1,0 +1,32 @@
+{
+  "number": 2323,
+  "kind": "issue",
+  "title": "View createBuildBody hardcodes viewKind list — form views cannot be created through the create UI",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T12:28:27Z",
+  "updated_at": "2026-07-15T15:12:00Z",
+  "closed_at": "2026-07-15T15:12:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2323",
+  "body": "### Summary\n\nThe `ViewItemSchema` is a discriminated union on `viewKind` with both `list` and `form` variants, but the create form can only produce `list` views. Form-family views are unreachable through the create UI.\n\n### Root cause — two problems in `packages/app-shell/src/views/metadata-admin/anchors.ts`:\n\n**Problem 1 (line 202):** `createFields: ['label', 'name', 'object', 'kind']` — no `viewKind` field. The `kind` field is a `ListViewSchema.type` value (grid/kanban/gallery/calendar/timeline/gantt/chart), not a family discriminator.\n\n**Problem 2 (lines 234-250):** `createBuildBody` hardcodes `viewKind: 'list'` at line 242 and writes the `kind` draft value directly to `config.type`. There is no code path that produces a `viewKind: 'form'` ViewItem with a `FormViewSchema` config.\n\nThe spec (`spec/src/ui/view.zod.ts`, line 1111) defines a discriminated union on `viewKind` where `form` items carry `FormViewSchema` config with type enum `['simple','tabbed','wizard','split','drawer','modal']` (lines 815-822).\n\n### Steps to reproduce\n\n1. Navigate to Metadata → View → Create new\n2. There is no option to choose \"List\" vs \"Form\" as the view family\n3. All views created through the form are `viewKind: 'list'`\n\n### Expected behavior\n\nThe create form should let users choose \"List\" or \"Form\" family, then offer the appropriate layout type per family (grid/kanban/... for list, simple/tabbed/... for form).\n\n### Fix\n\nAdd `viewKind` (enum: `['list','form']`) and `formType` (enum from `FormViewSchema.type`) to `createFields` and `createSchema`. Update `createBuildBody` to discriminate on `viewKind`.\n\n### Impact\n\nUsers cannot create form-family views at all through the UI."
+}

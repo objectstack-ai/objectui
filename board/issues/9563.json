@@ -2,8 +2,8 @@
   "number": 9563,
   "kind": "issue",
   "title": "[finding] AGENTS.md clause ③ says the attribution footer is appended `无条件` on PATCH — measured across four writes, the append is conditional on absence, and a seat trusting the clause will strip its own footer and ship none",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "claude[bot]",
@@ -12,18 +12,19 @@
   },
   "labels": [
     "domain:skills",
-    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [
-    "huangyiirene"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-15T05:58:02Z",
-  "updated_at": "2026-09-22T09:01:56Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-23T02:54:37Z",
+  "closed_at": "2026-09-23T02:53:20Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
   "merged_at": null,
   "comments": 4,
   "locked": false,

@@ -1,0 +1,32 @@
+{
+  "number": 2396,
+  "kind": "pull_request",
+  "title": "fix(app-shell): unwrap the {success,data} envelope in apiHandler so resultDialog fields resolve",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-11T14:07:33Z",
+  "updated_at": "2026-07-11T14:21:03Z",
+  "closed_at": "2026-07-11T14:21:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-11T14:21:01Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2396",
+  "body": "## Problem\n\nCreating a user via **Setup → Users → Create User** (`sys_user` `create_user` action) succeeds on the backend (`POST /api/v1/auth/admin/create-user` → 200) but the \"User Created\" reveal dialog shows an **empty Email and empty Temporary Password**. The admin never sees the one-shot temporary password, so the freshly created user can't sign in — the feature is effectively broken.\n\n## Root cause\n\n`useConsoleActionRuntime` registers three action handlers. `flowHandler` and `serverActionHandler` both unwrap the ObjectStack `{ success, data }` envelope (`json.data`), but **`apiHandler`'s absolute-URL branch returned the whole envelope** as `result.data`.\n\nEvery action `resultDialog` field `path` (`user.email`, `temporaryPassword`, `client.client_id`, `totpURI`, …) is written relative to the **inner** `data`. Leaking the envelope makes `ActionResultDialog`'s `readPath(envelope, 'user.email')` resolve to `undefined`; the `secret`/`text` renderers then degrade to an empty `<pre>` — blank fields.\n\n## Change\n\nUnwrap the envelope in `apiHandler`, guarded so bare, non-enveloped better-auth bodies pass through unchanged:\n\n```js\nconst data = json && typeof json === 'object' && !Array.isArray(json) && 'data' in json\n  ? json.data : json;\n```\n\nThis aligns `apiHandler` with its two sibling handlers and the documented \"a dot `path` into `data`\" contract. **Fixes not just `create_user` but also `set_user_password`, `enable_two_factor` and `create_oauth_application`** reveal dialogs, which had the same latent bug.\n\n## Companion / release-coupling\n\n`sys_sso_provider` was the only spec that compensated for this bug with a `data.` prefix; it's fixed in **objectstack-ai/framework#2842**. **The two must ship together** — only the niche opt-in SSO domain-verification dialog is affected in any transition window.\n\n## Tests\n\n- `useConsoleActionRuntime.test.tsx` → **24/24 pass** (new: `apiHandler` unwraps the envelope; existing: bare responses pass through unchanged).\n- `ActionRunner.resultDialog.test.ts` → 11/11 pass.\n- **Browser E2E** (worktree console → `:3000` backend): \"Create User\" now renders `testuser3@example.com` + the masked temporary password (reveal/copy work). DOM read: `codeBlocks: [\"testuser3@example.com\", \"••••…\"], preBlocks: []`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

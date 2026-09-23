@@ -1,0 +1,33 @@
+{
+  "number": 2444,
+  "kind": "pull_request",
+  "title": "feat(console-ai): ask→build handoff carries conversation context + live verification (ADR-0057 P4)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T10:51:52Z",
+  "updated_at": "2026-07-13T11:04:20Z",
+  "closed_at": "2026-07-13T11:04:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T11:04:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2444",
+  "body": "The two **ADR-0057 P4** follow-ups deferred by #2439: the **context-carrying upgrade** (cloud#817) and **verification** of the ask→build handoff.\n\n## Context-carrying (the upgrade)\n#2439's \"Open in Builder →\" carried only the build prompt + optional package, so the Builder started **cold**. It now also carries the source `ask` conversation so the build agent's first turn starts with the thread the user already had.\n\n- **app-shell** — both handoff sites (the full-page `AiChatPage` and the console FAB) append `?parentConversationId=<ask thread id>` to `/ai/build`. The build surface reads it and forwards it to `useObjectChat`; the existing URL-mirror drops it once the build conversation id is minted, so a reload never re-carries it (same treatment as `?handoffPrompt`).\n- **plugin-chatbot** — `useObjectChat` accepts `parentConversationId` and sends it as `context.parentConversationId` on the **first turn only** (held in a ref, consumed once in `prepareSendMessagesRequest`). New pure `withHandoffContext` does the non-mutating `context` merge.\n\n## Verification (the ADR-0054 proof #2439 skipped — done deterministically)\nA full LLM-driven browser e2e needs the cloud AI stack (`run-stack` + a provider key + a seat) which isn't reachable in CI/sandbox — the console's build surface only renders against a live agent catalog. Instead this proves the **whole contract** with tests that exercise the *real* wiring, not mocks of it:\n\n- `withHandoffContext.test.ts` — the context merge (nest under `context`, preserve siblings, never mutate the cached body). **3 ✓**\n- `useObjectChat.handoffContext.test.tsx` — **integration**: renders the real `useObjectChat`, captures the outgoing chat POST bodies, asserts `context.parentConversationId` rides the **first turn only** and is gone on turn 2. **2 ✓**\n- No regressions across `ChatbotEnhanced` / `useObjectChat` / `mapMessages` suites. **137 ✓**\n- Backend counterpart (cloud PR #819): a route-level integration test proves the redemption + all guardrails against the real handler.\n\n**Manual staging proof** (for when the cloud AI stack is up): ask the `ask` agent a build-shaped question → it declines with the \"Open in Builder →\" card → click it → on `/ai/build`, the first chat POST body carries `context.parentConversationId` (the ask thread) and a reload does not re-send it.\n\n## Dependency\nConsumes the cloud handoff-context contract: **objectstack-ai/cloud#819 (cloud#817)** — merge that first. Without it the console degrades cleanly: the id is sent but ignored, a working cold start.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

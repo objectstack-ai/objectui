@@ -1,0 +1,30 @@
+{
+  "number": 2471,
+  "kind": "issue",
+  "title": "列表放大镜搜索:离开再返回后关键字仍生效,但界面看不出搜索状态",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T02:29:42Z",
+  "updated_at": "2026-07-14T05:25:13Z",
+  "closed_at": "2026-07-14T05:25:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2471",
+  "body": "## 问题\n\n列表工具栏的放大镜搜索输入关键字后,该关键字会持久化到 `localStorage`(`list-filters:<user>:<object>:<view>`)。离开列表再返回时,关键字仍在过滤数据 —— 这是预期行为;但搜索弹框默认收起(`showSearchPopover` 初始为 `false`),唯一的提示只是放大镜图标颜色略深,**用户完全看不出列表正处于关键字过滤状态**,容易误以为\"数据少了/丢了\"。\n\n## 根因\n\n- 关键字恢复:`packages/app-shell/src/views/ObjectView.tsx` 通过 `initialSearchTerm={storedListFilters?.search}` 注入 `ListView`;\n- 弹框状态:`packages/plugin-list/src/ListView.tsx` 中 `showSearchPopover` 写死 `useState(false)`,与是否存在已恢复的关键字无关。\n\n## 修复(见关联 PR)\n\n搜索激活时,放大镜按钮内联显示当前关键字(样式对齐「排序」按钮的计数徽标,超长截断);点击徽标打开弹框可修改或清除。\n\n## 真机 UI 实测(objectui console dev :5188 + ObjectOS 后端 :3357,admin 实登)\n\n1. 用户列表打开放大镜,输入 `Dev`,列表过滤生效:\n\n![输入关键字](https://raw.githubusercontent.com/objectstack-ai/objectui/assets/list-search-keyword-chip/shots/2-search-typed.png)\n\n2. 切到「角色」再返回「用户」:弹框收起,但工具栏放大镜旁直接显示 `Dev`,一眼可见仍在关键字过滤;`localStorage` 校验值为 `{\"search\":\"Dev\"}`:\n\n![返回后徽标可见](https://raw.githubusercontent.com/objectstack-ai/objectui/assets/list-search-keyword-chip/shots/3-returned-chip-visible.png)\n\n工具栏特写:\n\n![工具栏特写](https://raw.githubusercontent.com/objectstack-ai/objectui/assets/list-search-keyword-chip/shots/4-toolbar-closeup.png)\n\n3. 点击徽标 → 弹框打开且输入框预填 `Dev`,可直接编辑或点 X 清除(已实测)。\n\n单元测试:`plugin-list` 125 通过(新增 2 个:输入时徽标显示、恢复关键字且弹框关闭时徽标显示)。`tsc --noEmit` 通过。\n\n截图存放于临时分支 `assets/list-search-keyword-chip`,合并后可删除。"
+}

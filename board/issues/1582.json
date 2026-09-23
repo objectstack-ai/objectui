@@ -1,0 +1,30 @@
+{
+  "number": 1582,
+  "kind": "issue",
+  "title": "Studio: CEL editor (validate + autocomplete) for field conditional rules (visibleWhen/readonlyWhen/requiredWhen)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-07T14:52:28Z",
+  "updated_at": "2026-07-16T05:32:54Z",
+  "closed_at": "2026-07-16T05:32:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1582",
+  "body": "## Context\n\nB2 added field-level conditional rules authored as CEL: `visibleWhen` / `readonlyWhen` / `requiredWhen` (+ deprecated `conditionalRequired`). Today a low-code author can only type a **raw CEL string** into the field config — no validation, no field-name help.\n\n## Goal\n\nIn Studio's metadata-admin field-config form, give each `*When` property a proper **CEL editor**:\n\n- Inline syntax/semantic validation as you type.\n- Field-name autocomplete scoped to the object's fields (and `record.*` / `previous.*` / `parent.*`).\n- Clear error surfacing when a predicate is invalid.\n\n## Reuse (don't reimplement)\n\n`@objectstack/formula` already exports the validators the server uses:\n- `validateExpression(...)` — parse + semantic check.\n- `introspectScope(...)` / `expectedDialect(...)` / `CEL_STDLIB_FUNCTIONS`.\n\nWire these into the Studio form widget rather than writing a parallel checker. See the `objectstack-studio-admin` skill for how metadata types map fields → form widgets and how to register a custom widget per property.\n\n## Scope notes\n\n- objectui-side: `packages/app-shell/src/views/metadata-admin/*` (field/object config forms).\n- Needs objectui to consume the `@objectstack/formula` version that exports the validators (already a dep via core).\n\n## Acceptance\n\n- Editing an object field in Studio, the three `*When` inputs validate live and autocomplete field names.\n- An invalid predicate blocks save (or warns) with a readable message.\n- Round-trips: a rule authored in Studio persists and is honored at runtime (form + grid)."
+}

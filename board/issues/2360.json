@@ -1,0 +1,34 @@
+{
+  "number": 2360,
+  "kind": "issue",
+  "title": "[fields] Field.file 在 inline grid 退化为文本框、无法上传,且被自动子表列排除",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T03:49:04Z",
+  "updated_at": "2026-07-16T09:58:05Z",
+  "closed_at": "2026-07-16T09:58:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2360",
+  "body": "## 概述\n子对象(masterDetail `inlineEdit:'grid'` 或 formView subform)里放 `Field.file`:\n\n1. **自动生成的子表列丢弃 file 字段** —— 须在 subform `columns` 显式声明才作为列出现。\n2. 即便显式声明为列,**内联表格格子里渲染成 `<input type=text>` 文本框**(带 `file:*` class 但 `type=text`),整页无 `input[type=file]` → **无法在表格里真正上传**。\n3. 真正的上传控件只在点开该行 ↗ 展开的子记录表单里才有。\n\n## 定位\n- 自动列排除:`packages/plugin-detail/src/.../RelatedList.tsx:572, 588`(SKIP_TYPES 含 file)。\n- 内联退化:`packages/fields/src/widgets/GridField.tsx:42, 730`(无 file 分支,落 text Input)。\n- 上传控件:`packages/fields/src/index.tsx:2160`(`FileField` 仅表单注册)。\n\n## 影响\n「明细表每行上传附件/图片」是常见需求(费用明细附单据等),内联表格里做不到,只能逐行展开上传,体验差。\n\n## 期望\n- 内联子表格支持 file/image 字段渲染真正的上传控件(紧凑「上传」按钮 / 缩略图);\n- 自动生成子表列时不默认丢弃 file 字段(或提供开关)。\n\n---\n来源(项目 dogfood):steedos-labs/os-tianshun-mtc#33\n"
+}

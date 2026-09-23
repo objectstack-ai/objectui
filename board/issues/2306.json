@@ -1,0 +1,30 @@
+{
+  "number": 2306,
+  "kind": "pull_request",
+  "title": "feat(app-shell): embed the build-agent copilot in Studio's aiSlot (ADR-0080 slice-1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T00:13:03Z",
+  "updated_at": "2026-07-06T00:16:54Z",
+  "closed_at": "2026-07-06T00:13:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-06T00:13:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2306",
+  "body": "The new WYSIWYG Studio (`StudioDesignSurface`) shipped its `aiSlot` unfilled — the magic-flow build agent lived only on the separate `/ai/build` page. This fills the slot so the magic flow becomes a first-class copilot *inside* Studio.\n\n## What\n- **`StudioAiCopilot`** — embeds the SAME `ChatPane` build chat, scoped to the package being designed (`editPackageId`), so 'add a field / add a view / add an automation' acts on THIS app without leaving the design surface (the iterate copilot ADR-0080 calls for). Collapsible `w-96` left aside; per-(user, package) conversation.\n- Export `ChatPane` + `resolveApiBase` from `AiChatPage` (the embeddable chat body).\n- `StudioDesignSurface` defaults its `aiSlot` to `<StudioAiCopilot>`; the prop stays an override.\n\n## Open-core\nThe copilot self-gates on the live agent catalog (`useAgents`): an env that serves a `build` agent (cloud AI Studio) lights it up; a community env with no agent renders nothing — same 'cloud fills it' contract as the floating chat FAB, with **no injected prop threaded through the console**.\n\n## Validation\n- `tsc` app-shell clean (deps built first); `eslint` 0 errors; console build green.\n- Rig (cloud env runtime with a served build agent): copilot renders in `/studio/:pkg` — build intro, 构建/提问 tabs, '向 构建 提问...' input, collapse control — all scoped to the package; verified via DOM eval (screenshot daemon wedged on the streaming chat DOM).\n\nPairs with cloud#750 (gap A: single-table builds now yield an openable app). Gap B (build-completion deep-link into Studio) is a follow-up.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

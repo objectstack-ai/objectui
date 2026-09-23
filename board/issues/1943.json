@@ -1,0 +1,30 @@
+{
+  "number": 1943,
+  "kind": "issue",
+  "title": "Flow builder: search / filter box in the Add-node palette",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-24T04:24:15Z",
+  "updated_at": "2026-07-15T16:35:04Z",
+  "closed_at": "2026-07-15T16:35:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1943",
+  "body": "## Problem\n\nThe **Add-node** palette is a ~20-item scrolling list across 5 categories (Data / Logic / Human / Integration / Flow). Finding the bottom ones (Screen, End, Subflow, Wait) needs scrolling, and the palette is **server-driven** (`GET /api/v1/automation/actions` — plugins contribute nodes), so it only grows.\n\n## Proposal\n\nA **search box** at the top of the palette that filters items by label + hint as you type (e.g. `scr` → Screen, `http` → HTTP). Nice-to-haves: a \"Recently used\" group, and keyboard navigation (↑/↓ + Enter).\n\n## Acceptance criteria\n\n- [ ] Typing filters the palette across all categories (matches label and hint, case-insensitive).\n- [ ] Empty query shows the full grouped list (current behavior).\n- [ ] Keyboard: arrow keys move, Enter inserts the highlighted node.\n- [ ] Works with the server-merged palette (plugin nodes included).\n\n## Pointers\n\n- `previews/flow-canvas-parts.tsx` — `NodePalette` component + `NODE_PALETTE`.\n- `previews/useFlowNodePalette.ts` — `useFlowNodePalette()` supplies the merged item list."
+}

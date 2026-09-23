@@ -1,0 +1,33 @@
+{
+  "number": 2497,
+  "kind": "pull_request",
+  "title": "fix(app-shell): hydration lifts ask-decline builder handoff + changes-proposed cards",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T14:40:40Z",
+  "updated_at": "2026-07-14T14:44:40Z",
+  "closed_at": "2026-07-14T14:41:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-14T14:41:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2497",
+  "body": "## Problem\n\n`hydratedMessagesToChatMessages` in `packages/app-shell/src/console/ai/AiChatPage.tsx` rebuilds tool invocations from persisted/cached history but only lifted `draftReview` and `proposedPlan` from the tool result — it did **not** call `detectBuilderHandoff` / `detectProposedChanges`. As a result, reloading (or restoring from the sessionStorage cache) a past ask-decline conversation LOST the **\"Open in Builder →\"** handoff card and any **\"确认修改\"** changes-proposed card, even though the live floating-chat path (`packages/plugin-chatbot/src/mapMessages.ts` `extractToolInvocations`) lifts all four envelopes.\n\n## Fix\n\n- **`packages/app-shell/src/console/ai/AiChatPage.tsx`** — in the per-part loop, also compute `detectBuilderHandoff(result)` and `detectProposedChanges(result)` and spread `builderHandoff` / `proposedChanges` onto the pushed invocation, mirroring the floating-chat mapper. The `ChatbotEnhanced` renderer already reads both fields (`shouldRenderDetailedTool` gates on them), so the cards render on reload with no renderer change.\n- **`packages/plugin-chatbot/src/index.tsx`** — export `detectBuilderHandoff` / `detectProposedChanges` and their `BuilderHandoff` / `ProposedChanges` types from the package barrel so app-shell can import them.\n- **`AiChatPage.hydration.test.ts`** — new unit test asserting a hydrated `suggest_builder` tool with a `build_handoff` result envelope produces a `builderHandoff` on the invocation.\n\nReload counterpart to the live-latency fix in objectstack-ai/objectui#2458 item 3.\n\n## Verification\n\n- `AiChatPage.hydration.test.ts` — 6/6 pass (new test included)\n- `pnpm --filter @object-ui/plugin-chatbot type-check` — clean\n- `pnpm --filter @object-ui/app-shell type-check` — clean\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

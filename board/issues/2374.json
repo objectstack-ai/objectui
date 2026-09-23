@@ -1,0 +1,30 @@
+{
+  "number": 2374,
+  "kind": "pull_request",
+  "title": "feat(detail): generic record Attachments panel gated on enable.files (framework#2727)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-10T05:04:06Z",
+  "updated_at": "2026-07-10T05:25:06Z",
+  "closed_at": "2026-07-10T05:25:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-10T05:25:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2374",
+  "body": "## 概述\n\nframework#2727 的 objectui 半边:新 `RecordAttachmentsPanel`,给通过 `enable: { files: true }` **显式 opt-in** 的对象提供 Salesforce \"Notes & Attachments\" 级的记录附件面板:\n\n- **上传**:走 canonical 三步 presigned 流(`createObjectStackUploadAdapter`,blob → `sys_file`),然后写 `sys_attachment` join 行(`parent_object`/`parent_id`)。\n- **列表/下载/删除**:文件名+大小+MIME;下载走稳定端点 `/api/v1/storage/files/:fileId`(302 到新签名 URL);删除走通用 data 路径。\n- RecordDetailView 两个渲染分支(page-schema + legacy `discussionSlot`)都接入;**opt-in**:没设 flag 的对象不渲染面板,服务端也独立拒绝指向它们的附件行(403 `FILES_DISABLED`,framework 侧)。\n\n## 验证\n\n- `turbo build --filter=@object-ui/app-shell`(tsc)✓;app-shell 测试 151 文件/1164 用例 ✓\n- **浏览器实测**(console dev :5199 → fresh showcase 后端):`files:true` 探针对象=面板渲染、列出 API 上传的附件、下载返回原始字节;无 flag 对象=记录页正常但无面板\n- 顺带坑:console 的 auth 客户端直连 `VITE_SERVER_URL`(默认 :3000)而非 Vite 代理——dev 验证两者都要指到同一后端\n\n配套:objectstack-ai/framework PR(feat/2727-generic-attachments,FILES_DISABLED 闸门 + ledger files→live)。合并顺序:framework 先(闸门先在,面板后到=安全;反序则面板先到、无闸门=可写但无强制,窗口小但没必要)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

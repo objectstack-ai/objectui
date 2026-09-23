@@ -1,0 +1,33 @@
+{
+  "number": 2449,
+  "kind": "pull_request",
+  "title": "fix(console-ai): reliable handoff auto-send + second-handoff context re-carry (ADR-0057 P4)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T12:37:25Z",
+  "updated_at": "2026-07-13T12:48:02Z",
+  "closed_at": "2026-07-13T12:48:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-13T12:47:59Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2449",
+  "body": "Two reliability follow-ups to the P4 \"Open in Builder →\" handoff (#2439 / #2444). Backend counterpart: **objectstack-ai/cloud#820 — merge that first** (without it the re-carried context on a second handoff is sent but dropped server-side; not a regression, just inert).\n\n## 1. Handoff auto-send swallow — fixed\nThe handoff's auto-sent first message could be dropped on a brand-new build conversation: the seed effect gated on the **async-resolved** `activeAgent`, which can settle *after* `POST /conversations` mints the id. The deferred-send replay only re-ran on id/`doSend` changes, so a seed landing post-id was never replayed — conversation created, no `…/chat`, empty Builder (observed live in the previous verification run; tenant DB showed the build conv with 0 messages).\n\nFix, two halves:\n- Seed gates on the **route** (`agentSegment`, known synchronously), not `activeAgent`.\n- The page stashes via `stashPendingFirstMessage` which bumps a `pendingFirstMessageSeq`; `useDeferredFirstSend` lists that `pendingSignal` in its replay deps, so an out-of-band seed replays even when the id already resolved.\n\n**Live-verified** on the local rig (fresh registration → ask decline → click card): the build first turn auto-fired with `context.parentConversationId` captured on the wire, and the agent produced a blueprint. This was the exact scenario that swallowed before.\n\n## 2. Second handoff re-carries the latest ask context\nBuild conversations are singletons per (user, app, product), and the ask thread is too — so a second handoff re-supplies the **same** parent id. The transport now re-arms on each **falsy→truthy transition** of the prop (the URL-mirror strips the param between handoffs, producing the edge), and the seed re-arms on each new `handoffPrompt`. **Live-verified**: after a second \"Open in Builder →\", the next build turn carried `parentConversationId` again.\n\n## Known residual (issue to follow, linked after filing)\nThe **auto-send of the second prompt** into an already-existing, mid-flight build conversation (first blueprint still Awaiting Approval) does not fire — the user sends once manually and the context still carries. Suspected hydration race: with an existing conversation the id is present at mount, so the replay fires before `useChat` finishes hydrating. Not a regression — before this PR a second handoff did nothing at all.\n\n## Tests\n18/18 green: new `pendingSignal` post-id-seed replay (incl. a second bump), transport re-carry across strip→re-supply, plus all existing deferred-send / handoff-context / send-failure suites.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

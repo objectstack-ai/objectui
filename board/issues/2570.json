@@ -1,0 +1,32 @@
+{
+  "number": 2570,
+  "kind": "pull_request",
+  "title": "fix(app-shell): lock the Access pillar permission matrix in read-only packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T05:22:36Z",
+  "updated_at": "2026-07-16T13:12:36Z",
+  "closed_at": "2026-07-16T13:12:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T13:12:35Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2570",
+  "body": "## 问题\n\n只读软件包下,Studio 顶栏显示「只读」徽标,但 Access pillar 内嵌的权限矩阵仍然完全可编辑、保存按钮仍然高亮(活栈可复现)。\n\n## 根因\n\n- `StudioDesignSurface.tsx` 里 `AccessPillar` 的 `readOnly` prop 只用来隐藏「新建权限集」按钮,从未传给内嵌的 `PermissionMatrixEditPage`。\n- `PermissionMatrixEditor.tsx` 的 `PermissionMatrixEditPageProps` 没有 `readOnly` 入口;内部 `writable = allowOrgOverride` 是 **type 级**(环境 OS_METADATA_WRITABLE)概念,宿主(包级)只读无从注入。\n\n## 修复\n\n- `PermissionMatrixEditPage` 新增 `readOnly` prop,与 type 级闸门取与:`writable = allowOrgOverride && !readOnly`。组件内所有编辑口本就由 `writable` 统一驱动,因此一处取与即锁住:对象/字段复选框、行内批量按钮、名称/标签输入、capability picker、高级 facets、保存按钮。\n- 只读徽标按触发原因措辞,消除同屏语义矛盾:包级只读时复用顶栏同款文案(`engine.studio.pkg.readonly` + hint);type 级保持原 OS_METADATA_WRITABLE 文案。\n- `AccessPillar` 把 `readOnly` 传给 `PermissionMatrixEditPage`。\n\n## 测试\n\n新增 `PermissionMatrixEditor.readonly.test.tsx`(4 例),驱动真实组件:\n\n1. `readOnly` 锁住全部编辑口且隐藏 Save(含展开后的字段级 R/W);\n2. 包级徽标用顶栏同款文案、不出现环境级文案;\n3. 不传 `readOnly` 时保持完全可编辑(回归);\n4. `allowOrgOverride=false` 仍走环境级文案(两个闸门语义分离)。\n\n`PermissionMatrixEditor` 相关 4 个套件 14 例全绿;`tsc --noEmit` 中我改动的文件无错误(仅有的 3 个报错来自未触碰文件,系本地 worktree 兄弟包 dist 过期噪音)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

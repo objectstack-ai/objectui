@@ -1,0 +1,33 @@
+{
+  "number": 2397,
+  "kind": "pull_request",
+  "title": "fix(app-shell,components): Setup-app UX — accurate teams empty state + stop form prop leak",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-11T15:51:08Z",
+  "updated_at": "2026-07-11T15:58:27Z",
+  "closed_at": "2026-07-11T15:58:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-11T15:58:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2397",
+  "body": "Two defects surfaced by a system-settings (Setup) app review.\n\n## 1. Empty-state / CTA mismatch on `sys_team`\n\nThe Teams list showed the generic better-auth empty state — *\"These records are created by the authentication provider … not added by hand here\"* — directly beside a working **Create Team** button. The copy flatly contradicted the affordance.\n\nRoot cause: `resolveManagedByEmptyState` hard-codes the \"not added by hand\" disclaimer for every `better-auth` object except `sys_user`, ignoring that `sys_team` has a `create_team` toolbar action. Fix: give teams their own accurate copy (they can be created here, or arrive via org/SSO provisioning), mirroring the existing `sys_user` special case. (`app-shell/utils/managedByEmptyState.ts` + en/zh i18n)\n\n## 2. Form props leaking onto the DOM\n\nEvery object **list view** logged:\n- `React does not recognize the 'objectName' prop on a DOM element`\n- `Unknown event handler property 'onDirtyChange'. It will be ignored.`\n\nRoot cause: the form renderer spreads leftover top-level props onto its `<form>` element and its DOM-safe strip list was missing `objectName` / `onDirtyChange` (and other FormSchema-only props). Fix: extend the strip list. (`components/renderers/form/form.tsx`)\n\n## Verification\n\n- Unit: `managedByEmptyState.test.ts` (new `sys_team` guard) and the form renderer suite pass.\n- Browser (live backend): the Teams list now renders **\"No teams yet — create one with Create Team…\"** next to a working Create Team button; navigating object list views logs **zero** prop-leak warnings (verified via a `console.error` capture — 0 hits).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

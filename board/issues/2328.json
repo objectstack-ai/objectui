@@ -1,0 +1,32 @@
+{
+  "number": 2328,
+  "kind": "issue",
+  "title": "Page variable `source` field should be a dropdown, not a plain text input",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-06T13:42:23Z",
+  "updated_at": "2026-07-15T14:54:32Z",
+  "closed_at": "2026-07-15T14:54:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2328",
+  "body": "## Problem\n\nWhen editing a Page in Studio, the **`source`** field under **Variables** (Data Context section) renders as a plain text `<Input>`. The user must manually type a component `id` (e.g. `project_picker`) — there's no dropdown or picker to select from the component IDs already placed on the page's region tree.\n\nThe `object` field on the same form correctly renders as a dropdown (`widget: 'ref:object'` picks from registered objects), establishing the expected UX.\n\n## Where the gap is\n\n1. **Form spec**: The `variables` field is declared as `{ field: 'variables', type: 'repeater' }` with **no sub-field widget hints**. There's no way to tell `SchemaForm` that the `source` sub-field inside a variable should render as a component picker.\n\n2. **Zod schema** (`@objectstack/spec`): `source` is defined as `z.string().optional()`. No widget metadata attached.\n\n3. **Widgets registry** (`@object-ui/app-shell` `widgets.tsx`): No widget exists for \"pick a component ID from the page's canvas component tree.\" The closest analogue is `ref:object` which picks from the object registry.\n\n4. **SchemaForm** (`@object-ui/app-shell` `SchemaForm.tsx`): The `FieldRow` component calls `inferWidget()` — since neither the zod schema nor the form spec provides a widget hint for `source`, it falls through to the default: a plain `<Input>` for string types.\n\n## Suggested resolution approach\n\nTwo parts:\n\n**Part A — form spec**: Add sub-field widget declarations inside the `variables` repeater, so something like:\n\n```ts\n{ field: 'variables', type: 'repeater', fields: [\n    { field: 'name', ... },\n    { field: 'type', ... },\n    { field: 'defaultValue', ... },\n    { field: 'source', widget: 'ref:component', ... },  // new widget hint\n] }\n```\n\n**Part B — new widget**: Implement a `ref:component` widget in `widgets.tsx` that:\n- Reads the page draft's `regions` / `children` tree (already available in the form's `value` context)\n- Extracts all component `id` values from the component tree\n- Renders them as a `<Select>` dropdown\n- Falls back gracefully to a plain input when the page has no regions/components\n\nThe widget context in `ResourceEditPage.tsx` would need to be extended to pass the current draft's component IDs (or the draft value itself, since `Variables` already lives inside the same form).\n\n## Affected files\n\n- `packages/app-shell/src/views/metadata-admin/widgets.tsx` — new `ref:component` widget renderer + WIDGETS registration\n- `packages/spec/src/ui/page.form.ts` — add sub-field config to the `variables` repeater\n- `packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx` — extend WidgetContext if needed\n- `packages/app-shell/src/views/metadata-admin/SchemaForm.tsx` — may need minor wiring if the form spec's sub-field widget handling needs adjustment\n\n## Expected behavior after fix\n\nOpening a Page in Studio with existing components (e.g. an `element:record_picker` with `id=\"project_picker\"`) and adding a variable shows a `source` dropdown listing `project_picker` and any other component IDs on the page, rather than a free-text input."
+}

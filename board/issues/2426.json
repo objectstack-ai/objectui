@@ -1,0 +1,34 @@
+{
+  "number": 2426,
+  "kind": "pull_request",
+  "title": "chore(deps): bump the react group across 1 directory with 2 updates",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-13T08:10:29Z",
+  "updated_at": "2026-07-13T08:25:18Z",
+  "closed_at": "2026-07-13T08:22:58Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-07-13T08:22:58Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2426",
+  "body": "Bumps the react group with 2 updates in the / directory: [react-resizable-panels](https://github.com/bvaughn/react-resizable-panels) and [react-i18next](https://github.com/i18next/react-i18next).\n\nUpdates `react-resizable-panels` from 4.12.1 to 4.12.2\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/bvaughn/react-resizable-panels/blob/main/CHANGELOG.md\">react-resizable-panels's changelog</a>.</em></p>\n<blockquote>\n<h2>4.12.2</h2>\n<ul>\n<li><a href=\"https://redirect.github.com/bvaughn/react-resizable-panels/issues/726\">726</a>: Updated inline documentation to clarify size units.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/bvaughn/react-resizable-panels/commit/a1eeb7aefdb024bb5879a323218e0ac05f77f28e\"><code>a1eeb7a</code></a> 4.12.1 -&gt; 4.12.2</li>\n<li>See full diff in <a href=\"https://github.com/bvaughn/react-resizable-panels/compare/4.12.1...4.12.2\">compare view</a></li>\n</ul>\n</details>\n<br />\n\nUpdates `react-i18next` from 17.0.8 to 17.0.9\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/i18next/react-i18next/blob/master/CHANGELOG.md\">react-i18next's changelog</a>.</em></p>\n<blockquote>\n<h2>17.0.9</h2>\n<ul>\n<li>fix: allow TypeScript 7 in the optional <code>typescript</code> peer dependency range (<code>^5 || ^6 || ^7</code>). With <code>typescript@7.0.2</code> in a project, <code>npm install</code> failed with an <code>ERESOLVE</code> peer conflict. Fixes <a href=\"https://redirect.github.com/i18next/react-i18next/issues/1927\">#1927</a>, thanks <a href=\"https://github.com/andikapradanaarif\"><code>@​andikapradanaarif</code></a>.</li>\n<li>fix(types): <code>&lt;Trans t={t} ns=&quot;ns&quot; …&gt;</code> with a <code>t</code> from <code>useTranslation(['ns'])</code> now typechecks under TypeScript 7. TS7 intersects the <code>Ns</code> inference candidates coming from the <code>t</code> prop (<code>readonly ['ns']</code>) and the <code>ns</code> prop (<code>'ns'</code>) into an unsatisfiable <code>'ns' &amp; readonly ['ns']</code>, where TS6 resolved them. The <code>ns</code> prop on <code>TransProps</code>, <code>TransSelectorProps</code> and <code>IcuTransWithoutContextProps</code> now also accepts a single namespace out of an array-typed <code>Ns</code> (<code>Ns | (Ns extends readonly (infer S extends string)[] ? S : never)</code>) — which matches runtime behavior and is unchanged under TS5/TS6.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/i18next/react-i18next/commit/8b4a9ea139b73309471737e5ba9c423f82d5c0cc\"><code>8b4a9ea</code></a> 17.0.9</li>\n<li><a href=\"https://github.com/i18next/react-i18next/commit/422bab13d4c9664e51c0c1025df2da37c0912075\"><code>422bab1</code></a> fix: support typescript 7 — widen peer range and fix Trans ns inference under...</li>\n<li><a href=\"https://github.com/i18next/react-i18next/commit/6e18aa95b5ff9257b477301283819697f249ea25\"><code>6e18aa9</code></a> README: mention npx i18next-cli localize as the zero-to-localized path</li>\n<li>See full diff in <a href=\"https://github.com/i18next/react-i18next/compare/v17.0.8...v17.0.9\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

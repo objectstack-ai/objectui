@@ -1,0 +1,32 @@
+{
+  "number": 2386,
+  "kind": "pull_request",
+  "title": "feat(ai-chat): spreadsheet attachments reach the agent — local parse + structured brief (cloud#797 WS3)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-10T15:04:43Z",
+  "updated_at": "2026-07-10T15:29:13Z",
+  "closed_at": "2026-07-10T15:29:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-10T15:29:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2386",
+  "body": "cloud#797 WS3(聊天原生表格附件)objectui 侧。\n\n**修两处静默丢弃**:prompt-input 在 add() 就丢掉原始 File(只剩 objectURL),ChatbotEnhanced 的 `.file` 读取恒空 —— 回形针/拖拽 UI 一直连着一个黑洞。现在附件项保留原始 File(`PromptInputFileItem = FileUIPart & {id, file}`),**字节不出页面**(transport 仍只拿 url/mediaType)。\n\n**AiChatPage.doSend**:Excel/CSV 附件本地解析(plugin-grid importParsers,ExcelJS 懒加载),给 agent 发结构化简报 `[附件表格 名称 — N 数据行 × M 列] + 表头 + 3 样例行`(上限 2 表/12 列/40 字符);agent 据此对齐字段并指路对象列表的 Import(cloud 侧 skill 配套 PR)。非表格附件如实披露\"未读取\"而非静默丢弃;解析失败降级为诚实提示。\n\nplugin-grid barrel 导出纯解析函数供跨插件复用。测试:chatbot 192/192、grid 194/194、app-shell 1178/1178;拓扑构建绿。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

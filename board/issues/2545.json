@@ -1,0 +1,32 @@
+{
+  "number": 2545,
+  "kind": "issue",
+  "title": "ObjectFormSchema ↔ @objectstack/spec FormViewSchema alignment (ObjectView form adapter)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T16:31:26Z",
+  "updated_at": "2026-07-16T04:40:23Z",
+  "closed_at": "2026-07-16T04:40:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2545",
+  "body": "Split out from #1763 (viewschema key-drift audit, refs objectstack-ai/framework#1890).\n\n**Closed** — everything actionable inside objectui is merged; the rest is tracked in dedicated follow-ups.\n\n## Outcome\n\n| Phase | Status |\n|---|---|\n| 1 — spec-bridge form passthrough + `groups`→`sections` normalization | ✅ merged (#2552) |\n| 2 — key taxonomy (`[spec-aligned]`/`[ObjectUI extension]`/`[runtime-only]`) + docs | ✅ merged (#2552) |\n| 4 — remove the dead `FormRenderer`/`FieldFactory` dual render path | ✅ merged (#2560) |\n| 3 — framework spec proposal (`buttons`/`defaults` on `FormViewSchema`, enroll `view` in the liveness ledger) | 📤 objectstack-ai/framework#2998 |\n| 3 — objectui-side (`/ui` re-export value-erasure decision + spec `^15` pin bump) | 📋 #2561 (maintainer decision) |\n\n## What changed vs. the original report\n\n- **Part 1 (bulkActions/batchActions)** was already fixed at runtime before this issue; the residual type/docs drift was reconciled in #1763→#2552.\n- **Part 2 (form-adapter keys \"not in FormViewSchema\")** turned out to be inaccurate as literally stated — every key `buildFormSchema` reads is declared on ObjectUI's own `ObjectFormSchema`. The real, larger gap was the spec-bridge silently dropping spec keys and the legacy `groups` dead-key, both fixed in #2552; the naming/shape alignment with `@objectstack/spec` `FormViewSchema` is a protocol matter now carried by framework#2998.\n\nRemaining work lives in **#2561** (objectui) and **objectstack-ai/framework#2998** (spec). Nothing left to do under this issue."
+}

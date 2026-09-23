@@ -1,0 +1,30 @@
+{
+  "number": 2481,
+  "kind": "issue",
+  "title": "Live Canvas on mobile /ai — split doesn't fit; open full-screen instead",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-14T05:16:47Z",
+  "updated_at": "2026-07-14T12:01:22Z",
+  "closed_at": "2026-07-14T12:01:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2481",
+  "body": "Split out from #2477 item 1 (mobile chat). The mobile full-page bridge sends phone users from the chat sheet to full-page `/ai`, which on mobile already has conversation history + share. The one thing that still degrades on a phone is the **Live Canvas** (ADR-0037): on `/ai` the canvas opens *beside* the chat in a resizable split, and at < `md` there's no room for two columns — the split reads cramped/broken.\n\nThis is a pre-existing `/ai` mobile-responsiveness gap (independent of the dock), and rare in practice (few people run a `build` session on a phone), so it was deliberately left out of the mobile bridge.\n\nProposed when addressed: on mobile, the Live Canvas should open **full-screen over the chat** (canvas-only, a back button returns to chat) rather than the desktop side-by-side split. The desktop split is unchanged. Alternatively, on mobile suppress the beside-chat preview entirely and lean on the existing \"Open app\" (the published app is responsive).\n\nRefs ADR-0057 (§4 — presentation is per-audience/idiom) · #2477"
+}

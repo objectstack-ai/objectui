@@ -1,0 +1,30 @@
+{
+  "number": 2504,
+  "kind": "pull_request",
+  "title": "fix(studio): copilot composer + collapsible inspector + build→designer bridge",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T03:51:52Z",
+  "updated_at": "2026-07-15T09:15:35Z",
+  "closed_at": "2026-07-15T04:49:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-15T04:49:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2504",
+  "body": "Two UI issues observed in the WYSIWYG Studio design surface on staging (`/_console/studio/…/interfaces`).\n\n## 1. AI 副驾 (copilot) chat was unusable — no composer\n\nThe right dock rendered the conversation (Propose blueprint card, Built, assistant message) but showed **no text input at the bottom**, so the user couldn't reply.\n\nRoot cause is a broken flex height chain, not a hidden composer. `ChatDockPanel` hosts the injected `ChatPane` in a plain `<div className=\"min-h-0 flex-1\">`. ChatPane's root is `flex min-h-0 flex-1` sized against `maxHeight:100%`, which only resolves against a definite-height flex-column ancestor. The body div is a flex *item* but not itself `flex flex-col`, so ChatPane's height falls back to `auto`, the messages region grows to fit ALL content, and the `shrink-0` composer footer is pushed off the bottom. (Latent in the console rail too — short \"ask\" threads happened to fit; a long thread overflows the same way.)\n\n**Fix:** make the dock body a bounded flex column (`flex min-h-0 flex-1 flex-col`), mirroring the working full-page host (`<main className=\"flex … flex-col\">`). Applied to the desktop dock + mobile sheet bodies. No change to ChatPane/ChatbotEnhanced.\n\n## 2. Middle properties inspector should be collapsible\n\nOn a wide viewport the inspector is a permanent ~288px right aside (classic and folded-wide layouts), with no way to reclaim the space even when empty.\n\n**Fix:** a collapse toggle — `PanelRightClose` in the inspector header folds it to a thin rail (`PanelRightOpen` to restore), handing the width back to the canvas. In-memory per-mount, gated to the aside layouts (`!showFoldedTabs`); the narrow center-tabs layout already toggles properties as a tab. New i18n keys `inspector.collapse` / `inspector.expand` (EN + ZH).\n\n## Testing\n- `type-check` green (turbo, deps built); real `build` (tsc) passes.\n- Full app-shell suite green: **1226 tests / 161 files**, incl. `ChatDock.test.tsx` and the `studio-locale.i18n` key-parity test.\n- ⚠️ **Not yet pixel-verified in a browser.** Both are layout/render changes; jsdom has no layout engine, and a faithful live render needs the AI-backed console (the local cloud rig serves framework's console, not this objectui). Recommend an eyeball on a preview/staging deploy before merge — #1 especially (a CSS height-chain fix).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n## 3. Build → designer bridge (added)\nAfter a build, the AI build page's right pane shows the RUNNING app but had no way to reach the Studio designer (only a close button) — a big part of why the AI-build / Studio / running-app surfaces feel disconnected. Added a \"Design in Studio\" control to the LiveCanvas header (navigates to `/studio/<pkg>/interfaces`, mirrors the running app's own bridge). Behavioral test added.\n\n_Grounded by actually driving the full flow: \"用 AI 搭建\" opens a full-screen chat whose right pane is the live running app, not the designer — surfaced the missing bridge._"
+}

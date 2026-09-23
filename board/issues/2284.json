@@ -1,0 +1,32 @@
+{
+  "number": 2284,
+  "kind": "issue",
+  "title": "表单支持级联/依赖选项:新增 SelectOption.visibleWhen 通用谓词",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T11:04:12Z",
+  "updated_at": "2026-07-05T13:01:31Z",
+  "closed_at": "2026-07-05T13:01:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2284",
+  "body": "## 背景 / 目标\n\n支持表单的级联录入(如国家 → 省 → 市)以及更一般的「选项按条件显隐」需求。\n\n经过设计讨论,级联需求其实是**两类**,占比与正确解法完全不同,需要分开对待:\n\n### (a) 基于后端数据的级联 —— 已支持,无需开发\n国/省/市为后端对象、组织(公司/部门/团队)、商品目录(类目/SKU)、account→contact 等。数据量大、会变、跨表单共享 —— **本就该是数据(lookup),不是静态枚举**。\n\n这条路 objectui **已经完整实现**(#2215):`lookup` + `depends_on`,带门控 + 硬 `$filter` + explicit param 映射。\n- `packages/fields/src/widgets/LookupField.tsx:265`(depends_on 解析/门控/过滤)\n- `packages/components/src/renderers/form/form.tsx:110,152,749`(注入实时表单值 `dependentValues`)\n\n> ⚠️ 结论:国/省/市这类标准场景的推荐答案就是**已有的 `lookup + depends_on`**。本 issue 处理的是下面 (b) 这个更小、但真实的缺口。\n\n### (b) 基于静态枚举 / 上下文的选项显隐 —— 本 issue 要做的\n小而稳定的语义化字典(工单类别→子类别、record type→可选状态),**以及按用户角色/租户/时间显隐选项**。目前 `SelectField`(`packages/fields/src/widgets/SelectField.tsx`)是哑组件,只渲染静态 `options`,无法表达任何依赖。\n\n## 设计决策(及理由)\n\n**采用「复用既有原语」而非新造 bespoke 机制:`dependsOn` + 选项级 `visibleWhen`。明确放弃 Salesforce 式 `validFor` / `controllingField` / 依赖矩阵。**\n\n理由:\n\n1. **统一 & 最小词汇**:`dependsOn` 已是 lookup 级联的声明方式,`visibleWhen` 已是字段级 CEL 谓词。picklist 级联 = `dependsOn`(声明依赖边)+ 选项 `visibleWhen`(条件),与 lookup 级联同构,不引入新范畴。\n\n2. **`visibleWhen` 是通用谓词,严格强于 cascade**:它不止能判断兄弟字段,还能判断 `current_user.roles`、租户、`now()` 等 —— `validFor` 只能表达「随另一字段的值」,覆盖不了角色/上下文。而且 spec **已内建**这个能力:`current_user`(含 `roles`)暴露给**每一个谓词面**(server formula、server RLS、client UI gates,形状一致 —— 见 framework `packages/spec/src/identity/eval-user.zod.ts`),已有先例 `packages/spec/src/ui/app.zod.ts:49` 的 `P\\`'org_admin' in current_user.roles\\``。所以选项级 `visibleWhen` 引用角色/上下文**零新增绑定**。\n\n3. **面向 AI-authoring 优化**:未来 schema 主要由 AI 生成、人类阅读确认。`visibleWhen: \"country == 'cn'\"` 读起来是人话、且是模型见过无数次的原语 → 生成错误率低、人易确认。`validFor` 矩阵的主要价值(可视化编辑)在此 authoring 模型下不成立。\n\n4. **`dependsOn` 与 `visibleWhen` 正交**:`dependsOn` 只声明「依赖哪些同表单字段」(驱动级联门控 UX / 重算 / 依赖图);`visibleWhen` 是真正的谓词。一个选项**可以只有 `visibleWhen` 没有 `dependsOn`**(纯角色门)。不要把二者耦合。\n\n## ⚠️ 安全线(必须明确)\n\n在下拉里**隐藏选项是 UX,不是安全边界**。若隐藏理由是「该用户无权选此值」(授权用途),则客户端隐藏之外**必须服务端也拦**,否则用户绕过 UI 直接提交即穿透。\n\n平台架构本就是双端强制(client UI gate + server RLS/formula)。但当前 picklist 值是静态枚举、无 per-option 谓词,**服务端目前没有任何东西会拦非法 option 值的写入**。因此授权用途需要**新增服务端强制点**(rule-validator 写入时对被选值求值其 `visibleWhen`,false 则拒),对标已有的 `stripReadonlyWhenFields`。纯级联 / UX 用途不需要这条。\n\n---\n\n## 开发任务\n\n### Spec(objectstack-ai/framework,遵循其 worktree 规约)\n- [ ] `SelectOptionSchema` 新增 `visibleWhen: ExpressionInputSchema.optional()`(`packages/spec/src/data/field.zod.ts` 第 88 行附近)。因 data `Field.options` 与 view `FormField.options` 共用此 schema,一处生效两层。\n- [ ] 将 `Field.dependsOn` 的描述改为**机制中立**(当前为 \"Dependent **lookup**…\" 措辞,`packages/spec/src/data/field.zod.ts:495`),`{field,param}` 注明为 lookup-only 细化。类型不变。\n\n### objectui\n- [ ] 表单渲染器把实时表单值(`ruleRecord`)转发给 `select`(以及 `radio`):`stripRegisteredFieldProps` 目前仅对 `DATA_SOURCE_FIELD_TYPES` 转发 `dependentValues`,需扩展(`packages/components/src/renderers/form/form.tsx:110,152`)。\n- [ ] `SelectField` 计算有效选项:对每个选项的 `visibleWhen` 用 `@objectstack/formula` 对「实时 record + current_user」求值过滤;`dependsOn` 父值为空时门控(复用现有 empty-state 分支,`packages/fields/src/widgets/SelectField.tsx:39`)。\n- [ ] 镜像类型:`SelectOptionMetadata` 加 `visibleWhen`(`packages/types/src/field-types.ts:261`),并顺带收敛与 spec `SelectOptionSchema` 的漂移(objectui 多 `icon/disabled`,spec 多 `default`)。\n- [ ] 级联清空:父值变化后,若子字段当前值已不在有效选项内,清空之(避免「中国-加州」脏数据)。建议在 widget 内做,多级链自动成立。\n- [ ] **构建期 CEL 校验(护栏)**:对选项 `visibleWhen` 引用的字段名/字面量,对照被引用字段的值域做静态检查,在构建期抓出 AI 写错的字面量(如 `country=='chna'`)。\n- [ ] **服务端 option 值强制(仅授权用途)**:rule-validator 拒绝写入 `visibleWhen=false` 的选项值,对标 `stripReadonlyWhenFields`。\n\n### 文档\n- [ ] 新增/更新「依赖与级联选项」文档:两条路径的取舍(数据级联走 `lookup + depends_on`;静态/角色显隐走 `option.visibleWhen`)、何时用哪条、以及**安全线**(授权用途必须服务端强制)。\n- [ ] 在字段/表单 schema 参考文档中补充 `SelectOption.visibleWhen` 及可用变量(`record` / `current_user` / `now()` …)。\n\n### 例子 / Demo\n- [ ] 国/省/市级联 demo:**两个版本**——(1) `lookup + depends_on` 数据版(推荐路径),(2) `option.visibleWhen` 静态枚举版。\n- [ ] 角色门控选项 demo:`visibleWhen: \"'admin' in current_user.roles\"`,并演示对应的服务端强制。\n\n### Skills(面向 AI 生成)\n- [ ] 新增一个编写指导 skill,让 agent 生成级联/依赖选项 schema 时能:\n  - 走正确的决策树(数据量大 → lookup;小字典/角色 → option.visibleWhen);\n  - 默认带上安全规则(授权用途 → 提醒服务端强制);\n  - 复用 `dependsOn` + `visibleWhen`,不生造 `validFor`。\n\n## 备注\n- 本 issue 跨 `objectui` 与 `framework(spec)` 两仓;spec 改动应先落、objectui 再镜像(与 `dependsOn`/`visibleWhen` 的既有对齐方式一致)。\n- 相关既有能力:#2215(dependent lookups)。"
+}

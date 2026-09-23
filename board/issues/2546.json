@@ -1,0 +1,30 @@
+{
+  "number": 2546,
+  "kind": "pull_request",
+  "title": "chore(app-shell): remove legacy monolith detail renderer + renderViaSchema kill-switch (ADR-0085 PR4)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T16:39:23Z",
+  "updated_at": "2026-07-16T01:26:55Z",
+  "closed_at": "2026-07-16T01:26:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T01:26:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2546",
+  "body": "## What\n\nDeletes the legacy monolithic `DetailView` branch inside `packages/app-shell/src/views/RecordDetailView.tsx` (the non-schema-driven path) together with both of its entry points:\n\n- `objectDef.detail?.renderViaSchema === false` — the last surviving `detail.*` key (ADR-0085 removed the block from the spec; this key was kept **only** as this path's kill-switch)\n- the `?renderViaSchema=0` debug URL param\n\n`RecordDetailView` now always renders through the SchemaRenderer Page pipeline: an authored `PageSchema(pageType='record')` when one is assigned, else the `buildDefaultPageSchema` synthesis.\n\n## Why\n\nThe dual render path taxed every detail-page feature twice: the fieldGroups wiring (#2149/#2168) had to be implemented in **both** the monolith and the `buildDefaultPageSchema` synth, and the two implementations already diverged once (ungrouped-field behavior). Schema-driven has been default-on since Track 3 Phase G, and a two-repo + examples scan found **zero** authors of `renderViaSchema: false`.\n\n## Changes\n\n- **`RecordDetailView.tsx`** (~918 lines changed, net −344):\n  - Removed the `renderViaSchemaFlag` memo (URL param + `objectDef.detail.renderViaSchema` reads) and the final legacy `<DetailView>` return branch.\n  - Removed the legacy-only eager per-record related-lists fan-out — the schema path's `record:related_list` renderers self-fetch lazily when their tab is shown, so the preload was pure waste (a record with 8 related lists previously fired ~50 concurrent queries the schema path never read).\n  - Replaced the intermediate `DetailViewSchema` (`detailSchema`) translation layer with a `synthParts` memo that produces `buildDefaultPageSchema`'s inputs directly (`sections`, `highlightFields`, `headerActions`, `related`, `history`). Section derivation and the record-header action list (incl. approval-action injection) are preserved verbatim.\n  - The `DetailView` component itself stays in `@object-ui/plugin-detail` (still used internally by the `record:details` renderer).\n- **`ObjectView.tsx`**: dropped the now-dead `DetailView, RecordChatterPanel` import (neither symbol was referenced).\n- **`content/docs/guide/slotted-pages.md`**: replaced the \"Disabling the synthesizer entirely\" section with a removal note.\n- **Changeset**: `@object-ui/app-shell` patch.\n\n## Framework companion (checklist item 3)\n\nVerified in the pinned `@objectstack/spec@14.6.0`: the `renderViaSchema` / `detail.*` typing is already gone from the spec surface (only a source comment noting it \"retires together with the legacy monolith render path\" remains — cleanup tracked in #2548). No renderer-side or spec-type cleanup is outstanding on this side.\n\n## Verification\n\n- `type-check` (app-shell, turbo — 29 tasks) ✅\n- `eslint` (both changed files) ✅ 0 errors\n- `build` — app-shell ✅ and full **console production bundle** ✅ (35 tasks, `dist` produced)\n- Unit suite ✅ **3012 passed**\n- DOM/UI suite ✅ **2904 passed** (24 skipped)\n- Console browser smoke (Playwright, production bundle) ✅ **10 passed** — bootstrap has no critical console errors, client-side routing resolves, SPA fallback serves `index.html`\n\n### Real-backend browser verification → tracked in #2548\n\nExercising the four detail-page shapes (grouped / ungrouped / stageField:false / related-heavy) against real data needs a running `@objectstack` backend, which the CI/agent environment doesn't have. Deferred to #2548 (with a repro runbook) rather than blocking this cleanup.\n\nCloses #2181\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01VRBZFKwqib3pjPUua3LjCP"
+}

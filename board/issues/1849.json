@@ -1,0 +1,30 @@
+{
+  "number": 1849,
+  "kind": "issue",
+  "title": "Follow-ups: wire showcase smoke into CI gate + declarative form navigate/reset",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-06-21T06:27:49Z",
+  "updated_at": "2026-07-15T15:45:26Z",
+  "closed_at": "2026-07-15T15:45:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/1849",
+  "body": "Two follow-ups deferred from the showcase-QA sweep (the substantive fixes + the live smoke + `successMessage` already landed: #1829, #1843, #1844, #1847, #1848).\n\n## 1. Wire the showcase smoke into a CI gate\n`e2e/live/showcase-smoke.spec.ts` (#1847) sweeps every showcase nav surface and asserts health (no render crash, no leaked `no actions configured` placeholder, charts draw non-zero-size SVGs). It currently runs only in the **live** suite (`playwright.live.config.ts`) against a manually-started stack — it is **not** in the blocking `Build & E2E` gate (which serves a backend-free production bundle for blank-page smoke).\n\nTo gate on it, CI needs a two-server + browser harness:\n- boot the ObjectStack backend serving `examples/app-showcase` (in-memory SQLite) — cross-repo: the showcase lives in `objectstack-ai/framework`;\n- build + serve the console frontend;\n- run the live config (its `global-setup` already signs in).\n\nDesign question: does this live in framework CI (which already boots example apps in the Dogfood gate, and depends on the console package) or objectui CI (which owns the spec but not the framework showcase)? Likely framework, invoking the published console + a copy/import of the smoke.\n\n## 2. Declarative form success: navigate + reset\n`successMessage` (declarative success toast) landed in #1848. The other two behaviors from the original ask still need plumbing:\n- **navigate-after-create** (e.g. go to the new record): the form layer has no router hook — only `window.location` (a full reload that drops the toast). Needs a proper SPA-navigate primitive injected into ObjectForm/WizardForm.\n- **reset-for-another-entry**: ObjectForm has a `resetOnSubmit` path; WizardForm would need to return to step 1 cleared.\n\nProposed shape: `onSuccess?: { toast?: string; navigate?: string; reset?: boolean }` (or extend the existing field), with `{id}`/`{recordId}` interpolation for `navigate`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}
